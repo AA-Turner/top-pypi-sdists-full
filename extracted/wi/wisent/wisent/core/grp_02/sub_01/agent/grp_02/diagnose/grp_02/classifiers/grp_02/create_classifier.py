@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from wisent.core.classifier.classifier import ActivationClassifier, Classifier
+from wisent.core.constants import CLASSIFIER_TRAINING_SAMPLES, CLASSIFIER_TEST_SIZE, CLASSIFIER_DEFAULT_THRESHOLD
 from wisent.core.errors import ClassifierCreationError, InsufficientDataError
 
 from ...activations import Activations
@@ -30,10 +31,10 @@ class TrainingConfig:
     issue_type: str
     layer: int
     classifier_type: str = "logistic"
-    threshold: float = 0.5
+    threshold: float = CLASSIFIER_DEFAULT_THRESHOLD
     model_name: str = ""
-    training_samples: int = 100
-    test_split: float = 0.2
+    training_samples: int = CLASSIFIER_TRAINING_SAMPLES
+    test_split: float = CLASSIFIER_TEST_SIZE
     optimization_metric: str = "f1"
     save_path: Optional[str] = None
 

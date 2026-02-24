@@ -17,9 +17,11 @@ use crate::PyField;
 
 struct PyTimeUnit(arrow_schema::TimeUnit);
 
-impl<'a> FromPyObject<'a> for PyTimeUnit {
-    fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
+impl<'a> FromPyObject<'_, 'a> for PyTimeUnit {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'a, PyAny>) -> Result<Self, Self::Error> {
+        let s: String = obj.extract()?;
         match s.to_lowercase().as_str() {
             "s" => Ok(Self(TimeUnit::Second)),
             "ms" => Ok(Self(TimeUnit::Millisecond)),
@@ -130,7 +132,10 @@ impl PyDataType {
         &'py self,
         py: Python<'py>,
     ) -> PyArrowResult<Bound<'py, PyCapsule>> {
-        to_schema_pycapsule(py, &self.0)
+        // We manually construct a field to set `nullable: true` on any exported DataType.
+        // By default, arrow-rs sets `nullable: False` in the `TryInto<FFI_ArrowSchema>` impl.
+        let field = Field::new("", self.0.clone(), true);
+        to_schema_pycapsule(py, &field)
     }
 
     fn __eq__(&self, other: PyDataType) -> bool {

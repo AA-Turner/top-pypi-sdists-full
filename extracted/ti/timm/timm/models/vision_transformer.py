@@ -322,11 +322,9 @@ class ParallelScalingBlock(nn.Module):
         self.in_proj = nn.Linear(dim, in_proj_out_dim, bias=qkv_bias, **dd)
         self.in_split = [mlp_hidden_dim] + [dim] * 3
         if qkv_bias:
-            self.register_buffer('qkv_bias', None)
+            # mlp_bias is combined with qkv_bias in in_proj.bias
             self.register_parameter('mlp_bias', None)
         else:
-            # Register empty buffer with correct shape
-            self.register_buffer('qkv_bias', torch.empty(3 * dim, **dd), persistent=False)
             self.mlp_bias = nn.Parameter(torch.empty(mlp_hidden_dim, **dd))
 
         self.q_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
@@ -350,32 +348,23 @@ class ParallelScalingBlock(nn.Module):
         self.ls = LayerScale(dim, init_values=init_values, **dd) if init_values is not None else nn.Identity()
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-        if not self.in_proj.weight.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     def reset_parameters(self) -> None:
         """Initialize parameters and buffers."""
         if self.mlp_bias is not None:
             nn.init.zeros_(self.mlp_bias)
-        self._init_buffers()
-
-    def _init_buffers(self) -> None:
-        """Compute and fill non-persistent buffer values."""
-        if self.qkv_bias is not None:
-            self.qkv_bias.zero_()
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         B, N, C = x.shape
 
         # Combined MLP fc1 & qkv projections
         y = self.in_norm(x)
-        if self.mlp_bias is not None:
-            # Concat constant zero-bias for qkv w/ trainable mlp_bias.
-            # Appears faster than adding to x_mlp separately
-            y = F.linear(y, self.in_proj.weight, torch.cat((self.qkv_bias, self.mlp_bias)))
-        else:
-            y = self.in_proj(y)
+        y = self.in_proj(y)
         x_mlp, q, k, v = torch.split(y, self.in_split, dim=-1)
+        if self.mlp_bias is not None:
+            x_mlp = x_mlp + self.mlp_bias
 
         # Dot product attention w/ qk norm
         q = self.q_norm(q.view(B, N, self.num_heads, self.head_dim)).transpose(1, 2)
@@ -410,10 +399,6 @@ class ParallelScalingBlock(nn.Module):
         # Add residual w/ drop path & layer scale applied
         x = x + self.drop_path(self.ls(y))
         return x
-
-    def init_non_persistent_buffers(self) -> None:
-        """Initialize non-persistent buffers."""
-        self._init_buffers()
 
 
 class DiffParallelScalingBlock(nn.Module):
@@ -463,11 +448,9 @@ class DiffParallelScalingBlock(nn.Module):
         self.in_proj = nn.Linear(dim, in_proj_out_dim, bias=qkv_bias, **dd)
         self.in_split = [mlp_hidden_dim] + [dim] * 3
         if qkv_bias:
-            self.register_buffer('qkv_bias', None)
+            # mlp_bias is combined with qkv_bias in in_proj.bias
             self.register_parameter('mlp_bias', None)
         else:
-            # Register empty buffer with correct shape
-            self.register_buffer('qkv_bias', torch.empty(3 * dim, **dd), persistent=False)
             self.mlp_bias = nn.Parameter(torch.empty(mlp_hidden_dim, **dd))
 
         self.q_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
@@ -501,8 +484,8 @@ class DiffParallelScalingBlock(nn.Module):
         self.lambda_init = 0.8
         self.set_lambda_init(depth)
 
-        if not self.in_proj.weight.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     def set_lambda_init(self, depth: int):
         self.lambda_init = 0.8 - 0.6 * math.exp(-0.3 * depth)
@@ -519,12 +502,6 @@ class DiffParallelScalingBlock(nn.Module):
             nn.init.normal_(self.lambda_k1, mean=0, std=0.1)
             nn.init.normal_(self.lambda_q2, mean=0, std=0.1)
             nn.init.normal_(self.lambda_k2, mean=0, std=0.1)
-        self._init_buffers()
-
-    def _init_buffers(self) -> None:
-        """Compute and fill non-persistent buffer values."""
-        if self.qkv_bias is not None:
-            self.qkv_bias.zero_()
 
     def _compute_lambda(self) -> torch.Tensor:
         if self.lambda_a is not None:
@@ -540,11 +517,10 @@ class DiffParallelScalingBlock(nn.Module):
 
         # Combined MLP fc1 & qkv projections
         y = self.in_norm(x)
-        if self.mlp_bias is not None:
-            y = F.linear(y, self.in_proj.weight, torch.cat((self.qkv_bias, self.mlp_bias)))
-        else:
-            y = self.in_proj(y)
+        y = self.in_proj(y)
         x_mlp, q, k, v = torch.split(y, self.in_split, dim=-1)
+        if self.mlp_bias is not None:
+            x_mlp = x_mlp + self.mlp_bias
 
         # Reshape for differential attention (2x heads with half head_dim for q/k)
         q = q.reshape(B, N, 2 * self.num_heads, self.head_dim).transpose(1, 2)
@@ -591,10 +567,6 @@ class DiffParallelScalingBlock(nn.Module):
         # Add residual w/ drop path & layer scale applied
         x = x + self.drop_path(self.ls(y))
         return x
-
-    def init_non_persistent_buffers(self) -> None:
-        """Initialize non-persistent buffers."""
-        self._init_buffers()
 
 
 class ParallelThingsBlock(nn.Module):
@@ -801,6 +773,7 @@ class VisionTransformer(nn.Module):
         act_layer = get_act_layer(act_layer) or nn.GELU
 
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.global_pool = global_pool
         self.num_features = self.head_hidden_size = self.embed_dim = embed_dim  # for consistency with other models
         self.num_prefix_tokens = 1 if class_token else 0
@@ -893,7 +866,8 @@ class VisionTransformer(nn.Module):
 
         self.weight_init_mode = 'reset' if weight_init == 'skip' else weight_init
         self.fix_init = fix_init
-        if weight_init != 'skip' and not next(self.parameters()).is_meta:
+        # TODO: skip init when on meta device when safe to do so
+        if weight_init != 'skip':
             self.init_weights(needs_reset=False)
 
     def fix_init_weight(self) -> None:

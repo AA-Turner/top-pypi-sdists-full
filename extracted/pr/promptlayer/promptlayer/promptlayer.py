@@ -298,6 +298,7 @@ class PromptLayer(PromptLayerMixin):
         # Allows `workflow_name` to be passed both as keyword and positional argument
         # (virtually identical to `workflow_id_or_name`)
         workflow_name: Optional[str] = None,
+        timeout: Optional[Union[int, float]] = None,
     ) -> Union[Dict[str, Any], Any]:
         try:
             try:
@@ -308,19 +309,18 @@ class PromptLayer(PromptLayerMixin):
             if loop and loop.is_running():
                 nest_asyncio.apply()
 
-            results = asyncio.run(
-                arun_workflow_request(
-                    api_key=self.api_key,
-                    base_url=self.base_url,
-                    throw_on_error=self.throw_on_error,
-                    workflow_id_or_name=_get_workflow_workflow_id_or_name(workflow_id_or_name, workflow_name),
-                    input_variables=input_variables or {},
-                    metadata=metadata,
-                    workflow_label_name=workflow_label_name,
-                    workflow_version_number=workflow_version,
-                    return_all_outputs=return_all_outputs,
-                )
+            coro = arun_workflow_request(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                throw_on_error=self.throw_on_error,
+                workflow_id_or_name=_get_workflow_workflow_id_or_name(workflow_id_or_name, workflow_name),
+                input_variables=input_variables or {},
+                metadata=metadata,
+                workflow_label_name=workflow_label_name,
+                workflow_version_number=workflow_version,
+                return_all_outputs=return_all_outputs,
             )
+            results = asyncio.run(asyncio.wait_for(coro, timeout=timeout))
 
             if not return_all_outputs and is_workflow_results_dict(results):
                 output_nodes = [node_data for node_data in results.values() if node_data.get("is_output_node")]
@@ -337,6 +337,12 @@ class PromptLayer(PromptLayerMixin):
                     )
 
             return results
+        except (asyncio.TimeoutError, TimeoutError) as ex:
+            raise _exceptions.PromptLayerAPITimeoutError(
+                "Workflow execution timed out", response=None, body=None
+            ) from ex
+        except _exceptions.PromptLayerAPITimeoutError:
+            raise  # Re-raise as-is (from inner arun_workflow_request)
         except Exception as ex:
             logger.exception("Error running workflow")
             if RERAISE_ORIGINAL_EXCEPTION:
@@ -461,9 +467,10 @@ class AsyncPromptLayer(PromptLayerMixin):
         # Allows `workflow_name` to be passed both as keyword and positional argument
         # (virtually identical to `workflow_id_or_name`)
         workflow_name: Optional[str] = None,
+        timeout: Optional[Union[int, float]] = None,
     ) -> Union[Dict[str, Any], Any]:
         try:
-            return await arun_workflow_request(
+            coro = arun_workflow_request(
                 api_key=self.api_key,
                 base_url=self.base_url,
                 throw_on_error=self.throw_on_error,
@@ -474,6 +481,13 @@ class AsyncPromptLayer(PromptLayerMixin):
                 workflow_version_number=workflow_version,
                 return_all_outputs=return_all_outputs,
             )
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except (asyncio.TimeoutError, TimeoutError) as ex:
+            raise _exceptions.PromptLayerAPITimeoutError(
+                "Workflow execution timed out", response=None, body=None
+            ) from ex
+        except _exceptions.PromptLayerAPITimeoutError:
+            raise  # Re-raise as-is (from inner arun_workflow_request)
         except Exception as ex:
             logger.exception("Error running workflow")
             if RERAISE_ORIGINAL_EXCEPTION:

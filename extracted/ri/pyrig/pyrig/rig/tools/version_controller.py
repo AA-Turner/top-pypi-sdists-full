@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from pyrig.rig.tools.base.base import Tool, ToolGroup
-from pyrig.src.modules.package import project_name_from_cwd
+from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.src.processes import Args
 
 logger = logging.getLogger(__name__)
@@ -63,14 +63,14 @@ class VersionController(Tool):
             "https://git-scm.com",
         )
 
-    def dev_dependencies(self) -> list[str]:
+    def dev_dependencies(self) -> tuple[str, ...]:
         """Get development dependencies.
 
         Returns:
-            Empty list (git is a system dependency).
+            Empty tuple (git is a system dependency).
         """
         # git is a system dependency, so we don't have a dev dependency for it
-        return []
+        return ()
 
     def default_branch(self) -> str:
         """Get the default branch name.
@@ -394,7 +394,7 @@ class VersionController(Tool):
                 "No git remote found, using git username and CWD for repo info"
             )
             owner = self.username()
-            repo = project_name_from_cwd()
+            repo = PackageManager.I.project_name()
             logger.debug("Derived repository: %s/%s", owner, repo)
         else:
             parts = url.removesuffix(".git").split("/")

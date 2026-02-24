@@ -1,5 +1,7 @@
 """Parser setup for the 'tune-recommendation' command."""
 
+from wisent.core.constants import DATA_SPLIT_SEED
+
 
 def setup_tune_recommendation_parser(parser):
     """Add two subcommands: collect-ground-truth and optimize-config."""
@@ -61,5 +63,5 @@ def setup_tune_recommendation_parser(parser):
                      help="Objective function (default: top1)")
     opt.add_argument("--top-k", type=int, default=2,
                      help="K for topk objective (default: 2)")
-    opt.add_argument("--seed", type=int, default=42,
+    opt.add_argument("--seed", type=int, default=DATA_SPLIT_SEED,
                      help="Random seed (default: 42)")

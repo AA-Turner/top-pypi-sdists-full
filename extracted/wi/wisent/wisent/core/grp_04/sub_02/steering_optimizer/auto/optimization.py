@@ -12,7 +12,8 @@ from wisent.core.config_manager import ModelConfigManager
 from wisent.core.constants import (
     DEFAULT_LIMIT, DEFAULT_SCORE, BLEND_DEFAULT,
     AUTO_MAX_TIME_MINUTES, AUTO_MIN_PAIRS, AUTO_SAMPLE_SIZE,
-    AUTO_LAYER_FRACTION, AUTO_N_FOLDS, AUTO_DEFAULT_STRENGTHS,
+    AUTO_N_FOLDS, AUTO_DEFAULT_STRENGTHS, AUTO_MIN_PAIRS_SPLIT,
+    AUTO_LAYER_DIVISOR,
 )
 from .training import train_recommended_method
 from .grid_search import run_grid_search
@@ -45,6 +46,9 @@ def run_auto_steering_optimization(
 
     wisent_model = WisentModel(model_name, device=device)
     num_layers = wisent_model.num_layers
+
+    profile_mgr = _try_load_constant_profile(model_name, task_name, verbose)
+
     if verbose:
         print(f"Model loaded with {num_layers} layers\n")
         print(f"Generating contrastive pairs for {task_name}...", flush=True)
@@ -75,7 +79,7 @@ def run_auto_steering_optimization(
         method=recommended_method, layer=layers_to_test[0], verbose=verbose,
     )
 
-    eval_pairs = pairs[len(pairs)//2:] if len(pairs) > 20 else pairs
+    eval_pairs = pairs[len(pairs)//2:] if len(pairs) > AUTO_MIN_PAIRS_SPLIT else pairs
     grid_results, best_layer, best_strength, best_config = run_grid_search(
         wisent_model=wisent_model, steering_result=steering_result,
         recommended_method=recommended_method, layers_to_test=layers_to_test,
@@ -111,6 +115,27 @@ def run_auto_steering_optimization(
     }
 
 
+def _try_load_constant_profile(model_name: str, task_name: str, verbose: bool):
+    """Attempt to load and activate a saved constant profile."""
+    try:
+        from wisent.core.steering_optimizer.constants_registry.profiles import (
+            ConstantProfileManager,
+        )
+        manager = ConstantProfileManager()
+        profile = manager.load(model_name, task_name)
+        if profile is not None:
+            manager.activate(profile)
+            if verbose:
+                print(f"Loaded constant profile: {len(profile.constants)} "
+                      f"constants (source: {profile.source})")
+            return manager
+        if verbose:
+            print("No saved constant profile found, using defaults")
+    except Exception as e:
+        logger.debug("Could not load constant profile: %s", e)
+    return None
+
+
 def _generate_pairs(task_name: str, limit: int) -> List:
     """Generate contrastive pairs for the task."""
     from wisent.core.contrastive_pairs.lm_eval_pairs.lm_task_pairs_generation import build_contrastive_pairs
@@ -130,29 +155,48 @@ def _run_zwiad_analysis(wisent_model: Any, pairs: List, num_layers: int, verbose
     if verbose:
         print("Collecting activations for geometry analysis...", flush=True)
 
-    analysis_layer = str(int(num_layers * AUTO_LAYER_FRACTION))
+    candidate_layers = list(range(0, num_layers, max(1, num_layers // AUTO_LAYER_DIVISOR)))
+    if (num_layers - 1) not in candidate_layers:
+        candidate_layers.append(num_layers - 1)
+    candidate_layer_strs = [str(l) for l in candidate_layers]
+
     collector = ActivationCollector(model=wisent_model)
     sample_pairs = pairs[:min(AUTO_SAMPLE_SIZE, len(pairs))]
-    pos_activations, neg_activations = [], []
+    layer_pos = {l: [] for l in candidate_layer_strs}
+    layer_neg = {l: [] for l in candidate_layer_strs}
 
     for pair in sample_pairs:
-        enriched = collector.collect(pair, strategy=ExtractionStrategy.CHAT_LAST, layers=[analysis_layer])
-        pos_act = enriched.positive_response.layers_activations.get(analysis_layer)
-        neg_act = enriched.negative_response.layers_activations.get(analysis_layer)
-        if pos_act is not None:
-            pos_activations.append(pos_act)
-        if neg_act is not None:
-            neg_activations.append(neg_act)
+        enriched = collector.collect(pair, strategy=ExtractionStrategy.CHAT_LAST, layers=candidate_layer_strs)
+        for l in candidate_layer_strs:
+            pos_act = enriched.positive_response.layers_activations.get(l)
+            neg_act = enriched.negative_response.layers_activations.get(l)
+            if pos_act is not None:
+                layer_pos[l].append(pos_act)
+            if neg_act is not None:
+                layer_neg[l].append(neg_act)
 
-    if len(pos_activations) < AUTO_MIN_PAIRS or len(neg_activations) < AUTO_MIN_PAIRS:
+    # Pick the layer with the strongest linear probe signal
+    best_lpa, best_layer = -1.0, candidate_layer_strs[0]
+    best_metrics = None
+    for l in candidate_layer_strs:
+        if len(layer_pos[l]) < AUTO_MIN_PAIRS or len(layer_neg[l]) < AUTO_MIN_PAIRS:
+            continue
+        pt = torch.stack(layer_pos[l])
+        nt = torch.stack(layer_neg[l])
+        m = compute_geometry_metrics(pt, nt, n_folds=AUTO_N_FOLDS)
+        lpa = m.get('linear_probe_accuracy', 0.0)
+        if lpa > best_lpa:
+            best_lpa, best_metrics, best_layer = lpa, m, l
+
+    if best_metrics is None:
         return "GROM", BLEND_DEFAULT, "Insufficient activations", {}, DEFAULT_SCORE
 
     if verbose:
-        print(f"Collected {len(pos_activations)} pos and {len(neg_activations)} neg activations\n")
+        print(f"Analyzed {len(candidate_layers)} layers, best: layer {best_layer} (lpa={best_lpa:.3f})\n")
 
-    pos_tensor = torch.stack(pos_activations)
-    neg_tensor = torch.stack(neg_activations)
-    metrics = compute_geometry_metrics(pos_tensor, neg_tensor, n_folds=AUTO_N_FOLDS)
+    pos_tensor = torch.stack(layer_pos[best_layer])
+    neg_tensor = torch.stack(layer_neg[best_layer])
+    metrics = best_metrics
     recommendation = compute_recommendation(metrics)
     coherence = compute_concept_coherence(pos_tensor, neg_tensor)
 
@@ -176,7 +220,7 @@ def _get_layers_to_test(layer_range: Optional[str], num_layers: int) -> List[int
         elif ',' in layer_range:
             return [int(x.strip()) for x in layer_range.split(',')]
         return [int(layer_range)]
-    return list(range(num_layers // 2, num_layers))
+    return list(range(num_layers))
 
 
 def _save_config(

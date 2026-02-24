@@ -9,6 +9,9 @@ Uses model-driven decisions instead of hardcoded patterns.
 
 from typing import List, Dict, Set, Tuple
 from .task_manager import get_available_tasks
+from wisent.core.constants import (
+    DEFAULT_LAYER, AGENT_DIAG_MAX_TOKENS_SHORT, AGENT_DIAG_TEMPERATURE,
+)
 
 
 class TaskRelevanceSelector:
@@ -59,7 +62,7 @@ Rate relevance from 0.0 to 1.0 (1.0 = highly relevant, 0.0 = not relevant).
 Respond with only the number:"""
         
         try:
-            response = self.model.generate(prompt, layer_index=15, max_new_tokens=10, temperature=0.1)
+            response = self.model.generate(prompt, layer_index=DEFAULT_LAYER, max_new_tokens=AGENT_DIAG_MAX_TOKENS_SHORT, temperature=AGENT_DIAG_TEMPERATURE)
             score_str = response.strip()
             
             # Extract number from response

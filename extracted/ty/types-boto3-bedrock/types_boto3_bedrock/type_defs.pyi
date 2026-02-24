@@ -124,11 +124,17 @@ __all__ = (
     "AutomatedReasoningPolicyAddTypeValueTypeDef",
     "AutomatedReasoningPolicyAddVariableAnnotationTypeDef",
     "AutomatedReasoningPolicyAddVariableMutationTypeDef",
+    "AutomatedReasoningPolicyAnnotatedChunkTypeDef",
+    "AutomatedReasoningPolicyAnnotatedContentTypeDef",
+    "AutomatedReasoningPolicyAnnotatedLineTypeDef",
     "AutomatedReasoningPolicyAnnotationOutputTypeDef",
     "AutomatedReasoningPolicyAnnotationTypeDef",
     "AutomatedReasoningPolicyAnnotationUnionTypeDef",
+    "AutomatedReasoningPolicyAtomicStatementTypeDef",
     "AutomatedReasoningPolicyBuildLogEntryTypeDef",
     "AutomatedReasoningPolicyBuildLogTypeDef",
+    "AutomatedReasoningPolicyBuildResultAssetManifestEntryTypeDef",
+    "AutomatedReasoningPolicyBuildResultAssetManifestTypeDef",
     "AutomatedReasoningPolicyBuildResultAssetsTypeDef",
     "AutomatedReasoningPolicyBuildStepContextTypeDef",
     "AutomatedReasoningPolicyBuildStepMessageTypeDef",
@@ -157,12 +163,19 @@ __all__ = (
     "AutomatedReasoningPolicyDeleteVariableAnnotationTypeDef",
     "AutomatedReasoningPolicyDeleteVariableMutationTypeDef",
     "AutomatedReasoningPolicyDisjointRuleSetTypeDef",
+    "AutomatedReasoningPolicyFidelityReportTypeDef",
+    "AutomatedReasoningPolicyGenerateFidelityReportContentTypeDef",
     "AutomatedReasoningPolicyGeneratedTestCaseTypeDef",
     "AutomatedReasoningPolicyGeneratedTestCasesTypeDef",
     "AutomatedReasoningPolicyIngestContentAnnotationTypeDef",
     "AutomatedReasoningPolicyMutationTypeDef",
+    "AutomatedReasoningPolicyReportSourceDocumentTypeDef",
+    "AutomatedReasoningPolicyRuleReportTypeDef",
     "AutomatedReasoningPolicyScenarioTypeDef",
     "AutomatedReasoningPolicyScenariosTypeDef",
+    "AutomatedReasoningPolicySourceDocumentTypeDef",
+    "AutomatedReasoningPolicyStatementLocationTypeDef",
+    "AutomatedReasoningPolicyStatementReferenceTypeDef",
     "AutomatedReasoningPolicySummaryTypeDef",
     "AutomatedReasoningPolicyTestCaseTypeDef",
     "AutomatedReasoningPolicyTestResultTypeDef",
@@ -182,6 +195,7 @@ __all__ = (
     "AutomatedReasoningPolicyUpdateTypeValueTypeDef",
     "AutomatedReasoningPolicyUpdateVariableAnnotationTypeDef",
     "AutomatedReasoningPolicyUpdateVariableMutationTypeDef",
+    "AutomatedReasoningPolicyVariableReportTypeDef",
     "AutomatedReasoningPolicyWorkflowTypeContentTypeDef",
     "BatchDeleteEvaluationJobErrorTypeDef",
     "BatchDeleteEvaluationJobItemTypeDef",
@@ -648,6 +662,10 @@ AutomatedReasoningPolicyDefinitionVariableTypeDef = TypedDict(
     },
 )
 
+class AutomatedReasoningPolicyAnnotatedLineTypeDef(TypedDict):
+    lineNumber: NotRequired[int]
+    lineText: NotRequired[str]
+
 class AutomatedReasoningPolicyDeleteRuleAnnotationTypeDef(TypedDict):
     ruleId: str
 
@@ -677,6 +695,21 @@ class AutomatedReasoningPolicyUpdateVariableAnnotationTypeDef(TypedDict):
     name: str
     newName: NotRequired[str]
     description: NotRequired[str]
+
+class AutomatedReasoningPolicyStatementLocationTypeDef(TypedDict):
+    lines: list[int]
+
+class AutomatedReasoningPolicyBuildResultAssetManifestEntryTypeDef(TypedDict):
+    assetType: AutomatedReasoningPolicyBuildResultAssetTypeType
+    assetName: NotRequired[str]
+    assetId: NotRequired[str]
+
+class AutomatedReasoningPolicySourceDocumentTypeDef(TypedDict):
+    document: bytes
+    documentContentType: AutomatedReasoningPolicyBuildDocumentContentTypeType
+    documentName: str
+    documentHash: str
+    documentDescription: NotRequired[str]
 
 class AutomatedReasoningPolicyBuildStepMessageTypeDef(TypedDict):
     message: str
@@ -720,6 +753,10 @@ class AutomatedReasoningPolicyGeneratedTestCaseTypeDef(TypedDict):
     queryContent: str
     guardContent: str
     expectedAggregatedFindingsResult: AutomatedReasoningCheckResultType
+
+class AutomatedReasoningPolicyStatementReferenceTypeDef(TypedDict):
+    documentId: str
+    statementId: str
 
 class AutomatedReasoningPolicyScenarioTypeDef(TypedDict):
     expression: str
@@ -984,6 +1021,7 @@ class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsRequestTypeDef(TypedDi
     policyArn: str
     buildWorkflowId: str
     assetType: AutomatedReasoningPolicyBuildResultAssetTypeType
+    assetId: NotRequired[str]
 
 class GetAutomatedReasoningPolicyNextScenarioRequestTypeDef(TypedDict):
     policyArn: str
@@ -1536,6 +1574,21 @@ class AutomatedReasoningPolicyAddVariableMutationTypeDef(TypedDict):
 class AutomatedReasoningPolicyUpdateVariableMutationTypeDef(TypedDict):
     variable: AutomatedReasoningPolicyDefinitionVariableTypeDef
 
+class AutomatedReasoningPolicyAnnotatedContentTypeDef(TypedDict):
+    line: NotRequired[AutomatedReasoningPolicyAnnotatedLineTypeDef]
+
+AutomatedReasoningPolicyAtomicStatementTypeDef = TypedDict(
+    "AutomatedReasoningPolicyAtomicStatementTypeDef",
+    {
+        "id": str,
+        "text": str,
+        "location": AutomatedReasoningPolicyStatementLocationTypeDef,
+    },
+)
+
+class AutomatedReasoningPolicyBuildResultAssetManifestTypeDef(TypedDict):
+    entries: list[AutomatedReasoningPolicyBuildResultAssetManifestEntryTypeDef]
+
 class AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef(TypedDict):
     document: BlobTypeDef
     documentContentType: AutomatedReasoningPolicyBuildDocumentContentTypeType
@@ -1562,6 +1615,20 @@ class AutomatedReasoningPolicyDefinitionQualityReportTypeDef(TypedDict):
 
 class AutomatedReasoningPolicyGeneratedTestCasesTypeDef(TypedDict):
     generatedTestCases: list[AutomatedReasoningPolicyGeneratedTestCaseTypeDef]
+
+class AutomatedReasoningPolicyRuleReportTypeDef(TypedDict):
+    rule: str
+    groundingStatements: NotRequired[list[AutomatedReasoningPolicyStatementReferenceTypeDef]]
+    groundingJustifications: NotRequired[list[str]]
+    accuracyScore: NotRequired[float]
+    accuracyJustification: NotRequired[str]
+
+class AutomatedReasoningPolicyVariableReportTypeDef(TypedDict):
+    policyVariable: str
+    groundingStatements: NotRequired[list[AutomatedReasoningPolicyStatementReferenceTypeDef]]
+    groundingJustifications: NotRequired[list[str]]
+    accuracyScore: NotRequired[float]
+    accuracyJustification: NotRequired[str]
 
 class AutomatedReasoningPolicyScenariosTypeDef(TypedDict):
     policyScenarios: list[AutomatedReasoningPolicyScenarioTypeDef]
@@ -2524,6 +2591,13 @@ AutomatedReasoningPolicyDefinitionTypeUnionTypeDef = Union[
     AutomatedReasoningPolicyDefinitionTypeOutputTypeDef,
 ]
 
+class AutomatedReasoningPolicyAnnotatedChunkTypeDef(TypedDict):
+    content: list[AutomatedReasoningPolicyAnnotatedContentTypeDef]
+    pageNumber: NotRequired[int]
+
+class AutomatedReasoningPolicyGenerateFidelityReportContentTypeDef(TypedDict):
+    documents: NotRequired[Sequence[AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef]]
+
 class ExternalSourceTypeDef(TypedDict):
     sourceType: ExternalSourceTypeType
     s3Location: NotRequired[S3ObjectDocTypeDef]
@@ -2870,6 +2944,13 @@ AutomatedReasoningPolicyDefinitionTypeDef = TypedDict(
     },
 )
 
+class AutomatedReasoningPolicyReportSourceDocumentTypeDef(TypedDict):
+    documentName: str
+    documentHash: str
+    documentId: str
+    atomicStatements: list[AutomatedReasoningPolicyAtomicStatementTypeDef]
+    documentContent: list[AutomatedReasoningPolicyAnnotatedChunkTypeDef]
+
 class AutomatedReasoningPolicyAnnotationOutputTypeDef(TypedDict):
     addType: NotRequired[AutomatedReasoningPolicyAddTypeAnnotationOutputTypeDef]
     updateType: NotRequired[AutomatedReasoningPolicyUpdateTypeAnnotationOutputTypeDef]
@@ -3000,6 +3081,13 @@ class AutomatedReasoningPolicyBuildStepContextTypeDef(TypedDict):
 AutomatedReasoningPolicyDefinitionUnionTypeDef = Union[
     AutomatedReasoningPolicyDefinitionTypeDef, AutomatedReasoningPolicyDefinitionOutputTypeDef
 ]
+
+class AutomatedReasoningPolicyFidelityReportTypeDef(TypedDict):
+    coverageScore: float
+    accuracyScore: float
+    ruleReports: dict[str, AutomatedReasoningPolicyRuleReportTypeDef]
+    variableReports: dict[str, AutomatedReasoningPolicyVariableReportTypeDef]
+    documentSources: list[AutomatedReasoningPolicyReportSourceDocumentTypeDef]
 
 class GetAutomatedReasoningPolicyAnnotationsResponseTypeDef(TypedDict):
     policyArn: str
@@ -3262,6 +3350,9 @@ class AutomatedReasoningPolicyBuildLogTypeDef(TypedDict):
 class AutomatedReasoningPolicyWorkflowTypeContentTypeDef(TypedDict):
     documents: NotRequired[Sequence[AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef]]
     policyRepairAssets: NotRequired[AutomatedReasoningPolicyBuildWorkflowRepairContentTypeDef]
+    generateFidelityReportContent: NotRequired[
+        AutomatedReasoningPolicyGenerateFidelityReportContentTypeDef
+    ]
 
 class KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -3293,6 +3384,9 @@ class AutomatedReasoningPolicyBuildResultAssetsTypeDef(TypedDict):
     buildLog: NotRequired[AutomatedReasoningPolicyBuildLogTypeDef]
     generatedTestCases: NotRequired[AutomatedReasoningPolicyGeneratedTestCasesTypeDef]
     policyScenarios: NotRequired[AutomatedReasoningPolicyScenariosTypeDef]
+    assetManifest: NotRequired[AutomatedReasoningPolicyBuildResultAssetManifestTypeDef]
+    document: NotRequired[AutomatedReasoningPolicySourceDocumentTypeDef]
+    fidelityReport: NotRequired[AutomatedReasoningPolicyFidelityReportTypeDef]
 
 class AutomatedReasoningPolicyBuildWorkflowSourceTypeDef(TypedDict):
     policyDefinition: NotRequired[AutomatedReasoningPolicyDefinitionUnionTypeDef]

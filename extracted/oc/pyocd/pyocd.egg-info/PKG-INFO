@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyocd
-Version: 0.42.0
+Version: 0.43.0
 Summary: Cortex-M debugger for Python
 Home-page: https://github.com/pyocd/pyOCD
 Maintainer: Chris Reed

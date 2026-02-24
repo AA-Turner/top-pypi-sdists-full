@@ -164,7 +164,7 @@ class ManagementApplianceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/create_management_appliance.py.html>`__ to see an example of how to use create_management_appliance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/create_management_appliance.py.html>`__ to see an example of how to use create_management_appliance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -270,7 +270,7 @@ class ManagementApplianceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/delete_management_appliance.py.html>`__ to see an example of how to use delete_management_appliance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/delete_management_appliance.py.html>`__ to see an example of how to use delete_management_appliance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementApplianceId']
@@ -378,7 +378,7 @@ class ManagementApplianceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/get_management_appliance.py.html>`__ to see an example of how to use get_management_appliance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/get_management_appliance.py.html>`__ to see an example of how to use get_management_appliance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementApplianceId']
@@ -531,7 +531,7 @@ class ManagementApplianceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/list_management_appliances.py.html>`__ to see an example of how to use list_management_appliances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/list_management_appliances.py.html>`__ to see an example of how to use list_management_appliances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -679,7 +679,7 @@ class ManagementApplianceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/update_management_appliance.py.html>`__ to see an example of how to use update_management_appliance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/update_management_appliance.py.html>`__ to see an example of how to use update_management_appliance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managementApplianceId']

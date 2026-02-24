@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: os-brick
-Version: 6.14.0
+Version: 7.0.0
 Summary: OpenStack Cinder brick library for managing local volume attaches
 Home-page: https://docs.openstack.org/os-brick/
 Author: OpenStack
@@ -31,7 +31,6 @@ Requires-Dist: oslo.service>=2.8.0
 Requires-Dist: oslo.utils>=7.3.0
 Requires-Dist: requests>=2.25.1
 Requires-Dist: tenacity>=6.3.1
-Requires-Dist: os-win>=5.7.0
 Requires-Dist: psutil>=5.7.2
 Dynamic: author
 Dynamic: author-email
@@ -73,8 +72,8 @@ Features
 Hacking
 -------
 
-Hacking on brick requires Python 3.8+. A recent tox is required, as is a recent
-virtualenv (20.2.2 or newer).
+Hacking on brick requires Python 3.10+. A recent tox is required, as is a
+recent virtualenv (20.17.1 or newer).
 
 For any other information, refer to the developer documents:
   https://docs.openstack.org/os-brick/latest/

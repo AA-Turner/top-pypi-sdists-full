@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DocumentTemplate
-Version: 5.1
+Version: 5.2
 Summary: Document Templating Markup Language (DTML)
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -64,6 +64,13 @@ use cases.
 
 Changelog
 =========
+
+5.2 (2026-02-23)
+----------------
+
+- Prevent builtins shadowing in DTML Var.
+  (`Zope#1285 <https://github.com/zopefoundation/Zope/issues/1285>`_)
+
 
 5.1 (2026-01-19)
 ----------------

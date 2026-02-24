@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
@@ -363,9 +363,7 @@ async def worker(
                                 _checkpointer as api_checkpointer,
                             )
 
-                            checkpointer = cast(
-                                "Any", await api_checkpointer.get_checkpointer()
-                            )
+                            checkpointer = await api_checkpointer.get_checkpointer()
                             await checkpointer.adelete_for_runs([str(run_id)])
                         except Exception:
                             await logger.aerror(

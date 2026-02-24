@@ -52,7 +52,6 @@ def run_safety_welfare_steering(args, results):
                         use_cached=False,
                         save_as_default=True,
                         compute_baseline=True,
-                        quick_search=args.quick,
                     )
                 else:
                     steering_args = argparse.Namespace(

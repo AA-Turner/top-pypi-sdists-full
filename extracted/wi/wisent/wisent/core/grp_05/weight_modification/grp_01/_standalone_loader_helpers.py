@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from wisent.core.constants import DEFAULT_STRENGTH
+from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH
 
 
 class TETNOHooks:
@@ -49,7 +49,7 @@ class TETNOHooks:
         # Sensor layer
         layer_indices = list(self._layer_name_to_idx.values())
         self._sensor_layer_idx = (
-            layer_indices[len(layer_indices) // 2] if layer_indices else 15
+            layer_indices[len(layer_indices) // 2] if layer_indices else DEFAULT_LAYER
         )
 
     def install(self) -> None:

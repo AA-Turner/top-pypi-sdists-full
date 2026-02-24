@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion
-Version: 51.0.0
+Version: 52.0.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -309,7 +309,7 @@ needing to activate the virtual environment:
 
 ```bash
 uv run --no-project maturin develop --uv
-uv --no-project pytest .
+uv run --no-project pytest .
 ```
 
 ### Running & Installing pre-commit hooks

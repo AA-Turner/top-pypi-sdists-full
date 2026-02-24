@@ -12,7 +12,6 @@ Fixtures:
     assert_all_src_code_in_one_package: Single source package with expected structure.
     assert_src_package_correctly_named: Package name matches project name.
     assert_all_modules_tested: All modules have test modules, auto-generates skeletons.
-    assert_no_unit_test_package_usage: No unittest usage (pytest only).
     assert_dependencies_are_up_to_date: Dependencies current via uv lock/sync.
     assert_src_runs_without_dev_deps: Source runs without dev dependencies.
     assert_src_does_not_use_rig: Source doesn't import rig code.
@@ -27,7 +26,6 @@ from collections.abc import Generator
 from contextlib import chdir
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -35,24 +33,22 @@ import pyrig
 from pyrig import main, resources, rig, src
 from pyrig.rig.cli.commands.make_inits import make_init_files
 from pyrig.rig.configs.base.base import ConfigFile
-from pyrig.rig.configs.dot_env import DotEnvConfigFile
-from pyrig.rig.configs.pyproject import (
-    PyprojectConfigFile,
-)
-from pyrig.rig.configs.python.dot_scratch import DotScratchConfigFile
 from pyrig.rig.tests.mirror_test import MirrorTestConfigFile
 from pyrig.rig.tools.base.base import Tool
 from pyrig.rig.tools.package_manager import PackageManager
+from pyrig.rig.tools.project_tester import ProjectTester
 from pyrig.rig.tools.version_controller import VersionController
 from pyrig.rig.utils.packages import (
     find_namespace_packages,
     find_packages,
 )
+from pyrig.rig.utils.version_control import ignored_config_files
 from pyrig.src.git import (
     running_in_github_actions,
 )
+from pyrig.src.iterate import generator_has_items
 from pyrig.src.modules.imports import (
-    modules_and_packages_from_package,
+    iter_modules,
     walk_package,
 )
 from pyrig.src.modules.module import (
@@ -61,15 +57,14 @@ from pyrig.src.modules.module import (
 )
 from pyrig.src.modules.package import (
     all_deps_depending_on_dep,
-    package_name_from_project_name,
-    project_name_from_package_name,
 )
-from pyrig.src.modules.path import ModulePath
 from pyrig.src.requests import internet_is_available
-from pyrig.src.string_ import make_summary_error_msg, re_search_excluding_docstrings
-
-if TYPE_CHECKING:
-    from types import ModuleType
+from pyrig.src.string_ import (
+    kebab_to_snake_case,
+    make_summary_error_msg,
+    re_search_excluding_docstrings,
+    snake_to_kebab_case,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +82,10 @@ def assert_no_unstaged_changes() -> Generator[None, None, None]:
     in_github_actions = running_in_github_actions()
 
     msg = """Pyrig enforces that no changes are made during tests when running in CI.
-    This is to ensure that the tests do not modify any files.
-    Found the following unstaged changes:
-    {unstaged_changes}
-    """
+This is to ensure that the tests do not modify any files.
+Found the following unstaged changes:
+{unstaged_changes}
+"""
 
     if in_github_actions:
         unstaged_changes = VersionController.I.has_unstaged_diff()
@@ -116,24 +111,20 @@ def assert_root_is_correct() -> None:
     # as they are not pushed to the repository
     running_in_ci = running_in_github_actions()
     if running_in_ci:
-        DotScratchConfigFile.I.validate()
-        DotEnvConfigFile.I.validate()
+        tuple(cf.validate() for cf in ignored_config_files())
 
     subclasses = ConfigFile.subclasses()
-    incorrect_cfs = [cf for cf in subclasses if not cf().is_correct()]
+    incorrect_cfs = tuple(cf for cf in subclasses if not cf().is_correct())
 
     if incorrect_cfs:
         # init all per test run
-        ConfigFile.validate_subclasses(*incorrect_cfs)
+        ConfigFile.validate_subclasses(incorrect_cfs)
 
-    msg = f"""Found {len(incorrect_cfs)} incorrect ConfigFiles.
-    Attempted correcting them automatically.
-    Please verify the changes at the following paths:
+    msg = f"""Found incorrect ConfigFiles.
+Attempted correcting them automatically.
+Please verify the changes at the following paths.
+{make_summary_error_msg(cf().path().as_posix() for cf in incorrect_cfs)}
 """
-    for cf in incorrect_cfs:
-        msg += f"""
-        - {cf().path()}
-        """
     assert not incorrect_cfs, msg
 
 
@@ -144,20 +135,18 @@ def assert_no_namespace_packages() -> None:
     Raises:
         AssertionError: If namespace packages were found (lists created paths).
     """
-    any_namespace_packages = find_namespace_packages()
-    if any_namespace_packages:
+    namespace_packages = find_namespace_packages()
+    has_namespace_packages, namespace_packages = generator_has_items(namespace_packages)
+    if has_namespace_packages:
         make_init_files()
 
     msg = f"""Pyrig enforces that all packages have __init__.py files.
-    Found {len(any_namespace_packages)} namespace packages.
-    Created __init__.py files for them.
-    Please verify the changes at the following paths:
+Found namespace packages.
+Created __init__.py files for them.
+Please verify the changes at the following paths:
+{make_summary_error_msg(namespace_packages)}
 """
-    for package in any_namespace_packages:
-        msg += f"""
-        - {package}
-        """
-    assert not any_namespace_packages, msg
+    assert not has_namespace_packages, msg
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -170,53 +159,56 @@ def assert_all_src_code_in_one_package() -> None:
     Raises:
         AssertionError: If unexpected packages/subpackages/submodules found.
     """
-    packages = find_packages(depth=0)
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    packages = set(find_packages(depth=0))
+    src_package = import_module(PackageManager.I.package_name())
     src_package_name = src_package.__name__
     expected_packages = {
-        MirrorTestConfigFile.I.tests_package_name(),
+        ProjectTester.I.tests_package_name(),
         src_package_name,
     }
 
     # packages must be exactly the expected packages
     assert (
-        set(packages) == expected_packages
+        packages == expected_packages
     ), f"""Pyrig enforces a single source package with a specific structure.
-    Found unexpected packages: {set(packages) - expected_packages}
-    Expected packages: {expected_packages}
-    Only folders with __init__.py files are considered packages.
-    Please move all code and login into the designated src package.
+Found unexpected packages: {packages - expected_packages}
+Expected packages: {expected_packages}
+Only folders with __init__.py files are considered packages.
+Please move all code and logic into the designated src package.
 """
 
     # assert the src package's only submodules are main, src and rig
-    subpackages, submodules = modules_and_packages_from_package(src_package)
-    subpackage_names = {p.__name__.split(".")[-1] for p in subpackages}
-    submodule_names = {m.__name__.split(".")[-1] for m in submodules}
-
+    submodules = tuple(iter_modules(src_package))
+    subpackage_names = {
+        mod.__name__.split(".")[-1] for mod, is_pkg in submodules if is_pkg
+    }
+    submodule_names = {
+        mod.__name__.split(".")[-1] for mod, is_pkg in submodules if not is_pkg
+    }
     expected_subpackages = {
         isolated_obj_name(sub_package)
-        for sub_package in [
+        for sub_package in (
             rig,
             src,
             resources,
-        ]
+        )
     }
     expected_submodules = {isolated_obj_name(main)}
     assert (
         subpackage_names == expected_subpackages
     ), f"""Pyrig enforces a single source package with a specific structure.
-        Found unexpected subpackages: {subpackage_names - expected_subpackages}
-        Expected subpackages: {expected_subpackages}
-        Please move all code and login into the designated src package.
-    """
+Found unexpected subpackages: {subpackage_names - expected_subpackages}
+Expected subpackages: {expected_subpackages}
+Please move all code and logic into the designated src package.
+"""
 
     assert (
         submodule_names == expected_submodules
     ), f"""Pyrig enforces a single source package with a specific structure.
-        Found unexpected submodules: {submodule_names - expected_submodules}
-        Expected submodules: {expected_submodules}
-        Please move all code and login into the designated src package.
-        """
+Found unexpected submodules: {submodule_names - expected_submodules}
+Expected submodules: {expected_submodules}
+Please move all code and logic into the designated src package.
+"""
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -229,15 +221,15 @@ def assert_src_package_correctly_named() -> None:
         AssertionError: If any naming mismatch detected.
     """
     cwd_name = Path.cwd().name
-    project_name = PyprojectConfigFile.I.project_name()
+    project_name = PackageManager.I.project_name()
     assert cwd_name == project_name, (
         f"Expected cwd name to be {project_name}, but it is {cwd_name}"
     )
 
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    src_package = import_module(PackageManager.I.package_name())
 
     src_package_name = src_package.__name__
-    src_package_name_from_cwd = package_name_from_project_name(cwd_name)
+    src_package_name_from_cwd = kebab_to_snake_case(cwd_name)
     msg = (
         f"Expected source package to be named {src_package_name_from_cwd}, "
         f"but it is named {src_package_name}"
@@ -245,7 +237,7 @@ def assert_src_package_correctly_named() -> None:
     assert src_package_name == src_package_name_from_cwd, msg
 
     src_package = src_package.__name__
-    expected_package = PyprojectConfigFile.I.package_name()
+    expected_package = PackageManager.I.package_name()
     msg = (
         f"Expected source package to be named {expected_package}, "
         f"but it is named {src_package}"
@@ -262,56 +254,23 @@ def assert_all_modules_tested() -> None:
     Raises:
         AssertionError: If any source modules lack corresponding tests.
     """
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    src_package = import_module(PackageManager.I.package_name())
 
     # we will now go through all the modules in the src package and check
     # that there is a corresponding test module
-    all_modules: list[ModuleType] = []
-    for _, modules in walk_package(src_package):
-        all_modules.extend(modules)
+    all_modules = (m for m, is_pkg in walk_package(src_package) if not is_pkg)
 
-    subclasses: list[type[MirrorTestConfigFile]] = (
-        MirrorTestConfigFile.I.make_subclasses_for_modules(all_modules)
-    )
-    incorrect_subclasses: list[type[MirrorTestConfigFile]] = [
-        sc for sc in subclasses if not sc().is_correct()
-    ]
+    subclasses = MirrorTestConfigFile.I.make_subclasses_for_modules(all_modules)
+    incorrect_subclasses = tuple(sc for sc in subclasses if not sc().is_correct())
 
     if incorrect_subclasses:
-        MirrorTestConfigFile.I.validate_subclasses(*incorrect_subclasses)
+        MirrorTestConfigFile.I.validate_subclasses(incorrect_subclasses)
 
     msg = f"""Found incorrect test modules.
-    Test skeletons were automatically created for:
-    {make_summary_error_msg([sc().path().as_posix() for sc in incorrect_subclasses])}
+Test skeletons were automatically created.
+{make_summary_error_msg(sc().path().as_posix() for sc in incorrect_subclasses)}
 """
     assert not incorrect_subclasses, msg
-
-
-@pytest.fixture(scope="session", autouse=True)
-def assert_no_unit_test_package_usage() -> None:
-    """Verify unittest is not used in the project (pytest only).
-
-    Raises:
-        AssertionError: If any files contain unittest references.
-    """
-    unit_test_str = "UnitTest".lower()
-    unit_test_pattern = re.compile(unit_test_str)
-    packages = find_packages()
-    usages: list[str] = []
-    for package in packages:
-        package_path = ModulePath.package_name_to_relative_dir_path(package)
-        for path in package_path.rglob("*.py"):
-            content = path.read_text(encoding="utf-8")
-            is_unit_test_used = re_search_excluding_docstrings(
-                unit_test_pattern, content
-            )
-            if is_unit_test_used:
-                usages.append(f"{path}: {is_unit_test_used.group()}")
-
-    msg = f"""Found {unit_test_str} package usage in:
-    {make_summary_error_msg(usages)}
-"""
-    assert not usages, msg
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -340,10 +299,10 @@ def assert_dependencies_are_up_to_date() -> None:
         f"Dependencies were updated successfully by `{args}`."
         if deps_updated_successfully
         else f"""Failed to update dependencies.
-    This fixture ran `{args}` but it failed.
-    Output:
-    {std_msg_updated}
-    """
+This fixture ran `{args}` but it failed.
+Output:
+{std_msg_updated}
+"""
     )
 
     # sync the dependencies
@@ -357,10 +316,10 @@ def assert_dependencies_are_up_to_date() -> None:
         f"Dependencies were installed successfully by `{args}`."
         if deps_installed_successfully
         else f"""Failed to install dependencies.
-    This fixture ran `{args}` but it failed.
-    Output:
-    {std_msg_installed}
-    """
+This fixture ran `{args}` but it failed.
+Output:
+{std_msg_installed}
+"""
     )
 
     successful = deps_updated_successfully and deps_installed_successfully
@@ -387,22 +346,22 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
         AssertionError: If source code cannot run without dev dependencies.
     """
     base_msg = """Source code cannot run without dev dependencies.
-    This fixture created a temp environment and installed the project without
-    the dev group and attempted to import all src modules.
-    However, it failed with the following error:
-    """
+This fixture created a temp environment and installed the project without
+the dev group and attempted to import all src modules.
+However, it failed with the following error:
+"""
     if not internet_is_available():
         logger.warning(
             "No internet, skipping %s",
             assert_src_runs_without_dev_deps.__name__,
         )
         return
-    project_name = PyprojectConfigFile.I.project_name()
+    project_name = PackageManager.I.project_name()
     func_name = assert_src_runs_without_dev_deps.__name__
     tmp_path = tmp_path_factory.mktemp(func_name) / project_name
     # copy the project folder to a temp directory
     # run main.py from that directory
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    src_package = import_module(PackageManager.I.package_name())
     src_package_file_str = src_package.__file__
     if src_package_file_str is None:
         msg = f"src_package.__file__ is None for {src_package}"
@@ -410,7 +369,7 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
 
     project_path = Path(src_package_file_str).parent
 
-    project_name = project_name_from_package_name(src_package.__name__)
+    project_name = snake_to_kebab_case(src_package.__name__)
 
     temp_project_path = tmp_path / src_package.__name__
 
@@ -418,11 +377,11 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
     shutil.copytree(project_path, temp_project_path)
 
     # copy pyproject.toml and uv.lock to tmp_path
-    configs = [
+    configs = (
         "pyproject.toml",
         "README.md",
         "LICENSE",
-    ]
+    )
     for config in configs:
         shutil.copy(config, temp_project_path.parent)
 
@@ -448,8 +407,8 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
             Path(config).unlink()
 
         # run walk_package with src and import all modules to catch dev dep imports
-        src_package_name = PyprojectConfigFile.I.package_name()
-        script_args = [
+        src_package_name = PackageManager.I.package_name()
+        script_args = (
             "python",
             "-c",
             "; ".join(
@@ -457,9 +416,7 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
                     "from pyrig.src.modules.imports import walk_package",
                     f"from {src_package_name} import main",
                     f"from {src_package_name} import src",
-                    "packages=list(walk_package(src))",
-                    # verify packages is a list
-                    "assert isinstance(packages, list)",
+                    "packages=tuple(walk_package(src))",
                     # verify packages is not empty
                     "assert len(packages) > 0",
                     # also test that main can be called
@@ -468,7 +425,7 @@ def assert_src_runs_without_dev_deps(tmp_path_factory: pytest.TempPathFactory) -
                     "print('Success')",
                 )
             ),
-        ]
+        )
         args = PackageManager.I.run_no_dev_args(*script_args)
 
         completed_process = args.run(
@@ -504,19 +461,19 @@ def assert_src_does_not_use_rig() -> None:
     Raises:
         AssertionError: If any rig imports found in src code.
     """
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    src_package = import_module(PackageManager.I.package_name())
 
     src_src_package_name = module_name_replacing_start_module(src, src_package.__name__)
 
     src_src_package = import_module(src_src_package_name)
 
-    packages_depending_on_pyrig = all_deps_depending_on_dep(pyrig, include_self=True)
+    packages_depending_on_pyrig = (pyrig, *all_deps_depending_on_dep(pyrig))
 
-    possible_rig_usages = [
+    possible_rig_usages = (
         module_name_replacing_start_module(rig, package.__name__)
         for package in packages_depending_on_pyrig
-    ]
-    possible_rig_usages = [re.escape(usage) for usage in possible_rig_usages]
+    )
+    possible_rig_usages = (re.escape(usage) for usage in possible_rig_usages)
 
     possible_rig_usages_pattern = r"\b(" + "|".join(possible_rig_usages) + r")\b"
 
@@ -531,8 +488,9 @@ def assert_src_does_not_use_rig() -> None:
         if is_rig_used:
             usages.append(f"{path}: {is_rig_used.group()}")
 
-    msg = f"""Found rig usage in src:
-    {make_summary_error_msg(usages)}
+    msg = f"""Found {isolated_obj_name(rig)} usage in {isolated_obj_name(src)} code,
+which violates the separation between src code and rig code.
+{make_summary_error_msg(usages)}
 """
     assert not usages, msg
 
@@ -559,16 +517,14 @@ def assert_project_mgt_is_up_to_date() -> None:
         stdout = completed_process.stdout
         std_msg = stderr + stdout
 
-        allowed_errors = [
-            "GitHub API rate limit exceeded",
-        ]
+        allowed_errors = ("GitHub API rate limit exceeded",)
 
         allowed_error_in_err_or_out = any(exp in std_msg for exp in allowed_errors)
 
         is_up_to_date = returncode == 0 or allowed_error_in_err_or_out
 
         msg = f"""The tool {PackageManager.I.name()} is not up to date.
-        This fixture ran `{PackageManager.I.update_self_args()}` but it failed.
-        Output: {std_msg}
-        """
+This fixture ran `{PackageManager.I.update_self_args()}` but it failed.
+Output: {std_msg}
+"""
         assert is_up_to_date, msg

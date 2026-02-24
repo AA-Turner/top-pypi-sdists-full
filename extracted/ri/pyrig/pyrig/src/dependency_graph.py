@@ -8,12 +8,14 @@ on a given package, facilitating pyrig's multi-package discovery system.
 
 import importlib.metadata
 import logging
-from types import ModuleType
+from collections.abc import Generator
 
 from pyrig.src.graph import DiGraph
-from pyrig.src.modules.module import import_modules
 from pyrig.src.singleton import Singleton
-from pyrig.src.string_ import package_req_name_split_pattern
+from pyrig.src.string_ import (
+    kebab_to_snake_case,
+    package_req_name_split_pattern,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class DependencyGraph(DiGraph, Singleton):
     @staticmethod
     def parse_name_and_deps(
         dist: importlib.metadata.Distribution,
-    ) -> tuple[str, list[str]]:
+    ) -> tuple[str, Generator[str, None, None]]:
         """Extract package name and dependencies from a distribution.
 
         Uses the public ``importlib.metadata`` API (``dist.metadata`` and
@@ -58,10 +60,10 @@ class DependencyGraph(DiGraph, Singleton):
         raw_name = dist.name
         name = DependencyGraph.normalize_package_name(raw_name) if raw_name else ""
 
-        deps = [
+        deps = (
             DependencyGraph.parse_package_name_from_req(req)
             for req in (dist.requires or [])
-        ]
+        )
 
         return name, deps
 
@@ -93,44 +95,4 @@ class DependencyGraph(DiGraph, Singleton):
         Returns:
             Normalized package name.
         """
-        return name.lower().replace("-", "_").strip()
-
-    def all_depending_on(
-        self, package: ModuleType | str, *, include_self: bool = False
-    ) -> list[ModuleType]:
-        """Find all packages that depend on the given package.
-
-        Primary method for discovering packages that extend pyrig's functionality.
-
-        Args:
-            package: Package to find dependents of (module or name string).
-            include_self: If True, includes the target package in results.
-
-        Returns:
-            List of imported module objects for dependent packages.
-            Sorted in topological order (dependencies before dependents).
-
-        Raises:
-            ValueError: If package not found in dependency graph.
-
-        Note:
-            Only returns packages that can be successfully imported.
-        """
-        # replace - with _ to handle packages like pyrig
-        if isinstance(package, ModuleType):
-            package = package.__name__
-        target = package.lower()
-        if target not in self:
-            msg = f"""Package '{target}' not found in dependency graph."""
-            raise ValueError(msg)
-
-        dependents_set = self.ancestors(target)
-        if include_self:
-            dependents_set.add(target)
-
-        # Sort in topological order (dependencies before dependents)
-        dependents = self.topological_sort_subgraph(dependents_set)
-
-        logger.debug("Found packages depending on %s: %s", package, dependents)
-
-        return import_modules(dependents)
+        return kebab_to_snake_case(name)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.5.0.dev20260222
+Version: 1.5.0.dev20260223
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0

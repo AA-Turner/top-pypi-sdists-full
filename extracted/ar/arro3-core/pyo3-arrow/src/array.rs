@@ -333,7 +333,7 @@ impl PyArray {
         to_schema_pycapsule(py, self.field.as_ref())
     }
 
-    fn __eq__(&self, other: &PyArray) -> bool {
+    fn __eq__(&self, other: PyArray) -> bool {
         self.array.as_ref() == other.array.as_ref() && self.field == other.field
     }
 
@@ -410,7 +410,7 @@ impl PyArray {
             return buf.try_into();
         }
 
-        let numpy_array: Bound<PyUntypedArray> = FromPyObject::extract_bound(&numpy_array)?;
+        let numpy_array: Bound<PyUntypedArray> = numpy_array.extract()?;
         let arrow_array = from_numpy(py, &numpy_array)?;
         Ok(Self::from_array_ref(arrow_array))
     }

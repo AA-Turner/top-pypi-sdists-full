@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: telnyx
-Version: 4.44.0
+Version: 4.44.1
 Summary: Telnyx API SDK for global Voice, SMS, MMS, WhatsApp, Fax, Wireless IoT, SIP Trunking, and Call Control.
 Project-URL: Homepage, https://github.com/team-telnyx/telnyx-python
 Project-URL: Repository, https://github.com/team-telnyx/telnyx-python
@@ -34,7 +34,7 @@ Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: webhooks
 Requires-Dist: pynacl>=1.5.0; extra == 'webhooks'
-Requires-Dist: standardwebhooks; extra == 'webhooks'
+Requires-Dist: standardwebhooks<2,>=1.0.1; extra == 'webhooks'
 Description-Content-Type: text/markdown
 
 # Telnyx Python API library

@@ -173,20 +173,6 @@ def configuration():
     return redirect(f"/non_core_contracts/{config.id}")
 
 
-@home.route("/dashboard", methods=["GET"])
-def dashboard():
-    ecoes_runs = g.sess.scalars(
-        select(ReportRun)
-        .where(
-            ReportRun.name == "ecoes_comparison",
-            ReportRun.state == "finished",
-            ReportRun.data["keep"].as_boolean() == true(),
-        )
-        .order_by(ReportRun.date_created.desc())
-    ).all()
-    return render_template("dashboard.html", ecoes_runs=ecoes_runs)
-
-
 @home.route("/fake_batch_updater")
 def fake_batch_updater_get():
     importer = chellow.fake_batch_updater.importer
@@ -1295,6 +1281,16 @@ def site_get(site_id):
                     "last_era": era,
                     "is_ongoing": era.finish_date is None,
                     "meter_category": meter_cat,
+                    "issues": g.sess.scalars(
+                        select(Issue)
+                        .where(
+                            Issue.is_open == true(),
+                            Issue.properties["supply_ids"].op("@>")(
+                                cast([era.supply_id], JSONB)
+                            ),
+                        )
+                        .order_by(Issue.date_created)
+                    ).all(),
                 }
             )
 

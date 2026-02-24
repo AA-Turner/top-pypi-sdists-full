@@ -1156,9 +1156,10 @@ class TestAgentCoreMemorySessionManager:
                     event = MessageAddedEvent(agent=mock_agent, message={"role": "user", "content": [{"text": "test"}]})
                     manager.retrieve_customer_context(event)
 
-                    # Verify context was injected
-                    assert len(mock_agent.messages) == 2
-                    injected_context = mock_agent.messages[1]["content"][0]["text"]
+                    # Verify context was injected into the user message as a content block
+                    # (single-message conversation uses inline injection)
+                    assert len(mock_agent.messages) == 1
+                    injected_context = mock_agent.messages[0]["content"][0]["text"]
 
                     # With threshold 0.5, only scores >= 0.5 should be included (0.6 and 0.9)
                     assert "High relevance 1" in injected_context
@@ -1887,3 +1888,180 @@ class TestBatchingBlobMessages:
         # Verify both paths were used
         assert mock_memory_client.create_event.call_count == 1  # Conversational
         assert mock_memory_client.gmdp_client.create_event.call_count == 1  # Blob
+
+
+class TestThinkingModeCompatibility:
+    """Test that retrieve_customer_context injects memory inline, not as an assistant message.
+
+    When thinking is enabled on Claude, assistant messages must start with a thinking block
+    and the conversation must end with a user message. Injecting LTM as a separate assistant
+    message violates both constraints.
+    """
+
+    def test_retrieve_customer_context_does_not_append_assistant_message(
+        self, agentcore_config_with_retrieval, mock_memory_client
+    ):
+        """Test retrieved memory is injected into the user message, not as a new assistant message."""
+        mock_memory_client.retrieve_memories.return_value = [
+            {"content": {"text": "User prefers dark mode"}},
+            {"content": {"text": "User likes sushi"}},
+        ]
+
+        with patch(
+            "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+            return_value=mock_memory_client,
+        ):
+            with patch("boto3.Session") as mock_boto_session:
+                mock_session = Mock()
+                mock_session.region_name = "us-west-2"
+                mock_session.client.return_value = Mock()
+                mock_boto_session.return_value = mock_session
+
+                with patch(
+                    "strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None
+                ):
+                    manager = AgentCoreMemorySessionManager(agentcore_config_with_retrieval)
+
+                    mock_agent = Mock()
+                    mock_agent.messages = [{"role": "user", "content": [{"text": "What are my preferences?"}]}]
+
+                    event = MessageAddedEvent(
+                        agent=mock_agent, message={"role": "user", "content": [{"text": "What are my preferences?"}]}
+                    )
+                    manager.retrieve_customer_context(event)
+
+                    # No new messages should be added — memory is inlined in the user message
+                    assert len(mock_agent.messages) == 1
+                    assert mock_agent.messages[-1]["role"] == "user"
+
+                    # Memory prepended, original query remains last
+                    content = mock_agent.messages[0]["content"]
+                    assert len(content) == 2
+                    assert "<user_context>" in content[0]["text"]
+                    assert content[1]["text"] == "What are my preferences?"
+
+    def test_retrieve_customer_context_no_assistant_message_multi_turn(
+        self, agentcore_config_with_retrieval, mock_memory_client
+    ):
+        """Test memory injection keeps last message as user in a multi-turn conversation."""
+        mock_memory_client.retrieve_memories.return_value = [
+            {"content": {"text": "User likes sushi"}},
+        ]
+
+        with patch(
+            "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+            return_value=mock_memory_client,
+        ):
+            with patch("boto3.Session") as mock_boto_session:
+                mock_session = Mock()
+                mock_session.region_name = "us-west-2"
+                mock_session.client.return_value = Mock()
+                mock_boto_session.return_value = mock_session
+
+                with patch(
+                    "strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None
+                ):
+                    manager = AgentCoreMemorySessionManager(agentcore_config_with_retrieval)
+
+                    mock_agent = Mock()
+                    mock_agent.messages = [
+                        {"role": "user", "content": [{"text": "I love sushi"}]},
+                        {"role": "assistant", "content": [{"text": "That's great!"}]},
+                        {"role": "user", "content": [{"text": "What do I like to eat?"}]},
+                    ]
+
+                    event = MessageAddedEvent(
+                        agent=mock_agent, message={"role": "user", "content": [{"text": "What do I like to eat?"}]}
+                    )
+                    manager.retrieve_customer_context(event)
+
+                    # No new messages added
+                    assert len(mock_agent.messages) == 3
+                    assert mock_agent.messages[-1]["role"] == "user"
+
+                    # Memory injected into last user message
+                    content = mock_agent.messages[-1]["content"]
+                    assert len(content) == 2
+                    assert "<user_context>" in content[0]["text"]
+                    assert content[1]["text"] == "What do I like to eat?"
+
+    def test_retrieve_customer_context_custom_context_tag(self, mock_memory_client):
+        """Test that a custom context_tag is used when configured."""
+        custom_config = AgentCoreMemoryConfig(
+            memory_id="test-memory-123",
+            session_id="test-session-456",
+            actor_id="test-actor-789",
+            retrieval_config={"user_preferences/{actorId}/": RetrievalConfig(top_k=5, relevance_score=0.3)},
+            context_tag="retrieved_memory",
+        )
+
+        mock_memory_client.retrieve_memories.return_value = [
+            {"content": {"text": "User likes sushi"}},
+        ]
+
+        with patch(
+            "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+            return_value=mock_memory_client,
+        ):
+            with patch("boto3.Session") as mock_boto_session:
+                mock_session = Mock()
+                mock_session.region_name = "us-west-2"
+                mock_session.client.return_value = Mock()
+                mock_boto_session.return_value = mock_session
+
+                with patch(
+                    "strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None
+                ):
+                    manager = AgentCoreMemorySessionManager(custom_config)
+
+                    mock_agent = Mock()
+                    mock_agent.messages = [{"role": "user", "content": [{"text": "What do I like?"}]}]
+
+                    event = MessageAddedEvent(
+                        agent=mock_agent, message={"role": "user", "content": [{"text": "What do I like?"}]}
+                    )
+                    manager.retrieve_customer_context(event)
+
+                    content = mock_agent.messages[0]["content"]
+                    assert "<retrieved_memory>" in content[0]["text"]
+                    assert "</retrieved_memory>" in content[0]["text"]
+
+    def test_retrieve_customer_context_default_context_tag(self, mock_memory_client):
+        """Test that the default context_tag is user_context."""
+        default_config = AgentCoreMemoryConfig(
+            memory_id="test-memory-123",
+            session_id="test-session-456",
+            actor_id="test-actor-789",
+            retrieval_config={"user_preferences/{actorId}/": RetrievalConfig(top_k=5, relevance_score=0.3)},
+        )
+
+        mock_memory_client.retrieve_memories.return_value = [
+            {"content": {"text": "User likes sushi"}},
+        ]
+
+        with patch(
+            "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+            return_value=mock_memory_client,
+        ):
+            with patch("boto3.Session") as mock_boto_session:
+                mock_session = Mock()
+                mock_session.region_name = "us-west-2"
+                mock_session.client.return_value = Mock()
+                mock_boto_session.return_value = mock_session
+
+                with patch(
+                    "strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None
+                ):
+                    manager = AgentCoreMemorySessionManager(default_config)
+
+                    mock_agent = Mock()
+                    mock_agent.messages = [{"role": "user", "content": [{"text": "What do I like?"}]}]
+
+                    event = MessageAddedEvent(
+                        agent=mock_agent, message={"role": "user", "content": [{"text": "What do I like?"}]}
+                    )
+                    manager.retrieve_customer_context(event)
+
+                    content = mock_agent.messages[0]["content"]
+                    assert "<user_context>" in content[0]["text"]
+                    assert "</user_context>" in content[0]["text"]

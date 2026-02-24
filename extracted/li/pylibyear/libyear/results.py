@@ -1,10 +1,18 @@
 import json
+import os
 from dataclasses import dataclass
 
 from prettytable import PrettyTable
 
 from libyear.pypi import get_lib_days
 from libyear.utils import get_requirement_name_and_version
+
+_FIELD_NAME_MAP = {
+    "Library": "library",
+    "Current Version": "current_version",
+    "Latest Version": "latest_version",
+    "Libyears behind": "libyears_behind",
+}
 
 
 @dataclass
@@ -77,16 +85,11 @@ def _prepare_data_for_file_output(pretty_table: PrettyTable, total_days: float) 
         "total_libyears_behind": str(total_days),
         "libraries": [],
     }
-    pretty_table.field_names = [
-        "library",
-        "current_version",
-        "latest_version",
-        "libyears_behind",
-    ]
     json_data = pretty_table.get_json_string()
-    data = json.loads(json_data)
-    # NOTE the first element is the field names which we don't want
-    table["libraries"] = data[1:]
+    _field_names, *libraries = json.loads(json_data)
+    table["libraries"] = [
+        {_FIELD_NAME_MAP[k]: v for k, v in lib.items()} for lib in libraries
+    ]
 
     return table
 
@@ -96,5 +99,8 @@ def _write_to_json_file(data, file_name: str = "results.json"):
     Write the results to a JSON file
     """
     print(f"Writing results to {file_name}")
+    dir_name = os.path.dirname(file_name)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(file_name, "w") as f:
         f.write(data)

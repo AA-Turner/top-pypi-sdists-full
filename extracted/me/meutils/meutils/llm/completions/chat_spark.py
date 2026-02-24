@@ -7,7 +7,7 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
-
+import logfire
 
 from meutils.pipe import *
 from meutils.io.openai_files import file_extract, guess_mime_type
@@ -18,6 +18,10 @@ from meutils.llm.clients import AsyncOpenAI, zhipuai_client
 from meutils.llm.openai_utils import to_openai_params
 
 from meutils.schemas.openai_types import chat_completion, chat_completion_chunk, CompletionRequest, CompletionUsage
+
+from openai import AsyncOpenAI
+
+logfire.instrument_openai()
 
 prompt_template = """
 # 角色设定
@@ -47,6 +51,7 @@ prompt_template = """
 - 不要使用"一般来说"、"通常"等泛化表述，除非文档明确提及
 - 不要回答与文件无关的问题（如："你是谁"、"给我讲个笑话"）
 """
+
 
 class Completions(object):
 
@@ -127,7 +132,9 @@ class Completions(object):
         if request.model.startswith("glm-4v-flash"):
             return await zhipuai_client.chat.completions.create(**data)
 
-        return await AsyncOpenAI(api_key=self.api_key).chat.completions.create(**data)
+        client = AsyncOpenAI(api_key=self.api_key)
+
+        return await client.chat.completions.create(**data)
 
 
 # data: {"event": "message", "task_id": "900bbd43-dc0b-4383-a372-aa6e6c414227", "id": "663c5084-a254-4040-8ad3-51f2a3c1a77c", "answer": "Hi", "created_at": 1705398420}\n\n
@@ -183,10 +190,9 @@ if __name__ == '__main__':
                 # 'content': "https://oss.ffire.cc/files/%E6%8B%9B%E6%A0%87%E6%96%87%E4%BB%B6%E5%A4%87%E6%A1%88%E8%A1%A8%EF%BC%88%E7%AC%AC%E4%BA%8C%E6%AC%A1%EF%BC%89.pdf 这个文件讲了什么？",
                 # 'content': "https://translate.google.com/?sl=zh-CN&tl=en&text=%E6%8F%90%E4%BE%9B%E6%96%B9&op=tr1anslate 这个文件讲了什么？",
 
-                # "content": "https://oss.ffire.cc/files/百炼系列手机产品介绍.docx 总结下"
                 # "content": "https://mj101-1317487292.cos.ap-shanghai.myqcloud.com/ai/test.pdf\n\n总结下"
 
-                "content": "http://admin.ilovechatgpt.top/file/4docx_86529298.docx 我无法确定你是否准确识别word里面的论文？",
+                "content": "https://mj101-1317487292.cos.ap-shanghai.myqcloud.com/ai/test.pdf 一句话总结",
                 # "content": "http://admin.ilovechatgpt.top/file/xinjianMicrosoftWordwendangdoc-9052714901036-bGSJLeKbqQdnIZZn.doc 111111234234",
 
             },
@@ -310,7 +316,7 @@ if __name__ == '__main__':
     #  {'role': 'user', 'content': '总结一下'}]
 
     request = {
-        "model": "gemini-all",
+        "model": "gpt-5.3",
         "messages": [
             {
                 "role": "system",
@@ -318,7 +324,7 @@ if __name__ == '__main__':
             },
             {
                 "role": "user",
-                "content": "http://admin.ilovechatgpt.top/file/ceshiwendangdocx_31118702.docx 你好"
+                "content": "https://mj101-1317487292.cos.ap-shanghai.myqcloud.com/ai/test.pdf 一句话总结"
             }
         ],
         "stream": True,

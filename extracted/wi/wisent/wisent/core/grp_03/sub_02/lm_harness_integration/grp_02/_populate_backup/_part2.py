@@ -8,6 +8,7 @@ import random
 from typing import Dict, Any, List
 
 from wisent.core.utils import preferred_dtype, resolve_default_device, resolve_device
+from wisent.core.constants import TAG_GEN_MAX_NEW_TOKENS, TAG_GEN_TEMPERATURE, TAG_ANALYSIS_MAX_NEW_TOKENS
 
 
 def get_benchmark_tags_with_llama(task_name: str, readme_content: str = "") -> List[str]:
@@ -57,8 +58,8 @@ def get_benchmark_tags_with_llama(task_name: str, readme_content: str = "") -> L
             torch_dtype=torch_dtype,
             device_map=device_map,
             device=pipeline_device,
-            max_new_tokens=1000,
-            temperature=0.3,
+            max_new_tokens=TAG_GEN_MAX_NEW_TOKENS,
+            temperature=TAG_GEN_TEMPERATURE,
             do_sample=True,
             pad_token_id=50256
         )
@@ -90,7 +91,7 @@ Tags:"""
             f"{user_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
         )
         print("   Analyzing with Llama...")
-        response = generator(formatted_prompt, max_new_tokens=800, temperature=0.3)
+        response = generator(formatted_prompt, max_new_tokens=TAG_ANALYSIS_MAX_NEW_TOKENS, temperature=TAG_GEN_TEMPERATURE)
         full_response = response[0]['generated_text']
         generated_text = full_response.split(
             "<|start_header_id|>assistant<|end_header_id|>"

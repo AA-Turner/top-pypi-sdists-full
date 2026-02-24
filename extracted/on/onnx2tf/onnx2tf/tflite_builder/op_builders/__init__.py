@@ -16,6 +16,7 @@ from onnx2tf.tflite_builder.op_builders.elementwise import (
     build_hardsigmoid_op,
     build_logsoftmax_op,
     build_logistic_op,
+    build_min_op,
     build_mish_op,
     build_mod_op,
     build_pow_op,
@@ -34,6 +35,7 @@ from onnx2tf.tflite_builder.op_builders.shape import (
     build_cast_op,
     build_concat_op,
     build_constant_of_shape_op,
+    build_depth_to_space_op,
     build_eyelike_op,
     build_expand_op,
     build_flatten_op,
@@ -55,6 +57,7 @@ from onnx2tf.tflite_builder.op_builders.shape import (
 from onnx2tf.tflite_builder.op_builders.conv import (
     build_conv2d_or_depthwise_op,
     build_conv_transpose_op,
+    build_fused_conv_op,
 )
 from onnx2tf.tflite_builder.op_builders.pool import (
     build_pool2d_op,
@@ -88,6 +91,7 @@ from onnx2tf.tflite_builder.op_builders.index import (
     build_scatter_nd_op,
     build_non_max_suppression_op,
     build_one_hot_op,
+    build_topk_op,
 )
 from onnx2tf.tflite_builder.op_builders.norm import (
     build_batch_normalization_op,
@@ -132,6 +136,7 @@ __all__ = [
     "build_hardsigmoid_op",
     "build_logsoftmax_op",
     "build_logistic_op",
+    "build_min_op",
     "build_mish_op",
     "build_mod_op",
     "build_pow_op",
@@ -148,6 +153,7 @@ __all__ = [
     "build_cast_op",
     "build_concat_op",
     "build_constant_of_shape_op",
+    "build_depth_to_space_op",
     "build_eyelike_op",
     "build_expand_op",
     "build_flatten_op",
@@ -167,6 +173,7 @@ __all__ = [
     "build_unsqueeze_op",
     "build_conv2d_or_depthwise_op",
     "build_conv_transpose_op",
+    "build_fused_conv_op",
     "build_pool2d_op",
     "build_einsum_op",
     "build_fused_matmul_op",
@@ -190,6 +197,7 @@ __all__ = [
     "build_scatter_nd_op",
     "build_non_max_suppression_op",
     "build_one_hot_op",
+    "build_topk_op",
     "build_batch_normalization_op",
     "build_l2_normalization_op",
     "build_lrn_op",

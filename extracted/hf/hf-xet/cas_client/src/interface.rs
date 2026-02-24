@@ -1,17 +1,21 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use bytes::Bytes;
 use cas_object::SerializedCasObject;
-use cas_types::FileRange;
+use cas_types::{BatchQueryReconstructionResponse, FileRange, HttpRange, QueryReconstructionResponse};
 use mdb_shard::file_structs::MDBFileInfo;
 use merklehash::MerkleHash;
-use progress_tracking::item_tracking::SingleItemProgressUpdater;
-use progress_tracking::upload_tracking::CompletionTracker;
 
-#[cfg(not(target_family = "wasm"))]
-use crate::OutputProvider;
+use crate::adaptive_concurrency::ConnectionPermit;
 use crate::error::Result;
+use crate::progress_tracked_streams::ProgressCallback;
+
+#[async_trait::async_trait]
+pub trait URLProvider: Send + Sync {
+    // Retrieves the URL.
+    async fn retrieve_url(&self) -> Result<(String, HttpRange)>;
+
+    // Asks for a refresh of the URL; triggered on 403 errors.
+    async fn refresh_url(&self) -> Result<()>;
+}
 
 /// A Client to the Shard service. The shard service
 /// provides for
@@ -20,53 +24,46 @@ use crate::error::Result;
 /// 3. querying of chunk->shard information
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
-pub trait Client {
-    /// Get an entire file by file hash with an optional bytes range.
-    ///
-    /// The http_client passed in is a non-authenticated client. This is used to directly communicate
-    /// with the backing store (S3) to retrieve xorbs.
-    #[cfg(not(target_family = "wasm"))]
-    async fn get_file(
-        &self,
-        hash: &MerkleHash,
-        byte_range: Option<FileRange>,
-        output_provider: &OutputProvider,
-        progress_updater: Option<Arc<SingleItemProgressUpdater>>,
-    ) -> Result<u64>;
-
-    #[cfg(not(target_family = "wasm"))]
-    async fn batch_get_file(&self, files: HashMap<MerkleHash, &OutputProvider>) -> Result<u64> {
-        let mut n_bytes = 0;
-        // Provide the basic naive implementation as a default.
-        for (h, w) in files {
-            n_bytes += self.get_file(&h, None, w, None).await?;
-        }
-        Ok(n_bytes)
-    }
-
+pub trait Client: Send + Sync {
     async fn get_file_reconstruction_info(
         &self,
         file_hash: &MerkleHash,
     ) -> Result<Option<(MDBFileInfo, Option<MerkleHash>)>>;
 
+    async fn get_reconstruction(
+        &self,
+        file_id: &MerkleHash,
+        bytes_range: Option<FileRange>,
+    ) -> Result<Option<QueryReconstructionResponse>>;
+
+    async fn batch_get_reconstruction(&self, file_ids: &[MerkleHash]) -> Result<BatchQueryReconstructionResponse>;
+
+    async fn acquire_download_permit(&self) -> Result<ConnectionPermit>;
+
+    /// Optional progress callback receives (delta, completed, total) in transfer bytes.
+    /// When [uncompressed_size_if_known] is [Some], the returned Bytes must have len() equal to that value.
+    async fn get_file_term_data(
+        &self,
+        url_info: Box<dyn URLProvider>,
+        download_permit: ConnectionPermit,
+        progress_callback: Option<ProgressCallback>,
+        uncompressed_size_if_known: Option<usize>,
+    ) -> Result<(Bytes, Vec<u32>)>;
+
     async fn query_for_global_dedup_shard(&self, prefix: &str, chunk_hash: &MerkleHash) -> Result<Option<Bytes>>;
 
-    /// Upload a new shard.
-    async fn upload_shard(&self, shard_data: Bytes) -> Result<bool>;
+    /// Acquire an upload permit.
+    async fn acquire_upload_permit(&self) -> Result<ConnectionPermit>;
 
-    /// Upload a new xorb.
+    /// Upload a new shard.
+    async fn upload_shard(&self, shard_data: bytes::Bytes, upload_permit: ConnectionPermit) -> Result<bool>;
+
+    /// Upload a new xorb. Optional progress callback receives (delta, completed, total) in transfer bytes.
     async fn upload_xorb(
         &self,
         prefix: &str,
         serialized_cas_object: SerializedCasObject,
-        upload_tracker: Option<Arc<CompletionTracker>>,
+        progress_callback: Option<ProgressCallback>,
+        upload_permit: ConnectionPermit,
     ) -> Result<u64>;
-
-    /// Indicates if the serialized cas object should have a written footer.
-    /// This should only be true for testing with LocalClient.
-    fn use_xorb_footer(&self) -> bool;
-
-    /// Indicates if the serialized cas object should have a written footer.
-    /// This should only be true for testing with LocalClient.
-    fn use_shard_footer(&self) -> bool;
 }

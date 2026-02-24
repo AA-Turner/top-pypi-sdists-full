@@ -12,7 +12,7 @@ from wisent.core.constants import (
     DEFAULT_STRENGTH, DEFAULT_MAX_NEW_TOKENS_EVAL,
     DEFAULT_RANDOM_SEED, CLASSIFIER_THRESHOLD,
     BEHAVIORAL_CONF_IMPROPERLY, BEHAVIORAL_CONF_UNEXPECTED,
-    BEHAVIORAL_CONF_INEFFECTIVE,
+    BEHAVIORAL_CONF_INEFFECTIVE, AGENT_DIAG_TEMPERATURE,
 )
 
 
@@ -64,8 +64,8 @@ def compute_activation_movement(
     base_probs = clf.predict_proba(base)[:, 1]
     steered_probs = clf.predict_proba(steered)[:, 1]
 
-    base_in_pos_region = np.sum(base_probs >= 0.5)
-    steered_in_pos_region = np.sum(steered_probs >= 0.5)
+    base_in_pos_region = np.sum(base_probs >= CLASSIFIER_THRESHOLD)
+    steered_in_pos_region = np.sum(steered_probs >= CLASSIFIER_THRESHOLD)
 
     return {
         "moved_toward_pos_count": int(moved_toward_pos),
@@ -159,13 +159,13 @@ def validate_steering_behavioral(
                         0.5 + behavior_metrics["delta"])
     elif activations_moved and not behavior_improved:
         diagnosis = "IMPROPERLY_IDENTIFIED"
-        confidence = activation_metrics["moved_toward_pos_rate"] * 0.5
+        confidence = activation_metrics["moved_toward_pos_rate"] * BEHAVIORAL_CONF_IMPROPERLY
     elif not activations_moved and behavior_improved:
         diagnosis = "UNEXPECTED_IMPROVEMENT"
-        confidence = 0.3
+        confidence = BEHAVIORAL_CONF_UNEXPECTED
     else:
         diagnosis = "INEFFECTIVE"
-        confidence = 0.1
+        confidence = BEHAVIORAL_CONF_INEFFECTIVE
 
     return BehavioralValidationResult(
         diagnosis=diagnosis,
@@ -236,7 +236,7 @@ def run_behavioral_validation(
 
         # Generate outputs FIRST
         base_full_response = adapter._generate_unsteered(
-            formatted, max_new_tokens=max_new_tokens, temperature=0.1, do_sample=True
+            formatted, max_new_tokens=max_new_tokens, temperature=AGENT_DIAG_TEMPERATURE, do_sample=True
         )
         steered_full_response = adapter.forward_with_steering(
             formatted, steering_vectors=steering_vectors, config=config

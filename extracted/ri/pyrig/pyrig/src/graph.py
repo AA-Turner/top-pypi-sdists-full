@@ -95,6 +95,26 @@ class DiGraph(ABC):
         """Check if a directed edge exists from source to target."""
         return target in self._edges.get(source, set())
 
+    def sorted_ancestors(self, target: str) -> list[str]:
+        """Return all ancestors of the target node, sorted in topological order.
+
+        Ancestors are nodes that have a directed path to the target (i.e., depend
+        on it directly or transitively). The result is sorted in topological
+        order (dependencies before dependents) using Kahn's algorithm.
+
+        Args:
+            target: Node to find ancestors of.
+
+        Returns:
+            List of ancestor node identifiers, sorted with dependencies first.
+            Returns empty list if target is not in the graph.
+
+        Raises:
+            ValueError: If the subgraph of ancestors contains a cycle, making
+                topological sorting impossible.
+        """
+        return self.topological_sort_subgraph(self.ancestors(target))
+
     def ancestors(self, target: str) -> set[str]:
         """Find all nodes that have a path to the target node.
 
@@ -114,9 +134,6 @@ class DiGraph(ABC):
             Set of all nodes with a directed path to target (excludes target itself).
             Returns empty set if target is not in the graph.
         """
-        if target not in self:
-            return set()
-
         visited: set[str] = set()
         queue: deque[str] = deque(self._reverse_edges.get(target, set()))
 
@@ -131,49 +148,64 @@ class DiGraph(ABC):
 
         return visited
 
-    def shortest_path_length(self, source: str, target: str) -> int:
-        """Find the shortest path length (number of edges) between two nodes.
+    def longest_dependent_chain(self, node: str) -> tuple[str, ...]:
+        """Return the longest directed path that "belongs to" (is rooted at) a node.
 
-        Uses BFS to find the minimum number of edges required to traverse from
-        source to target. In dependency graph context, this represents the
-        dependency depth between packages.
+        "Belongs to" in this context means the path of dependents starting from
+        the given node following reverse edges (nodes that depend on the node,
+        their dependents, and so on). For example, if `A` is depended-on by
+        `B` and `C`, and `D` depends on `C`, then
+        `longest_path_belonging_to('A')` -> ``('A', 'C', 'D')``.
 
-        Used by `pyrig.rig.configs.workflows.health_check.HealthCheckWorkflowConfigFile`
-        to calculate cron schedule offsets based on dependency depth to pyrig,
-        ensuring dependent packages run health checks after their dependencies.
+        Implementation: depth-first search with memoization (dynamic
+        programming). This runs in O(V + E) time on a DAG. Cycle detection is
+        performed and a ``ValueError`` is raised if a cycle is encountered.
 
         Args:
-            source: Starting node.
-            target: Destination node.
+            node: Node identifier to compute longest dependent-path for.
 
         Returns:
-            Number of edges in the shortest path. Returns 0 if source == target.
+            Tuple of node identifiers representing the longest path starting
+            with ``node`` and continuing along dependents.
 
         Raises:
-            ValueError: If either node is not in the graph, or if no path exists
-                from source to target.
+            ValueError: If the graph contains a cycle,
+                making longest path computation impossible.
+            ValueError: If the specified node does not exist in the graph.
         """
-        if source not in self or target not in self:
-            msg = f"Node not in graph: {source if source not in self else target}"
-            raise ValueError(msg)
+        memo: dict[str, tuple[str, ...]] = {}
+        visiting: set[str] = set()
 
-        if source == target:
-            return 0
+        def dfs(n: str) -> tuple[str, ...]:
+            if n in memo:
+                return memo[n]
+            if n in visiting:
+                msg = "Cycle detected while computing longest path"
+                raise ValueError(msg)
 
-        visited: set[str] = {source}
-        queue: deque[tuple[str, int]] = deque([(source, 0)])
+            visiting.add(n)
 
-        while queue:
-            node, distance = queue.popleft()
-            for neighbor in self._edges.get(node, set()):
-                if neighbor == target:
-                    return distance + 1
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    queue.append((neighbor, distance + 1))
+            # Start with the trivial path (the node itself)
+            best: tuple[str, ...] = (n,)
 
-        msg = f"No path from {source} to {target}"
-        raise ValueError(msg)
+            # Iterate dependents (nodes that have an edge -> n). Sort for
+            # deterministic tie-breaking when multiple equal-length paths exist.
+            dependents = sorted(self._reverse_edges.get(n, set()))
+            for dep in dependents:
+                candidate_tail = dfs(dep)
+                # candidate_tail begins with dep; prepend current node
+                candidate = (n, *candidate_tail)
+                # Prefer longer paths; break ties deterministically by tuple
+                if len(candidate) > len(best) or (
+                    len(candidate) == len(best) and candidate < best
+                ):
+                    best = candidate
+
+            visiting.remove(n)
+            memo[n] = best
+            return best
+
+        return dfs(node)
 
     def topological_sort_subgraph(self, nodes: set[str]) -> list[str]:
         """Sort a subset of nodes in topological order (dependencies first).

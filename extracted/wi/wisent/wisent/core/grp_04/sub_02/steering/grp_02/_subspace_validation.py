@@ -5,14 +5,22 @@ import torch
 from wisent.core.cli.cli_logger import setup_logger
 from wisent.core.activations.core.atoms import LayerName
 from wisent.core.steering._subspace_analysis import UNIVERSAL_SUBSPACE_RANK
-from wisent.core.constants import ZERO_THRESHOLD
+from wisent.core import constants as _C
+from wisent.core.constants import (
+    ZERO_THRESHOLD,
+    SUBSPACE_LINEAR_VARIANCE_THRESHOLD,
+    SUBSPACE_CONE_THRESHOLD,
+    SUBSPACE_MANIFOLD_THRESHOLD,
+    SUBSPACE_CLUSTER_SILHOUETTE_THRESHOLD,
+    SUBSPACE_ORTHOGONAL_THRESHOLD,
+)
 
 UNIVERSAL_SUBSPACE_THRESHOLDS = {
-    "linear_variance_threshold": 0.85,
-    "cone_threshold": 0.65,
-    "manifold_threshold": 0.70,
-    "cluster_silhouette_threshold": 0.55,
-    "orthogonal_threshold": 0.12,
+    "linear_variance_threshold": SUBSPACE_LINEAR_VARIANCE_THRESHOLD,
+    "cone_threshold": SUBSPACE_CONE_THRESHOLD,
+    "manifold_threshold": SUBSPACE_MANIFOLD_THRESHOLD,
+    "cluster_silhouette_threshold": SUBSPACE_CLUSTER_SILHOUETTE_THRESHOLD,
+    "orthogonal_threshold": SUBSPACE_ORTHOGONAL_THRESHOLD,
 }
 
 _LOG = setup_logger(__name__)
@@ -88,7 +96,7 @@ def verify_subspace_preservation(
     mod_norms = mod.norm(dim=1)
     norm_ratio = (mod_norms / (orig_norms + ZERO_THRESHOLD)).mean().item()
     metrics["norm_ratio"] = norm_ratio
-    metrics["norm_preserved"] = abs(norm_ratio - 1.0) < 0.05
+    metrics["norm_preserved"] = abs(norm_ratio - 1.0) < _C.SUBSPACE_NORM_TOLERANCE
     
     # 2. Subspace alignment
     alignment = compute_subspace_alignment(orig, mod)
@@ -109,8 +117,8 @@ def verify_subspace_preservation(
     # Overall preservation check
     is_preserved = (
         alignment >= threshold and
-        abs(norm_ratio - 1.0) < 0.1 and
-        abs(spectral_ratio - 1.0) < 0.2
+        abs(norm_ratio - 1.0) < _C.SUBSPACE_SPECTRAL_RATIO_LOW and
+        abs(spectral_ratio - 1.0) < _C.SUBSPACE_SPECTRAL_RATIO_HIGH
     )
     metrics["is_preserved"] = is_preserved
     
@@ -150,14 +158,26 @@ def get_recommended_geometry_thresholds(
     # Adjust for sample size
     # Small samples -> more conservative (raise thresholds)
     if n_samples < 20:
-        thresholds["linear_variance_threshold"] = min(0.95, thresholds["linear_variance_threshold"] + 0.1)
-        thresholds["cone_threshold"] = max(0.5, thresholds["cone_threshold"] - 0.1)
+        thresholds["linear_variance_threshold"] = min(
+            _C.SUBSPACE_VAR_THRESHOLD_MAX,
+            thresholds["linear_variance_threshold"] + _C.SUBSPACE_VAR_THRESHOLD_ADJUST,
+        )
+        thresholds["cone_threshold"] = max(
+            _C.SUBSPACE_CONE_MIN_DYNAMIC,
+            thresholds["cone_threshold"] - _C.SUBSPACE_CONE_ADJUST,
+        )
     elif n_samples > 100:
-        thresholds["linear_variance_threshold"] = max(0.75, thresholds["linear_variance_threshold"] - 0.05)
-    
+        thresholds["linear_variance_threshold"] = max(
+            _C.SUBSPACE_VAR_THRESHOLD_MIN,
+            thresholds["linear_variance_threshold"] - _C.SUBSPACE_VAR_FINE_ADJUST,
+        )
+
     # Adjust for hidden dimension
     # Higher dim -> structure detection is harder
-    if hidden_dim > 4096:
-        thresholds["cluster_silhouette_threshold"] = max(0.4, thresholds["cluster_silhouette_threshold"] - 0.1)
+    if hidden_dim > _C.SUBSPACE_HIDDEN_DIM_LARGE:
+        thresholds["cluster_silhouette_threshold"] = max(
+            _C.SUBSPACE_SILHOUETTE_MIN_DYNAMIC,
+            thresholds["cluster_silhouette_threshold"] - _C.SUBSPACE_SILHOUETTE_ADJUST,
+        )
     
     return thresholds

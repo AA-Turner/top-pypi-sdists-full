@@ -3,7 +3,7 @@ Type annotations for mediatailor service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,6 +25,7 @@ from .literals import (
     AccessTypeType,
     AdMarkupTypeType,
     AdsInteractionExcludeEventTypeType,
+    AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
     ChannelStateType,
     CompressionMethodType,
@@ -266,11 +267,11 @@ class AdMarkerPassthroughTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 class AdsInteractionLogOutputTypeDef(TypedDict):
-    PublishOptInEventTypes: NotRequired[list[Literal["RAW_ADS_RESPONSE"]]]
+    PublishOptInEventTypes: NotRequired[list[AdsInteractionPublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[list[AdsInteractionExcludeEventTypeType]]
 
 class AdsInteractionLogTypeDef(TypedDict):
-    PublishOptInEventTypes: NotRequired[Sequence[Literal["RAW_ADS_RESPONSE"]]]
+    PublishOptInEventTypes: NotRequired[Sequence[AdsInteractionPublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[Sequence[AdsInteractionExcludeEventTypeType]]
 
 class AlertTypeDef(TypedDict):

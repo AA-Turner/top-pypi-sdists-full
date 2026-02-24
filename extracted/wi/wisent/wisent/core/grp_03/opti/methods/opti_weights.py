@@ -21,6 +21,7 @@ import optuna
 import torch
 
 from wisent.core.opti.core.atoms import BaseOptimizer, Direction, HPOConfig, HPORun
+from wisent.core.constants import WEIGHT_MIN_DISTANCE_FRACTION
 
 from wisent.core.opti.methods._opti_weights_checkpointing import WeightsCheckpointingMixin
 
@@ -228,7 +229,7 @@ class WeightsOptimizer(BaseOptimizer, WeightsCheckpointingMixin):
         max_weight_position = params["max_weight_position"] * (self.num_layers - 1)
 
         # Compute min_weight_distance from position
-        min_weight_distance = 0.6 * (self.num_layers - 1)
+        min_weight_distance = WEIGHT_MIN_DISTANCE_FRACTION * (self.num_layers - 1)
 
         if self.config.method == "directional":
             project_with_kernel(

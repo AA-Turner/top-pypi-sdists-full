@@ -158,6 +158,8 @@ class Thread(TypedDict):
     """The current interrupts of the thread, a map of task_id to list of interrupts."""
     ttl: NotRequired[ThreadTTLInfo]
     """TTL information if set for this thread. Only present when ?include=ttl is passed."""
+    extracted: NotRequired[dict[str, Any]]
+    """Extracted values from thread JSONB columns, populated when extract is specified."""
 
 
 class ThreadTask(TypedDict):

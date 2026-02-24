@@ -3,7 +3,7 @@ Type annotations for wickr service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -84,6 +84,8 @@ __all__ = (
     "GetNetworkSettingsResponseTypeDef",
     "GetOidcInfoRequestTypeDef",
     "GetOidcInfoResponseTypeDef",
+    "GetOpentdfConfigRequestTypeDef",
+    "GetOpentdfConfigResponseTypeDef",
     "GetSecurityGroupRequestTypeDef",
     "GetSecurityGroupResponseTypeDef",
     "GetUserRequestTypeDef",
@@ -128,6 +130,8 @@ __all__ = (
     "RegisterOidcConfigResponseTypeDef",
     "RegisterOidcConfigTestRequestTypeDef",
     "RegisterOidcConfigTestResponseTypeDef",
+    "RegisterOpentdfConfigRequestTypeDef",
+    "RegisterOpentdfConfigResponseTypeDef",
     "ResponseMetadataTypeDef",
     "SecurityGroupSettingsOutputTypeDef",
     "SecurityGroupSettingsRequestTypeDef",
@@ -386,6 +390,9 @@ class OidcTokenInfoTypeDef(TypedDict):
     tokenType: NotRequired[str]
     expiresIn: NotRequired[int]
 
+class GetOpentdfConfigRequestTypeDef(TypedDict):
+    networkId: str
+
 class GetSecurityGroupRequestTypeDef(TypedDict):
     networkId: str
     groupId: str
@@ -518,6 +525,14 @@ class RegisterOidcConfigTestRequestTypeDef(TypedDict):
     extraAuthParams: NotRequired[str]
     certificate: NotRequired[str]
 
+class RegisterOpentdfConfigRequestTypeDef(TypedDict):
+    networkId: str
+    clientId: str
+    clientSecret: str
+    domain: str
+    provider: str
+    dryRun: NotRequired[bool]
+
 class ShredderSettingsTypeDef(TypedDict):
     canProcessManually: NotRequired[bool]
     intensity: NotRequired[int]
@@ -644,6 +659,13 @@ class GetNetworkResponseTypeDef(TypedDict):
     encryptionKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetOpentdfConfigResponseTypeDef(TypedDict):
+    clientId: str
+    domain: str
+    clientSecret: str
+    provider: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetUserResponseTypeDef(TypedDict):
     userId: str
     firstName: str
@@ -700,6 +722,13 @@ class RegisterOidcConfigTestResponseTypeDef(TypedDict):
     revocationEndpoint: str
     tokenEndpointAuthMethodsSupported: list[str]
     microsoftMultiRefreshToken: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RegisterOpentdfConfigResponseTypeDef(TypedDict):
+    clientId: str
+    domain: str
+    clientSecret: str
+    provider: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateBotResponseTypeDef(TypedDict):
@@ -888,6 +917,7 @@ class NetworkSettingsTypeDef(TypedDict):
     enableClientMetrics: NotRequired[bool]
     readReceiptConfig: NotRequired[ReadReceiptConfigTypeDef]
     dataRetention: NotRequired[bool]
+    enableTrustedDataFormat: NotRequired[bool]
 
 class SecurityGroupSettingsOutputTypeDef(TypedDict):
     alwaysReauthenticate: NotRequired[bool]

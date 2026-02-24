@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yacman
-Version: 0.9.4
+Version: 0.9.5
 Summary: A standardized configuration object for reference genome assemblies
 Home-page: https://github.com/databio/yacman
 Author: Nathan Sheffield, Michal Stolarczyk

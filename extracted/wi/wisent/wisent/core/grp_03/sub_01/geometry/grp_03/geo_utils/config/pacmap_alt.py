@@ -9,7 +9,10 @@ import numpy as np
 from typing import Optional, Tuple
 from pynndescent import NNDescent
 from sklearn.decomposition import PCA
-from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
+from wisent.core.constants import (NORM_EPS, DEFAULT_RANDOM_SEED, PACMAP_INITIAL_SCALE,
+    PACMAP_W_NEAR, PACMAP_W_MID, PACMAP_W_FAR, PACMAP_PHASE_1_END, PACMAP_PHASE_2_END,
+    PACMAP_P1_NEAR, PACMAP_P1_MID, PACMAP_P1_FAR, PACMAP_P2_NEAR, PACMAP_P2_MID,
+    PACMAP_P2_FAR, PACMAP_P3_NEAR, PACMAP_P3_MID, PACMAP_P3_FAR, PACMAP_FAR_REPULSE_EPS)
 
 
 def find_neighbors(
@@ -120,12 +123,12 @@ def pacmap_embedding(
     # Initialize embedding with PCA
     pca_init = PCA(n_components=n_components, random_state=random_state)
     Y = pca_init.fit_transform(X_reduced).astype(np.float32)
-    Y = Y / (np.std(Y) + NORM_EPS) * 0.01  # Small initial scale
+    Y = Y / (np.std(Y) + NORM_EPS) * PACMAP_INITIAL_SCALE
 
     # Optimization weights
-    w_near = 1.0
-    w_mid = 0.5
-    w_far = 0.1
+    w_near = PACMAP_W_NEAR
+    w_mid = PACMAP_W_MID
+    w_far = PACMAP_W_FAR
 
     # Gradient descent optimization
     for iteration in range(num_iters):
@@ -133,12 +136,12 @@ def pacmap_embedding(
 
         # Phase-dependent weights (like original PaCMAP)
         phase = iteration / num_iters
-        if phase < 0.1:
-            w_near_curr, w_mid_curr, w_far_curr = 2.0, 0.5, 0.01
-        elif phase < 0.35:
-            w_near_curr, w_mid_curr, w_far_curr = 3.0, 1.0, 0.1
+        if phase < PACMAP_PHASE_1_END:
+            w_near_curr, w_mid_curr, w_far_curr = PACMAP_P1_NEAR, PACMAP_P1_MID, PACMAP_P1_FAR
+        elif phase < PACMAP_PHASE_2_END:
+            w_near_curr, w_mid_curr, w_far_curr = PACMAP_P2_NEAR, PACMAP_P2_MID, PACMAP_P2_FAR
         else:
-            w_near_curr, w_mid_curr, w_far_curr = 1.0, 0.5, 1.0
+            w_near_curr, w_mid_curr, w_far_curr = PACMAP_P3_NEAR, PACMAP_P3_MID, PACMAP_P3_FAR
 
         # Near pair attractive forces
         for i, j in near_pairs:
@@ -160,7 +163,7 @@ def pacmap_embedding(
         for i, j in far_pairs:
             diff = Y[i] - Y[j]
             dist_sq = np.sum(diff ** 2) + NORM_EPS
-            force = w_far_curr * diff / (dist_sq + 0.01)
+            force = w_far_curr * diff / (dist_sq + PACMAP_FAR_REPULSE_EPS)
             grad[i] += force
             grad[j] -= force
 

@@ -45,20 +45,20 @@ class CloudFrontToS3(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_front_distribution_props: typing.Any = None,
-        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         insert_http_security_headers: typing.Optional[builtins.bool] = None,
         log_cloud_front_access_log: typing.Optional[builtins.bool] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
         origin_path: typing.Optional[builtins.str] = None,
-        response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        response_headers_policy_props: typing.Optional[typing.Union["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: - represents the scope for all the resources.
@@ -103,51 +103,51 @@ class CloudFrontToS3(
     @jsii.member(jsii_name="cloudFrontWebDistribution")
     def cloud_front_web_distribution(
         self,
-    ) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, jsii.get(self, "cloudFrontWebDistribution"))
+    ) -> "_aws_cdk_aws_cloudfront_ceddda9d.Distribution":
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.Distribution", jsii.get(self, "cloudFrontWebDistribution"))
 
     @builtins.property
     @jsii.member(jsii_name="s3BucketInterface")
-    def s3_bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, jsii.get(self, "s3BucketInterface"))
+    def s3_bucket_interface(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", jsii.get(self, "s3BucketInterface"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudFrontFunction")
     def cloud_front_function(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function], jsii.get(self, "cloudFrontFunction"))
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"], jsii.get(self, "cloudFrontFunction"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudFrontLoggingBucket")
     def cloud_front_logging_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], jsii.get(self, "cloudFrontLoggingBucket"))
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], jsii.get(self, "cloudFrontLoggingBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="cloudFrontLoggingBucketAccessLogBucket")
     def cloud_front_logging_bucket_access_log_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], jsii.get(self, "cloudFrontLoggingBucketAccessLogBucket"))
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], jsii.get(self, "cloudFrontLoggingBucketAccessLogBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="originAccessControl")
     def origin_access_control(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl], jsii.get(self, "originAccessControl"))
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"], jsii.get(self, "originAccessControl"))
 
     @builtins.property
     @jsii.member(jsii_name="s3Bucket")
-    def s3_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], jsii.get(self, "s3Bucket"))
+    def s3_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], jsii.get(self, "s3Bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="s3LoggingBucket")
-    def s3_logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], jsii.get(self, "s3LoggingBucket"))
+    def s3_logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], jsii.get(self, "s3LoggingBucket"))
 
 
 @jsii.data_type(
@@ -171,17 +171,17 @@ class CloudFrontToS3Props:
     def __init__(
         self,
         *,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_front_distribution_props: typing.Any = None,
-        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         insert_http_security_headers: typing.Optional[builtins.bool] = None,
         log_cloud_front_access_log: typing.Optional[builtins.bool] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
         origin_path: typing.Optional[builtins.str] = None,
-        response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        response_headers_policy_props: typing.Optional[typing.Union["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param bucket_props: Optional user provided props to override the default props for the S3 Content Bucket, providing both this and ``existingBucketObj`` will cause an error. Note - to log S3 access for this bucket to an existing S3 bucket, put the existing log bucket in bucketProps: ``serverAccessLogsBucket`` Default: - Default props are used
@@ -246,7 +246,7 @@ class CloudFrontToS3Props:
             self._values["response_headers_policy_props"] = response_headers_policy_props
 
     @builtins.property
-    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    def bucket_props(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''Optional user provided props to override the default props for the S3 Content Bucket, providing both this and ``existingBucketObj`` will cause an error.
 
         Note - to log S3 access for this bucket to an existing S3 bucket, put the existing log bucket in bucketProps:
@@ -255,7 +255,7 @@ class CloudFrontToS3Props:
         :default: - Default props are used
         '''
         result = self._values.get("bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_distribution_props(self) -> typing.Any:
@@ -269,7 +269,7 @@ class CloudFrontToS3Props:
     @builtins.property
     def cloud_front_logging_bucket_access_log_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''Optional user provided props to override the default props for the CloudFront Log Bucket Access Log bucket.
 
         Providing both this and ``existingcloudFrontLoggingBucketAccessLogBucket`` will cause an error
@@ -277,21 +277,23 @@ class CloudFrontToS3Props:
         :default: - Default props are used
         '''
         result = self._values.get("cloud_front_logging_bucket_access_log_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''Optional user provided props to override the default props for the CloudFront Log Bucket.
 
         :default: - Default props are used
         '''
         result = self._values.get("cloud_front_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
-    def existing_bucket_obj(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    def existing_bucket_obj(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         '''Optional - existing instance of S3 Bucket.
 
         If this is provided, then also providing bucketProps causes an error.
@@ -299,7 +301,7 @@ class CloudFrontToS3Props:
         :default: - None
         '''
         result = self._values.get("existing_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def insert_http_security_headers(self) -> typing.Optional[builtins.bool]:
@@ -328,13 +330,13 @@ class CloudFrontToS3Props:
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''Optional user provided props to override the default props for the S3 Content Bucket Access Log Bucket.
 
         :default: - Default props are used
         '''
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -359,7 +361,7 @@ class CloudFrontToS3Props:
     @builtins.property
     def response_headers_policy_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"]:
         '''Optional user provided configuration that cloudfront applies to all http responses.
 
         Can be used to pass a custom ResponseSecurityHeadersBehavior, ResponseCustomHeadersBehavior or
@@ -372,7 +374,7 @@ class CloudFrontToS3Props:
         :default: - undefined
         '''
         result = self._values.get("response_headers_policy_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

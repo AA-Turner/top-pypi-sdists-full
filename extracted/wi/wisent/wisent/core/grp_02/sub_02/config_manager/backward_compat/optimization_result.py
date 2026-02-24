@@ -11,9 +11,9 @@ from ..convenience import save_steering_config, get_steering_config
 from wisent.core.constants import (
     DEFAULT_SCORE, TECZA_INDEPENDENCE_WEIGHT, TECZA_OPTIMIZATION_STEPS,
     TECZA_MIN_COSINE_SIM, TECZA_MAX_COSINE_SIM, TETNO_CONDITION_THRESHOLD,
-    TETNO_MAX_ALPHA, TETNO_OPTIMIZATION_STEPS, GROM_ROUTER_HIDDEN_DIM,
-    GROM_INTENSITY_HIDDEN_DIM, GROM_BEHAVIOR_WEIGHT, GROM_SPARSE_WEIGHT,
-    GROM_OPTIMIZATION_STEPS, GROM_LEARNING_RATE,
+    TETNO_MAX_ALPHA, TETNO_OPTIMIZATION_STEPS, TETNO_GATE_TEMPERATURE_LEGACY,
+    GROM_ROUTER_HIDDEN_DIM, GROM_INTENSITY_HIDDEN_DIM, GROM_BEHAVIOR_WEIGHT,
+    GROM_SPARSE_WEIGHT, GROM_OPTIMIZATION_STEPS, GROM_LEARNING_RATE,
 )
 
 @dataclass
@@ -45,7 +45,7 @@ class OptimizationResult:
     sensor_layer: int = -1
     steering_layers: str = ""
     condition_threshold: float = TETNO_CONDITION_THRESHOLD
-    gate_temperature: float = 0.5
+    gate_temperature: float = TETNO_GATE_TEMPERATURE_LEGACY
     per_layer_scaling: bool = True
     use_entropy_scaling: bool = False
     max_alpha: float = TETNO_MAX_ALPHA
@@ -80,7 +80,7 @@ def store_optimization(
     cone_constraint: bool = True, min_cosine_similarity: float = TECZA_MIN_COSINE_SIM,
     max_cosine_similarity: float = TECZA_MAX_COSINE_SIM, sensor_layer: int = -1,
     steering_layers: str = "", condition_threshold: float = TETNO_CONDITION_THRESHOLD,
-    gate_temperature: float = 0.5, per_layer_scaling: bool = True,
+    gate_temperature: float = TETNO_GATE_TEMPERATURE_LEGACY, per_layer_scaling: bool = True,
     use_entropy_scaling: bool = False, max_alpha: float = TETNO_MAX_ALPHA,
     learn_threshold: bool = True, tetno_optimization_steps: int = TETNO_OPTIMIZATION_STEPS,
     gate_hidden_dim: int = GROM_ROUTER_HIDDEN_DIM, intensity_hidden_dim: int = GROM_INTENSITY_HIDDEN_DIM,

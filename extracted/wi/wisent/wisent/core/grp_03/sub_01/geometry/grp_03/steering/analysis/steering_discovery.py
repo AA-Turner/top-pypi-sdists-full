@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from typing import List, Dict, Tuple, Optional, Callable
 from dataclasses import dataclass
-from wisent.core.constants import NORM_EPS, STEERING_N_RANDOM, STEERING_N_PCA, DEFAULT_STRENGTH, DEFAULT_RANDOM_SEED
+from wisent.core.constants import NORM_EPS, STEERING_N_RANDOM, STEERING_N_PCA, DEFAULT_STRENGTH, DEFAULT_RANDOM_SEED, STEERING_GEN_MAX_TOKENS, AGENT_DIAG_TEMPERATURE
 
 
 @dataclass
@@ -189,7 +189,7 @@ def search_layers(
             formatted = adapter.apply_chat_template(messages, add_generation_prompt=True)
 
             # Base response
-            base_resp = adapter._generate_unsteered(formatted, max_new_tokens=100, temperature=0.1)
+            base_resp = adapter._generate_unsteered(formatted, max_new_tokens=STEERING_GEN_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE)
             base_resp = _extract_response(base_resp)
             base_eval = evaluate_fn(base_resp)
             if base_eval == "TRUTHFUL":

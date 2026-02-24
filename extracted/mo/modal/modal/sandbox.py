@@ -35,7 +35,7 @@ from ._utils.name_utils import check_object_name
 from ._utils.task_command_router_client import TaskCommandRouterClient
 from .client import _Client
 from .container_process import _ContainerProcess
-from .exception import ExecutionError, InvalidError, SandboxTerminatedError, SandboxTimeoutError
+from .exception import ClientClosed, ExecutionError, InvalidError, SandboxTerminatedError, SandboxTimeoutError
 from .file_io import FileWatchEvent, FileWatchEventType, _FileIO
 from .gpu import GPU_T
 from .image import _Image
@@ -116,6 +116,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     _tunnels: Optional[dict[int, Tunnel]]
     _enable_snapshot: bool
     _command_router_client: Optional[TaskCommandRouterClient]
+    _attached: bool
 
     @staticmethod
     def _default_pty_info() -> api_pb2.PTYInfo:
@@ -516,6 +517,40 @@ class _Sandbox(_Object, type_prefix="sb"):
         self._enable_snapshot = False
         self._command_router_client = None
 
+    def _initialize_from_other(self, other):
+        super()._initialize_from_other(other)
+        self._attached = other._attached
+
+    def _initialize_from_empty(self):
+        super()._initialize_from_empty()
+        self._attached = True
+
+    async def detach(self):
+        """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+
+        Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
+        any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
+        with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+        """
+        if not self._attached:
+            return
+        if self._command_router_client is not None:
+            await self._command_router_client.close()
+        self._attached = False
+
+    @property
+    def _client(self):
+        self._ensure_attached()
+        return self.__client
+
+    @_client.setter
+    def _client(self, value):
+        self.__client = value
+
+    def _ensure_attached(self):
+        if not self._attached:
+            raise ClientClosed("Unable to perform operation on a detached sandbox")
+
     @staticmethod
     async def from_name(
         app_name: str,
@@ -609,21 +644,57 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         return image
 
-    async def _experimental_mount_image(self, path: Union[PurePosixPath, str], image: Optional[_Image]):
-        """Mount an Image at a path in the Sandbox filesystem."""
+    async def mount_image(self, path: Union[PurePosixPath, str], image: _Image):
+        """Mount an Image at a specified path in a running Sandbox.
 
-        image_id = None
+        `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
+        data, the previous directory will be replaced by the mount.
 
-        if image:
-            if not image._object_id:
-                # FIXME
-                raise InvalidError("Image has not been built.")
+        The `image` argument currently only supports Images that are either:
+        - prebuilt using `image.build()`
+        - referenced by image id, e.g. `Image.from_id(...)`
+        - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
+        or `.snapshot_filesystem()`"
+
+        Usage:
+        ```py notest
+        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+        # You can later mount this snapshot to another Sandbox:
+        sandbox_session_2 = modal.Sandbox.create(...)
+        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+        sandbox_session_2.ls("/user_project")
+        ```
+        """
+
+        if not isinstance(image, _Image):
+            raise TypeError(f"Sandbox.mount_image(image=...) expects an Image object, got {image!r}")
+
+        if image._mount_layers:
+            raise InvalidError(
+                "Sandbox.mount_image() only supports pre-built images. When using `add_local*` methods, "
+                "specify `copy=True` and call `.build()` before passing the image to `mount_image()`:\n\nE.g.\n"
+                'img = modal.Image.debian_slim().add_local_file("foo", "/foo", copy=True).build(app)\n'
+                "sandbox.mount_image(path, img)"
+            )
+        if image._is_empty:
+            image_id = ""
+        elif image._object_id:
             image_id = image._object_id
         else:
-            image_id = ""  # empty string indicates mount an empty dir
+            raise InvalidError(
+                "Sandbox.mount_image() currently only supports Images that are either:\n"
+                "- prebuilt using `image.build()`\n"
+                "- referenced by id, e.g. `Image.from_id()`\n"
+                "- filesystem/directory snapshots e.g. created by `.snapshot_directory()` "
+                "or `.snapshot_filesystem()`\n"
+            )
 
         task_id = await self._get_task_id()
         if (command_router_client := await self._get_command_router_client(task_id)) is None:
+            # It used to be the case that sandboxes could either be controlled through the control
+            # plane or through direct connections, but nowadays they should always use direct control
+            # so this error should be unexpected
             raise InvalidError("Mounting directories requires direct Sandbox control - please contact Modal support.")
 
         posix_path = PurePosixPath(path)
@@ -634,8 +705,31 @@ class _Sandbox(_Object, type_prefix="sb"):
         req = sr_pb2.TaskMountDirectoryRequest(task_id=task_id, path=path_bytes, image_id=image_id)
         await command_router_client.mount_image(req)
 
-    async def _experimental_snapshot_directory(self, path: Union[PurePosixPath, str]) -> _Image:
-        """Snapshot local changes to a previously mounted Image, creating a new Image."""
+    async def _experimental_mount_image(self, path: Union[PurePosixPath, str], image: Optional[_Image]):
+        """Deprecated alias for `Sandbox.mount_image()`."""
+        deprecation_warning(
+            (2026, 2, 20),
+            "The `Sandbox._experimental_mount_image()` method is deprecated. Use `Sandbox.mount_image()` instead.",
+        )
+        if image is None:
+            image = _Image._from_scratch()
+        await self.mount_image(path, image)
+
+    async def snapshot_directory(self, path: Union[PurePosixPath, str]) -> _Image:
+        """Snapshot a directory in a running Sandbox, creating a new Image with its content.
+
+        Directory snapshots are currently persisted for 30 days after they were last created or used.
+
+        Usage:
+        ```py notest
+        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+        # You can later mount this snapshot to another Sandbox:
+        sandbox_session_2 = modal.Sandbox.create(...)
+        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+        sandbox_session_2.ls("/user_project")
+        ```
+        """
 
         task_id = await self._get_task_id()
         if (command_router_client := await self._get_command_router_client(task_id)) is None:
@@ -652,6 +746,15 @@ class _Sandbox(_Object, type_prefix="sb"):
         res = await command_router_client.snapshot_directory(req)
         return _Image._new_hydrated(res.image_id, self._client, None)
 
+    async def _experimental_snapshot_directory(self, path: Union[PurePosixPath, str]) -> _Image:
+        """Deprecated alias for `Sandbox.snapshot_directory()`."""
+        deprecation_warning(
+            (2026, 2, 20),
+            "The `Sandbox._experimental_snapshot_directory()` method is deprecated. "
+            "Use `Sandbox.snapshot_directory()` instead.",
+        )
+        return await self.snapshot_directory(path)
+
     # Live handle methods
 
     async def wait(self, raise_on_termination: bool = True):
@@ -659,7 +762,8 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         while True:
             req = api_pb2.SandboxWaitRequest(sandbox_id=self.object_id, timeout=10)
-            resp = await self._client.stub.SandboxWait(req)
+            # Use the private __client to allow `wait` to work with a detached sandbox
+            resp = await self.__client.stub.SandboxWait(req)
             if resp.result.status:
                 logger.debug(f"Sandbox {self.object_id} wait completed with status {resp.result.status}")
                 self._result = resp.result
@@ -702,7 +806,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         self, user_metadata: Optional[Union[str, dict[str, Any]]] = None
     ) -> SandboxConnectCredentials:
         """
-        [Alpha] Create a token for making HTTP connections to the Sandbox.
+        Create a token for making HTTP connections to the Sandbox.
 
         Also accepts an optional user_metadata string or dict to associate with the token. This metadata
         will be added to the headers by the proxy when forwarding requests to the Sandbox."""
@@ -728,12 +832,32 @@ class _Sandbox(_Object, type_prefix="sb"):
             ),
         )
 
-    async def terminate(self) -> None:
+    @overload
+    async def terminate(
+        self,
+        *,
+        wait: Literal[True],
+    ) -> int: ...
+
+    @overload
+    async def terminate(
+        self,
+        *,
+        wait: Literal[False] = False,
+    ) -> None: ...
+
+    async def terminate(
+        self,
+        *,
+        wait: bool = False,  # wait for terminate to complete and return the exit code.
+    ) -> int | None:
         """Terminate Sandbox execution.
 
         This is a no-op if the Sandbox has already finished running."""
-
         await self._client.stub.SandboxTerminate(api_pb2.SandboxTerminateRequest(sandbox_id=self.object_id))
+        if wait:
+            await self.wait(raise_on_termination=False)
+            return self.returncode
 
     async def poll(self) -> Optional[int]:
         """Check if the Sandbox has finished running.
@@ -1083,6 +1207,12 @@ class _Sandbox(_Object, type_prefix="sb"):
     async def open(
         self,
         path: str,
+    ) -> _FileIO[str]: ...
+
+    @overload
+    async def open(
+        self,
+        path: str,
         mode: "_typeshed.OpenTextMode",
     ) -> _FileIO[str]: ...
 
@@ -1147,7 +1277,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         [`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
         the sandbox's stdout stream.
         """
-
+        self._ensure_attached()
         return self._stdout
 
     @property
@@ -1155,7 +1285,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
         the Sandbox's stderr stream.
         """
-
+        self._ensure_attached()
         return self._stderr
 
     @property
@@ -1164,7 +1294,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         [`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter) for
         the Sandbox's stdin stream.
         """
-
+        self._ensure_attached()
         return self._stdin
 
     @property

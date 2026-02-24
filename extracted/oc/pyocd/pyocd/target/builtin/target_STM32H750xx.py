@@ -1,5 +1,6 @@
 # pyOCD debugger
 # Copyright (c) 2024 Andreas Fritiofson
+# Copyright (c) 2026 Arm Limited
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -118,16 +119,12 @@ FLASH_ALGO = {
 
     'static_base' : 0x20000000 + 0x00000004 + 0x00000560,
     'begin_stack' : 0x20001d70,
-    'end_stack' : 0x20000d70,
-    'begin_data' : 0x20000000 + 0x1000,
+    'end_stack' : 0x20000970,
     'page_size' : 0x400,
     'analyzer_supported' : False,
     'analyzer_address' : 0x00000000,
-    # Enable double buffering
-    'page_buffers' : [
-        0x20000570,
-        0x20000970
-    ],
+    # Disable double buffering
+    'page_buffers' : [0x20000570],
     'min_program_length' : 0x400,
 
     # Relative region addresses and sizes
@@ -336,6 +333,3 @@ class STM32H750xx(CoreSightTarget):
             while self.read32(bank.flash_sr) & 1:
                 time.sleep(0.1)
             LOG.info("mass_erase bank %i done", bank.bank)
-
-
-

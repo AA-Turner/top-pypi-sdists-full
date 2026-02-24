@@ -74,7 +74,7 @@ def analyze_url(ctx: RunContext[TinybirdAgentContext], fixture_url: str):
             ctx.deps.thinking_animation.start()
             return f"{fixture_url} is not a valid url. Please check the url and try again."
 
-        fixture_extension = fixture_url.split(".")[-1]
+        fixture_extension = fixture_url.rsplit(".", maxsplit=1)[-1]
 
         response = ctx.deps.analyze_fixture(fixture_path=fixture_url, format=fixture_extension)
         click.echo(FeedbackManager.success(message="✓ Done!\n"))

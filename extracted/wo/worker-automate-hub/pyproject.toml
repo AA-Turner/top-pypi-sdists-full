@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "worker-automate-hub"
-version = "0.5.1009"
+version = "0.5.1011"
 description = "Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta."
 authors = ["Joel Paim"]
 readme = "README.md"
@@ -37,7 +37,6 @@ pyscreeze = "^0.1.30"
 pywinauto = "^0.6.8"
 pyautogui = "^0.9.54"
 pillow = "^10.4.0"
-opencv-python = "^4.10.0.84"
 pydantic = "^2.8.2"
 pyperclip = "^1.9.0"
 inquirer = "^3.3.0"
@@ -63,6 +62,7 @@ xlrd = "^2.0.1"
 unidecode = "^1.4.0"
 paramiko = "^4.0.0"
 setuptools = "^82.0.0"
+opencv-python = "^4.13.0.92"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

@@ -18,8 +18,8 @@ from typing import Optional, Tuple, Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from wisent.core.constants import (
-    GROM_HIDDEN_DIM, GROM_ROUTER_TEMPERATURE, GROM_ROUTER_HIDDEN_DIM,
-    GROM_MAX_ALPHA, DEFAULT_STRENGTH,
+    DEFAULT_LAYER, GROM_HIDDEN_DIM, GROM_ROUTER_TEMPERATURE,
+    GROM_ROUTER_HIDDEN_DIM, GROM_MAX_ALPHA, DEFAULT_STRENGTH,
 )
 
 from wisent.core.weight_modification._standalone_loader_helpers import (
@@ -105,7 +105,7 @@ class GROMHooks:
         sensor_layer = grom_data.get("sensor_layer")
         if sensor_layer is None:
             sensor_layer = self._layer_name_to_idx.get(
-                self.layer_order[len(self.layer_order) // 2], 15)
+                self.layer_order[len(self.layer_order) // 2], DEFAULT_LAYER)
         self._sensor_layer_idx = sensor_layer
 
         # Load directions
@@ -122,7 +122,7 @@ class GROMHooks:
         if "gate_network_state" in grom_data:
             config = grom_data["gate_network_config"]
             self.gate_network = GatingNetwork(
-                config["input_dim"], config.get("hidden_dim", 128))
+                config["input_dim"], config.get("hidden_dim", GROM_HIDDEN_DIM))
             self.gate_network.load_state_dict(grom_data["gate_network_state"])
             self.gate_network = self.gate_network.to(model.device).eval()
 
@@ -130,15 +130,15 @@ class GROMHooks:
             config = grom_data["intensity_network_config"]
             self.intensity_network = IntensityNetwork(
                 config["input_dim"], config["num_layers"],
-                config.get("hidden_dim", 64),
-                max_alpha=grom_data.get("max_alpha", 3.0))
+                config.get("hidden_dim", GROM_ROUTER_HIDDEN_DIM),
+                max_alpha=grom_data.get("max_alpha", GROM_MAX_ALPHA))
             self.intensity_network.load_state_dict(
                 grom_data["intensity_network_state"])
             self.intensity_network = (
                 self.intensity_network.to(model.device).eval())
 
-        self.gate_temperature = grom_data.get("gate_temperature", 0.5)
-        self.max_alpha = grom_data.get("max_alpha", 3.0)
+        self.gate_temperature = grom_data.get("gate_temperature", GROM_ROUTER_TEMPERATURE)
+        self.max_alpha = grom_data.get("max_alpha", GROM_MAX_ALPHA)
 
     def _get_effective_direction(self, layer_name: str) -> torch.Tensor:
         """Get weighted combination of directions for a layer."""

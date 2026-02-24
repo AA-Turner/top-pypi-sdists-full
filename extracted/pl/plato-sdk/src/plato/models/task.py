@@ -100,6 +100,13 @@ class EvaluationResult(BaseModel):
     actual_mutations: list[dict[str, Any]] | None = None
 
 
+class ComplexityDimensions(BaseModel):
+    """Complexity (C-level 1-5) and abstraction (A-level 1-5) dimension indices for testcase metadata."""
+
+    complexity: float | None = None
+    abstraction: float | None = None
+
+
 class PlatoTaskMetadata(BaseModel):
     """Metadata for a Plato task."""
 
@@ -108,6 +115,7 @@ class PlatoTaskMetadata(BaseModel):
     capabilities: list[str] | None = None
     tags: list[str] | None = None
     rejected: bool | None = False
+    complexity_dimensions: ComplexityDimensions | None = None
 
 
 class PlatoTask(BaseModel):

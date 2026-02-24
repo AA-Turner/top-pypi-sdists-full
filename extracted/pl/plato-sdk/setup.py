@@ -2,8 +2,8 @@ import shutil
 from pathlib import Path
 
 from setuptools import setup
-from setuptools.dist import Distribution
 from setuptools.command.build_py import build_py
+from setuptools.dist import Distribution
 
 
 class BinaryDistribution(Distribution):
@@ -14,7 +14,7 @@ class BinaryDistribution(Distribution):
 
 
 class BuildPyWithExtension(build_py):
-    """Custom build command that copies the Chrome extension into the package.     """
+    """Custom build command that copies the Chrome extension into the package."""
 
     def run(self):
         # Copy extension to package directory before building

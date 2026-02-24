@@ -9,34 +9,35 @@
 """
 It provides functions to build the contact service.
 """
-import os
-import rst2txt
 import logging
-import datetime
+import os
+
 import schedula as sh
-from flask import render_template
 from docutils.core import publish_string
-from flask_security import current_user as cu
-from flask_mail import Message, Mail as _Mail
-from werkzeug.datastructures import MultiDict
-from flask_wtf.recaptcha import RecaptchaField
-from flask_babel import get_locale
 from flask import flash, Blueprint, redirect, request, current_app as ca
-from flask_security.utils import (
-    base_render_json, suppress_form_csrf, get_post_action_redirect
-)
+from flask import render_template
+from flask_babel import get_locale
+from flask_mail import Message, Mail as _Mail
+from flask_security import current_user as cu
 from flask_security.forms import (
     RequiredLocalize, get_form_field_label, StringField, Form, EmailField,
     email_required, EmailValidation
 )
+from flask_security.utils import (
+    base_render_json, suppress_form_csrf, get_post_action_redirect
+)
+from flask_wtf.recaptcha import RecaptchaField
+from werkzeug.datastructures import MultiDict
+
 from .locale import lazy_gettext
+from .utils import now_utc
 
 log = logging.getLogger(__name__)
 bp = Blueprint('contact', __name__)
 
 
 def prepare_message(boby, subject, recipients, reply_to=None, **kwargs):
-    body = publish_string(boby, writer=rst2txt.Writer()).decode()
+    body = publish_string(boby, writer="text").decode()
     html = publish_string(boby, writer_name='html').decode()
     return Message(
         body=body, html=html, subject=subject, recipients=recipients,
@@ -121,8 +122,7 @@ def contact():
                 to=[form.data['email'], ca.config.get('MAIL_DEFAULT_SENDER')],
                 rst='contact', reply_to=form.data['email'], data={
                     'user': cu, 'data': data,
-                    'created': datetime.datetime.now().strftime(
-                        "%d/%m/%Y-%H:%M:%S")
+                    'created': now_utc().strftime("%d/%m/%Y-%H:%M:%S")
                 }
             )
             flash(str(lazy_gettext(

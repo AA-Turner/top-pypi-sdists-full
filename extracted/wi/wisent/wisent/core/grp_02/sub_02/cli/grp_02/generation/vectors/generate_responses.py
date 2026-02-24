@@ -7,6 +7,7 @@ import torch
 
 from wisent.core.models import get_generate_kwargs
 from wisent.core.activations import ExtractionStrategy, extract_activation
+from wisent.core.constants import DATA_SPLIT_RATIO, DATA_SPLIT_SEED
 
 
 def execute_generate_responses(args):
@@ -92,8 +93,8 @@ def execute_generate_responses(args):
         
         load_limit = max(args.num_questions * 2, 20)
         load_kwargs = dict(
-            split_ratio=0.8,
-            seed=42,
+            split_ratio=DATA_SPLIT_RATIO,
+            seed=DATA_SPLIT_SEED,
             limit=load_limit,
             training_limit=None,
             testing_limit=None
@@ -132,7 +133,7 @@ def execute_generate_responses(args):
                     print(f"   ❌ Failed to load task '{args.task}'")
                     for loader_name, err in errors.items():
                         print(f"      {loader_name} error: {err}")
-                    sys.exit(1)
+                    raise ValueError(f"Failed to load task '{args.task}': {errors}")
 
     # Generate responses
     print(f"🤖 Generating responses...\n")

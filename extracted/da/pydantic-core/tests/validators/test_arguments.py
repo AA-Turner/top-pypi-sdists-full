@@ -1,3 +1,4 @@
+import os
 import platform
 import re
 import sys
@@ -1169,8 +1170,12 @@ def test_error_display(pydantic_version):
         '1 validation error for arguments\n'
         'b\n'
         '  Missing required argument [type=missing_argument, '
-        "input_value=ArgsKwargs((), {'a': 1}), input_type=ArgsKwargs]\n"
-        f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/missing_argument'
+        "input_value=ArgsKwargs((), {'a': 1}), input_type=ArgsKwargs]"
+        + (
+            f'\n    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/missing_argument'
+            if os.environ.get('PYDANTIC_ERRORS_INCLUDE_URL') != 'false'
+            else ''
+        )
     )
     # insert_assert(exc_info.value.json(include_url=False))
     assert exc_info.value.json(include_url=False) == (

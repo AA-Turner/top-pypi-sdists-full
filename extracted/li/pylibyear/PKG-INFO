@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylibyear
-Version: 0.4.0
+Version: 0.4.1
 Summary: A simple measure of software dependency freshness.
 Project-URL: Documentation, https://github.com/sam-atkins/pylibyear#readme
 Project-URL: Issues, https://github.com/sam-atkins/pylibyear/issues
@@ -37,6 +37,12 @@ https://libyear.com/
 ![Demo Image](./docs/demo.png)
 
 ## How to install
+
+Using uvx
+
+```bash
+uvx --from pylibyear libyear --help
+```
 
 Using pip
 
@@ -144,4 +150,10 @@ Then run this command to install in editable mode for local development
 
 ```bash
 uv pip install -e .
+```
+
+Available `justfile` recipes:
+
+```bash
+just
 ```

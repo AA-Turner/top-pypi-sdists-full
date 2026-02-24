@@ -1,36 +1,21 @@
 Metadata-Version: 2.4
 Name: fastgit
-Version: 0.0.2
+Version: 0.0.3
 Summary: Use git from python, fast
-Home-page: https://github.com/AnswerDotAI/fastgit
-Author: Jeremy Howard
-Author-email: github@jhoward.fastmail.fm
-License: Apache Software License 2.0
-Keywords: nbdev jupyter notebook python
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
+Author-email: Jeremy Howard <github@jhoward.fastmail.fm>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/AnswerDotAI/fastgit
+Project-URL: Documentation, https://AnswerDotAI.github.io/fastgit
+Keywords: nbdev,jupyter,notebook,python
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Provides-Extra: dev
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-python
-Dynamic: summary
 
 # fastgit
 

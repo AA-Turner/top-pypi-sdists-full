@@ -50,7 +50,7 @@ _C2T = TypeVar("_C2T", bound=_dok_base[np.float64, _2D])
 class _dok_base(  # pyright: ignore[reportIncompatibleMethodOverride]
     _spbase[_ScalarT_co, _ShapeT_co],
     IndexMixin[_ScalarT_co, _ShapeT_co],
-    dict[tuple[Any, ...], _ScalarT_co | Any],
+    dict[tuple[Any, ...], _ScalarT_co | Any],  # pyrefly: ignore[invalid-variance]
     Generic[_ScalarT_co, _ShapeT_co],
 ):
     _format: ClassVar = "dok"
@@ -520,6 +520,7 @@ class dok_array(_dok_base[_ScalarT_co, _ShapeT_co], sparray[_ScalarT_co, _ShapeT
     ) -> None: ...
 
     #
+    @override
     @overload
     # pyrefly: ignore[bad-override]
     def __getitem__(self, key: onp.CanArrayND[np.bool_ | npc.integer] | list[int] | slice, /) -> Self: ...
@@ -715,6 +716,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
     ) -> None: ...
 
     #
+    @override
     @overload
     def __getitem__(  # pyrefly: ignore[bad-override]
         self, key: _ToKey1D | onp.CanArrayND[np.bool_ | npc.integer] | _spbase[np.bool_, _2D] | list[int] | slice, /
@@ -723,6 +725,7 @@ class dok_matrix(_dok_base[_ScalarT_co, _2D], spmatrix[_ScalarT_co], Generic[_Sc
     def __getitem__(self, key: _ToKey2D, /) -> _ScalarT_co: ...  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
 
     #
+    @override
     @overload
     @classmethod
     def fromkeys(  # pyrefly: ignore[bad-override]

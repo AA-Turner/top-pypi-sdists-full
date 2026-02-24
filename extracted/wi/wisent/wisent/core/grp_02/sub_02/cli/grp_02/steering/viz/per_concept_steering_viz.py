@@ -7,6 +7,13 @@ import sys
 import json
 import base64
 from pathlib import Path
+from wisent.core.constants import (
+    STEERING_GEN_MAX_TOKENS, AGENT_DIAG_TEMPERATURE,
+    VIZ_MLP_HIDDEN_DIM, CLASSIFIER_TEST_SIZE,
+    VIZ_MLP_EPOCHS, CLASSIFIER_BATCH_SIZE,
+    DATA_SPLIT_RATIO, DATABASE_PAIR_LOADING_LIMIT,
+    DATABASE_ACTIVATION_LOADING_LIMIT,
+)
 
 
 def execute_per_concept_steering_viz(args):
@@ -66,7 +73,7 @@ def execute_per_concept_steering_viz(args):
         print(f"Loaded {len(all_pair_texts)} pair texts from zwiad results")
     else:
         all_pair_texts = load_pair_texts_from_database(
-            task_name=args.task, limit=1000, database_url=args.database_url
+            task_name=args.task, limit=DATABASE_PAIR_LOADING_LIMIT, database_url=args.database_url
         )
         print(f"Loaded {len(all_pair_texts)} pair texts from database/cache")
         # Rebuild pair_assignments from cluster_labels if IDs don't match
@@ -126,7 +133,7 @@ def execute_per_concept_steering_viz(args):
         # Split 80/20
         random.seed(42)
         random.shuffle(concept_pair_ids)
-        split_idx = int(len(concept_pair_ids) * 0.8)
+        split_idx = int(len(concept_pair_ids) * DATA_SPLIT_RATIO)
         train_ids = set(concept_pair_ids[:split_idx])
         test_ids = concept_pair_ids[split_idx:]
         print(f"  Train: {len(train_ids)}, Test: {len(test_ids)}")
@@ -151,7 +158,7 @@ def execute_per_concept_steering_viz(args):
             pos_ref, neg_ref = load_activations_from_database(
                 model_name=args.model, task_name=args.task, layer=optimal_layer,
                 prompt_format=args.prompt_format, extraction_strategy=args.extraction_strategy,
-                limit=500, database_url=args.database_url, pair_ids=train_ids
+                limit=DATABASE_ACTIVATION_LOADING_LIMIT, database_url=args.database_url, pair_ids=train_ids
             )
         print(f"  Loaded {len(pos_ref)} training reference pairs")
 
@@ -188,7 +195,7 @@ def execute_per_concept_steering_viz(args):
             steered_acts.append(steered_act.cpu())
 
             # Generate responses
-            base_resp = adapter._generate_unsteered(formatted, max_new_tokens=100, temperature=0.1, do_sample=True)
+            base_resp = adapter._generate_unsteered(formatted, max_new_tokens=STEERING_GEN_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=True)
             if "assistant\n" in base_resp:
                 base_resp = base_resp.split("assistant\n")[-1].strip()
             steered_resp = adapter.forward_with_steering(formatted, steering_vectors=steering_vectors, config=SteeringConfig(scale=1.0))
@@ -221,10 +228,10 @@ def execute_per_concept_steering_viz(args):
         y_train = np.concatenate([np.ones(len(pos_ref)), np.zeros(len(neg_ref))])
 
         if classifier_type == "mlp":
-            classifier = MLPClassifier(device="cpu", hidden_dim=256)
+            classifier = MLPClassifier(device="cpu", hidden_dim=VIZ_MLP_HIDDEN_DIM)
         else:
             classifier = LogisticClassifier(device="cpu")
-        train_config = ClassifierTrainConfig(test_size=0.2, num_epochs=100, batch_size=32)
+        train_config = ClassifierTrainConfig(test_size=CLASSIFIER_TEST_SIZE, num_epochs=VIZ_MLP_EPOCHS, batch_size=CLASSIFIER_BATCH_SIZE)
         classifier.fit(X_train, y_train, config=train_config)
 
         # Classify base and steered activations

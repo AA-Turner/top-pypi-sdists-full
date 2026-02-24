@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import ast
 import os
+from typing import Type
 
-from .ast_profile_transformer import (AstProfileTransformer,
-                                      ast_create_profile_node)
+from .ast_profile_transformer import (
+    AstProfileTransformer,
+    ast_create_profile_node,
+)
 from .profmod_extractor import ProfmodExtractor
 
 __docstubs__ = """
@@ -19,12 +24,14 @@ class AstTreeProfiler:
     classes & modules in prof_mod to the profiler to be profiled.
     """
 
-    def __init__(self,
-                 script_file,
-                 prof_mod,
-                 profile_imports,
-                 ast_transformer_class_handler=AstProfileTransformer,
-                 profmod_extractor_class_handler=ProfmodExtractor):
+    def __init__(
+        self,
+        script_file: str,
+        prof_mod: list[str],
+        profile_imports: bool,
+        ast_transformer_class_handler: Type = AstProfileTransformer,
+        profmod_extractor_class_handler: Type = ProfmodExtractor,
+    ) -> None:
         """Initializes the AST tree profiler instance with the script file path
 
         Args:
@@ -52,7 +59,9 @@ class AstTreeProfiler:
         self._profmod_extractor_class_handler = profmod_extractor_class_handler
 
     @staticmethod
-    def _check_profile_full_script(script_file, prof_mod):
+    def _check_profile_full_script(
+        script_file: str, prof_mod: list[str]
+    ) -> bool:
         """Check whether whole script should be profiled.
 
         Checks whether path to script has been passed to prof_mod indicating that
@@ -72,11 +81,13 @@ class AstTreeProfiler:
                 if True, profile whole script.
         """
         script_file_realpath = os.path.realpath(script_file)
-        profile_full_script = script_file_realpath in map(os.path.realpath, prof_mod)
+        profile_full_script = script_file_realpath in map(
+            os.path.realpath, prof_mod
+        )
         return profile_full_script
 
     @staticmethod
-    def _get_script_ast_tree(script_file):
+    def _get_script_ast_tree(script_file: str) -> ast.Module:
         """Generate an abstract syntax from a script file.
 
         Args:
@@ -92,11 +103,13 @@ class AstTreeProfiler:
         tree = ast.parse(script_text, filename=script_file)
         return tree
 
-    def _profile_ast_tree(self,
-                          tree,
-                          tree_imports_to_profile_dict,
-                          profile_full_script=False,
-                          profile_imports=False):
+    def _profile_ast_tree(
+        self,
+        tree: ast.Module,
+        tree_imports_to_profile_dict: dict[int, str],
+        profile_full_script: bool = False,
+        profile_imports: bool = False,
+    ) -> ast.Module:
         """Add profiling to an abstract syntax tree.
 
         Adds nodes to the AST that adds the specified objects to the profiler.
@@ -127,19 +140,23 @@ class AstTreeProfiler:
                 abstract syntax tree with profiling.
         """
         profiled_imports = []
-        argsort_tree_indexes = sorted(list(tree_imports_to_profile_dict), reverse=True)
+        argsort_tree_indexes = sorted(
+            list(tree_imports_to_profile_dict), reverse=True
+        )
         for tree_index in argsort_tree_indexes:
             name = tree_imports_to_profile_dict[tree_index]
             expr = ast_create_profile_node(name)
             tree.body.insert(tree_index + 1, expr)
             profiled_imports.append(name)
         if profile_full_script:
-            tree = self._ast_transformer_class_handler(profile_imports=profile_imports,
-                                                       profiled_imports=profiled_imports).visit(tree)
+            tree = self._ast_transformer_class_handler(
+                profile_imports=profile_imports,
+                profiled_imports=profiled_imports,
+            ).visit(tree)
         ast.fix_missing_locations(tree)
         return tree
 
-    def profile(self):
+    def profile(self) -> ast.Module:
         """Create an abstract syntax tree of a script and add profiling to it.
 
         Reads a script file and generates an abstract syntax tree.
@@ -154,14 +171,19 @@ class AstTreeProfiler:
             (_ast.Module): tree
                 abstract syntax tree with profiling.
         """
-        profile_full_script = self._check_profile_full_script(self._script_file, self._prof_mod)
+        profile_full_script = self._check_profile_full_script(
+            self._script_file, self._prof_mod
+        )
 
         tree = self._get_script_ast_tree(self._script_file)
 
         tree_imports_to_profile_dict = self._profmod_extractor_class_handler(
-            tree, self._script_file, self._prof_mod).run()
-        tree_profiled = self._profile_ast_tree(tree,
-                                               tree_imports_to_profile_dict,
-                                               profile_full_script=profile_full_script,
-                                               profile_imports=self._profile_imports)
+            tree, self._script_file, self._prof_mod
+        ).run()
+        tree_profiled = self._profile_ast_tree(
+            tree,
+            tree_imports_to_profile_dict,
+            profile_full_script=profile_full_script,
+            profile_imports=self._profile_imports,
+        )
         return tree_profiled

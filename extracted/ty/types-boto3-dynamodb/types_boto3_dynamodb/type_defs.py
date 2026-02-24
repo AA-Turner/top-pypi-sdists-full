@@ -2341,6 +2341,7 @@ class UpdateTableInputTableUpdateTypeDef(TypedDict):
     GlobalTableWitnessUpdates: NotRequired[Sequence[GlobalTableWitnessGroupUpdateTypeDef]]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 
 class UpdateTableInputTypeDef(TypedDict):
@@ -2358,6 +2359,7 @@ class UpdateTableInputTypeDef(TypedDict):
     GlobalTableWitnessUpdates: NotRequired[Sequence[GlobalTableWitnessGroupUpdateTypeDef]]
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
+    GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
 
 
 class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):

@@ -89,22 +89,12 @@ class default__:
     @staticmethod
     def SearchAndReplace(source, old__str, new__str):
         o: _dafny.Seq = _dafny.Seq({})
-        d_0_old__pos_: Wrappers.Option
-        out0_: Wrappers.Option
-        out0_ = default__.HasSubString(source, old__str)
-        d_0_old__pos_ = out0_
-        if (d_0_old__pos_).is_None:
-            o = source
-            return o
-        elif True:
-            d_1_pos_: int
-            d_1_pos_ = (d_0_old__pos_).value
-            d_2_source__len_: int
-            d_2_source__len_ = len(source)
-            d_3_old__str__len_: int
-            d_3_old__str__len_ = len(old__str)
-            o = ((_dafny.Seq((source)[:d_1_pos_:])) + (new__str)) + (_dafny.Seq((source)[(d_1_pos_) + (d_3_old__str__len_)::]))
-            return o
+        d_0_x_: tuple
+        out0_: tuple
+        out0_ = default__.SearchAndReplacePos(source, old__str, new__str, 0)
+        d_0_x_ = out0_
+        o = (d_0_x_)[0]
+        return o
         return o
 
     @staticmethod
@@ -130,6 +120,62 @@ class default__:
         return o
 
     @staticmethod
+    def BadStart(source, pos, chars):
+        if (pos) == (0):
+            return False
+        elif True:
+            return ((source)[(pos) - (1)]) in (chars)
+
+    @staticmethod
+    def BadEnd(source, pos, match__len, chars):
+        d_0_source__len_ = len(source)
+        if (StandardLibrary_MemoryMath.default__.Add(pos, match__len)) >= (d_0_source__len_):
+            return False
+        elif True:
+            return ((source)[(pos) + (match__len)]) in (chars)
+
+    @staticmethod
+    def BadMatch(source, pos, match__len, chars):
+        return (default__.BadStart(source, pos, chars)) or (default__.BadEnd(source, pos, match__len, chars))
+
+    @staticmethod
+    def SearchAndReplacePosWhole(source, old__str, new__str, xpos, chars):
+        o: tuple = (_dafny.Seq({}), Wrappers.Option.default()())
+        d_0_old__str__len_: int
+        d_0_old__str__len_ = len(old__str)
+        d_1_pos_: int
+        d_1_pos_ = xpos
+        while (d_1_pos_) < (len(source)):
+            d_2_old__pos_: Wrappers.Option
+            out0_: Wrappers.Option
+            out0_ = default__.HasSubStringPos(source, old__str, d_1_pos_)
+            d_2_old__pos_ = out0_
+            if (d_2_old__pos_).is_None:
+                o = (source, Wrappers.Option_None())
+                return o
+            elif default__.BadMatch(source, (d_2_old__pos_).value, d_0_old__str__len_, chars):
+                d_1_pos_ = ((d_2_old__pos_).value) + (1)
+            elif True:
+                d_3_source__len_: int
+                d_3_source__len_ = len(source)
+                d_4_new__str__len_: int
+                d_4_new__str__len_ = len(new__str)
+                o = (((_dafny.Seq((source)[:(d_2_old__pos_).value:])) + (new__str)) + (_dafny.Seq((source)[((d_2_old__pos_).value) + (d_0_old__str__len_)::])), Wrappers.Option_Some(StandardLibrary_MemoryMath.default__.Add((d_2_old__pos_).value, d_4_new__str__len_)))
+                o = o
+                return o
+        o = (source, Wrappers.Option_None())
+        return o
+        return o
+
+    @staticmethod
+    def SearchAndReplaceWhole(source, old__str, new__str, chars):
+        o: tuple = (_dafny.Seq({}), Wrappers.Option.default()())
+        out0_: tuple
+        out0_ = default__.SearchAndReplacePosWhole(source, old__str, new__str, 0, chars)
+        o = out0_
+        return o
+
+    @staticmethod
     def SearchAndReplaceAll(source__in, old__str, new__str):
         o: _dafny.Seq = _dafny.Seq({})
         d_0_pos_: int
@@ -140,6 +186,26 @@ class default__:
             d_2_res_: tuple
             out0_: tuple
             out0_ = default__.SearchAndReplacePos(d_1_source_, old__str, new__str, d_0_pos_)
+            d_2_res_ = out0_
+            if ((d_2_res_)[1]).is_None:
+                d_0_pos_ = len(d_1_source_)
+                o = (d_2_res_)[0]
+                return o
+            d_1_source_ = (d_2_res_)[0]
+            d_0_pos_ = ((d_2_res_)[1]).value
+        return o
+
+    @staticmethod
+    def SearchAndReplaceAllWhole(source__in, old__str, new__str, chars):
+        o: _dafny.Seq = _dafny.Seq({})
+        d_0_pos_: int
+        d_0_pos_ = 0
+        d_1_source_: _dafny.Seq
+        d_1_source_ = source__in
+        while True:
+            d_2_res_: tuple
+            out0_: tuple
+            out0_ = default__.SearchAndReplacePosWhole(d_1_source_, old__str, new__str, d_0_pos_, chars)
             d_2_res_ = out0_
             if ((d_2_res_)[1]).is_None:
                 d_0_pos_ = len(d_1_source_)
@@ -190,3 +256,9 @@ class default__:
     @_dafny.classproperty
     def Base10(instance):
         return _dafny.Seq(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+    @_dafny.classproperty
+    def AlphaNumeric(instance):
+        return _dafny.Seq("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+    @_dafny.classproperty
+    def AlphaNumericUnder(instance):
+        return _dafny.Seq("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")

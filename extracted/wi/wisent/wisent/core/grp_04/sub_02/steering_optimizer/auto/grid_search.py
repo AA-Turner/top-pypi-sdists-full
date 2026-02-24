@@ -8,7 +8,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 
 import torch
-from wisent.core.constants import NORM_EPS
+from wisent.core.constants import NORM_EPS, AUTO_EVAL_SUBSET, DEFAULT_MAX_NEW_TOKENS_ADAPTER
 
 logger = logging.getLogger(__name__)
 
@@ -161,13 +161,13 @@ def _evaluate_pairs(
 
     correct = 0
     total = 0
-    eval_subset = eval_pairs[:min(30, len(eval_pairs))]
+    eval_subset = eval_pairs[:min(AUTO_EVAL_SUBSET, len(eval_pairs))]
 
     for pair in eval_subset:
         messages = [{"role": "user", "content": pair.prompt}]
         response = wisent_model.generate(
             [messages],
-            **get_generate_kwargs(max_new_tokens=256),
+            **get_generate_kwargs(max_new_tokens=DEFAULT_MAX_NEW_TOKENS_ADAPTER),
         )[0]
 
         eval_kwargs = {

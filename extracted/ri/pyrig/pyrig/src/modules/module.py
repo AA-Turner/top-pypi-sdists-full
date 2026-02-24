@@ -9,13 +9,12 @@ pyrig for dynamic module loading when standard import mechanisms may not suffice
 import importlib.util
 import logging
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from pyrig.src.modules.function import all_functions_from_module
 from pyrig.src.modules.inspection import (
     module_of_obj,
     qualname_of_obj,
@@ -26,7 +25,7 @@ from pyrig.src.modules.path import ModulePath, make_dir_with_init_file
 logger = logging.getLogger(__name__)
 
 
-def module_content_as_str(module: ModuleType) -> str:
+def module_content(module: ModuleType) -> str:
     """Read the source code of a module as a string.
 
     Args:
@@ -97,28 +96,6 @@ def import_module_with_file_fallback(path: Path) -> ModuleType:
     return import_module_from_file(path)
 
 
-def import_module_with_file_fallback_with_default(
-    path: Path, default: Any = None
-) -> ModuleType | Any:
-    """Import a module from a path, returning a default value on failure.
-
-    Wraps ``import_module_with_file_fallback`` with error handling. Returns the
-    default value only when a ``FileNotFoundError`` occurs (other exceptions
-    are not caught).
-
-    Args:
-        path: Path to the module file.
-        default: Value to return if the file is not found.
-
-    Returns:
-        The imported module, or ``default`` if the file does not exist.
-    """
-    try:
-        return import_module_with_file_fallback(path)
-    except FileNotFoundError:
-        return default
-
-
 def import_module_from_file(path: Path) -> ModuleType:
     """Import a module directly from a ``.py`` file using ``importlib.util``.
 
@@ -144,15 +121,11 @@ def import_module_from_file(path: Path) -> ModuleType:
         msg = f"Could not create spec for {path}"
         raise ValueError(msg)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
     if spec.loader is None:
         msg = f"Could not create loader for {path}"
         raise ValueError(msg)
-    try:
-        spec.loader.exec_module(module)
-    except FileNotFoundError:
-        del sys.modules[name]
-        raise
+    spec.loader.exec_module(module)
+    sys.modules[name] = module
     return module
 
 
@@ -244,26 +217,6 @@ def isolated_obj_name(obj: Callable[..., Any] | type | ModuleType) -> str:
     return qualname_of_obj(obj).split(".")[-1]
 
 
-def execute_all_functions_from_module(module: ModuleType) -> list[Any]:
-    """Execute all functions defined in a module and collect their return values.
-
-    Useful for running setup/initialization functions or test fixtures defined
-    in a module. Functions are executed in definition order.
-
-    Args:
-        module: Module containing zero-argument functions to execute.
-
-    Returns:
-        List of return values from all executed functions, in definition order.
-
-    Note:
-        Only executes functions defined directly in the module (not imported).
-        All functions must accept zero arguments or have default values for all
-        parameters. Raises ``TypeError`` if a function requires arguments.
-    """
-    return [f() for f in all_functions_from_module(module)]
-
-
 def default_module_content() -> str:
     """Generate default content for a new Python module file.
 
@@ -340,13 +293,13 @@ def module_has_docstring(module: ModuleType) -> bool:
     return module.__doc__ is not None
 
 
-def import_modules(module_names: Iterable[str]) -> list[ModuleType]:
+def import_modules(module_names: Iterable[str]) -> Generator[ModuleType, None, None]:
     """Import multiple modules by name.
 
     Args:
         module_names: List of dotted module names to import.
 
     Returns:
-        List of imported module objects corresponding to the input names.
+        Generator of imported module objects corresponding to the input names.
     """
-    return list(map(import_module, module_names))
+    return (import_module(name) for name in module_names)

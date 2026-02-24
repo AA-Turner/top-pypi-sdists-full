@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Tuple, Optional
 import argparse
 import torch
+from wisent.core.constants import EXTRACTION_WEIGHTED_DECAY
 
 class ExtractionStrategy(str, Enum):
     """
@@ -240,7 +241,7 @@ def extract_activation(
     elif strategy == ExtractionStrategy.CHAT_WEIGHTED:
         if num_answer_tokens > 0 and seq_len > num_answer_tokens:
             answer_hidden = hidden_states[-num_answer_tokens-1:-1]
-            weights = torch.exp(-torch.arange(answer_hidden.shape[0], dtype=answer_hidden.dtype, device=answer_hidden.device) * 0.5)
+            weights = torch.exp(-torch.arange(answer_hidden.shape[0], dtype=answer_hidden.dtype, device=answer_hidden.device) * EXTRACTION_WEIGHTED_DECAY)
             weights = weights / weights.sum()
             return (answer_hidden * weights.unsqueeze(1)).sum(dim=0)
         return hidden_states[-1]

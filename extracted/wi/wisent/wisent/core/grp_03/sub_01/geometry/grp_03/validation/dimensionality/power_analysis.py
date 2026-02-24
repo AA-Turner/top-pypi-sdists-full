@@ -3,7 +3,12 @@
 import numpy as np
 from typing import Dict, Any
 from scipy import stats
-from wisent.core.constants import STAT_ALPHA, TARGET_POWER
+from wisent.core.constants import (
+    STAT_ALPHA, TARGET_POWER,
+    EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE,
+    POWER_EXCELLENT_THRESHOLD, POWER_ADEQUATE_THRESHOLD, POWER_LOW_THRESHOLD,
+    MDE_SMALL_THRESHOLD, MDE_MEDIUM_THRESHOLD, MDE_LARGE_THRESHOLD,
+)
 
 
 def compute_statistical_power(
@@ -40,7 +45,7 @@ def compute_statistical_power(
         mde = float('inf')
 
     # Power at different effect sizes
-    d_small, d_medium, d_large = 0.2, 0.5, 0.8
+    d_small, d_medium, d_large = EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE
     if n_per_group > 0:
         power_small = 1 - stats.t.cdf(t_crit, df, loc=d_small * np.sqrt(n_per_group / 2))
         power_medium = 1 - stats.t.cdf(t_crit, df, loc=d_medium * np.sqrt(n_per_group / 2))
@@ -75,20 +80,20 @@ def compute_statistical_power(
 
 def _interpret_power(power_medium: float, mde: float) -> str:
     """Generate human-readable power interpretation."""
-    if power_medium >= 0.9:
+    if power_medium >= POWER_EXCELLENT_THRESHOLD:
         power_str = "excellent"
-    elif power_medium >= 0.8:
+    elif power_medium >= POWER_ADEQUATE_THRESHOLD:
         power_str = "adequate"
-    elif power_medium >= 0.5:
+    elif power_medium >= POWER_LOW_THRESHOLD:
         power_str = "moderate"
     else:
         power_str = "low"
 
-    if mde <= 0.3:
+    if mde <= MDE_SMALL_THRESHOLD:
         mde_str = "can detect small effects"
-    elif mde <= 0.6:
+    elif mde <= MDE_MEDIUM_THRESHOLD:
         mde_str = "can detect medium effects"
-    elif mde <= 1.0:
+    elif mde <= MDE_LARGE_THRESHOLD:
         mde_str = "can only detect large effects"
     else:
         mde_str = "severely underpowered"

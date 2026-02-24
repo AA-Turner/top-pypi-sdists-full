@@ -136,7 +136,14 @@ AutomatedReasoningPolicyAnnotationStatusType = Literal["APPLIED", "FAILED"]
 AutomatedReasoningPolicyBuildDocumentContentTypeType = Literal["pdf", "txt"]
 AutomatedReasoningPolicyBuildMessageTypeType = Literal["ERROR", "INFO", "WARNING"]
 AutomatedReasoningPolicyBuildResultAssetTypeType = Literal[
-    "BUILD_LOG", "GENERATED_TEST_CASES", "POLICY_DEFINITION", "POLICY_SCENARIOS", "QUALITY_REPORT"
+    "ASSET_MANIFEST",
+    "BUILD_LOG",
+    "FIDELITY_REPORT",
+    "GENERATED_TEST_CASES",
+    "POLICY_DEFINITION",
+    "POLICY_SCENARIOS",
+    "QUALITY_REPORT",
+    "SOURCE_DOCUMENT",
 ]
 AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
     "BUILDING",
@@ -149,7 +156,7 @@ AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
     "TESTING",
 ]
 AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
-    "IMPORT_POLICY", "INGEST_CONTENT", "REFINE_POLICY"
+    "GENERATE_FIDELITY_REPORT", "IMPORT_POLICY", "INGEST_CONTENT", "REFINE_POLICY"
 ]
 AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
 AutomatedReasoningPolicyTestRunStatusType = Literal[
@@ -441,7 +448,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -481,7 +487,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -656,6 +661,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -744,6 +750,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

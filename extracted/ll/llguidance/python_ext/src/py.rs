@@ -24,7 +24,7 @@ struct PyTokenizer {
 }
 
 #[derive(Clone)]
-#[pyclass(frozen)]
+#[pyclass(frozen, skip_from_py_object)]
 pub(crate) struct LLTokenizer {
     factory: Arc<ParserFactory>,
 }
@@ -329,24 +329,26 @@ impl TokenizerEnv for PyTokenizer {
 }
 
 #[derive(Clone)]
-#[pyclass(frozen)]
+#[pyclass(frozen, skip_from_py_object)]
 struct JsonCompiler {
     item_separator: String,
     key_separator: String,
     whitespace_flexible: bool,
     whitespace_pattern: Option<String>,
     coerce_one_of: bool,
+    json_allowed_escapes: Option<String>,
 }
 
 #[pymethods]
 impl JsonCompiler {
     #[new]
-    #[pyo3(signature = (separators = None, whitespace_flexible = false, coerce_one_of = false, whitespace_pattern = None))]
+    #[pyo3(signature = (separators = None, whitespace_flexible = false, coerce_one_of = false, whitespace_pattern = None, json_allowed_escapes = None))]
     fn py_new(
         separators: Option<(String, String)>,
         whitespace_flexible: bool,
         coerce_one_of: bool,
         whitespace_pattern: Option<String>,
+        json_allowed_escapes: Option<String>,
     ) -> Self {
         let (item_separator, key_separator) = separators.unwrap_or_else(|| {
             if whitespace_flexible {
@@ -361,6 +363,7 @@ impl JsonCompiler {
             whitespace_flexible,
             coerce_one_of,
             whitespace_pattern,
+            json_allowed_escapes,
         }
     }
     #[pyo3(signature = (schema, check = true))]
@@ -373,6 +376,7 @@ impl JsonCompiler {
             coerce_one_of: self.coerce_one_of,
             whitespace_pattern: self.whitespace_pattern.clone(),
             lenient: false,
+            json_allowed_escapes: self.json_allowed_escapes.clone(),
             retriever: None,
         };
         compile_options.apply_to(&mut schema);
@@ -393,7 +397,7 @@ fn check_grammar(grm: TopLevelGrammar, check: bool) -> PyResult<String> {
 }
 
 #[derive(Clone)]
-#[pyclass(frozen)]
+#[pyclass(frozen, skip_from_py_object)]
 struct LarkCompiler {}
 
 #[pymethods]
@@ -410,7 +414,7 @@ impl LarkCompiler {
 }
 
 #[derive(Clone)]
-#[pyclass(frozen)]
+#[pyclass(frozen, skip_from_py_object)]
 struct RegexCompiler {}
 
 #[pymethods]

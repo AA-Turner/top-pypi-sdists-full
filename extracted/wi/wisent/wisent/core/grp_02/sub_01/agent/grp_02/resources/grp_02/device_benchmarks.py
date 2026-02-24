@@ -50,9 +50,6 @@ class DeviceBenchmark:
     def from_dict(cls, data: Dict[str, Any]) -> 'DeviceBenchmark':
         """Create from dictionary loaded from JSON."""
         return cls(**data)
-
-
-class DeviceBenchmarker:
 from wisent.core.agent.resources._device_bench_tests import DeviceBenchTestsMixin1
 from wisent.core.agent.resources._device_bench_tests2 import DeviceBenchTestsMixin2
 from wisent.core.agent.resources._device_bench_runner import DeviceBenchmarkRunnerMixin
@@ -175,3 +172,4 @@ def get_current_device_info() -> Dict[str, str]:
     return {
         "device_id": benchmarker.get_device_id(),
         "device_type": benchmarker.get_device_type()
+    }

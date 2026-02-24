@@ -3,7 +3,7 @@ Type annotations for mediatailor service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediatailor/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -110,7 +110,7 @@ AdsInteractionExcludeEventTypeType = Literal[
     "WARNING_URL_VARIABLE_SUBSTITUTION_FAILED",
     "WARNING_VPAID_AD_DROPPED",
 ]
-AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_RESPONSE"]
+AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_REQUEST", "RAW_ADS_RESPONSE"]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
@@ -316,7 +316,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -325,7 +324,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -365,7 +363,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -540,6 +537,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -581,6 +579,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -614,6 +613,7 @@ RegionName = Literal[
     "ap-southeast-1",
     "ap-southeast-2",
     "ap-southeast-4",
+    "ap-southeast-5",
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",

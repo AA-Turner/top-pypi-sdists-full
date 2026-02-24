@@ -1,27 +1,29 @@
-#![allow(dead_code)]
-
-pub use chunk_cache::{CHUNK_CACHE_SIZE_BYTES, CacheConfig};
-pub use http_client::{Api, ResponseErrorLogger, RetryConfig, build_auth_http_client, build_http_client};
-pub use interface::Client;
-#[cfg(not(target_family = "wasm"))]
-pub use local_client::LocalClient;
-#[cfg(not(target_family = "wasm"))]
-pub use output_provider::{FileProvider, OutputProvider};
+pub use http_client::{Api, ResponseErrorLogger, build_auth_http_client, build_http_client};
+pub use interface::{Client, URLProvider};
 pub use remote_client::RemoteClient;
+pub use simulation::{ClientTestingUtils, DirectAccessClient, MemoryClient, RandomFileContents, RandomXorb};
+#[cfg(not(target_family = "wasm"))]
+pub use simulation::{LocalClient, LocalServer, LocalServerConfig, LocalTestServer};
+use tracing::Level;
 
 pub use crate::error::CasClientError;
 
-mod constants;
-#[cfg(not(target_family = "wasm"))]
-mod download_utils;
+pub mod adaptive_concurrency;
 mod error;
 pub mod exports;
-mod http_client;
+pub mod http_client;
 mod interface;
-#[cfg(not(target_family = "wasm"))]
-mod local_client;
-#[cfg(not(target_family = "wasm"))]
-mod output_provider;
+pub mod progress_tracked_streams;
 pub mod remote_client;
-mod retry_wrapper;
-mod upload_progress_stream;
+pub mod retry_wrapper;
+pub mod simulation;
+
+pub use progress_tracked_streams::{
+    DownloadProgressStream, ProgressCallback, StreamProgressReporter, UploadProgressStream,
+};
+
+#[cfg(not(feature = "elevated_information_level"))]
+pub const INFORMATION_LOG_LEVEL: Level = Level::DEBUG;
+
+#[cfg(feature = "elevated_information_level")]
+pub const INFORMATION_LOG_LEVEL: Level = Level::INFO;

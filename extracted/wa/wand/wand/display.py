@@ -21,8 +21,6 @@ You can use it from CLI also.  Execute :mod:`wand.display` module through
 .. versionadded:: 0.1.9
 
 """
-from __future__ import print_function
-
 import ctypes
 import os
 import platform
@@ -30,7 +28,7 @@ import sys
 import tempfile
 
 from .api import library
-from .exceptions import BlobError, DelegateError
+from .exceptions import BlobError, CoderError, DelegateError
 from .image import Image
 
 __all__ = 'display',
@@ -53,15 +51,15 @@ def display(image, server_name=':0'):
     if system == 'Windows':
         try:
             image.save(filename='win:.')
-        except DelegateError:
+        except (BlobError, CoderError, DelegateError):
             pass
         else:
             return
     if system in ('Windows', 'Darwin'):
-        ext = '.' + image.format.lower()
+        ext = image.format.lower()
         if ext in ('miff', 'xc'):
             ext = 'png'
-        path = tempfile.mktemp(suffix=ext)
+        path = tempfile.mktemp(suffix='.' + ext)
         image.save(filename=path)
         os.system(('start ' if system == 'Windows' else 'open ') + path)
     else:

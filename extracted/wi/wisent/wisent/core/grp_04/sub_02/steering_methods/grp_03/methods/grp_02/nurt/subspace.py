@@ -17,6 +17,7 @@ from wisent.core.constants import (
     DEFAULT_VARIANCE_THRESHOLD,
     MIN_CONCEPT_DIM,
     NURT_NUM_DIMS,
+    NURT_MAX_CONCEPT_DIM,
 )
 
 
@@ -60,7 +61,7 @@ def discover_concept_subspace(
     U, S, Vh = torch.linalg.svd(D_centered, full_matrices=False)
 
     if num_dims > 0:
-        k = min(num_dims, S.shape[0], 10)
+        k = min(num_dims, S.shape[0], NURT_MAX_CONCEPT_DIM)
         k = max(k, MIN_CONCEPT_DIM)
     else:
         # Auto-select k from cumulative variance
@@ -76,8 +77,8 @@ def discover_concept_subspace(
                 k = above[0].item() + 1
             else:
                 k = S.shape[0]
-            # Clamp to [MIN_CONCEPT_DIM, 10]
-            k = max(MIN_CONCEPT_DIM, min(k, 10))
+            # Clamp to [MIN_CONCEPT_DIM, NURT_MAX_CONCEPT_DIM]
+            k = max(MIN_CONCEPT_DIM, min(k, NURT_MAX_CONCEPT_DIM))
 
     return Vh[:k], S, k
 

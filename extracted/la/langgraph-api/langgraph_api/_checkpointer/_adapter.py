@@ -35,7 +35,10 @@ if TYPE_CHECKING:
         CheckpointTuple,
     )
 
-    from langgraph_api._checkpointer.protocol import CheckpointerProtocol
+    from langgraph_api._checkpointer.protocol import (
+        CheckpointerProtocol,
+        FullCheckpointerProtocol,
+    )
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -73,9 +76,9 @@ class CheckpointerCapabilities:
         return cls(
             has_aget_iter=_is_overridden(inner_type, "aget_iter"),
             has_adelete_thread=_is_overridden(inner_type, "adelete_thread"),
-            has_adelete_for_runs=_has_method(inner_type, "adelete_for_runs"),
-            has_acopy_thread=_has_method(inner_type, "acopy_thread"),
-            has_aprune=_has_method(inner_type, "aprune"),
+            has_adelete_for_runs=_is_overridden(inner_type, "adelete_for_runs"),
+            has_acopy_thread=_is_overridden(inner_type, "acopy_thread"),
+            has_aprune=_is_overridden(inner_type, "aprune"),
         )
 
 
@@ -247,7 +250,7 @@ async def get_checkpointer(
     conn: Any | None = None,
     unpack_hook: Callable[[int, bytes], Any] | None = None,
     use_direct_connection: bool = False,
-) -> CheckpointerProtocol:
+) -> FullCheckpointerProtocol:
     global _CHECKPOINTER_CAPABILITIES
     if CUSTOM_CHECKPOINTER is not None:
         # Get or create the inner checkpointer (cached per-thread)
@@ -298,7 +301,7 @@ async def get_checkpointer(
         # Create a fresh adapter each time (not cached) - each gets own latest_iter
         if _CHECKPOINTER_CAPABILITIES is None:
             raise RuntimeError("Capabilities not initialized")
-        return _CustomCheckpointerAdapter(
+        return _CustomCheckpointerAdapter(  # type: ignore[return-value]
             inner=CHECKPOINTER_STACK.inner, capabilities=_CHECKPOINTER_CAPABILITIES
         )
 
@@ -520,8 +523,3 @@ def _is_overridden(inner_type: type, method: str) -> bool:
     if base is None or impl is None:
         return impl is not None
     return impl is not base
-
-
-def _has_method(inner_type: type, method: str) -> bool:
-    """Check if a type has a callable method (for methods not on BaseCheckpointSaver)."""
-    return callable(getattr(inner_type, method, None))

@@ -2923,8 +2923,8 @@ fn lock_conflicting_project_basic1() -> Result<()> {
         foo = ["sortedcontainers==2.4.0"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -2963,8 +2963,8 @@ fn lock_conflicting_project_basic1() -> Result<()> {
         foo = ["sortedcontainers==2.4.0"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -3046,6 +3046,13 @@ fn lock_conflicting_project_basic1() -> Result<()> {
     warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
     Resolved 3 packages in [TIME]
     ");
+
+    context
+        .temp_dir
+        .child("src")
+        .child("project")
+        .child("__init__.py")
+        .touch()?;
 
     // Install from the lockfile.
     uv_snapshot!(context.filters(), context.sync().arg("--frozen"), @"
@@ -3893,10 +3900,18 @@ fn lock_conflicting_project_basic2() -> Result<()> {
         ]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
+
+    context.temp_dir.child("README.md").touch()?;
+    context
+        .temp_dir
+        .child("src")
+        .child("example")
+        .child("__init__.py")
+        .touch()?;
 
     uv_snapshot!(context.filters(), context.lock(), @"
     success: true
@@ -4069,8 +4084,8 @@ fn lock_conflicting_mixed() -> Result<()> {
         project2 = ["sortedcontainers==2.4.0"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -4112,8 +4127,8 @@ fn lock_conflicting_mixed() -> Result<()> {
         project2 = ["sortedcontainers==2.4.0"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -4196,6 +4211,13 @@ fn lock_conflicting_mixed() -> Result<()> {
     ----- stderr -----
     Resolved 3 packages in [TIME]
     ");
+
+    context
+        .temp_dir
+        .child("src")
+        .child("project")
+        .child("__init__.py")
+        .touch()?;
 
     // Install from the lockfile.
     uv_snapshot!(context.filters(), context.sync().arg("--frozen"), @"
@@ -7579,8 +7601,8 @@ fn lock_relative_and_absolute_paths() -> Result<()> {
         license = {text = "MIT"}
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
     "#})?;
     context.temp_dir.child("b/b/__init__.py").touch()?;
@@ -7596,8 +7618,8 @@ fn lock_relative_and_absolute_paths() -> Result<()> {
         license = {text = "MIT"}
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
     "#})?;
     context.temp_dir.child("c/c/__init__.py").touch()?;
 
@@ -9058,8 +9080,8 @@ fn lock_exclusion() -> Result<()> {
         dependencies = ["project"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv.sources]
         project = { path = ".." }
@@ -9259,8 +9281,8 @@ fn lock_non_workspace_source() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -9310,8 +9332,8 @@ fn lock_no_workspace_source() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -9367,8 +9389,8 @@ fn lock_peer_member() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
         )?;
 
@@ -9478,8 +9500,8 @@ async fn lock_index_workspace_member() -> Result<()> {
         iniconfig = {{ index = "my-index" }}
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
         proxy_uri = proxy.uri()
     ))?;
@@ -9613,8 +9635,8 @@ fn lock_dev_transitive() -> Result<()> {
         dependencies = ["foo", "baz", "iniconfig>1"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv.sources]
         foo = { path = "../foo" }
@@ -9638,13 +9660,16 @@ fn lock_dev_transitive() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv]
         dev-dependencies = ["typing-extensions>4"]
         "#,
     )?;
+
+    bar.child("src").child("bar").child("__init__.py").touch()?;
+    baz.child("src").child("baz").child("__init__.py").touch()?;
 
     uv_snapshot!(context.filters(), context.lock().current_dir(&bar), @"
     success: true
@@ -10776,8 +10801,8 @@ fn lock_no_sources() -> Result<()> {
         dependencies = ["iniconfig"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -12987,8 +13012,8 @@ fn lock_editable() -> Result<()> {
         dependencies = ["library"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv.sources]
         library = { path = "../../library" }
@@ -13004,8 +13029,8 @@ fn lock_editable() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
     "#})?;
     library.child("src/__init__.py").touch()?;
 
@@ -13087,8 +13112,8 @@ fn lock_editable() -> Result<()> {
         dependencies = ["library"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv.sources]
         library = { path = "../../library", editable = true }
@@ -14931,8 +14956,8 @@ fn lock_add_member_with_build_system() -> Result<()> {
         dependencies = ["anyio>3"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -15831,8 +15856,8 @@ fn lock_remove_member_non_project() -> Result<()> {
         dependencies = ["anyio>3"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -16667,8 +16692,8 @@ fn lock_narrowed_python_version() -> Result<()> {
         dependencies = ["iniconfig"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -19268,6 +19293,109 @@ fn lock_named_index_cli() -> Result<()> {
     Ok(())
 }
 
+/// If a named index is referenced in `tool.uv.sources` but only defined in `uv.toml`, we should
+/// provide a hint that the index was found in a configuration file.
+#[test]
+fn lock_named_index_config_file_hint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["jinja2==3.1.2"]
+
+        [tool.uv.sources]
+        jinja2 = { index = "pytorch" }
+        "#,
+    )?;
+
+    let uv_toml = context.temp_dir.child("uv.toml");
+    uv_toml.write_str(
+        r#"
+        [[index]]
+        name = "pytorch"
+        url = "https://astral-sh.github.io/pytorch-mirror/whl/cu121"
+        explicit = true
+        "#,
+    )?;
+
+    // The index is defined in `uv.toml`, which should produce a hint.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × Failed to build `project @ file://[TEMP_DIR]/`
+      ├─▶ Failed to parse entry: `jinja2`
+      ╰─▶ Package `jinja2` references an undeclared index: `pytorch`
+
+          hint: Index `pytorch` was found in a project-level `uv.toml`, but indexes referenced via `tool.uv.sources` must be defined in the project's `pyproject.toml`
+    ");
+
+    Ok(())
+}
+
+/// If a named index is referenced in `tool.uv.sources` but only defined in a user-level `uv.toml`
+/// (e.g., `~/.config/uv/uv.toml`), we should provide a hint that the index was found in a
+/// configuration file.
+#[test]
+#[cfg_attr(
+    windows,
+    ignore = "Configuration tests are not yet supported on Windows"
+)]
+fn lock_named_index_user_config_file_hint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["jinja2==3.1.2"]
+
+        [tool.uv.sources]
+        jinja2 = { index = "pytorch" }
+        "#,
+    )?;
+
+    // Define the index in a user-level configuration file.
+    let xdg = assert_fs::TempDir::new().expect("Failed to create temp dir");
+    let uv_config = xdg.child("uv");
+    let uv_toml = uv_config.child("uv.toml");
+    uv_toml.write_str(
+        r#"
+        [[index]]
+        name = "pytorch"
+        url = "https://astral-sh.github.io/pytorch-mirror/whl/cu121"
+        explicit = true
+        "#,
+    )?;
+
+    // The index is defined in a user-level `uv.toml`, which should produce a hint.
+    uv_snapshot!(context.filters(), context.lock()
+        .env(EnvVars::XDG_CONFIG_HOME, xdg.path()), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × Failed to build `project @ file://[TEMP_DIR]/`
+      ├─▶ Failed to parse entry: `jinja2`
+      ╰─▶ Package `jinja2` references an undeclared index: `pytorch`
+
+          hint: Index `pytorch` was found in a user-level `uv.toml`, but indexes referenced via `tool.uv.sources` must be defined in the project's `pyproject.toml`
+    ");
+
+    Ok(())
+}
+
 /// If a name is reused, within a single file, we should raise an error.
 #[test]
 fn lock_repeat_named_index() -> Result<()> {
@@ -19394,8 +19522,8 @@ fn lock_repeat_named_index_member() -> Result<()> {
         url = "https://astral-sh.github.io/pytorch-mirror/whl/cpu"
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv.sources]
         idna = { index = "pytorch" }
@@ -19802,8 +19930,8 @@ fn lock_explicit_virtual_project() -> Result<()> {
         dependencies = ["black"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
 
         [tool.uv]
         package = false
@@ -24672,8 +24800,8 @@ fn lock_group_workspace() -> Result<()> {
         testing = ["pytest>8"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -28544,8 +28672,8 @@ fn lock_script_path() -> Result<()> {
         dependencies = ["iniconfig"]
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
         "#,
     )?;
 
@@ -33443,6 +33571,57 @@ fn lock_tilde_equal_version_u64_max_rejected() -> Result<()> {
           bar ~=18446744073709551615.0
               ^^^^^^^^^^^^^^^^^^^^^^^^
     "#);
+
+    Ok(())
+}
+
+/// Test that `uv lock --frozen` and `UV_FROZEN=1` show a warning.
+///
+/// See: <https://github.com/astral-sh/uv/issues/12783>
+#[test]
+fn lock_frozen_warning() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig==2.0.0"]
+        "#,
+    )?;
+
+    // Create the initial lockfile.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    ");
+
+    // Running `uv lock --frozen` should show a warning.
+    uv_snapshot!(context.filters(), context.lock().arg("--frozen"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: The lockfile at `uv.lock` was only checked for validity, not whether it is up-to-date, because `--frozen` was provided; use `--check` instead
+    ");
+
+    // Running `uv lock` with `UV_FROZEN=1` should show a warning.
+    uv_snapshot!(context.filters(), context.lock().env(EnvVars::UV_FROZEN, "1"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: The lockfile at `uv.lock` was only checked for validity, not whether it is up-to-date, because `UV_FROZEN=1` was provided; use `--no-frozen` or `--check` instead
+    ");
 
     Ok(())
 }

@@ -3,12 +3,11 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
 
 use crate::input::InputType;
-use crate::tools::extract_i64;
 
 use super::line_error::ToErrorValue;
 use super::{ErrorType, ValError};
 
-#[pyclass(extends=PyException, module="pydantic_core._pydantic_core")]
+#[pyclass(extends=PyException, module="pydantic_core._pydantic_core", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PydanticOmit {}
 
@@ -34,7 +33,7 @@ impl PydanticOmit {
     }
 }
 
-#[pyclass(extends=PyException, module="pydantic_core._pydantic_core")]
+#[pyclass(extends=PyException, module="pydantic_core._pydantic_core", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PydanticUseDefault {}
 
@@ -54,7 +53,7 @@ impl PydanticUseDefault {
     }
 }
 
-#[pyclass(extends=PyValueError, module="pydantic_core._pydantic_core", subclass)]
+#[pyclass(extends=PyValueError, module="pydantic_core._pydantic_core", subclass, frozen, skip_from_py_object)]
 #[derive(Debug, Clone, Default)]
 pub struct PydanticCustomError {
     error_type: String,
@@ -120,10 +119,10 @@ impl PydanticCustomError {
         let mut message = message_template.to_string();
         if let Some(ctx) = context {
             for (key, value) in ctx.iter() {
-                let key = key.downcast::<PyString>()?;
-                if let Ok(py_str) = value.downcast::<PyString>() {
+                let key = key.cast::<PyString>()?;
+                if let Ok(py_str) = value.cast::<PyString>() {
                     message = message.replace(&format!("{{{}}}", key.to_str()?), py_str.to_str()?);
-                } else if let Some(value_int) = extract_i64(&value) {
+                } else if let Ok(value_int) = value.extract::<i64>() {
                     message = message.replace(&format!("{{{}}}", key.to_str()?), &value_int.to_string());
                 } else {
                     // fallback for anything else just in case
@@ -135,7 +134,7 @@ impl PydanticCustomError {
     }
 }
 
-#[pyclass(extends=PyValueError, module="pydantic_core._pydantic_core")]
+#[pyclass(extends=PyValueError, module="pydantic_core._pydantic_core", skip_from_py_object, frozen)]
 #[derive(Debug, Clone)]
 pub struct PydanticKnownError {
     error_type: ErrorType,

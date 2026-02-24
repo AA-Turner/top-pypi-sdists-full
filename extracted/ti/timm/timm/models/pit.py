@@ -196,6 +196,7 @@ class PoolingVisionTransformer(nn.Module):
         self.heads = heads
         embed_dim = base_dims[0] * heads[0]
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.global_pool = global_pool
         self.num_tokens = 2 if distilled else 1
         self.feature_info = []
@@ -360,7 +361,7 @@ class PoolingVisionTransformer(nn.Module):
             assert self.global_pool == 'token'
             x, x_dist = x[:, 0], x[:, 1]
             x = self.head_drop(x)
-            x_dist = self.head_drop(x)
+            x_dist = self.head_drop(x_dist)
             if not pre_logits:
                 x = self.head(x)
                 x_dist = self.head_dist(x_dist)

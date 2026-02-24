@@ -2,4 +2,4 @@
 
 import typing
 
-Type = typing.Union[typing.Literal["script", "flow"], typing.Any]
+Type = typing.Union[typing.Literal["system", "human", "user"], typing.Any]

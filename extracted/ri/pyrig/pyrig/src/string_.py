@@ -11,12 +11,13 @@ These utilities are used throughout pyrig for:
 """
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 
-def split_on_uppercase(string: str) -> list[str]:
+def split_on_uppercase(string: str) -> Generator[str, None, None]:
     """Split string at uppercase letter boundaries.
 
     Used internally by pyrig to convert PascalCase class names to snake_case
@@ -26,20 +27,20 @@ def split_on_uppercase(string: str) -> list[str]:
         string: String to split (e.g., "MyClassName").
 
     Returns:
-        List of substrings split before each uppercase letter, with empty strings
+        Generator of substrings split before each uppercase letter, with empty strings
         filtered out.
 
     Example:
-        >>> split_on_uppercase("HelloWorld")
+        >>> list(split_on_uppercase("HelloWorld"))
         ['Hello', 'World']
-        >>> split_on_uppercase("XMLParser")
+        >>> list(split_on_uppercase("XMLParser"))
         ['X', 'M', 'L', 'Parser']
 
     Note:
         Consecutive uppercase letters split individually. Only splits on ASCII
         uppercase letters (A-Z), not Unicode uppercase characters.
     """
-    return [s for s in re.split(r"(?=[A-Z])", string) if s]
+    return (s for s in re.split(r"(?=[A-Z])", string) if s)
 
 
 def make_name_from_obj(
@@ -92,13 +93,10 @@ def make_name_from_obj(
     else:
         obj_name = obj
     parts = obj_name.split(split_on)
-    # Filter out empty parts to avoid names consisting only of separators
-    parts = [part for part in parts if part]
-    if not parts:
-        msg = f"Cannot create name from '{obj_name}': no valid parts after splitting"
-        raise ValueError(msg)
+    parts = (part for part in parts if part)
+
     if capitalize:
-        parts = [part.capitalize() for part in parts]
+        parts = (part.capitalize() for part in parts)
     return join_on.join(parts)
 
 
@@ -212,3 +210,36 @@ def package_req_name_split_pattern() -> re.Pattern[str]:
     """
     # re.compile is already internally cached by Python
     return re.compile(r"[^a-zA-Z0-9_.\[\]-]")
+
+
+def kebab_to_snake_case(value: str) -> str:
+    """Convert project name to package name (hyphens → underscores).
+
+    Args:
+        value: Project name.
+
+    Returns:
+        Package name.
+    """
+    return value.replace("-", "_")
+
+
+def snake_to_kebab_case(value: str) -> str:
+    """Convert package name to project name (underscores → hyphens).
+
+    Args:
+        value: Package name.
+
+    Returns:
+        Project name.
+    """
+    return value.replace("_", "-")
+
+
+def project_name_from_cwd() -> str:
+    """Get project name from current directory name.
+
+    Returns:
+        Current directory name.
+    """
+    return Path.cwd().name

@@ -4,7 +4,7 @@ used types to reduce the verbosity of the imports statements.
 """
 
 __author__ = "Roberto Prevato <roberto.prevato@gmail.com>"
-__version__ = "2.6.0"
+__version__ = "2.6.1"
 
 from .contents import Content as Content
 from .contents import FileBuffer as FileBuffer
@@ -66,6 +66,7 @@ from .server.responses import text as text
 from .server.responses import unauthorized as unauthorized
 from .server.routing import Route as Route
 from .server.routing import RouteException as RouteException
+from .server.routing import RouteNotFound as RouteNotFound
 from .server.routing import Router as Router
 from .server.routing import RoutesRegistry as RoutesRegistry
 from .server.routing import connect as connect

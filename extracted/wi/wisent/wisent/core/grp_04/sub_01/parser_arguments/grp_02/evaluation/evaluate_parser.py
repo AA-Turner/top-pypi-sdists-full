@@ -1,5 +1,7 @@
 """Parser setup for the 'evaluate' command."""
 
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL
+
 
 def setup_evaluate_parser(parser):
     """Set up the evaluate subcommand parser for single-prompt evaluation."""
@@ -19,7 +21,7 @@ def setup_evaluate_parser(parser):
     parser.add_argument(
         "--steering-strength", type=float, default=2.0, help="Steering strength to apply (default: 2.0)"
     )
-    parser.add_argument("--max-new-tokens", type=int, default=100, help="Maximum new tokens to generate (default: 100)")
+    parser.add_argument("--max-new-tokens", type=int, default=DEFAULT_MAX_NEW_TOKENS_EVAL, help="Maximum new tokens to generate (default: 100)")
     parser.add_argument(
         "--trait-description",
         type=str,

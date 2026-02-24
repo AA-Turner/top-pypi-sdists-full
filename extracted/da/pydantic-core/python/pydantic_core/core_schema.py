@@ -79,6 +79,7 @@ class CoreConfig(TypedDict, total=False):
         validate_by_alias: Whether to use the field's alias when validating against the provided input data. Default is `True`.
         validate_by_name: Whether to use the field's name when validating against the provided input data. Default is `False`. Replacement for `populate_by_name`.
         serialize_by_alias: Whether to serialize by alias. Default is `False`, expected to change to `True` in V3.
+        polymorphic_serialization: Whether to enable polymorphic serialization for models and dataclasses. Default is `False`.
         url_preserve_empty_path: Whether to preserve empty URL paths when validating values for a URL type. Defaults to `False`.
     """
 
@@ -120,6 +121,7 @@ class CoreConfig(TypedDict, total=False):
     validate_by_alias: bool  # default: True
     validate_by_name: bool  # default: False
     serialize_by_alias: bool  # default: False
+    polymorphic_serialization: bool  # default: False
     url_preserve_empty_path: bool  # default: False
 
 
@@ -179,6 +181,11 @@ class SerializationInfo(Protocol[ContextT]):
     @property
     def serialize_as_any(self) -> bool:
         """The `serialize_as_any` argument set during serialization."""
+        ...
+
+    @property
+    def polymorphic_serialization(self) -> bool | None:
+        """The `polymorphic_serialization` argument set during serialization, if any."""
         ...
 
     @property
@@ -484,8 +491,6 @@ class InvalidSchema(TypedDict, total=False):
 def invalid_schema(ref: str | None = None, metadata: dict[str, Any] | None = None) -> InvalidSchema:
     """
     Returns an invalid schema, used to indicate that a schema is invalid.
-
-        Returns a schema that matches any value, e.g.:
 
     Args:
         ref: optional unique identifier of the schema, used to reference the schema in other places

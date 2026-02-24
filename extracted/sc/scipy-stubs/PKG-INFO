@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.17.0.2
+Version: 1.17.1.0
 Summary: Type annotations for SciPy
 Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
 Author: Joren Hammudoglu
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Stubs Only
-Requires-Dist: optype[numpy]>=0.14.0,<0.16
-Requires-Dist: scipy>=1.17.0,<1.18 ; extra == 'scipy'
+Requires-Dist: optype[numpy]>=0.14.0,<0.18
+Requires-Dist: scipy>=1.17.1,<1.18 ; extra == 'scipy'
 Maintainer: Joren Hammudoglu, SciPy Developers
 Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>
 Requires-Python: >=3.11
@@ -302,17 +302,20 @@ See the `scipy` columns below for which classes are subscriptable at runtime.
 
 ### `scipy.stats`
 
-| generic type                                                                   | `scipy-stubs` | `scipy`  |                                                                                            |
-| ------------------------------------------------------------------------------ | ------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `Covariance[T: real]`                                                          | `>=1.14.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Covariance.html)   |
-| `Uniform[S: (int, ...), T: floating]`                                          | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Uniform.html)      |
-| `Normal[S: (int, ...), T: floating]`                                           | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Normal.html)       |
-| `Binomial[S: (int, ...), T: floating]`                                         | `>=1.16.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Binomial.html)     |
-| `Mixture[T: floating]`                                                         | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Mixture.html)      |
-| `rv_frozen[D: rv_generic, T: scalar or array]`                                 | `>=1.14.0.0`  | `>=1.17` |                                                                                            |
-| `multi_rv_frozen[D: rv_generic]`                                               | `>=1.14.0.0`  | `>=1.17` |                                                                                            |
-| `CensoredData[X: f64 \| c128, L: f64 \| c128, R: f64 \| c128, I: f64 \| c128]` | `>=1.17.0.2`  | `>=1.18` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.CensoredData.html) |
-| `gaussian_kde[T: floating]`                                                    | `>=1.17.0.2`  | `>=1.18` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html) |
+| generic type                                                                   | `scipy-stubs` | `scipy`  |                                                                                                              |
+| ------------------------------------------------------------------------------ | ------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `Covariance[T: real]`                                                          | `>=1.14.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Covariance.html)                     |
+| `Uniform[S: (int, ...), T: floating]`                                          | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Uniform.html)                        |
+| `Normal[S: (int, ...), T: floating]`                                           | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Normal.html)                         |
+| `Binomial[S: (int, ...), T: floating]`                                         | `>=1.16.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Binomial.html)                       |
+| `Mixture[T: floating]`                                                         | `>=1.15.0.0`  | `>=1.17` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.Mixture.html)                        |
+| `rv_frozen[D: rv_generic, T: scalar or array]`                                 | `>=1.14.0.0`  | `>=1.17` |                                                                                                              |
+| `multi_rv_frozen[D: rv_generic]`                                               | `>=1.14.0.0`  | `>=1.17` |                                                                                                              |
+| `CensoredData[X: f64 \| c128, L: f64 \| c128, R: f64 \| c128, I: f64 \| c128]` | `>=1.17.0.2`  | `>=1.18` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.CensoredData.html)                   |
+| `gaussian_kde[T: floating]`                                                    | `>=1.17.0.2`  | `>=1.18` | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html)                   |
+| `FitResult[F: (float, *) -> f64]`                                              | `>=15.0.0.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.FitResult.html)      |
+| `PearsonRResult[T: floating scalar/array, P: f64 scalar/array]`                | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.PearsonRResult.html) |
+| `TtestResult[T: floating scalar/array]`                                        | `>=1.14.1.0`  |          | [docs](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats._result_classes.TtestResult.html)    |
 
 ## Contributing
 
@@ -349,6 +352,7 @@ Colour ([Colour](https://github.com/colour-science/colour),
 [cuPyNumeric](https://github.com/nv-legate/cupynumeric) |
 derwen.ai ([kglab](https://github.com/DerwenAI/kglab)) |
 [Dify](https://github.com/langgenius/dify) |
+[Dify-Plus](https://github.com/YFGaia/dify-plus) |
 [Dingo](https://github.com/dingo-gw/dingo) |
 [Efax](https://github.com/NeilGirdhar/efax) |
 [Fast GraphRAG](https://github.com/circlemind-ai/fast-graphrag) |
@@ -357,6 +361,7 @@ derwen.ai ([kglab](https://github.com/DerwenAI/kglab)) |
 [graphix](https://github.com/TeamGraphix/graphix) |
 Gurobi ([gurobi-logtools](https://github.com/Gurobi/gurobi-logtools)) |
 [JAX](https://github.com/jax-ml/jax) |
+[LensKit](https://github.com/lenskit/lkpy) |
 [librosa](https://github.com/librosa/librosa) |
 [linearmodels](https://github.com/bashtage/linearmodels) |
 [Lmo](https://github.com/jorenham/Lmo) |
@@ -382,6 +387,7 @@ PyMC ([PyTensor](https://github.com/pymc-devs/pytensor)) |
 [pysmo](https://github.com/pysmo/pysmo) |
 [python-hvac](https://github.com/TomLXXVI/python-hvac) |
 [radioactivedecay](https://github.com/radioactivedecay/radioactivedecay) |
+[scikit-fingerprints](https://github.com/scikit-fingerprints/scikit-fingerprints) |
 scverse ([PyDESeq2](https://github.com/scverse/PyDESeq2), [scanpy](https://github.com/scverse/scanpy)) |
 [Skore](https://github.com/probabl-ai/skore) |
 Theis Lab ([anndata2ri](https://github.com/theislab/anndata2ri)) |

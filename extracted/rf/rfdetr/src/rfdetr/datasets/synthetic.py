@@ -7,6 +7,7 @@
 #
 """Synthetic dataset generation with COCO formatting."""
 
+import json
 import logging
 import random
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ class DatasetSplitRatios:
     Raises:
         ValueError: If ratios are negative or sum is not approximately 1.0.
     """
+
     train: float = 0.7
     val: float = 0.2
     test: float = 0.1
@@ -42,7 +44,9 @@ class DatasetSplitRatios:
         """Validate that ratios sum to approximately 1.0 and are non-negative."""
         total = self.train + self.val + self.test
         if any(r < 0 for r in [self.train, self.val, self.test]):
-            raise ValueError(f"Split ratios must be non-negative, got train={self.train}, val={self.val}, test={self.test}")
+            raise ValueError(
+                f"Split ratios must be non-negative, got train={self.train}, val={self.val}, test={self.test}"
+            )
         if not 0.99 <= total <= 1.01:
             raise ValueError(f"Split ratios must sum to 1.0, got {total}")
 
@@ -104,17 +108,16 @@ def _normalize_split_ratios(split_ratios: SplitRatiosType) -> Dict[str, float]:
 
     raise TypeError(f"split_ratios must be DatasetSplitRatios, tuple, or dict, got {type(split_ratios)}")
 
+
 # Available shapes for synthetic dataset generation
 SYNTHETIC_SHAPES = ["square", "triangle", "circle"]
 # Available colors for synthetic dataset generation (RGB format)
-SYNTHETIC_COLORS = {
-    "red": sv.Color.RED,
-    "green": sv.Color.GREEN,
-    "blue": sv.Color.BLUE
-}
+SYNTHETIC_COLORS = {"red": sv.Color.RED, "green": sv.Color.GREEN, "blue": sv.Color.BLUE}
 
 
-def draw_synthetic_shape(img: np.ndarray, shape: str, color: sv.Color, center: Tuple[int, int], size: int) -> np.ndarray:
+def draw_synthetic_shape(
+    img: np.ndarray, shape: str, color: sv.Color, center: Tuple[int, int], size: int
+) -> np.ndarray:
     """Draw a geometric shape on an image.
 
     Args:
@@ -202,18 +205,15 @@ def generate_synthetic_sample(
         max_size = max(min_size + 1, int(img_size * max_size_ratio))
 
         placed = False
-        for _ in range(100): # max attempts per object
+        for _ in range(100):  # max attempts per object
             obj_size = random.randint(min_size, max_size)
             cx = random.randint(obj_size // 2, img_size - obj_size // 2)
             cy = random.randint(obj_size // 2, img_size - obj_size // 2)
 
             # [x_min, y_min, x_max, y_max]
-            bbox = np.array([
-                float(cx - obj_size / 2),
-                float(cy - obj_size / 2),
-                float(cx + obj_size / 2),
-                float(cy + obj_size / 2)
-            ])
+            bbox = np.array(
+                [float(cx - obj_size / 2), float(cy - obj_size / 2), float(cx + obj_size / 2), float(cy + obj_size / 2)]
+            )
 
             if calculate_boundary_overlap(bbox, img_size) > 0.05:
                 continue
@@ -237,7 +237,7 @@ def generate_synthetic_sample(
 
     detections = sv.Detections(
         xyxy=np.array(xyxys) if xyxys else np.empty((0, 4)),
-        class_id=np.array(class_ids) if class_ids else np.empty((0,), dtype=int)
+        class_id=np.array(class_ids) if class_ids else np.empty((0,), dtype=int),
     )
     return img, detections
 
@@ -285,7 +285,7 @@ def generate_coco_dataset(
     for split, ratio in split_ratios_dict.items():
         num_split = int(num_images * ratio)
         if num_split == 0 and ratio > 0:
-             num_split = 1
+            num_split = 1
         split_indices = all_indices[start_idx : start_idx + num_split]
         start_idx += num_split
 
@@ -316,18 +316,27 @@ def generate_coco_dataset(
             images[file_path] = img
             annotations[file_path] = detections
 
-        dataset = sv.DetectionDataset(
-            classes=classes,
-            images=images,
-            annotations=annotations
-        )
+        dataset = sv.DetectionDataset(classes=classes, images=images, annotations=annotations)
 
-        dataset.as_coco(
-            annotations_path=str(annotations_path)
-        )
+        dataset.as_coco(annotations_path=str(annotations_path))
+
+        # supervision writes 0-indexed sequential category IDs; remap to sparse
+        # 1-based IDs (id * 2 + 1 → 1, 3, 5, …) so synthetic data exercises the
+        # same cat2label remapping path that real COCO datasets require.
+        with open(annotations_path) as read_handle:
+            coco_json = json.load(read_handle)
+        sparse_id = {cat["id"]: cat["id"] * 2 + 1 for cat in coco_json["categories"]}
+        for cat in coco_json["categories"]:
+            cat["id"] = sparse_id[cat["id"]]
+        for ann in coco_json["annotations"]:
+            ann["category_id"] = sparse_id[ann["category_id"]]
+        with open(annotations_path, "w") as write_handle:
+            json.dump(coco_json, write_handle)
+
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Generate synthetic COCO dataset")
     parser.add_argument("--output", type=str, default="synthetic_dataset", help="Output directory")
     parser.add_argument("--num_images", type=int, default=100, help="Total number of images")

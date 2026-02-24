@@ -168,7 +168,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             window_company_select = app["TMessageForm"]
             window_company_select.set_focus()
             window_company_select.child_window(title="&Yes", class_name="TButton").click()
-            await worker_sleep(5)
+            await worker_sleep(10)
 
             app = Application().connect(class_name="TFrmSelecionaEmpresas", backend="uia", title="Seleção de Empresas")
             window_company_select = app["TFrmSelecionaEmpresas"]
@@ -186,7 +186,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             return RpaRetornoProcessoDTO(sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
         
         pyautogui.click(1125, 658)
-        await worker_sleep(2)
+        await worker_sleep(30)
         #Aguarda botão pesqiusar inativar
         current_try = 0
         max_try = 10
@@ -286,7 +286,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
                         break
                 except:
                     console.print("Sem janela de Erro encontrada")
-                window = desktop.window(title_re="Aguarde...")
+                window = desktop.window(title_re="Aguarde...", found_index=0)
                 # Tenta localizar a janela com o título que contém "Aguarde"
                 # Se a janela existe, continua monitorando
                 if window.exists():
@@ -300,7 +300,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
                         break
                     try:
                         desktop_second = Desktop(backend="uia")
-                        window_aguarde = desktop_second.window(title_re="Aguarde...")
+                        window_aguarde = desktop_second.window(title_re="Aguarde...", found_index=0)
                         if not window_aguarde.exists():
                             sucesso = True
                             break

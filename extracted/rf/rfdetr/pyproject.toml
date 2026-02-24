@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rfdetr"
-version = "1.4.3"
+version = "1.5.0"
 description = "RF-DETR"
 readme = "README.md"
 authors = [
@@ -37,7 +37,7 @@ keywords = ["machine-learning", "deep-learning", "vision", "ML", "DL", "AI", "DE
 dependencies = [
     "requests",
     "pycocotools",
-    "torch>=1.13.0,<=2.8.0", # TODO: Torch >=2.9.0 is excluded due to known issues. PRs that help lift this restriction are welcome.
+    "torch>=2.0.0",
     "torchvision>=0.14.0",
     "scipy",
     "tqdm",
@@ -48,6 +48,7 @@ dependencies = [
     "supervision",
     "matplotlib",
     "roboflow",
+    "albumentations>=1.0.0,<2.0.0"
 ]
 
 [project.optional-dependencies]
@@ -60,7 +61,9 @@ onnxexport = [
 ]
 metrics = [
     "tensorboard>=2.13.0",
-    "wandb"
+    "wandb",
+    "mlflow",
+    "clearml"
 ]
 plus = ["rfdetr_plus>=1.0.0"]
 
@@ -75,6 +78,7 @@ tests = [
   "pytest>=7.2.2,<9",
   "pytest-cov>=4,<8",
   "pytest-xdist>=3.6.1,<4",
+  "pytest-rerunfailures>=10,<15",
 ]
 
 docs = [
@@ -133,6 +137,7 @@ addopts = [
     "--color=yes",          # colored output
 #    "--doctest-modules",    # TODO: run doctests from all modules
 ]
+pythonpath = ["src"]
 markers = [
     "gpu: tests that require GPU or are slow on CPU",
 ]

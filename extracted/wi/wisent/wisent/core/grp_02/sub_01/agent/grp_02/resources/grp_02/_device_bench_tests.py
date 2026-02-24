@@ -6,6 +6,7 @@ import subprocess
 import sys
 import torch
 from typing import Dict, Any, Optional
+from wisent.core.constants import DEFAULT_LAYER
 from wisent.core.utils import resolve_default_device
 
 class DeviceBenchTestsMixin1:
@@ -74,13 +75,13 @@ try:
     print("BENCHMARK_DEBUG: Importing CLI...")
     from wisent.cli import run_task_pipeline
     print("BENCHMARK_DEBUG: CLI imported successfully")
-    
+
     print("BENCHMARK_DEBUG: Running task pipeline...")
     # Run actual evaluation with real model and minimal examples
     run_task_pipeline(
         task_name="truthfulqa_mc",
         model_name="meta-llama/Llama-3.1-8B-Instruct",
-        layer="15",  # Required parameter
+        layer="__LAYER__",  # Required parameter
         limit=3,  # Minimum examples for timing
         steering_mode=False,  # No steering for baseline timing
         verbose=False,
@@ -103,7 +104,7 @@ except Exception as e:
     traceback.print_exc()
     raise
 '''
-        
+        test_script = test_script.replace("__LAYER__", str(DEFAULT_LAYER))
         print("   🔧 DEBUG: Writing test script to temporary file...")
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:

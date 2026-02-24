@@ -7,7 +7,13 @@ from dataclasses import dataclass
 
 from .sample_adequacy import compute_sample_dimension_ratio, compute_effective_sample_size
 from .power_analysis import compute_statistical_power
-from wisent.core.constants import STAT_ALPHA
+from wisent.core.constants import (
+    STAT_ALPHA,
+    SHRINKAGE_INTENSITY_THRESHOLD,
+    STATISTICAL_POWER_THRESHOLD,
+    EFFECT_SIZE_LARGE,
+    CONDITION_NUMBER_HIGH,
+)
 from .shrinkage import compute_shrinkage_covariance
 
 
@@ -63,11 +69,11 @@ def run_dimensionality_diagnostics(
 
     if severity in ["moderate", "severe"]:
         recommendations.append(f"Increase sample size: need {power_analysis['required_n_for_80_power']} for 80% power")
-    if shrinkage_info["shrinkage_intensity"] > 0.3:
+    if shrinkage_info["shrinkage_intensity"] > SHRINKAGE_INTENSITY_THRESHOLD:
         recommendations.append("Use regularized methods (shrinkage covariance, L2 regularization)")
-    if power_analysis["power_at_medium_effect"] < 0.5:
-        recommendations.append("Current sample can only reliably detect large effects (d > 0.8)")
-    if eff_sample["condition_number"] > 1000:
+    if power_analysis["power_at_medium_effect"] < STATISTICAL_POWER_THRESHOLD:
+        recommendations.append(f"Current sample can only reliably detect large effects (d > {EFFECT_SIZE_LARGE})")
+    if eff_sample["condition_number"] > CONDITION_NUMBER_HIGH:
         recommendations.append("High condition number: consider dimensionality reduction")
     if not recommendations:
         recommendations.append("Sample size appears adequate for analysis")

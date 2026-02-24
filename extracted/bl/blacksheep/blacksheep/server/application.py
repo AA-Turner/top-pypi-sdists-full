@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from functools import wraps
@@ -200,6 +201,7 @@ class Application(BaseApplication):
         self.on_stop = ApplicationEvent(self)
         self.on_middlewares_configuration = ApplicationSyncEvent(self)
         self.started = False
+        self._started_complete = asyncio.Event()
         self.files_handler = FilesHandler()
         self.server_error_details_handler = ServerErrorDetailsHandler()
         self.base_path: str = ""  # TODO: deprecate
@@ -297,11 +299,18 @@ class Application(BaseApplication):
         if app is self:
             raise TypeError("Cannot mount an application into itself")
 
-        self._mount_registry.mount(path, app)
+        # Include the parent router's prefix in the registered mount path so that
+        # incoming raw_paths (which already carry the prefix) are matched correctly.
+        effective_path = (
+            join_fragments(self.router.prefix, path) if self.router.prefix else path
+        )
+        self._mount_registry.mount(effective_path, app)
 
         if isinstance(app, Application):
             app.base_path = (
-                join_fragments(self.base_path, path) if self.base_path else path
+                join_fragments(self.base_path, effective_path)
+                if self.base_path
+                else effective_path
             )
 
             if self._mount_registry.auto_events:
@@ -732,6 +741,7 @@ class Application(BaseApplication):
 
     async def start(self):
         if self.started:
+            await self._started_complete.wait()
             return
 
         self.started = True
@@ -741,6 +751,7 @@ class Application(BaseApplication):
         if not self.router.fallback:
             self.router.fallback = default_fallback
 
+        self.register_default_di_types()
         self.router.apply_routes()
 
         if self.on_start:
@@ -756,9 +767,20 @@ class Application(BaseApplication):
         if self.after_start:
             await self.after_start.fire()
 
+        self._started_complete.set()
+
     async def stop(self):
         await self.on_stop.fire()
         self.started = False
+        self._started_complete.clear()
+
+    def register_default_di_types(self):
+        """
+        Registers default DI types in the Application DI controller.
+        By default, only the Application object is registered in the DI controller.
+        """
+        if Application not in self._services:
+            self._services.register(Application, instance=self)
 
     async def _handle_lifespan(self, receive, send) -> None:
         message = await receive()
@@ -779,6 +801,9 @@ class Application(BaseApplication):
         await send({"type": "lifespan.shutdown.complete"})
 
     async def _handle_websocket(self, scope, receive, send) -> None:
+        if not self.started:
+            await self.start()
+
         ws = WebSocket(scope, receive, send)
         # TODO: support filters
         route = self.router.get_match_by_method_and_path(
@@ -813,9 +838,18 @@ class Application(BaseApplication):
                 )
 
     def instantiate_request(self, scope, receive) -> Request:
+        # ASGI spec: raw_path is optional. If missing (e.g., in a2wsgi),
+        # generate it from the required 'path' field by encoding to bytes.
+        # Using try/except for performance: no overhead when raw_path exists.
+        try:
+            raw_path = scope["raw_path"]
+        except KeyError:
+            raw_path = scope["path"].encode("utf-8")
+            scope["raw_path"] = raw_path
+
         request = Request.incoming(
             scope["method"],
-            scope["raw_path"],
+            raw_path,
             scope["query_string"],
             list(scope["headers"]),
         )
@@ -835,6 +869,9 @@ class Application(BaseApplication):
             self.extend(PathPrefixMixin)
 
     async def _handle_http(self, scope, receive, send) -> None:
+        if not self.started:
+            await self.start()
+
         assert scope["type"] == "http"
 
         request = self.instantiate_request(scope, receive)
@@ -845,6 +882,7 @@ class Application(BaseApplication):
         request.dispose()
 
     async def __call__(self, scope, receive, send):
+
         if scope["type"] == "http":
             return await self._handle_http(scope, receive, send)
 
@@ -862,7 +900,11 @@ class PathPrefixMixin:
 
     def instantiate_request(self, scope, receive) -> Request:
         request = super().instantiate_request(scope, receive)  # type: ignore
-        request.base_path = self.router.prefix
+        # Combine any upstream mount context (scope["root_path"], e.g. from a
+        # parent app or a reverse proxy) with the router's own prefix so that
+        # get_absolute_url_to_path and OIDC redirects produce fully-qualified paths.
+        scope_root_path = scope.get("root_path", "")
+        request.base_path = join_fragments(scope_root_path, self.router.prefix)
         return request
 
 
@@ -876,14 +918,35 @@ class MountMixin:
         assert tail is not None
         tail = "/" + tail
 
+        # Update root_path per the ASGI spec: the child app must know its mount
+        # prefix so it can generate correct absolute URLs (analogous to WSGI
+        # SCRIPT_NAME).  root_path = parent root_path + the stripped mount prefix.
+        mount_prefix = (
+            scope["path"][: -len(tail)] if tail != "/" else scope["path"].rstrip("/")
+        )
+        scope["root_path"] = scope.get("root_path", "") + mount_prefix
+
         scope["path"] = tail
         scope["raw_path"] = tail.encode("utf8")
 
+    def _is_browser_navigation(self, scope) -> bool:
+        """
+        Returns True if the request is a browser top-level page navigation,
+        detected via the Sec-Fetch-Mode: navigate header sent by modern browsers.
+        API clients and programmatic HTTP libraries do not set this header.
+        """
+        for header_name, header_value in scope.get("headers", ()):
+            if header_name == b"sec-fetch-mode":
+                return header_value == b"navigate"
+        return False
+
     async def _handle_redirect_to_mount_root(self, scope, send):
         """
-        A request to the path "https://.../{mount_path}" must result in a
-        307 Temporary Redirect to the root of the mount: "https://.../{mount_path}/"
-        including a trailing slash.
+        A browser navigation to "https://.../{mount_path}" is redirected to
+        "https://.../{mount_path}/" (with trailing slash) so that relative URLs
+        in HTML pages served by the mounted app resolve correctly.
+        Only issued when Sec-Fetch-Mode: navigate is present (browser page loads);
+        programmatic clients are forwarded directly to preserve request headers.
         """
         response = Response(
             307,
@@ -900,15 +963,21 @@ class MountMixin:
         )
         await send_asgi_response(response, send)
 
+    def _get_request_scope(self, scope): ...
+
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":
             return await super()._handle_lifespan(receive, send)  # type: ignore
 
+        raw_path = scope["raw_path"]
         for route in self.mount_registry.mounted_apps:  # type: ignore
-            route_match = route.match_by_path(scope["raw_path"])
+            route_match = route.match_by_path(raw_path)
             if route_match:
-                raw_path = scope["raw_path"]
-                if raw_path == route.pattern.rstrip(b"/*") and scope["type"] == "http":
+                if (
+                    raw_path == route.pattern.rstrip(b"/*")
+                    and scope["type"] == "http"
+                    and self._is_browser_navigation(scope)
+                ):
                     return await self._handle_redirect_to_mount_root(scope, send)
                 self.handle_mount_path(scope, route_match)
                 return await route.handler(scope, receive, send)

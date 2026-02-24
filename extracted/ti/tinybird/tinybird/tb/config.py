@@ -96,7 +96,7 @@ def write_config(config: Dict[str, Any], dest_file: str = ".tinyb") -> None:
 def get_display_cloud_host(api_host: str) -> str:
     is_local = "localhost" in api_host
     if is_local:
-        port = api_host.split(":")[-1]
+        port = api_host.rsplit(":", maxsplit=1)[-1]
         return f"http://cloud.tinybird.co/local/{port}"
     return CLOUD_HOSTS.get(api_host, api_host)
 

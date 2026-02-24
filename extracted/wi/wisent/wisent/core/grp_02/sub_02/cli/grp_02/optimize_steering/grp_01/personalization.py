@@ -85,9 +85,7 @@ def _execute_personalization_optimization(args):
     # Determine layers to search
     layers = getattr(args, 'layers', None)
     if layers is None:
-        start_layer = max(1, num_layers // 3)
-        end_layer = num_layers - 1
-        layers = list(range(start_layer, end_layer + 1, 2))
+        layers = list(range(0, num_layers, 2))
 
     # Strength range
     strength_range = getattr(args, 'strength_range', [0.5, 5.0])

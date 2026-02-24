@@ -28,7 +28,9 @@ from wisent.core.constants import (
     TECZA_OPTIMIZATION_STEPS,
     TECZA_RETAIN_WEIGHT,
     TETNO_CONDITION_THRESHOLD,
+    TETNO_GATE_TEMPERATURE_LEGACY,
     TETNO_MAX_ALPHA,
+    DEFAULT_STEERING_LAYERS,
     WICHER_CONCEPT_DIM,
 )
 
@@ -37,9 +39,10 @@ from wisent.core.constants import (
 STEERING_STRATEGIES = ["constant", "initial_only", "diminishing", "increasing", "gaussian"]
 
 
+@dataclass
 class MethodConfig:
     """Base configuration for all methods."""
-    method: str
+    method: str = ""
     extraction_strategy: str = "chat_last"
     steering_strategy: str = "constant"  # How steering is applied during generation
 
@@ -112,9 +115,9 @@ class TECZAConfig(MethodConfig):
 class TETNOConfig(MethodConfig):
     """TETNO-specific parameters."""
     sensor_layer: int = DEFAULT_LAYER
-    steering_layers: List[int] = field(default_factory=lambda: [20, 21, 22])
+    steering_layers: List[int] = field(default_factory=lambda: list(DEFAULT_STEERING_LAYERS))
     condition_threshold: float = TETNO_CONDITION_THRESHOLD
-    gate_temperature: float = 0.5
+    gate_temperature: float = TETNO_GATE_TEMPERATURE_LEGACY
     max_alpha: float = TETNO_MAX_ALPHA
     
     def to_args(self) -> Dict[str, Any]:
@@ -133,14 +136,14 @@ class TETNOConfig(MethodConfig):
 class GROMConfig(MethodConfig):
     """GROM-specific parameters."""
     sensor_layer: int = DEFAULT_LAYER
-    steering_layers: List[int] = field(default_factory=lambda: [20, 21, 22])
+    steering_layers: List[int] = field(default_factory=lambda: list(DEFAULT_STEERING_LAYERS))
     num_directions: int = TECZA_NUM_DIRECTIONS
     gate_hidden_dim: int = GROM_ROUTER_HIDDEN_DIM
     intensity_hidden_dim: int = GROM_INTENSITY_HIDDEN_DIM
     behavior_weight: float = GROM_BEHAVIOR_WEIGHT
     retain_weight: float = GROM_RETAIN_WEIGHT
     sparse_weight: float = GROM_SPARSE_WEIGHT
-    max_alpha: float = 2.0
+    max_alpha: float = TETNO_MAX_ALPHA
     optimization_steps: int = GROM_OPTIMIZATION_STEPS
     
     def to_args(self) -> Dict[str, Any]:

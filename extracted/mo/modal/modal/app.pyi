@@ -226,6 +226,7 @@ class _App:
         """
         ...
 
+    async def get_dashboard_url(self) -> str: ...
     def set_description(self, description: str):
         """mdmd:hidden
         Set the description of the App before it starts running.
@@ -832,6 +833,12 @@ class App:
             ...
 
     lookup: typing.ClassVar[__lookup_spec]
+
+    class __get_dashboard_url_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> str: ...
+        async def aio(self, /) -> str: ...
+
+    get_dashboard_url: __get_dashboard_url_spec
 
     def set_description(self, description: str):
         """mdmd:hidden

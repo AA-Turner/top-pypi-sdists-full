@@ -7,7 +7,14 @@ import numpy as np
 import torch
 from typing import Dict, List, Optional, Any, Tuple
 from sklearn.decomposition import PCA
-from wisent.core.constants import ZERO_THRESHOLD
+from wisent.core.constants import (
+    ZERO_THRESHOLD,
+    DIRECTION_ORTHOGONAL_THRESHOLD,
+    DIRECTION_ALIGNED_THRESHOLD,
+    DIRECTION_HIGH_SIMILARITY,
+    DIRECTION_MODERATE_SIMILARITY,
+    DIRECTION_LOW_SIMILARITY,
+)
 
 
 def compute_direction_angles(
@@ -60,8 +67,8 @@ def compute_direction_angles(
         "mean_angle_degrees": float(off_diag_ang.mean()) if n > 1 else 0.0,
         "min_angle_degrees": float(off_diag_ang.min()) if n > 1 else 0.0,
         "max_angle_degrees": float(off_diag_ang.max()) if n > 1 else 0.0,
-        "orthogonal_pairs": int((np.abs(off_diag_cos) < 0.1).sum() // 2) if n > 1 else 0,
-        "aligned_pairs": int((off_diag_cos > 0.9).sum() // 2) if n > 1 else 0,
+        "orthogonal_pairs": int((np.abs(off_diag_cos) < DIRECTION_ORTHOGONAL_THRESHOLD).sum() // 2) if n > 1 else 0,
+        "aligned_pairs": int((off_diag_cos > DIRECTION_ALIGNED_THRESHOLD).sum() // 2) if n > 1 else 0,
     }
 
 
@@ -242,13 +249,13 @@ def _interpret_direction_relationships(angles: Dict[str, Any]) -> List[str]:
     aligned = angles["aligned_pairs"]
     n = angles["n_directions"]
 
-    if mean_cos > 0.8:
+    if mean_cos > DIRECTION_HIGH_SIMILARITY:
         interpretations.append("Directions are highly aligned - may be same concept")
-    elif mean_cos > 0.5:
+    elif mean_cos > DIRECTION_MODERATE_SIMILARITY:
         interpretations.append("Directions are moderately correlated")
-    elif mean_cos > 0.1:
+    elif mean_cos > DIRECTION_LOW_SIMILARITY:
         interpretations.append("Directions are weakly correlated")
-    elif mean_cos > -0.1:
+    elif mean_cos > -DIRECTION_LOW_SIMILARITY:
         interpretations.append("Directions are approximately orthogonal")
     else:
         interpretations.append("Directions are anti-correlated (opposing)")

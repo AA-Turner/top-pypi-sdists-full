@@ -549,6 +549,15 @@ impl PartialOrd for QuickfixAction {
 }
 
 impl<'a> Transaction<'a> {
+    fn allows_explicit_reexport(handle: &Handle) -> bool {
+        matches!(
+            handle.path().details(),
+            ModulePathDetails::FileSystem(_)
+                | ModulePathDetails::Namespace(_)
+                | ModulePathDetails::Memory(_)
+        )
+    }
+
     pub fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
         let idx = self.get_bindings(handle)?.key_to_idx(key);
         let answers = self.get_answers(handle)?;
@@ -1496,7 +1505,7 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    fn find_definition_for_imported_module(
+    pub(crate) fn find_definition_for_imported_module(
         &self,
         handle: &Handle,
         module_name: ModuleName,
@@ -2011,6 +2020,8 @@ impl<'a> Transaction<'a> {
                         }
 
                         if let Some(mut actions) = quick_fixes::generate_code::generate_code_actions(
+                            self,
+                            handle,
                             &module_info,
                             ast.as_ref(),
                             error_range,
@@ -2982,7 +2993,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_exports_exact(&self, name: &str) -> Vec<(Handle, Export)> {
-        self.search_exports(|handle, exports| {
+        self.search_exports(|handle, exports_data, exports| {
             let name = Name::new(name);
             match exports.get(&name) {
                 Some(location) => {
@@ -2991,7 +3002,9 @@ impl<'a> Transaction<'a> {
                     {
                         let mut results = vec![(canonical_handle.dupe(), export.clone())];
                         if canonical_handle != *handle
-                            && Self::should_include_reexport(handle, &canonical_handle)
+                            && (Self::should_include_reexport(handle, &canonical_handle)
+                                || (exports_data.is_explicit_reexport(&name)
+                                    && Self::allows_explicit_reexport(handle)))
                         {
                             results.push((handle.dupe(), export));
                         }
@@ -3006,7 +3019,7 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn search_exports_fuzzy(&self, pattern: &str) -> Vec<(Handle, String, Export)> {
-        let mut res = self.search_exports(|handle, exports| {
+        let mut res = self.search_exports(|handle, exports_data, exports| {
             let matcher = SkimMatcherV2::default().smart_case();
             let mut results = Vec::new();
             for (name, location) in exports.iter() {
@@ -3022,7 +3035,9 @@ impl<'a> Transaction<'a> {
                         export.clone(),
                     ));
                     if canonical_handle != *handle
-                        && Self::should_include_reexport(handle, &canonical_handle)
+                        && (Self::should_include_reexport(handle, &canonical_handle)
+                            || (exports_data.is_explicit_reexport(name)
+                                && Self::allows_explicit_reexport(handle)))
                     {
                         results.push((score, handle.dupe(), name_str.to_owned(), export));
                     }

@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='free_email_domains',
-    version='1.0.1',
+    version='1.0.2',
     author='Luke Renton',
     description='A package containing a list of free email domains.',
     long_description=long_description,

@@ -7,14 +7,14 @@ Compare actual metrics to random noise baselines.
 import torch
 import numpy as np
 from typing import Dict, Any
-from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED, VARIANCE_EXPLAINED_90PCT
 
 
 def compute_noise_baseline_comparison(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
     n_noise_samples: int = 5,
-    seed: int = 42,
+    seed: int = DEFAULT_RANDOM_SEED,
 ) -> Dict[str, Any]:
     """
     Compare actual metrics to what random noise would produce.
@@ -63,7 +63,7 @@ def compute_noise_baseline_comparison(
     pca.fit(diffs)
     actual_variance_pc1 = float(pca.explained_variance_ratio_[0])
     actual_cumsum = np.cumsum(pca.explained_variance_ratio_)
-    actual_dims_for_90 = int(np.searchsorted(actual_cumsum, 0.9) + 1)
+    actual_dims_for_90 = int(np.searchsorted(actual_cumsum, VARIANCE_EXPLAINED_90PCT) + 1)
 
     # Actual linear probe
     from sklearn.linear_model import LogisticRegression
@@ -118,7 +118,7 @@ def compute_noise_baseline_comparison(
             noise_pca.fit(noise_diffs)
             noise_metrics['variance_pc1'].append(float(noise_pca.explained_variance_ratio_[0]))
             noise_cumsum = np.cumsum(noise_pca.explained_variance_ratio_)
-            noise_metrics['dims_for_90'].append(int(np.searchsorted(noise_cumsum, 0.9) + 1))
+            noise_metrics['dims_for_90'].append(int(np.searchsorted(noise_cumsum, VARIANCE_EXPLAINED_90PCT) + 1))
         except:
             pass
 

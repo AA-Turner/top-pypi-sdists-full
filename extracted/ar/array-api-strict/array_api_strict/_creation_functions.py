@@ -240,8 +240,9 @@ def full(
     _check_valid_dtype(dtype)
     _check_device(device)
 
-    if isinstance(fill_value, Array) and fill_value.ndim == 0:
-        fill_value = fill_value._array
+    if not isinstance(fill_value, bool | int | float | complex):
+        msg = f"Expected Python scalar fill_value, got type {type(fill_value)}"
+        raise TypeError(msg)
     res = np.full(shape, fill_value, dtype=_np_dtype(dtype))
     if DType(res.dtype) not in _all_dtypes:
         # This will happen if the fill value is not something that NumPy
@@ -269,6 +270,10 @@ def full_like(
     _check_device(device)
     if device is None:
         device = x.device
+
+    if not isinstance(fill_value, bool | int | float | complex):
+        msg = f"Expected Python scalar fill_value, got type {type(fill_value)}"
+        raise TypeError(msg)
 
     res = np.full_like(x._array, fill_value, dtype=_np_dtype(dtype))
     if DType(res.dtype) not in _all_dtypes:
@@ -304,7 +309,7 @@ def linspace(
     )
 
 
-def meshgrid(*arrays: Array, indexing: Literal["xy", "ij"] = "xy") -> list[Array]:
+def meshgrid(*arrays: Array, indexing: Literal["xy", "ij"] = "xy") -> tuple[Array, ...]:
     """
     Array API compatible wrapper for :py:func:`np.meshgrid <numpy.meshgrid>`.
 
@@ -327,10 +332,12 @@ def meshgrid(*arrays: Array, indexing: Literal["xy", "ij"] = "xy") -> list[Array
     else:
         device = None
 
-    return [
+    typ = list if get_array_api_strict_flags()['api_version'] < '2025.12' else tuple
+
+    return typ(
         Array._new(array, device=device)
         for array in np.meshgrid(*[a._array for a in arrays], indexing=indexing)
-    ]
+    )
 
 
 def ones(

@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List
 
-from wisent.core.constants import DIAG_MIN_DIVERGENCE, DIAG_MAX_LOW_DIV_FRACTION, DIAG_NEAR_DUPLICATE_THRESHOLD
+from wisent.core.constants import (
+    DIAG_MIN_DIVERGENCE, DIAG_MAX_LOW_DIV_FRACTION, DIAG_NEAR_DUPLICATE_THRESHOLD,
+    PAIRS_MAX_DUPLICATE_FRACTION, PAIRS_MIN_UNIQUE_PROMPT_RATIO, PAIRS_MIN_AVERAGE_LENGTH,
+)
 
 
 @dataclass(slots=True)
@@ -25,9 +28,9 @@ class DiagnosticsConfig:
     min_divergence: float = DIAG_MIN_DIVERGENCE
     max_low_divergence_fraction: float = DIAG_MAX_LOW_DIV_FRACTION
     near_duplicate_prompt_threshold: float = DIAG_NEAR_DUPLICATE_THRESHOLD
-    max_exact_duplicate_fraction: float = 0.05
-    min_unique_prompt_ratio: float = 0.75
-    min_average_length: int = 15
+    max_exact_duplicate_fraction: float = PAIRS_MAX_DUPLICATE_FRACTION
+    min_unique_prompt_ratio: float = PAIRS_MIN_UNIQUE_PROMPT_RATIO
+    min_average_length: int = PAIRS_MIN_AVERAGE_LENGTH
     warn_on_missing_activations: bool = True
 
 

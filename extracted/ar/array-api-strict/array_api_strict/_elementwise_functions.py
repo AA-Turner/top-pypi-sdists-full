@@ -257,7 +257,7 @@ def clip(
         raise TypeError("Only real numeric dtypes are allowed in clip")
 
     if min is max is None:
-        return x
+        return Array._new(x._array.copy(), device=x.device)
 
     for argname, arg in ("min", min), ("max", max):
         if isinstance(arg, Array):
@@ -278,8 +278,8 @@ def clip(
                 isinstance(arg, Array) and arg.dtype in _real_floating_dtypes)):
             raise TypeError(f"{argname} must be integral when x is integral")
         if (x.dtype in _real_floating_dtypes
-            and (isinstance(arg, int) or
-                isinstance(arg, Array) and arg.dtype in _integer_dtypes)):
+            and (isinstance(arg, Array) and arg.dtype in _integer_dtypes)
+        ):
             raise TypeError(f"{arg} must be floating-point when x is floating-point")
 
     # Normalize to make the below logic simpler
@@ -352,5 +352,7 @@ def sign(x: Array, /) -> Array:
         raise TypeError("Only numeric dtypes are allowed in sign")
     # Special treatment to work around non-compliant NumPy 1.x behaviour
     if x.dtype in _complex_floating_dtypes:
-        return x/abs(x)
+        _x = x._array
+        _result = _x / np.abs(np.where(_x != 0, _x, np.asarray(1.0, dtype=_x.dtype)))
+        return Array._new(_result, device=x.device)
     return Array._new(np.sign(x._array), device=x.device)

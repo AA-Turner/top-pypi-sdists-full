@@ -70,6 +70,7 @@ use crate::report::pysa::ast_visitor::Scopes;
 use crate::report::pysa::ast_visitor::visit_module_ast;
 use crate::report::pysa::captured_variable::CaptureKind;
 use crate::report::pysa::captured_variable::CapturedVariableRef;
+use crate::report::pysa::captured_variable::ModuleCapturedVariables;
 use crate::report::pysa::captured_variable::WholeProgramCapturedVariables;
 use crate::report::pysa::class::ClassRef;
 use crate::report::pysa::class::get_class_field_from_current_class_only;
@@ -272,6 +273,13 @@ pub trait FunctionTrait:
 
 impl FunctionTrait for FunctionRef {}
 
+/// Maximum number of targets in an override subset before we collapse it into
+/// `OverrideSubsetThreshold`. Large subsets lead to very large call-graph JSON
+/// files and significant slowdowns during both serialization and Pysa's
+/// analysis. When the number of targets exceeds this threshold we fall back to
+/// recording only the base method.
+const OVERRIDE_SUBSET_THRESHOLD: usize = 500;
+
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, PartialOrd, Ord)]
 pub enum Target<Function: FunctionTrait> {
     Function(Function),     // Either a function or a method
@@ -279,6 +287,11 @@ pub enum Target<Function: FunctionTrait> {
     OverrideSubset {
         base_method: Function,
         subset: Vec1<Target<Function>>,
+    },
+    /// Like `OverrideSubset`, but used when the number of targets in the subset
+    /// exceeds `OVERRIDE_SUBSET_THRESHOLD`.
+    OverrideSubsetThreshold {
+        base_method: Function,
     },
     FormatString,
 }
@@ -302,6 +315,9 @@ impl<Function: FunctionTrait> Target<Function> {
                 base_method: map(base_method),
                 subset: Vec1::mapped(subset, |target| target.map_function(map)),
             },
+            Target::OverrideSubsetThreshold { base_method } => Target::OverrideSubsetThreshold {
+                base_method: map(base_method),
+            },
             Target::FormatString => Target::FormatString,
         }
     }
@@ -310,7 +326,8 @@ impl<Function: FunctionTrait> Target<Function> {
         match self {
             Target::Function(function) => Some(function),
             Target::AllOverrides(method) => Some(method),
-            Target::OverrideSubset { base_method, .. } => Some(base_method),
+            Target::OverrideSubset { base_method, .. }
+            | Target::OverrideSubsetThreshold { base_method } => Some(base_method),
             Target::FormatString => None,
         }
     }
@@ -1552,7 +1569,7 @@ struct CallGraphVisitor<'a> {
     function_base_definitions: &'a WholeProgramFunctionDefinitions<FunctionBaseDefinition>,
     override_graph: &'a OverrideGraph,
     global_variables: &'a WholeProgramGlobalVariables,
-    captured_variables: &'a WholeProgramCapturedVariables,
+    captured_variables: &'a ModuleCapturedVariables<FunctionRef>,
     current_function: Option<FunctionRef>, // The current function, if it is exported.
     debug: bool,                           // Enable logging for the current function or class body.
     debug_scopes: Vec<bool>,               // The value of the debug flag for each scope.
@@ -1777,36 +1794,42 @@ impl<'a> CallGraphVisitor<'a> {
         } else if let Some(overriding_classes) = self.override_graph.get_overriding_classes(&callee)
         {
             // case c
-            let mut callees = overriding_classes
-                .iter()
-                .filter_map(|overriding_class| {
-                    if has_superclass(
-                        &overriding_class.class,
-                        &receiver_class.class,
-                        self.module_context,
-                    ) {
-                        self.function_ref_from_class_field(
-                            &overriding_class.class,
-                            &callee.function_name,
-                            /* exclude_object_methods */ false,
-                        )
-                        .ok()
-                        .map(get_actual_target)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            if callees.is_empty() {
-                Target::Function(callee)
-            } else if callees.len() == overriding_classes.len() {
-                Target::AllOverrides(callee)
-            } else {
-                callees.sort();
-                Target::OverrideSubset {
+            if overriding_classes.len() > OVERRIDE_SUBSET_THRESHOLD {
+                Target::OverrideSubsetThreshold {
                     base_method: callee,
-                    subset: Vec1::try_from_vec(callees).unwrap(),
+                }
+            } else {
+                let mut callees = overriding_classes
+                    .iter()
+                    .filter_map(|overriding_class| {
+                        if has_superclass(
+                            &overriding_class.class,
+                            &receiver_class.class,
+                            self.module_context,
+                        ) {
+                            self.function_ref_from_class_field(
+                                &overriding_class.class,
+                                &callee.function_name,
+                                /* exclude_object_methods */ false,
+                            )
+                            .ok()
+                            .map(get_actual_target)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if callees.is_empty() {
+                    Target::Function(callee)
+                } else if callees.len() == overriding_classes.len() {
+                    Target::AllOverrides(callee)
+                } else {
+                    callees.sort();
+                    Target::OverrideSubset {
+                        base_method: callee,
+                        subset: Vec1::try_from_vec(callees).unwrap(),
+                    }
                 }
             }
         } else {
@@ -1902,15 +1925,16 @@ impl<'a> CallGraphVisitor<'a> {
                 function_ref,
             );
             match target {
-                Target::Function(_) | Target::AllOverrides(_) | Target::OverrideSubset { .. } => {
-                    self.call_target_from_function_target(
-                        target,
-                        return_type,
-                        receiver_type,
-                        callee_expr_suffix,
-                        override_implicit_receiver,
-                    )
-                }
+                Target::Function(_)
+                | Target::AllOverrides(_)
+                | Target::OverrideSubset { .. }
+                | Target::OverrideSubsetThreshold { .. } => self.call_target_from_function_target(
+                    target,
+                    return_type,
+                    receiver_type,
+                    callee_expr_suffix,
+                    override_implicit_receiver,
+                ),
                 Target::FormatString => CallTarget {
                     target,
                     implicit_receiver: ImplicitReceiver::False,
@@ -2483,10 +2507,8 @@ impl<'a> CallGraphVisitor<'a> {
             }) {
             (Some(global), None)
         } else if let Some(current_function) = self.current_function.as_ref()
-            && let Some(current_module_captured_variables) = self
+            && let Some(captured_variable) = self
                 .captured_variables
-                .get_for_module(self.module_context.module_id)
-            && let Some(captured_variable) = current_module_captured_variables
                 .get(current_function)
                 .and_then(|captured_variables| captured_variables.get(name.id()))
         {
@@ -4296,7 +4318,7 @@ fn resolve_call(
         debug_scopes: Vec::new(),
         override_graph,
         global_variables: &WholeProgramGlobalVariables::new(),
-        captured_variables: &WholeProgramCapturedVariables::new(),
+        captured_variables: &ModuleCapturedVariables::new(),
         error_collector: ErrorCollector::new(module_context.module_info.dupe(), ErrorStyle::Never),
         matching_graphql_decorators: Vec::new(),
     };
@@ -4344,7 +4366,7 @@ fn resolve_expression(
         debug_scopes: Vec::new(),
         override_graph,
         global_variables: &WholeProgramGlobalVariables::new(),
-        captured_variables: &WholeProgramCapturedVariables::new(),
+        captured_variables: &ModuleCapturedVariables::new(),
         error_collector: ErrorCollector::new(module_context.module_info.dupe(), ErrorStyle::Never),
         matching_graphql_decorators: Vec::new(),
     };
@@ -4384,6 +4406,9 @@ pub fn resolve_decorator_callees(
         | Target::OverrideSubset {
             base_method: function_ref,
             ..
+        }
+        | Target::OverrideSubsetThreshold {
+            base_method: function_ref,
         } => {
             function_ref.module_name == ModuleName::builtins()
                 && (function_ref.function_name == dunder::INIT
@@ -4447,6 +4472,7 @@ pub fn export_call_graphs(
 ) -> CallGraphs<ExpressionIdentifier, FunctionRef> {
     let mut call_graphs = CallGraphs::new();
 
+    let empty_captured_variables = ModuleCapturedVariables::new();
     let mut visitor = CallGraphVisitor {
         call_graphs: &mut call_graphs,
         module_context: context,
@@ -4458,7 +4484,9 @@ pub fn export_call_graphs(
         debug_scopes: Vec::new(),
         override_graph,
         global_variables,
-        captured_variables,
+        captured_variables: captured_variables
+            .get_for_module(context.module_id)
+            .unwrap_or(&empty_captured_variables),
         error_collector: ErrorCollector::new(context.module_info.dupe(), ErrorStyle::Never),
         matching_graphql_decorators: Vec::new(),
     };

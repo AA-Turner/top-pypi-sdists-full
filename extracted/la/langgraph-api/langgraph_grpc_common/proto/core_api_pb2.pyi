@@ -1296,7 +1296,12 @@ class Thread(_message.Message):
     INTERRUPTS_FIELD_NUMBER: _builtins.int
     ERROR_FIELD_NUMBER: _builtins.int
     STATE_UPDATED_AT_FIELD_NUMBER: _builtins.int
+    EXTRACTED_JSON_FIELD_NUMBER: _builtins.int
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
+    extracted_json: _builtins.bytes
+    """Extracted values from JSONB columns, populated when extract is specified in search.
+    Serialized JSON map of alias -> value.
+    """
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1328,11 +1333,15 @@ class Thread(_message.Message):
         interrupts: _abc.Mapping[_builtins.str, Global___Interrupts] | None = ...,
         error: Global___Fragment | None = ...,
         state_updated_at: _timestamp_pb2.Timestamp | None = ...,
+        extracted_json: _builtins.bytes | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "created_at", b"created_at", "error", b"error", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "created_at", b"created_at", "error", b"error", "interrupts", b"interrupts", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "interrupts", b"interrupts", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__extracted_json: _TypeAlias = _typing.Literal["extracted_json"]  # noqa: Y015
+    _WhichOneofArgType__extracted_json: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__extracted_json) -> _WhichOneofReturnType__extracted_json | None: ...
 
 Global___Thread: _TypeAlias = Thread  # noqa: Y015
 
@@ -1504,6 +1513,23 @@ Global___CopyThreadRequest: _TypeAlias = CopyThreadRequest  # noqa: Y015
 class SearchThreadsRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class ExtractEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.str
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.str = ...,
+        ) -> None: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
     FILTERS_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     VALUES_JSON_FIELD_NUMBER: _builtins.int
@@ -1514,6 +1540,7 @@ class SearchThreadsRequest(_message.Message):
     SORT_ORDER_FIELD_NUMBER: _builtins.int
     SELECT_FIELD_NUMBER: _builtins.int
     IDS_FIELD_NUMBER: _builtins.int
+    EXTRACT_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     values_json: _builtins.bytes
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
@@ -1529,6 +1556,12 @@ class SearchThreadsRequest(_message.Message):
     def ids(self) -> _containers.RepeatedCompositeFieldContainer[Global___UUID]:
         """Filter by specific thread IDs."""
 
+    @_builtins.property
+    def extract(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
+        """Extract specific JSONB paths from values/metadata/config/interrupts columns.
+        Keys are user-defined aliases, values are paths like "values.messages[-1]".
+        """
+
     def __init__(
         self,
         *,
@@ -1542,10 +1575,11 @@ class SearchThreadsRequest(_message.Message):
         sort_order: Global___SortOrder.ValueType | None = ...,
         select: _abc.Iterable[_builtins.str] | None = ...,
         ids: _abc.Iterable[Global___UUID] | None = ...,
+        extract: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "filters", b"filters", "ids", b"ids", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "extract", b"extract", "filters", b"filters", "ids", b"ids", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__limit: _TypeAlias = _typing.Literal["limit"]  # noqa: Y015
     _WhichOneofArgType__limit: _TypeAlias = _typing.Literal["_limit", b"_limit"]  # noqa: Y015

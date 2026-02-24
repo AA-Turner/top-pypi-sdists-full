@@ -42,8 +42,8 @@ STRATEGIES = [
 RANDOM_TOKENS = ["I", "Well", "The", "Sure", "Let", "That", "It", "This", "My", "To"]
 
 
+from wisent.core.constants import NORM_EPS, CLUSTER_PROGRESS_INTERVAL, CLUSTER_MIN_PAIRS
 from wisent.core.cli.analysis.diagnosis.cluster_benchmarks_activations import (
-from wisent.core.constants import NORM_EPS
     ConfigResult, get_layers_to_test, get_activation, get_mc_balanced_activations,
     load_benchmark_pairs, compute_directions_for_strategy,
 )
@@ -129,11 +129,11 @@ def execute_cluster_benchmarks(args):
     all_pairs = {}
     
     for i, bench in enumerate(all_benchmarks):
-        if (i + 1) % 20 == 0:
+        if (i + 1) % CLUSTER_PROGRESS_INTERVAL == 0:
             logger.info(f"  [{i+1}/{len(all_benchmarks)}] Loaded {len(all_pairs)} benchmarks...")
         try:
             pairs = load_benchmark_pairs(bench, loader, limit=pairs_per_benchmark)
-            if pairs and len(pairs) >= 10:
+            if pairs and len(pairs) >= CLUSTER_MIN_PAIRS:
                 all_pairs[bench] = pairs
         except:
             pass
@@ -167,7 +167,7 @@ def execute_cluster_benchmarks(args):
                 except:
                     pass
             
-            if len(directions) < 10:
+            if len(directions) < CLUSTER_MIN_PAIRS:
                 continue
             
             bench_names = list(directions.keys())

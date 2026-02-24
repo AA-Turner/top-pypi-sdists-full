@@ -72,23 +72,12 @@ class DenseLayer(nn.Module):
                 return True
         return False
 
-    @torch.jit.unused  # noqa: T484
     def call_checkpoint_bottleneck(self, x: List[torch.Tensor]) -> torch.Tensor:
         """Call bottleneck function with gradient checkpointing."""
         def closure(*xs):
             return self.bottleneck_fn(xs)
 
         return checkpoint(closure, *x)
-
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (List[torch.Tensor]) -> (torch.Tensor)
-        pass
-
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (torch.Tensor) -> (torch.Tensor)
-        pass
 
     # torchscript does not yet support *args, so we overload method
     # allowing it to take either a List[Tensor] or single Tensor
@@ -269,6 +258,7 @@ class DenseNet(nn.Module):
         """
         dd = {'device': device, 'dtype': dtype}
         self.num_classes = num_classes
+        self.in_chans = in_chans
         super().__init__()
         norm_layer = get_norm_act_layer(norm_layer, act_layer=act_layer)
 

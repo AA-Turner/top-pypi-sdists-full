@@ -14,8 +14,8 @@ from typing import Any
 
 import pyrig
 from pyrig.rig.tools.base.base import Tool, ToolGroup
-from pyrig.src.modules.package import project_name_from_package_name
 from pyrig.src.processes import Args
+from pyrig.src.string_ import snake_to_kebab_case
 
 
 class Pyrigger(Tool):
@@ -56,14 +56,14 @@ class Pyrigger(Tool):
             f"https://github.com/Winipedia/{self.name()}",
         )
 
-    def dev_dependencies(self) -> list[str]:
+    def dev_dependencies(self) -> tuple[str, ...]:
         """Get tool dependencies.
 
         Returns:
-            List of tool dependencies.
+            Tuple of tool dependencies.
         """
         # only pyrig-dev not pyrig because pyrig is already installed as dependency
-        return ["pyrig-dev"]
+        return ("pyrig-dev",)
 
     def cmd_args(self, *args: str, cmd: Callable[..., Any]) -> Args:
         """Construct pyrig command arguments from callable.
@@ -75,5 +75,5 @@ class Pyrigger(Tool):
         Returns:
             Args for 'pyrig <cmd_name>'.
         """
-        cmd_name = project_name_from_package_name(cmd.__name__)  # ty:ignore[unresolved-attribute]
+        cmd_name = snake_to_kebab_case(cmd.__name__)  # ty:ignore[unresolved-attribute]
         return self.args(cmd_name, *args)

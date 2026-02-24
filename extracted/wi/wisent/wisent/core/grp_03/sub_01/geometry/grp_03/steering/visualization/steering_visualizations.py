@@ -6,7 +6,7 @@ from typing import List, Optional
 import io
 import base64
 from sklearn.decomposition import PCA
-from wisent.core.constants import VIZ_DPI, DEFAULT_RANDOM_SEED
+from wisent.core.constants import VIZ_DPI, DEFAULT_RANDOM_SEED, VIZ_TEXT_BOX_LEFT, VIZ_TEXT_BOX_RIGHT, VIZ_CONTOURF_LEVEL
 
 
 def create_steering_effect_figure(
@@ -55,7 +55,7 @@ def create_steering_effect_figure(
     metrics_text = _compute_metrics_text(base_2d, steered_2d, pos_centroid, neg_centroid,
                                          base_evaluations, steered_evaluations,
                                          base_space_probs, steered_space_probs)
-    ax.text(0.02, 0.98, metrics_text, transform=ax.transAxes, fontsize=10,
+    ax.text(VIZ_TEXT_BOX_LEFT, VIZ_TEXT_BOX_RIGHT, metrics_text, transform=ax.transAxes, fontsize=10,
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
     ax.set_xlabel("PCA Component 1")
@@ -109,8 +109,8 @@ def _draw_decision_boundary(ax, pos_2d, neg_2d):
     y_min, y_max = X_2d[:, 1].min() - 1, X_2d[:, 1].max() + 1
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200), np.linspace(y_min, y_max, 200))
     Z = clf_2d.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
-    ax.contourf(xx, yy, Z, levels=[0, 0.5, 1], colors=['#FFCCCC', '#CCCCFF'], alpha=0.4)
-    ax.contour(xx, yy, Z, levels=[0.5], colors=['black'], linewidths=2, linestyles=['--'])
+    ax.contourf(xx, yy, Z, levels=[0, VIZ_CONTOURF_LEVEL, 1], colors=['#FFCCCC', '#CCCCFF'], alpha=0.4)
+    ax.contour(xx, yy, Z, levels=[VIZ_CONTOURF_LEVEL], colors=['black'], linewidths=2, linestyles=['--'])
     ax.plot([], [], 'k--', linewidth=2, label='Decision boundary (P=0.5)')
 
 

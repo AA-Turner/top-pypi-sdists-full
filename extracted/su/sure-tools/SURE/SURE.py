@@ -19,6 +19,7 @@ from .graph.graph_utils import ClusterNetworkBuilder, KnnClusterNetworkBuilder,v
 
 from .SURE_nsf import SURENF
 from .SURE_vae import SUREVAE
+from .SURE_vae2 import SUREVAE2
 from .SURE_vanilla import SUREVanilla
 
 import zuko 

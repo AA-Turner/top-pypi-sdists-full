@@ -163,6 +163,7 @@ for ``func2`` and ``func4``.
 
 The core functionality in this module was ported from :mod:`xdev`.
 """
+
 from __future__ import annotations
 import atexit
 import multiprocessing
@@ -170,7 +171,7 @@ import os
 import pathlib
 import sys
 import typing
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 if typing.TYPE_CHECKING:
     ConfigArg = str | pathlib.PurePath | bool | None
@@ -180,6 +181,8 @@ if typing.TYPE_CHECKING:
 from .cli_utils import boolean, get_python_executable as _python_command
 from .line_profiler import LineProfiler
 from .toml_config import ConfigSource
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 # The first process that enables profiling records its PID here. Child processes
 # created via multiprocessing (spawn/forkserver) inherit this environment value,
@@ -291,6 +294,7 @@ class GlobalProfiler:
         self._profile = None
         self._owner_pid = None
         self.enabled = None
+
         # Configs:
         # - How to toggle the profiler
         self.setup_config = config_source.conf_dict['setup']
@@ -323,8 +327,9 @@ class GlobalProfiler:
         """
         environ_flags = self.setup_config['environ_flags']
         cli_flags = self.setup_config['cli_flags']
-        is_profiling = any(boolean(os.environ.get(f, ''), fallback=True)
-                           for f in environ_flags)
+        is_profiling = any(
+            boolean(os.environ.get(f, ''), fallback=True) for f in environ_flags
+        )
         is_profiling |= any(f in sys.argv for f in cli_flags)
         if is_profiling:
             self.enable()
@@ -341,22 +346,22 @@ class GlobalProfiler:
             must not claim ownership or register an atexit hook, otherwise they can
             clobber output from the real script process.
         """
-        self._debug("enable:ENTER")
+        self._debug('enable:ENTER')
 
         if is_mp_bootstrap():
-            self._debug("enable:skip-mp-bootstrap")
+            self._debug('enable:skip-mp-bootstrap')
             self.enabled = False
             return
 
         if self._should_skip_due_to_owner():
-            self._debug("enable:skip-due-to-owner")
+            self._debug('enable:skip-due-to-owner')
             self.enabled = False
             return
 
         owner_pid = os.getpid()
         os.environ[_OWNER_PID_ENVVAR] = str(owner_pid)
         self._owner_pid = owner_pid
-        self._debug("enable:owner-claimed", owner_pid=owner_pid)
+        self._debug('enable:owner-claimed', owner_pid=owner_pid)
 
         if self._profile is None:
             atexit.register(self.show)
@@ -375,20 +380,22 @@ class GlobalProfiler:
         """
         owner = os.environ.get(_OWNER_PID_ENVVAR)
         if not owner:
-            self._debug("owner:no-owner-env")
+            self._debug('owner:no-owner-env')
             return False
 
         current = str(os.getpid())
         if owner == current:
-            self._debug("owner:is-us", owner=owner)
+            self._debug('owner:is-us', owner=owner)
             return False
 
         if is_mp_bootstrap():
-            self._debug("owner:skip-mp-bootstrap", owner=owner, current=current)
+            self._debug('owner:skip-mp-bootstrap', owner=owner, current=current)
             return True
 
         # Standalone run: allow this interpreter to become the owner.
-        self._debug("owner:allow-standalone-reset", owner=owner, current=current)
+        self._debug(
+            'owner:allow-standalone-reset', owner=owner, current=current
+        )
         return False
 
     def _debug(self, message: str, **extra: Any) -> None:
@@ -477,7 +484,11 @@ class GlobalProfiler:
         if write_text or write_timestamped_text:
             stream = io.StringIO()
             # Text output always contains details, and cannot be rich.
-            text_kwargs: dict[str, Any] = {**kwargs, 'rich': False, 'details': True}
+            text_kwargs: dict[str, Any] = {
+                **kwargs,
+                'rich': False,
+                'details': True,
+            }
             self._profile.print_stats(stream=stream, **text_kwargs)
             raw_text = stream.getvalue()
 
@@ -488,10 +499,12 @@ class GlobalProfiler:
 
             if write_timestamped_text:
                 from datetime import datetime as datetime_cls
+
                 now = datetime_cls.now()
                 timestamp = now.strftime('%Y-%m-%dT%H%M%S')
                 txt_output_fpath2 = pathlib.Path(
-                    f'{self.output_prefix}_{timestamp}.txt')
+                    f'{self.output_prefix}_{timestamp}.txt'
+                )
                 txt_output_fpath2.write_text(raw_text, encoding='utf-8')
                 print('Wrote profile results to %s' % txt_output_fpath2)
 
@@ -501,8 +514,7 @@ class GlobalProfiler:
             print('Wrote profile results to %s' % lprof_output_fpath)
             print('To view details run:')
             py_exe = _python_command()
-            print(py_exe + ' -m line_profiler -rtmz '
-                  + str(lprof_output_fpath))
+            print(py_exe + ' -m line_profiler -rtmz ' + str(lprof_output_fpath))
 
 
 def is_mp_bootstrap() -> bool:
@@ -538,21 +550,22 @@ def is_mp_bootstrap() -> bool:
     """
     try:
         import multiprocessing.spawn as mp_spawn
-        if getattr(mp_spawn, "_inheriting", False):
+
+        if getattr(mp_spawn, '_inheriting', False):
             return True
     except Exception:
         pass
 
-    orig = getattr(sys, "orig_argv", None) or []
-    if any(a.startswith("--multiprocessing") for a in orig):
+    orig = getattr(sys, 'orig_argv', None) or []
+    if any(a.startswith('--multiprocessing') for a in orig):
         return True
-    if any("multiprocessing.forkserver" in a for a in orig):
+    if any('multiprocessing.forkserver' in a for a in orig):
         return True
-    if any("multiprocessing.spawn" in a for a in orig):
+    if any('multiprocessing.spawn' in a for a in orig):
         return True
 
     try:
-        if multiprocessing.current_process().name != "MainProcess":
+        if multiprocessing.current_process().name != 'MainProcess':
             return True
     except Exception:
         pass

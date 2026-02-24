@@ -13,7 +13,7 @@ async def _make_http_request_with_retries(
     json_data: dict | None = None,
     max_retries: int = 3,
     base_delay: float = 1.0,
-) -> httpx.Response | None:
+) -> httpx.Response:
     """
     Make an HTTP request with exponential backoff retries.
 
@@ -72,3 +72,7 @@ async def _make_http_request_with_retries(
                     e,
                 )
                 raise e
+
+    # Unreachable when max_retries >= 0, but keeps the type checker happy.
+    msg = f"HTTP {method} request to {url} failed: no attempts made"
+    raise httpx.RequestError(msg)

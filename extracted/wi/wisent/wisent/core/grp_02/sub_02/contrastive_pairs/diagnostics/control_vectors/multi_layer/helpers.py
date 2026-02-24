@@ -11,6 +11,7 @@ from ..geometry import (
     GeometryAnalysisResult,
     detect_geometry_structure,
 )
+from wisent.core import constants as _C
 
 
 __all__ = [
@@ -165,14 +166,14 @@ def generate_recommendation(
 ):
     """Generate comprehensive recommendation based on multi-layer analysis."""
     parts = []
-    if layer_agreement > 0.8:
+    if layer_agreement > _C.MULTI_LAYER_AGREEMENT_THRESHOLD:
         parts.append(f"High agreement ({layer_agreement:.0%}): consistent structure.")
     elif layer_agreement < 0.4:
         parts.append(f"Low agreement ({layer_agreement:.0%}): varies by depth.")
     else:
         parts.append(f"Moderate agreement ({layer_agreement:.0%}).")
 
-    if best_combination and best_combination_score > best_single_layer_score + 0.05:
+    if best_combination and best_combination_score > best_single_layer_score + _C.MULTI_LAYER_IMPROVEMENT_THRESHOLD:
         improvement = best_combination_score - best_single_layer_score
         parts.append(
             f"BEST: '{best_combination}' ({best_combination_structure.value}: "

@@ -84,6 +84,7 @@ class _Sandbox(modal._object._Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _attached: bool
 
     @staticmethod
     def _default_pty_info() -> modal_proto.api_pb2.PTYInfo: ...
@@ -219,6 +220,22 @@ class _Sandbox(modal._object._Object):
         ...
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _initialize_from_other(self, other): ...
+    def _initialize_from_empty(self): ...
+    async def detach(self):
+        """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+
+        Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
+        any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
+        with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+        """
+        ...
+
+    @property
+    def _client(self): ...
+    @_client.setter
+    def _client(self, value): ...
+    def _ensure_attached(self): ...
     @staticmethod
     async def from_name(
         app_name: str,
@@ -258,16 +275,57 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def mount_image(self, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image._Image):
+        """Mount an Image at a specified path in a running Sandbox.
+
+        `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
+        data, the previous directory will be replaced by the mount.
+
+        The `image` argument currently only supports Images that are either:
+        - prebuilt using `image.build()`
+        - referenced by image id, e.g. `Image.from_id(...)`
+        - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
+        or `.snapshot_filesystem()`"
+
+        Usage:
+        ```py notest
+        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+        # You can later mount this snapshot to another Sandbox:
+        sandbox_session_2 = modal.Sandbox.create(...)
+        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+        sandbox_session_2.ls("/user_project")
+        ```
+        """
+        ...
+
     async def _experimental_mount_image(
         self, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image._Image]
     ):
-        """Mount an Image at a path in the Sandbox filesystem."""
+        """Deprecated alias for `Sandbox.mount_image()`."""
+        ...
+
+    async def snapshot_directory(self, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image._Image:
+        """Snapshot a directory in a running Sandbox, creating a new Image with its content.
+
+        Directory snapshots are currently persisted for 30 days after they were last created or used.
+
+        Usage:
+        ```py notest
+        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+        # You can later mount this snapshot to another Sandbox:
+        sandbox_session_2 = modal.Sandbox.create(...)
+        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+        sandbox_session_2.ls("/user_project")
+        ```
+        """
         ...
 
     async def _experimental_snapshot_directory(
         self, path: typing.Union[pathlib.PurePosixPath, str]
     ) -> modal.image._Image:
-        """Snapshot local changes to a previously mounted Image, creating a new Image."""
+        """Deprecated alias for `Sandbox.snapshot_directory()`."""
         ...
 
     async def wait(self, raise_on_termination: bool = True):
@@ -289,7 +347,7 @@ class _Sandbox(modal._object._Object):
     async def create_connect_token(
         self, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
     ) -> SandboxConnectCredentials:
-        """[Alpha] Create a token for making HTTP connections to the Sandbox.
+        """Create a token for making HTTP connections to the Sandbox.
 
         Also accepts an optional user_metadata string or dict to associate with the token. This metadata
         will be added to the headers by the proxy when forwarding requests to the Sandbox.
@@ -303,13 +361,10 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def terminate(self) -> None:
-        """Terminate Sandbox execution.
-
-        This is a no-op if the Sandbox has already finished running.
-        """
-        ...
-
+    @typing.overload
+    async def terminate(self, *, wait: typing.Literal[True]) -> int: ...
+    @typing.overload
+    async def terminate(self, *, wait: typing.Literal[False] = False) -> None: ...
     async def poll(self) -> typing.Optional[int]:
         """Check if the Sandbox has finished running.
 
@@ -416,6 +471,8 @@ class _Sandbox(modal._object._Object):
         name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
     ): ...
     @typing.overload
+    async def open(self, path: str) -> modal.file_io._FileIO[str]: ...
+    @typing.overload
     async def open(self, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io._FileIO[str]: ...
     @typing.overload
     async def open(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io._FileIO[bytes]: ...
@@ -494,6 +551,7 @@ class Sandbox(modal.object.Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _attached: bool
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -745,6 +803,35 @@ class Sandbox(modal.object.Object):
     _create: typing.ClassVar[___create_spec]
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _initialize_from_other(self, other): ...
+    def _initialize_from_empty(self): ...
+
+    class __detach_spec(typing_extensions.Protocol):
+        def __call__(self, /):
+            """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+
+            Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
+            any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
+            with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+            """
+            ...
+
+        async def aio(self, /):
+            """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
+
+            Be sure to only call `detach` when you are done interacting with the sandbox. After calling `detach`,
+            any operation using the Sandbox object is not guaranteed to work anymore. If you want to continue interacting
+            with a running sandbox, use `Sandbox.from_id` to get a new Sandbox object.
+            """
+            ...
+
+    detach: __detach_spec
+
+    @property
+    def _client(self): ...
+    @_client.setter
+    def _client(self, value): ...
+    def _ensure_attached(self): ...
 
     class __from_name_spec(typing_extensions.Protocol):
         def __call__(
@@ -839,28 +926,116 @@ class Sandbox(modal.object.Object):
 
     snapshot_filesystem: __snapshot_filesystem_spec
 
+    class __mount_image_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
+            """Mount an Image at a specified path in a running Sandbox.
+
+            `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
+            data, the previous directory will be replaced by the mount.
+
+            The `image` argument currently only supports Images that are either:
+            - prebuilt using `image.build()`
+            - referenced by image id, e.g. `Image.from_id(...)`
+            - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
+            or `.snapshot_filesystem()`"
+
+            Usage:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.ls("/user_project")
+            ```
+            """
+            ...
+
+        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
+            """Mount an Image at a specified path in a running Sandbox.
+
+            `path` should be a directory. If it doesn't exist it will be created. If it exists and contains
+            data, the previous directory will be replaced by the mount.
+
+            The `image` argument currently only supports Images that are either:
+            - prebuilt using `image.build()`
+            - referenced by image id, e.g. `Image.from_id(...)`
+            - filesystem/directory snapshots e.g. created by `.snapshot_directory()`
+            or `.snapshot_filesystem()`"
+
+            Usage:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.ls("/user_project")
+            ```
+            """
+            ...
+
+    mount_image: __mount_image_spec
+
     class ___experimental_mount_image_spec(typing_extensions.Protocol):
         def __call__(
             self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
         ):
-            """Mount an Image at a path in the Sandbox filesystem."""
+            """Deprecated alias for `Sandbox.mount_image()`."""
             ...
 
         async def aio(
             self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
         ):
-            """Mount an Image at a path in the Sandbox filesystem."""
+            """Deprecated alias for `Sandbox.mount_image()`."""
             ...
 
     _experimental_mount_image: ___experimental_mount_image_spec
 
-    class ___experimental_snapshot_directory_spec(typing_extensions.Protocol):
+    class __snapshot_directory_spec(typing_extensions.Protocol):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
-            """Snapshot local changes to a previously mounted Image, creating a new Image."""
+            """Snapshot a directory in a running Sandbox, creating a new Image with its content.
+
+            Directory snapshots are currently persisted for 30 days after they were last created or used.
+
+            Usage:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.ls("/user_project")
+            ```
+            """
             ...
 
         async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
-            """Snapshot local changes to a previously mounted Image, creating a new Image."""
+            """Snapshot a directory in a running Sandbox, creating a new Image with its content.
+
+            Directory snapshots are currently persisted for 30 days after they were last created or used.
+
+            Usage:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.ls("/user_project")
+            ```
+            """
+            ...
+
+    snapshot_directory: __snapshot_directory_spec
+
+    class ___experimental_snapshot_directory_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+            """Deprecated alias for `Sandbox.snapshot_directory()`."""
+            ...
+
+        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+            """Deprecated alias for `Sandbox.snapshot_directory()`."""
             ...
 
     _experimental_snapshot_directory: ___experimental_snapshot_directory_spec
@@ -907,7 +1082,7 @@ class Sandbox(modal.object.Object):
         def __call__(
             self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
         ) -> SandboxConnectCredentials:
-            """[Alpha] Create a token for making HTTP connections to the Sandbox.
+            """Create a token for making HTTP connections to the Sandbox.
 
             Also accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
@@ -917,7 +1092,7 @@ class Sandbox(modal.object.Object):
         async def aio(
             self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
         ) -> SandboxConnectCredentials:
-            """[Alpha] Create a token for making HTTP connections to the Sandbox.
+            """Create a token for making HTTP connections to the Sandbox.
 
             Also accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
@@ -944,19 +1119,14 @@ class Sandbox(modal.object.Object):
     reload_volumes: __reload_volumes_spec
 
     class __terminate_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> None:
-            """Terminate Sandbox execution.
-
-            This is a no-op if the Sandbox has already finished running.
-            """
-            ...
-
-        async def aio(self, /) -> None:
-            """Terminate Sandbox execution.
-
-            This is a no-op if the Sandbox has already finished running.
-            """
-            ...
+        @typing.overload
+        def __call__(self, /, *, wait: typing.Literal[True]) -> int: ...
+        @typing.overload
+        def __call__(self, /, *, wait: typing.Literal[False] = False) -> None: ...
+        @typing.overload
+        async def aio(self, /, *, wait: typing.Literal[True]) -> int: ...
+        @typing.overload
+        async def aio(self, /, *, wait: typing.Literal[False] = False) -> None: ...
 
     terminate: __terminate_spec
 
@@ -1228,9 +1398,13 @@ class Sandbox(modal.object.Object):
 
     class __open_spec(typing_extensions.Protocol):
         @typing.overload
+        def __call__(self, /, path: str) -> modal.file_io.FileIO[str]: ...
+        @typing.overload
         def __call__(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
         @typing.overload
         def __call__(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
+        @typing.overload
+        async def aio(self, /, path: str) -> modal.file_io.FileIO[str]: ...
         @typing.overload
         async def aio(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
         @typing.overload

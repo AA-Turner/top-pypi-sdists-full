@@ -13,8 +13,8 @@ from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
     GeometryAnalysisConfig,
 )
 
-from wisent.examples.scripts._pair_generators_neutral import (
 from wisent.core.constants import NORM_EPS
+from wisent.examples.scripts._pair_generators_neutral import (
     ConceptMetrics,
     create_pairs_for_concept,
 )

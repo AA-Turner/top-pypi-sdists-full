@@ -12,9 +12,6 @@ use tokio::task::JoinError;
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum CasClientError {
-    #[error("ChunkCache Error: {0}")]
-    ChunkCache(#[from] chunk_cache::error::ChunkCacheError),
-
     #[error("Cas Object Error: {0}")]
     CasObjectError(#[from] cas_object::error::CasObjectError),
 
@@ -62,6 +59,18 @@ pub enum CasClientError {
 
     #[error("Presigned S3 URL Expired on fetching range")]
     PresignedUrlExpirationError,
+
+    #[error("Cloned Error: {0}")]
+    Cloned(String),
+}
+
+impl Clone for CasClientError {
+    fn clone(&self) -> Self {
+        match self {
+            CasClientError::Cloned(s) => CasClientError::Cloned(s.clone()),
+            other => CasClientError::Cloned(format!("{other:?}")),
+        }
+    }
 }
 
 impl From<reqwest::Error> for CasClientError {

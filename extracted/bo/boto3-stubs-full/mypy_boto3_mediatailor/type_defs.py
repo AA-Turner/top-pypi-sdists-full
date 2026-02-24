@@ -25,6 +25,7 @@ from .literals import (
     AccessTypeType,
     AdMarkupTypeType,
     AdsInteractionExcludeEventTypeType,
+    AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
     ChannelStateType,
     CompressionMethodType,
@@ -277,12 +278,12 @@ class AdMarkerPassthroughTypeDef(TypedDict):
 
 
 class AdsInteractionLogOutputTypeDef(TypedDict):
-    PublishOptInEventTypes: NotRequired[list[Literal["RAW_ADS_RESPONSE"]]]
+    PublishOptInEventTypes: NotRequired[list[AdsInteractionPublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[list[AdsInteractionExcludeEventTypeType]]
 
 
 class AdsInteractionLogTypeDef(TypedDict):
-    PublishOptInEventTypes: NotRequired[Sequence[Literal["RAW_ADS_RESPONSE"]]]
+    PublishOptInEventTypes: NotRequired[Sequence[AdsInteractionPublishOptInEventTypeType]]
     ExcludeEventTypes: NotRequired[Sequence[AdsInteractionExcludeEventTypeType]]
 
 

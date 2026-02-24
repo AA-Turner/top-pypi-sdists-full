@@ -4,13 +4,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
-use cas_client::RemoteClient;
+use cas_client::{Client, RemoteClient};
 use cas_object::CompressionScheme;
 use cas_types::{FileRange, QueryReconstructionResponse};
 use clap::{Args, Parser, Subcommand};
 use data::data_client::default_config;
 use data::migration_tool::hub_client_token_refresher::HubClientTokenRefresher;
 use data::migration_tool::migrate::migrate_files_impl;
+use http::header::{self, HeaderMap, HeaderValue};
 use hub_client::{BearerCredentialHelper, HubClient, Operation, RepoInfo};
 use merklehash::MerkleHash;
 use utils::auth::TokenRefresher;
@@ -18,6 +19,7 @@ use walkdir::WalkDir;
 use xet_runtime::XetRuntime;
 
 const DEFAULT_HF_ENDPOINT: &str = "https://huggingface.co";
+const USER_AGENT: &str = concat!("xtool", "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Parser)]
 struct XCommand {
@@ -55,14 +57,17 @@ impl XCommand {
             .token
             .unwrap_or_else(|| std::env::var("HF_TOKEN").unwrap_or_default());
 
+        let mut headers = HeaderMap::new();
+        headers.insert(header::USER_AGENT, HeaderValue::from_static(USER_AGENT));
+
         let cred_helper = BearerCredentialHelper::new(token, "");
         let hub_client = HubClient::new(
             &endpoint,
             RepoInfo::try_from(&self.overrides.repo_type, &self.overrides.repo_id)?,
             Some("main".to_owned()),
-            "xtool",
             "",
             cred_helper,
+            Some(Arc::new(headers)),
         )?;
 
         self.command.run(hub_client).await
@@ -124,6 +129,7 @@ impl Command {
 
                 let (all_file_info, clean_ret, total_bytes_trans) = migrate_files_impl(
                     file_paths,
+                    None,
                     arg.sequential,
                     hub_client,
                     None,
@@ -204,20 +210,24 @@ async fn query_reconstruction(
         client: Arc::new(hub_client),
     }) as Arc<dyn TokenRefresher>;
 
+    // Create headers with USER_AGENT
+    let mut headers = http::HeaderMap::new();
+    headers.insert(http::header::USER_AGENT, http::HeaderValue::from_static(USER_AGENT));
+
     let config = default_config(
         jwt_info.cas_url.clone(),
         None,
         Some((jwt_info.access_token, jwt_info.exp)),
         Some(token_refresher),
+        Some(Arc::new(headers)),
     )?;
     let cas_storage_config = &config.data_config;
     let remote_client = RemoteClient::new(
         &jwt_info.cas_url,
         &cas_storage_config.auth,
-        &Some(cas_storage_config.cache_config.clone()),
-        Some(config.shard_config.cache_directory.clone()),
         "",
         true,
+        cas_storage_config.custom_headers.clone(),
     );
 
     remote_client

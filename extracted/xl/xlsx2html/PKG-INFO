@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xlsx2html
-Version: 0.6.3
+Version: 0.6.4
 Summary: A simple export from xlsx format to html tables with keep cell formatting
 Home-page: https://github.com/Apkawa/xlsx2html
 Author: Apkawa
@@ -12,12 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Markup :: HTML

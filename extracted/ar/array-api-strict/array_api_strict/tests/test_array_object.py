@@ -1,8 +1,10 @@
 import sys
+import warnings
 import operator
+import pickle
 from builtins import all as all_
 
-from numpy.testing import assert_raises, suppress_warnings
+from numpy.testing import assert_raises
 import numpy as np
 import pytest
 
@@ -269,10 +271,12 @@ def _check_op_array_scalar(dtypes, a, s, func, func_name, BIG_INT=BIG_INT):
 
         else:
             # Only test for no error
-            with suppress_warnings() as sup:
+            with warnings.catch_warnings():
                 # ignore warnings from pow(BIG_INT)
-                sup.filter(RuntimeWarning,
-                           "invalid value encountered in power")
+                warnings.filterwarnings(
+                    "ignore", category=RuntimeWarning,
+                    message="invalid value encountered in power"
+                )
                 func(s)
             return True
 
@@ -666,10 +670,10 @@ def test_array_keys_use_private_array():
 def test_array_namespace():
     a = ones((3, 3))
     assert a.__array_namespace__() == array_api_strict
-    assert array_api_strict.__array_api_version__ == "2024.12"
+    assert array_api_strict.__array_api_version__ == "2025.12"
 
     assert a.__array_namespace__(api_version=None) is array_api_strict
-    assert array_api_strict.__array_api_version__ == "2024.12"
+    assert array_api_strict.__array_api_version__ == "2025.12"
 
     assert a.__array_namespace__(api_version="2022.12") is array_api_strict
     assert array_api_strict.__array_api_version__ == "2022.12"
@@ -682,12 +686,12 @@ def test_array_namespace():
     assert array_api_strict.__array_api_version__ == "2021.12"
 
     with pytest.warns(UserWarning):
-        assert a.__array_namespace__(api_version="2025.12") is array_api_strict
-    assert array_api_strict.__array_api_version__ == "2025.12"
+        assert a.__array_namespace__(api_version="2026.12") is array_api_strict
+    assert array_api_strict.__array_api_version__ == "2026.12"
 
 
     pytest.raises(ValueError, lambda: a.__array_namespace__(api_version="2021.11"))
-    pytest.raises(ValueError, lambda: a.__array_namespace__(api_version="2026.12"))
+    pytest.raises(ValueError, lambda: a.__array_namespace__(api_version="2027.12"))
 
 def test_iter():
     pytest.raises(TypeError, lambda: next(iter(asarray(3))))
@@ -744,3 +748,15 @@ def test_dlpack_2023_12(api_version):
         a.__dlpack__(copy=False)
         a.__dlpack__(copy=True)
         a.__dlpack__(copy=None)
+
+def test_pickle():
+    """Check that arrays are pickleable (despite raising on `__new__`)"""
+    a = ones(2)
+    min_supported_protocol = 2
+    for protocol in range(min_supported_protocol, pickle.HIGHEST_PROTOCOL + 1):
+        bytes = pickle.dumps(a, protocol=protocol)
+        a_from_pickle = pickle.loads(bytes)
+        assert a_from_pickle.device == a.device
+        assert a_from_pickle.dtype == a.dtype
+        assert a_from_pickle.shape == a.shape
+        assert all(a_from_pickle == a)

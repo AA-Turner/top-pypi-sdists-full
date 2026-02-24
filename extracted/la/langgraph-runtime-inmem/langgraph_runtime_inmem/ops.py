@@ -810,6 +810,7 @@ class Threads(Authenticated):
         sort_by: str | None = None,
         sort_order: str | None = None,
         select: list[ThreadSelectField] | None = None,
+        extract: dict[str, str] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Thread], int]:
         threads = conn.store["threads"]
@@ -884,13 +885,25 @@ class Threads(Authenticated):
         cursor = offset + limit if len(sorted_threads) > offset + limit else None
 
         async def thread_iterator() -> AsyncIterator[Thread]:
+            if extract:
+                from langgraph_api.utils.extract import (  # noqa: PLC0415
+                    extract_path_value,
+                )
+
             for thread in paginated_threads:
                 if select:
                     # Filter to only selected fields
                     filtered_thread = {k: v for k, v in thread.items() if k in select}
-                    yield filtered_thread
                 else:
-                    yield thread
+                    filtered_thread = dict(thread)
+
+                if extract:
+                    filtered_thread["extracted"] = {
+                        alias: extract_path_value(thread, path)
+                        for alias, path in extract.items()
+                    }
+
+                yield filtered_thread
 
         return thread_iterator(), cursor
 

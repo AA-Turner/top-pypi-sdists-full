@@ -11,7 +11,9 @@ import typing_extensions
 
 def network_file_system_mount_protos(
     validated_network_file_systems: list[tuple[str, _NetworkFileSystem]],
-) -> list[modal_proto.api_pb2.SharedVolumeMount]: ...
+) -> list[modal_proto.api_pb2.SharedVolumeMount]:
+    """mdmd:hidden"""
+    ...
 
 class _NetworkFileSystem(modal._object._Object):
     """A shared, writable file system accessible by one or more Modal functions.

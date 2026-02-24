@@ -31185,6 +31185,115 @@ scout_chartdefinition_api_Geo3dDefinitionV1.__qualname__ = "Geo3dDefinitionV1"
 scout_chartdefinition_api_Geo3dDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_Geo3dDisplayVector(ConjureBeanType):
+    """A display for a vector direction
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'vector_id': ConjureFieldDefinition('vectorId', str),
+            'kind': ConjureFieldDefinition('kind', scout_chartdefinition_api_Geo3dDisplayVectorKind),
+            'enabled': ConjureFieldDefinition('enabled', bool)
+        }
+
+    __slots__: List[str] = ['_vector_id', '_kind', '_enabled']
+
+    def __init__(self, enabled: bool, kind: "scout_chartdefinition_api_Geo3dDisplayVectorKind", vector_id: str) -> None:
+        self._vector_id = vector_id
+        self._kind = kind
+        self._enabled = enabled
+
+    @builtins.property
+    def vector_id(self) -> str:
+        return self._vector_id
+
+    @builtins.property
+    def kind(self) -> "scout_chartdefinition_api_Geo3dDisplayVectorKind":
+        return self._kind
+
+    @builtins.property
+    def enabled(self) -> bool:
+        return self._enabled
+
+
+scout_chartdefinition_api_Geo3dDisplayVector.__name__ = "Geo3dDisplayVector"
+scout_chartdefinition_api_Geo3dDisplayVector.__qualname__ = "Geo3dDisplayVector"
+scout_chartdefinition_api_Geo3dDisplayVector.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDisplayVectorKind(ConjureUnionType):
+    _sun: Optional["scout_chartdefinition_api_Geo3dDisplayVectorSun"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sun': ConjureFieldDefinition('sun', scout_chartdefinition_api_Geo3dDisplayVectorSun)
+        }
+
+    def __init__(
+            self,
+            sun: Optional["scout_chartdefinition_api_Geo3dDisplayVectorSun"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (sun is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if sun is not None:
+                self._sun = sun
+                self._type = 'sun'
+
+        elif type_of_union == 'sun':
+            if sun is None:
+                raise ValueError('a union value must not be None')
+            self._sun = sun
+            self._type = 'sun'
+
+    @builtins.property
+    def sun(self) -> Optional["scout_chartdefinition_api_Geo3dDisplayVectorSun"]:
+        return self._sun
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'sun' and self.sun is not None:
+            return visitor._sun(self.sun)
+
+
+scout_chartdefinition_api_Geo3dDisplayVectorKind.__name__ = "Geo3dDisplayVectorKind"
+scout_chartdefinition_api_Geo3dDisplayVectorKind.__qualname__ = "Geo3dDisplayVectorKind"
+scout_chartdefinition_api_Geo3dDisplayVectorKind.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor:
+
+    @abstractmethod
+    def _sun(self, sun: "scout_chartdefinition_api_Geo3dDisplayVectorSun") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor.__name__ = "Geo3dDisplayVectorKindVisitor"
+scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor.__qualname__ = "Geo3dDisplayVectorKindVisitor"
+scout_chartdefinition_api_Geo3dDisplayVectorKindVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDisplayVectorSun(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_Geo3dDisplayVectorSun.__name__ = "Geo3dDisplayVectorSun"
+scout_chartdefinition_api_Geo3dDisplayVectorSun.__qualname__ = "Geo3dDisplayVectorSun"
+scout_chartdefinition_api_Geo3dDisplayVectorSun.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_Geo3dModel(ConjureUnionType):
     _default: Optional["scout_chartdefinition_api_Geo3dDefaultModel"] = None
     _custom: Optional["scout_chartdefinition_api_Geo3dCustomModel"] = None
@@ -32146,12 +32255,13 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
             'visualization_options': ConjureFieldDefinition('visualizationOptions', scout_chartdefinition_api_GeoPlot3dVisualizationOptions),
             'position': ConjureFieldDefinition('position', scout_chartdefinition_api_Geo3dPosition),
             'orientation': ConjureFieldDefinition('orientation', scout_chartdefinition_api_Geo3dOrientation),
-            'plot_sensors': ConjureFieldDefinition('plotSensors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dSensor]])
+            'plot_sensors': ConjureFieldDefinition('plotSensors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dSensor]]),
+            'display_vectors': ConjureFieldDefinition('displayVectors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dDisplayVector]])
         }
 
-    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation', '_plot_sensors']
+    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation', '_plot_sensors', '_display_vectors']
 
-    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, plot_sensors: Optional[List["scout_chartdefinition_api_Geo3dSensor"]] = None) -> None:
+    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", display_vectors: Optional[List["scout_chartdefinition_api_Geo3dDisplayVector"]] = None, enabled: Optional[bool] = None, label: Optional[str] = None, plot_sensors: Optional[List["scout_chartdefinition_api_Geo3dSensor"]] = None) -> None:
         self._plot_id = plot_id
         self._enabled = enabled
         self._label = label
@@ -32159,6 +32269,7 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
         self._position = position
         self._orientation = orientation
         self._plot_sensors = plot_sensors
+        self._display_vectors = display_vectors
 
     @builtins.property
     def plot_id(self) -> str:
@@ -32187,6 +32298,10 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
     @builtins.property
     def plot_sensors(self) -> Optional[List["scout_chartdefinition_api_Geo3dSensor"]]:
         return self._plot_sensors
+
+    @builtins.property
+    def display_vectors(self) -> Optional[List["scout_chartdefinition_api_Geo3dDisplayVector"]]:
+        return self._display_vectors
 
 
 scout_chartdefinition_api_GeoPlot3d.__name__ = "GeoPlot3d"
@@ -38407,7 +38522,7 @@ class scout_checklistexecution_api_ExecuteChecklistForAssetsRequest(ConjureBeanT
 
     @builtins.property
     def notification_configurations(self) -> List["scout_integrations_api_NotificationConfiguration"]:
-        """Checklist violations will be sent to the specified integrations. At least one integration must be specified.
+        """Checklist violations will be sent to the specified integrations. If empty, no notifications will be sent.
         """
         return self._notification_configurations
 
@@ -66972,16 +67087,18 @@ class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
             'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_NominalDataSourceOrDatasetRid),
             'type': ConjureFieldDefinition('type', storage_series_api_NominalDataType),
             'details': ConjureFieldDefinition('details', scout_compute_resolved_api_ClickHouseSeriesResolutionDetails),
-            'is_in_memory_streaming_enabled': ConjureFieldDefinition('isInMemoryStreamingEnabled', bool)
+            'is_in_memory_streaming_enabled': ConjureFieldDefinition('isInMemoryStreamingEnabled', bool),
+            'dataset_backing_type': ConjureFieldDefinition('datasetBackingType', scout_catalog_DatasetBackingType)
         }
 
-    __slots__: List[str] = ['_data_source_rid', '_type', '_details', '_is_in_memory_streaming_enabled']
+    __slots__: List[str] = ['_data_source_rid', '_type', '_details', '_is_in_memory_streaming_enabled', '_dataset_backing_type']
 
-    def __init__(self, data_source_rid: str, details: "scout_compute_resolved_api_ClickHouseSeriesResolutionDetails", is_in_memory_streaming_enabled: bool, type: "storage_series_api_NominalDataType") -> None:
+    def __init__(self, data_source_rid: str, dataset_backing_type: "scout_catalog_DatasetBackingType", details: "scout_compute_resolved_api_ClickHouseSeriesResolutionDetails", is_in_memory_streaming_enabled: bool, type: "storage_series_api_NominalDataType") -> None:
         self._data_source_rid = data_source_rid
         self._type = type
         self._details = details
         self._is_in_memory_streaming_enabled = is_in_memory_streaming_enabled
+        self._dataset_backing_type = dataset_backing_type
 
     @builtins.property
     def data_source_rid(self) -> str:
@@ -66998,6 +67115,10 @@ class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
     @builtins.property
     def is_in_memory_streaming_enabled(self) -> bool:
         return self._is_in_memory_streaming_enabled
+
+    @builtins.property
+    def dataset_backing_type(self) -> "scout_catalog_DatasetBackingType":
+        return self._dataset_backing_type
 
 
 scout_compute_resolved_api_NominalStorageLocator.__name__ = "NominalStorageLocator"

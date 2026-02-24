@@ -114,13 +114,9 @@ def check_linearity(
     
     # Determine layers to test
     if cfg.layers_to_test is None:
-        layers_to_test = [
-            int(num_layers * 0.25),
-            int(num_layers * 0.5),
-            int(num_layers * 0.75),
-            num_layers - 1,
-        ]
-        layers_to_test = sorted(set(layers_to_test))
+        layers_to_test = sorted(set(
+            list(range(0, num_layers, max(1, num_layers // 8))) + [num_layers - 1]
+        ))
     else:
         layers_to_test = cfg.layers_to_test
     

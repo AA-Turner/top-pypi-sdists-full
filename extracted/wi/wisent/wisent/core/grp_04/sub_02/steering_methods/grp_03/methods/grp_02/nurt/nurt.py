@@ -27,6 +27,8 @@ from wisent.core.constants import (
     NURT_LR_MIN,
     NURT_NUM_INTEGRATION_STEPS,
     NURT_T_MAX,
+    GROM_WEIGHT_DECAY,
+    GROM_MAX_GRAD_NORM,
 )
 from .flow_network import FlowVelocityNetwork
 from .subspace import discover_concept_subspace, project_to_subspace
@@ -177,7 +179,7 @@ class NurtMethod(BaseSteeringMethod):
         """Train a single flow velocity network via conditional flow matching."""
         network = FlowVelocityNetwork(concept_dim, self.config.flow_hidden_dim)
         optimizer = torch.optim.AdamW(
-            network.parameters(), lr=self.config.lr, weight_decay=0.01,
+            network.parameters(), lr=self.config.lr, weight_decay=GROM_WEIGHT_DECAY,
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=self.config.training_epochs, eta_min=self.config.lr_min,
@@ -195,7 +197,7 @@ class NurtMethod(BaseSteeringMethod):
             v_pred = network(z_t, t.squeeze(-1))
             loss = F.mse_loss(v_pred, target)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=GROM_MAX_GRAD_NORM)
             optimizer.step()
             scheduler.step()
 

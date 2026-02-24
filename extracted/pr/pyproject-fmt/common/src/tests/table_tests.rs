@@ -1,5 +1,4 @@
 use indoc::indoc;
-use tombi_config::TomlVersion;
 
 use super::format_toml;
 use crate::table::{
@@ -8,9 +7,7 @@ use crate::table::{
 };
 
 fn parse(source: &str) -> tombi_syntax::SyntaxNode {
-    tombi_parser::parse(source, TomlVersion::default())
-        .syntax_node()
-        .clone_for_update()
+    tombi_parser::parse(source).syntax_node().clone_for_update()
 }
 
 fn tables_reorder_helper(start: &str, order: &[&str]) -> String {
@@ -2027,5 +2024,100 @@ fn test_reorder_table_keys_mixed_quote_styles_reverse() {
     [tool.ruff]
     lint.per-file-ignores."flexget/*" = [ "PTH" ]
     lint.per-file-ignores.'tests/*' = [ "T20" ]
+    "#);
+}
+
+fn rename_keys_helper(start: &str, table_name: &str, aliases: &[(&str, &str)]) -> String {
+    let root_ast = parse(start);
+    let tables = Tables::from_ast(&root_ast);
+    if let Some(table_refs) = tables.get(table_name) {
+        for table_ref in table_refs {
+            crate::table::rename_keys(&mut table_ref.borrow_mut(), aliases);
+        }
+    }
+    format_toml(&root_ast, 120)
+}
+
+#[test]
+fn test_rename_keys_single() {
+    let result = rename_keys_helper(
+        indoc! {r#"
+            [project]
+            old_name = "value"
+        "#},
+        "project",
+        &[("old_name", "new_name")],
+    );
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    new_name = "value"
+    "#);
+}
+
+#[test]
+fn test_rename_keys_multiple() {
+    let result = rename_keys_helper(
+        indoc! {r#"
+            [project]
+            alpha = "a"
+            beta = "b"
+            gamma = "c"
+        "#},
+        "project",
+        &[("alpha", "first"), ("gamma", "third")],
+    );
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    first = "a"
+    beta = "b"
+    third = "c"
+    "#);
+}
+
+#[test]
+fn test_rename_keys_no_match() {
+    let result = rename_keys_helper(
+        indoc! {r#"
+            [project]
+            name = "value"
+        "#},
+        "project",
+        &[("missing", "replaced")],
+    );
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    name = "value"
+    "#);
+}
+
+#[test]
+fn test_rename_keys_preserves_value() {
+    let result = rename_keys_helper(
+        indoc! {r#"
+            [project]
+            old_key = ["a", "b", "c"]
+        "#},
+        "project",
+        &[("old_key", "new_key")],
+    );
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    new_key = [ "a", "b", "c" ]
+    "#);
+}
+
+#[test]
+fn test_rename_keys_empty_aliases() {
+    let result = rename_keys_helper(
+        indoc! {r#"
+            [project]
+            name = "value"
+        "#},
+        "project",
+        &[],
+    );
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    name = "value"
     "#);
 }

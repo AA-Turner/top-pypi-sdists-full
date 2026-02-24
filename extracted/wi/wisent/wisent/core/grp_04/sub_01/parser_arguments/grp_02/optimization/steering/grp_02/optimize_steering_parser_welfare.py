@@ -145,11 +145,6 @@ def setup_welfare_universal_parsers(steering_subparsers):
         help="Maximum samples to use (default: 100)"
     )
     universal_parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Use reduced search space for faster testing"
-    )
-    universal_parser.add_argument(
         "--max-configs",
         type=int,
         default=None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-parse
-Version: 5.3.3
+Version: 5.3.4
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 Author-email: Peter Staar <taa@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>
 License-Expression: MIT
@@ -28,10 +28,6 @@ Requires-Dist: pillow<13.0.0,>=10.0.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: docling-core>=2.65.1
 Requires-Dist: pywin32>=305; sys_platform == "win32"
-Provides-Extra: perf-tools
-Requires-Dist: pdfplumber>=0.11.7; extra == "perf-tools"
-Requires-Dist: pymupdf>=1.26.4; extra == "perf-tools"
-Requires-Dist: pypdfium2>=4.30.0; extra == "perf-tools"
 Dynamic: license-file
 
 # Docling Parse

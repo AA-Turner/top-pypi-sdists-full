@@ -10,7 +10,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 
 from wisent.core.steering_methods import SteeringMethodRegistry, SteeringMethodType
-from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_SPLIT_RATIO
+from wisent.core.constants import (
+    DEFAULT_LIMIT, DEFAULT_SPLIT_RATIO, SEARCH_DEFAULT_STRENGTHS,
+    SEARCH_MAX_LAYER_CAP,
+)
 
 from ..types import (
     SteeringMethodConfig,
@@ -77,7 +80,7 @@ class MethodComparisonMixin:
                     logger.warning(f"Unknown method type: {type(item)}, value: {item}")
 
         if strength_range is None:
-            strength_range = [0.5, 1.0, 1.5, 2.0]
+            strength_range = list(SEARCH_DEFAULT_STRENGTHS)
 
         logger.info(f"Comparing {len(method_configs)} steering method configs for: {task_name}")
 
@@ -183,7 +186,7 @@ class MethodComparisonMixin:
             return self._parse_layer_range(layer_range)
         elif self.base_classification_layer:
             min_layer = max(1, self.base_classification_layer - 2)
-            max_layer = min(32, self.base_classification_layer + 2)
+            max_layer = min(SEARCH_MAX_LAYER_CAP, self.base_classification_layer + 2)
             return list(range(min_layer, max_layer + 1))
         else:
             try:

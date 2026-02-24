@@ -1,7 +1,8 @@
-import os
-import pytest
 from pathlib import Path
-from .utils import get_lqp_input_files, get_all_files, PARENT_DIR
+
+import pytest
+
+from .utils import BIN_SNAPSHOTS_DIR, REPO_ROOT, get_all_files, get_lqp_input_files
 
 
 def get_base_filename(filepath):
@@ -17,17 +18,19 @@ def check_output_files_have_corresponding_inputs():
     missing_inputs = []
 
     output_files = [
-        ("lqp_output", ".lqp"),
-        ("lqp_debug_output", ".lqp"),
-        ("lqp_pretty_output", ".lqp"),
-        ("test_files/bin", ".bin"),
+        (REPO_ROOT / "tests" / "pretty", ".lqp"),
+        (BIN_SNAPSHOTS_DIR, ".bin"),
     ]
 
     for directory, file_extension in output_files:
-        for output_file in get_all_files(PARENT_DIR / directory, file_extension):
+        if not directory.exists():
+            continue
+        for output_file in get_all_files(directory, file_extension):
             base_name = get_base_filename(output_file)
             if base_name not in input_basenames:
-                missing_inputs.append(f"{directory}/{Path(output_file).name} -> missing input {base_name}.lqp")
+                missing_inputs.append(
+                    f"{Path(output_file).parent.name}/{Path(output_file).name} -> missing input {base_name}.lqp"
+                )
 
     return missing_inputs
 
@@ -37,5 +40,8 @@ def test_all_output_files_have_corresponding_inputs():
     missing_inputs = check_output_files_have_corresponding_inputs()
 
     if missing_inputs:
-        error_message = "Found output files without corresponding input files:\n" + "\n".join(missing_inputs)
+        error_message = (
+            "Found output files without corresponding input files:\n"
+            + "\n".join(missing_inputs)
+        )
         pytest.fail(error_message)

@@ -21,10 +21,10 @@ from pathlib import Path
 from types import ModuleType
 
 from pyrig.rig.configs.base.py_package import PythonPackageConfigFile
-from pyrig.rig.configs.pyproject import PyprojectConfigFile
+from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.src.modules.module import (
     isolated_obj_name,
-    module_content_as_str,
+    module_content,
     module_name_replacing_start_module,
 )
 from pyrig.src.modules.path import ModulePath
@@ -63,7 +63,7 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         """
         src_module = self.src_module()
         new_module_name = module_name_replacing_start_module(
-            src_module, PyprojectConfigFile.I.package_name()
+            src_module, PackageManager.I.package_name()
         )
         new_module_path = ModulePath.module_name_to_relative_file_path(new_module_name)
         return new_module_path.parent
@@ -75,7 +75,7 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
             Full source code of the module as list of lines.
         """
         src_module = self.src_module()
-        return [*module_content_as_str(src_module).splitlines()]
+        return [*module_content(src_module).splitlines()]
 
     def filename(self) -> str:
         """Return module's isolated name (last component).

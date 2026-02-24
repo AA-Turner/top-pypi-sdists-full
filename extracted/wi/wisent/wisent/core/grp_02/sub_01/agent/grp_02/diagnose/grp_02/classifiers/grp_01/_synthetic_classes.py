@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from wisent.core.classifier.classifier import ActivationClassifier
+from wisent.core.constants import DEFAULT_LAYER, AGENT_DIAG_MAX_TOKENS_LONG, AGENT_DIAG_TEMPERATURE_CREATIVE, AGENT_SYNTH_MIN_PAIRS
 from wisent.core.errors import InsufficientDataError, MissingParameterError, ExecutionError
 
 from ....core.agent.budget import ResourceType, calculate_max_tasks_for_time_budget, get_budget_manager
@@ -69,7 +70,7 @@ List {max_traits} quality traits for responses:
 
         try:
             analysis, _ = self.model.generate(
-                discovery_prompt, layer_index=15, max_new_tokens=200, temperature=0.7, do_sample=True
+                discovery_prompt, layer_index=DEFAULT_LAYER, max_new_tokens=AGENT_DIAG_MAX_TOKENS_LONG, temperature=AGENT_DIAG_TEMPERATURE_CREATIVE, do_sample=True
             )
 
             logging.info(f"Model generated analysis: {analysis[:200]}...")
@@ -127,8 +128,8 @@ class SyntheticClassifierFactory:
                 name=f"synthetic_{trait_description[:20].replace(' ', '_')}",
             )
 
-            if len(pair_set.pairs) < 3:
-                raise InsufficientDataError(reason="training pairs", required=3, actual=len(pair_set.pairs))
+            if len(pair_set.pairs) < AGENT_SYNTH_MIN_PAIRS:
+                raise InsufficientDataError(reason="training pairs", required=AGENT_SYNTH_MIN_PAIRS, actual=len(pair_set.pairs))
 
             # Extract activations for training
             positive_activations = []
@@ -139,7 +140,7 @@ class SyntheticClassifierFactory:
             # Create Layer object for activation extraction
             from wisent.core.layer import Layer
 
-            layer_obj = Layer(index=15, type="transformer")
+            layer_obj = Layer(index=DEFAULT_LAYER, type="transformer")
             logging.info(f"Created Layer object: index={layer_obj.index}, type={layer_obj.type}")
 
             for i, pair in enumerate(pair_set.pairs):
@@ -202,7 +203,7 @@ class SyntheticClassifierFactory:
 
                 from wisent.core.layer import Layer
 
-                layer_obj = Layer(index=15, type="transformer")
+                layer_obj = Layer(index=DEFAULT_LAYER, type="transformer")
 
                 for pos_act in positive_activations:
                     if hasattr(pos_act, "shape"):  # It's a torch tensor

@@ -317,10 +317,16 @@ def test_backend_span_exporter_sanitizes_generation_usage_for_openai_tracing(moc
     sent_usage = sent_payload["span_data"]["usage"]
     assert "requests" not in sent_usage
     assert "total_tokens" not in sent_usage
+    assert "input_tokens_details" not in sent_usage
+    assert "output_tokens_details" not in sent_usage
     assert sent_usage["input_tokens"] == 10
     assert sent_usage["output_tokens"] == 5
-    assert sent_usage["input_tokens_details"] == {"cached_tokens": 1}
-    assert sent_usage["output_tokens_details"] == {"reasoning_tokens": 2}
+    assert sent_usage["details"] == {
+        "requests": 1,
+        "total_tokens": 15,
+        "input_tokens_details": {"cached_tokens": 1},
+        "output_tokens_details": {"reasoning_tokens": 2},
+    }
 
     # Ensure the original exported object has not been mutated.
     assert "requests" in item.exported_payload["span_data"]["usage"]
@@ -401,12 +407,178 @@ def test_sanitize_for_openai_tracing_api_keeps_allowed_generation_usage():
             "usage": {
                 "input_tokens": 1,
                 "output_tokens": 2,
+            },
+        },
+    }
+    assert exporter._sanitize_for_openai_tracing_api(payload) is payload
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_moves_unsupported_generation_usage_to_details():
+    exporter = BackendSpanExporter(api_key="test_key")
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+                "input_tokens_details": {"cached_tokens": 0},
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "details": {"provider": "litellm"},
+            },
+        },
+    }
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"]["usage"] == {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "details": {
+            "provider": "litellm",
+            "total_tokens": 3,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_filters_non_json_values_in_usage_details():
+    exporter = BackendSpanExporter(api_key="test_key")
+    non_json = object()
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "input_tokens_details": {
+                    "cached_tokens": 0,
+                    "bad": non_json,
+                },
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "provider_usage": [1, non_json, {"ok": True, "bad": non_json}],
+                "details": {
+                    "provider": "litellm",
+                    "bad": non_json,
+                    "nested": {"keep": 1, "bad": non_json},
+                },
+            },
+        },
+    }
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"]["usage"] == {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "details": {
+            "provider": "litellm",
+            "nested": {"keep": 1},
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "provider_usage": [1, {"ok": True}],
+        },
+    }
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_handles_cyclic_usage_values():
+    exporter = BackendSpanExporter(api_key="test_key")
+    cyclic_dict: dict[str, Any] = {}
+    cyclic_dict["self"] = cyclic_dict
+    cyclic_list: list[Any] = []
+    cyclic_list.append(cyclic_list)
+
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "input_tokens_details": cyclic_dict,
+                "details": {
+                    "provider": "litellm",
+                    "cycle": cyclic_list,
+                },
+            },
+        },
+    }
+
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"]["usage"] == {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "details": {
+            "provider": "litellm",
+            "cycle": [],
+            "input_tokens_details": {},
+        },
+    }
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_drops_non_dict_generation_usage_details():
+    exporter = BackendSpanExporter(api_key="test_key")
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "details": "invalid",
+            },
+        },
+    }
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"]["usage"] == {
+        "input_tokens": 1,
+        "output_tokens": 2,
+    }
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_drops_generation_usage_missing_required_tokens():
+    exporter = BackendSpanExporter(api_key="test_key")
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": 1,
+                "total_tokens": 3,
                 "input_tokens_details": {"cached_tokens": 0},
                 "output_tokens_details": {"reasoning_tokens": 0},
             },
         },
     }
-    assert exporter._sanitize_for_openai_tracing_api(payload) is payload
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"] == {
+        "type": "generation",
+    }
+    exporter.close()
+
+
+def test_sanitize_for_openai_tracing_api_rejects_boolean_token_counts():
+    exporter = BackendSpanExporter(api_key="test_key")
+    payload = {
+        "object": "trace.span",
+        "span_data": {
+            "type": "generation",
+            "usage": {
+                "input_tokens": True,
+                "output_tokens": False,
+                "input_tokens_details": {"cached_tokens": 0},
+                "output_tokens_details": {"reasoning_tokens": 0},
+            },
+        },
+    }
+    sanitized = exporter._sanitize_for_openai_tracing_api(payload)
+    assert sanitized["span_data"] == {
+        "type": "generation",
+    }
     exporter.close()
 
 

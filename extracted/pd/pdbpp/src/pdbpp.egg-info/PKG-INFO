@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdbpp
-Version: 0.12.0.post1
+Version: 0.12.1
 Summary: pdb++, a drop-in replacement for pdb
 Author-email: Antonio Cuni <anto.cuni@gmail.com>
 Maintainer-email: bretello <bretello@distruzione.org>

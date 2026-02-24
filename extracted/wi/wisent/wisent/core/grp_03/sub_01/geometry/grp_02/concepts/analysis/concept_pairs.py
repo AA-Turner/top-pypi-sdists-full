@@ -7,7 +7,10 @@ Functions for assigning pairs to concepts and analyzing concept structure.
 import torch
 import numpy as np
 from typing import Dict, Any, List, Tuple
-from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
+from wisent.core.constants import (
+    NORM_EPS, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
+    CONCEPT_MIN_SAMPLES, CONCEPT_SEPARABILITY_HIGH, CONCEPT_MIXED_PAIR_THRESHOLD,
+)
 
 
 def compute_concept_linear_separability(
@@ -36,7 +39,7 @@ def compute_concept_linear_separability(
                 X = diff_vectors[mask]
                 y = (labels[mask] == c_j).astype(int)
 
-                if len(X) < 10 or len(np.unique(y)) < 2:
+                if len(X) < CONCEPT_MIN_SAMPLES or len(np.unique(y)) < 2:
                     continue
 
                 clf = LogisticRegression( solver='lbfgs')
@@ -56,7 +59,7 @@ def compute_concept_linear_separability(
             return {"separability": 0.5, "pairwise_separability": {}, "all_linearly_separable": False}
 
         mean_separability = float(np.mean(list(pairwise_scores.values())))
-        all_separable = all(s >= 0.95 for s in pairwise_scores.values())
+        all_separable = all(s >= CONCEPT_SEPARABILITY_HIGH for s in pairwise_scores.values())
 
         return {
             "separability": mean_separability,
@@ -137,7 +140,7 @@ def get_pair_concept_assignments(
 def find_mixed_pairs(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
-    threshold: float = 0.3,
+    threshold: float = CONCEPT_MIXED_PAIR_THRESHOLD,
 ) -> List[int]:
     """Find pairs that don't fit well into any cluster."""
     try:

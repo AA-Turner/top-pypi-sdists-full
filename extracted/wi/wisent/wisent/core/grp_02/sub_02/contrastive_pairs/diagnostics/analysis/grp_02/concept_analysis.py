@@ -22,7 +22,10 @@ import torch
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.decomposition import PCA
-from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
+from wisent.core.constants import (
+    ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
+    CONCEPT_PCA_COMPONENTS, CONCEPT_K_MAX,
+)
 
 
 @dataclass
@@ -111,7 +114,7 @@ def compute_icd(diff_vectors: np.ndarray) -> float:
 
 def compute_eigenvalue_spectrum(
     diff_vectors: np.ndarray,
-    n_components: int = 20,
+    n_components: int = CONCEPT_PCA_COMPONENTS,
 ) -> Tuple[List[float], List[float], float]:
     """
     Compute eigenvalue spectrum of difference vectors.
@@ -148,7 +151,7 @@ def compute_eigenvalue_spectrum(
 
 def decompose_concepts(
     diff_vectors: np.ndarray,
-    k_max: int = 10,
+    k_max: int = CONCEPT_K_MAX,
     method: str = "kmeans",
 ) -> Tuple[int, np.ndarray, List[np.ndarray], Dict[int, float]]:
     """

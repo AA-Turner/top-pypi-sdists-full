@@ -251,6 +251,8 @@ class TestDatabricks(Validator):
         self.validate_identity("CURDATE", "CURRENT_DATE")
         self.validate_identity("SELECT MAKE_INTERVAL(100, 11, 12, 13, 14, 14, 15)")
         self.validate_identity("SELECT name, GROUPING_ID() FROM customer GROUP BY ROLLUP (name)")
+        self.validate_identity("BIT_GET(11, 0)", "GETBIT(11, 0)")
+        self.validate_identity("SELECT CURDATE()", "SELECT CURRENT_DATE")
 
     # https://docs.databricks.com/sql/language-manual/functions/colonsign.html
     def test_json(self):
@@ -471,3 +473,10 @@ class TestDatabricks(Validator):
         self.validate_identity(
             "SELECT OVERLAY('Spark SQL' PLACING 'ANSI ' FROM 7 FOR 0)",
         )
+
+    def test_declare(self):
+        self.validate_identity("DECLARE VAR x INT", "DECLARE x INT")
+        self.validate_identity("DECLARE x INT")
+        self.validate_identity("DECLARE VARIABLE myvar INT DEFAULT 1", "DECLARE myvar INT = 1")
+        self.validate_identity("DECLARE x, y, z INT DEFAULT 1", "DECLARE x, y, z INT = 1")
+        self.validate_identity("DECLARE x INT = 1")

@@ -19,10 +19,12 @@ from openai.types import ImagesResponse as _ImagesResponse
 from openai.types.shared_params import FunctionDefinition
 from openai.types.chat import ChatCompletionToolParam
 from openai.types.file_object import FileObject as _FileObject
+from meutils.schemas.image_types import ImageRequest, ImagesResponse
+
 
 
 class FileObject(_FileObject):
-    id: str = Field(default_factory=lambda: shortuuid.random())
+    id: str = Field(default_factory=lambda: f"file-{shortuuid.random()}")
 
     bytes: int = -1
     filename: str = Field(default_factory=lambda: shortuuid.random())

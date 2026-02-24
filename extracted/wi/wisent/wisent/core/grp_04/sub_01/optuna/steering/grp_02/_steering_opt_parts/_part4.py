@@ -17,7 +17,7 @@ from wisent.core.errors import (
     ModelArchitectureUnknownError,
     NoActivationDataError,
 )
-from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER, ACTIVATIONS_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ class _SteeringOptimizerEval:
         confidence_scores = []
 
         # Process predictions in batches for efficiency
-        batch_size = 8  # Smaller batch size to avoid OOM
+        batch_size = ACTIVATIONS_BATCH_SIZE  # Smaller batch size to avoid OOM
         for i in range(0, len(predictions), batch_size):
             batch_predictions = predictions[i : i + batch_size]
             batch_activations = []

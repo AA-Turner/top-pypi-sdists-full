@@ -13,6 +13,8 @@ from wisent.core.constants import (
     SUBSPACE_TOP_CONTRIB_THRESHOLD, SUBSPACE_DEFAULT_QUALITY,
     SUBSPACE_QUALITY_W_CONCENTRATION, SUBSPACE_QUALITY_W_RANK,
     SUBSPACE_QUALITY_W_DECAY,
+    QUALITY_SCORE_SPARSE, QUALITY_SCORE_CONCENTRATED,
+    QUALITY_SCORE_GOOD, QUALITY_SPARSITY_THRESHOLD,
 )
 
 _LOG = setup_logger(__name__)
@@ -213,7 +215,7 @@ def analyze_steering_vector_subspace(
 def check_vector_quality(
     vector: torch.Tensor,
     reference_vectors: Optional[List[torch.Tensor]] = None,
-    threshold: float = VARIANCE_EXPLAINED_THRESHOLD,
+    threshold: float = DEFAULT_VARIANCE_THRESHOLD,
 ) -> Tuple[bool, float, str]:
     """
     Quick check if a single steering vector is high quality.
@@ -251,17 +253,17 @@ def check_vector_quality(
     # Without reference, do basic quality checks
     # Check sparsity (too sparse = suspicious)
     sparsity = (vector.abs() < COMPARE_TOL).float().mean().item()
-    if sparsity > 0.99:
-        return False, 0.1, f"Vector is too sparse ({sparsity:.1%} zeros)"
+    if sparsity > QUALITY_SPARSITY_THRESHOLD:
+        return False, QUALITY_SCORE_SPARSE, f"Vector is too sparse ({sparsity:.1%} zeros)"
     
     # Check concentration (variance should be spread reasonably)
     sorted_abs = vector.abs().sort(descending=True).values
     top_10_contribution = sorted_abs[:max(1, len(sorted_abs)//10)].sum() / (sorted_abs.sum() + ZERO_THRESHOLD)
     
-    if top_10_contribution > 0.99:
-        return False, 0.3, f"Vector is too concentrated (top 10% = {top_10_contribution:.1%})"
-    
-    return True, 0.8, "Vector passes basic quality checks"
+    if top_10_contribution > QUALITY_SPARSITY_THRESHOLD:
+        return False, QUALITY_SCORE_CONCENTRATED, f"Vector is too concentrated (top 10% = {top_10_contribution:.1%})"
+
+    return True, QUALITY_SCORE_GOOD, "Vector passes basic quality checks"
 
 
 # =============================================================================

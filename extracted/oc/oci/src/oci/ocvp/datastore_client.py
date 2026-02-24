@@ -179,7 +179,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/add_block_volume_to_datastore.py.html>`__ to see an example of how to use add_block_volume_to_datastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/add_block_volume_to_datastore.py.html>`__ to see an example of how to use add_block_volume_to_datastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datastoreId']
@@ -313,7 +313,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/change_datastore_compartment.py.html>`__ to see an example of how to use change_datastore_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/change_datastore_compartment.py.html>`__ to see an example of how to use change_datastore_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datastoreId']
@@ -434,7 +434,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/create_datastore.py.html>`__ to see an example of how to use create_datastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/create_datastore.py.html>`__ to see an example of how to use create_datastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -543,7 +543,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/delete_datastore.py.html>`__ to see an example of how to use delete_datastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/delete_datastore.py.html>`__ to see an example of how to use delete_datastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datastoreId']
@@ -651,7 +651,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/get_datastore.py.html>`__ to see an example of how to use get_datastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/get_datastore.py.html>`__ to see an example of how to use get_datastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datastoreId']
@@ -810,7 +810,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/list_datastores.py.html>`__ to see an example of how to use list_datastores API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/list_datastores.py.html>`__ to see an example of how to use list_datastores API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -963,7 +963,7 @@ class DatastoreClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/ocvp/update_datastore.py.html>`__ to see an example of how to use update_datastore API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/ocvp/update_datastore.py.html>`__ to see an example of how to use update_datastore API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datastoreId']

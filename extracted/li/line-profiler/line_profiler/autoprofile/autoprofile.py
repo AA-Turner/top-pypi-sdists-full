@@ -44,12 +44,17 @@ profiles it with autoprofile.
     python -m kernprof -p demo.py -l demo.py
     python -m line_profiler -rmt demo.py.lprof
 """
+
+from __future__ import annotations
 import contextlib
 import functools
 import importlib.util
 import operator
 import sys
 import types
+from collections.abc import MutableMapping
+from typing import Any, cast, Dict, Mapping
+from typing import ContextManager
 from .ast_tree_profiler import AstTreeProfiler
 from .run_module import AstTreeModuleProfiler
 from .line_profiler_utils import add_imported_function_or_module
@@ -58,7 +63,7 @@ from .util_static import modpath_to_modname
 PROFILER_LOCALS_NAME = 'prof'
 
 
-def _extend_line_profiler_for_profiling_imports(prof):
+def _extend_line_profiler_for_profiling_imports(prof: Any) -> None:
     """Allow profiler to handle functions/methods, classes & modules with a single call.
 
     Add a method to LineProfiler that can identify whether the object is a
@@ -70,10 +75,18 @@ def _extend_line_profiler_for_profiling_imports(prof):
         prof (LineProfiler):
             instance of LineProfiler.
     """
-    prof.add_imported_function_or_module = types.MethodType(add_imported_function_or_module, prof)
+    prof.add_imported_function_or_module = types.MethodType(
+        add_imported_function_or_module, prof
+    )
 
 
-def run(script_file, ns, prof_mod, profile_imports=False, as_module=False):
+def run(
+    script_file: str,
+    ns: MutableMapping[str, Any],
+    prof_mod: list[str],
+    profile_imports: bool = False,
+    as_module: bool = False,
+) -> None:
     """Automatically profile a script and run it.
 
     Profile functions, classes & modules specified in prof_mod without needing to add
@@ -97,28 +110,35 @@ def run(script_file, ns, prof_mod, profile_imports=False, as_module=False):
         as_module (bool):
             Whether we're running script_file as a module
     """
+
     class restore_dict:
-        def __init__(self, d, target=None):
+        def __init__(self, d: MutableMapping[str, Any], target=None):
             self.d = d
             self.target = target
-            self.copy = None
+            self.copy: Mapping[str, Any] | None = None
 
         def __enter__(self):
             assert self.copy is None
-            self.copy = self.d.copy()
+            self.copy = dict(self.d)
             return self.target
 
         def __exit__(self, *_, **__):
             self.d.clear()
-            self.d.update(self.copy)
+            if self.copy is not None:
+                self.d.update(self.copy)
             self.copy = None
+
+    Profiler: type[AstTreeModuleProfiler] | type[AstTreeProfiler]
+    namespace: MutableMapping[str, Any]
+    ctx: ContextManager
 
     if as_module:
         Profiler = AstTreeModuleProfiler
         module_name = modpath_to_modname(script_file)
         if not module_name:
-            raise ModuleNotFoundError(f'script_file = {script_file!r}: '
-                                      'cannot find corresponding module')
+            raise ModuleNotFoundError(
+                f'script_file = {script_file!r}: cannot find corresponding module'
+            )
 
         module_obj = types.ModuleType(module_name)
         namespace = vars(module_obj)
@@ -130,7 +150,8 @@ def run(script_file, ns, prof_mod, profile_imports=False, as_module=False):
         # Set the module object to `sys.modules` via a callback, and
         # then restore it via the context manager
         callback = functools.partial(
-            operator.setitem, sys.modules, '__main__', module_obj)
+            operator.setitem, sys.modules, '__main__', module_obj
+        )
         ctx = restore_dict(sys.modules, callback)
     else:
         Profiler = AstTreeProfiler
@@ -144,4 +165,4 @@ def run(script_file, ns, prof_mod, profile_imports=False, as_module=False):
     code_obj = compile(tree_profiled, script_file, 'exec')
     with ctx as callback:
         callback()
-        exec(code_obj, namespace, namespace)
+        exec(code_obj, cast(Dict[str, Any], namespace), namespace)

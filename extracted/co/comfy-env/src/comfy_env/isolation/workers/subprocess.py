@@ -1937,6 +1937,7 @@ class SubprocessWorker(Worker):
         self._lock = threading.Lock()
         self._last_new_models = []  # Auto-detected models from last call
         self._callback_handlers: Dict[str, Callable] = {}  # Bidirectional RPC callbacks
+        self._on_restart = None  # Called when worker process is replaced (stale model cleanup)
 
         # Socket IPC
         self._server_socket: Optional[socket.socket] = None
@@ -2063,6 +2064,21 @@ class SubprocessWorker(Worker):
             # Socket is dead/unhealthy - restart worker
             print(f"[{self.name}] Socket unhealthy, restarting worker...", file=sys.stderr, flush=True)
             self._kill_worker()
+            if self._on_restart:
+                try:
+                    self._on_restart()
+                except Exception:
+                    pass
+            self._last_new_models = []  # Clear stale model registry
+            self._process = None  # Prevent second _on_restart fire below
+
+        # Process is dead or never started — fire restart callback if replacing
+        if self._process is not None and self._on_restart:
+            try:
+                self._on_restart()
+            except Exception:
+                pass
+            self._last_new_models = []  # Clear stale model registry
 
         # Clean up any previous socket
         if self._transport:

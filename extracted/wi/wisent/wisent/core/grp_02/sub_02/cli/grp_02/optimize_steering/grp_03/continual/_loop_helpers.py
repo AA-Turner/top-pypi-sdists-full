@@ -21,6 +21,7 @@ from wisent.core.steering_methods.steering_object import (
     CAASteeringObject,
 )
 from wisent.core.constants import (TIKHONOV_REG, RL_NUM_EPISODES, RL_EPSILON,
+    PIPELINE_STEERING_STRENGTH, PIPELINE_MAX_NEW_TOKENS, PIPELINE_TEMPERATURE, PIPELINE_TOP_P,
     PRZELOM_EPSILON, SZLAK_INFERENCE_K, DEFAULT_LIMIT)
 
 
@@ -94,9 +95,9 @@ def evaluate_vectors(
 
     execute_generate_responses(_make_args(
         task=task, input_file=enriched_path, model=model, output=rf,
-        num_questions=limit, steering_object=sf, steering_strength=1.0,
+        num_questions=limit, steering_object=sf, steering_strength=PIPELINE_STEERING_STRENGTH,
         steering_strategy="constant", use_steering=True, device=device,
-        max_new_tokens=128, temperature=0.7, top_p=0.95,
+        max_new_tokens=PIPELINE_MAX_NEW_TOKENS, temperature=PIPELINE_TEMPERATURE, top_p=PIPELINE_TOP_P,
         verbose=False, cached_model=None,
     ))
 

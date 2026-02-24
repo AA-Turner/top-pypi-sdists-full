@@ -180,6 +180,8 @@ def update_headers(request: Request, new_api_key: str = None, user: str = None) 
     new_headers = request.headers.mutablecopy()
     if new_api_key:
         new_headers["authorization"] = f"Bearer {new_api_key}"
+    else:
+        del new_headers["authorization"]
     if user:
         new_headers["x-user"] = user
     request.scope["headers"] = new_headers.raw
@@ -282,6 +284,8 @@ class Api:
                             return ErrorResponse.from_message(e.detail, e.status_code, e.headers)
                 if user_g4f_api_key and update_authorization:
                     new_api_key = user_g4f_api_key.pop()
+                    if secrets.compare_digest(AppConfig.g4f_api_key, new_api_key):
+                        new_api_key = None
                 else:
                     new_api_key = None
                 request = update_headers(request, new_api_key, user)
@@ -453,7 +457,7 @@ class Api:
             if provider is None:
                 provider = AppConfig.provider
             try:
-                provider = ProviderUtils.get_by_label(provider)
+                provider = ProviderUtils.get_by_label(provider).__name__
             except ValueError as e:
                 if provider in model_map:
                     config.model = provider
@@ -872,7 +876,6 @@ class Api:
             return await get_media(filename, request, True)
 
 def format_exception(e: Union[Exception, str], config: Union[ChatCompletionsConfig, ImageGenerationConfig] = None, image: bool = False) -> str:
-    last_provider = {}
     provider = (AppConfig.media_provider if image else AppConfig.provider)
     model = AppConfig.model
     if config is not None:
@@ -887,8 +890,8 @@ def format_exception(e: Union[Exception, str], config: Union[ChatCompletionsConf
     return json.dumps({
         "error": {"message": message},
         **filter_none(
-            model=last_provider.get("model") if model is None else model,
-            provider=last_provider.get("name") if provider is None else provider
+            model=model,
+            provider=getattr(provider, "__name__", provider)
         )
     })
 

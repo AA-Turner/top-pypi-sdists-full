@@ -1,12 +1,10 @@
 """OpenAPI spec validator validation validators module."""
+
 import logging
 import warnings
+from collections.abc import Iterator
+from collections.abc import Mapping
 from functools import lru_cache
-from typing import Iterator
-from typing import List
-from typing import Mapping
-from typing import Optional
-from typing import Type
 from typing import cast
 
 from jsonschema.exceptions import ValidationError
@@ -31,17 +29,17 @@ log = logging.getLogger(__name__)
 
 class SpecValidator:
     resolver_handlers = default_handlers
-    keyword_validators: Mapping[str, Type[keywords.KeywordValidator]] = {
+    keyword_validators: Mapping[str, type[keywords.KeywordValidator]] = {
         "__root__": keywords.RootValidator,
     }
-    root_keywords: List[str] = []
+    root_keywords: list[str] = []
     schema_validator: Validator = NotImplemented
 
     def __init__(
         self,
         schema: AnySchema,
         base_uri: str = "",
-        spec_url: Optional[str] = None,
+        spec_url: str | None = None,
     ) -> None:
         if spec_url is not None:
             warnings.warn(
@@ -53,7 +51,7 @@ class SpecValidator:
 
         if isinstance(schema, SchemaPath):
             self.schema_path = schema
-            self.schema = schema.contents()
+            self.schema = schema.read_value()
         else:
             self.schema = schema
             self.schema_path = SchemaPath.from_dict(

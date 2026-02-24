@@ -24,6 +24,7 @@ from blacksheep.server.files.static import get_response_for_static_content
 from blacksheep.server.headers.cache import CacheControlHeaderValue
 from blacksheep.server.resources import get_resource_file_path
 from blacksheep.server.responses import text
+from blacksheep.server.routing import Router
 from blacksheep.testing.helpers import get_example_scope
 from blacksheep.testing.messages import MockReceive, MockSend
 from blacksheep.utils.aio import get_running_loop
@@ -933,3 +934,262 @@ async def test_serve_files_index_html_options_fallback(
     response = app.response
     assert response.status == 200
     assert response.headers[b"cache-control"] != (b"no-cache, no-store",)
+
+
+async def test_files_served_with_content_length_for_a2wsgi():
+    """
+    Test that files are served with Content-Length header instead of
+    Transfer-Encoding: chunked, which is required for a2wsgi compatibility.
+
+    a2wsgi requires exact Content-Length headers to properly bridge between
+    ASGI and WSGI. This test verifies that static files use the file size
+    obtained from os.stat() to set Content-Length instead of using chunked
+    transfer encoding.
+    """
+    from blacksheep.scribe import set_headers_for_response_content
+
+    test_file = get_file_path("example.txt")
+
+    # Test GET request
+    response = get_response_for_file(
+        FilesHandler(), Request("GET", b"/example.txt", None), test_file, 1200
+    )
+
+    # Set headers (simulating what the framework does before sending)
+    set_headers_for_response_content(response)
+
+    # Verify Content-Length is set
+    content_length = response.get_first_header(b"content-length")
+    assert content_length is not None, "Content-Length header must be set for a2wsgi"
+    assert int(content_length) == 447, "Content-Length should match file size"
+
+    # Verify Transfer-Encoding is NOT set to chunked
+    transfer_encoding = response.get_first_header(b"transfer-encoding")
+    assert transfer_encoding is None, "Transfer-Encoding should not be set for files"
+
+    # Verify the StreamedContent has the correct length
+    assert response.content.length == 447, "StreamedContent should have file size"
+
+    # Test with a larger file (jpeg)
+    large_file = get_file_path("pexels-photo-126407.jpeg")
+    response = get_response_for_file(
+        FilesHandler(), Request("GET", b"/photo.jpeg", None), large_file, 1200
+    )
+
+    set_headers_for_response_content(response)
+
+    content_length = response.get_first_header(b"content-length")
+    assert content_length is not None
+    assert int(content_length) == 212034, "Content-Length should match jpeg file size"
+
+    transfer_encoding = response.get_first_header(b"transfer-encoding")
+    assert transfer_encoding is None, "Large files should also use Content-Length"
+
+
+# ---------------------------------------------------------------------------
+# Mounted app + file serving tests
+#
+# Scenario A: child router has its own prefix (/child), parent has /parent,
+#             child is mounted at /sub  →  effective mount: /parent/sub
+#             Files are reachable at  /parent/sub/child/<filename>
+#
+# Scenario B: child router has no prefix, parent has /parent,
+#             child is mounted at /sub  →  effective mount: /parent/sub
+#             Files are reachable at  /parent/sub/<filename>
+# ---------------------------------------------------------------------------
+
+
+def _collect_send_body(send: MockSend) -> bytes:
+    """Join all body chunks from MockSend messages into a single bytes object."""
+    return b"".join(
+        m["body"] for m in send.messages if m.get("type") == "http.response.body"
+    )
+
+
+# -- Scenario A: child has prefix /child -----------------------------------
+
+
+async def test_mounted_app_with_child_prefix_serves_file():
+    """
+    parent: prefix="/parent", mounts child at "/sub"
+    child:  prefix="/child",  serves files from tests/files
+
+    A GET /parent/sub/child/example.txt must return 200 with the file content.
+    """
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router(prefix="/child"))
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/child/example.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send)
+    with open(get_file_path("example.txt"), "rb") as f:
+        assert body == f.read()
+
+
+async def test_mounted_app_with_child_prefix_discovery_links_include_full_path():
+    """
+    Discovery HTML links must include the complete path:
+    /parent/sub/child/<filename> — not just /child/<filename>.
+    """
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router(prefix="/child"))
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/child/", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send).decode()
+
+    assert "/parent/sub/child/example.txt" in body
+    assert "/parent/sub/child/lorem-ipsum.txt" in body
+    # Verify the mount prefix is not duplicated
+    assert "/parent/sub/parent" not in body
+    assert "/child/child/" not in body
+
+
+async def test_mounted_app_with_child_prefix_head_request():
+    """HEAD /parent/sub/child/example.txt must return 200 with no body."""
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router(prefix="/child"))
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("HEAD", "/parent/sub/child/example.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send)
+    assert body == b""
+
+
+async def test_mounted_app_with_child_prefix_returns_404_for_unknown_file():
+    """GET /parent/sub/child/does-not-exist.txt must return 404."""
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router(prefix="/child"))
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/child/does-not-exist.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 404
+
+
+# -- Scenario B: child has no prefix ---------------------------------------
+
+
+async def test_mounted_app_without_child_prefix_serves_file():
+    """
+    parent: prefix="/parent", mounts child at "/sub"
+    child:  no prefix,         serves files from tests/files
+
+    A GET /parent/sub/example.txt must return 200 with the file content.
+    """
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router())
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/example.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send)
+    with open(get_file_path("example.txt"), "rb") as f:
+        assert body == f.read()
+
+
+async def test_mounted_app_without_child_prefix_discovery_links_include_mount_path():
+    """
+    Discovery HTML links must include the mount prefix:
+    /parent/sub/<filename> — not just /<filename>.
+    """
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router())
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send).decode()
+
+    assert "/parent/sub/example.txt" in body
+    assert "/parent/sub/lorem-ipsum.txt" in body
+    # Verify the mount prefix is not duplicated
+    assert "/parent/sub/parent" not in body
+
+
+async def test_mounted_app_without_child_prefix_head_request():
+    """HEAD /parent/sub/example.txt must return 200 with no body."""
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router())
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("HEAD", "/parent/sub/example.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 200
+    body = _collect_send_body(send)
+    assert body == b""
+
+
+async def test_mounted_app_without_child_prefix_returns_404_for_unknown_file():
+    """GET /parent/sub/does-not-exist.txt must return 404."""
+    files_folder = get_folder_path("files")
+    child_app = Application(router=Router())
+    child_app.serve_files(files_folder, discovery=True)
+
+    parent_app = Application(router=Router(prefix="/parent"))
+    parent_app.mount("/sub", child_app)
+
+    await parent_app.start()
+
+    scope = get_example_scope("GET", "/parent/sub/does-not-exist.txt", [])
+    send = MockSend()
+    await parent_app(scope, MockReceive(), send)
+
+    assert send.messages[0]["status"] == 404

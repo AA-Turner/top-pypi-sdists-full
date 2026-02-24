@@ -3,6 +3,9 @@
 # run: `inv openapi all` to regenerate!
 
 
+from .models.access_graph_entitlement import AccessGraphEntitlement
+from .models.access_graph_entitlement_rule import AccessGraphEntitlementRule
+from .models.access_graph_entitlement_type import AccessGraphEntitlementType
 from .models.account_status import AccountStatus
 from .models.account_type import AccountType
 from .models.activate_account import ActivateAccount
@@ -60,7 +63,9 @@ from .models.create_account_request import CreateAccountRequest
 from .models.create_account_response import CreateAccountResponse
 from .models.created_account import CreatedAccount
 from .models.created_effect import CreatedEffect
+from .models.custom_attribute import CustomAttribute
 from .models.custom_attribute_customized_type import CustomAttributeCustomizedType
+from .models.custom_attribute_parameter import CustomAttributeParameter
 from .models.custom_attribute_schema import CustomAttributeSchema
 from .models.custom_attribute_type import CustomAttributeType
 from .models.data_recency import DataRecency
@@ -82,6 +87,9 @@ from .models.downgrade_license_request import DowngradeLicenseRequest
 from .models.downgrade_license_response import DowngradeLicenseResponse
 from .models.downgraded_license import DowngradedLicense
 from .models.effect import Effect
+from .models.entitlement_assignment import EntitlementAssignment
+from .models.entitlement_graph import EntitlementGraph
+from .models.entitlement_identifier import EntitlementIdentifier
 from .models.entitlement_requirement import EntitlementRequirement
 from .models.entitlement_type import EntitlementType
 from .models.error import Error
@@ -94,10 +102,22 @@ from .models.expense_approval_status import ExpenseApprovalStatus
 from .models.expense_filters import ExpenseFilters
 from .models.expense_payment_status import ExpensePaymentStatus
 from .models.expense_type import ExpenseType
+from .models.find_entitlement_assignments import FindEntitlementAssignments
+from .models.find_entitlement_assignments200_response import FindEntitlementAssignments200Response
+from .models.find_entitlement_assignments_request import FindEntitlementAssignmentsRequest
+from .models.find_entitlement_assignments_response import FindEntitlementAssignmentsResponse
 from .models.find_entitlement_associations import FindEntitlementAssociations
 from .models.find_entitlement_associations200_response import FindEntitlementAssociations200Response
 from .models.find_entitlement_associations_request import FindEntitlementAssociationsRequest
 from .models.find_entitlement_associations_response import FindEntitlementAssociationsResponse
+from .models.find_entitlement_graph import FindEntitlementGraph
+from .models.find_entitlement_graph200_response import FindEntitlementGraph200Response
+from .models.find_entitlement_graph_request import FindEntitlementGraphRequest
+from .models.find_entitlement_graph_response import FindEntitlementGraphResponse
+from .models.find_resource_graph import FindResourceGraph
+from .models.find_resource_graph200_response import FindResourceGraph200Response
+from .models.find_resource_graph_request import FindResourceGraphRequest
+from .models.find_resource_graph_response import FindResourceGraphResponse
 from .models.found_account_data import FoundAccountData
 from .models.found_entitlement_association import FoundEntitlementAssociation
 from .models.found_entitlement_data import FoundEntitlementData
@@ -142,6 +162,8 @@ from .models.handle_client_credentials import HandleClientCredentials
 from .models.handle_client_credentials_request import HandleClientCredentialsRequest
 from .models.handle_client_credentials_request200_response import HandleClientCredentialsRequest200Response
 from .models.handle_client_credentials_response import HandleClientCredentialsResponse
+from .models.implied_access import ImpliedAccess
+from .models.implied_access_rule import ImpliedAccessRule
 from .models.info import Info
 from .models.info200_response import Info200Response
 from .models.info_response import InfoResponse
@@ -220,6 +242,8 @@ from .models.oauth_credentials import OauthCredentials
 from .models.open_api_specification import OpenAPISpecification
 from .models.open_api_specification_info import OpenAPISpecificationInfo
 from .models.page import Page
+from .models.reference import Reference
+from .models.reference_type import ReferenceType
 from .models.refresh_access_token import RefreshAccessToken
 from .models.refresh_access_token200_response import RefreshAccessToken200Response
 from .models.refresh_access_token_request import RefreshAccessTokenRequest
@@ -229,6 +253,9 @@ from .models.release_resources200_response import ReleaseResources200Response
 from .models.release_resources_request import ReleaseResourcesRequest
 from .models.release_resources_response import ReleaseResourcesResponse
 from .models.release_resources_status import ReleaseResourcesStatus
+from .models.resource import Resource
+from .models.resource_graph import ResourceGraph
+from .models.resource_relationship import ResourceRelationship
 from .models.resource_type import ResourceType
 from .models.service_account_credential import ServiceAccountCredential
 from .models.service_account_type import ServiceAccountType
@@ -278,6 +305,9 @@ from .models.validated_credentials import ValidatedCredentials
 from .models.vendor import Vendor
 
 __all__ = [
+    "AccessGraphEntitlement",
+    "AccessGraphEntitlementRule",
+    "AccessGraphEntitlementType",
     "AccountStatus",
     "AccountType",
     "ActivateAccount",
@@ -335,7 +365,9 @@ __all__ = [
     "CreateAccountResponse",
     "CreatedAccount",
     "CreatedEffect",
+    "CustomAttribute",
     "CustomAttributeCustomizedType",
+    "CustomAttributeParameter",
     "CustomAttributeSchema",
     "CustomAttributeType",
     "DataRecency",
@@ -357,6 +389,9 @@ __all__ = [
     "DowngradeLicenseResponse",
     "DowngradedLicense",
     "Effect",
+    "EntitlementAssignment",
+    "EntitlementGraph",
+    "EntitlementIdentifier",
     "EntitlementRequirement",
     "EntitlementType",
     "Error",
@@ -369,10 +404,22 @@ __all__ = [
     "ExpenseFilters",
     "ExpensePaymentStatus",
     "ExpenseType",
+    "FindEntitlementAssignments",
+    "FindEntitlementAssignments200Response",
+    "FindEntitlementAssignmentsRequest",
+    "FindEntitlementAssignmentsResponse",
     "FindEntitlementAssociations",
     "FindEntitlementAssociations200Response",
     "FindEntitlementAssociationsRequest",
     "FindEntitlementAssociationsResponse",
+    "FindEntitlementGraph",
+    "FindEntitlementGraph200Response",
+    "FindEntitlementGraphRequest",
+    "FindEntitlementGraphResponse",
+    "FindResourceGraph",
+    "FindResourceGraph200Response",
+    "FindResourceGraphRequest",
+    "FindResourceGraphResponse",
     "FoundAccountData",
     "FoundEntitlementAssociation",
     "FoundEntitlementData",
@@ -417,6 +464,8 @@ __all__ = [
     "HandleClientCredentialsRequest",
     "HandleClientCredentialsRequest200Response",
     "HandleClientCredentialsResponse",
+    "ImpliedAccess",
+    "ImpliedAccessRule",
     "Info",
     "Info200Response",
     "InfoResponse",
@@ -495,6 +544,8 @@ __all__ = [
     "OpenAPISpecification",
     "OpenAPISpecificationInfo",
     "Page",
+    "Reference",
+    "ReferenceType",
     "RefreshAccessToken",
     "RefreshAccessToken200Response",
     "RefreshAccessTokenRequest",
@@ -504,6 +555,9 @@ __all__ = [
     "ReleaseResourcesRequest",
     "ReleaseResourcesResponse",
     "ReleaseResourcesStatus",
+    "Resource",
+    "ResourceGraph",
+    "ResourceRelationship",
     "ResourceType",
     "ServiceAccountCredential",
     "ServiceAccountType",

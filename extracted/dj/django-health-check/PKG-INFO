@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 4.0.4
+Version: 4.0.6
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>
@@ -38,7 +38,8 @@ Requires-Dist: httpx>=0.27.0 ; extra == "rss"
 Requires-Dist: feedparser>=6.0.0 ; extra == "rss"
 Project-URL: Changelog, https://github.com/codingjoe/django-health-check/releases
 Project-URL: Documentation, https://codingjoe.dev/django-health-check/
-Project-URL: Homepage, https://codingjoe.dev/django-health-check/
+Project-URL: Funding, https://github.com/sponsors/codingjoe
+Project-URL: Homepage, https://github.com/codingjoe/django-health-check
 Project-URL: Issues, https://github.com/codingjoe/django-health-check/issues
 Project-URL: Releasenotes, https://github.com/codingjoe/django-health-check/releases/latest
 Project-URL: Source, https://github.com/codingjoe/django-health-check

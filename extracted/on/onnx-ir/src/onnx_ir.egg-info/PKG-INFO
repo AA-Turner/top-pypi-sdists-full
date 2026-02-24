@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx-ir
-Version: 0.1.16
+Version: 0.2.0
 Summary: Efficient in-memory representation for ONNX
 Author-email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0
@@ -15,6 +15,7 @@ Requires-Dist: numpy
 Requires-Dist: onnx>=1.16
 Requires-Dist: typing_extensions>=4.10
 Requires-Dist: ml_dtypes>=0.5.0
+Requires-Dist: sympy>=1.13
 Dynamic: license-file
 
 # <img src="docs/_static/logo-light.png" alt="ONNX IR" width="250"/>

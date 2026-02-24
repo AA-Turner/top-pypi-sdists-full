@@ -102,6 +102,6 @@ def set_store_config(config: dict) -> None:
 
 
 def Store(*args: Any, **kwargs: Any) -> DiskBackedInMemStore:
-    if not hasattr(BATCHED_STORE, "store"):
+    if not hasattr(BATCHED_STORE, "store") or BATCHED_STORE.store._store is not STORE:
         BATCHED_STORE.store = BatchedStore(STORE)
     return BATCHED_STORE.store

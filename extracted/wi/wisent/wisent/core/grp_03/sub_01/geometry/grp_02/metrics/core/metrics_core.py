@@ -10,7 +10,7 @@ os.environ["NUMBA_NUM_THREADS"] = "1"
 
 from typing import Dict, Optional, Any
 import torch
-from wisent.core.constants import DEFAULT_RANDOM_SEED
+from wisent.core.constants import DEFAULT_RANDOM_SEED, MAX_PAIRS_FOR_METRICS
 
 from ..probe.probe_metrics import (
     compute_signal_strength, compute_linear_probe_accuracy,
@@ -41,8 +41,6 @@ from ...data.nonsense import analyze_with_nonsense_baseline
 from ...analysis.structure import compare_components_for_benchmark
 from .metrics_viz import generate_metrics_visualizations
 
-
-MAX_PAIRS_FOR_METRICS = 1000
 
 
 def compute_geometry_metrics(

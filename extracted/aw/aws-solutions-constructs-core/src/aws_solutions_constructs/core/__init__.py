@@ -173,17 +173,17 @@ class AddProxyMethodToApiResourceInputParams:
     def __init__(
         self,
         *,
-        api_gateway_role: _aws_cdk_aws_iam_ceddda9d.IRole,
+        api_gateway_role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         api_method: builtins.str,
-        api_resource: _aws_cdk_aws_apigateway_ceddda9d.IResource,
+        api_resource: "_aws_cdk_aws_apigateway_ceddda9d.IResource",
         request_template: builtins.str,
         service: builtins.str,
         action: typing.Optional[builtins.str] = None,
         additional_request_templates: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         aws_integration_props: typing.Any = None,
         content_type: typing.Optional[builtins.str] = None,
-        integration_responses: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse, typing.Dict[builtins.str, typing.Any]]]] = None,
-        method_options: typing.Optional[typing.Union[_aws_cdk_aws_apigateway_ceddda9d.MethodOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        integration_responses: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse", typing.Dict[builtins.str, typing.Any]]]] = None,
+        method_options: typing.Optional[typing.Union["_aws_cdk_aws_apigateway_ceddda9d.MethodOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -239,10 +239,10 @@ class AddProxyMethodToApiResourceInputParams:
             self._values["path"] = path
 
     @builtins.property
-    def api_gateway_role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def api_gateway_role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         result = self._values.get("api_gateway_role")
         assert result is not None, "Required property 'api_gateway_role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
     def api_method(self) -> builtins.str:
@@ -251,10 +251,10 @@ class AddProxyMethodToApiResourceInputParams:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def api_resource(self) -> _aws_cdk_aws_apigateway_ceddda9d.IResource:
+    def api_resource(self) -> "_aws_cdk_aws_apigateway_ceddda9d.IResource":
         result = self._values.get("api_resource")
         assert result is not None, "Required property 'api_resource' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.IResource, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.IResource", result)
 
     @builtins.property
     def request_template(self) -> builtins.str:
@@ -293,16 +293,16 @@ class AddProxyMethodToApiResourceInputParams:
     @builtins.property
     def integration_responses(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse"]]:
         result = self._values.get("integration_responses")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_apigateway_ceddda9d.IntegrationResponse"]], result)
 
     @builtins.property
     def method_options(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.MethodOptions]:
+    ) -> typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodOptions"]:
         result = self._values.get("method_options")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.MethodOptions], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.MethodOptions"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -333,7 +333,7 @@ class ApiProps:
     def __init__(
         self,
         *,
-        api_gateway_props: typing.Optional[typing.Union[_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        api_gateway_props: typing.Optional[typing.Union["_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps", typing.Dict[builtins.str, typing.Any]]] = None,
         create_usage_plan: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -355,9 +355,9 @@ class ApiProps:
     @builtins.property
     def api_gateway_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps]:
+    ) -> typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps"]:
         result = self._values.get("api_gateway_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigateway_ceddda9d.LambdaRestApiProps"], result)
 
     @builtins.property
     def create_usage_plan(self) -> typing.Optional[builtins.bool]:
@@ -391,7 +391,7 @@ class BedrockInferenceProps:
         *,
         bedrock_model_id: builtins.str,
         deploy_cross_region_profile: typing.Optional[builtins.bool] = None,
-        inference_profile_props: typing.Optional[typing.Union[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        inference_profile_props: typing.Optional[typing.Union["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param bedrock_model_id: -
@@ -427,9 +427,9 @@ class BedrockInferenceProps:
     @builtins.property
     def inference_profile_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps]:
+    ) -> typing.Optional["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps"]:
         result = self._values.get("inference_profile_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -456,9 +456,9 @@ class BucketDetails:
     def __init__(
         self,
         *,
-        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        bucket_interface: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param bucket_interface: -
@@ -479,20 +479,20 @@ class BucketDetails:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket_interface(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("bucket_interface")
         assert result is not None, "Required property 'bucket_interface' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -521,10 +521,10 @@ class BuildDeadLetterQueueProps:
     def __init__(
         self,
         *,
-        construct_dead_letter_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_dead_letter_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
         deploy_dead_letter_queue: typing.Optional[builtins.bool] = None,
-        existing_queue_obj: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue] = None,
+        existing_queue_obj: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -560,24 +560,24 @@ class BuildDeadLetterQueueProps:
     @builtins.property
     def construct_dead_letter_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional Props that override default and client props.
 
         :default: - Default props are used
         '''
         result = self._values.get("construct_dead_letter_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def dead_letter_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional user provided properties for the dead letter queue.
 
         :default: - Default props are used
         '''
         result = self._values.get("dead_letter_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def deploy_dead_letter_queue(self) -> typing.Optional[builtins.bool]:
@@ -589,13 +589,13 @@ class BuildDeadLetterQueueProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def existing_queue_obj(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    def existing_queue_obj(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         '''Existing instance of SQS queue object, providing both this and queueProps will cause an error.
 
         :default: - None.
         '''
         result = self._values.get("existing_queue_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], result)
 
     @builtins.property
     def max_receive_count(self) -> typing.Optional[jsii.Number]:
@@ -631,9 +631,9 @@ class BuildDynamoDBTableProps:
     def __init__(
         self,
         *,
-        dynamo_table_props: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.TableProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_table_interface: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable] = None,
-        existing_table_obj: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
+        dynamo_table_props: typing.Optional[typing.Union["_aws_cdk_aws_dynamodb_ceddda9d.TableProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_table_interface: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"] = None,
+        existing_table_obj: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"] = None,
     ) -> None:
         '''
         :param dynamo_table_props: Optional user provided props to override the default props. Default: - Default props are used
@@ -658,18 +658,18 @@ class BuildDynamoDBTableProps:
     @builtins.property
     def dynamo_table_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"]:
         '''Optional user provided props to override the default props.
 
         :default: - Default props are used
         '''
         result = self._values.get("dynamo_table_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"], result)
 
     @builtins.property
     def existing_table_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"]:
         '''Existing instance of dynamodb interface.
 
         Providing both this and ``dynamoTableProps`` will cause an error.
@@ -677,12 +677,12 @@ class BuildDynamoDBTableProps:
         :default: - None
         '''
         result = self._values.get("existing_table_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"], result)
 
     @builtins.property
     def existing_table_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"]:
         '''Existing instance of dynamodb table object.
 
         Providing both this and ``dynamoTableProps`` will cause an error.
@@ -690,7 +690,7 @@ class BuildDynamoDBTableProps:
         :default: - None
         '''
         result = self._values.get("existing_table_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -713,8 +713,8 @@ class BuildDynamoDBTableResponse:
     def __init__(
         self,
         *,
-        table_interface: _aws_cdk_aws_dynamodb_ceddda9d.ITable,
-        table_object: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
+        table_interface: "_aws_cdk_aws_dynamodb_ceddda9d.ITable",
+        table_object: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"] = None,
     ) -> None:
         '''
         :param table_interface: -
@@ -731,15 +731,15 @@ class BuildDynamoDBTableResponse:
             self._values["table_object"] = table_object
 
     @builtins.property
-    def table_interface(self) -> _aws_cdk_aws_dynamodb_ceddda9d.ITable:
+    def table_interface(self) -> "_aws_cdk_aws_dynamodb_ceddda9d.ITable":
         result = self._values.get("table_interface")
         assert result is not None, "Required property 'table_interface' is missing"
-        return typing.cast(_aws_cdk_aws_dynamodb_ceddda9d.ITable, result)
+        return typing.cast("_aws_cdk_aws_dynamodb_ceddda9d.ITable", result)
 
     @builtins.property
-    def table_object(self) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table]:
+    def table_object(self) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"]:
         result = self._values.get("table_object")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -765,8 +765,8 @@ class BuildDynamoDBTableWithStreamProps:
     def __init__(
         self,
         *,
-        dynamo_table_props: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.TableProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_table_interface: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable] = None,
+        dynamo_table_props: typing.Optional[typing.Union["_aws_cdk_aws_dynamodb_ceddda9d.TableProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_table_interface: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"] = None,
     ) -> None:
         '''
         :param dynamo_table_props: Optional user provided props to override the default props. Default: - Default props are used
@@ -787,18 +787,18 @@ class BuildDynamoDBTableWithStreamProps:
     @builtins.property
     def dynamo_table_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"]:
         '''Optional user provided props to override the default props.
 
         :default: - Default props are used
         '''
         result = self._values.get("dynamo_table_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"], result)
 
     @builtins.property
     def existing_table_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"]:
         '''Existing instance of dynamodb table object.
 
         Providing both this and ``dynamoTableProps`` will cause an error.
@@ -806,7 +806,7 @@ class BuildDynamoDBTableWithStreamProps:
         :default: - None
         '''
         result = self._values.get("existing_table_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -829,8 +829,8 @@ class BuildDynamoDBTableWithStreamResponse:
     def __init__(
         self,
         *,
-        table_interface: _aws_cdk_aws_dynamodb_ceddda9d.ITable,
-        table_object: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
+        table_interface: "_aws_cdk_aws_dynamodb_ceddda9d.ITable",
+        table_object: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"] = None,
     ) -> None:
         '''
         :param table_interface: -
@@ -847,15 +847,15 @@ class BuildDynamoDBTableWithStreamResponse:
             self._values["table_object"] = table_object
 
     @builtins.property
-    def table_interface(self) -> _aws_cdk_aws_dynamodb_ceddda9d.ITable:
+    def table_interface(self) -> "_aws_cdk_aws_dynamodb_ceddda9d.ITable":
         result = self._values.get("table_interface")
         assert result is not None, "Required property 'table_interface' is missing"
-        return typing.cast(_aws_cdk_aws_dynamodb_ceddda9d.ITable, result)
+        return typing.cast("_aws_cdk_aws_dynamodb_ceddda9d.ITable", result)
 
     @builtins.property
-    def table_object(self) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table]:
+    def table_object(self) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"]:
         result = self._values.get("table_object")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -889,12 +889,12 @@ class BuildElasticSearchProps:
         *,
         cognito_authorized_role_arn: builtins.str,
         domain_name: builtins.str,
-        identitypool: _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool,
-        userpool: _aws_cdk_aws_cognito_ceddda9d.UserPool,
-        client_domain_props: typing.Optional[typing.Union[_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        identitypool: "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool",
+        userpool: "_aws_cdk_aws_cognito_ceddda9d.UserPool",
+        client_domain_props: typing.Optional[typing.Union["_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps", typing.Dict[builtins.str, typing.Any]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         service_role_arn: typing.Optional[builtins.str] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param cognito_authorized_role_arn: -
@@ -946,23 +946,23 @@ class BuildElasticSearchProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def identitypool(self) -> _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool:
+    def identitypool(self) -> "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool":
         result = self._values.get("identitypool")
         assert result is not None, "Required property 'identitypool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool", result)
 
     @builtins.property
-    def userpool(self) -> _aws_cdk_aws_cognito_ceddda9d.UserPool:
+    def userpool(self) -> "_aws_cdk_aws_cognito_ceddda9d.UserPool":
         result = self._values.get("userpool")
         assert result is not None, "Required property 'userpool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.UserPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.UserPool", result)
 
     @builtins.property
     def client_domain_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps]:
+    ) -> typing.Optional["_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps"]:
         result = self._values.get("client_domain_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomainProps"], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -975,9 +975,9 @@ class BuildElasticSearchProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1000,8 +1000,8 @@ class BuildElasticSearchResponse:
     def __init__(
         self,
         *,
-        domain: _aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain,
-        role: _aws_cdk_aws_iam_ceddda9d.Role,
+        domain: "_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain",
+        role: "_aws_cdk_aws_iam_ceddda9d.Role",
     ) -> None:
         '''
         :param domain: -
@@ -1017,16 +1017,16 @@ class BuildElasticSearchResponse:
         }
 
     @builtins.property
-    def domain(self) -> _aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain:
+    def domain(self) -> "_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain":
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
-        return typing.cast(_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain, result)
+        return typing.cast("_aws_cdk_aws_elasticsearch_ceddda9d.CfnDomain", result)
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.Role:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.Role":
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Role, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Role", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1052,8 +1052,8 @@ class BuildEventBusProps:
     def __init__(
         self,
         *,
-        event_bus_props: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventBusProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_event_bus_interface: typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus] = None,
+        event_bus_props: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventBusProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_event_bus_interface: typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"] = None,
     ) -> None:
         '''
         :param event_bus_props: Optional user provided props to override the default props for the SNS topic. Default: - Default props are used.
@@ -1074,24 +1074,24 @@ class BuildEventBusProps:
     @builtins.property
     def event_bus_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBusProps]:
+    ) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBusProps"]:
         '''Optional user provided props to override the default props for the SNS topic.
 
         :default: - Default props are used.
         '''
         result = self._values.get("event_bus_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBusProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBusProps"], result)
 
     @builtins.property
     def existing_event_bus_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus]:
+    ) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"]:
         '''Existing instance of SNS Topic object, providing both this and ``topicProps`` will cause an error.
 
         :default: - None.
         '''
         result = self._values.get("existing_event_bus_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1121,10 +1121,10 @@ class BuildGlueJobProps:
     def __init__(
         self,
         *,
-        database: _aws_cdk_aws_glue_ceddda9d.CfnDatabase,
-        table: _aws_cdk_aws_glue_ceddda9d.CfnTable,
-        etl_code_asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
-        existing_cfn_job: typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob] = None,
+        database: "_aws_cdk_aws_glue_ceddda9d.CfnDatabase",
+        table: "_aws_cdk_aws_glue_ceddda9d.CfnTable",
+        etl_code_asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
+        existing_cfn_job: typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"] = None,
         glue_job_props: typing.Any = None,
         output_data_store: typing.Optional[typing.Union["SinkDataStoreProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1160,33 +1160,35 @@ class BuildGlueJobProps:
             self._values["output_data_store"] = output_data_store
 
     @builtins.property
-    def database(self) -> _aws_cdk_aws_glue_ceddda9d.CfnDatabase:
+    def database(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnDatabase":
         '''AWS Glue database.'''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnDatabase, result)
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnDatabase", result)
 
     @builtins.property
-    def table(self) -> _aws_cdk_aws_glue_ceddda9d.CfnTable:
+    def table(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''AWS Glue table.'''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnTable, result)
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", result)
 
     @builtins.property
-    def etl_code_asset(self) -> typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset]:
+    def etl_code_asset(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"]:
         '''Asset instance for the ETL code that performs Glue Job transformation.
 
         :default: - None
         '''
         result = self._values.get("etl_code_asset")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"], result)
 
     @builtins.property
-    def existing_cfn_job(self) -> typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob]:
+    def existing_cfn_job(self) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"]:
         '''Existing instance of the S3 bucket object, if this is set then the script location is ignored.'''
         result = self._values.get("existing_cfn_job")
-        return typing.cast(typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"], result)
 
     @builtins.property
     def glue_job_props(self) -> typing.Any:
@@ -1226,10 +1228,10 @@ class BuildGlueJobResponse:
     def __init__(
         self,
         *,
-        job: _aws_cdk_aws_glue_ceddda9d.CfnJob,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        job: "_aws_cdk_aws_glue_ceddda9d.CfnJob",
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param job: -
@@ -1253,26 +1255,26 @@ class BuildGlueJobResponse:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def job(self) -> _aws_cdk_aws_glue_ceddda9d.CfnJob:
+    def job(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnJob":
         result = self._values.get("job")
         assert result is not None, "Required property 'job' is missing"
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnJob, result)
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnJob", result)
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1301,7 +1303,7 @@ class BuildInferenceProfileProps:
         *,
         bedrock_model_id: builtins.str,
         deploy_cross_region_profile: typing.Optional[builtins.bool] = None,
-        inference_profile_props: typing.Optional[typing.Union[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        inference_profile_props: typing.Optional[typing.Union["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param bedrock_model_id: -
@@ -1337,9 +1339,9 @@ class BuildInferenceProfileProps:
     @builtins.property
     def inference_profile_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps]:
+    ) -> typing.Optional["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps"]:
         result = self._values.get("inference_profile_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1365,7 +1367,7 @@ class BuildInferenceProfileReponse:
     def __init__(
         self,
         *,
-        inference_profile: _aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile,
+        inference_profile: "_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile",
         cross_region: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -1385,10 +1387,10 @@ class BuildInferenceProfileReponse:
     @builtins.property
     def inference_profile(
         self,
-    ) -> _aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile:
+    ) -> "_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile":
         result = self._values.get("inference_profile")
         assert result is not None, "Required property 'inference_profile' is missing"
-        return typing.cast(_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile, result)
+        return typing.cast("_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile", result)
 
     @builtins.property
     def cross_region(self) -> typing.Optional[builtins.bool]:
@@ -1419,7 +1421,7 @@ class BuildKendraIndexProps:
     def __init__(
         self,
         *,
-        existing_index_obj: typing.Optional[_aws_cdk_aws_kendra_ceddda9d.CfnIndex] = None,
+        existing_index_obj: typing.Optional["_aws_cdk_aws_kendra_ceddda9d.CfnIndex"] = None,
         kendra_index_props: typing.Any = None,
     ) -> None:
         '''
@@ -1439,13 +1441,13 @@ class BuildKendraIndexProps:
     @builtins.property
     def existing_index_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kendra_ceddda9d.CfnIndex]:
+    ) -> typing.Optional["_aws_cdk_aws_kendra_ceddda9d.CfnIndex"]:
         '''Existing instance of Kendra Index object, Providing both this and kendraIndexProps will cause an error.
 
         :default: - None
         '''
         result = self._values.get("existing_index_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kendra_ceddda9d.CfnIndex], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kendra_ceddda9d.CfnIndex"], result)
 
     @builtins.property
     def kendra_index_props(self) -> typing.Any:
@@ -1476,7 +1478,7 @@ class BuildKinesisAnalyticsAppProps:
     def __init__(
         self,
         *,
-        kinesis_firehose: _aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream,
+        kinesis_firehose: "_aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream",
         kinesis_analytics_props: typing.Any = None,
     ) -> None:
         '''
@@ -1496,14 +1498,14 @@ class BuildKinesisAnalyticsAppProps:
     @builtins.property
     def kinesis_firehose(
         self,
-    ) -> _aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream:
+    ) -> "_aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream":
         '''A Kinesis Data Firehose for the Kinesis Streams application to connect to.
 
         :default: - Default props are used
         '''
         result = self._values.get("kinesis_firehose")
         assert result is not None, "Required property 'kinesis_firehose' is missing"
-        return typing.cast(_aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream, result)
+        return typing.cast("_aws_cdk_aws_kinesisfirehose_ceddda9d.CfnDeliveryStream", result)
 
     @builtins.property
     def kinesis_analytics_props(self) -> typing.Any:
@@ -1538,8 +1540,8 @@ class BuildKinesisStreamProps:
     def __init__(
         self,
         *,
-        existing_stream_obj: typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream] = None,
-        kinesis_stream_props: typing.Optional[typing.Union[_aws_cdk_aws_kinesis_ceddda9d.StreamProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_stream_obj: typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"] = None,
+        kinesis_stream_props: typing.Optional[typing.Union["_aws_cdk_aws_kinesis_ceddda9d.StreamProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_stream_obj: Existing instance of Kinesis Stream, providing both this and ``kinesisStreamProps`` will cause an error. Default: - None
@@ -1560,24 +1562,24 @@ class BuildKinesisStreamProps:
     @builtins.property
     def existing_stream_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream]:
+    ) -> typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"]:
         '''Existing instance of Kinesis Stream, providing both this and ``kinesisStreamProps`` will cause an error.
 
         :default: - None
         '''
         result = self._values.get("existing_stream_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"], result)
 
     @builtins.property
     def kinesis_stream_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.StreamProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.StreamProps"]:
         '''Optional user provided props to override the default props for the Kinesis stream.
 
         :default: - Default props are used.
         '''
         result = self._values.get("kinesis_stream_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.StreamProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.StreamProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1604,9 +1606,9 @@ class BuildLambdaFunctionProps:
     def __init__(
         self,
         *,
-        existing_lambda_obj: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function] = None,
-        lambda_function_props: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        existing_lambda_obj: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"] = None,
+        lambda_function_props: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param existing_lambda_obj: Existing instance of Lambda Function object, Providing both this and lambdaFunctionProps will cause an error. Default: - None
@@ -1631,33 +1633,33 @@ class BuildLambdaFunctionProps:
     @builtins.property
     def existing_lambda_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"]:
         '''Existing instance of Lambda Function object, Providing both this and lambdaFunctionProps will cause an error.
 
         :default: - None
         '''
         result = self._values.get("existing_lambda_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"], result)
 
     @builtins.property
     def lambda_function_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionProps]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionProps"]:
         '''User provided props to override the default props for the Lambda function.
 
         :default: - Default props are used
         '''
         result = self._values.get("lambda_function_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionProps"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''A VPC where the Lambda function will access internal resources.
 
         :default: - none
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1690,13 +1692,13 @@ class BuildOpenSearchProps:
         self,
         *,
         cognito_authorized_role_arn: builtins.str,
-        identitypool: _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool,
+        identitypool: "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool",
         open_search_domain_name: builtins.str,
-        userpool: _aws_cdk_aws_cognito_ceddda9d.UserPool,
-        client_domain_props: typing.Optional[typing.Union[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        userpool: "_aws_cdk_aws_cognito_ceddda9d.UserPool",
+        client_domain_props: typing.Optional[typing.Union["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps", typing.Dict[builtins.str, typing.Any]]] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         service_role_arn: typing.Optional[builtins.str] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param cognito_authorized_role_arn: -
@@ -1742,10 +1744,10 @@ class BuildOpenSearchProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def identitypool(self) -> _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool:
+    def identitypool(self) -> "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool":
         result = self._values.get("identitypool")
         assert result is not None, "Required property 'identitypool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool", result)
 
     @builtins.property
     def open_search_domain_name(self) -> builtins.str:
@@ -1754,17 +1756,17 @@ class BuildOpenSearchProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def userpool(self) -> _aws_cdk_aws_cognito_ceddda9d.UserPool:
+    def userpool(self) -> "_aws_cdk_aws_cognito_ceddda9d.UserPool":
         result = self._values.get("userpool")
         assert result is not None, "Required property 'userpool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.UserPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.UserPool", result)
 
     @builtins.property
     def client_domain_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps]:
+    ) -> typing.Optional["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps"]:
         result = self._values.get("client_domain_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps"], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1777,9 +1779,9 @@ class BuildOpenSearchProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1802,8 +1804,8 @@ class BuildOpenSearchResponse:
     def __init__(
         self,
         *,
-        domain: _aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain,
-        role: _aws_cdk_aws_iam_ceddda9d.Role,
+        domain: "_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain",
+        role: "_aws_cdk_aws_iam_ceddda9d.Role",
     ) -> None:
         '''
         :param domain: -
@@ -1819,16 +1821,16 @@ class BuildOpenSearchResponse:
         }
 
     @builtins.property
-    def domain(self) -> _aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain:
+    def domain(self) -> "_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain":
         result = self._values.get("domain")
         assert result is not None, "Required property 'domain' is missing"
-        return typing.cast(_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain, result)
+        return typing.cast("_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomain", result)
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.Role:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.Role":
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Role, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Role", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1862,10 +1864,10 @@ class BuildPipesProps:
         source: typing.Union["CreateSourceResponse", typing.Dict[builtins.str, typing.Any]],
         target: typing.Union["CreateTargetResponse", typing.Dict[builtins.str, typing.Any]],
         client_props: typing.Any = None,
-        enrichment_function: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function] = None,
-        enrichment_state_machine: typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine] = None,
+        enrichment_function: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"] = None,
+        enrichment_state_machine: typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"] = None,
         log_level: typing.Optional["PipesLogLevel"] = None,
-        pipe_log_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        pipe_log_props: typing.Optional[typing.Union["_aws_cdk_aws_logs_ceddda9d.LogGroupProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param source: -
@@ -1926,16 +1928,16 @@ class BuildPipesProps:
     @builtins.property
     def enrichment_function(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"]:
         result = self._values.get("enrichment_function")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"], result)
 
     @builtins.property
     def enrichment_state_machine(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine]:
+    ) -> typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"]:
         result = self._values.get("enrichment_state_machine")
-        return typing.cast(typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional["PipesLogLevel"]:
@@ -1945,9 +1947,9 @@ class BuildPipesProps:
     @builtins.property
     def pipe_log_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"]:
         result = self._values.get("pipe_log_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1970,8 +1972,8 @@ class BuildPipesResponse:
     def __init__(
         self,
         *,
-        pipe: _aws_cdk_aws_pipes_ceddda9d.CfnPipe,
-        pipe_role: _aws_cdk_aws_iam_ceddda9d.Role,
+        pipe: "_aws_cdk_aws_pipes_ceddda9d.CfnPipe",
+        pipe_role: "_aws_cdk_aws_iam_ceddda9d.Role",
     ) -> None:
         '''
         :param pipe: -
@@ -1987,16 +1989,16 @@ class BuildPipesResponse:
         }
 
     @builtins.property
-    def pipe(self) -> _aws_cdk_aws_pipes_ceddda9d.CfnPipe:
+    def pipe(self) -> "_aws_cdk_aws_pipes_ceddda9d.CfnPipe":
         result = self._values.get("pipe")
         assert result is not None, "Required property 'pipe' is missing"
-        return typing.cast(_aws_cdk_aws_pipes_ceddda9d.CfnPipe, result)
+        return typing.cast("_aws_cdk_aws_pipes_ceddda9d.CfnPipe", result)
 
     @builtins.property
-    def pipe_role(self) -> _aws_cdk_aws_iam_ceddda9d.Role:
+    def pipe_role(self) -> "_aws_cdk_aws_iam_ceddda9d.Role":
         result = self._values.get("pipe_role")
         assert result is not None, "Required property 'pipe_role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Role, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Role", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2030,16 +2032,16 @@ class BuildQueueProps:
     def __init__(
         self,
         *,
-        construct_dead_letter_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        construct_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_dead_letter_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
         deploy_dead_letter_queue: typing.Optional[builtins.bool] = None,
         enable_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-        encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_queue_obj: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_queue_obj: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"] = None,
         max_receive_count: typing.Optional[jsii.Number] = None,
-        queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param construct_dead_letter_queue_props: Optional props required by the construct that overide both the default and client supplied values. Default: - none
@@ -2100,35 +2102,35 @@ class BuildQueueProps:
     @builtins.property
     def construct_dead_letter_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional props required by the construct that overide both the default and client supplied values.
 
         :default: - none
         '''
         result = self._values.get("construct_dead_letter_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def construct_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional props required by the construct that overide both the default and client supplied values.
 
         :default: - none
         '''
         result = self._values.get("construct_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def dead_letter_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional user provided properties for the dead letter queue.
 
         :default: - Default props are used
         '''
         result = self._values.get("dead_letter_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def deploy_dead_letter_queue(self) -> typing.Optional[builtins.bool]:
@@ -2153,33 +2155,33 @@ class BuildQueueProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''An optional, imported encryption key to encrypt the SQS Queue with.
 
         :default: - None
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
     def encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         '''Optional user provided properties to override the default properties for the KMS encryption key used to encrypt the SQS Queue with.
 
         :default: - None
         '''
         result = self._values.get("encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
-    def existing_queue_obj(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    def existing_queue_obj(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         '''Existing instance of SQS queue object, providing both this and queueProps will cause an error.
 
         :default: - None.
         '''
         result = self._values.get("existing_queue_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], result)
 
     @builtins.property
     def max_receive_count(self) -> typing.Optional[jsii.Number]:
@@ -2191,13 +2193,13 @@ class BuildQueueProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def queue_props(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    def queue_props(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         '''Optional user provided props to override the default props for the primary queue.
 
         :default: - Default props are used.
         '''
         result = self._values.get("queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2220,9 +2222,9 @@ class BuildQueueResponse:
     def __init__(
         self,
         *,
-        queue: _aws_cdk_aws_sqs_ceddda9d.Queue,
-        dlq: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue, typing.Dict[builtins.str, typing.Any]]] = None,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        queue: "_aws_cdk_aws_sqs_ceddda9d.Queue",
+        dlq: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue", typing.Dict[builtins.str, typing.Any]]] = None,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
     ) -> None:
         '''
         :param queue: -
@@ -2245,20 +2247,20 @@ class BuildQueueResponse:
             self._values["key"] = key
 
     @builtins.property
-    def queue(self) -> _aws_cdk_aws_sqs_ceddda9d.Queue:
+    def queue(self) -> "_aws_cdk_aws_sqs_ceddda9d.Queue":
         result = self._values.get("queue")
         assert result is not None, "Required property 'queue' is missing"
-        return typing.cast(_aws_cdk_aws_sqs_ceddda9d.Queue, result)
+        return typing.cast("_aws_cdk_aws_sqs_ceddda9d.Queue", result)
 
     @builtins.property
-    def dlq(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue]:
+    def dlq(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue"]:
         result = self._values.get("dlq")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.DeadLetterQueue"], result)
 
     @builtins.property
-    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         result = self._values.get("key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2285,8 +2287,8 @@ class BuildS3BucketProps:
     def __init__(
         self,
         *,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -2312,24 +2314,24 @@ class BuildS3BucketProps:
             self._values["log_s3_access_logs"] = log_s3_access_logs
 
     @builtins.property
-    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    def bucket_props(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''User provided props to override the default props for the S3 Bucket.
 
         :default: - Default props are used
         '''
         result = self._values.get("bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''User provided props to override the default props for the S3 Logging Bucket.
 
         :default: - Default props are used
         '''
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -2364,8 +2366,8 @@ class BuildS3BucketResponse:
     def __init__(
         self,
         *,
-        bucket: _aws_cdk_aws_s3_ceddda9d.Bucket,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.Bucket",
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param bucket: -
@@ -2382,15 +2384,15 @@ class BuildS3BucketResponse:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def bucket(self) -> _aws_cdk_aws_s3_ceddda9d.Bucket:
+    def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.Bucket":
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.Bucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.Bucket", result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2419,11 +2421,11 @@ class BuildSagemakerEndpointProps:
     def __init__(
         self,
         *,
-        endpoint_config_props: typing.Optional[typing.Union[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        endpoint_props: typing.Optional[typing.Union[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_sagemaker_endpoint_obj: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint] = None,
+        endpoint_config_props: typing.Optional[typing.Union["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        endpoint_props: typing.Optional[typing.Union["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_sagemaker_endpoint_obj: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"] = None,
         model_props: typing.Any = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param endpoint_config_props: User provided props to create Sagemaker Endpoint Configuration. Default: - None
@@ -2458,35 +2460,35 @@ class BuildSagemakerEndpointProps:
     @builtins.property
     def endpoint_config_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps"]:
         '''User provided props to create Sagemaker Endpoint Configuration.
 
         :default: - None
         '''
         result = self._values.get("endpoint_config_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfigProps"], result)
 
     @builtins.property
     def endpoint_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps"]:
         '''User provided props to create Sagemaker Endpoint.
 
         :default: - None
         '''
         result = self._values.get("endpoint_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps"], result)
 
     @builtins.property
     def existing_sagemaker_endpoint_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"]:
         '''Existing Sagemaker Endpoint object, if this is set then the modelProps, endpointConfigProps, and endpointProps are ignored.
 
         :default: - None
         '''
         result = self._values.get("existing_sagemaker_endpoint_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"], result)
 
     @builtins.property
     def model_props(self) -> typing.Any:
@@ -2498,13 +2500,13 @@ class BuildSagemakerEndpointProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''A VPC where the Sagemaker Endpoint will be placed.
 
         :default: - None
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2531,9 +2533,9 @@ class BuildSagemakerEndpointResponse:
     def __init__(
         self,
         *,
-        endpoint: _aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint,
-        endpoint_config: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig] = None,
-        model: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel] = None,
+        endpoint: "_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint",
+        endpoint_config: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"] = None,
+        model: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"] = None,
     ) -> None:
         '''
         :param endpoint: -
@@ -2554,22 +2556,22 @@ class BuildSagemakerEndpointResponse:
             self._values["model"] = model
 
     @builtins.property
-    def endpoint(self) -> _aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint:
+    def endpoint(self) -> "_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint":
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
-        return typing.cast(_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint, result)
+        return typing.cast("_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint", result)
 
     @builtins.property
     def endpoint_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"]:
         result = self._values.get("endpoint_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"], result)
 
     @builtins.property
-    def model(self) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel]:
+    def model(self) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"]:
         result = self._values.get("model")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2597,9 +2599,9 @@ class BuildSagemakerNotebookProps:
     def __init__(
         self,
         *,
-        role: _aws_cdk_aws_iam_ceddda9d.Role,
+        role: "_aws_cdk_aws_iam_ceddda9d.Role",
         deploy_inside_vpc: typing.Optional[builtins.bool] = None,
-        existing_notebook_obj: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance] = None,
+        existing_notebook_obj: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance"] = None,
         sagemaker_notebook_props: typing.Any = None,
     ) -> None:
         '''
@@ -2625,14 +2627,14 @@ class BuildSagemakerNotebookProps:
             self._values["sagemaker_notebook_props"] = sagemaker_notebook_props
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.Role:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.Role":
         '''IAM Role Arn for Sagemaker NoteBookInstance.
 
         :default: - None
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Role, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Role", result)
 
     @builtins.property
     def deploy_inside_vpc(self) -> typing.Optional[builtins.bool]:
@@ -2646,7 +2648,7 @@ class BuildSagemakerNotebookProps:
     @builtins.property
     def existing_notebook_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance"]:
         '''An optional, Existing instance of notebook object.
 
         If this is set then the sagemakerNotebookProps is ignored
@@ -2654,7 +2656,7 @@ class BuildSagemakerNotebookProps:
         :default: - None
         '''
         result = self._values.get("existing_notebook_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance"], result)
 
     @builtins.property
     def sagemaker_notebook_props(self) -> typing.Any:
@@ -2690,9 +2692,9 @@ class BuildSagemakerNotebookResponse:
     def __init__(
         self,
         *,
-        notebook: _aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance,
-        security_group: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        notebook: "_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance",
+        security_group: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param notebook: -
@@ -2713,22 +2715,22 @@ class BuildSagemakerNotebookResponse:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def notebook(self) -> _aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance:
+    def notebook(self) -> "_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance":
         result = self._values.get("notebook")
         assert result is not None, "Required property 'notebook' is missing"
-        return typing.cast(_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance, result)
+        return typing.cast("_aws_cdk_aws_sagemaker_ceddda9d.CfnNotebookInstance", result)
 
     @builtins.property
     def security_group(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup]:
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"]:
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SecurityGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SecurityGroup"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2755,9 +2757,9 @@ class BuildStateMachineResponse:
     def __init__(
         self,
         *,
-        log_group: _aws_cdk_aws_logs_ceddda9d.ILogGroup,
-        state_machine: _aws_cdk_aws_stepfunctions_ceddda9d.StateMachine,
-        cloud_watch_alarms: typing.Optional[typing.Sequence[_aws_cdk_aws_cloudwatch_ceddda9d.Alarm]] = None,
+        log_group: "_aws_cdk_aws_logs_ceddda9d.ILogGroup",
+        state_machine: "_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine",
+        cloud_watch_alarms: typing.Optional[typing.Sequence["_aws_cdk_aws_cloudwatch_ceddda9d.Alarm"]] = None,
     ) -> None:
         '''
         :param log_group: -
@@ -2777,23 +2779,23 @@ class BuildStateMachineResponse:
             self._values["cloud_watch_alarms"] = cloud_watch_alarms
 
     @builtins.property
-    def log_group(self) -> _aws_cdk_aws_logs_ceddda9d.ILogGroup:
+    def log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.ILogGroup":
         result = self._values.get("log_group")
         assert result is not None, "Required property 'log_group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.ILogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.ILogGroup", result)
 
     @builtins.property
-    def state_machine(self) -> _aws_cdk_aws_stepfunctions_ceddda9d.StateMachine:
+    def state_machine(self) -> "_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine":
         result = self._values.get("state_machine")
         assert result is not None, "Required property 'state_machine' is missing"
-        return typing.cast(_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine, result)
+        return typing.cast("_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine", result)
 
     @builtins.property
     def cloud_watch_alarms(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_cloudwatch_ceddda9d.Alarm]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_cloudwatch_ceddda9d.Alarm"]]:
         result = self._values.get("cloud_watch_alarms")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_cloudwatch_ceddda9d.Alarm]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_cloudwatch_ceddda9d.Alarm"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2821,10 +2823,10 @@ class BuildStateMacineProps:
     def __init__(
         self,
         *,
-        state_machine_props: typing.Union[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps, typing.Dict[builtins.str, typing.Any]],
+        state_machine_props: typing.Union["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps", typing.Dict[builtins.str, typing.Any]],
         cloud_watch_alarms_prefix: typing.Optional[builtins.str] = None,
         create_cloud_watch_alarms: typing.Optional[builtins.bool] = None,
-        log_group_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        log_group_props: typing.Optional[typing.Union["_aws_cdk_aws_logs_ceddda9d.LogGroupProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param state_machine_props: -
@@ -2855,10 +2857,10 @@ class BuildStateMacineProps:
     @builtins.property
     def state_machine_props(
         self,
-    ) -> _aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps:
+    ) -> "_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps":
         result = self._values.get("state_machine_props")
         assert result is not None, "Required property 'state_machine_props' is missing"
-        return typing.cast(_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps, result)
+        return typing.cast("_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps", result)
 
     @builtins.property
     def cloud_watch_alarms_prefix(self) -> typing.Optional[builtins.str]:
@@ -2873,9 +2875,9 @@ class BuildStateMacineProps:
     @builtins.property
     def log_group_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"]:
         result = self._values.get("log_group_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2906,11 +2908,11 @@ class BuildTopicProps:
         self,
         *,
         enable_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        existing_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        existing_topic_obj: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        topic_props: typing.Optional[typing.Union["_aws_cdk_aws_sns_ceddda9d.TopicProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param enable_encryption_with_customer_managed_key: If no key is provided, this flag determines whether the topic is encrypted with a new CMK or an AWS managed key. This flag is ignored if any of the following are defined: topicProps.masterKey, encryptionKey or encryptionKeyProps. Default: - False if topicProps.masterKey, encryptionKey, and encryptionKeyProps are all undefined.
@@ -2960,38 +2962,38 @@ class BuildTopicProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         '''An optional, imported encryption key to encrypt the SNS topic with.
 
         :default: - None
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         '''Optional user provided properties to override the default properties for the KMS encryption key used to encrypt the SNS topic with.
 
         :default: - None
         '''
         result = self._values.get("encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
     def existing_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         '''If an existing topic is provided in the ``existingTopicObj`` property, and that topic is encrypted with a customer managed KMS key, this property also needs to be set with same CMK.
 
         :default: - None
         '''
         result = self._values.get("existing_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
-    def existing_topic_obj(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    def existing_topic_obj(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         '''Existing SNS topic to be used instead of the default topic.
 
         Providing both this and ``topicProps`` will cause an error.
@@ -3001,16 +3003,16 @@ class BuildTopicProps:
         :default: - Default props are used
         '''
         result = self._values.get("existing_topic_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
-    def topic_props(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+    def topic_props(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"]:
         '''Optional user provided props to override the default props for the SNS topic.
 
         :default: - Default props are used.
         '''
         result = self._values.get("topic_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3033,8 +3035,8 @@ class BuildTopicResponse:
     def __init__(
         self,
         *,
-        topic: _aws_cdk_aws_sns_ceddda9d.Topic,
-        key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        topic: "_aws_cdk_aws_sns_ceddda9d.Topic",
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
     ) -> None:
         '''
         :param topic: -
@@ -3051,15 +3053,15 @@ class BuildTopicResponse:
             self._values["key"] = key
 
     @builtins.property
-    def topic(self) -> _aws_cdk_aws_sns_ceddda9d.Topic:
+    def topic(self) -> "_aws_cdk_aws_sns_ceddda9d.Topic":
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
-        return typing.cast(_aws_cdk_aws_sns_ceddda9d.Topic, result)
+        return typing.cast("_aws_cdk_aws_sns_ceddda9d.Topic", result)
 
     @builtins.property
-    def key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    def key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3087,10 +3089,10 @@ class BuildVpcProps:
     def __init__(
         self,
         *,
-        default_vpc_props: typing.Union[_aws_cdk_aws_ec2_ceddda9d.VpcProps, typing.Dict[builtins.str, typing.Any]],
-        construct_vpc_props: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.VpcProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        user_vpc_props: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.VpcProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        default_vpc_props: typing.Union["_aws_cdk_aws_ec2_ceddda9d.VpcProps", typing.Dict[builtins.str, typing.Any]],
+        construct_vpc_props: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.VpcProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        user_vpc_props: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.VpcProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param default_vpc_props: One of the default VPC configurations available in vpc-defaults.
@@ -3121,31 +3123,31 @@ class BuildVpcProps:
             self._values["user_vpc_props"] = user_vpc_props
 
     @builtins.property
-    def default_vpc_props(self) -> _aws_cdk_aws_ec2_ceddda9d.VpcProps:
+    def default_vpc_props(self) -> "_aws_cdk_aws_ec2_ceddda9d.VpcProps":
         '''One of the default VPC configurations available in vpc-defaults.'''
         result = self._values.get("default_vpc_props")
         assert result is not None, "Required property 'default_vpc_props' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.VpcProps, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.VpcProps", result)
 
     @builtins.property
     def construct_vpc_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps]:
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"]:
         '''Construct specified props that override both the default props and user props for the VPC.'''
         result = self._values.get("construct_vpc_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"], result)
 
     @builtins.property
-    def existing_vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def existing_vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''Existing instance of a VPC, if this is set then the all Props are ignored.'''
         result = self._values.get("existing_vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def user_vpc_props(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps]:
+    def user_vpc_props(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"]:
         '''User provided props to override the default props for the VPC.'''
         result = self._values.get("user_vpc_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3171,8 +3173,8 @@ class BuildWebSocketApiProps:
     def __init__(
         self,
         *,
-        existing_web_socket_api: typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi] = None,
-        web_socket_api_props: typing.Optional[typing.Union[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_web_socket_api: typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"] = None,
+        web_socket_api_props: typing.Optional[typing.Union["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_web_socket_api: Existing instance of ApiGateway v2 WebSocket.
@@ -3193,18 +3195,18 @@ class BuildWebSocketApiProps:
     @builtins.property
     def existing_web_socket_api(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi]:
+    ) -> typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"]:
         '''Existing instance of ApiGateway v2 WebSocket.'''
         result = self._values.get("existing_web_socket_api")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"], result)
 
     @builtins.property
     def web_socket_api_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps]:
+    ) -> typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps"]:
         '''User provided properties of Apigateway v2 WebSocket.'''
         result = self._values.get("web_socket_api_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3236,14 +3238,14 @@ class BuildWebSocketQueueApiRequest:
     def __init__(
         self,
         *,
-        queue: _aws_cdk_aws_sqs_ceddda9d.IQueue,
+        queue: "_aws_cdk_aws_sqs_ceddda9d.IQueue",
         create_default_route: typing.Optional[builtins.bool] = None,
         custom_route_name: typing.Optional[builtins.str] = None,
         default_iam_authorization: typing.Optional[builtins.bool] = None,
         default_route_request_template: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        existing_web_socket_api: typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi] = None,
-        log_group_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        web_socket_api_props: typing.Optional[typing.Union[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_web_socket_api: typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"] = None,
+        log_group_props: typing.Optional[typing.Union["_aws_cdk_aws_logs_ceddda9d.LogGroupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        web_socket_api_props: typing.Optional[typing.Union["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param queue: -
@@ -3288,10 +3290,10 @@ class BuildWebSocketQueueApiRequest:
             self._values["web_socket_api_props"] = web_socket_api_props
 
     @builtins.property
-    def queue(self) -> _aws_cdk_aws_sqs_ceddda9d.IQueue:
+    def queue(self) -> "_aws_cdk_aws_sqs_ceddda9d.IQueue":
         result = self._values.get("queue")
         assert result is not None, "Required property 'queue' is missing"
-        return typing.cast(_aws_cdk_aws_sqs_ceddda9d.IQueue, result)
+        return typing.cast("_aws_cdk_aws_sqs_ceddda9d.IQueue", result)
 
     @builtins.property
     def create_default_route(self) -> typing.Optional[builtins.bool]:
@@ -3318,23 +3320,23 @@ class BuildWebSocketQueueApiRequest:
     @builtins.property
     def existing_web_socket_api(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi]:
+    ) -> typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"]:
         result = self._values.get("existing_web_socket_api")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi"], result)
 
     @builtins.property
     def log_group_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"]:
         result = self._values.get("log_group_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"], result)
 
     @builtins.property
     def web_socket_api_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps]:
+    ) -> typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps"]:
         result = self._values.get("web_socket_api_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApiProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3362,10 +3364,10 @@ class BuildWebSocketQueueApiResponse:
     def __init__(
         self,
         *,
-        api_gateway_log_group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        api_gateway_role: _aws_cdk_aws_iam_ceddda9d.Role,
-        web_socket_api: _aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi,
-        web_socket_stage: _aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage,
+        api_gateway_log_group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        api_gateway_role: "_aws_cdk_aws_iam_ceddda9d.Role",
+        web_socket_api: "_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi",
+        web_socket_stage: "_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage",
     ) -> None:
         '''
         :param api_gateway_log_group: -
@@ -3387,28 +3389,28 @@ class BuildWebSocketQueueApiResponse:
         }
 
     @builtins.property
-    def api_gateway_log_group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def api_gateway_log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("api_gateway_log_group")
         assert result is not None, "Required property 'api_gateway_log_group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def api_gateway_role(self) -> _aws_cdk_aws_iam_ceddda9d.Role:
+    def api_gateway_role(self) -> "_aws_cdk_aws_iam_ceddda9d.Role":
         result = self._values.get("api_gateway_role")
         assert result is not None, "Required property 'api_gateway_role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.Role, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Role", result)
 
     @builtins.property
-    def web_socket_api(self) -> _aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi:
+    def web_socket_api(self) -> "_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi":
         result = self._values.get("web_socket_api")
         assert result is not None, "Required property 'web_socket_api' is missing"
-        return typing.cast(_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi, result)
+        return typing.cast("_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketApi", result)
 
     @builtins.property
-    def web_socket_stage(self) -> _aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage:
+    def web_socket_stage(self) -> "_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage":
         result = self._values.get("web_socket_stage")
         assert result is not None, "Required property 'web_socket_stage' is missing"
-        return typing.cast(_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage, result)
+        return typing.cast("_aws_cdk_aws_apigatewayv2_ceddda9d.WebSocketStage", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3434,7 +3436,7 @@ class BuildWebaclProps:
     def __init__(
         self,
         *,
-        existing_webacl_obj: typing.Optional[_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL] = None,
+        existing_webacl_obj: typing.Optional["_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL"] = None,
         webacl_props: typing.Any = None,
     ) -> None:
         '''
@@ -3454,10 +3456,10 @@ class BuildWebaclProps:
     @builtins.property
     def existing_webacl_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL]:
+    ) -> typing.Optional["_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL"]:
         '''Existing instance of a WAF web ACL, if this is set then the all props are ignored.'''
         result = self._values.get("existing_webacl_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL"], result)
 
     @builtins.property
     def webacl_props(self) -> typing.Any:
@@ -3537,9 +3539,9 @@ class CloudFrontDistributionForApiGatewayResponse:
     def __init__(
         self,
         *,
-        distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-        cloudfront_function: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        distribution: "_aws_cdk_aws_cloudfront_ceddda9d.Distribution",
+        cloudfront_function: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param distribution: -
@@ -3560,22 +3562,22 @@ class CloudFrontDistributionForApiGatewayResponse:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def distribution(self) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
+    def distribution(self) -> "_aws_cdk_aws_cloudfront_ceddda9d.Distribution":
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, result)
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.Distribution", result)
 
     @builtins.property
     def cloudfront_function(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"]:
         result = self._values.get("cloudfront_function")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3602,7 +3604,7 @@ class CloudFrontProps:
         self,
         *,
         insert_http_security_headers: typing.Optional[builtins.bool] = None,
-        response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        response_headers_policy_props: typing.Optional[typing.Union["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param insert_http_security_headers: -
@@ -3628,9 +3630,9 @@ class CloudFrontProps:
     @builtins.property
     def response_headers_policy_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"]:
         result = self._values.get("response_headers_policy_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3660,11 +3662,11 @@ class CloudfrontS3Props:
     def __init__(
         self,
         *,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_cloud_front_access_log: typing.Optional[builtins.bool] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -3706,23 +3708,23 @@ class CloudfrontS3Props:
             self._values["log_s3_access_logs"] = log_s3_access_logs
 
     @builtins.property
-    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    def bucket_props(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_logging_bucket_access_log_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_access_log_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_cloud_front_access_log(self) -> typing.Optional[builtins.bool]:
@@ -3732,9 +3734,9 @@ class CloudfrontS3Props:
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -3766,9 +3768,9 @@ class CognitoOptions:
     def __init__(
         self,
         *,
-        identitypool: _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool,
-        userpool: _aws_cdk_aws_cognito_ceddda9d.UserPool,
-        userpoolclient: _aws_cdk_aws_cognito_ceddda9d.UserPoolClient,
+        identitypool: "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool",
+        userpool: "_aws_cdk_aws_cognito_ceddda9d.UserPool",
+        userpoolclient: "_aws_cdk_aws_cognito_ceddda9d.UserPoolClient",
     ) -> None:
         '''
         :param identitypool: -
@@ -3787,22 +3789,22 @@ class CognitoOptions:
         }
 
     @builtins.property
-    def identitypool(self) -> _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool:
+    def identitypool(self) -> "_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool":
         result = self._values.get("identitypool")
         assert result is not None, "Required property 'identitypool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool", result)
 
     @builtins.property
-    def userpool(self) -> _aws_cdk_aws_cognito_ceddda9d.UserPool:
+    def userpool(self) -> "_aws_cdk_aws_cognito_ceddda9d.UserPool":
         result = self._values.get("userpool")
         assert result is not None, "Required property 'userpool' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.UserPool, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.UserPool", result)
 
     @builtins.property
-    def userpoolclient(self) -> _aws_cdk_aws_cognito_ceddda9d.UserPoolClient:
+    def userpoolclient(self) -> "_aws_cdk_aws_cognito_ceddda9d.UserPoolClient":
         result = self._values.get("userpoolclient")
         assert result is not None, "Required property 'userpoolclient' is missing"
-        return typing.cast(_aws_cdk_aws_cognito_ceddda9d.UserPoolClient, result)
+        return typing.cast("_aws_cdk_aws_cognito_ceddda9d.UserPoolClient", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3825,7 +3827,7 @@ class ConstructsFeatureFlagsReport(
 
     @jsii.member(jsii_name="ensure")
     @builtins.classmethod
-    def ensure(cls, scope: _constructs_77d1e7e8.Construct) -> None:
+    def ensure(cls, scope: "_constructs_77d1e7e8.Construct") -> None:
         '''
         :param scope: -
         '''
@@ -3852,13 +3854,13 @@ class CreateCloudFrontDistributionForS3Props:
     def __init__(
         self,
         *,
-        source_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        source_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         cloud_front_distribution_props: typing.Any = None,
-        cloud_front_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_s3_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_s3_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         http_security_headers: typing.Optional[builtins.bool] = None,
         log_cloud_front_access_log: typing.Optional[builtins.bool] = None,
-        response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        response_headers_policy_props: typing.Optional[typing.Union["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param source_bucket: -
@@ -3901,10 +3903,10 @@ class CreateCloudFrontDistributionForS3Props:
             self._values["response_headers_policy_props"] = response_headers_policy_props
 
     @builtins.property
-    def source_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def source_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("source_bucket")
         assert result is not None, "Required property 'source_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def cloud_front_distribution_props(self) -> typing.Any:
@@ -3914,16 +3916,16 @@ class CreateCloudFrontDistributionForS3Props:
     @builtins.property
     def cloud_front_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_logging_bucket_s3_access_log_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_s3_access_log_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def http_security_headers(self) -> typing.Optional[builtins.bool]:
@@ -3938,9 +3940,9 @@ class CreateCloudFrontDistributionForS3Props:
     @builtins.property
     def response_headers_policy_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"]:
         result = self._values.get("response_headers_policy_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3969,11 +3971,11 @@ class CreateCloudFrontDistributionForS3Response:
     def __init__(
         self,
         *,
-        distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-        cloudfront_function: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket_s3_accesss_log_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        origin_access_control: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl] = None,
+        distribution: "_aws_cdk_aws_cloudfront_ceddda9d.Distribution",
+        cloudfront_function: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket_s3_accesss_log_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        origin_access_control: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"] = None,
     ) -> None:
         '''
         :param distribution: -
@@ -4002,36 +4004,36 @@ class CreateCloudFrontDistributionForS3Response:
             self._values["origin_access_control"] = origin_access_control
 
     @builtins.property
-    def distribution(self) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
+    def distribution(self) -> "_aws_cdk_aws_cloudfront_ceddda9d.Distribution":
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, result)
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.Distribution", result)
 
     @builtins.property
     def cloudfront_function(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"]:
         result = self._values.get("cloudfront_function")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
     def logging_bucket_s3_accesss_log_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket_s3_accesss_log_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
     def origin_access_control(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"]:
         result = self._values.get("origin_access_control")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4058,9 +4060,9 @@ class CreateCloudFrontLoggingBucketRequest:
     def __init__(
         self,
         *,
-        logging_bucket_props: typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]],
+        logging_bucket_props: typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]],
         enable_s3_access_logs: typing.Optional[builtins.bool] = None,
-        s3_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param logging_bucket_props: -
@@ -4085,10 +4087,10 @@ class CreateCloudFrontLoggingBucketRequest:
             self._values["s3_access_log_bucket_props"] = s3_access_log_bucket_props
 
     @builtins.property
-    def logging_bucket_props(self) -> _aws_cdk_aws_s3_ceddda9d.BucketProps:
+    def logging_bucket_props(self) -> "_aws_cdk_aws_s3_ceddda9d.BucketProps":
         result = self._values.get("logging_bucket_props")
         assert result is not None, "Required property 'logging_bucket_props' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.BucketProps, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.BucketProps", result)
 
     @builtins.property
     def enable_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -4098,9 +4100,9 @@ class CreateCloudFrontLoggingBucketRequest:
     @builtins.property
     def s3_access_log_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("s3_access_log_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4126,8 +4128,8 @@ class CreateCloudFrontLoggingBucketResponse:
     def __init__(
         self,
         *,
-        log_bucket: _aws_cdk_aws_s3_ceddda9d.Bucket,
-        s3_access_log_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        log_bucket: "_aws_cdk_aws_s3_ceddda9d.Bucket",
+        s3_access_log_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param log_bucket: -
@@ -4144,15 +4146,17 @@ class CreateCloudFrontLoggingBucketResponse:
             self._values["s3_access_log_bucket"] = s3_access_log_bucket
 
     @builtins.property
-    def log_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.Bucket:
+    def log_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.Bucket":
         result = self._values.get("log_bucket")
         assert result is not None, "Required property 'log_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.Bucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.Bucket", result)
 
     @builtins.property
-    def s3_access_log_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def s3_access_log_bucket(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("s3_access_log_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4184,14 +4188,14 @@ class CreateCloudFrontOaiDistributionForS3Props:
     def __init__(
         self,
         *,
-        source_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        source_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         cloud_front_distribution_props: typing.Any = None,
-        cloud_front_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        cloud_front_logging_bucket_s3_access_log_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_front_logging_bucket_s3_access_log_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         http_security_headers: typing.Optional[builtins.bool] = None,
         log_cloud_front_access_log: typing.Optional[builtins.bool] = None,
         origin_path: typing.Optional[builtins.str] = None,
-        response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        response_headers_policy_props: typing.Optional[typing.Union["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param source_bucket: -
@@ -4238,10 +4242,10 @@ class CreateCloudFrontOaiDistributionForS3Props:
             self._values["response_headers_policy_props"] = response_headers_policy_props
 
     @builtins.property
-    def source_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def source_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("source_bucket")
         assert result is not None, "Required property 'source_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def cloud_front_distribution_props(self) -> typing.Any:
@@ -4251,16 +4255,16 @@ class CreateCloudFrontOaiDistributionForS3Props:
     @builtins.property
     def cloud_front_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def cloud_front_logging_bucket_s3_access_log_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("cloud_front_logging_bucket_s3_access_log_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def http_security_headers(self) -> typing.Optional[builtins.bool]:
@@ -4280,9 +4284,9 @@ class CreateCloudFrontOaiDistributionForS3Props:
     @builtins.property
     def response_headers_policy_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"]:
         result = self._values.get("response_headers_policy_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4311,11 +4315,11 @@ class CreateCloudFrontOaiDistributionForS3Response:
     def __init__(
         self,
         *,
-        distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-        origin_access_identity: _aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity,
-        cloudfront_function: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket_s3_accesss_log_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        distribution: "_aws_cdk_aws_cloudfront_ceddda9d.Distribution",
+        origin_access_identity: "_aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity",
+        cloudfront_function: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket_s3_accesss_log_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param distribution: -
@@ -4343,37 +4347,37 @@ class CreateCloudFrontOaiDistributionForS3Response:
             self._values["logging_bucket_s3_accesss_log_bucket"] = logging_bucket_s3_accesss_log_bucket
 
     @builtins.property
-    def distribution(self) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
+    def distribution(self) -> "_aws_cdk_aws_cloudfront_ceddda9d.Distribution":
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, result)
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.Distribution", result)
 
     @builtins.property
     def origin_access_identity(
         self,
-    ) -> _aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity:
+    ) -> "_aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity":
         result = self._values.get("origin_access_identity")
         assert result is not None, "Required property 'origin_access_identity' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity, result)
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.OriginAccessIdentity", result)
 
     @builtins.property
     def cloudfront_function(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"]:
         result = self._values.get("cloudfront_function")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.Function"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
     def logging_bucket_s3_accesss_log_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket_s3_accesss_log_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4404,8 +4408,8 @@ class CreateFargateServiceProps:
     def __init__(
         self,
         *,
-        construct_vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        client_cluster_props: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.ClusterProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        client_cluster_props: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.ClusterProps", typing.Dict[builtins.str, typing.Any]]] = None,
         client_container_definition_props: typing.Any = None,
         client_fargate_service_props: typing.Any = None,
         client_fargate_task_definition_props: typing.Any = None,
@@ -4449,17 +4453,17 @@ class CreateFargateServiceProps:
             self._values["ecr_repository_arn"] = ecr_repository_arn
 
     @builtins.property
-    def construct_vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def construct_vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         result = self._values.get("construct_vpc")
         assert result is not None, "Required property 'construct_vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def client_cluster_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.ClusterProps]:
+    ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ClusterProps"]:
         result = self._values.get("client_cluster_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ecs_ceddda9d.ClusterProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ClusterProps"], result)
 
     @builtins.property
     def client_container_definition_props(self) -> typing.Any:
@@ -4507,8 +4511,8 @@ class CreateFargateServiceResponse:
     def __init__(
         self,
         *,
-        container_definition: _aws_cdk_aws_ecs_ceddda9d.ContainerDefinition,
-        service: _aws_cdk_aws_ecs_ceddda9d.FargateService,
+        container_definition: "_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition",
+        service: "_aws_cdk_aws_ecs_ceddda9d.FargateService",
     ) -> None:
         '''
         :param container_definition: -
@@ -4524,16 +4528,16 @@ class CreateFargateServiceResponse:
         }
 
     @builtins.property
-    def container_definition(self) -> _aws_cdk_aws_ecs_ceddda9d.ContainerDefinition:
+    def container_definition(self) -> "_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition":
         result = self._values.get("container_definition")
         assert result is not None, "Required property 'container_definition' is missing"
-        return typing.cast(_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition, result)
+        return typing.cast("_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition", result)
 
     @builtins.property
-    def service(self) -> _aws_cdk_aws_ecs_ceddda9d.FargateService:
+    def service(self) -> "_aws_cdk_aws_ecs_ceddda9d.FargateService":
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
-        return typing.cast(_aws_cdk_aws_ecs_ceddda9d.FargateService, result)
+        return typing.cast("_aws_cdk_aws_ecs_ceddda9d.FargateService", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4562,9 +4566,9 @@ class CreateSourceResponse:
         self,
         *,
         source_arn: builtins.str,
-        source_parameters: typing.Union[_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty, typing.Dict[builtins.str, typing.Any]],
-        source_policy: _aws_cdk_aws_iam_ceddda9d.PolicyDocument,
-        dlq: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue] = None,
+        source_parameters: typing.Union["_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty", typing.Dict[builtins.str, typing.Any]],
+        source_policy: "_aws_cdk_aws_iam_ceddda9d.PolicyDocument",
+        dlq: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"] = None,
     ) -> None:
         '''
         :param source_arn: -
@@ -4597,21 +4601,21 @@ class CreateSourceResponse:
     @builtins.property
     def source_parameters(
         self,
-    ) -> _aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty:
+    ) -> "_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty":
         result = self._values.get("source_parameters")
         assert result is not None, "Required property 'source_parameters' is missing"
-        return typing.cast(_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty, result)
+        return typing.cast("_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeSourceParametersProperty", result)
 
     @builtins.property
-    def source_policy(self) -> _aws_cdk_aws_iam_ceddda9d.PolicyDocument:
+    def source_policy(self) -> "_aws_cdk_aws_iam_ceddda9d.PolicyDocument":
         result = self._values.get("source_policy")
         assert result is not None, "Required property 'source_policy' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.PolicyDocument, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.PolicyDocument", result)
 
     @builtins.property
-    def dlq(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    def dlq(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         result = self._values.get("dlq")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4634,9 +4638,9 @@ class CreateSpecRestApiResponse:
     def __init__(
         self,
         *,
-        api: _aws_cdk_aws_apigateway_ceddda9d.SpecRestApi,
-        log_group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        api: "_aws_cdk_aws_apigateway_ceddda9d.SpecRestApi",
+        log_group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param api: -
@@ -4656,21 +4660,21 @@ class CreateSpecRestApiResponse:
             self._values["role"] = role
 
     @builtins.property
-    def api(self) -> _aws_cdk_aws_apigateway_ceddda9d.SpecRestApi:
+    def api(self) -> "_aws_cdk_aws_apigateway_ceddda9d.SpecRestApi":
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.SpecRestApi, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.SpecRestApi", result)
 
     @builtins.property
-    def log_group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("log_group")
         assert result is not None, "Required property 'log_group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4698,8 +4702,8 @@ class CreateTargetResponse:
         self,
         *,
         target_arn: builtins.str,
-        target_parameters: typing.Union[_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty, typing.Dict[builtins.str, typing.Any]],
-        target_policy: _aws_cdk_aws_iam_ceddda9d.PolicyDocument,
+        target_parameters: typing.Union["_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty", typing.Dict[builtins.str, typing.Any]],
+        target_policy: "_aws_cdk_aws_iam_ceddda9d.PolicyDocument",
     ) -> None:
         '''
         :param target_arn: -
@@ -4728,16 +4732,16 @@ class CreateTargetResponse:
     @builtins.property
     def target_parameters(
         self,
-    ) -> _aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty:
+    ) -> "_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty":
         result = self._values.get("target_parameters")
         assert result is not None, "Required property 'target_parameters' is missing"
-        return typing.cast(_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty, result)
+        return typing.cast("_aws_cdk_aws_pipes_ceddda9d.CfnPipe.PipeTargetParametersProperty", result)
 
     @builtins.property
-    def target_policy(self) -> _aws_cdk_aws_iam_ceddda9d.PolicyDocument:
+    def target_policy(self) -> "_aws_cdk_aws_iam_ceddda9d.PolicyDocument":
         result = self._values.get("target_policy")
         assert result is not None, "Required property 'target_policy' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.PolicyDocument, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.PolicyDocument", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4765,10 +4769,10 @@ class DeployGlueJobResponse:
     def __init__(
         self,
         *,
-        job: _aws_cdk_aws_glue_ceddda9d.CfnJob,
-        role: _aws_cdk_aws_iam_ceddda9d.IRole,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        job: "_aws_cdk_aws_glue_ceddda9d.CfnJob",
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param job: -
@@ -4792,26 +4796,26 @@ class DeployGlueJobResponse:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def job(self) -> _aws_cdk_aws_glue_ceddda9d.CfnJob:
+    def job(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnJob":
         result = self._values.get("job")
         assert result is not None, "Required property 'job' is missing"
-        return typing.cast(_aws_cdk_aws_glue_ceddda9d.CfnJob, result)
+        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnJob", result)
 
     @builtins.property
-    def role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, result)
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4838,9 +4842,9 @@ class DeploySagemakerEndpointResponse:
     def __init__(
         self,
         *,
-        endpoint: _aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint,
-        endpoint_config: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig] = None,
-        model: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel] = None,
+        endpoint: "_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint",
+        endpoint_config: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"] = None,
+        model: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"] = None,
     ) -> None:
         '''
         :param endpoint: -
@@ -4861,22 +4865,22 @@ class DeploySagemakerEndpointResponse:
             self._values["model"] = model
 
     @builtins.property
-    def endpoint(self) -> _aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint:
+    def endpoint(self) -> "_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint":
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
-        return typing.cast(_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint, result)
+        return typing.cast("_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint", result)
 
     @builtins.property
     def endpoint_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"]:
         result = self._values.get("endpoint_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointConfig"], result)
 
     @builtins.property
-    def model(self) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel]:
+    def model(self) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"]:
         result = self._values.get("model")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnModel], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnModel"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4903,9 +4907,9 @@ class DynamoDBProps:
     def __init__(
         self,
         *,
-        dynamo_table_props: typing.Optional[typing.Union[_aws_cdk_aws_dynamodb_ceddda9d.TableProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_table_interface: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable] = None,
-        existing_table_obj: typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table] = None,
+        dynamo_table_props: typing.Optional[typing.Union["_aws_cdk_aws_dynamodb_ceddda9d.TableProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_table_interface: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"] = None,
+        existing_table_obj: typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"] = None,
     ) -> None:
         '''
         :param dynamo_table_props: -
@@ -4930,23 +4934,23 @@ class DynamoDBProps:
     @builtins.property
     def dynamo_table_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"]:
         result = self._values.get("dynamo_table_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.TableProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.TableProps"], result)
 
     @builtins.property
     def existing_table_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"]:
         result = self._values.get("existing_table_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.ITable], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.ITable"], result)
 
     @builtins.property
     def existing_table_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table]:
+    ) -> typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"]:
         result = self._values.get("existing_table_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_dynamodb_ceddda9d.Table], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_dynamodb_ceddda9d.Table"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5035,8 +5039,8 @@ class EventBridgeProps:
     def __init__(
         self,
         *,
-        event_bus_props: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventBusProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_event_bus_interface: typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus] = None,
+        event_bus_props: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventBusProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_event_bus_interface: typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"] = None,
     ) -> None:
         '''
         :param event_bus_props: -
@@ -5057,16 +5061,16 @@ class EventBridgeProps:
     @builtins.property
     def event_bus_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBusProps]:
+    ) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBusProps"]:
         result = self._values.get("event_bus_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBusProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBusProps"], result)
 
     @builtins.property
     def existing_event_bus_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus]:
+    ) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"]:
         result = self._values.get("existing_event_bus_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.IEventBus], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.IEventBus"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5094,8 +5098,8 @@ class EventSourceProps:
         self,
         *,
         deploy_sqs_dlq_queue: typing.Optional[builtins.bool] = None,
-        event_source_props: typing.Optional[typing.Union[_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        sqs_dlq_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        event_source_props: typing.Optional[typing.Union["_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        sqs_dlq_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param deploy_sqs_dlq_queue: -
@@ -5127,16 +5131,16 @@ class EventSourceProps:
     @builtins.property
     def event_source_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps"]:
         result = self._values.get("event_source_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_event_sources_ceddda9d.StreamEventSourceProps"], result)
 
     @builtins.property
     def sqs_dlq_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         result = self._values.get("sqs_dlq_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5159,9 +5163,9 @@ class GlobalLambdaRestApiResponse:
     def __init__(
         self,
         *,
-        api: _aws_cdk_aws_apigateway_ceddda9d.RestApi,
-        group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        api: "_aws_cdk_aws_apigateway_ceddda9d.RestApi",
+        group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param api: -
@@ -5181,21 +5185,21 @@ class GlobalLambdaRestApiResponse:
             self._values["role"] = role
 
     @builtins.property
-    def api(self) -> _aws_cdk_aws_apigateway_ceddda9d.RestApi:
+    def api(self) -> "_aws_cdk_aws_apigateway_ceddda9d.RestApi":
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.RestApi, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.RestApi", result)
 
     @builtins.property
-    def group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("group")
         assert result is not None, "Required property 'group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5218,9 +5222,9 @@ class GlobalRestApiResponse:
     def __init__(
         self,
         *,
-        api: _aws_cdk_aws_apigateway_ceddda9d.RestApi,
-        log_group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        api: "_aws_cdk_aws_apigateway_ceddda9d.RestApi",
+        log_group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param api: -
@@ -5240,21 +5244,21 @@ class GlobalRestApiResponse:
             self._values["role"] = role
 
     @builtins.property
-    def api(self) -> _aws_cdk_aws_apigateway_ceddda9d.RestApi:
+    def api(self) -> "_aws_cdk_aws_apigateway_ceddda9d.RestApi":
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.RestApi, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.RestApi", result)
 
     @builtins.property
-    def log_group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("log_group")
         assert result is not None, "Required property 'log_group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5284,12 +5288,12 @@ class GlueProps:
     def __init__(
         self,
         *,
-        etl_code_asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
-        existing_glue_job: typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob] = None,
-        existing_table: typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnTable] = None,
-        field_schema: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        etl_code_asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
+        existing_glue_job: typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"] = None,
+        existing_table: typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnTable"] = None,
+        field_schema: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         glue_job_props: typing.Any = None,
-        table_propss: typing.Optional[typing.Union[_aws_cdk_aws_glue_ceddda9d.CfnTableProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        table_propss: typing.Optional[typing.Union["_aws_cdk_aws_glue_ceddda9d.CfnTableProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param etl_code_asset: -
@@ -5324,26 +5328,28 @@ class GlueProps:
             self._values["table_propss"] = table_propss
 
     @builtins.property
-    def etl_code_asset(self) -> typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset]:
+    def etl_code_asset(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"]:
         result = self._values.get("etl_code_asset")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"], result)
 
     @builtins.property
-    def existing_glue_job(self) -> typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob]:
+    def existing_glue_job(self) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"]:
         result = self._values.get("existing_glue_job")
-        return typing.cast(typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnJob], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnJob"], result)
 
     @builtins.property
-    def existing_table(self) -> typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnTable]:
+    def existing_table(self) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnTable"]:
         result = self._values.get("existing_table")
-        return typing.cast(typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnTable], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnTable"], result)
 
     @builtins.property
     def field_schema(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty"]]:
         result = self._values.get("field_schema")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_glue_ceddda9d.CfnTable.ColumnProperty"]], result)
 
     @builtins.property
     def glue_job_props(self) -> typing.Any:
@@ -5351,9 +5357,11 @@ class GlueProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def table_propss(self) -> typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnTableProps]:
+    def table_propss(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnTableProps"]:
         result = self._values.get("table_propss")
-        return typing.cast(typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnTableProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnTableProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5379,8 +5387,8 @@ class KinesisStreamProps:
     def __init__(
         self,
         *,
-        existing_stream_obj: typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream] = None,
-        kinesis_stream_props: typing.Optional[typing.Union[_aws_cdk_aws_kinesis_ceddda9d.StreamProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_stream_obj: typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"] = None,
+        kinesis_stream_props: typing.Optional[typing.Union["_aws_cdk_aws_kinesis_ceddda9d.StreamProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_stream_obj: -
@@ -5401,16 +5409,16 @@ class KinesisStreamProps:
     @builtins.property
     def existing_stream_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream]:
+    ) -> typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"]:
         result = self._values.get("existing_stream_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.Stream], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.Stream"], result)
 
     @builtins.property
     def kinesis_stream_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.StreamProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.StreamProps"]:
         result = self._values.get("kinesis_stream_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kinesis_ceddda9d.StreamProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kinesis_ceddda9d.StreamProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5436,8 +5444,8 @@ class LambdaProps:
     def __init__(
         self,
         *,
-        existing_lambda_obj: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function] = None,
-        lambda_function_props: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_lambda_obj: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"] = None,
+        lambda_function_props: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_lambda_obj: -
@@ -5458,16 +5466,16 @@ class LambdaProps:
     @builtins.property
     def existing_lambda_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"]:
         result = self._values.get("existing_lambda_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Function], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Function"], result)
 
     @builtins.property
     def lambda_function_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionProps]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionProps"]:
         result = self._values.get("lambda_function_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5490,7 +5498,7 @@ class MappingResponse:
     def __init__(
         self,
         *,
-        mapping: _aws_cdk_ceddda9d.CfnMapping,
+        mapping: "_aws_cdk_ceddda9d.CfnMapping",
         mapping_name: builtins.str,
     ) -> None:
         '''
@@ -5507,10 +5515,10 @@ class MappingResponse:
         }
 
     @builtins.property
-    def mapping(self) -> _aws_cdk_ceddda9d.CfnMapping:
+    def mapping(self) -> "_aws_cdk_ceddda9d.CfnMapping":
         result = self._values.get("mapping")
         assert result is not None, "Required property 'mapping' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.CfnMapping, result)
+        return typing.cast("_aws_cdk_ceddda9d.CfnMapping", result)
 
     @builtins.property
     def mapping_name(self) -> builtins.str:
@@ -5547,11 +5555,11 @@ class ObtainAlbProps:
         self,
         *,
         public_api: builtins.bool,
-        vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
-        existing_load_balancer_obj: typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer] = None,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        existing_load_balancer_obj: typing.Optional["_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer"] = None,
         load_balancer_props: typing.Any = None,
         log_access_logs: typing.Optional[builtins.bool] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param public_api: -
@@ -5591,17 +5599,17 @@ class ObtainAlbProps:
         return typing.cast(builtins.bool, result)
 
     @builtins.property
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", result)
 
     @builtins.property
     def existing_load_balancer_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer]:
+    ) -> typing.Optional["_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer"]:
         result = self._values.get("existing_load_balancer_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_elasticloadbalancingv2_ceddda9d.ApplicationLoadBalancer"], result)
 
     @builtins.property
     def load_balancer_props(self) -> typing.Any:
@@ -5616,9 +5624,9 @@ class ObtainAlbProps:
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5650,8 +5658,8 @@ class ObtainMemcachedClusterProps:
         cache_security_group_id: builtins.str,
         cache_port: typing.Any = None,
         cache_props: typing.Any = None,
-        existing_cache: typing.Optional[_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        existing_cache: typing.Optional["_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param cache_security_group_id: -
@@ -5698,14 +5706,14 @@ class ObtainMemcachedClusterProps:
     @builtins.property
     def existing_cache(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster]:
+    ) -> typing.Optional["_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster"]:
         result = self._values.get("existing_cache")
-        return typing.cast(typing.Optional[_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_elasticache_ceddda9d.CfnCacheCluster"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5728,7 +5736,7 @@ class OpenSearchProps:
     def __init__(
         self,
         *,
-        open_search_domain_props: typing.Optional[typing.Union[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        open_search_domain_props: typing.Optional[typing.Union["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param open_search_domain_props: -
@@ -5745,9 +5753,9 @@ class OpenSearchProps:
     @builtins.property
     def open_search_domain_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps]:
+    ) -> typing.Optional["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps"]:
         result = self._values.get("open_search_domain_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_opensearchservice_ceddda9d.CfnDomainProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5778,7 +5786,7 @@ class PipesProps:
     def __init__(
         self,
         *,
-        pipes_props: typing.Optional[typing.Union[_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        pipes_props: typing.Optional[typing.Union["_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param pipes_props: -
@@ -5793,9 +5801,11 @@ class PipesProps:
             self._values["pipes_props"] = pipes_props
 
     @builtins.property
-    def pipes_props(self) -> typing.Optional[_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps]:
+    def pipes_props(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps"]:
         result = self._values.get("pipes_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5822,9 +5832,9 @@ class PollyBucketDetails:
     def __init__(
         self,
         *,
-        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        bucket_interface: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param bucket_interface: -
@@ -5845,20 +5855,20 @@ class PollyBucketDetails:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket_interface(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("bucket_interface")
         assert result is not None, "Required property 'bucket_interface' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5887,11 +5897,11 @@ class PollyConfiguration:
     def __init__(
         self,
         *,
-        environment_variables: typing.Sequence[typing.Union[EnvironmentVariableDefinition, typing.Dict[builtins.str, typing.Any]]],
+        environment_variables: typing.Sequence[typing.Union["EnvironmentVariableDefinition", typing.Dict[builtins.str, typing.Any]]],
         lambda_iam_actions_required: typing.Sequence[builtins.str],
-        destination_bucket: typing.Optional[typing.Union[PollyBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        destination_bucket: typing.Optional[typing.Union["PollyBucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        sns_notification_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
     ) -> None:
         '''
         :param environment_variables: -
@@ -5921,10 +5931,10 @@ class PollyConfiguration:
             self._values["sns_notification_topic"] = sns_notification_topic
 
     @builtins.property
-    def environment_variables(self) -> typing.List[EnvironmentVariableDefinition]:
+    def environment_variables(self) -> typing.List["EnvironmentVariableDefinition"]:
         result = self._values.get("environment_variables")
         assert result is not None, "Required property 'environment_variables' is missing"
-        return typing.cast(typing.List[EnvironmentVariableDefinition], result)
+        return typing.cast(typing.List["EnvironmentVariableDefinition"], result)
 
     @builtins.property
     def lambda_iam_actions_required(self) -> typing.List[builtins.str]:
@@ -5933,23 +5943,23 @@ class PollyConfiguration:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def destination_bucket(self) -> typing.Optional[PollyBucketDetails]:
+    def destination_bucket(self) -> typing.Optional["PollyBucketDetails"]:
         result = self._values.get("destination_bucket")
-        return typing.cast(typing.Optional[PollyBucketDetails], result)
+        return typing.cast(typing.Optional["PollyBucketDetails"], result)
 
     @builtins.property
     def notification_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("notification_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def sns_notification_topic(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("sns_notification_topic")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5988,17 +5998,17 @@ class PollyProps:
         *,
         async_jobs: typing.Optional[builtins.bool] = None,
         bucket_environment_variable_name: typing.Optional[builtins.str] = None,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         enable_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
-        existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        existing_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        existing_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        existing_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        existing_topic_obj: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
-        topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        topic_encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
         topic_environment_variable_name: typing.Optional[builtins.str] = None,
-        topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        topic_props: typing.Optional[typing.Union["_aws_cdk_aws_sns_ceddda9d.TopicProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param async_jobs: -
@@ -6077,9 +6087,9 @@ class PollyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    def bucket_props(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def enable_topic_encryption_with_customer_managed_key(
@@ -6089,28 +6099,30 @@ class PollyProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def existing_bucket_obj(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    def existing_bucket_obj(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def existing_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("existing_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
-    def existing_topic_obj(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    def existing_topic_obj(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_topic_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -6118,16 +6130,16 @@ class PollyProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def topic_encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    def topic_encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def topic_encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         result = self._values.get("topic_encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
     def topic_environment_variable_name(self) -> typing.Optional[builtins.str]:
@@ -6135,9 +6147,9 @@ class PollyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def topic_props(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+    def topic_props(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"]:
         result = self._values.get("topic_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6160,9 +6172,9 @@ class RegionalLambdaRestApiResponse:
     def __init__(
         self,
         *,
-        api: _aws_cdk_aws_apigateway_ceddda9d.RestApi,
-        group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        api: "_aws_cdk_aws_apigateway_ceddda9d.RestApi",
+        group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param api: -
@@ -6182,21 +6194,21 @@ class RegionalLambdaRestApiResponse:
             self._values["role"] = role
 
     @builtins.property
-    def api(self) -> _aws_cdk_aws_apigateway_ceddda9d.RestApi:
+    def api(self) -> "_aws_cdk_aws_apigateway_ceddda9d.RestApi":
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.RestApi, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.RestApi", result)
 
     @builtins.property
-    def group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("group")
         assert result is not None, "Required property 'group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6219,9 +6231,9 @@ class RegionalRestApiResponse:
     def __init__(
         self,
         *,
-        api: _aws_cdk_aws_apigateway_ceddda9d.RestApi,
-        log_group: _aws_cdk_aws_logs_ceddda9d.LogGroup,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        api: "_aws_cdk_aws_apigateway_ceddda9d.RestApi",
+        log_group: "_aws_cdk_aws_logs_ceddda9d.LogGroup",
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param api: -
@@ -6241,21 +6253,21 @@ class RegionalRestApiResponse:
             self._values["role"] = role
 
     @builtins.property
-    def api(self) -> _aws_cdk_aws_apigateway_ceddda9d.RestApi:
+    def api(self) -> "_aws_cdk_aws_apigateway_ceddda9d.RestApi":
         result = self._values.get("api")
         assert result is not None, "Required property 'api' is missing"
-        return typing.cast(_aws_cdk_aws_apigateway_ceddda9d.RestApi, result)
+        return typing.cast("_aws_cdk_aws_apigateway_ceddda9d.RestApi", result)
 
     @builtins.property
-    def log_group(self) -> _aws_cdk_aws_logs_ceddda9d.LogGroup:
+    def log_group(self) -> "_aws_cdk_aws_logs_ceddda9d.LogGroup":
         result = self._values.get("log_group")
         assert result is not None, "Required property 'log_group' is missing"
-        return typing.cast(_aws_cdk_aws_logs_ceddda9d.LogGroup, result)
+        return typing.cast("_aws_cdk_aws_logs_ceddda9d.LogGroup", result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6278,18 +6290,18 @@ class S3OacOrigin(
 
     def __init__(
         self,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         *,
-        origin_access_control: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl] = None,
+        origin_access_control: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"] = None,
         origin_path: typing.Optional[builtins.str] = None,
         connection_attempts: typing.Optional[jsii.Number] = None,
-        connection_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        connection_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         custom_headers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         origin_access_control_id: typing.Optional[builtins.str] = None,
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
-        response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        response_completion_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param bucket: -
@@ -6325,11 +6337,11 @@ class S3OacOrigin(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         *,
         origin_id: builtins.str,
         distribution_id: typing.Optional[builtins.str] = None,
-    ) -> _aws_cdk_aws_cloudfront_ceddda9d.OriginBindConfig:
+    ) -> "_aws_cdk_aws_cloudfront_ceddda9d.OriginBindConfig":
         '''The method called when a given Origin is added (for the first time) to a Distribution.
 
         :param scope: -
@@ -6343,7 +6355,7 @@ class S3OacOrigin(
             origin_id=origin_id, distribution_id=distribution_id
         )
 
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.OriginBindConfig, jsii.invoke(self, "bind", [scope, options]))
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.OriginBindConfig", jsii.invoke(self, "bind", [scope, options]))
 
 
 @jsii.data_type(
@@ -6367,15 +6379,15 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         self,
         *,
         connection_attempts: typing.Optional[jsii.Number] = None,
-        connection_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        connection_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         custom_headers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         origin_access_control_id: typing.Optional[builtins.str] = None,
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
-        response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        response_completion_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         origin_path: typing.Optional[builtins.str] = None,
-        origin_access_control: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl] = None,
+        origin_access_control: typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"] = None,
     ) -> None:
         '''Properties to use to customize an S3 Origin.
 
@@ -6436,7 +6448,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def connection_timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def connection_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The number of seconds that CloudFront waits when trying to establish a connection to the origin.
 
         Valid values are 1-10 seconds, inclusive.
@@ -6444,7 +6456,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         :default: Duration.seconds(10)
         '''
         result = self._values.get("connection_timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def custom_headers(
@@ -6500,7 +6512,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
     @builtins.property
     def response_completion_timeout(
         self,
-    ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    ) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The time that a request from CloudFront to the origin can stay open and wait for a response.
 
         If the complete response isn't received from the origin by this time, CloudFront ends the connection.
@@ -6512,7 +6524,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout
         '''
         result = self._values.get("response_completion_timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def origin_path(self) -> typing.Optional[builtins.str]:
@@ -6528,10 +6540,10 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
     @builtins.property
     def origin_access_control(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl]:
+    ) -> typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"]:
         '''The origin access control that will be used when calling your S3 bucket.'''
         result = self._values.get("origin_access_control")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6561,11 +6573,11 @@ class S3Props:
     def __init__(
         self,
         *,
-        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_bucket_interface: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        existing_logging_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_bucket_interface: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        existing_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        existing_logging_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         log_s3_access_logs: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -6603,35 +6615,35 @@ class S3Props:
             self._values["log_s3_access_logs"] = log_s3_access_logs
 
     @builtins.property
-    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    def bucket_props(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def existing_bucket_interface(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_bucket_interface")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
-    def existing_bucket_obj(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def existing_bucket_obj(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("existing_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
     def existing_logging_bucket_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_logging_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -6662,8 +6674,8 @@ class SagemakerProps:
     def __init__(
         self,
         *,
-        endpoint_props: typing.Optional[typing.Union[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_sagemaker_endpoint_obj: typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint] = None,
+        endpoint_props: typing.Optional[typing.Union["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_sagemaker_endpoint_obj: typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"] = None,
     ) -> None:
         '''
         :param endpoint_props: -
@@ -6684,16 +6696,16 @@ class SagemakerProps:
     @builtins.property
     def endpoint_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps"]:
         result = self._values.get("endpoint_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpointProps"], result)
 
     @builtins.property
     def existing_sagemaker_endpoint_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint]:
+    ) -> typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"]:
         result = self._values.get("existing_sagemaker_endpoint_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sagemaker_ceddda9d.CfnEndpoint"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6719,8 +6731,8 @@ class SecretsManagerProps:
     def __init__(
         self,
         *,
-        existing_secret_obj: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.Secret] = None,
-        secret_props: typing.Optional[typing.Union[_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_secret_obj: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.Secret"] = None,
+        secret_props: typing.Optional[typing.Union["_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_secret_obj: -
@@ -6741,16 +6753,16 @@ class SecretsManagerProps:
     @builtins.property
     def existing_secret_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.Secret]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.Secret"]:
         result = self._values.get("existing_secret_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.Secret], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.Secret"], result)
 
     @builtins.property
     def secret_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps]:
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps"]:
         result = self._values.get("secret_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.SecretProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6778,8 +6790,8 @@ class SecurityGroupRuleDefinition:
     def __init__(
         self,
         *,
-        connection: _aws_cdk_aws_ec2_ceddda9d.Port,
-        peer: _aws_cdk_aws_ec2_ceddda9d.IPeer,
+        connection: "_aws_cdk_aws_ec2_ceddda9d.Port",
+        peer: "_aws_cdk_aws_ec2_ceddda9d.IPeer",
         description: typing.Optional[builtins.str] = None,
         remote_rule: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -6805,16 +6817,16 @@ class SecurityGroupRuleDefinition:
             self._values["remote_rule"] = remote_rule
 
     @builtins.property
-    def connection(self) -> _aws_cdk_aws_ec2_ceddda9d.Port:
+    def connection(self) -> "_aws_cdk_aws_ec2_ceddda9d.Port":
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Port, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Port", result)
 
     @builtins.property
-    def peer(self) -> _aws_cdk_aws_ec2_ceddda9d.IPeer:
+    def peer(self) -> "_aws_cdk_aws_ec2_ceddda9d.IPeer":
         result = self._values.get("peer")
         assert result is not None, "Required property 'peer' is missing"
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IPeer, result)
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IPeer", result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -6876,8 +6888,8 @@ class SinkDataStoreProps:
         self,
         *,
         datastore_type: "SinkStoreType",
-        existing_s3_output_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        output_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_s3_output_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        output_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Interface to define potential outputs to allow the construct define additional output destinations for ETL transformation.
 
@@ -6910,7 +6922,7 @@ class SinkDataStoreProps:
     @builtins.property
     def existing_s3_output_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         '''The output S3 location where the data should be written.
 
         The provided S3 bucket will be used to pass
@@ -6932,12 +6944,12 @@ class SinkDataStoreProps:
         bucket if the
         '''
         result = self._values.get("existing_s3_output_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
     def output_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         '''If.
 
         :datastoreType: is S3.
@@ -6947,7 +6959,7 @@ class SinkDataStoreProps:
         the construct will create a new bucket if the
         '''
         result = self._values.get("output_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6987,11 +6999,11 @@ class SnsProps:
     def __init__(
         self,
         *,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        existing_topic_object: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_topic_obj: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        existing_topic_object: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        topic_props: typing.Optional[typing.Union["_aws_cdk_aws_sns_ceddda9d.TopicProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param encryption_key: -
@@ -7024,31 +7036,33 @@ class SnsProps:
             self._values["topic_props"] = topic_props
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         result = self._values.get("encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
-    def existing_topic_obj(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    def existing_topic_obj(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_topic_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
-    def existing_topic_object(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    def existing_topic_object(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_topic_object")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
-    def topic_props(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+    def topic_props(self) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"]:
         result = self._values.get("topic_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7078,12 +7092,12 @@ class SqsProps:
     def __init__(
         self,
         *,
-        dead_letter_queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
         deploy_dead_letter_queue: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_queue_obj: typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue] = None,
-        queue_props: typing.Optional[typing.Union[_aws_cdk_aws_sqs_ceddda9d.QueueProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_queue_obj: typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"] = None,
+        queue_props: typing.Optional[typing.Union["_aws_cdk_aws_sqs_ceddda9d.QueueProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param dead_letter_queue_props: -
@@ -7124,9 +7138,9 @@ class SqsProps:
     @builtins.property
     def dead_letter_queue_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         result = self._values.get("dead_letter_queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     @builtins.property
     def deploy_dead_letter_queue(self) -> typing.Optional[builtins.bool]:
@@ -7134,26 +7148,26 @@ class SqsProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         result = self._values.get("encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
-    def existing_queue_obj(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    def existing_queue_obj(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         result = self._values.get("existing_queue_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], result)
 
     @builtins.property
-    def queue_props(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps]:
+    def queue_props(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"]:
         result = self._values.get("queue_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.QueueProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.QueueProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7184,9 +7198,9 @@ class StateMachineProps:
         *,
         cloud_watch_alarms_prefix: typing.Optional[builtins.str] = None,
         create_cloud_watch_alarms: typing.Optional[builtins.bool] = None,
-        existing_state_machine_obj: typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine] = None,
-        log_group_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        state_machine_props: typing.Optional[typing.Union[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_state_machine_obj: typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"] = None,
+        log_group_props: typing.Optional[typing.Union["_aws_cdk_aws_logs_ceddda9d.LogGroupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        state_machine_props: typing.Optional[typing.Union["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param cloud_watch_alarms_prefix: -
@@ -7231,23 +7245,23 @@ class StateMachineProps:
     @builtins.property
     def existing_state_machine_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine]:
+    ) -> typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"]:
         result = self._values.get("existing_state_machine_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine"], result)
 
     @builtins.property
     def log_group_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"]:
         result = self._values.get("log_group_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.LogGroupProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.LogGroupProps"], result)
 
     @builtins.property
     def state_machine_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps]:
+    ) -> typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps"]:
         result = self._values.get("state_machine_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7274,9 +7288,9 @@ class TextractBucketDetails:
     def __init__(
         self,
         *,
-        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        bucket_interface: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
+        logging_bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"] = None,
     ) -> None:
         '''
         :param bucket_interface: -
@@ -7297,20 +7311,20 @@ class TextractBucketDetails:
             self._values["logging_bucket"] = logging_bucket
 
     @builtins.property
-    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket_interface(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("bucket_interface")
         assert result is not None, "Required property 'bucket_interface' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+    def logging_bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"]:
         result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Bucket"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7341,11 +7355,11 @@ class TextractConfiguration:
         self,
         *,
         lambda_iam_actions_required: typing.Sequence[builtins.str],
-        destination_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        source_bucket: typing.Optional[typing.Union[TextractBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
-        textract_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        destination_bucket: typing.Optional[typing.Union["TextractBucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        sns_notification_topic: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        source_bucket: typing.Optional[typing.Union["TextractBucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        textract_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param lambda_iam_actions_required: -
@@ -7388,33 +7402,33 @@ class TextractConfiguration:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def destination_bucket(self) -> typing.Optional[TextractBucketDetails]:
+    def destination_bucket(self) -> typing.Optional["TextractBucketDetails"]:
         result = self._values.get("destination_bucket")
-        return typing.cast(typing.Optional[TextractBucketDetails], result)
+        return typing.cast(typing.Optional["TextractBucketDetails"], result)
 
     @builtins.property
     def notification_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("notification_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def sns_notification_topic(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("sns_notification_topic")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
-    def source_bucket(self) -> typing.Optional[TextractBucketDetails]:
+    def source_bucket(self) -> typing.Optional["TextractBucketDetails"]:
         result = self._values.get("source_bucket")
-        return typing.cast(typing.Optional[TextractBucketDetails], result)
+        return typing.cast(typing.Optional["TextractBucketDetails"], result)
 
     @builtins.property
-    def textract_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def textract_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("textract_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7463,22 +7477,22 @@ class TextractProps:
         create_customer_managed_output_bucket: typing.Optional[builtins.bool] = None,
         data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
         destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
-        destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         enable_notification_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
-        existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        existing_notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        existing_destination_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        existing_notification_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        existing_notification_topic_obj: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        existing_source_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
         log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
-        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        notification_topic_encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_props: typing.Optional[typing.Union["_aws_cdk_aws_sns_ceddda9d.TopicProps", typing.Dict[builtins.str, typing.Any]]] = None,
         sns_notification_topic_arn_environment_variable_name: typing.Optional[builtins.str] = None,
         source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
-        source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        source_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         use_same_bucket: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -7610,16 +7624,16 @@ class TextractProps:
     @builtins.property
     def destination_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("destination_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def destination_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("destination_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def enable_notification_topic_encryption_with_customer_managed_key(
@@ -7631,30 +7645,30 @@ class TextractProps:
     @builtins.property
     def existing_destination_bucket_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_destination_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def existing_notification_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("existing_notification_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def existing_notification_topic_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_notification_topic_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
     def existing_source_bucket_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_source_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def log_destination_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -7669,23 +7683,23 @@ class TextractProps:
     @builtins.property
     def notification_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("notification_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def notification_topic_encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         result = self._values.get("notification_topic_encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
     def notification_topic_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"]:
         result = self._values.get("notification_topic_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"], result)
 
     @builtins.property
     def sns_notification_topic_arn_environment_variable_name(
@@ -7702,16 +7716,16 @@ class TextractProps:
     @builtins.property
     def source_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("source_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def source_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("source_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def use_same_bucket(self) -> typing.Optional[builtins.bool]:
@@ -7745,11 +7759,11 @@ class TextractSnsProps:
     def __init__(
         self,
         *,
-        existing_notification_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        existing_notification_topic_object: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
-        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
-        notification_topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        notification_topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_notification_topic_obj: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        existing_notification_topic_object: typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"] = None,
+        notification_topic_encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"] = None,
+        notification_topic_encryption_key_props: typing.Optional[typing.Union["_aws_cdk_aws_kms_ceddda9d.KeyProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_props: typing.Optional[typing.Union["_aws_cdk_aws_sns_ceddda9d.TopicProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param existing_notification_topic_obj: -
@@ -7784,37 +7798,37 @@ class TextractSnsProps:
     @builtins.property
     def existing_notification_topic_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_notification_topic_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
     def existing_notification_topic_object(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"]:
         result = self._values.get("existing_notification_topic_object")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.Topic"], result)
 
     @builtins.property
     def notification_topic_encryption_key(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"]:
         result = self._values.get("notification_topic_encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.Key"], result)
 
     @builtins.property
     def notification_topic_encryption_key_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"]:
         result = self._values.get("notification_topic_encryption_key_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.KeyProps"], result)
 
     @builtins.property
     def notification_topic_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+    ) -> typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"]:
         result = self._values.get("notification_topic_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_sns_ceddda9d.TopicProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7843,9 +7857,9 @@ class TranslateConfiguration:
         self,
         *,
         lambda_iam_actions_required: typing.Sequence[builtins.str],
-        destination_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
-        source_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
-        translate_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+        destination_bucket: typing.Optional[typing.Union["BucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_bucket: typing.Optional[typing.Union["BucketDetails", typing.Dict[builtins.str, typing.Any]]] = None,
+        translate_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"] = None,
     ) -> None:
         '''
         :param lambda_iam_actions_required: -
@@ -7880,19 +7894,19 @@ class TranslateConfiguration:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def destination_bucket(self) -> typing.Optional[BucketDetails]:
+    def destination_bucket(self) -> typing.Optional["BucketDetails"]:
         result = self._values.get("destination_bucket")
-        return typing.cast(typing.Optional[BucketDetails], result)
+        return typing.cast(typing.Optional["BucketDetails"], result)
 
     @builtins.property
-    def source_bucket(self) -> typing.Optional[BucketDetails]:
+    def source_bucket(self) -> typing.Optional["BucketDetails"]:
         result = self._values.get("source_bucket")
-        return typing.cast(typing.Optional[BucketDetails], result)
+        return typing.cast(typing.Optional["BucketDetails"], result)
 
     @builtins.property
-    def translate_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+    def translate_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"]:
         result = self._values.get("translate_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Role"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7932,15 +7946,15 @@ class TranslateProps:
         async_jobs: typing.Optional[builtins.bool] = None,
         data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
         destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
-        destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-        existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        destination_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_destination_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
+        existing_source_bucket_obj: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
         log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
         source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
-        source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
-        source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        source_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_logging_bucket_props: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.BucketProps", typing.Dict[builtins.str, typing.Any]]] = None,
         use_same_bucket: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -8031,30 +8045,30 @@ class TranslateProps:
     @builtins.property
     def destination_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("destination_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def destination_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("destination_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def existing_destination_bucket_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_destination_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def existing_source_bucket_obj(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         result = self._values.get("existing_source_bucket_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def log_destination_s3_access_logs(self) -> typing.Optional[builtins.bool]:
@@ -8074,16 +8088,16 @@ class TranslateProps:
     @builtins.property
     def source_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("source_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def source_logging_bucket_props(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"]:
         result = self._values.get("source_logging_bucket_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketProps"], result)
 
     @builtins.property
     def use_same_bucket(self) -> typing.Optional[builtins.bool]:
@@ -8116,8 +8130,8 @@ class VpcPropsSet:
         self,
         *,
         deploy_vpc: typing.Optional[builtins.bool] = None,
-        existing_vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_props: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.VpcProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_props: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.VpcProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param deploy_vpc: -
@@ -8145,14 +8159,14 @@ class VpcPropsSet:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def existing_vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def existing_vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         result = self._values.get("existing_vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def vpc_props(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps]:
+    def vpc_props(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"]:
         result = self._values.get("vpc_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.VpcProps], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.VpcProps"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8178,8 +8192,8 @@ class WafWebAclProps:
     def __init__(
         self,
         *,
-        existing_webacl_obj: _aws_cdk_aws_wafv2_ceddda9d.CfnWebACL,
-        webacl_props: typing.Union[_aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps, typing.Dict[builtins.str, typing.Any]],
+        existing_webacl_obj: "_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL",
+        webacl_props: typing.Union["_aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
         :param existing_webacl_obj: -
@@ -8197,16 +8211,16 @@ class WafWebAclProps:
         }
 
     @builtins.property
-    def existing_webacl_obj(self) -> _aws_cdk_aws_wafv2_ceddda9d.CfnWebACL:
+    def existing_webacl_obj(self) -> "_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL":
         result = self._values.get("existing_webacl_obj")
         assert result is not None, "Required property 'existing_webacl_obj' is missing"
-        return typing.cast(_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL, result)
+        return typing.cast("_aws_cdk_aws_wafv2_ceddda9d.CfnWebACL", result)
 
     @builtins.property
-    def webacl_props(self) -> _aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps:
+    def webacl_props(self) -> "_aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps":
         result = self._values.get("webacl_props")
         assert result is not None, "Required property 'webacl_props' is missing"
-        return typing.cast(_aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps, result)
+        return typing.cast("_aws_cdk_aws_wafv2_ceddda9d.CfnWebACLProps", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

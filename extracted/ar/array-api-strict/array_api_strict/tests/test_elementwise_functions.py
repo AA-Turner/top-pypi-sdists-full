@@ -1,8 +1,8 @@
+import warnings
 from inspect import signature, getmodule
 
 import numpy as np
 import pytest
-from numpy.testing import suppress_warnings
 
 
 from .. import asarray, _elementwise_functions
@@ -300,12 +300,24 @@ def test_scalars():
                     if allowed:
                         conv_scalar = a._promote_scalar(s)
 
-                        with suppress_warnings() as sup:
+                        with warnings.catch_warnings():
                             # ignore warnings from pow(BIG_INT)
-                            sup.filter(RuntimeWarning,
-                                       "invalid value encountered in power")
+                            warnings.filterwarnings(
+                                "ignore", category=RuntimeWarning,
+                                message="invalid value encountered in power"
+                            )
+
                             assert func(s, a) == func(conv_scalar, a)
                             assert func(a, s) == func(a, conv_scalar)
 
                         with pytest.raises(TypeError):
                             func(s, s)
+
+
+def test_clip_none():
+    # regression test: clip(x) is a copy of x, not a view
+    x = asarray([1, 2, 3])
+    y = array_api_strict.clip(x)
+
+    y[1] = 42
+    assert x[1] == 2

@@ -6,10 +6,10 @@ import subprocess
 import sys
 from decimal import Decimal
 from typing import Any, Optional
-from unittest.mock import patch
 
 import pytest
 from dirty_equals import HasRepr, IsInstance, IsJson, IsStr
+from pytest_mock import MockerFixture
 
 from pydantic_core import (
     CoreConfig,
@@ -94,10 +94,10 @@ def test_pydantic_value_error_invalid_dict():
 
     assert str(exc_info.value) == (
         '1 validation error for function-plain[my_function()]\n'
-        "  (error rendering message: TypeError: 'tuple' object cannot be converted to 'PyString') "
+        "  (error rendering message: TypeError: 'tuple' object is not an instance of 'str') "
         '[type=my_error, input_value=42, input_type=int]'
     )
-    with pytest.raises(TypeError, match="'tuple' object cannot be converted to 'PyString'"):
+    with pytest.raises(TypeError, match="'tuple' object is not an instance of 'str'"):
         exc_info.value.errors(include_url=False)
 
 
@@ -107,7 +107,7 @@ def test_pydantic_value_error_invalid_type():
 
     v = SchemaValidator(core_schema.with_info_plain_validator_function(f))
 
-    with pytest.raises(TypeError, match="argument 'context': 'list' object cannot be converted to 'PyDict'"):
+    with pytest.raises(TypeError, match="argument 'context': 'list' object is not an instance of 'dict'"):
         v.validate_python(42)
 
 
@@ -696,32 +696,34 @@ class CauseResult(enum.Enum):
         ('Disabled implicitly', {}, CauseResult.NO_CAUSE),
     ],
 )
-def test_validation_error_cause_config_variants(desc: str, config: CoreConfig, expected_result: CauseResult):
+def test_validation_error_cause_config_variants(
+    desc: str, config: CoreConfig, expected_result: CauseResult, mocker: MockerFixture
+):
     # Simulate the package being missing:
-    with patch.dict('sys.modules', {'exceptiongroup': None}):
+    mocker.patch.dict('sys.modules', {'exceptiongroup': None})
 
-        def singular_raise_py_error(v: Any) -> Any:
-            raise ValueError('Oh no!')
+    def singular_raise_py_error(v: Any) -> Any:
+        raise ValueError('Oh no!')
 
-        s = SchemaValidator(core_schema.no_info_plain_validator_function(singular_raise_py_error), config=config)
+    s = SchemaValidator(core_schema.no_info_plain_validator_function(singular_raise_py_error), config=config)
 
-        if expected_result is CauseResult.IMPORT_ERROR:
-            # Confirm error message contains "requires the exceptiongroup module" in the middle of the string:
-            with pytest.raises(ImportError, match='requires the exceptiongroup module'):
-                s.validate_python('anything')
-        elif expected_result is CauseResult.CAUSE:
-            with pytest.raises(ValidationError) as exc_info:
-                s.validate_python('anything')
-            assert exc_info.value.__cause__ is not None
-            assert hasattr(exc_info.value.__cause__, 'exceptions')
-            assert len(exc_info.value.__cause__.exceptions) == 1
-            assert repr(exc_info.value.__cause__.exceptions[0]) == repr(ValueError('Oh no!'))
-        elif expected_result is CauseResult.NO_CAUSE:
-            with pytest.raises(ValidationError) as exc_info:
-                s.validate_python('anything')
-            assert exc_info.value.__cause__ is None
-        else:
-            raise AssertionError(f'Unhandled result: {expected_result}')
+    if expected_result is CauseResult.IMPORT_ERROR:
+        # Confirm error message contains "requires the exceptiongroup module" in the middle of the string:
+        with pytest.raises(ImportError, match='requires the exceptiongroup module'):
+            s.validate_python('anything')
+    elif expected_result is CauseResult.CAUSE:
+        with pytest.raises(ValidationError) as exc_info:
+            s.validate_python('anything')
+        assert exc_info.value.__cause__ is not None
+        assert hasattr(exc_info.value.__cause__, 'exceptions')
+        assert len(exc_info.value.__cause__.exceptions) == 1
+        assert repr(exc_info.value.__cause__.exceptions[0]) == repr(ValueError('Oh no!'))
+    elif expected_result is CauseResult.NO_CAUSE:
+        with pytest.raises(ValidationError) as exc_info:
+            s.validate_python('anything')
+        assert exc_info.value.__cause__ is None
+    else:
+        raise AssertionError(f'Unhandled result: {expected_result}')
 
 
 def test_validation_error_cause_traceback_preserved():
@@ -762,19 +764,24 @@ def test_error_on_repr(pydantic_version):
     assert str(exc_info.value) == (
         '1 validation error for int\n'
         '  Input should be a valid integer '
-        '[type=int_type, input_value=<unprintable BadRepr object>, input_type=BadRepr]\n'
-        f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_type'
+        '[type=int_type, input_value=<unprintable BadRepr object>, input_type=BadRepr]'
+        + (
+            f'\n    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_type'
+            if os.environ.get('PYDANTIC_ERRORS_INCLUDE_URL', '1') != 'false'
+            else ''
+        )
     )
     assert exc_info.value.errors(include_url=False) == [
         {'type': 'int_type', 'loc': (), 'msg': 'Input should be a valid integer', 'input': IsInstance(BadRepr)}
     ]
-    assert exc_info.value.json(include_url=False) == IsJson(
+    assert exc_info.value.json(include_url=True) == IsJson(
         [
             {
                 'type': 'int_type',
                 'loc': [],
                 'msg': 'Input should be a valid integer',
                 'input': '<Unserializable BadRepr object>',
+                'url': f'https://errors.pydantic.dev/{pydantic_version}/v/int_type',
             }
         ]
     )
@@ -1076,12 +1083,13 @@ def test_loc_with_dots(pydantic_version):
     with pytest.raises(ValidationError) as exc_info:
         v.validate_python({'foo.bar': ('x', 42)})
     # insert_assert(exc_info.value.errors(include_url=False))
-    assert exc_info.value.errors(include_url=False) == [
+    assert exc_info.value.errors(include_url=True) == [
         {
             'type': 'int_parsing',
             'loc': ('foo.bar', 0),
             'msg': 'Input should be a valid integer, unable to parse string as an integer',
             'input': 'x',
+            'url': f'https://errors.pydantic.dev/{pydantic_version}/v/int_parsing',
         }
     ]
     # insert_assert(str(exc_info.value))
@@ -1089,8 +1097,12 @@ def test_loc_with_dots(pydantic_version):
         '1 validation error for typed-dict\n'
         '`foo.bar`.0\n'
         '  Input should be a valid integer, unable to parse string as an integer '
-        "[type=int_parsing, input_value='x', input_type=str]\n"
-        f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_parsing'
+        "[type=int_parsing, input_value='x', input_type=str]"
+        + (
+            f'\n    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_parsing'
+            if os.environ.get('PYDANTIC_ERRORS_INCLUDE_URL', '1') != 'false'
+            else ''
+        )
     )
 
 
@@ -1126,8 +1138,9 @@ def test_validation_error_pickle() -> None:
     assert original.errors() == roundtripped.errors()
 
 
-@pytest.mark.skipif('PYDANTIC_ERRORS_INCLUDE_URL' in os.environ, reason="can't test when envvar is set")
 def test_errors_include_url() -> None:
+    if 'PYDANTIC_ERRORS_INCLUDE_URL' in os.environ:
+        raise pytest.skip('cannot test when envvar is set')
     s = SchemaValidator(core_schema.int_schema())
     with pytest.raises(ValidationError) as exc_info:
         s.validate_python('definitely not an int')
@@ -1157,7 +1170,9 @@ def test_errors_include_url_envvar(env_var, env_var_value, expected_to_have_url)
     """
     code = "import pydantic_core; from pydantic_core import core_schema; pydantic_core.SchemaValidator(core_schema.int_schema()).validate_python('ooo')"
     env = os.environ.copy()
-    env.pop('PYDANTIC_ERRORS_OMIT_URL', None)  # in case the ambient environment has it set
+    # in case the ambient environment has env vars set
+    env.pop('PYDANTIC_ERRORS_INCLUDE_URL', None)
+    env.pop('PYDANTIC_ERRORS_OMIT_URL', None)
     if env_var_value is not None:
         env[env_var] = env_var_value
     result = subprocess.run(

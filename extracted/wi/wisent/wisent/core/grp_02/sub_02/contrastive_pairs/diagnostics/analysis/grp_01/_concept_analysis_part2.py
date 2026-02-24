@@ -10,8 +10,12 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.decomposition import PCA
 
+from wisent.core.constants import (
+    ZERO_THRESHOLD, CONCEPT_K_MAX, CONCEPT_TOP_SINGULAR_VALUES,
+    ICD_SINGLE_CONCEPT_THRESHOLD, ICD_MODERATE_THRESHOLD,
+    SILHOUETTE_MULTI_CONCEPT_THRESHOLD, SILHOUETTE_WEAK_MULTI_THRESHOLD,
+)
 from wisent.core.contrastive_pairs.diagnostics.analysis.concept_analysis import (
-from wisent.core.constants import ZERO_THRESHOLD
     ConceptAnalysisResult,
     compute_icd,
     compute_eigenvalue_spectrum,
@@ -49,7 +53,7 @@ def compute_concept_correlations(
 def analyze_concepts(
     pos_activations: np.ndarray,
     neg_activations: np.ndarray,
-    k_max: int = 10,
+    k_max: int = CONCEPT_K_MAX,
 ) -> ConceptAnalysisResult:
     """
     Full concept analysis on contrastive activations.
@@ -107,14 +111,14 @@ def analyze_concepts(
     confidence = "low"
     interpretation = ""
     
-    if icd < 20:
+    if icd < ICD_SINGLE_CONCEPT_THRESHOLD:
         is_single_concept = True
         confidence = "high"
         interpretation = f"ICD={icd:.1f} indicates a single dominant concept direction."
-    elif icd < 100:
+    elif icd < ICD_MODERATE_THRESHOLD:
         # Check clustering quality
         best_sil = max(silhouette_scores.values()) if silhouette_scores else 0
-        if best_sil > 0.3 and k_detected > 1:
+        if best_sil > SILHOUETTE_MULTI_CONCEPT_THRESHOLD and k_detected > 1:
             is_single_concept = False
             confidence = "medium"
             interpretation = f"ICD={icd:.1f} with silhouette={best_sil:.2f} suggests {k_detected} distinct concepts."
@@ -125,7 +129,7 @@ def analyze_concepts(
     else:
         # High ICD
         best_sil = max(silhouette_scores.values()) if silhouette_scores else 0
-        if best_sil > 0.2 and k_detected > 1:
+        if best_sil > SILHOUETTE_WEAK_MULTI_THRESHOLD and k_detected > 1:
             is_single_concept = False
             confidence = "high"
             interpretation = f"ICD={icd:.1f} is high, suggesting {k_detected}+ mixed concepts or high noise."
@@ -136,8 +140,8 @@ def analyze_concepts(
     
     return ConceptAnalysisResult(
         icd=icd,
-        top_singular_values=singular_values[:10],
-        top_variance_explained=cum_variance[:10] if cum_variance else [],
+        top_singular_values=singular_values[:CONCEPT_TOP_SINGULAR_VALUES],
+        top_variance_explained=cum_variance[:CONCEPT_TOP_SINGULAR_VALUES] if cum_variance else [],
         eigenvalue_gap=gap,
         num_concepts_detected=k_detected,
         silhouette_scores=silhouette_scores,

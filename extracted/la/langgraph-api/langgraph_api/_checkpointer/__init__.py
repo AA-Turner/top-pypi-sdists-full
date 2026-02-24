@@ -5,7 +5,10 @@ import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from langgraph_api._checkpointer import _adapter
-from langgraph_api._checkpointer.protocol import CheckpointerProtocol
+from langgraph_api._checkpointer.protocol import (
+    CheckpointerProtocol,
+    FullCheckpointerProtocol,
+)
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -15,7 +18,7 @@ async def get_checkpointer(
     conn: Any | None = None,
     unpack_hook: Callable[[int, bytes], Any] | None = None,
     use_direct_connection: bool = False,
-) -> CheckpointerProtocol:
+) -> FullCheckpointerProtocol:
     return await _adapter.get_checkpointer(
         conn=conn,
         unpack_hook=unpack_hook,
@@ -52,6 +55,8 @@ def get_checkpointer_capabilities() -> _adapter.CheckpointerCapabilities | None:
 
 
 __all__ = [
+    "CheckpointerProtocol",
+    "FullCheckpointerProtocol",
     "exit_checkpointer",
     "get_checkpointer",
     "get_checkpointer_capabilities",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: flwr-nightly
-Version: 1.27.0.dev20260222
+Version: 1.27.0.dev20260223
 Summary: Flower: A Friendly Federated AI Framework
 License: Apache-2.0
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning

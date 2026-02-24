@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict
 
 from wisent.core.activations.activations import Activations
+from wisent.core.constants import EVAL_GT_CODE_MAX_TOKENS, EVAL_GT_CODE_BIGCODE_MAX_TOKENS, AGENT_DIAG_TEMPERATURE
 from wisent.core.layer import Layer
 from wisent.core.models import get_generate_kwargs
 from wisent.core.utils import get_all_docs_from_task, create_deterministic_split
@@ -38,7 +39,7 @@ def evaluate_generic_code_execution(evaluator, classifier, task_name: str, num_s
                     starter_code = doc.get("starter_code", "")
                     prompt = f"{question}\n\n{starter_code}" if starter_code else question
                 logger.debug(f"Generating code for sample {i + 1}/{len(docs)}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=500, temperature=0.1, do_sample=False)
+                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_GT_CODE_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
                 generated_code, _ = model.generate(prompt=prompt, layer_index=layer, **gen_kwargs)
                 generated_codes.append(generated_code)
                 eval_result = secure_evaluator.evaluate_response(task_name, doc, generated_code)
@@ -86,7 +87,7 @@ def evaluate_code_execution(evaluator, classifier, task_name: str, num_samples: 
             try:
                 prompt = bigcode_task.doc_to_text(sample)
                 logger.debug(f"Generating code for sample {i + 1}/{len(bigcode_task)}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=300, temperature=0.1, do_sample=False)
+                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_GT_CODE_BIGCODE_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
                 generated_code, _ = model.generate(prompt=prompt, layer_index=layer, **gen_kwargs)
                 generated_codes.append(generated_code)
                 logger.debug(f"Generated: {generated_code[:100]}...")

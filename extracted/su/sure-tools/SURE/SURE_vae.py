@@ -1086,6 +1086,7 @@ class SUREVAE(nn.Module):
                     self.load_model_and_optimizer_state(best_state, scheduler)
                     print("Restored model and optimizer states from best epoch.")
         
+        xs = tensor_to_numpy(xs)
         zs = self.get_cell_embedding(xs, show_progress=False)        
         self.kmeans.fit(zs)
         self.codebook_loc = self.kmeans.cluster_centers_

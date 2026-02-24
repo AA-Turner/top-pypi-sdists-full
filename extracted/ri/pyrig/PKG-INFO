@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 10.1.10
+Version: 10.1.15
 Summary: pyrig is a python toolkit that rigs up your project by standardizing and automating project setup, configuration and maintenance
 Keywords: project-setup,automation,scaffolding,cli,testing,ci-cd,devops,packaging
 Author: Winipedia
@@ -172,7 +172,10 @@ uv run pyrig mktests        # Generate test skeletons
 uv run pyrig mkinits        # Create missing __init__.py files
 uv run pyrig build          # Build artifacts (PyInstaller, etc.)
 uv run pyrig protect-repo   # Configure repository protection
+uv run pyrig scratch        # Execute the project's .scratch file
+uv run pyrig rmpyc          # Remove __pycache__ directories
 uv run my-project --help    # Your project's CLI
+uv run my-project version   # Show pyrig or project version
 ```
 
 → [CLI Reference](https://winipedia.github.io/pyrig/cli/)

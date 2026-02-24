@@ -1,3 +1,8 @@
+from .access_graph_rules_module_types import (
+    AccessGraphEntitlementRule,
+    AccessGraphRulesSettings,
+    ImpliedAccessRule,
+)
 from .credentials_module_types import (
     AUTH_TYPE_MAP,
     AuthModel,
@@ -20,6 +25,9 @@ from .oauth_module_types import (
 )
 
 __all__ = [
+    "AccessGraphEntitlementRule",
+    "AccessGraphRulesSettings",
+    "ImpliedAccessRule",
     "AuthModel",
     "OAuthFlowType",
     "ClientAuthenticationMethod",

@@ -1,6 +1,8 @@
 """Basic arguments for modify-weights parser."""
 import argparse
 
+from wisent.core.constants import DATA_SPLIT_RATIO, DATA_SPLIT_SEED, PAIRS_SIMILARITY_THRESHOLD
+
 
 def setup_basic_modify_args(parser: argparse.ArgumentParser) -> None:
     """Set up basic modification arguments."""
@@ -74,13 +76,13 @@ def setup_basic_modify_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--train-ratio",
         type=float,
-        default=0.8,
+        default=DATA_SPLIT_RATIO,
         help="Fraction of pairs for training vs evaluation (default: 0.8)"
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
+        default=DATA_SPLIT_SEED,
         help="Random seed for reproducibility (default: 42)"
     )
 
@@ -116,7 +118,7 @@ def setup_basic_modify_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--similarity-threshold",
         type=float,
-        default=0.8,
+        default=PAIRS_SIMILARITY_THRESHOLD,
         help="Similarity threshold for synthetic mode (default: 0.8)"
     )
     parser.add_argument(

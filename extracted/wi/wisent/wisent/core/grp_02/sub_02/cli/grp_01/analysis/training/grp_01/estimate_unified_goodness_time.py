@@ -1,4 +1,5 @@
 """CLI entry point for estimating unified goodness training time."""
+from wisent.core.constants import DATA_SPLIT_RATIO
 from wisent.core.cli.analysis.training.estimate_time_functions import (
     BENCHMARK_SIZES, BENCHMARK_LOAD_TIMES, estimate_runtime,
     get_benchmark_load_time, get_benchmark_size, format_time,
@@ -18,7 +19,7 @@ def main():
         help="Cap pairs per benchmark (benchmarks with more get randomly sampled down)"
     )
     parser.add_argument(
-        "--train-ratio", type=float, default=0.8,
+        "--train-ratio", type=float, default=DATA_SPLIT_RATIO,
         help="Fraction of pairs for training (default: 0.8 = 80%% train, 20%% eval)"
     )
     parser.add_argument(

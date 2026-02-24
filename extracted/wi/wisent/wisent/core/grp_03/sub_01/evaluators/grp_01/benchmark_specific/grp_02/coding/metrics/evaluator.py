@@ -4,7 +4,7 @@ from typing import Any, Callable, Iterable, Optional, TYPE_CHECKING
 import logging
 
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
-from wisent.core.constants import FEEDBACK_MAX_CHARS, EVAL_TIME_LIMIT_S, EVAL_CPU_LIMIT_S, EVAL_MEM_LIMIT_MB
+from wisent.core.constants import FEEDBACK_MAX_CHARS, EVAL_TIME_LIMIT_S, EVAL_CPU_LIMIT_S, EVAL_MEM_LIMIT_MB, SAFE_DOCKER_NPROC_DEFAULT
 from wisent.core.evaluators.benchmark_specific.coding.safe_docker.core.runtime import DockerSandboxExecutor
 from wisent.core.evaluators.benchmark_specific.coding.metrics.core.atoms import SampleOutcome
 
@@ -171,11 +171,11 @@ if __name__ == "__main__":
             if 'ds1000' in task_name.lower() or 'ds_1000' in task_name.lower():
                 cpu_limit_s, wall_timeout_s, nproc = 60, 120, 512
             elif timeout_override:
-                cpu_limit_s, wall_timeout_s, nproc = timeout_override, timeout_override, 64
+                cpu_limit_s, wall_timeout_s, nproc = timeout_override, timeout_override, SAFE_DOCKER_NPROC_DEFAULT
             else:
                 cpu_limit_s = self.cfg.cpu_limit_s
                 wall_timeout_s = self.cfg.time_limit_s
-                nproc = 64
+                nproc = SAFE_DOCKER_NPROC_DEFAULT
 
             job = Job(
                 language=language, compile_argv=None,

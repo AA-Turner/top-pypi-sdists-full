@@ -220,7 +220,10 @@ class Table:
             new table
         """
     def add_column(
-        self, i: int, field: str | ArrowSchemaExportable, column: ArrowStreamExportable
+        self,
+        i: int,
+        field: str | ArrowSchemaExportable,
+        column: ArrowStreamExportable | ArrowArrayExportable,
     ) -> Table:
         """Add column to Table at position.
 
@@ -235,13 +238,15 @@ class Table:
             New table with the passed column added.
         """
     def append_column(
-        self, field: str | ArrowSchemaExportable, column: ArrowStreamExportable
+        self,
+        field: str | ArrowSchemaExportable,
+        column: ArrowStreamExportable | ArrowArrayExportable,
     ) -> Table:
-        """Append column at end of columns.
+        """Append column at the end of columns.
 
         Args:
             field: _description_
-            column: Column data.
+            column: Column data. It Can be either an Array, ChunkedArray or ArrayReader.
 
         Returns:
             New table or record batch with the passed column added.
@@ -311,6 +316,22 @@ class Table:
         Returns:
             The rechunked table.
         """
+
+    def drop_columns(self, columns: Sequence[str]) -> Table:
+        """Create a new Table with the `columns` removed.
+
+         An empty input does not remove any column.
+
+        Args:
+            columns: The name of the columns to drop, case-sensitive.
+
+        Returns:
+            A new table without the specified columns.
+
+        Raises:
+            KeyError: if any given column does not exist in the table.
+        """
+
     def remove_column(self, i: int) -> Table:
         """Create new Table with the indicated column removed.
 
@@ -347,8 +368,12 @@ class Table:
         Returns:
             _description_
         """
+
     def set_column(
-        self, i: int, field: str | ArrowSchemaExportable, column: ArrowStreamExportable
+        self,
+        i: int,
+        field: str | ArrowSchemaExportable,
+        column: ArrowStreamExportable | ArrowArrayExportable,
     ) -> Table:
         """Replace column in Table at position.
 

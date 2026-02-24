@@ -11,6 +11,58 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.usefixtures("clear_python_preference_env_var")
+def test_uv_lock_with_setupdir(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.ini": """\
+[testenv]
+runner = uv-venv-lock-runner
+package_root = src
+""",
+    })
+    (project.path / "src").mkdir()
+    execute_calls = project.patch_execute(lambda r: 0 if r.run_id != "venv" else None)
+    result = project.run("run", "--notest", "-vv")
+    result.assert_success()
+
+    calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    uv = find_uv_bin()
+    expected = [
+        (
+            "py",
+            "venv",
+            [
+                uv,
+                "venv",
+                "-p",
+                sys.executable,
+                "--allow-existing",
+                "-v",
+                "--python-preference",
+                "system",
+                str(project.path / ".tox" / "py"),
+            ],
+        ),
+        (
+            "py",
+            "uv-sync",
+            [
+                uv,
+                "sync",
+                "--directory",
+                str(project.path / "src"),
+                "--locked",
+                "--python-preference",
+                "system",
+                "-v",
+                "-p",
+                sys.executable,
+            ],
+        ),
+    ]
+    assert calls == expected
+
+
+@pytest.mark.usefixtures("clear_python_preference_env_var")
 def test_uv_lock_list_dependencies_command(tox_project: ToxProjectCreator) -> None:
     project = tox_project({
         "tox.ini": """
@@ -48,7 +100,7 @@ def test_uv_lock_list_dependencies_command(tox_project: ToxProjectCreator) -> No
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -110,7 +162,7 @@ def test_uv_lock_command(tox_project: ToxProjectCreator, verbose: str) -> None:
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -162,7 +214,7 @@ def test_uv_lock_with_default_groups(tox_project: ToxProjectCreator) -> None:
                 str(project.path / ".tox" / "py"),
             ],
         ),
-        ("py", "uv-sync", ["uv", "sync", "--locked", "--python-preference", "system", "-v", "-p", sys.executable]),
+        ("py", "uv-sync", [uv, "sync", "--locked", "--python-preference", "system", "-v", "-p", sys.executable]),
     ]
     assert calls == expected
 
@@ -210,7 +262,7 @@ def test_uv_lock_with_install_pkg(tox_project: ToxProjectCreator, name: str) -> 
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -270,7 +322,7 @@ def test_uv_sync_extra_flags(tox_project: ToxProjectCreator, uv_sync_locked: boo
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 *(["--locked"] if uv_sync_locked else []),
                 "--python-preference",
@@ -323,7 +375,7 @@ def test_uv_sync_extra_flags_toml(tox_project: ToxProjectCreator) -> None:
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -376,7 +428,7 @@ def test_uv_sync_dependency_groups(tox_project: ToxProjectCreator) -> None:
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -440,7 +492,7 @@ def test_uv_sync_uv_python_preference(
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 *injected,
@@ -494,13 +546,14 @@ def test_skip_uv_sync(tox_project: ToxProjectCreator, monkeypatch: pytest.Monkey
     assert calls == expected
 
 
-def test_uv_package_wheel(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("package", ["wheel", "uv"])
+def test_uv_package_non_editable(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, package: str) -> None:
     monkeypatch.delenv("UV_PYTHON_PREFERENCE", raising=False)
     project = tox_project({
-        "tox.toml": """
+        "tox.toml": f"""
             [env_run_base]
             runner = "uv-venv-lock-runner"
-            package = "wheel"
+            package = "{package}"
             """,
         "pyproject.toml": """
             [project]
@@ -533,7 +586,7 @@ def test_uv_package_wheel(tox_project: ToxProjectCreator, monkeypatch: pytest.Mo
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -549,13 +602,16 @@ def test_uv_package_wheel(tox_project: ToxProjectCreator, monkeypatch: pytest.Mo
     assert calls == expected
 
 
-def test_uv_package_wheel_no_pyproject(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("package", ["wheel", "uv"])
+def test_uv_package_non_editable_no_pyproject(
+    tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, package: str
+) -> None:
     monkeypatch.delenv("UV_PYTHON_PREFERENCE", raising=False)
     project = tox_project({
-        "tox.toml": """
+        "tox.toml": f"""
             [env_run_base]
             runner = "uv-venv-lock-runner"
-            package = "wheel"
+            package = "{package}"
             """,
     })
     project.patch_execute(lambda r: 0 if r.run_id != "venv" else None)
@@ -563,6 +619,54 @@ def test_uv_package_wheel_no_pyproject(tox_project: ToxProjectCreator, monkeypat
     result = project.run("run", "--notest")
 
     result.assert_failed()
+
+
+def test_uv_package_uv_editable(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("UV_PYTHON_PREFERENCE", raising=False)
+    project = tox_project({
+        "tox.toml": """
+            [env_run_base]
+            runner = "uv-venv-lock-runner"
+            package = "uv-editable"
+            """,
+    })
+    execute_calls = project.patch_execute(lambda r: 0 if r.run_id != "venv" else None)
+    result = project.run("run", "--notest")
+    result.assert_success()
+
+    calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    uv = find_uv_bin()
+
+    expected = [
+        (
+            "py",
+            "venv",
+            [
+                uv,
+                "venv",
+                "-p",
+                sys.executable,
+                "--allow-existing",
+                "--python-preference",
+                "system",
+                str(project.path / ".tox" / "py"),
+            ],
+        ),
+        (
+            "py",
+            "uv-sync",
+            [
+                uv,
+                "sync",
+                "--locked",
+                "--python-preference",
+                "system",
+                "-p",
+                sys.executable,
+            ],
+        ),
+    ]
+    assert calls == expected
 
 
 def test_skip_uv_package_skip(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -600,7 +704,7 @@ def test_skip_uv_package_skip(tox_project: ToxProjectCreator, monkeypatch: pytes
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -648,7 +752,7 @@ def test_uv_lock_ith_resolution(tox_project: ToxProjectCreator) -> None:
             "py",
             "uv-sync",
             [
-                "uv",
+                uv,
                 "sync",
                 "--locked",
                 "--python-preference",
@@ -663,3 +767,55 @@ def test_uv_lock_ith_resolution(tox_project: ToxProjectCreator) -> None:
     assert len(calls) == len(expected)
     for i in range(len(calls)):
         assert calls[i] == expected[i]
+
+
+@pytest.mark.usefixtures("clear_python_preference_env_var")
+def test_uv_sync_only_groups(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.toml": """\
+[env_run_base]
+runner = "uv-venv-lock-runner"
+only_groups = ["ci"]
+commands = [["python", "hello"]]
+"""
+    })
+    execute_calls = project.patch_execute(lambda r: 0 if r.run_id != "venv" else None)
+    result = project.run()
+    result.assert_success()
+
+    calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    uv = find_uv_bin()
+
+    expected = [
+        (
+            "py",
+            "venv",
+            [
+                uv,
+                "venv",
+                "-p",
+                sys.executable,
+                "--allow-existing",
+                "--python-preference",
+                "system",
+                str(project.path / ".tox" / "py"),
+            ],
+        ),
+        (
+            "py",
+            "uv-sync",
+            [
+                uv,
+                "sync",
+                "--locked",
+                "--python-preference",
+                "system",
+                "--only-group",
+                "ci",
+                "-p",
+                sys.executable,
+            ],
+        ),
+        ("py", "commands[0]", ["python", "hello"]),
+    ]
+    assert calls == expected

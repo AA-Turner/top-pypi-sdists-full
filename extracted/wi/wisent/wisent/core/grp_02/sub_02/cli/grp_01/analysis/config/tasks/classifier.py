@@ -7,7 +7,7 @@ import torch
 
 from wisent.core.models import get_generate_kwargs
 from wisent.core.errors import UnknownTypeError
-from wisent.core.constants import DEFAULT_CLASSIFIER_LR, QUALITY_THRESHOLD, MAX_REGENERATION_ATTEMPTS
+from wisent.core.constants import DEFAULT_CLASSIFIER_LR, QUALITY_THRESHOLD, MAX_REGENERATION_ATTEMPTS, CLASSIFIER_NUM_EPOCHS, CLASSIFIER_BATCH_SIZE
 
 
 def collect_activations(args, model, pair_set, ActivationCollector, ExtractionStrategy):
@@ -106,7 +106,7 @@ def train_classifier(args, activations, LogisticClassifier, MLPClassifier, Class
         raise UnknownTypeError(entity_type="classifier_type", value=args.classifier_type, valid_values=["logistic", "mlp"])
 
     train_config = ClassifierTrainConfig(
-        test_size=1.0 - args.split_ratio, num_epochs=50, batch_size=32,
+        test_size=1.0 - args.split_ratio, num_epochs=CLASSIFIER_NUM_EPOCHS, batch_size=CLASSIFIER_BATCH_SIZE,
         learning_rate=DEFAULT_CLASSIFIER_LR, monitor='f1', random_state=args.seed
     )
 

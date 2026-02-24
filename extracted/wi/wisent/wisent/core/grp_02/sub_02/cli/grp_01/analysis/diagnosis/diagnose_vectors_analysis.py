@@ -2,6 +2,7 @@
 from typing import Dict
 
 import torch
+from wisent.core import constants as _C
 from wisent.core.constants import CONE_THRESHOLD, CONE_DIRECTIONS, DIAG_NUM_COMPONENTS, MAX_CLUSTERS, MANIFOLD_NEIGHBORS
 
 
@@ -100,7 +101,7 @@ def _run_cone_analysis(
         # Separation scores
         print(f"\n   Per-Direction Separation Scores:")
         for i, score in enumerate(result.separation_scores):
-            significance = "***" if abs(score) > 0.3 else "**" if abs(score) > 0.1 else "*" if abs(score) > 0.05 else ""
+            significance = "***" if abs(score) > _C.DIAG_SIGNIFICANCE_STRONG else "**" if abs(score) > _C.DIAG_SIGNIFICANCE_MODERATE else "*" if abs(score) > _C.DIAG_SIGNIFICANCE_WEAK else ""
             print(f"      Direction {i}: {score:.4f} {significance}")
         
         # Interpretation
@@ -207,7 +208,7 @@ def _run_geometry_analysis(
         print(f"   {'-'*32}")
         
         for name, score in sorted(result.all_scores.items(), key=lambda x: x[1].score, reverse=True):
-            marker = "***" if score.score > 0.8 else "**" if score.score > 0.6 else "*" if score.score > 0.4 else ""
+            marker = "***" if score.score > _C.DIAG_SCORE_HIGH else "**" if score.score > _C.DIAG_SCORE_MODERATE else "*" if score.score > _C.DIAG_SCORE_LOW else ""
             print(f"   {name:<12} {score.score:<8.3f} {score.confidence:<10.3f} {marker}")
         
         print(f"\n📝 Recommendation:")

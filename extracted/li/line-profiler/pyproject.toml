@@ -23,6 +23,10 @@ exclude_lines =[
     "^ *pass *$",
     "if _debug:",
     "if __name__ == .__main__.:",
+    ".*if typing.TYPE_CHECKING:",
+    ".*if TYPE_CHECKING:",
+    "@typing.overload",
+    "@overload",
 ]
 
 omit =[
@@ -31,6 +35,10 @@ omit =[
 
 [tool.cibuildwheel]
 build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+# XXX: since `tests.yml` already defines `matrix.cibw_skip` for
+# `build_binpy_wheels`, can we deduplicate and just use that?
+# Or do we need these when building wheels for release, which may run on
+# separate pipelines?
 skip = ["*-win32", "cp3{9,10}-win_arm64", "cp313-musllinux_i686"]
 build-frontend = "build"
 build-verbosity = 1
@@ -38,6 +46,9 @@ test-command = "python {project}/run_tests.py"
 test-extras = ["tests-strict", "runtime-strict"]
 
 # https://cibuildwheel.readthedocs.io/en/stable/options/#archs
+[tool.cibuildwheel.linux]
+# We'll build X86 and ARM wheels natively on separate runners
+archs = ['auto']
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "universal2", "arm64"]
 [tool.cibuildwheel.windows]
@@ -81,3 +92,30 @@ norecursedirs = ".git ignore build __pycache__ dev _skbuild docs agentx"
 filterwarnings = [
     "default",
 ]
+
+[[tool.ty.overrides]]
+# Apply the ignore unresolved rules to these files
+include = [
+  "line_profiler/line_profiler_utils.py",
+]
+rules = { unused-type-ignore-comment = "ignore" }
+
+[tool.ruff]
+line-length = 80
+target-version = "py38"
+
+[tool.ruff.lint]
+# Enable Flake8 (E, F) and isort (I) rules.
+select = ["E", "F", "I"]
+# Ignore specific rules, for example, E501 (line too long) as it's handled by the formatter.
+ignore = [
+    "E501",  # line too long
+    "E402",  # Module level import not at top of file
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false

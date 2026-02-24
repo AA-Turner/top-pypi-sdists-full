@@ -1,8 +1,9 @@
 import copy
+import os
 import pickle
 
 import pytest
-from typing_extensions import (  # noqa: UP035 (https://github.com/astral-sh/ruff/pull/18476)
+from typing_extensions import (
     get_args,
     get_origin,
     get_type_hints,
@@ -150,16 +151,27 @@ def test_validation_error_multiple(pydantic_version):
             'input': 'y',
         },
     ]
+
+    include_urls = os.environ.get('PYDANTIC_ERRORS_INCLUDE_URL', '1') != 'false'
+
     assert repr(exc_info.value) == (
         '2 validation errors for MyModel\n'
         'x\n'
         '  Input should be a valid number, unable to parse string as a number '
         "[type=float_parsing, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n"
-        f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/float_parsing\n'
-        'y\n'
+        + (
+            f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/float_parsing\n'
+            if include_urls
+            else ''
+        )
+        + 'y\n'
         '  Input should be a valid integer, unable to parse string as an integer '
-        "[type=int_parsing, input_value='y', input_type=str]\n"
-        f'    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_parsing'
+        "[type=int_parsing, input_value='y', input_type=str]"
+        + (
+            f'\n    For further information visit https://errors.pydantic.dev/{pydantic_version}/v/int_parsing'
+            if include_urls
+            else ''
+        )
     )
 
 

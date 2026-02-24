@@ -1652,6 +1652,7 @@ def format_application_summaries_as_text(ctx, summaries):
         status_column("icon_url"),
         status_column("default_role_name"),
         status_column("default_role_id"),
+        status_column("connector_id"),
     ]
 
     return format_table(ctx, summaries, columns)

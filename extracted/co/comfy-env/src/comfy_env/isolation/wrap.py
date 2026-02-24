@@ -319,6 +319,27 @@ def _handle_vram_budget(request: dict) -> dict:
     }
 
 
+def _cleanup_stale_patchers(env_dir):
+    """Mark stale SubprocessModelPatchers for cleanup.
+
+    Called when a worker is replaced (crash/restart).  We clear the patcher
+    registry so they won't be re-registered.  The patchers themselves stay in
+    ComfyUI's current_loaded_models — the safety net in _send_device_command
+    handles "not registered" IPC errors gracefully, and free_memory will
+    remove them during its normal unload loop.
+
+    We must NOT modify current_loaded_models here because this callback can
+    fire inside free_memory's iteration (via model_unload → send_command →
+    _ensure_started → _on_restart), which would invalidate captured indices.
+    """
+    key = str(env_dir)
+    old_patchers = _WORKER_PATCHERS.pop(key, None)
+    if not old_patchers:
+        return
+    _log(f"[comfy-env] Invalidated {len(old_patchers)} stale model patchers "
+         f"(will be cleaned up during next unload)")
+
+
 def _get_or_create_worker(env_dir: Path, working_dir: Path, sys_path: list[str],
                           lib_path: Optional[str] = None, env_vars: Optional[dict] = None,
                           health_check_timeout: float = DEFAULT_HEALTH_CHECK_TIMEOUT):
@@ -335,7 +356,8 @@ def _get_or_create_worker(env_dir: Path, working_dir: Path, sys_path: list[str],
             worker, gen = entry
             if worker.is_alive():
                 return worker, gen
-            # Dead — clean up
+            # Dead — clean up stale patchers before replacing worker
+            _cleanup_stale_patchers(env_dir)
             try:
                 worker.shutdown()
             except Exception:
@@ -346,6 +368,8 @@ def _get_or_create_worker(env_dir: Path, working_dir: Path, sys_path: list[str],
         # Register bidirectional RPC callbacks
         worker.register_callback("request_vram_budget", _handle_vram_budget)
         worker.register_callback("report_progress", _handle_progress)
+        # Clean up stale patchers if worker restarts transparently via _ensure_started()
+        worker._on_restart = lambda: _cleanup_stale_patchers(env_dir)
         _WORKER_POOL[key] = (worker, gen)
         return worker, gen
 

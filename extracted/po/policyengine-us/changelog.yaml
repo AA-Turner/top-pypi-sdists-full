@@ -13292,3 +13292,110 @@
     - Fix circular dependency in NY A06774 Enhanced CDCC reform by using cdcc_potential
       instead of cdcc, which avoids the income_tax_before_credits dependency cycle.
   date: 2026-02-23 00:04:18
+- bump: patch
+  changes:
+    fixed:
+    - Fix Stay NJ benefit formula order of operations and add Senior Freeze offset
+      per P.L. 2024 c.88.
+  date: 2026-02-23 06:19:36
+- bump: patch
+  changes:
+    fixed:
+    - Fix WA Working Families Tax Credit phaseout to phase to $50 minimum instead
+      of zero per RCW 82.08.0206(3)(f).
+  date: 2026-02-23 06:32:41
+- bump: minor
+  changes:
+    added:
+    - Puerto Rico non-refundable child tax credit (CTC).
+  date: 2026-02-23 13:42:35
+- bump: minor
+  changes:
+    added:
+    - added 2018 CHIP pregnant income limit
+  date: 2026-02-23 13:45:06
+- bump: minor
+  changes:
+    added:
+    - Maryland county income tax rates for 2024 and 2025.
+  date: 2026-02-23 13:46:51
+- bump: minor
+  changes:
+    added:
+    - Colorado alternative minimum tax (AMT).
+  date: 2026-02-23 13:47:45
+- bump: minor
+  changes:
+    added:
+    - Add Washington Apple Health for Kids and Apple Health Expansion programs.
+  date: 2026-02-23 13:49:59
+- bump: patch
+  changes:
+    fixed:
+    - Implement NJ same-category loss rule (N.J.S. 54A:5-1) for gross income calculation.
+      Losses in any income category (capital gains, S-corp/partnership, rental, self-employment)
+      are now disregarded and cannot offset income from other categories.
+  date: 2026-02-23 13:51:33
+- bump: minor
+  changes:
+    added:
+    - Add SNAP immigration status eligibility, reflecting changes from the One Big
+      Beautiful Bill Act of 2025.
+    - Exclude immigration-ineligible members from SNAP unit size.
+    - Add California-specific delayed effective date (April 1, 2026) for SNAP immigration
+      eligibility changes per ACL 25-92.
+  date: 2026-02-23 13:53:18
+- bump: patch
+  changes:
+    fixed:
+    - Remove duplicate pr_gross_income.py that caused a VariableNameConflictError
+      for pr_gross_income_person.
+  date: 2026-02-23 15:39:55
+- bump: minor
+  changes:
+    added:
+    - Added non-age work registration exemptions for SNAP ABAWD (student, UI recipient,
+      child under 6) per 7 U.S.C. 2015(o)(3)(D).
+    - Added is_snap_abawd_hr1_in_effect variable to centralize state-level HR1 adoption
+      routing.
+    changed:
+    - Refactored SNAP ABAWD work requirements to absorb California pre-HR1 delay logic,
+      eliminating duplicate CA variable.
+    - Updated federal SNAP ABAWD parameter effective dates to 2025-07-04 per Public
+      Law 119-21 enactment date.
+    - "Backdated ABAWD age exemption parameters to 1997-03-01 (PRWORA effective date)\
+      \ and added FRA 2023 phase-in history (50\u219251\u219253\u219255)."
+    - Removed blanket HI/AK ABAWD exemption from formula; both states are implementing
+      ABAWD. Preferential waiver authority documented in parameter file.
+    removed:
+    - Removed ca_meets_snap_abawd_work_requirements (functionality merged into federal
+      variable).
+  date: 2026-02-23 16:14:13
+- bump: minor
+  changes:
+    added:
+    - Add Connecticut refundable child tax credit (HB 5134) as a reform.
+  date: 2026-02-23 19:09:02
+- bump: minor
+  changes:
+    added:
+    - Implement Connecticut 2026 tax rebate proposal (Gov. Lamont).
+  date: 2026-02-23 20:47:20
+- bump: patch
+  changes:
+    changed:
+    - Add pragma no cover to truly untestable code (microsim branches, behavioral
+      responses, TAXSIM compatibility).
+  date: 2026-02-23 21:02:29
+- bump: patch
+  changes:
+    added:
+    - Add tests for tax_unit_state, emp_self_emp_ratio, is_premium_free_part_a, and
+      savers_credit_credit_limit variables
+  date: 2026-02-23 22:15:43
+- bump: minor
+  changes:
+    added:
+    - Implement SECURE 2.0 enhanced 401(k) catch-up contributions for ages 60-63 (starting
+      2025).
+  date: 2026-02-24 01:42:07

@@ -30,6 +30,7 @@ from langgraph_api.utils import (
     validate_stream_id,
     validate_uuid,
 )
+from langgraph_api.utils.extract import extract_path_value, validate_extract
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.validation import (
     ThreadCountRequest,
@@ -126,6 +127,37 @@ async def search_threads(
     limit = int(payload.get("limit") or 10)
     offset = int(payload.get("offset") or 0)
 
+    # Validate and parse extract parameter
+    raw_extract = payload.get("extract")
+    extract = validate_extract(raw_extract) if raw_extract else None
+
+    # Encryption is handled in Python when we're NOT on the postgres/grpc
+    # backend, or when AES encryption is explicitly enabled.
+    needs_python_decryption = not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption()
+
+    # SQL-side extraction must also be skipped when custom encryption is
+    # active: the Go backend decrypts *after* the SQL query runs, so the
+    # extraction expressions would operate on ciphertext.  We re-extract
+    # in Python from the already-decrypted response instead.
+    needs_python_extract = needs_python_decryption or using_custom_encryption()
+
+    # When encryption is active and both select and extract are used, the
+    # storage layer returns only the selected columns.  After decryption we
+    # need the root columns referenced by extract paths so we can re-extract
+    # from plaintext.  Augment the select sent to storage, then strip the
+    # extra columns after re-extraction.
+    storage_select = select
+    extra_select_cols: set[str] | None = None
+    if select and extract and needs_python_extract:
+        extract_roots = {path.split(".")[0].split("[")[0] for path in extract.values()}
+        extra_select_cols = extract_roots - set(select)
+        if extra_select_cols:
+            storage_select = list(select) + sorted(extra_select_cols)
+
+    # When we need Python-side extraction, skip SQL extraction since
+    # it would extract from ciphertext (wrong) and we'll redo it anyway.
+    storage_extract = None if needs_python_extract else extract
+
     async with connect() as conn:
         threads_iter, next_offset = await Threads.search(
             conn,
@@ -137,20 +169,35 @@ async def search_threads(
             offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
-            select=select,
+            select=storage_select,
+            extract=storage_extract,
         )
     threads, response_headers = await get_pagination_headers(
         threads_iter, next_offset, offset
     )
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
-        decrypted_threads = threads
-    else:
+    if needs_python_decryption:
         decrypted_threads = await decrypt_responses(
             threads,
             "thread",
             THREAD_ENCRYPTION_FIELDS,
         )
+    else:
+        decrypted_threads = threads
+
+    # When SQL-side extraction was skipped (encryption active), extract
+    # from the decrypted plaintext in Python.
+    if extract and needs_python_extract:
+        for thread in decrypted_threads:
+            thread["extracted"] = {
+                alias: extract_path_value(thread, path)
+                for alias, path in extract.items()
+            }
+    # Strip columns that were added only for re-extraction.
+    if extra_select_cols:
+        for thread in decrypted_threads:
+            for col in extra_select_cols:
+                thread.pop(col, None)
 
     return ApiResponse(decrypted_threads, headers=response_headers)
 

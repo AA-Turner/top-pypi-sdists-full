@@ -32,6 +32,7 @@ import http.client
 import logging
 from ssl import SSLContext, SSLError
 from typing import TYPE_CHECKING, Any, Final
+from xml.parsers.expat import ExpatError
 import xmlrpc.client
 
 from aiohomematic import central as hmcu, i18n
@@ -592,6 +593,30 @@ class AioXmlRpcProxy(BaseRpcProxy, xmlrpc.client.ServerProxy):
                     reason=extract_exc_args(exc=icserr),
                 )
             ) from icserr
+        except ExpatError as ee:
+            # Empty response (code 3 at line 1, column 0) means the backend
+            # returned an HTTP 200 with no body — typically a server-side
+            # exception that prevented XML-RPC response generation.
+            message = (
+                f"Empty XML-RPC response for {args[0]} on {self._interface_id}"
+                if ee.code == 3 and ee.lineno == 1 and ee.offset == 0
+                else f"Malformed XML-RPC response for {args[0]} on {self._interface_id}: {ee}"
+            )
+            log_boundary_error(
+                logger=_LOGGER,
+                boundary="xml-rpc",
+                action=str(args[0]),
+                err=ee,
+                level=logging.WARNING,
+                message=message,
+                log_context=self.log_context,
+            )
+            self._record_rpc_error_incident(
+                method=str(args[0]),
+                error_type="ExpatError",
+                error_message=message,
+            )
+            raise ClientException(message) from ee
         except Exception as exc:
             self._record_rpc_error_incident(
                 method=str(args[0]),

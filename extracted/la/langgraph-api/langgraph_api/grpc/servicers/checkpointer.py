@@ -6,7 +6,7 @@ checkpointer implementation to the Go server.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import grpc
 import orjson
@@ -196,7 +196,7 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Delete all checkpoints and writes for a set of runs (rollbacks)."""
         try:
-            checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
+            checkpointer = await api_checkpointer.get_checkpointer()
             await checkpointer.adelete_for_runs(list(request.run_ids))
             return Empty()
         except Exception as e:
@@ -213,7 +213,7 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Copy checkpoint data from one thread to another."""
         try:
-            checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
+            checkpointer = await api_checkpointer.get_checkpointer()
             await checkpointer.acopy_thread(
                 request.from_thread_id, request.to_thread_id
             )
@@ -232,7 +232,7 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Delete checkpoints and related data for a set of threads."""
         try:
-            checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
+            checkpointer = await api_checkpointer.get_checkpointer()
             strategy = prune_strategy_from_proto(request.strategy)
             await checkpointer.aprune(list(request.thread_ids), strategy=strategy)
             return Empty()

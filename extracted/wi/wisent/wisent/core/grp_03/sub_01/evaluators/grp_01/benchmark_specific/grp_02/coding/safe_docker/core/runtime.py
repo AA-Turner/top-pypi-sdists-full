@@ -3,6 +3,7 @@ import json, os, subprocess, tempfile
 from typing import TYPE_CHECKING
 from wisent.core.evaluators.benchmark_specific.coding.safe_docker.core.atoms import Result, SandboxExecutor
 from wisent.core.errors import DockerRuntimeError
+from wisent.core.constants import DOCKER_PIDS_LIMIT
 
 if TYPE_CHECKING:
     from wisent.core.evaluators.benchmark_specific.coding.safe_docker.core.atoms import Job
@@ -13,7 +14,7 @@ DEFAULT_IMAGE = "coding/sandbox:polyglot-1.0"
 
 SAFE_FLAGS = [
     "--rm", "--network=none",
-    "--pids-limit=256",
+    f"--pids-limit={DOCKER_PIDS_LIMIT}",
     "--read-only",
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",

@@ -12,8 +12,12 @@ import logging
 
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
 from wisent.core.errors import NumericalExtractionError, TextExtractionError
+from wisent.core.constants import (
+    COMPARE_TOL, EVAL_NLI_THRESHOLD, EVAL_NLI_CONF_CEILING,
+    EVAL_NLI_CONF_BASE, EVAL_NLI_CONF_SCALE, EVAL_EMB_THRESHOLD,
+    EVAL_EMB_CONF_CEILING, EVAL_EMB_CONF_BASE, EVAL_EMB_CONF_SCALE,
+)
 from wisent.core.evaluators.benchmark_specific._generation_evaluator_helpers import (
-from wisent.core.constants import COMPARE_TOL
     GenerationEvaluatorHelpersMixin,
 )
 
@@ -269,11 +273,11 @@ class GenerationEvaluator(GenerationEvaluatorHelpersMixin, BaseEvaluator):
         for expected in expected_list:
             expected_str = str(expected)
             nli_score = self._nli_entailment(extracted, expected_str)
-            if nli_score is not None and nli_score >= 0.5:
-                confidence = min(0.85, 0.6 + nli_score * 0.3)
+            if nli_score is not None and nli_score >= EVAL_NLI_THRESHOLD:
+                confidence = min(EVAL_NLI_CONF_CEILING, EVAL_NLI_CONF_BASE + nli_score * EVAL_NLI_CONF_SCALE)
                 return True, expected, confidence
             emb_score = self._embedding_similarity(extracted, expected_str)
-            if emb_score is not None and emb_score >= 0.6:
-                confidence = min(0.8, 0.5 + emb_score * 0.3)
+            if emb_score is not None and emb_score >= EVAL_EMB_THRESHOLD:
+                confidence = min(EVAL_EMB_CONF_CEILING, EVAL_EMB_CONF_BASE + emb_score * EVAL_EMB_CONF_SCALE)
                 return True, expected, confidence
         return False, None, 0.0

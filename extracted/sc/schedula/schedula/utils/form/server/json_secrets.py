@@ -11,27 +11,29 @@ It provides functions to dump and load secrets from flask session when dealing
 with JSON.
 """
 
-import json
 import hashlib
-from .extensions import db
+import json
+
 from flask import current_app as ca
 from sqlalchemy import Column, String, JSON
 
+from .extensions import db
+
 
 class Secret(db.Model):
-    __tablename__ = 'secret'
+    __tablename__ = "secret"
     id = Column(String(64), primary_key=True, unique=True, nullable=False)
     data = Column(JSON(), nullable=False)
 
     def __repr__(self):
-        return f'Secret({self.id})'
+        return f"Secret({self.id})"
 
 
 def dumps_secret(o):
     dhash = hashlib.sha256()
     dhash.update(json.dumps(o, sort_keys=True).encode())
     key = dhash.hexdigest()
-    existing_secret = Secret.query.get(key)
+    existing_secret = db.session.get(Secret, key)
     if not existing_secret:
         new_secret = Secret(id=key, data=o)
         db.session.add(new_secret)
@@ -40,7 +42,7 @@ def dumps_secret(o):
 
 
 def loads_secret(key):
-    secret = Secret.query.get(key)
+    secret = db.session.get(Secret, key)
     if secret:
         return secret.data
     else:
@@ -56,7 +58,7 @@ def resolve_refs(schema, base=None):
         if "$ref" in schema:
             ref_path = schema["$ref"]
             resolved_value = base
-            for part in ref_path.lstrip('#/').split('/'):
+            for part in ref_path.lstrip("#/").split("/"):
                 resolved_value = resolved_value[part]
             # Return the fully resolved value
             return resolve_refs(resolved_value, base)
@@ -76,19 +78,16 @@ def secrets(obj, dumps=True, base=None):
     if isinstance(obj, list):
         return [secrets(v, dumps, base) for v in obj]
     elif isinstance(obj, dict):
-        res = {
-            k: secrets(v, dumps, base)
-            for k, v in obj.items() if '$secret' != k
-        }
-        if '$secret' in obj:
+        res = {k: secrets(v, dumps, base) for k, v in obj.items() if "$secret" != k}
+        if "$secret" in obj:
             if dumps:
-                obj = resolve_refs(obj['$secret'], base)
-                if ca.config.get('SCHEDULA_SECRETS_ENABLED'):
-                    res['$secret'] = dumps_secret(obj)
+                obj = resolve_refs(obj["$secret"], base)
+                if ca.config.get("SCHEDULA_SECRETS_ENABLED"):
+                    res["$secret"] = dumps_secret(obj)
                 else:
                     res.update(obj)
             else:
-                obj = loads_secret(obj['$secret'])
+                obj = loads_secret(obj["$secret"])
                 if res:
                     res.update(obj)
                 else:
@@ -111,8 +110,4 @@ class Secrets:
             self.init_app(app, *args, **kwargs)
 
     def init_app(self, app, *args, **kwargs):
-        app.extensions = getattr(app, 'extensions', {})
-        if 'schedula_admin' in app.extensions:
-            admin = app.extensions['schedula_admin']
-            for v in (Secret,):
-                admin.add_model(v, category="Secrets")
+        app.extensions = getattr(app, "extensions", {})

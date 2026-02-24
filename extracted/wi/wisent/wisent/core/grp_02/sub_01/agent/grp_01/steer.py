@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Callable, Awaitable
 from .diagnose import AnalysisResult
 from wisent.core.errors import ImprovementMethodUnknownError, TrainingDataGenerationError
+from wisent.core.constants import AGENT_IMPROVEMENT_THRESHOLD
 
 
 @dataclass
@@ -80,7 +81,7 @@ class ResponseSteering:
         
         # Success if issues were resolved OR quality improved significantly
         issue_resolution_success = issues_resolved > issues_added
-        quality_improvement_success = improvement_score > 0.05
+        quality_improvement_success = improvement_score > AGENT_IMPROVEMENT_THRESHOLD
         overall_success = issue_resolution_success or quality_improvement_success
         
         # Success metrics (can be enabled for debugging)
@@ -141,7 +142,7 @@ Ensure your response avoids the types of errors shown in the correction examples
         
         # Success if issues were resolved OR quality improved significantly
         issue_resolution_success = issues_resolved > issues_added
-        quality_improvement_success = improvement_score > 0.05
+        quality_improvement_success = improvement_score > AGENT_IMPROVEMENT_THRESHOLD
         overall_success = issue_resolution_success or quality_improvement_success
         
         # Success metrics (can be enabled for debugging)

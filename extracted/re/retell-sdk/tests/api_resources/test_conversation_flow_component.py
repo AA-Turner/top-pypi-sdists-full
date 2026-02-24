@@ -20,7 +20,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestConversationFlowComponent:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.create(
@@ -38,7 +38,7 @@ class TestConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_with_all_params(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.create(
@@ -98,6 +98,17 @@ class TestConversationFlowComponent:
                     ],
                     "global_node_setting": {
                         "condition": "condition",
+                        "cool_down": 1,
+                        "go_back_conditions": [
+                            {
+                                "id": "id",
+                                "transition_condition": {
+                                    "prompt": "prompt",
+                                    "type": "prompt",
+                                },
+                                "destination_node_id": "destination_node_id",
+                            }
+                        ],
                         "negative_finetune_examples": [
                             {
                                 "transcript": [
@@ -197,7 +208,7 @@ class TestConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_create(self, client: Retell) -> None:
         response = client.conversation_flow_component.with_raw_response.create(
@@ -219,7 +230,7 @@ class TestConversationFlowComponent:
         conversation_flow_component = response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_create(self, client: Retell) -> None:
         with client.conversation_flow_component.with_streaming_response.create(
@@ -243,7 +254,7 @@ class TestConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.retrieve(
@@ -251,7 +262,7 @@ class TestConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: Retell) -> None:
         response = client.conversation_flow_component.with_raw_response.retrieve(
@@ -263,7 +274,7 @@ class TestConversationFlowComponent:
         conversation_flow_component = response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: Retell) -> None:
         with client.conversation_flow_component.with_streaming_response.retrieve(
@@ -277,7 +288,7 @@ class TestConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Retell) -> None:
         with pytest.raises(
@@ -287,7 +298,7 @@ class TestConversationFlowComponent:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.update(
@@ -295,7 +306,7 @@ class TestConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.update(
@@ -372,6 +383,17 @@ class TestConversationFlowComponent:
                     ],
                     "global_node_setting": {
                         "condition": "condition",
+                        "cool_down": 1,
+                        "go_back_conditions": [
+                            {
+                                "id": "id",
+                                "transition_condition": {
+                                    "prompt": "prompt",
+                                    "type": "prompt",
+                                },
+                                "destination_node_id": "destination_node_id",
+                            }
+                        ],
                         "negative_finetune_examples": [
                             {
                                 "transcript": [
@@ -455,7 +477,7 @@ class TestConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: Retell) -> None:
         response = client.conversation_flow_component.with_raw_response.update(
@@ -467,7 +489,7 @@ class TestConversationFlowComponent:
         conversation_flow_component = response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: Retell) -> None:
         with client.conversation_flow_component.with_streaming_response.update(
@@ -481,7 +503,7 @@ class TestConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Retell) -> None:
         with pytest.raises(
@@ -491,13 +513,13 @@ class TestConversationFlowComponent:
                 conversation_flow_component_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.list()
         assert_matches_type(ConversationFlowComponentListResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_list(self, client: Retell) -> None:
         response = client.conversation_flow_component.with_raw_response.list()
@@ -507,7 +529,7 @@ class TestConversationFlowComponent:
         conversation_flow_component = response.parse()
         assert_matches_type(ConversationFlowComponentListResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_list(self, client: Retell) -> None:
         with client.conversation_flow_component.with_streaming_response.list() as response:
@@ -519,7 +541,7 @@ class TestConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete(self, client: Retell) -> None:
         conversation_flow_component = client.conversation_flow_component.delete(
@@ -527,7 +549,7 @@ class TestConversationFlowComponent:
         )
         assert conversation_flow_component is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: Retell) -> None:
         response = client.conversation_flow_component.with_raw_response.delete(
@@ -539,7 +561,7 @@ class TestConversationFlowComponent:
         conversation_flow_component = response.parse()
         assert conversation_flow_component is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: Retell) -> None:
         with client.conversation_flow_component.with_streaming_response.delete(
@@ -553,7 +575,7 @@ class TestConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: Retell) -> None:
         with pytest.raises(
@@ -569,7 +591,7 @@ class TestAsyncConversationFlowComponent:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.create(
@@ -587,7 +609,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.create(
@@ -647,6 +669,17 @@ class TestAsyncConversationFlowComponent:
                     ],
                     "global_node_setting": {
                         "condition": "condition",
+                        "cool_down": 1,
+                        "go_back_conditions": [
+                            {
+                                "id": "id",
+                                "transition_condition": {
+                                    "prompt": "prompt",
+                                    "type": "prompt",
+                                },
+                                "destination_node_id": "destination_node_id",
+                            }
+                        ],
                         "negative_finetune_examples": [
                             {
                                 "transcript": [
@@ -746,7 +779,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncRetell) -> None:
         response = await async_client.conversation_flow_component.with_raw_response.create(
@@ -768,7 +801,7 @@ class TestAsyncConversationFlowComponent:
         conversation_flow_component = await response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncRetell) -> None:
         async with async_client.conversation_flow_component.with_streaming_response.create(
@@ -792,7 +825,7 @@ class TestAsyncConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.retrieve(
@@ -800,7 +833,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncRetell) -> None:
         response = await async_client.conversation_flow_component.with_raw_response.retrieve(
@@ -812,7 +845,7 @@ class TestAsyncConversationFlowComponent:
         conversation_flow_component = await response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncRetell) -> None:
         async with async_client.conversation_flow_component.with_streaming_response.retrieve(
@@ -826,7 +859,7 @@ class TestAsyncConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncRetell) -> None:
         with pytest.raises(
@@ -836,7 +869,7 @@ class TestAsyncConversationFlowComponent:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.update(
@@ -844,7 +877,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.update(
@@ -921,6 +954,17 @@ class TestAsyncConversationFlowComponent:
                     ],
                     "global_node_setting": {
                         "condition": "condition",
+                        "cool_down": 1,
+                        "go_back_conditions": [
+                            {
+                                "id": "id",
+                                "transition_condition": {
+                                    "prompt": "prompt",
+                                    "type": "prompt",
+                                },
+                                "destination_node_id": "destination_node_id",
+                            }
+                        ],
                         "negative_finetune_examples": [
                             {
                                 "transcript": [
@@ -1004,7 +1048,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncRetell) -> None:
         response = await async_client.conversation_flow_component.with_raw_response.update(
@@ -1016,7 +1060,7 @@ class TestAsyncConversationFlowComponent:
         conversation_flow_component = await response.parse()
         assert_matches_type(ConversationFlowComponentResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncRetell) -> None:
         async with async_client.conversation_flow_component.with_streaming_response.update(
@@ -1030,7 +1074,7 @@ class TestAsyncConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncRetell) -> None:
         with pytest.raises(
@@ -1040,13 +1084,13 @@ class TestAsyncConversationFlowComponent:
                 conversation_flow_component_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.list()
         assert_matches_type(ConversationFlowComponentListResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncRetell) -> None:
         response = await async_client.conversation_flow_component.with_raw_response.list()
@@ -1056,7 +1100,7 @@ class TestAsyncConversationFlowComponent:
         conversation_flow_component = await response.parse()
         assert_matches_type(ConversationFlowComponentListResponse, conversation_flow_component, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncRetell) -> None:
         async with async_client.conversation_flow_component.with_streaming_response.list() as response:
@@ -1068,7 +1112,7 @@ class TestAsyncConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncRetell) -> None:
         conversation_flow_component = await async_client.conversation_flow_component.delete(
@@ -1076,7 +1120,7 @@ class TestAsyncConversationFlowComponent:
         )
         assert conversation_flow_component is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncRetell) -> None:
         response = await async_client.conversation_flow_component.with_raw_response.delete(
@@ -1088,7 +1132,7 @@ class TestAsyncConversationFlowComponent:
         conversation_flow_component = await response.parse()
         assert conversation_flow_component is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncRetell) -> None:
         async with async_client.conversation_flow_component.with_streaming_response.delete(
@@ -1102,7 +1146,7 @@ class TestAsyncConversationFlowComponent:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncRetell) -> None:
         with pytest.raises(

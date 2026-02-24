@@ -12,6 +12,7 @@ Example:
 
 from pyrig.rig.tools.base.base import Tool, ToolGroup
 from pyrig.src.processes import Args
+from pyrig.src.string_ import kebab_to_snake_case, project_name_from_cwd
 
 
 class PackageManager(Tool):
@@ -55,17 +56,25 @@ class PackageManager(Tool):
             "https://github.com/astral-sh/uv",
         )
 
-    def dev_dependencies(self) -> list[str]:
+    def project_name(self) -> str:
+        """Get the name of the project."""
+        return project_name_from_cwd()
+
+    def package_name(self) -> str:
+        """Get the main package of the project."""
+        return kebab_to_snake_case(self.project_name())
+
+    def dev_dependencies(self) -> tuple[str, ...]:
         """Get development dependencies for this tool.
 
         UV is a system-level dependency installed outside the Python
         environment, so no dev dependencies are required.
 
         Returns:
-            Empty list.
+            Empty tuple.
         """
         # uv is a system dependency, so we don't have a dev dependency for it
-        return []
+        return ()
 
     def init_project_args(self, *args: str) -> Args:
         """Construct uv init arguments.
@@ -223,7 +232,7 @@ class PackageManager(Tool):
         return self.version_args("--short", *args)
 
     def no_auto_install_env_var(self) -> str:
-        """Get environment variable name for disabling automatic dependency syncing.
+        """Get environment variable name for disabling automatic dependency installing.
 
         UV normally runs ``uv sync`` implicitly before commands like
         ``uv run`` or ``uv version --bump`` when the venv is out of date.

@@ -69,6 +69,7 @@ mod md072_frontmatter_key_sort;
 mod md073_toc_validation;
 mod md074_mkdocs_nav;
 mod md075_orphaned_table_rows;
+mod md076_list_item_spacing;
 
 pub use md001_heading_increment::MD001HeadingIncrement;
 pub use md003_heading_style::MD003HeadingStyle;
@@ -135,6 +136,7 @@ pub use md072_frontmatter_key_sort::MD072FrontmatterKeySort;
 pub use md073_toc_validation::MD073TocValidation;
 pub use md074_mkdocs_nav::MD074MkDocsNav;
 pub use md075_orphaned_table_rows::MD075OrphanedTableRows;
+pub use md076_list_item_spacing::{ListItemSpacingStyle, MD076ListItemSpacing};
 
 mod md012_no_multiple_blanks;
 pub use md012_no_multiple_blanks::MD012NoMultipleBlanks;
@@ -150,7 +152,7 @@ mod md021_no_multiple_space_closed_atx;
 pub use md020_no_missing_space_closed_atx::MD020NoMissingSpaceClosedAtx;
 pub use md021_no_multiple_space_closed_atx::MD021NoMultipleSpaceClosedAtx;
 
-mod md022_blanks_around_headings;
+pub(crate) mod md022_blanks_around_headings;
 pub use md022_blanks_around_headings::MD022BlanksAroundHeadings;
 
 mod md023_heading_start_left;
@@ -523,6 +525,11 @@ const RULES: &[RuleEntry] = &[
     RuleEntry {
         name: "MD075",
         ctor: MD075OrphanedTableRows::from_config,
+        opt_in: false,
+    },
+    RuleEntry {
+        name: "MD076",
+        ctor: MD076ListItemSpacing::from_config,
         opt_in: false,
     },
 ];

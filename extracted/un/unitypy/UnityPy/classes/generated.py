@@ -52,6 +52,7 @@ class AnnotationManager(Object):
     m_FadeGizmos: Optional[bool] = None
     m_IconSize: Optional[float] = None
     m_ShowGrid: Optional[bool] = None
+    m_ShowLODLabels: Optional[bool] = None
     m_ShowSelectionOutline: Optional[bool] = None
     m_ShowSelectionWire: Optional[bool] = None
     m_Use3dGizmos: Optional[bool] = None
@@ -103,8 +104,29 @@ class AudioBuildInfo(Object):
 
 
 @unitypy_define
+class BlockShaderSourceArtifact(Object):
+    shaderName: str
+    shaderSource: str
+
+
+@unitypy_define
 class BuiltAssetBundleInfoSet(Object):
     bundleInfos: List[BuiltAssetBundleInfo]
+
+
+@unitypy_define
+class ContentSummary(Object):
+    m_assetStatsList: List[AssetStats]
+    m_generatedFileCount: int
+    m_generatedFileSize: int
+    m_headerSize: int
+    m_objectCount: int
+    m_resourceDataSize: int
+    m_resourceFileCount: int
+    m_serializedFileCount: int
+    m_serializedFileSize: int
+    m_sizeReusedContentInOutputDirectory: int
+    m_typeStatsList: List[TypeStats]
 
 
 @unitypy_define
@@ -251,7 +273,7 @@ class AudioSource(AudioBehaviour):
     Spatialize: Optional[bool] = None
     SpatializePostEffects: Optional[bool] = None
     m_ExtensionPropertyValues: Optional[List[ExtensionPropertyValue]] = None
-    m_Resource: Optional[PPtr[AudioResource]] = None
+    m_Resource: Optional[Union[PPtr[AudioResource], PPtr[Object]]] = None
     reverbZoneMixCustomCurve: Optional[AnimationCurve] = None
 
 
@@ -284,7 +306,7 @@ class AudioDistortionFilter(AudioFilter):
 @unitypy_define
 class AudioEchoFilter(AudioFilter):
     m_DecayRatio: float
-    m_Delay: Union[int, float]
+    m_Delay: Union[float, int]
     m_DryMix: float
     m_Enabled: int
     m_GameObject: PPtr[GameObject]
@@ -447,6 +469,7 @@ class Canvas(Behaviour):
     m_SortingOrder: Optional[int] = None
     m_TargetDisplay: Optional[int] = None
     m_UpdateRectTransformForStandalone: Optional[int] = None
+    m_UseReflectionProbes: Optional[bool] = None
     m_VertexColorAlwaysGammaSpace: Optional[bool] = None
 
 
@@ -476,13 +499,8 @@ class Cloth(Behaviour):
     m_SelfCollisionDistance: Optional[float] = None
     m_SelfCollisionStiffness: Optional[float] = None
     m_SleepThreshold: Optional[float] = None
-    m_SolverFrequency: Optional[Union[int, float]] = None
-    m_SphereColliders: Optional[
-        Union[
-            List[ClothSphereColliderPair],
-            List[Tuple[PPtr[SphereCollider], PPtr[SphereCollider]]],
-        ]
-    ] = None
+    m_SolverFrequency: Optional[Union[float, int]] = None
+    m_SphereColliders: Optional[Union[List[ClothSphereColliderPair], List[Tuple[PPtr[SphereCollider], PPtr[SphereCollider]]]]] = None
     m_StretchingStiffness: Optional[float] = None
     m_UseContinuousCollision: Optional[bool] = None
     m_UseGravity: Optional[bool] = None
@@ -768,23 +786,24 @@ class Effector2D(Behaviour):
 
 @unitypy_define
 class AreaEffector2D(Effector2D):
-    m_AngularDrag: float
     m_ColliderMask: BitField
-    m_Drag: float
     m_Enabled: int
     m_ForceMagnitude: float
     m_ForceTarget: int
     m_ForceVariation: float
     m_GameObject: PPtr[GameObject]
+    m_AngularDamping: Optional[float] = None
+    m_AngularDrag: Optional[float] = None
+    m_Drag: Optional[float] = None
     m_ForceAngle: Optional[float] = None
     m_ForceDirection: Optional[float] = None
+    m_LinearDamping: Optional[float] = None
     m_UseColliderMask: Optional[bool] = None
     m_UseGlobalAngle: Optional[bool] = None
 
 
 @unitypy_define
 class BuoyancyEffector2D(Effector2D):
-    m_AngularDrag: float
     m_ColliderMask: BitField
     m_Density: float
     m_Enabled: int
@@ -792,9 +811,12 @@ class BuoyancyEffector2D(Effector2D):
     m_FlowMagnitude: float
     m_FlowVariation: float
     m_GameObject: PPtr[GameObject]
-    m_LinearDrag: float
     m_SurfaceLevel: float
     m_UseColliderMask: bool
+    m_AngularDamping: Optional[float] = None
+    m_AngularDrag: Optional[float] = None
+    m_LinearDamping: Optional[float] = None
+    m_LinearDrag: Optional[float] = None
 
 
 @unitypy_define
@@ -818,10 +840,8 @@ class PlatformEffector2D(Effector2D):
 
 @unitypy_define
 class PointEffector2D(Effector2D):
-    m_AngularDrag: float
     m_ColliderMask: BitField
     m_DistanceScale: float
-    m_Drag: float
     m_Enabled: int
     m_ForceMagnitude: float
     m_ForceMode: int
@@ -829,6 +849,10 @@ class PointEffector2D(Effector2D):
     m_ForceTarget: int
     m_ForceVariation: float
     m_GameObject: PPtr[GameObject]
+    m_AngularDamping: Optional[float] = None
+    m_AngularDrag: Optional[float] = None
+    m_Drag: Optional[float] = None
+    m_LinearDamping: Optional[float] = None
     m_UseColliderMask: Optional[bool] = None
 
 
@@ -1237,7 +1261,6 @@ class LensFlare(Behaviour):
 class Light(Behaviour):
     m_Color: ColorRGBA
     m_Cookie: PPtr[Texture]
-    m_CookieSize: float
     m_CullingMask: BitField
     m_DrawHalo: bool
     m_Enabled: int
@@ -1258,6 +1281,8 @@ class Light(Behaviour):
     m_BoundingSphereOverride: Optional[Vector4f] = None
     m_CCT: Optional[float] = None
     m_ColorTemperature: Optional[float] = None
+    m_CookieSize: Optional[float] = None
+    m_CookieSize2D: Optional[Vector2f] = None
     m_EnableSpotReflector: Optional[bool] = None
     m_FalloffTable: Optional[FalloffTable] = None
     m_ForceVisible: Optional[bool] = None
@@ -1267,6 +1292,7 @@ class Light(Behaviour):
     m_LuxAtDistance: Optional[float] = None
     m_RenderingLayerMask: Optional[int] = None
     m_Shape: Optional[int] = None
+    m_ShapeRadius: Optional[float] = None
     m_UseBoundingSphereOverride: Optional[bool] = None
     m_UseColorTemperature: Optional[bool] = None
     m_UseViewFrustumForShadowCasterCull: Optional[bool] = None
@@ -1454,6 +1480,7 @@ class SortingGroup(Behaviour):
     m_GameObject: PPtr[GameObject]
     m_SortingLayer: int
     m_SortingOrder: int
+    m_Sort3DAs2D: Optional[bool] = None
     m_SortAtRoot: Optional[bool] = None
     m_SortingLayerID: Optional[int] = None
 
@@ -1555,6 +1582,7 @@ class VisualEffect(Behaviour):
     m_AllowInstancing: Optional[int] = None
     m_InitialEventName: Optional[str] = None
     m_InitialEventNameOverriden: Optional[int] = None
+    m_ReleaseInstanceOnDisable: Optional[int] = None
 
 
 @unitypy_define
@@ -1873,6 +1901,7 @@ class LODGroup(Component):
     m_Size: float
     m_AnimateCrossFading: Optional[bool] = None
     m_FadeMode: Optional[int] = None
+    m_GlobalIlluminationLOD: Optional[int] = None
     m_LastLODIsBillboard: Optional[bool] = None
     m_ScreenRelativeTransitionHeight: Optional[float] = None
 
@@ -2059,8 +2088,11 @@ class BillboardRenderer(Renderer):
     m_SortingOrder: int
     m_StaticBatchRoot: PPtr[Transform]
     m_DynamicOccludee: Optional[int] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
+    m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_RayTraceProcedural: Optional[int] = None
     m_RayTracingAccelStructBuildFlags: Optional[int] = None
@@ -2111,6 +2143,7 @@ class LineRenderer(Renderer):
     m_UseWorldSpace: bool
     m_ApplyActiveColorSpace: Optional[bool] = None
     m_DynamicOccludee: Optional[int] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
@@ -2118,6 +2151,7 @@ class LineRenderer(Renderer):
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
     m_Loop: Optional[bool] = None
     m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
     m_RayTraceProcedural: Optional[int] = None
@@ -2182,11 +2216,14 @@ class MeshRenderer(Renderer):
     m_AdditionalVertexStreams: Optional[PPtr[Mesh]] = None
     m_DynamicOccludee: Optional[int] = None
     m_EnlightenVertexStream: Optional[PPtr[Mesh]] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
     m_LightmapIndexDynamic: Optional[int] = None
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
+    m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
     m_RayTraceProcedural: Optional[int] = None
@@ -2204,6 +2241,50 @@ class MeshRenderer(Renderer):
     m_StaticShadowCaster: Optional[int] = None
     m_SubsetIndices: Optional[List[int]] = None
     m_UseLightProbes: Optional[bool] = None
+
+
+@unitypy_define
+class PanelRenderer(Renderer):
+    m_CastShadows: int
+    m_DynamicOccludee: int
+    m_Enabled: bool
+    m_ForceMeshLod: int
+    m_GameObject: PPtr[GameObject]
+    m_LightProbeUsage: int
+    m_LightProbeVolumeOverride: PPtr[GameObject]
+    m_LightmapIndex: int
+    m_LightmapIndexDynamic: int
+    m_LightmapTilingOffset: Vector4f
+    m_LightmapTilingOffsetDynamic: Vector4f
+    m_MaskInteraction: int
+    m_Materials: List[PPtr[Material]]
+    m_MeshLodSelectionBias: float
+    m_MotionVectors: int
+    m_PanelSettings: PPtr[MonoBehaviour]
+    m_ParentUI: PPtr[PanelRenderer]
+    m_Pivot: int
+    m_PivotReferenceSize: int
+    m_Position: int
+    m_ProbeAnchor: PPtr[Transform]
+    m_RayTraceProcedural: int
+    m_RayTracingAccelStructBuildFlags: int
+    m_RayTracingAccelStructBuildFlagsOverride: int
+    m_RayTracingMode: int
+    m_ReceiveShadows: int
+    m_ReflectionProbeUsage: int
+    m_RendererPriority: int
+    m_RenderingLayerMask: int
+    m_SmallMeshCulling: int
+    m_SortingLayer: int
+    m_SortingLayerID: int
+    m_SortingOrder: int
+    m_StaticBatchInfo: StaticBatchInfo
+    m_StaticBatchRoot: PPtr[Transform]
+    m_StaticShadowCaster: int
+    m_WorldSpaceHeight: float
+    m_WorldSpaceSizeMode: int
+    m_WorldSpaceWidth: float
+    sourceAsset: PPtr[MonoBehaviour]
 
 
 @unitypy_define
@@ -2263,6 +2344,7 @@ class ParticleSystemRenderer(Renderer):
     m_DynamicOccludee: Optional[int] = None
     m_EnableGPUInstancing: Optional[bool] = None
     m_Flip: Optional[Vector3f] = None
+    m_ForceMeshLod: Optional[int] = None
     m_FreeformStretching: Optional[bool] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
@@ -2274,6 +2356,7 @@ class ParticleSystemRenderer(Renderer):
     m_Mesh2: Optional[PPtr[Mesh]] = None
     m_Mesh3: Optional[PPtr[Mesh]] = None
     m_MeshDistribution: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MeshWeighting: Optional[float] = None
     m_MeshWeighting1: Optional[float] = None
     m_MeshWeighting2: Optional[float] = None
@@ -2309,6 +2392,43 @@ class ParticleSystemRenderer(Renderer):
 
 
 @unitypy_define
+class RenderAs2D(Renderer):
+    m_CastShadows: int
+    m_DynamicOccludee: int
+    m_Enabled: bool
+    m_ForceMeshLod: int
+    m_GameObject: PPtr[GameObject]
+    m_LightProbeUsage: int
+    m_LightProbeVolumeOverride: PPtr[GameObject]
+    m_LightmapIndex: int
+    m_LightmapIndexDynamic: int
+    m_LightmapTilingOffset: Vector4f
+    m_LightmapTilingOffsetDynamic: Vector4f
+    m_MaskInteraction: int
+    m_Materials: List[PPtr[Material]]
+    m_MeshLodSelectionBias: float
+    m_MotionVectors: int
+    m_ProbeAnchor: PPtr[Transform]
+    m_RayTraceProcedural: int
+    m_RayTracingAccelStructBuildFlags: int
+    m_RayTracingAccelStructBuildFlagsOverride: int
+    m_RayTracingMode: int
+    m_ReceiveShadows: int
+    m_ReflectionProbeUsage: int
+    m_RendererPriority: int
+    m_RenderingLayerMask: int
+    m_SmallMeshCulling: int
+    m_SortingLayer: int
+    m_SortingLayerID: int
+    m_SortingOrder: int
+    m_StaticBatchInfo: StaticBatchInfo
+    m_StaticBatchRoot: PPtr[Transform]
+    m_StaticShadowCaster: int
+    m_Owner: Optional[PPtr[Component]] = None
+    m_OwningSortingGroup: Optional[PPtr[SortingGroup]] = None
+
+
+@unitypy_define
 class SkinnedMeshRenderer(Renderer):
     m_AABB: AABB
     m_Bones: List[PPtr[Transform]]
@@ -2326,11 +2446,14 @@ class SkinnedMeshRenderer(Renderer):
     m_UpdateWhenOffscreen: bool
     m_BlendShapeWeights: Optional[List[float]] = None
     m_DynamicOccludee: Optional[int] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
     m_LightmapIndexDynamic: Optional[int] = None
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
+    m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
     m_RayTraceProcedural: Optional[int] = None
@@ -2382,8 +2505,11 @@ class SpriteMask(Renderer):
     m_StaticBatchRoot: PPtr[Transform]
     m_BackSortingLayerID: Optional[int] = None
     m_DynamicOccludee: Optional[int] = None
+    m_ForceMeshLod: Optional[int] = None
     m_FrontSortingLayerID: Optional[int] = None
+    m_MaskInteraction: Optional[int] = None
     m_MaskSource: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_RayTraceProcedural: Optional[int] = None
     m_RayTracingAccelStructBuildFlags: Optional[int] = None
     m_RayTracingAccelStructBuildFlagsOverride: Optional[int] = None
@@ -2413,12 +2539,14 @@ class SpriteRenderer(Renderer):
     m_DynamicOccludee: Optional[int] = None
     m_FlipX: Optional[bool] = None
     m_FlipY: Optional[bool] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
     m_LightmapIndexDynamic: Optional[int] = None
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
     m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
     m_RayTraceProcedural: Optional[int] = None
@@ -2469,6 +2597,8 @@ class SpriteShapeRenderer(Renderer):
     m_Sprites: List[PPtr[Sprite]]
     m_StaticBatchInfo: StaticBatchInfo
     m_StaticBatchRoot: PPtr[Transform]
+    m_ForceMeshLod: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_RayTraceProcedural: Optional[int] = None
     m_RayTracingAccelStructBuildFlags: Optional[int] = None
     m_RayTracingAccelStructBuildFlagsOverride: Optional[int] = None
@@ -2508,6 +2638,8 @@ class TilemapRenderer(Renderer):
     m_StaticBatchRoot: PPtr[Transform]
     m_ChunkCullingBounds: Optional[Vector3f] = None
     m_DetectChunkCullingBounds: Optional[int] = None
+    m_ForceMeshLod: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_Mode: Optional[int] = None
     m_RayTraceProcedural: Optional[int] = None
     m_RayTracingAccelStructBuildFlags: Optional[int] = None
@@ -2537,12 +2669,14 @@ class TrailRenderer(Renderer):
     m_DynamicOccludee: Optional[int] = None
     m_Emitting: Optional[bool] = None
     m_EndWidth: Optional[float] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeAnchor: Optional[PPtr[Transform]] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
     m_LightmapIndexDynamic: Optional[int] = None
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
     m_MaskInteraction: Optional[int] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_Parameters: Optional[LineParameters] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
@@ -2570,13 +2704,16 @@ class UIRenderer(Renderer):
     m_CastShadows: Optional[int] = None
     m_DynamicOccludee: Optional[int] = None
     m_Enabled: Optional[bool] = None
+    m_ForceMeshLod: Optional[int] = None
     m_LightProbeUsage: Optional[int] = None
     m_LightProbeVolumeOverride: Optional[PPtr[GameObject]] = None
     m_LightmapIndex: Optional[int] = None
     m_LightmapIndexDynamic: Optional[int] = None
     m_LightmapTilingOffset: Optional[Vector4f] = None
     m_LightmapTilingOffsetDynamic: Optional[Vector4f] = None
+    m_MaskInteraction: Optional[int] = None
     m_Materials: Optional[List[PPtr[Material]]] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_MotionVectors: Optional[int] = None
     m_ProbeAnchor: Optional[PPtr[Transform]] = None
     m_RayTraceProcedural: Optional[int] = None
@@ -2619,7 +2756,10 @@ class VFXRenderer(Renderer):
     m_SortingOrder: int
     m_StaticBatchInfo: StaticBatchInfo
     m_StaticBatchRoot: PPtr[Transform]
+    m_ForceMeshLod: Optional[int] = None
+    m_MaskInteraction: Optional[int] = None
     m_Materials: Optional[List[PPtr[Material]]] = None
+    m_MeshLodSelectionBias: Optional[float] = None
     m_RayTraceProcedural: Optional[int] = None
     m_RayTracingAccelStructBuildFlags: Optional[int] = None
     m_RayTracingAccelStructBuildFlagsOverride: Optional[int] = None
@@ -2630,22 +2770,24 @@ class VFXRenderer(Renderer):
 
 @unitypy_define
 class Rigidbody(Component):
-    m_AngularDrag: float
     m_CollisionDetection: int
     m_Constraints: int
-    m_Drag: float
     m_GameObject: PPtr[GameObject]
     m_Interpolate: int
     m_IsKinematic: bool
     m_Mass: float
     m_UseGravity: bool
+    m_AngularDamping: Optional[float] = None
+    m_AngularDrag: Optional[float] = None
     m_CenterOfMass: Optional[Vector3f] = None
+    m_Drag: Optional[float] = None
     m_ExcludeLayers: Optional[BitField] = None
     m_ImplicitCom: Optional[bool] = None
     m_ImplicitTensor: Optional[bool] = None
     m_IncludeLayers: Optional[BitField] = None
     m_InertiaRotation: Optional[Quaternionf] = None
     m_InertiaTensor: Optional[Vector3f] = None
+    m_LinearDamping: Optional[float] = None
 
 
 @unitypy_define
@@ -2786,9 +2928,7 @@ class AnimatorStateMachine(NamedObject):
     m_Name: str
     m_ParentStateMachinePosition: Vector3f
     m_StateMachineBehaviours: List[PPtr[MonoBehaviour]]
-    m_StateMachineTransitions: List[
-        Tuple[PPtr[AnimatorStateMachine], List[PPtr[AnimatorTransition]]]
-    ]
+    m_StateMachineTransitions: List[Tuple[PPtr[AnimatorStateMachine], List[PPtr[AnimatorTransition]]]]
 
 
 @unitypy_define
@@ -2925,9 +3065,7 @@ class AudioImporter(AssetImporter):
     m_Normalize: Optional[bool] = None
     m_OldHashIdentity: Optional[MdFour] = None
     m_Output: Optional[Union[AudioImporterOutput, Output]] = None
-    m_PlatformSettingOverrides: Optional[
-        Union[List[Tuple[str, SampleSettings]], List[Tuple[int, SampleSettings]]]
-    ] = None
+    m_PlatformSettingOverrides: Optional[Union[List[Tuple[int, SampleSettings]], List[Tuple[str, SampleSettings]]]] = None
     m_PreloadAudioData: Optional[bool] = None
     m_PreviewData: Optional[PreviewData] = None
     m_PreviewDataLength: Optional[int] = None
@@ -2936,6 +3074,17 @@ class AudioImporter(AssetImporter):
     m_UseHardware: Optional[bool] = None
     m_UsedFileIDs: Optional[List[int]] = None
     m_UserData: Optional[str] = None
+
+
+@unitypy_define
+class BlockShaderImporter(AssetImporter):
+    m_AssetBundleName: str
+    m_AssetBundleVariant: str
+    m_EmbedBlocksInGeneratedShader: bool
+    m_ExternalObjects: List[Tuple[SourceAssetIdentifier, PPtr[Object]]]
+    m_Name: str
+    m_UsedFileIDs: List[int]
+    m_UserData: str
 
 
 @unitypy_define
@@ -3088,12 +3237,12 @@ class FBXImporter(ModelImporter):
     normalSmoothAngle: float
     bakeAxisConversion: Optional[bool] = None
     blendShapeNormalImportMode: Optional[int] = None
+    calculateBlendshapeNormalsDeltaFromImportedNormals: Optional[bool] = None
+    generateMeshLods: Optional[bool] = None
     generateSecondaryUV: Optional[bool] = None
     indexFormat: Optional[int] = None
     keepQuads: Optional[bool] = None
-    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = (
-        None
-    )
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = None
     m_AddHumanoidExtraRootOnlyWhenUsingAvatar: Optional[bool] = None
     m_AdditionalBone: Optional[bool] = None
     m_AnimationDoRetargetingWarnings: Optional[bool] = None
@@ -3175,6 +3324,8 @@ class FBXImporter(ModelImporter):
     m_UsedFileIDs: Optional[List[int]] = None
     m_UserData: Optional[str] = None
     maxBonesPerVertex: Optional[int] = None
+    maximumMeshLod: Optional[int] = None
+    meshLodGenerationFlags: Optional[int] = None
     meshOptimizationFlags: Optional[int] = None
     minBoneWeight: Optional[float] = None
     normalCalculationMode: Optional[int] = None
@@ -3216,12 +3367,12 @@ class Mesh3DSImporter(ModelImporter):
     normalSmoothAngle: float
     bakeAxisConversion: Optional[bool] = None
     blendShapeNormalImportMode: Optional[int] = None
+    calculateBlendshapeNormalsDeltaFromImportedNormals: Optional[bool] = None
+    generateMeshLods: Optional[bool] = None
     generateSecondaryUV: Optional[bool] = None
     indexFormat: Optional[int] = None
     keepQuads: Optional[bool] = None
-    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = (
-        None
-    )
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = None
     m_AddHumanoidExtraRootOnlyWhenUsingAvatar: Optional[bool] = None
     m_AdditionalBone: Optional[bool] = None
     m_AnimationDoRetargetingWarnings: Optional[bool] = None
@@ -3303,6 +3454,8 @@ class Mesh3DSImporter(ModelImporter):
     m_UsedFileIDs: Optional[List[int]] = None
     m_UserData: Optional[str] = None
     maxBonesPerVertex: Optional[int] = None
+    maximumMeshLod: Optional[int] = None
+    meshLodGenerationFlags: Optional[int] = None
     meshOptimizationFlags: Optional[int] = None
     minBoneWeight: Optional[float] = None
     normalCalculationMode: Optional[int] = None
@@ -3388,10 +3541,10 @@ class SketchUpImporter(ModelImporter):
     weldVertices: bool
     bakeAxisConversion: Optional[bool] = None
     blendShapeNormalImportMode: Optional[int] = None
+    calculateBlendshapeNormalsDeltaFromImportedNormals: Optional[bool] = None
+    generateMeshLods: Optional[bool] = None
     indexFormat: Optional[int] = None
-    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = (
-        None
-    )
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: Optional[bool] = None
     m_AddHumanoidExtraRootOnlyWhenUsingAvatar: Optional[bool] = None
     m_AutoGenerateAvatarMappingIfUnspecified: Optional[bool] = None
     m_AutoMapExternalMaterials: Optional[bool] = None
@@ -3434,6 +3587,8 @@ class SketchUpImporter(ModelImporter):
     m_UseSRGBMaterialColor: Optional[bool] = None
     m_UsedFileIDs: Optional[List[int]] = None
     maxBonesPerVertex: Optional[int] = None
+    maximumMeshLod: Optional[int] = None
+    meshLodGenerationFlags: Optional[int] = None
     meshOptimizationFlags: Optional[int] = None
     minBoneWeight: Optional[float] = None
     normalCalculationMode: Optional[int] = None
@@ -3532,10 +3687,7 @@ class PluginImporter(AssetImporter):
     m_IsPreloaded: bool
     m_Name: str
     m_Output: PluginImportOutput
-    m_PlatformData: Union[
-        List[Tuple[str, PlatformSettingsData]],
-        List[Tuple[Tuple[str, str], PlatformSettingsData]],
-    ]
+    m_PlatformData: Union[List[Tuple[Tuple[str, str], PlatformSettingsData]], List[Tuple[str, PlatformSettingsData]]]
     m_UserData: str
     m_DefineConstraints: Optional[List[str]] = None
     m_ExternalObjects: Optional[List[Tuple[SourceAssetIdentifier, PPtr[Object]]]] = None
@@ -3710,9 +3862,7 @@ class SpriteAtlasImporter(AssetImporter):
     m_BindAsDefault: Optional[bool] = None
     m_PackingSettings: Optional[PackingSettings] = None
     m_PlatformSettings: Optional[List[TextureImporterPlatformSettings]] = None
-    m_SecondaryTextureSettings: Optional[List[Tuple[str, SecondaryTextureSettings]]] = (
-        None
-    )
+    m_SecondaryTextureSettings: Optional[List[Tuple[str, SecondaryTextureSettings]]] = None
     m_TextureSettings: Optional[TextureSettings] = None
     m_VariantMultiplier: Optional[float] = None
 
@@ -3812,9 +3962,7 @@ class TextureImporter(AssetImporter):
     m_Output: Optional[TextureImportOutput] = None
     m_PSDRemoveMatte: Optional[bool] = None
     m_PSDShowRemoveMatteOption: Optional[bool] = None
-    m_PlatformSettings: Optional[
-        Union[List[TextureImporterPlatformSettings], List[PlatformSettings]]
-    ] = None
+    m_PlatformSettings: Optional[Union[List[PlatformSettings], List[TextureImporterPlatformSettings]]] = None
     m_PushPullDilation: Optional[int] = None
     m_RGBM: Optional[int] = None
     m_RecommendedTextureFormat: Optional[int] = None
@@ -3887,10 +4035,7 @@ class VideoClipImporter(AssetImporter):
     m_Name: str
     m_Output: VideoClipImporterOutput
     m_StartFrame: int
-    m_TargetSettings: Union[
-        List[Tuple[int, VideoClipImporterTargetSettings]],
-        List[Tuple[str, VideoClipImporterTargetSettings]],
-    ]
+    m_TargetSettings: Union[List[Tuple[int, VideoClipImporterTargetSettings]], List[Tuple[str, VideoClipImporterTargetSettings]]]
     m_UserData: str
     m_AudioImportMode: Optional[int] = None
     m_ExternalObjects: Optional[List[Tuple[SourceAssetIdentifier, PPtr[Object]]]] = None
@@ -3919,6 +4064,7 @@ class VisualEffectImporter(AssetImporter):
     m_Name: str
     m_UserData: str
     m_Template: Optional[VFXTemplate] = None
+    m_UseAsTemplate: Optional[bool] = None
     m_UsedFileIDs: Optional[List[int]] = None
 
 
@@ -4103,12 +4249,46 @@ class BillboardAsset(NamedObject):
 
 
 @unitypy_define
+class BlobObject(NamedObject):
+    m_BlobData: List[int]
+    m_BlobTypeHash: int
+    m_Name: str
+    m_NestedBlobObjectReferenceOffsets: List[int]
+    m_NestedBlobObjectReferences: List[PPtr[BlobObject]]
+
+
+@unitypy_define
+class BlockShaderContainer(NamedObject):
+    blob: List[int]
+    dependencies: List[PPtr[BlockShaderContainer]]
+    generatedPaths: List[str]
+    guid: GUID
+    m_Name: str
+    state: int
+
+
+@unitypy_define
+class BlockShaderErrors(NamedObject):
+    errors: List[Error]
+    filePath: str
+    m_Name: str
+
+
+@unitypy_define
+class BlockShaderSyntaxTree(NamedObject):
+    filePath: str
+    m_Name: str
+    source: str
+
+
+@unitypy_define
 class BuildReport(NamedObject):
     m_Appendices: List[PPtr[Object]]
     m_BuildSteps: List[BuildStepInfo]
     m_Files: List[BuildReportFile]
     m_Name: str
     m_Summary: BuildSummary
+    m_RootAssetPaths: Optional[List[str]] = None
 
 
 @unitypy_define
@@ -4131,14 +4311,21 @@ class ComputeShader(NamedObject):
     m_Name: str
     constantBuffers: Optional[List[ComputeShaderCB]] = None
     kernels: Optional[List[ComputeShaderKernel]] = None
-    variants: Optional[
-        Union[List[ComputeShaderVariant], List[ComputeShaderPlatformVariant]]
-    ] = None
+    variants: Optional[Union[List[ComputeShaderPlatformVariant], List[ComputeShaderVariant]]] = None
+
+
+@unitypy_define
+class D3D12DeviceFilterLists(NamedObject):
+    m_AllowFilterList: List[D3D12DeviceFilterData]
+    m_DenyFilterList: List[D3D12DeviceFilterData]
+    m_GraphicsJobsFilterList: List[D3D12GraphicsJobsDeviceFilterData]
+    m_Name: str
 
 
 @unitypy_define
 class DefaultAsset(NamedObject):
     m_Name: str
+    m_ErrorCode: Optional[int] = None
     m_IsWarning: Optional[bool] = None
     m_Message: Optional[str] = None
 
@@ -4151,11 +4338,13 @@ class BrokenPrefabAsset(DefaultAsset):
     m_IsWarning: bool
     m_Message: str
     m_Name: str
+    m_ErrorCode: Optional[int] = None
 
 
 @unitypy_define
 class SceneAsset(DefaultAsset):
     m_Name: str
+    m_ErrorCode: Optional[int] = None
     m_IsWarning: Optional[bool] = None
     m_Message: Optional[str] = None
 
@@ -4182,7 +4371,7 @@ class Font(NamedObject):
     m_ConvertCase: int
     m_DefaultMaterial: PPtr[Material]
     m_DefaultStyle: int
-    m_FontData: List[str]
+    m_FontData: List[int]
     m_FontNames: List[str]
     m_FontSize: float
     m_KerningValues: List[Tuple[Tuple[int, int], float]]
@@ -4377,7 +4566,7 @@ class Material(NamedObject):
     m_EnableInstancingVariants: Optional[bool] = None
     m_InvalidKeywords: Optional[List[str]] = None
     m_LightmapFlags: Optional[int] = None
-    m_ShaderKeywords: Optional[Union[str, List[str]]] = None
+    m_ShaderKeywords: Optional[Union[List[str], str]] = None
     m_ValidKeywords: Optional[List[str]] = None
     stringTagMap: Optional[List[Tuple[str, str]]] = None
 
@@ -4404,7 +4593,7 @@ class ProceduralMaterial(Material):
     m_LoadingBehavior: Optional[int] = None
     m_MaximumSize: Optional[int] = None
     m_PrototypeName: Optional[str] = None
-    m_ShaderKeywords: Optional[Union[str, List[str]]] = None
+    m_ShaderKeywords: Optional[Union[List[str], str]] = None
     m_SubstancePackage: Optional[PPtr[SubstanceArchive]] = None
     m_Textures: Optional[List[PPtr[ProceduralTexture]]] = None
     m_ValidKeywords: Optional[List[str]] = None
@@ -4434,6 +4623,7 @@ class Mesh(NamedObject):
     m_IsReadable: Optional[bool] = None
     m_KeepIndices: Optional[bool] = None
     m_KeepVertices: Optional[bool] = None
+    m_MeshLodInfo: Optional[MeshLodInfo] = None
     m_MeshMetrics_0_: Optional[float] = None
     m_MeshMetrics_1_: Optional[float] = None
     m_Normals: Optional[List[Vector3f]] = None
@@ -4508,7 +4698,7 @@ class PreviewAnimationClip(AnimationClip):
 
 @unitypy_define
 class BlendTree(Motion):
-    m_Childs: Union[List[Child], List[ChildMotion]]
+    m_Childs: Union[List[ChildMotion], List[Child]]
     m_MaxThreshold: float
     m_MinThreshold: float
     m_Name: str
@@ -4594,7 +4784,7 @@ class Preset(NamedObject):
 class RayTracingShader(NamedObject):
     m_MaxRecursionDepth: int
     m_Name: str
-    variants: List[RayTracingShaderVariant]
+    variants: Union[List[RayTracingShaderPlatformVariant], List[RayTracingShaderVariant]]
     m_EnableRayPayloadSizeChecks: Optional[bool] = None
 
 
@@ -4624,10 +4814,9 @@ class AnimatorController(RuntimeAnimatorController):
     m_ControllerSize: int
     m_Name: str
     m_TOS: List[Tuple[int, str]]
+    m_EvaluateTransitionsOnStart: Optional[bool] = None
     m_MultiThreadedStateMachine: Optional[bool] = None
-    m_StateMachineBehaviourVectorDescription: Optional[
-        StateMachineBehaviourVectorDescription
-    ] = None
+    m_StateMachineBehaviourVectorDescription: Optional[StateMachineBehaviourVectorDescription] = None
     m_StateMachineBehaviours: Optional[List[PPtr[MonoBehaviour]]] = None
 
 
@@ -4642,10 +4831,11 @@ class AnimatorOverrideController(RuntimeAnimatorController):
 class Shader(NamedObject):
     m_Name: str
     compressedBlob: Optional[List[int]] = None
-    compressedLengths: Optional[Union[List[int], List[List[int]]]] = None
-    decompressedLengths: Optional[Union[List[int], List[List[int]]]] = None
+    compressedLengths: Optional[Union[List[List[int]], List[int]]] = None
+    decompressedLengths: Optional[Union[List[List[int]], List[int]]] = None
     decompressedSize: Optional[int] = None
     m_AssetGUID: Optional[GUID] = None
+    m_AssetLocalIdentifierInFile: Optional[int] = None
     m_Dependencies: Optional[List[PPtr[Shader]]] = None
     m_NonModifiableTextures: Optional[List[Tuple[str, PPtr[Texture]]]] = None
     m_ParsedForm: Optional[SerializedShader] = None
@@ -4653,7 +4843,7 @@ class Shader(NamedObject):
     m_Script: Optional[str] = None
     m_ShaderIsBaked: Optional[bool] = None
     m_SubProgramBlob: Optional[List[int]] = None
-    offsets: Optional[Union[List[int], List[List[int]]]] = None
+    offsets: Optional[Union[List[List[int]], List[int]]] = None
     platforms: Optional[List[int]] = None
     stageCounts: Optional[List[int]] = None
 
@@ -4700,11 +4890,12 @@ class SpriteAtlas(NamedObject):
     m_PackedSprites: List[PPtr[Sprite]]
     m_RenderDataMap: List[Tuple[Tuple[GUID, int], SpriteAtlasData]]
     m_Tag: str
+    m_Guid: Optional[GUID] = None
 
 
 @unitypy_define
 class SpriteAtlasAsset(NamedObject):
-    m_ImporterData: Union[SpriteAtlasEditorData, SpriteAtlasAssetData]
+    m_ImporterData: Union[SpriteAtlasAssetData, SpriteAtlasEditorData]
     m_IsVariant: bool
     m_MasterAtlas: PPtr[SpriteAtlas]
     m_Name: str
@@ -5123,10 +5314,18 @@ class VisualEffectSubgraphOperator(VisualEffectSubgraph):
 @unitypy_define
 class VisualEffectResource(NamedObject):
     m_Graph: PPtr[MonoBehaviour]
-    m_Infos: Union[VisualEffectSettings, VisualEffectInfo]
+    m_Infos: Union[VisualEffectInfo, VisualEffectSettings]
     m_Name: str
     m_ShaderSources: Optional[List[VFXShaderSourceDesc]] = None
     m_Systems: Optional[List[VFXEditorSystemDesc]] = None
+
+
+@unitypy_define
+class VulkanDeviceFilterLists(NamedObject):
+    m_GfxJobFilterList: List[VulkanGraphicsJobsDeviceFilterData]
+    m_Name: str
+    m_VulkanAllowFilterList: List[AndroidDeviceFilterData]
+    m_VulkanDenyFilterList: List[AndroidDeviceFilterData]
 
 
 @unitypy_define
@@ -5144,6 +5343,7 @@ class EditorSettings(Object):
     m_AssetPipelineMode: Optional[int] = None
     m_AsyncShaderCompilation: Optional[bool] = None
     m_Bc7TextureCompressor: Optional[int] = None
+    m_BlockShaders: Optional[bool] = None
     m_CacheServerDownloadBatchSize: Optional[int] = None
     m_CacheServerEnableAuth: Optional[bool] = None
     m_CacheServerEnableDownload: Optional[bool] = None
@@ -5168,9 +5368,11 @@ class EditorSettings(Object):
     m_EtcTextureCompressorBehavior: Optional[int] = None
     m_EtcTextureFastCompressor: Optional[int] = None
     m_EtcTextureNormalCompressor: Optional[int] = None
-    m_ExternalVersionControlSupport: Optional[Union[str, int]] = None
+    m_ExternalVersionControlSupport: Optional[Union[int, str]] = None
+    m_ForceAssetUnloadAndGCOnSceneLoad: Optional[bool] = None
     m_GameObjectNamingDigits: Optional[int] = None
     m_GameObjectNamingScheme: Optional[int] = None
+    m_HideBuildProfileClassicPlatforms: Optional[bool] = None
     m_InspectorUseIMGUIDefaultInspector: Optional[bool] = None
     m_LineEndingsForNewScripts: Optional[int] = None
     m_PrefabModeAllowAutoSave: Optional[bool] = None
@@ -5183,10 +5385,12 @@ class EditorSettings(Object):
     m_RefreshImportMode: Optional[int] = None
     m_SerializationMode: Optional[int] = None
     m_SerializeInlineMappingsOnOneLine: Optional[bool] = None
+    m_ShadowmaskStitching: Optional[bool] = None
     m_ShowLightmapResolutionOverlay: Optional[bool] = None
     m_SpritePackerCacheSize: Optional[int] = None
     m_SpritePackerMode: Optional[int] = None
     m_SpritePackerPaddingPower: Optional[int] = None
+    m_UnlockBlockShaders: Optional[bool] = None
     m_UseLegacyProbeSampleCount: Optional[bool] = None
     m_UserGeneratedProjectSuffix: Optional[str] = None
     m_WebSecurityEmulationEnabled: Optional[int] = None
@@ -5206,6 +5410,7 @@ class EditorUserBuildSettings(Object):
     m_SelectedBuildTargetGroup: int
     m_SelectedStandaloneTarget: int
     m_ActiveBuildPlatformGroupName: Optional[str] = None
+    m_ActiveBuildProfile: Optional[PPtr[MonoBehaviour]] = None
     m_ActiveBuildTargetGroup: Optional[int] = None
     m_ActivePlatformGuid: Optional[GUID] = None
     m_ActiveProfilePath: Optional[str] = None
@@ -5220,7 +5425,9 @@ class EditorUserBuildSettings(Object):
     m_AndroidReleaseMinification: Optional[int] = None
     m_AndroidUseLegacySdkTools: Optional[bool] = None
     m_BuildAppBundle: Optional[bool] = None
+    m_BuildOutputToBuildMetadataMap: Optional[List[Tuple[str, str]]] = None
     m_BuildScriptsOnly: Optional[bool] = None
+    m_BuildWithCodeCoverage: Optional[bool] = None
     m_BuildWithDeepProfilingSupport: Optional[bool] = None
     m_CompressFilesInPackage: Optional[bool] = None
     m_CompressWithPsArc: Optional[bool] = None
@@ -5233,6 +5440,7 @@ class EditorUserBuildSettings(Object):
     m_EnableHostIOForSwitch: Optional[bool] = None
     m_EnableMemoryTrackerForSwitch: Optional[bool] = None
     m_EnableRomCompressionForSwitch: Optional[bool] = None
+    m_EnableUnpublishableErrorsForSwitch: Optional[bool] = None
     m_ExplicitArrayBoundsChecks: Optional[bool] = None
     m_ExplicitDivideByZeroChecks: Optional[bool] = None
     m_ExplicitNullChecks: Optional[bool] = None
@@ -5248,6 +5456,7 @@ class EditorUserBuildSettings(Object):
     m_Il2CppCodeGeneration: Optional[int] = None
     m_MovePackageToDiscOuterEdge: Optional[bool] = None
     m_NVNAftermath: Optional[bool] = None
+    m_NVNAftermathLevel: Optional[int] = None
     m_NVNDrawValidation: Optional[bool] = None
     m_NVNDrawValidationHeavy: Optional[bool] = None
     m_NVNDrawValidationLight: Optional[bool] = None
@@ -5276,6 +5485,7 @@ class EditorUserBuildSettings(Object):
     m_SelectedBuildPlatformGroupName: Optional[str] = None
     m_SelectedBuildTarget: Optional[int] = None
     m_SelectedCompressionType: Optional[List[Tuple[str, int]]] = None
+    m_SelectedDiagnosticSetting: Optional[List[Tuple[str, int]]] = None
     m_SelectedEmbeddedLinuxArchitecture: Optional[int] = None
     m_SelectedFacebookTarget: Optional[int] = None
     m_SelectedIOSBuildType: Optional[int] = None
@@ -5405,7 +5615,10 @@ class AudioManager(GlobalGameManager):
     m_DSPBufferSize: int
     m_Volume: float
     m_AmbisonicDecoderPlugin: Optional[str] = None
+    m_AudioFoundation: Optional[int] = None
     m_DisableAudio: Optional[bool] = None
+    m_OutputChannelLayout: Optional[int] = None
+    m_OutputSamplingRate: Optional[int] = None
     m_RealVoiceCount: Optional[int] = None
     m_RequestedDSPBufferSize: Optional[int] = None
     m_SampleRate: Optional[int] = None
@@ -5424,7 +5637,7 @@ class BuildSettings(GlobalGameManager):
     hasShadows: bool
     isEducationalBuild: bool
     m_Version: str
-    buildGUID: Optional[Union[str, GUID]] = None
+    buildGUID: Optional[Union[GUID, str]] = None
     buildTags: Optional[List[str]] = None
     enableMultipleDisplays: Optional[bool] = None
     enabledVRDevices: Optional[List[str]] = None
@@ -5443,9 +5656,7 @@ class BuildSettings(GlobalGameManager):
     m_AuthToken: Optional[str] = None
     m_GraphicsAPIs: Optional[List[int]] = None
     preloadedPlugins: Optional[List[str]] = None
-    runtimeClassHashes: Optional[
-        Union[List[Tuple[int, int]], List[Tuple[int, Hash128]]]
-    ] = None
+    runtimeClassHashes: Optional[Union[List[Tuple[int, Hash128]], List[Tuple[int, int]]]] = None
     scenes: Optional[List[str]] = None
     scriptHashes: Optional[List[Tuple[Hash128, Hash128]]] = None
     usesOnMouseEvents: Optional[bool] = None
@@ -5588,6 +5799,7 @@ class Physics2DSettings(GlobalGameManager):
     m_MaxTranslationSpeed: Optional[float] = None
     m_MinPenetrationForPenalty: Optional[float] = None
     m_MinSubStepFPS: Optional[float] = None
+    m_PhysicsLowLevelSettings: Optional[PPtr[Object]] = None
     m_QueriesHitTriggers: Optional[bool] = None
     m_QueriesStartInColliders: Optional[bool] = None
     m_RaycastsHitTriggers: Optional[bool] = None
@@ -5629,14 +5841,19 @@ class PhysicsManager(GlobalGameManager):
     m_EnableUnifiedHeightmaps: Optional[bool] = None
     m_FastMotionThreshold: Optional[float] = None
     m_FrictionType: Optional[int] = None
+    m_GenerateOnTriggerStayEvents: Optional[bool] = None
     m_ImprovedPatchFriction: Optional[bool] = None
+    m_IncrementalStaticBroadphase: Optional[bool] = None
     m_InvokeCollisionCallbacks: Optional[bool] = None
+    m_LogVerbosity: Optional[int] = None
     m_MaxAngularVelocity: Optional[float] = None
     m_MinPenetrationForPenalty: Optional[float] = None
     m_QueriesHitBackfaces: Optional[bool] = None
     m_QueriesHitTriggers: Optional[bool] = None
     m_RaycastsHitTriggers: Optional[bool] = None
+    m_ReleaseSceneBuffers: Optional[bool] = None
     m_ReuseCollisionCallbacks: Optional[bool] = None
+    m_SceneBuffersReleaseInterval: Optional[int] = None
     m_ScratchBufferChunkCount: Optional[int] = None
     m_SimulationMode: Optional[int] = None
     m_SleepAngularVelocity: Optional[float] = None
@@ -5679,13 +5896,16 @@ class PlayerSettings(GlobalGameManager):
     Prepare_IOS_For_Recording: Optional[bool] = None
     accelerometerFrequency: Optional[int] = None
     activeInputHandler: Optional[int] = None
+    adjustIOSFPSUsingThermalState: Optional[bool] = None
     allowFullscreenSwitch: Optional[bool] = None
     allowHDRDisplaySupport: Optional[bool] = None
+    allowedHttpConnections: Optional[int] = None
     androidApplicationEntry: Optional[int] = None
     androidAutoRotationBehavior: Optional[int] = None
     androidBlitType: Optional[int] = None
     androidDefaultWindowHeight: Optional[int] = None
     androidDefaultWindowWidth: Optional[int] = None
+    androidDisplayOptions: Optional[int] = None
     androidFullscreenMode: Optional[int] = None
     androidMaxAspectRatio: Optional[float] = None
     androidMinAspectRatio: Optional[float] = None
@@ -5693,14 +5913,18 @@ class PlayerSettings(GlobalGameManager):
     androidMinimumWindowWidth: Optional[int] = None
     androidPredictiveBackSupport: Optional[bool] = None
     androidRenderOutsideSafeArea: Optional[bool] = None
+    androidRequestedVisibleInsets: Optional[int] = None
     androidResizableWindow: Optional[bool] = None
     androidResizeableActivity: Optional[bool] = None
     androidShowActivityIndicatorOnLoading: Optional[int] = None
     androidStartInFullscreen: Optional[bool] = None
     androidSupportedAspectRatio: Optional[int] = None
+    androidSystemBarsBehavior: Optional[int] = None
     androidUseSwappy: Optional[bool] = None
     androidVulkanAllowFilterList: Optional[List[AndroidDeviceFilterData]] = None
     androidVulkanDenyFilterList: Optional[List[AndroidDeviceFilterData]] = None
+    androidVulkanDeviceFilterListAsset: Optional[PPtr[VulkanDeviceFilterLists]] = None
+    audioSpatialExperience: Optional[int] = None
     bakeCollisionMeshes: Optional[bool] = None
     bundleIdentifier: Optional[str] = None
     bundleVersion: Optional[str] = None
@@ -5711,6 +5935,7 @@ class PlayerSettings(GlobalGameManager):
     cursorHotspot: Optional[Vector2f] = None
     d3d11ForceExclusiveMode: Optional[bool] = None
     d3d11FullscreenMode: Optional[int] = None
+    d3d12DeviceFilterListAsset: Optional[PPtr[D3D12DeviceFilterLists]] = None
     d3d9FullscreenMode: Optional[int] = None
     debugUnloadMode: Optional[int] = None
     dedicatedServerOptimizations: Optional[bool] = None
@@ -5773,6 +5998,7 @@ class PlayerSettings(GlobalGameManager):
     m_SplashScreenLogos: Optional[List[SplashScreenLogo]] = None
     m_SplashScreenOverlayOpacity: Optional[float] = None
     m_SplashScreenStyle: Optional[int] = None
+    m_SpriteBatchMaxVertexCount: Optional[int] = None
     m_SpriteBatchVertexThreshold: Optional[int] = None
     m_StackTraceTypes: Optional[List[int]] = None
     m_StereoRenderingPath: Optional[int] = None
@@ -5821,6 +6047,7 @@ class PlayerSettings(GlobalGameManager):
     submitAnalytics: Optional[bool] = None
     switchAllowGpuScratchShrinking: Optional[bool] = None
     switchGpuScratchPoolGranularity: Optional[int] = None
+    switchGraphicsJobsSyncAfterKick: Optional[bool] = None
     switchMaxWorkerMultiple: Optional[int] = None
     switchNVNDefaultPoolsGranularity: Optional[int] = None
     switchNVNGraphicsFirmwareMemory: Optional[int] = None
@@ -5836,6 +6063,8 @@ class PlayerSettings(GlobalGameManager):
     targetPixelDensity: Optional[int] = None
     targetPlatform: Optional[int] = None
     targetResolution: Optional[int] = None
+    thermalStateCriticalIOSFPS: Optional[int] = None
+    thermalStateSeriousIOSFPS: Optional[int] = None
     tizenShowActivityIndicatorOnLoading: Optional[int] = None
     tvOSBundleVersion: Optional[str] = None
     uiUse16BitDepthBuffer: Optional[bool] = None
@@ -6021,6 +6250,7 @@ class UnityConnectSettings(GlobalGameManager):
     UnityAnalyticsSettings: UnityAnalyticsSettings
     UnityPurchasingSettings: UnityPurchasingSettings
     CrashReportingSettings: Optional[CrashReportingSettings] = None
+    InsightsSettings: Optional[InsightsSettings] = None
     PerformanceReportingSettings: Optional[PerformanceReportingSettings] = None
     UnityAdsSettings: Optional[UnityAdsSettings] = None
     m_ConfigUrl: Optional[str] = None
@@ -6047,6 +6277,7 @@ class VFXManager(GlobalGameManager):
     m_EmptyShader: Optional[PPtr[Shader]] = None
     m_MaxCapacity: Optional[int] = None
     m_MaxScrubTime: Optional[float] = None
+    m_PrefixSumShader: Optional[PPtr[ComputeShader]] = None
     m_RuntimeResources: Optional[PPtr[MonoBehaviour]] = None
     m_RuntimeVersion: Optional[int] = None
     m_StripUpdateShader: Optional[PPtr[ComputeShader]] = None
@@ -6066,6 +6297,7 @@ class HaloManager(LevelGameManager):
 class LightmapSettings(LevelGameManager):
     m_Lightmaps: List[LightmapData]
     m_LightmapsMode: int
+    m_BakeOnSceneLoad: Optional[int] = None
     m_BakedColorSpace: Optional[int] = None
     m_EnlightenSceneMapping: Optional[EnlightenSceneMapping] = None
     m_GISettings: Optional[GISettings] = None
@@ -6453,9 +6685,7 @@ class Asset:
     type: int
     assetBundleIndex: Optional[int] = None
     digest: Optional[MdFour] = None
-    guidOfPathLocationDependencies: Optional[
-        Union[List[Tuple[str, GUID]], List[Tuple[GUID, str]]]
-    ] = None
+    guidOfPathLocationDependencies: Optional[Union[List[Tuple[GUID, str]], List[Tuple[str, GUID]]]] = None
     hash: Optional[Union[Hash128, MdFour]] = None
     hashOfImportedAssetDependencies: Optional[List[GUID]] = None
     hashOfSourceAssetDependencies: Optional[List[GUID]] = None
@@ -6539,6 +6769,15 @@ class AssetLabels:
 
 
 @unitypy_define
+class AssetStats:
+    objectCount: int
+    resourceCount: int
+    size: int
+    sourceAssetGUID: GUID
+    sourceAssetPath: str
+
+
+@unitypy_define
 class AssetTimeStamp:
     metaModificationDate_0_: int
     metaModificationDate_1_: int
@@ -6556,6 +6795,10 @@ class AttachmentIndexArray:
 class AttachmentInfo:
     format: int
     needsResolve: bool
+    canMultiview: Optional[bool] = None
+    loadAction: Optional[int] = None
+    sampleCount: Optional[int] = None
+    storeAction: Optional[int] = None
 
 
 @unitypy_define
@@ -6574,12 +6817,12 @@ class AudioMixerConstant:
     exposedParameterIndices: List[int]
     exposedParameterNames: List[int]
     groupGUIDs: List[GUID]
-    groupNameBuffer: List[str]
+    groupNameBuffer: List[int]
     groups: List[GroupConstant]
     numSideChainBuffers: int
-    pluginEffectNameBuffer: List[str]
+    pluginEffectNameBuffer: List[int]
     snapshotGUIDs: List[GUID]
-    snapshotNameBuffer: List[str]
+    snapshotNameBuffer: List[int]
     snapshots: List[SnapshotConstant]
     groupConnections: Optional[List[GroupConnection]] = None
 
@@ -6851,6 +7094,7 @@ class BuildReportFile:
     path: str
     role: str
     totalSize: int
+    flags: Optional[int] = None
 
 
 @unitypy_define
@@ -6894,10 +7138,13 @@ class BuildSummary:
     totalErrors: int
     totalSize: int
     totalWarnings: int
+    buildContentOptions: Optional[int] = None
     buildGUID: Optional[GUID] = None
+    buildManifestHash: Optional[Hash128] = None
     buildResult: Optional[int] = None
     buildStartTime: Optional[DateTime] = None
     buildType: Optional[int] = None
+    dataPath: Optional[str] = None
     multiProcessEnabled: Optional[bool] = None
     name: Optional[str] = None
     platformGroupName: Optional[str] = None
@@ -7057,8 +7304,8 @@ class Clip:
 
 @unitypy_define
 class ClipAnimationInfo:
-    firstFrame: Union[int, float]
-    lastFrame: Union[int, float]
+    firstFrame: Union[float, int]
+    lastFrame: Union[float, int]
     loop: bool
     name: str
     wrapMode: int
@@ -7324,6 +7571,7 @@ class ComputeShaderResource:
     name: Union[FastPropertyName, str]
     counter: Optional[ComputeBufferCounter] = None
     generatedName: Optional[Union[FastPropertyName, str]] = None
+    resType: Optional[int] = None
     samplerBindPoint: Optional[int] = None
     secondaryBindPoint: Optional[int] = None
     texDimension: Optional[int] = None
@@ -7392,8 +7640,9 @@ class ControllerConstant:
 
 @unitypy_define
 class CrashReportingSettings:
-    m_Enabled: bool
     m_EventUrl: str
+    m_EnableCloudDiagnosticsReporting: Optional[bool] = None
+    m_Enabled: Optional[bool] = None
     m_LogBufferSize: Optional[int] = None
     m_NativeEventUrl: Optional[str] = None
 
@@ -7415,6 +7664,27 @@ class CustomDataModule:
     vector1_3: MinMaxCurve
     vectorComponentCount0: int
     vectorComponentCount1: int
+
+
+@unitypy_define
+class D3D12DeviceFilterData:
+    deviceName: str
+    deviceType: int
+    driverVersion: str
+    driverVersionComparator: int
+    featureLevel: str
+    featureLevelComparator: int
+    graphicsMemory: str
+    graphicsMemoryComparator: int
+    processorCount: str
+    processorCountComparator: int
+    vendorName: str
+
+
+@unitypy_define
+class D3D12GraphicsJobsDeviceFilterData:
+    filter: D3D12DeviceFilterData
+    preferredMode: int
 
 
 @unitypy_define
@@ -7616,6 +7886,20 @@ class EnlightenTerrainChunksInformation:
     firstSystemId: int
     numChunksInX: int
     numChunksInY: int
+
+
+@unitypy_define
+class EntityId:
+    pass
+
+
+@unitypy_define
+class Error:
+    filePath: str
+    message: str
+    severity: int
+    startChar: int
+    startLine: int
 
 
 @unitypy_define
@@ -7897,6 +8181,11 @@ class GraphicsStateInfo:
     userBackface: bool
     vertexLayout: int
     wireframe: bool
+    baseShadingRate: Optional[int] = None
+    nonfilteringSamplerBindings: Optional[int] = None
+    shadingRateCombinerFragment: Optional[int] = None
+    shadingRateCombinerPrimitive: Optional[int] = None
+    unfilterableTextureBindings: Optional[int] = None
 
 
 @unitypy_define
@@ -8107,7 +8396,7 @@ class HumanPose:
     m_LookAtWeight: float4
     m_RightHandPose: HandPose
     m_RootX: xform
-    m_TDoFArray: Optional[Union[List[float4], List[float3]]] = None
+    m_TDoFArray: Optional[Union[List[float3], List[float4]]] = None
 
 
 @unitypy_define
@@ -8191,6 +8480,14 @@ class InputImportSettings:
     filterMode: Optional[int] = None
     value: Optional[SubstanceValue] = None
     wrapMode: Optional[int] = None
+
+
+@unitypy_define
+class InsightsSettings:
+    m_Enabled: bool
+    m_EngineDiagnosticsEnabled: bool
+    m_EventUrl: str
+    m_StackTraceUrl: str
 
 
 @unitypy_define
@@ -8283,12 +8580,12 @@ class JointTranslationLimits2D:
 
 @unitypy_define
 class Keyframe:
-    inSlope: Union[Quaternionf, float, Vector3f]
-    outSlope: Union[Quaternionf, float, Vector3f]
+    inSlope: Union[Quaternionf, Vector3f, float]
+    outSlope: Union[Quaternionf, Vector3f, float]
     time: float
-    value: Union[Quaternionf, float, Vector3f]
-    inWeight: Optional[Union[Quaternionf, float, Vector3f]] = None
-    outWeight: Optional[Union[Quaternionf, float, Vector3f]] = None
+    value: Union[Quaternionf, Vector3f, float]
+    inWeight: Optional[Union[Quaternionf, Vector3f, float]] = None
+    outWeight: Optional[Union[Quaternionf, Vector3f, float]] = None
     weightedMode: Optional[int] = None
 
 
@@ -8489,6 +8786,12 @@ class LineParameters:
 
 
 @unitypy_define
+class LodSelectionCurve:
+    m_LodBias: float
+    m_LodSlope: float
+
+
+@unitypy_define
 class Lumin:
     depthFormat: int
     enableGLCache: bool
@@ -8562,6 +8865,24 @@ class MeshBlendShapeVertex:
 
 
 @unitypy_define
+class MeshLodInfo:
+    m_LodSelectionCurve: LodSelectionCurve
+    m_NumLevels: int
+    m_SubMeshes: List[MeshLodSubMesh]
+
+
+@unitypy_define
+class MeshLodRange:
+    m_IndexCount: int
+    m_IndexStart: int
+
+
+@unitypy_define
+class MeshLodSubMesh:
+    m_Levels: List[MeshLodRange]
+
+
+@unitypy_define
 class MinMaxAABB:
     m_Max: Vector3f
     m_Min: Vector3f
@@ -8579,9 +8900,9 @@ class MinMaxCurve:
 @unitypy_define
 class MinMaxGradient:
     maxColor: ColorRGBA
-    maxGradient: Union[GradientNEW, Gradient]
+    maxGradient: Union[Gradient, GradientNEW]
     minColor: ColorRGBA
-    minGradient: Union[GradientNEW, Gradient]
+    minGradient: Union[Gradient, GradientNEW]
     minMaxState: int
 
 
@@ -8809,29 +9130,7 @@ class Oculus:
 
 @unitypy_define
 class OffsetPtr:
-    data: Union[
-        SkeletonMask,
-        SkeletonPose,
-        Blend2dDataConstant,
-        Blend1dDataConstant,
-        BlendTreeConstant,
-        Skeleton,
-        Clip,
-        SelectorTransitionConstant,
-        LayerConstant,
-        ValueArray,
-        SelectorStateConstant,
-        ConditionConstant,
-        Human,
-        HumanLayerConstant,
-        Hand,
-        StateConstant,
-        StateMachineConstant,
-        BlendTreeNodeConstant,
-        BlendDirectDataConstant,
-        ValueArrayConstant,
-        TransitionConstant,
-    ]
+    data: Union[Blend1dDataConstant, Blend2dDataConstant, BlendDirectDataConstant, BlendTreeConstant, BlendTreeNodeConstant, Clip, ConditionConstant, Hand, Human, HumanLayerConstant, LayerConstant, SelectorStateConstant, SelectorTransitionConstant, Skeleton, SkeletonMask, SkeletonPose, StateConstant, StateMachineConstant, TransitionConstant, ValueArray, ValueArrayConstant]
 
 
 @unitypy_define
@@ -9042,7 +9341,7 @@ class Polygon2D(ABC):
 @unitypy_define
 class PrefabModification:
     m_Modifications: List[PropertyModification]
-    m_RemovedComponents: Union[List[PPtr[Object]], List[PPtr[Component]]]
+    m_RemovedComponents: Union[List[PPtr[Component]], List[PPtr[Object]]]
     m_TransformParent: PPtr[Transform]
     m_AddedComponents: Optional[List[AddedComponent]] = None
     m_AddedGameObjects: Optional[List[AddedGameObject]] = None
@@ -9133,6 +9432,7 @@ class QualitySetting:
     globalTextureMipmapLimit: Optional[int] = None
     lodBias: Optional[float] = None
     maximumLODLevel: Optional[int] = None
+    meshLodThreshold: Optional[float] = None
     name: Optional[str] = None
     particleRaycastBudget: Optional[int] = None
     realtimeGICPUUsage: Optional[int] = None
@@ -9216,12 +9516,24 @@ class RayTracingShaderParam:
 
 
 @unitypy_define
+class RayTracingShaderPlatformVariant:
+    dynamicKeywords: List[str]
+    editorOnlyVariant: bool
+    globalKeywords: List[str]
+    localKeywords: List[str]
+    targetRenderer: int
+    uniqueVariants: List[RayTracingShaderReflectionData]
+    variantIndices: List[Tuple[str, int]]
+
+
+@unitypy_define
 class RayTracingShaderReflectionData:
     code: List[int]
     functions: List[RayTracingShaderFunctionDesc]
     globalResources: RayTracingShaderResources
     hasErrors: bool
     localResources: RayTracingShaderResources
+    codeHash: Optional[int] = None
     precompiled: Optional[List[int]] = None
     requirements: Optional[int] = None
 
@@ -9251,6 +9563,7 @@ class RayTracingShaderResources:
 class RayTracingShaderVariant:
     resourceReflectionData: RayTracingShaderReflectionData
     targetRenderer: int
+    editorOnlyVariant: Optional[bool] = None
 
 
 @unitypy_define
@@ -9276,6 +9589,8 @@ class RenderPassInfo:
     shadingRateIndex: int
     subPassCount: int
     subPasses: List[SubPassDescriptor]
+    foveationImageIndex: Optional[int] = None
+    hasEyeTexture: Optional[bool] = None
 
 
 @unitypy_define
@@ -9717,7 +10032,7 @@ class SceneDataContainer:
 @unitypy_define
 class SceneIdentifier:
     guid: GUID
-    handle: int
+    handle: Union[UnitySceneHandle, int]
 
 
 @unitypy_define
@@ -9858,9 +10173,7 @@ class SerializedShader:
     m_Name: str
     m_PropInfo: SerializedProperties
     m_SubShaders: List[SerializedSubShader]
-    m_CustomEditorForRenderPipelines: Optional[
-        List[SerializedCustomEditorForRenderPipeline]
-    ] = None
+    m_CustomEditorForRenderPipelines: Optional[List[SerializedCustomEditorForRenderPipeline]] = None
     m_KeywordFlags: Optional[List[int]] = None
     m_KeywordNames: Optional[List[str]] = None
 
@@ -10534,9 +10847,7 @@ class SpriteAtlasEditorData:
     platformSettings: List[TextureImporterPlatformSettings]
     textureSettings: TextureSettings
     variantMultiplier: float
-    secondaryTextureSettings: Optional[List[Tuple[str, SecondaryTextureSettings]]] = (
-        None
-    )
+    secondaryTextureSettings: Optional[List[Tuple[str, SecondaryTextureSettings]]] = None
     storedHash: Optional[Hash128] = None
     totalSpriteSurfaceArea: Optional[int] = None
 
@@ -10696,9 +11007,7 @@ class StateMachine(NamedObject):
     m_OrderedTransitions: List[Tuple[PPtr[State], List[PPtr[Transition]]]]
     m_ParentStateMachinePosition: Vector3f
     m_States: List[PPtr[State]]
-    m_LocalTransitions: Optional[List[Tuple[PPtr[State], List[PPtr[Transition]]]]] = (
-        None
-    )
+    m_LocalTransitions: Optional[List[Tuple[PPtr[State], List[PPtr[Transition]]]]] = None
 
 
 @unitypy_define
@@ -10712,6 +11021,7 @@ class StateMachineConstant:
     m_AnyStateTransitionConstantArray: List[OffsetPtr]
     m_DefaultState: int
     m_StateConstantArray: List[OffsetPtr]
+    m_EvaluateTransitionsOnStart: Optional[bool] = None
     m_MotionSetCount: Optional[int] = None
     m_SelectorStateConstantArray: Optional[List[OffsetPtr]] = None
     m_SynchronizedLayerCount: Optional[int] = None
@@ -10993,7 +11303,7 @@ class TileAnimationData:
 
 @unitypy_define
 class TilemapRefCountedData:
-    m_Data: Union[PPtr[GameObject], ColorRGBA, PPtr[Object], Matrix4x4f, PPtr[Sprite]]
+    m_Data: Union[ColorRGBA, Matrix4x4f, PPtr[GameObject], PPtr[Object], PPtr[Sprite]]
     m_RefCount: int
 
 
@@ -11096,6 +11406,14 @@ class TriggerModule:
 
 
 @unitypy_define
+class TypeStats:
+    classID: int
+    objectCount: int
+    resourceCount: int
+    size: int
+
+
+@unitypy_define
 class UAVParameter:
     m_Index: int
     m_NameIndex: int
@@ -11145,8 +11463,8 @@ class UnityAdsSettings(GlobalGameManager):
 @unitypy_define
 class UnityAnalyticsSettings:
     m_Enabled: bool
-    m_InitializeOnStartup: bool
     m_TestMode: bool
+    m_InitializeOnStartup: Optional[bool] = None
     m_PackageRequiringCoreStatsPresent: Optional[bool] = None
     m_TestConfigUrl: Optional[str] = None
     m_TestEventUrl: Optional[str] = None
@@ -11154,13 +11472,9 @@ class UnityAnalyticsSettings:
 
 @unitypy_define
 class UnityPropertySheet:
-    m_Colors: Union[
-        List[Tuple[FastPropertyName, ColorRGBA]], List[Tuple[str, ColorRGBA]]
-    ]
+    m_Colors: Union[List[Tuple[FastPropertyName, ColorRGBA]], List[Tuple[str, ColorRGBA]]]
     m_Floats: Union[List[Tuple[FastPropertyName, float]], List[Tuple[str, float]]]
-    m_TexEnvs: Union[
-        List[Tuple[FastPropertyName, UnityTexEnv]], List[Tuple[str, UnityTexEnv]]
-    ]
+    m_TexEnvs: Union[List[Tuple[FastPropertyName, UnityTexEnv]], List[Tuple[str, UnityTexEnv]]]
     m_Ints: Optional[List[Tuple[str, int]]] = None
 
 
@@ -11168,6 +11482,11 @@ class UnityPropertySheet:
 class UnityPurchasingSettings:
     m_Enabled: bool
     m_TestMode: bool
+
+
+@unitypy_define
+class UnitySceneHandle:
+    value: EntityId
 
 
 @unitypy_define
@@ -11226,37 +11545,13 @@ class VFXEditorTaskDesc:
 class VFXEntryExposed:
     m_Name: str
     m_Overridden: bool
-    m_Value: Union[
-        Gradient,
-        Vector3f,
-        float,
-        PPtr[NamedObject],
-        Vector4f,
-        AnimationCurve,
-        PPtr[Object],
-        int,
-        Vector2f,
-        bool,
-        Matrix4x4f,
-    ]
+    m_Value: Union[AnimationCurve, Gradient, Matrix4x4f, PPtr[NamedObject], PPtr[Object], Vector2f, Vector3f, Vector4f, bool, float, int]
 
 
 @unitypy_define
 class VFXEntryExpressionValue:
     m_ExpressionIndex: int
-    m_Value: Union[
-        Gradient,
-        Vector3f,
-        float,
-        PPtr[NamedObject],
-        Vector4f,
-        AnimationCurve,
-        PPtr[Object],
-        int,
-        Vector2f,
-        bool,
-        Matrix4x4f,
-    ]
+    m_Value: Union[AnimationCurve, Gradient, Matrix4x4f, PPtr[NamedObject], PPtr[Object], Vector2f, Vector3f, Vector4f, bool, float, int]
 
 
 @unitypy_define
@@ -11289,7 +11584,7 @@ class VFXExpressionContainer:
 
 @unitypy_define
 class VFXField:
-    m_Array: Union[List[VFXEntryExpressionValue], List[VFXEntryExposed]]
+    m_Array: Union[List[VFXEntryExposed], List[VFXEntryExpressionValue]]
 
 
 @unitypy_define
@@ -11352,12 +11647,13 @@ class VFXPropertySheetSerializedBase:
 
 @unitypy_define
 class VFXRendererSettings:
-    lightProbeUsage: int
     motionVectorGenerationMode: int
-    receiveShadows: bool
-    reflectionProbeUsage: int
     shadowCastingMode: int
+    lightProbeUsage: Optional[int] = None
     rayTracingMode: Optional[int] = None
+    receiveShadows: Optional[bool] = None
+    reflectionProbeUsage: Optional[int] = None
+    transparencyPriority: Optional[int] = None
 
 
 @unitypy_define
@@ -11398,6 +11694,7 @@ class VFXTemplate:
     icon: PPtr[Texture2D]
     name: str
     thumbnail: PPtr[Texture2D]
+    order: Optional[int] = None
 
 
 @unitypy_define
@@ -11422,9 +11719,10 @@ class ValueArray:
     m_BoolValues: List[bool]
     m_FloatValues: List[float]
     m_IntValues: List[int]
-    m_PositionValues: Optional[Union[List[float4], List[float3]]] = None
+    m_EntityIdValues: Optional[List[EntityId]] = None
+    m_PositionValues: Optional[Union[List[float3], List[float4]]] = None
     m_QuaternionValues: Optional[List[float4]] = None
-    m_ScaleValues: Optional[Union[List[float4], List[float3]]] = None
+    m_ScaleValues: Optional[Union[List[float3], List[float4]]] = None
     m_VectorValues: Optional[List[float4]] = None
 
 
@@ -11461,6 +11759,7 @@ class VariantInfo:
     passType: Optional[int] = None
     shader: Optional[PPtr[Shader]] = None
     shaderAssetGUID: Optional[str] = None
+    shaderAssetLocalIdentifierInFile: Optional[int] = None
     shaderName: Optional[str] = None
     subShaderIndex: Optional[int] = None
 
@@ -11558,7 +11857,7 @@ class VisualEffectInfo:
     m_CPUBuffers: List[VFXCPUBufferDesc]
     m_CullingFlags: int
     m_Events: List[VFXEventDesc]
-    m_ExposedExpressions: Union[List[VFXMapping], List[VFXExposedMapping]]
+    m_ExposedExpressions: Union[List[VFXExposedMapping], List[VFXMapping]]
     m_Expressions: VFXExpressionContainer
     m_PropertySheet: VFXPropertySheetSerializedBase
     m_RendererSettings: VFXRendererSettings
@@ -11585,6 +11884,12 @@ class VisualEffectSettings:
     m_InstancingCapacity: Optional[int] = None
     m_InstancingDisabledReason: Optional[int] = None
     m_InstancingMode: Optional[int] = None
+
+
+@unitypy_define
+class VulkanGraphicsJobsDeviceFilterData:
+    filter: AndroidDeviceFilterData
+    preferredMode: int
 
 
 @unitypy_define

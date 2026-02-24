@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.405.34"
+version = "1.405.36"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"

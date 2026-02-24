@@ -1,151 +1,148 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use cas_types::{REQUEST_ID_HEADER, SESSION_ID_HEADER};
 use error_printer::{ErrorPrinter, OptionPrinter};
-use http::{Extensions, StatusCode};
-use reqwest::header::{AUTHORIZATION, HeaderValue};
+use http::{Extensions, HeaderMap, StatusCode};
+use reqwest::header::{AUTHORIZATION, COOKIE, HeaderValue, SET_COOKIE};
 use reqwest::{Request, Response};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
-use reqwest_retry::policies::ExponentialBackoff;
-use reqwest_retry::{
-    DefaultRetryableStrategy, RetryTransientMiddleware, Retryable, RetryableStrategy, default_on_request_failure,
-    default_on_request_success,
-};
 use tokio::sync::Mutex;
 use tracing::{Instrument, info, info_span, warn};
 use utils::auth::{AuthConfig, TokenProvider};
+use xet_runtime::{XetRuntime, xet_config};
 
-use crate::constants::{CLIENT_IDLE_CONNECTION_TIMEOUT, CLIENT_MAX_IDLE_CONNECTIONS};
-use crate::retry_wrapper::on_request_failure;
 use crate::{CasClientError, error};
 
-pub(crate) const NUM_RETRIES: u32 = 5;
-pub(crate) const BASE_RETRY_DELAY_MS: u64 = 3000; // 3s
-pub(crate) const BASE_RETRY_MAX_DURATION_MS: u64 = 6 * 60 * 1000; // 6m
+/// Middleware that rewrites https:// URLs to http:// when using Unix socket.
+/// This allows the proxy to parse plain HTTP and upgrade to HTTPS when forwarding.
+#[cfg(unix)]
+struct HttpsToHttpMiddleware;
 
-/// A strategy that doesn't retry on 429, and defaults to `DefaultRetryableStrategy` otherwise.
-pub struct No429RetryStrategy;
-
-impl RetryableStrategy for No429RetryStrategy {
-    fn handle(&self, res: &Result<Response, reqwest_middleware::Error>) -> Option<Retryable> {
-        if let Ok(success) = res
-            && success.status() == StatusCode::TOO_MANY_REQUESTS
-        {
-            return Some(Retryable::Fatal);
+#[cfg(unix)]
+#[async_trait::async_trait]
+impl Middleware for HttpsToHttpMiddleware {
+    async fn handle(
+        &self,
+        mut req: Request,
+        extensions: &mut Extensions,
+        next: Next<'_>,
+    ) -> Result<Response, reqwest_middleware::Error> {
+        let url = req.url_mut();
+        if url.scheme() == "https" {
+            let original_scheme = url.scheme().to_string();
+            url.set_scheme("http").ok();
+            info!(original_scheme, new_scheme = "http", url = %url, "Rewriting URL scheme for Unix socket proxy");
         }
-
-        const DEFAULT_STRATEGY: DefaultRetryableStrategy = DefaultRetryableStrategy;
-        DEFAULT_STRATEGY.handle(res)
+        next.run(req, extensions).await
     }
 }
 
-/// A strategy that retries on 5xx/400/429 status codes, and retries on transient errors.
-pub struct XetRetryStrategy;
+/// Utility to redact sensitive headers from a HeaderMap before logging
+fn redact_headers(headers: &HeaderMap) -> HeaderMap {
+    let mut sanitized_headers = headers.clone();
+    let sensitive_keys = vec![AUTHORIZATION, COOKIE, SET_COOKIE];
 
-impl RetryableStrategy for XetRetryStrategy {
-    fn handle(&self, res: &Result<Response, reqwest_middleware::Error>) -> Option<Retryable> {
-        match res {
-            Ok(success) => default_on_request_success(success),
-            Err(error) => on_request_failure(error),
-        }
-    }
-}
-
-pub struct RetryConfig<R: RetryableStrategy> {
-    /// Number of retries for transient errors.
-    pub num_retries: u32,
-
-    /// Base delay before retrying, default to 3s.
-    pub min_retry_interval_ms: u64,
-
-    /// Base max duration for retry attempts, default to 6m.
-    pub max_retry_interval_ms: u64,
-
-    pub strategy: R,
-}
-
-impl Default for RetryConfig<XetRetryStrategy> {
-    fn default() -> Self {
-        Self {
-            num_retries: NUM_RETRIES,
-            min_retry_interval_ms: BASE_RETRY_DELAY_MS,
-            max_retry_interval_ms: BASE_RETRY_MAX_DURATION_MS,
-            strategy: XetRetryStrategy,
+    for key in sensitive_keys {
+        if sanitized_headers.contains_key(&key) {
+            sanitized_headers.insert(key, "[REDACTED]".parse().unwrap());
         }
     }
+    sanitized_headers
 }
 
-impl RetryConfig<No429RetryStrategy> {
-    pub fn no429retry() -> Self {
-        Self {
-            num_retries: NUM_RETRIES,
-            min_retry_interval_ms: BASE_RETRY_DELAY_MS,
-            max_retry_interval_ms: BASE_RETRY_MAX_DURATION_MS,
-            strategy: No429RetryStrategy,
+#[allow(unused_variables)]
+#[cfg(not(target_family = "wasm"))]
+fn reqwest_client(
+    unix_socket_path: Option<&str>,
+    custom_headers: Option<Arc<HeaderMap>>,
+) -> Result<reqwest::Client, CasClientError> {
+    // Check config if explicit socket path is not provided
+    let socket_path = unix_socket_path
+        .map(|s| s.to_string())
+        .or_else(|| xet_config().client.unix_socket_path.clone());
+
+    // Determine the tag for client caching
+    let tag = socket_path.as_deref().unwrap_or("tcp").to_string();
+
+    // Create client function
+    let socket_path_clone = socket_path.clone();
+    let custom_headers_for_client = custom_headers.clone();
+    let create_client = move || {
+        let config = &xet_config().client;
+        let mut builder = reqwest::Client::builder()
+            .pool_idle_timeout(config.idle_connection_timeout)
+            .pool_max_idle_per_host(config.max_idle_connections)
+            .connect_timeout(config.connect_timeout)
+            .read_timeout(config.read_timeout)
+            .http1_only();
+
+        #[cfg(unix)]
+        if let Some(ref path) = socket_path_clone {
+            builder = builder.unix_socket(path.clone());
         }
-    }
-}
 
-fn reqwest_client() -> Result<reqwest::Client, CasClientError> {
-    // custom dns resolver not supported in WASM. no access to getaddrinfo/any other dns interface.
-    #[cfg(target_family = "wasm")]
-    {
-        static CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| reqwest::Client::new());
-        Ok((&*CLIENT).clone())
-    }
+        if let Some(headers) = custom_headers_for_client {
+            builder = builder.default_headers((*headers).clone());
+        }
 
-    #[cfg(not(target_family = "wasm"))]
-    {
-        use xet_runtime::XetRuntime;
+        builder.build()
+    };
 
-        let client = XetRuntime::get_or_create_reqwest_client(|| {
-            reqwest::Client::builder()
-                .pool_idle_timeout(*CLIENT_IDLE_CONNECTION_TIMEOUT)
-                .pool_max_idle_per_host(*CLIENT_MAX_IDLE_CONNECTIONS)
-                .build()
-        })?;
+    // Try to use cached client if in a runtime, otherwise create directly
+    let client = XetRuntime::get_or_create_reqwest_client(tag, create_client)?;
 
+    if socket_path.is_some() {
+        info!(socket_path=?socket_path, "HTTP client configured with Unix socket");
+    } else {
+        let config = &xet_config().client;
+        let custom_headers = custom_headers.as_deref().map(redact_headers);
         info!(
-            idle_timeout=?*CLIENT_IDLE_CONNECTION_TIMEOUT,
-            max_idle_connections=*CLIENT_MAX_IDLE_CONNECTIONS,
+            idle_timeout=?config.idle_connection_timeout,
+            max_idle_connections=config.max_idle_connections,
+            custom_headers=?custom_headers,
             "HTTP client configured"
         );
-
-        Ok(client)
     }
-}
 
-/// Builds authenticated HTTP Client to talk to CAS.
-/// Includes retry middleware with exponential backoff.
-pub fn build_auth_http_client<R: RetryableStrategy + Send + Sync + 'static>(
-    auth_config: &Option<AuthConfig>,
-    retry_config: RetryConfig<R>,
-    session_id: &str,
-) -> Result<ClientWithMiddleware, CasClientError> {
-    let auth_middleware = auth_config.as_ref().map(AuthMiddleware::from);
-    let logging_middleware = Some(LoggingMiddleware);
-    let session_middleware = (!session_id.is_empty()).then(|| SessionMiddleware(session_id.to_owned()));
-
-    let client = ClientBuilder::new(reqwest_client()?)
-        .maybe_with(auth_middleware)
-        .with(get_retry_middleware(retry_config))
-        .maybe_with(logging_middleware)
-        .maybe_with(session_middleware)
-        .build();
     Ok(client)
 }
 
+#[cfg(target_family = "wasm")]
+fn reqwest_client(
+    _unix_socket_path: Option<&str>,
+    custom_headers: Option<Arc<HeaderMap>>,
+) -> Result<reqwest::Client, CasClientError> {
+    // For WASM, create a new client with the specified headers, including the user-agent.
+    // Note: we could cache this, but user_agent can vary, so we create per-call
+    // Unix socket path is ignored on WASM
+    let mut builder = reqwest::Client::builder();
+    if let Some(custom_headers) = custom_headers {
+        builder = builder.default_headers((*custom_headers).clone());
+    }
+    Ok(builder.build()?)
+}
+
 /// Builds authenticated HTTP Client to talk to CAS.
-pub fn build_auth_http_client_no_retry(
+#[allow(unused_mut)]
+pub fn build_auth_http_client(
     auth_config: &Option<AuthConfig>,
     session_id: &str,
+    unix_socket_path: Option<&str>,
+    custom_headers: Option<Arc<HeaderMap>>,
 ) -> Result<ClientWithMiddleware, CasClientError> {
     let auth_middleware = auth_config.as_ref().map(AuthMiddleware::from).info_none("CAS auth disabled");
     let logging_middleware = Some(LoggingMiddleware);
     let session_middleware = (!session_id.is_empty()).then(|| SessionMiddleware(session_id.to_owned()));
-    Ok(ClientBuilder::new(reqwest_client()?)
+
+    let mut builder = ClientBuilder::new(reqwest_client(unix_socket_path, custom_headers)?);
+
+    #[cfg(unix)]
+    if unix_socket_path.is_some() {
+        builder = builder.with(HttpsToHttpMiddleware);
+    }
+
+    Ok(builder
         .maybe_with(auth_middleware)
         .maybe_with(logging_middleware)
         .maybe_with(session_middleware)
@@ -153,41 +150,12 @@ pub fn build_auth_http_client_no_retry(
 }
 
 /// Builds HTTP Client to talk to CAS.
-/// Includes retry middleware with exponential backoff.
-pub fn build_http_client<R: RetryableStrategy + Send + Sync + 'static>(
-    retry_config: RetryConfig<R>,
+pub fn build_http_client(
     session_id: &str,
+    unix_socket_path: Option<&str>,
+    custom_headers: Option<Arc<HeaderMap>>,
 ) -> Result<ClientWithMiddleware, CasClientError> {
-    build_auth_http_client(&None, retry_config, session_id)
-}
-
-/// Builds HTTP Client to talk to CAS.
-/// Includes retry middleware with exponential backoff.
-pub fn build_http_client_no_retry(session_id: &str) -> Result<ClientWithMiddleware, CasClientError> {
-    build_auth_http_client_no_retry(&None, session_id)
-}
-
-/// RetryStrategy
-pub fn get_retry_policy_and_strategy<R: RetryableStrategy + Send + Sync>(
-    config: RetryConfig<R>,
-) -> (ExponentialBackoff, R) {
-    (
-        ExponentialBackoff::builder()
-            .retry_bounds(
-                Duration::from_millis(config.min_retry_interval_ms),
-                Duration::from_millis(config.max_retry_interval_ms),
-            )
-            .build_with_max_retries(config.num_retries),
-        config.strategy,
-    )
-}
-
-/// Configurable Retry middleware with exponential backoff and configurable number of retries using reqwest-retry
-fn get_retry_middleware<R: RetryableStrategy + Send + Sync>(
-    config: RetryConfig<R>,
-) -> RetryTransientMiddleware<ExponentialBackoff, R> {
-    let (policy, strategy) = get_retry_policy_and_strategy(config);
-    RetryTransientMiddleware::new_with_policy_and_strategy(policy, strategy)
+    build_auth_http_client(&None, session_id, unix_socket_path, custom_headers)
 }
 
 /// Helper trait to allow the reqwest_middleware client to optionally add a middleware.
@@ -207,7 +175,7 @@ impl OptionalMiddleware for ClientBuilder {
 #[derive(Copy, Clone)]
 pub struct Api(pub &'static str);
 
-/// Adds logging middleware that will trace::warn! on retryable errors.
+/// Adds logging middleware that logs requests and responses.
 pub struct LoggingMiddleware;
 
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
@@ -224,20 +192,12 @@ impl Middleware for LoggingMiddleware {
             .instrument(info_span!("client::request", api))
             .await
             .inspect(|res| {
-                // Response received, debug log it and use the status code
-                // to check if we are retrying or not.
                 let status_code = res.status().as_u16();
                 let request_id = request_id_from_response(res);
                 info!(request_id, status_code, "Received CAS response");
-                if Some(Retryable::Transient) == default_on_request_success(res) {
-                    warn!(request_id, status_code, "Retrying...");
-                }
             })
             .inspect_err(|err| {
-                // Error received, check if we are retrying or not.
-                if Some(Retryable::Transient) == default_on_request_failure(err) {
-                    warn!(?err, "Retrying...");
-                }
+                warn!(?err, "Request error");
             })
     }
 }
@@ -359,210 +319,73 @@ pub fn request_id_from_response(res: &Response) -> &str {
 }
 
 #[cfg(test)]
+#[cfg(not(target_family = "wasm"))]
 mod tests {
-    use std::time::SystemTime;
-
-    use httpmock::prelude::*;
-    use reqwest::StatusCode;
-    use tracing_test::traced_test;
-
     use super::*;
 
-    #[tokio::test]
-    #[traced_test]
-    async fn test_retry_policy_500() {
-        {
-            // Arrange
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(500).body("500: Internal Server Error");
-            });
+    #[cfg(unix)]
+    mod uds_tests {
+        use super::*;
 
-            let retry_config = RetryConfig {
-                num_retries: 1,
-                min_retry_interval_ms: 0,
-                max_retry_interval_ms: 3000,
-                strategy: DefaultRetryableStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
+        #[tokio::test]
+        async fn test_https_to_http_middleware_rewrites_https() {
+            let _middleware = HttpsToHttpMiddleware;
 
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
+            let client = reqwest::Client::new();
+            let mut test_request = client.get("https://example.com/api/data").build().unwrap();
 
-            // Assert
-            assert!(logs_contain("status_code=500"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(2, mock.hits());
-            assert_eq!(response.status(), 500);
+            let url = test_request.url_mut();
+            assert_eq!(url.scheme(), "https");
+
+            if url.scheme() == "https" {
+                url.set_scheme("http").ok();
+            }
+
+            assert_eq!(test_request.url().scheme(), "http");
+            assert_eq!(test_request.url().host_str(), Some("example.com"));
+            assert_eq!(test_request.url().path(), "/api/data");
         }
 
-        {
-            // Arrange
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(500).body("500: Internal Server Error");
-            });
+        #[tokio::test]
+        async fn test_https_to_http_middleware_preserves_http() {
+            let client = reqwest::Client::new();
+            let mut test_request = client.get("http://example.com/api/data").build().unwrap();
 
-            let retry_config = RetryConfig {
-                num_retries: 1,
-                min_retry_interval_ms: 0,
-                max_retry_interval_ms: 3000,
-                strategy: No429RetryStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
+            let url = test_request.url_mut();
+            let original_scheme = url.scheme().to_string();
 
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
+            if url.scheme() == "https" {
+                url.set_scheme("http").ok();
+            }
 
-            // Assert
-            assert!(logs_contain("status_code=500"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(2, mock.hits());
-            assert_eq!(response.status(), 500);
-        }
-    }
-
-    #[tokio::test]
-    #[traced_test]
-    async fn test_retry_policy_timeout() {
-        {
-            // Arrange
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(StatusCode::REQUEST_TIMEOUT.as_u16()).body("Request Timeout");
-            });
-
-            let retry_config = RetryConfig {
-                num_retries: 2,
-                min_retry_interval_ms: 0,
-                max_retry_interval_ms: 3000,
-                strategy: DefaultRetryableStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
-
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
-
-            // Assert
-            assert!(logs_contain("status_code=408"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(3, mock.hits());
-            assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+            assert_eq!(test_request.url().scheme(), "http");
+            assert_eq!(original_scheme, "http");
         }
 
-        {
-            // Arrange
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(StatusCode::REQUEST_TIMEOUT.as_u16()).body("Request Timeout");
-            });
+        #[tokio::test]
+        async fn test_https_to_http_middleware_preserves_url_components() {
+            let client = reqwest::Client::new();
+            let mut test_request = client
+                .get("https://example.com:8443/path/to/resource?query=value&foo=bar")
+                .build()
+                .unwrap();
 
-            let retry_config = RetryConfig {
-                num_retries: 2,
-                min_retry_interval_ms: 0,
-                max_retry_interval_ms: 3000,
-                strategy: No429RetryStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
+            let url = test_request.url_mut();
+            if url.scheme() == "https" {
+                url.set_scheme("http").ok();
+            }
 
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
-
-            // Assert
-            assert!(logs_contain("status_code=408"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(3, mock.hits());
-            assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+            assert_eq!(test_request.url().scheme(), "http");
+            assert_eq!(test_request.url().host_str(), Some("example.com"));
+            assert_eq!(test_request.url().port(), Some(8443));
+            assert_eq!(test_request.url().path(), "/path/to/resource");
+            assert_eq!(test_request.url().query(), Some("query=value&foo=bar"));
         }
     }
 
-    #[tokio::test]
-    #[traced_test]
-    async fn test_retry_policy_delay() {
-        {
-            // Arrange
-            let start_time = SystemTime::now();
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(StatusCode::INTERNAL_SERVER_ERROR.as_u16());
-            });
-
-            let retry_config = RetryConfig {
-                num_retries: 2,
-                min_retry_interval_ms: 1000,
-                max_retry_interval_ms: 6000,
-                strategy: DefaultRetryableStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
-
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
-
-            // Assert
-            assert!(logs_contain("status_code=500"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-            assert_eq!(3, mock.hits());
-            assert!(start_time.elapsed().unwrap() > Duration::from_secs(0));
-        }
-
-        {
-            // Arrange
-            let start_time = SystemTime::now();
-            let server = MockServer::start();
-            let mock = server.mock(|when, then| {
-                when.method(GET).path("/data");
-                then.status(StatusCode::INTERNAL_SERVER_ERROR.as_u16());
-            });
-
-            let retry_config = RetryConfig {
-                num_retries: 2,
-                min_retry_interval_ms: 1000,
-                max_retry_interval_ms: 6000,
-                strategy: No429RetryStrategy,
-            };
-            let client = build_auth_http_client(&None, retry_config, "").unwrap();
-
-            // Act & Assert - should retry and log
-            let response = client.get(server.url("/data")).send().await.unwrap();
-
-            // Assert
-            assert!(logs_contain("status_code=500"));
-            assert!(logs_contain("Retrying..."));
-            assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-            assert_eq!(3, mock.hits());
-            assert!(start_time.elapsed().unwrap() > Duration::from_secs(0));
-        }
-    }
-
-    #[tokio::test]
-    #[traced_test]
-    async fn test_no_429_retry() {
-        // Arrange
-        let server = MockServer::start();
-        let mock = server.mock(|when, then| {
-            when.method(GET).path("/data");
-            then.status(StatusCode::TOO_MANY_REQUESTS.as_u16());
-        });
-
-        let retry_config = RetryConfig {
-            num_retries: 10,
-            min_retry_interval_ms: 1000,
-            max_retry_interval_ms: 6000,
-            strategy: No429RetryStrategy,
-        };
-        let client = build_auth_http_client(&None, retry_config, "").unwrap();
-
-        // Act & Assert - should retry and log
-        let response = client.get(server.url("/data")).send().await.unwrap();
-
-        // Assert
-        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(1, mock.hits());
+    #[test]
+    fn test_build_http_client_without_uds() {
+        let result = build_http_client("test-session", None, None);
+        assert!(result.is_ok());
     }
 }

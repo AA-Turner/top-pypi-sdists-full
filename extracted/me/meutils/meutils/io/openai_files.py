@@ -75,7 +75,7 @@ async def file_extract(file, filename: Optional[str] = None, enable_reader: bool
 
     file: bytes = await to_bytes(file)
 
-    for i, client in enumerate([zhipuai_client]):
+    for i, client in enumerate([moonshot_client, zhipuai_client]):
 
         try:
             # 1 / 0
@@ -83,7 +83,7 @@ async def file_extract(file, filename: Optional[str] = None, enable_reader: bool
                 file=(filename, file, mime_type),
                 purpose="file-extract"
             )
-            logfire.debug(file_object.model_dump_json())
+            logfire.info("{file=}", file=file_object)
 
             response = await client.files.content(file_id=file_object.id)
             data = response.json()
@@ -157,11 +157,11 @@ if __name__ == '__main__':
     with timer():
         # file = "https://top.baidu.com/board?tab=realtime"
         # file = "https://oss.ffire.cc/files/百炼系列手机产品介绍.docx"
-        file = "https://app.yinxiang.com/fx/8b8bba1e-b254-40ff-81e1-fa3427429efe"
-        file = "https://s3.ffire.cc/files/pdf_to_markdown.jpg"
+        # file = "https://app.yinxiang.com/fx/8b8bba1e-b254-40ff-81e1-fa3427429efe"
+        # file = "https://s3.ffire.cc/files/pdf_to_markdown.jpg"
 
         # file = "https://119.29.101.125:25388/down/D2coOP0jVkNx.xlsx"
-        # file = "https://cos.imyaigc.com/files/2025-12-24/72c839ea54555018b8eaadb28a660c043_i3aGe.pdf"
+        file = "https://cos.imyaigc.com/files/2025-12-24/72c839ea54555018b8eaadb28a660c043_i3aGe.pdf"
 
         # print(guess_mime_type(file))
 

@@ -149,7 +149,7 @@ def get_benchmarks_by_diagnosis(diagnosis_results: Dict) -> Dict[str, List[tuple
             signal = r["signal_strength"]
             linear = r["linear_probe_accuracy"]
             num_layers = len(r["layers"]) if r["layers"] else 36
-            best_layer = int(num_layers * 0.6)  # 60% through network
+            best_layer = num_layers // 2
             
             if signal < 0.6:
                 by_diagnosis["NO_SIGNAL"].append((bench, best_layer, signal, linear))

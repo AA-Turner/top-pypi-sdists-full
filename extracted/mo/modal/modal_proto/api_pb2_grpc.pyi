@@ -689,6 +689,10 @@ class ModalClientStub:
         modal_proto.api_pb2.VolumeDeleteRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    VolumeGetById: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.VolumeGetByIdRequest,
+        modal_proto.api_pb2.VolumeGetByIdResponse,
+    ]
     VolumeGetFile: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.VolumeGetFileRequest,
         modal_proto.api_pb2.VolumeGetFileResponse,
@@ -1759,6 +1763,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.VolumeDeleteRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def VolumeGetById(
+        self,
+        request: modal_proto.api_pb2.VolumeGetByIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.VolumeGetByIdResponse: ...
     @abc.abstractmethod
     def VolumeGetFile(
         self,

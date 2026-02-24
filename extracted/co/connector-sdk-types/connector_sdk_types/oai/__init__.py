@@ -3,12 +3,15 @@ from .fingerprint import request_fingerprint
 from .modules import (
     AUTH_TYPE_MAP,
     OAUTH_FLOW_TYPE_CAPABILITIES,
+    AccessGraphEntitlementRule,
+    AccessGraphRulesSettings,
     AuthModel,
     AuthSetting,
     ClientAuthenticationMethod,
     CredentialConfig,
     CredentialsSettings,
     EmptySettings,
+    ImpliedAccessRule,
     OAuthCapabilities,
     OAuthConfig,
     OAuthFlowType,
@@ -20,6 +23,9 @@ from .modules import (
 )
 
 __all__ = [
+    "AccessGraphEntitlementRule",
+    "AccessGraphRulesSettings",
+    "ImpliedAccessRule",
     "AuthModel",
     "request_fingerprint",
     "OAuthFlowType",

@@ -8,6 +8,7 @@ import torch
 
 from .geometry_types import StructureType, StructureScore, GeometryAnalysisConfig
 from wisent.core.constants import NORM_EPS, COMPARE_TOL
+from wisent.core import constants as _C
 
 
 def detect_linear_structure(
@@ -50,12 +51,12 @@ def detect_linear_structure(
         consistency = max(0, 1 - spread_ratio)
 
         linear_score = (
-            0.35 * min(float(cohens_d) / 5, 1.0) +
+            0.35 * min(float(cohens_d) / _C.DETECTOR_COHENS_D_DIVISOR, 1.0) +
             0.35 * variance_explained +
             0.30 * consistency
         )
 
-        confidence = min(1.0, (pos_tensor.shape[0] + neg_tensor.shape[0]) / 50)
+        confidence = min(1.0, (pos_tensor.shape[0] + neg_tensor.shape[0]) / _C.DETECTOR_LARGE_SAMPLE_N)
 
         return StructureScore(
             StructureType.LINEAR, score=float(linear_score),
@@ -95,17 +96,26 @@ def detect_cone_structure_score(
 
         if mean_cos_sim < 0:
             cone_score = 0.0
-        elif mean_cos_sim < 0.1:
+        elif mean_cos_sim < _C.DETECTOR_CONE_THRESHOLD_LOW:
             cone_score = mean_cos_sim
-        elif mean_cos_sim < 0.3:
-            cone_score = 0.1 + 0.2 * ((mean_cos_sim - 0.1) / 0.2)
-        elif mean_cos_sim < 0.7:
-            cone_score = 0.3 + 0.5 * ((mean_cos_sim - 0.3) / 0.4)
+        elif mean_cos_sim < _C.DETECTOR_CONE_RANGE_MID:
+            cone_score = (_C.DETECTOR_CONE_THRESHOLD_LOW
+                          + _C.DETECTOR_CONE_SCALE_MID
+                          * ((mean_cos_sim - _C.DETECTOR_CONE_THRESHOLD_LOW)
+                             / _C.DETECTOR_CONE_SCALE_MID))
+        elif mean_cos_sim < _C.DETECTOR_CONE_RANGE_HIGH:
+            cone_score = (_C.DETECTOR_CONE_RANGE_MID
+                          + (_C.DETECTOR_CONE_OFFSET_TOP
+                             - _C.DETECTOR_CONE_RANGE_MID)
+                          * ((mean_cos_sim - _C.DETECTOR_CONE_RANGE_MID)
+                             / _C.DETECTOR_CONE_SCALE_HIGH))
         else:
-            cone_score = 0.8 + 0.2 * ((mean_cos_sim - 0.7) / 0.3)
+            _top_span = 1.0 - _C.DETECTOR_CONE_OFFSET_TOP
+            _top_frac = (mean_cos_sim - _C.DETECTOR_CONE_RANGE_TOP) / _C.DETECTOR_CONE_SCALE_TOP
+            cone_score = _C.DETECTOR_CONE_OFFSET_TOP + _top_span * _top_frac
 
         consistency = max(0, 1 - std_cos_sim)
-        confidence = consistency * min(1.0, n_pairs / 20)
+        confidence = consistency * min(1.0, n_pairs / _C.DETECTOR_SMALL_SAMPLE_N)
 
         return StructureScore(
             StructureType.CONE, score=float(cone_score),
@@ -145,7 +155,7 @@ def detect_cluster_structure(
         return StructureScore(StructureType.CLUSTER, 0.0, 0.0, {"reason": "clustering_failed"})
 
     cluster_score = max(0, min(1, (best_silhouette + 1) / 2))
-    confidence = min(1.0, n_samples / 30)
+    confidence = min(1.0, n_samples / _C.DETECTOR_CLUSTER_SAMPLE_N)
 
     return StructureScore(
         StructureType.CLUSTER, score=float(cluster_score),

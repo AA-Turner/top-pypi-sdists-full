@@ -13,6 +13,11 @@ class TestClickhouse(Validator):
     dialect = "clickhouse"
 
     def test_clickhouse(self):
+        self.validate_identity(
+            "cast(notEmpty(report_task_id)?report_task_id:'-1' AS text)",
+            "CAST(CASE WHEN notEmpty(report_task_id) THEN report_task_id ELSE '-1' END AS String)",
+        )
+
         expr = quote_identifiers(self.parse_one("{start_date:String}"), dialect="clickhouse")
         self.assertEqual(expr.sql("clickhouse"), "{start_date: String}")
 
@@ -93,6 +98,7 @@ class TestClickhouse(Validator):
         self.validate_identity("SELECT groupUniqArray(2)(a)")
         self.validate_identity("SELECT exponentialTimeDecayedAvg(60)(a, b)")
         self.validate_identity("levenshteinDistance(col1, col2)", "editDistance(col1, col2)")
+        self.validate_identity("jaroWinklerSimilarity('hello', 'world')")
         self.validate_identity("SELECT * FROM foo WHERE x GLOBAL IN (SELECT * FROM bar)")
         self.validate_identity("SELECT * FROM foo WHERE x GLOBAL NOT IN (SELECT * FROM bar)")
         self.validate_identity("POSITION(haystack, needle)")
@@ -110,6 +116,15 @@ class TestClickhouse(Validator):
         self.validate_identity("TRUNCATE DATABASE db")
         self.validate_identity("TRUNCATE DATABASE db ON CLUSTER test_cluster")
         self.validate_identity("TRUNCATE DATABASE db ON CLUSTER '{cluster}'")
+
+        # Numeric trunc
+        self.validate_identity("trunc(3.14159, 2)").assert_is(exp.Trunc)
+        self.validate_identity("trunc(3.14159)").assert_is(exp.Trunc)
+        self.validate_all(
+            "trunc(3.14159, 2)",
+            read={"postgres": "TRUNC(3.14159, 2)"},
+        )
+
         self.validate_identity("EXCHANGE TABLES x.a AND y.b", check_command_warning=True)
         self.validate_identity("CREATE TABLE test (id UInt8) ENGINE=Null()")
         self.validate_identity(
@@ -672,6 +687,8 @@ class TestClickhouse(Validator):
         self.validate_identity("currentDatabase()", "CURRENT_DATABASE()")
         self.validate_identity("currentSchemas(TRUE)", "CURRENT_SCHEMAS(TRUE)")
 
+        self.validate_identity("VERSION()")
+
         self.validate_identity(
             "SELECT quantilesExactExclusive(0.25, 0.5, 0.75)(x) AS y FROM (SELECT number AS x FROM num)"
         )
@@ -679,6 +696,13 @@ class TestClickhouse(Validator):
         self.validate_identity("SELECT or(0, 1, -2)", "SELECT 0 OR 1 OR -2")
         self.validate_identity("SELECT and(1, 2, 3)", "SELECT 1 AND 2 AND 3")
         self.validate_identity("SELECT or(and(3, 0), 5)", "SELECT (3 AND 0) OR 5")
+
+        self.validate_identity("arrayCompact([1, 1, nan, nan, 2, 3, 3, 3])").assert_is(
+            exp.ArrayCompact
+        )
+        self.validate_identity("arrayConcat([1, 2], [3, 4])").assert_is(exp.ArrayConcat)
+        self.validate_identity("arrayDistinct([1, 2, 2, 3, 1])").assert_is(exp.ArrayDistinct)
+        self.validate_identity("SELECT UTCTimestamp()", "SELECT CURRENT_TIMESTAMP('UTC')")
 
     def test_clickhouse_values(self):
         ast = self.parse_one("SELECT * FROM VALUES (1, 2, 3)")
@@ -928,6 +952,14 @@ ORDER BY (
         )
         self.validate_identity(
             'CREATE TABLE t1 ("x" UInt32, "y" Dynamic, "z" Dynamic(max_types = 10)) ENGINE=MergeTree ORDER BY x'
+        )
+        self.validate_identity(
+            "CREATE TABLE test_table (id Int32, name String) ENGINE=MergeTree PRIMARY KEY id",
+            "CREATE TABLE test_table (id Int32, name String) ENGINE=MergeTree PRIMARY KEY (id)",
+        )
+        self.validate_identity(
+            "CREATE TABLE test_table (id Int32, name String) ENGINE=MergeTree PRIMARY KEY tuple()",
+            "CREATE TABLE test_table (id Int32, name String) ENGINE=MergeTree PRIMARY KEY (tuple())",
         )
 
         self.validate_all(

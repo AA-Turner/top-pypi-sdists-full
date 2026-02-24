@@ -243,6 +243,7 @@ class TestMySQL(Validator):
         self.validate_identity("""SELECT * FROM foo WHERE 'ab' MEMBER OF(content)""")
         self.validate_identity("SELECT CURRENT_TIMESTAMP(6)")
         self.validate_identity("SELECT CURRENT_ROLE()")
+        self.validate_identity("SELECT CURTIME()", "SELECT CURRENT_TIME()")
         self.validate_identity("x ->> '$.name'")
         self.validate_identity("SELECT CAST(`a`.`b` AS CHAR) FROM foo")
         self.validate_identity("SELECT TRIM(LEADING 'bla' FROM ' XXX ')")
@@ -361,6 +362,7 @@ class TestMySQL(Validator):
         self.validate_identity("SELECT SUBSTR(1 FROM 2 FOR 3)", "SELECT SUBSTRING(1, 2, 3)")
         self.validate_identity("SELECT ELT(2, 'foo', 'bar', 'baz') AS Result")
         self.validate_identity("SELECT CHARSET(CHAR(100 USING utf8))")
+        self.validate_identity("SELECT VERSION()")
 
     def test_types(self):
         for char_type in MySQL.Generator.CHAR_CAST_MAPPING:
@@ -1554,6 +1556,26 @@ COMMENT='客户账户表'"""
         self.validate_identity("x MOD y", "x % y").assert_is(exp.Mod)
         self.validate_identity("MOD(x, y)", "x % y").assert_is(exp.Mod)
 
+    def test_numeric_trunc(self):
+        # MySQL uses TRUNCATE for numeric truncation
+        self.validate_identity("TRUNCATE(3.14159, 2)").assert_is(exp.Trunc)
+        self.validate_identity("TRUNCATE(price, 0)").assert_is(exp.Trunc)
+
+        # TRUNC alias normalizes to TRUNCATE in MySQL
+        self.validate_identity("TRUNC(3.14159, 2)", "TRUNCATE(3.14159, 2)").assert_is(exp.Trunc)
+
+        # Cross-dialect numeric truncation transpilation
+        self.validate_all(
+            "TRUNCATE(3.14159, 2)",
+            write={
+                "mysql": "TRUNCATE(3.14159, 2)",
+                "oracle": "TRUNC(3.14159, 2)",
+                "postgres": "TRUNC(3.14159, 2)",
+                "snowflake": "TRUNC(3.14159, 2)",
+                "tsql": "ROUND(3.14159, 2, 1)",
+            },
+        )
+
     def test_valid_interval_units(self):
         for unit in (
             "SECOND_MICROSECOND",
@@ -1570,3 +1592,20 @@ COMMENT='客户账户表'"""
         ):
             with self.subTest(f"Testing INTERVAL unit: {unit}"):
                 self.validate_identity(f"DATE_ADD(base_date, INTERVAL day_interval {unit})")
+
+    def test_create_trigger(self):
+        """Test that MySQL CREATE TRIGGER statements fall back to Command parsing."""
+        self.validate_identity(
+            "CREATE TRIGGER check_age BEFORE INSERT ON users FOR EACH ROW BEGIN SET NEW.created_at = NOW() END",
+            check_command_warning=True,
+        )
+
+        self.validate_identity(
+            "CREATE TRIGGER audit_update AFTER UPDATE ON accounts FOR EACH ROW BEGIN INSERT INTO audit_log (user_id, old_balance, new_balance, changed_at) VALUES (OLD.user_id, OLD.balance, NEW.balance, NOW()) END",
+            check_command_warning=True,
+        )
+
+        self.validate_identity(
+            "CREATE TRIGGER track_deletes BEFORE DELETE ON orders FOR EACH ROW BEGIN UPDATE statistics SET delete_count = delete_count + 1 WHERE table_name = 'orders' END",
+            check_command_warning=True,
+        )

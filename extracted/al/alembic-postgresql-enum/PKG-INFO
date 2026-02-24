@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alembic-postgresql-enum
-Version: 1.9.0
+Version: 1.10.0
 Summary: Alembic autogenerate support for creation, alteration and deletion of enums
 Project-URL: Source code, https://github.com/Pogchamp-company/alembic-postgresql-enum
 Author: RustyGuard, AlexandrovRoman

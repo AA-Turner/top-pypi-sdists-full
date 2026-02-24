@@ -11,6 +11,11 @@ from typing import List
 from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations import Activations
 from wisent.core.models import get_generate_kwargs
+from wisent.core.constants import (DEFAULT_LAYER, CLASSIFIER_THRESHOLD,
+    AGENT_DEFAULT_SAMPLES, CLASSIFIER_MLP_HIDDEN_DIM,
+    CLASSIFIER_NUM_EPOCHS, CLASSIFIER_BATCH_SIZE, DEFAULT_CLASSIFIER_LR,
+    CLASSIFIER_EARLY_STOPPING_PATIENCE, AGENT_QUALITY_MAX_TOKENS_THRESHOLD,
+    AGENT_STEERING_PARAMS_MAX_TOKENS)
 
 
 class QualityEvaluationMixin:
@@ -89,8 +94,8 @@ class QualityEvaluationMixin:
         """
 
         # Generate model judgment (short response for yes/no decision)
-        gen_kwargs = get_generate_kwargs(max_new_tokens=20)
-        result = self.model.generate(threshold_prompt, layer_index=15, **gen_kwargs)
+        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_QUALITY_MAX_TOKENS_THRESHOLD)
+        result = self.model.generate(threshold_prompt, layer_index=DEFAULT_LAYER, **gen_kwargs)
         judgment = result[0] if isinstance(result, tuple) else result
         judgment = judgment.strip().upper()
 
@@ -150,8 +155,8 @@ class QualityEvaluationMixin:
         """
 
         # Generate model response
-        gen_kwargs = get_generate_kwargs(max_new_tokens=150)
-        result = self.model.generate(parameter_prompt, layer_index=15, **gen_kwargs)
+        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_STEERING_PARAMS_MAX_TOKENS)
+        result = self.model.generate(parameter_prompt, layer_index=DEFAULT_LAYER, **gen_kwargs)
         response = result[0] if isinstance(result, tuple) else result
 
         # Parse the response
@@ -162,9 +167,9 @@ class QualityEvaluationMixin:
         from ..agent.diagnose.agent_classifier_decision import ClassifierParams
 
         # Default values in case parsing fails
-        layer = 15
-        threshold = 0.5
-        samples = 25
+        layer = DEFAULT_LAYER
+        threshold = CLASSIFIER_THRESHOLD
+        samples = AGENT_DEFAULT_SAMPLES
         classifier_type = "logistic"
         reasoning = "Using default parameters due to parsing failure"
 
@@ -204,9 +209,9 @@ class QualityEvaluationMixin:
             model_name=self.model_name,
             aggregation_method="last_token",  # Default for model-determined params
             token_aggregation="average",  # Default for model-determined params
-            num_epochs=50,
-            batch_size=32,
-            learning_rate=0.001,
-            early_stopping_patience=10,
-            hidden_dim=128,
+            num_epochs=CLASSIFIER_NUM_EPOCHS,
+            batch_size=CLASSIFIER_BATCH_SIZE,
+            learning_rate=DEFAULT_CLASSIFIER_LR,
+            early_stopping_patience=CLASSIFIER_EARLY_STOPPING_PATIENCE,
+            hidden_dim=CLASSIFIER_MLP_HIDDEN_DIM,
         )

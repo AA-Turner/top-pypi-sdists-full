@@ -7,7 +7,7 @@ from wisent.core.constants import (
     PROBE_MLP_ALPHA, PROBE_VALIDATION_FRACTION, CV_FOLDS,
     DEFAULT_RANDOM_SEED, BLEND_DEFAULT, VIZ_N_NEIGHBORS,
     VIZ_MIN_DIST, VIZ_N_NEIGHBORS_TRIMAP, VIZ_PCA_COMPONENTS,
-    VIZ_N_COMPONENTS_2D,
+    VIZ_N_COMPONENTS_2D, PROBE_KNN_K,
 )
 
 
@@ -87,7 +87,7 @@ def compute_mlp_probe_accuracy(
 
 def compute_knn_accuracy(
     pos_activations: torch.Tensor, neg_activations: torch.Tensor,
-    k: int = 10, n_folds: int = CV_FOLDS,
+    k: int = PROBE_KNN_K, n_folds: int = CV_FOLDS,
 ) -> float:
     """Compute k-NN cross-validation accuracy. Measures local separability."""
     try:
@@ -103,7 +103,7 @@ def compute_knn_accuracy(
 
 def compute_knn_pca_accuracy(
     pos_activations: torch.Tensor, neg_activations: torch.Tensor,
-    k: int = 10, n_components: int = VIZ_PCA_COMPONENTS, n_folds: int = CV_FOLDS,
+    k: int = PROBE_KNN_K, n_components: int = VIZ_PCA_COMPONENTS, n_folds: int = CV_FOLDS,
 ) -> float:
     """Compute k-NN accuracy on PCA-reduced features."""
     try:
@@ -125,7 +125,7 @@ def compute_knn_pca_accuracy(
 
 def compute_knn_umap_accuracy(
     pos_activations: torch.Tensor, neg_activations: torch.Tensor,
-    k: int = 10, n_components: int = 10, n_folds: int = CV_FOLDS,
+    k: int = PROBE_KNN_K, n_components: int = PROBE_KNN_K, n_folds: int = CV_FOLDS,
 ) -> float:
     """Compute k-NN accuracy on UMAP-reduced features."""
     try:
@@ -153,7 +153,7 @@ def compute_knn_umap_accuracy(
 
 def compute_knn_pacmap_accuracy(
     pos_activations: torch.Tensor, neg_activations: torch.Tensor,
-    k: int = 10, n_components: int = VIZ_N_COMPONENTS_2D, n_folds: int = CV_FOLDS,
+    k: int = PROBE_KNN_K, n_components: int = VIZ_N_COMPONENTS_2D, n_folds: int = CV_FOLDS,
 ) -> float:
     """Compute k-NN accuracy on PaCMAP-reduced features."""
     try:

@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17541",
+    version="17542",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -105,6 +105,7 @@ setup(
         "QuantConnect.Lean",
         "QuantConnect.Lean.Engine",
         "QuantConnect.Lean.Engine.DataFeeds",
+        "QuantConnect.Lean.Engine.DataFeeds.DataDownloader",
         "QuantConnect.Lean.Engine.DataFeeds.Enumerators",
         "QuantConnect.Lean.Engine.DataFeeds.Enumerators.Factories",
         "QuantConnect.Lean.Engine.DataFeeds.Queues",
@@ -321,6 +322,7 @@ setup(
         "QuantConnect.Lean": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Lean.Engine": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Lean.Engine.DataFeeds": ["*.py", "*.pyi", "py.typed"],
+        "QuantConnect.Lean.Engine.DataFeeds.DataDownloader": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Lean.Engine.DataFeeds.Enumerators": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Lean.Engine.DataFeeds.Enumerators.Factories": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Lean.Engine.DataFeeds.Queues": ["*.py", "*.pyi", "py.typed"],

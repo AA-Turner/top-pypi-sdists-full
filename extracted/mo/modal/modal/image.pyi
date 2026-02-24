@@ -143,6 +143,7 @@ class _Image(modal._object._Object):
     _deferred_mounts: collections.abc.Sequence[modal.mount._Mount]
     _added_python_source_set: frozenset[str]
     _metadata: typing.Optional[modal_proto.api_pb2.ImageMetadata]
+    _is_empty: bool
 
     def _initialize_from_empty(self): ...
     def _initialize_from_other(self, other: _Image): ...
@@ -186,6 +187,8 @@ class _Image(modal._object._Object):
         _namespace: int = 1,
         _do_assert_no_mount_layers: bool = True,
     ): ...
+    @staticmethod
+    def _from_scratch() -> _Image: ...
     def _copy_mount(self, mount: modal.mount._Mount, remote_path: typing.Union[str, pathlib.Path] = ".") -> _Image:
         """mdmd:hidden
         Internal
@@ -1058,6 +1061,7 @@ class Image(modal.object.Object):
     _deferred_mounts: collections.abc.Sequence[modal.mount.Mount]
     _added_python_source_set: frozenset[str]
     _metadata: typing.Optional[modal_proto.api_pb2.ImageMetadata]
+    _is_empty: bool
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -1105,6 +1109,8 @@ class Image(modal.object.Object):
         _namespace: int = 1,
         _do_assert_no_mount_layers: bool = True,
     ): ...
+    @staticmethod
+    def _from_scratch() -> Image: ...
     def _copy_mount(self, mount: modal.mount.Mount, remote_path: typing.Union[str, pathlib.Path] = ".") -> Image:
         """mdmd:hidden
         Internal

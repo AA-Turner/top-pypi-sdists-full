@@ -1,44 +1,45 @@
 use core::fmt;
 
-use num_bigint::BigInt;
-
+use hashbrown::HashTable;
+use pyo3::PyTraverseError;
+use pyo3::PyVisit;
 use pyo3::exceptions::PyKeyError;
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyMapping, PyString};
-use pyo3::{intern, FromPyObject};
 
-use crate::input::Int;
 use crate::PydanticUndefinedType;
-use jiter::{cached_py_string, StringCacheMode};
+use crate::py_gc::PyGcTraverse;
+use jiter::{StringCacheMode, cached_py_string};
 
 pub trait SchemaDict<'py> {
     fn get_as<T>(&self, key: &Bound<'py, PyString>) -> PyResult<Option<T>>
     where
-        T: FromPyObject<'py>;
+        T: FromPyObjectOwned<'py>;
 
     fn get_as_req<T>(&self, key: &Bound<'py, PyString>) -> PyResult<T>
     where
-        T: FromPyObject<'py>;
+        T: FromPyObjectOwned<'py>;
 }
 
 impl<'py> SchemaDict<'py> for Bound<'py, PyDict> {
     fn get_as<T>(&self, key: &Bound<'py, PyString>) -> PyResult<Option<T>>
     where
-        T: FromPyObject<'py>,
+        T: FromPyObjectOwned<'py>,
     {
         match self.get_item(key)? {
-            Some(t) => t.extract().map(Some),
+            Some(t) => t.extract().map(Some).map_err(Into::into),
             None => Ok(None),
         }
     }
 
     fn get_as_req<T>(&self, key: &Bound<'py, PyString>) -> PyResult<T>
     where
-        T: FromPyObject<'py>,
+        T: FromPyObjectOwned<'py>,
     {
         match self.get_item(key)? {
-            Some(t) => t.extract(),
-            None => py_err!(PyKeyError; "{}", key),
+            Some(t) => t.extract().map_err(Into::into),
+            None => py_err!(PyKeyError; "{key}"),
         }
     }
 }
@@ -46,7 +47,7 @@ impl<'py> SchemaDict<'py> for Bound<'py, PyDict> {
 impl<'py> SchemaDict<'py> for Option<&Bound<'py, PyDict>> {
     fn get_as<T>(&self, key: &Bound<'py, PyString>) -> PyResult<Option<T>>
     where
-        T: FromPyObject<'py>,
+        T: FromPyObjectOwned<'py>,
     {
         match self {
             Some(d) => d.get_as(key),
@@ -57,22 +58,30 @@ impl<'py> SchemaDict<'py> for Option<&Bound<'py, PyDict>> {
     #[cfg_attr(has_coverage_attribute, coverage(off))]
     fn get_as_req<T>(&self, key: &Bound<'py, PyString>) -> PyResult<T>
     where
-        T: FromPyObject<'py>,
+        T: FromPyObjectOwned<'py>,
     {
         match self {
             Some(d) => d.get_as_req(key),
-            None => py_err!(PyKeyError; "{}", key),
+            None => py_err!(PyKeyError; "{key}"),
         }
     }
 }
 
-macro_rules! py_error_type {
-    ($error_type:ty; $msg:expr) => {
-        <$error_type>::new_err($msg)
-    };
+/// Builds a new PyErr of type T, avoiding an allocation if the message is a constant.
+pub(crate) fn fmt_py_err<T>(msg: fmt::Arguments<'_>) -> PyErr
+where
+    T: pyo3::PyTypeInfo,
+{
+    if let Some(s) = msg.as_str() {
+        PyErr::new::<T, _>(s)
+    } else {
+        PyErr::new::<T, _>(msg.to_string())
+    }
+}
 
-    ($error_type:ty; $msg:expr, $( $msg_args:expr ),+ ) => {
-        <$error_type>::new_err(format!($msg, $( $msg_args ),+))
+macro_rules! py_error_type {
+    ($error_type:ty; $( $msg_args:expr ),+ ) => {
+        $crate::tools::fmt_py_err::<$error_type>(format_args!($( $msg_args ),+))
     };
 }
 pub(crate) use py_error_type;
@@ -127,16 +136,6 @@ pub fn truncate_safe_repr(v: &Bound<'_, PyAny>, max_len: Option<usize>) -> Strin
     write_truncated_to_limited_bytes(&mut limited_str, &input_str.to_string(), max_len)
         .expect("Writing to a `String` failed");
     limited_str
-}
-
-pub fn extract_i64(v: &Bound<'_, PyAny>) -> Option<i64> {
-    v.extract().ok()
-}
-
-pub fn extract_int(v: &Bound<'_, PyAny>) -> Option<Int> {
-    extract_i64(v)
-        .map(Int::I64)
-        .or_else(|| v.extract::<BigInt>().ok().map(Int::Big))
 }
 
 pub(crate) fn new_py_string<'py>(py: Python<'py>, s: &str, cache_str: StringCacheMode) -> Bound<'py, PyString> {
@@ -201,4 +200,121 @@ pub fn mapping_get<'py>(
     mapping
         .call_method1(intern!(mapping.py(), "get"), (key, undefined))
         .map(|value| if value.is(undefined) { None } else { Some(value) })
+}
+
+/// A hash table which uses (hashable) Python objects as keys
+#[derive(Debug)]
+pub struct PyHashTable<T>(HashTable<PyHashTableEntry<T>>);
+
+#[derive(Debug)]
+struct PyHashTableEntry<T> {
+    key: Py<PyAny>,
+    /// Precomputed hash value (from Python hash) - this avoids possibility of Python
+    /// dynamic nature causing rehashing to fail
+    hash: u64,
+    value: T,
+}
+
+impl PyGcTraverse for PyHashTable<usize> {
+    fn py_gc_traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        // traverse only the keys, as the values are just usize indices
+        self.0.iter().try_for_each(|entry| entry.key.py_gc_traverse(visit))
+    }
+}
+
+impl<T> PyHashTable<T> {
+    /// Create a new empty hash table with the specified capacity
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(HashTable::with_capacity(capacity))
+    }
+
+    /// Insert a value into the hash table without checking for duplicates
+    ///
+    /// Errors if the key is unhashable
+    pub fn insert_unique(&mut self, key: Bound<'_, PyAny>, value: T) -> PyResult<()> {
+        let hash = hash_object(&key)?;
+        let entry = PyHashTableEntry {
+            key: key.unbind(),
+            hash,
+            value,
+        };
+        self.0.insert_unique(hash, entry, Self::get_hash);
+        Ok(())
+    }
+
+    /// Find a value in the hash table by Python object key
+    pub fn get(&self, value: &Bound<'_, PyAny>) -> PyResult<Option<&T>> {
+        let mut searcher = HashTableSearcher::new(value);
+        let hash = hash_object(value)?;
+        let result = self.0.find(hash, |entry| searcher.is_equal(&entry.key));
+        searcher.ensure_no_error()?;
+        Ok(result.map(|entry| &entry.value))
+    }
+
+    #[inline]
+    fn get_hash(entry: &PyHashTableEntry<T>) -> u64 {
+        entry.hash
+    }
+}
+
+/// Helper for `PyHashTable` which works around possible errors during equality checks
+struct HashTableSearcher<'a, 'py> {
+    target: &'a Bound<'py, PyAny>,
+    eq_error: Option<PyErr>,
+}
+
+impl<'a, 'py> HashTableSearcher<'a, 'py> {
+    /// Create a new searcher for the specified target
+    fn new(target: &'a Bound<'py, PyAny>) -> Self {
+        Self { target, eq_error: None }
+    }
+
+    /// Compare the target with another Python object for equality
+    ///
+    /// On error, returns true and stores the error internally to short-circuit the search
+    fn is_equal(&mut self, other: &Py<PyAny>) -> bool {
+        self.target.eq(other).unwrap_or_else(|e| {
+            self.eq_error = Some(e);
+            true
+        })
+    }
+
+    /// Consumes the searcher, returning any error encountered during equality checks
+    fn ensure_no_error(self) -> PyResult<()> {
+        match self.eq_error {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
+    }
+}
+
+fn hash_object(value: &Bound<'_, PyAny>) -> PyResult<u64> {
+    let hash_value = cast_unsigned(value.hash()?).try_into()?;
+    Ok(hash_value)
+}
+
+// TODO: replace with isize::cast_unsigned on MSRV 1.87
+fn cast_unsigned(x: isize) -> usize {
+    x as usize
+}
+
+impl<T: PyGcTraverse> PyGcTraverse for PyHashTableEntry<T> {
+    fn py_gc_traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.key.py_gc_traverse(visit)?;
+        self.value.py_gc_traverse(visit)?;
+        Ok(())
+    }
+}
+
+impl PyGcTraverse for usize {
+    #[inline]
+    fn py_gc_traverse(&self, _visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        Ok(())
+    }
+}
+
+pub const ROOT_FIELD: &str = "root";
+
+pub fn root_field_py_str(py: Python<'_>) -> &'_ Bound<'_, PyString> {
+    intern!(py, ROOT_FIELD)
 }

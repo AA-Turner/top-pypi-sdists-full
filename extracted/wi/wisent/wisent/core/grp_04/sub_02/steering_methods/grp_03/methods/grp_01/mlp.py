@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 from wisent.core.steering_methods.core.atoms import PerLayerBaseSteeringMethod
 from wisent.core.errors import InsufficientDataError
-from wisent.core.constants import EARLY_STOP_TOL, MLP_HIDDEN_DIM, MLP_NUM_LAYERS, MLP_DROPOUT, MLP_OPTIMIZATION_STEPS, MLP_LEARNING_RATE, MLP_WEIGHT_DECAY
+from wisent.core.constants import EARLY_STOP_TOL, MLP_HIDDEN_DIM, MLP_NUM_LAYERS, MLP_DROPOUT, MLP_OPTIMIZATION_STEPS, MLP_LEARNING_RATE, MLP_WEIGHT_DECAY, MLP_EARLY_STOPPING_PATIENCE, MLP_INPUT_DIVISOR, GATING_HIDDEN_DIM_DIVISOR
 
 __all__ = ["MLPMethod"]
 
@@ -30,7 +30,7 @@ class MLPClassifier(nn.Module):
         current_dim = input_dim
         
         for i in range(num_layers):
-            next_dim = hidden_dim if i < num_layers - 1 else hidden_dim // 2
+            next_dim = hidden_dim if i < num_layers - 1 else hidden_dim // GATING_HIDDEN_DIM_DIVISOR
             layers.extend([
                 nn.Linear(current_dim, next_dim),
                 nn.LayerNorm(next_dim),
@@ -92,7 +92,7 @@ class MLPMethod(PerLayerBaseSteeringMethod):
         X, y = X[perm], y[perm]
         
         # Get hyperparameters
-        mlp_hidden = int(self.kwargs.get("hidden_dim", min(MLP_HIDDEN_DIM, hidden_dim // 4)))
+        mlp_hidden = int(self.kwargs.get("hidden_dim", min(MLP_HIDDEN_DIM, hidden_dim // MLP_INPUT_DIVISOR)))
         mlp_layers = int(self.kwargs.get("num_layers", MLP_NUM_LAYERS))
         dropout = float(self.kwargs.get("dropout", MLP_DROPOUT))
         epochs = int(self.kwargs.get("epochs", MLP_OPTIMIZATION_STEPS))
@@ -114,7 +114,7 @@ class MLPMethod(PerLayerBaseSteeringMethod):
         mlp.train()
         best_loss = float('inf')
         patience_counter = 0
-        patience = 20
+        patience = MLP_EARLY_STOPPING_PATIENCE
         
         for epoch in range(epochs):
             optimizer.zero_grad()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import re
 import sys
 import types
@@ -35,6 +36,7 @@ from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.ext.autodoc import Options
 
+import sphinx_autodoc_typehints as sat
 from sphinx_autodoc_typehints import (
     _resolve_type_guarded_imports,
     backfill_type_hints,
@@ -59,13 +61,18 @@ Y = TypeVar("Y", bound=str)
 Z = TypeVar("Z", bound="A")
 S = TypeVar("S", bound="miss")  # type: ignore[name-defined] # miss not defined on purpose # noqa: F821
 W = NewType("W", str)
-P = typing_extensions.ParamSpec("P")
-P_args = P.args  # type:ignore[attr-defined]
-P_kwargs = P.kwargs  # type:ignore[attr-defined]
-P_co = typing_extensions.ParamSpec("P_co", covariant=True)  # type: ignore[misc]
-P_contra = typing_extensions.ParamSpec("P_contra", contravariant=True)  # type: ignore[misc]
-P_bound = typing_extensions.ParamSpec("P_bound", bound=str)  # type: ignore[misc]
 
+
+class SomeEnum(enum.Enum):
+    VALUE = "val"
+
+
+P = typing_extensions.ParamSpec("P")
+P_args = P.args
+P_kwargs = P.kwargs
+P_co = typing_extensions.ParamSpec("P_co", covariant=True)  # ty: ignore[invalid-paramspec]
+P_contra = typing_extensions.ParamSpec("P_contra", contravariant=True)  # ty: ignore[invalid-paramspec]
+P_bound = typing_extensions.ParamSpec("P_bound", bound=str)  # ty: ignore[invalid-paramspec]
 # Mypy does not support recursive type aliases, but
 # other type checkers do.
 RecList = Union[int, List["RecList"]]
@@ -90,8 +97,7 @@ class C(B[str]): ...
 class D(typing_extensions.Protocol): ...
 
 
-class E(typing_extensions.Protocol[T]):  # type: ignore[misc]
-    ...
+class E(typing_extensions.Protocol[T]): ...
 
 
 class Slotted:
@@ -103,11 +109,9 @@ class Metaclass(type): ...
 
 class HintedMethods:
     @classmethod
-    def from_magic(cls) -> typing_extensions.Self:  # type: ignore[empty-body]
-        ...
+    def from_magic(cls) -> typing_extensions.Self: ...
 
-    def method(self) -> typing_extensions.Self:  # type: ignore[empty-body]
-        ...
+    def method(self) -> typing_extensions.Self: ...
 
 
 PY312_PLUS = sys.version_info >= (3, 12)
@@ -126,7 +130,7 @@ PY312_PLUS = sys.version_info >= (3, 12)
         pytest.param(AnyStr, "typing", "AnyStr", (), id="AnyStr"),
         pytest.param(Dict, "typing", "Dict", (), id="Dict"),
         pytest.param(Dict[str, int], "typing", "Dict", (str, int), id="Dict_parametrized"),
-        pytest.param(Dict[T, int], "typing", "Dict", (T, int), id="Dict_typevar"),  # type: ignore[valid-type]
+        pytest.param(Dict[T, int], "typing", "Dict", (T, int), id="Dict_typevar"),
         pytest.param(Tuple, "typing", "Tuple", (), id="Tuple"),
         pytest.param(Tuple[str, int], "typing", "Tuple", (str, int), id="Tuple_parametrized"),
         pytest.param(Union[str, int], "typing", "Union", (str, int), id="Union"),
@@ -186,21 +190,21 @@ _CASES = [
     pytest.param(Type[A], rf":py:class:`~typing.Type`\ \[:py:class:`~{__name__}.A`]", id="typing-A"),
     pytest.param(Any, ":py:data:`~typing.Any`", id="Any"),
     pytest.param(AnyStr, ":py:data:`~typing.AnyStr`", id="AnyStr"),
-    pytest.param(Generic[T], r":py:class:`~typing.Generic`\ \[:py:class:`~typing.TypeVar`\ \(``T``)]", id="Generic"),  # type: ignore[index]
+    pytest.param(Generic[T], r":py:class:`~typing.Generic`\ \[:py:class:`~typing.TypeVar`\ \(``T``)]", id="Generic"),
     pytest.param(Mapping, ":py:class:`~collections.abc.Mapping`", id="Mapping"),
     pytest.param(
-        Mapping[T, int],  # type: ignore[valid-type]
+        Mapping[T, int],
         r":py:class:`~collections.abc.Mapping`\ \[:py:class:`~typing.TypeVar`\ \(``T``), :py:class:`int`]",
         id="Mapping-T-int",
     ),
     pytest.param(
-        Mapping[str, V_contra],  # type: ignore[valid-type]
+        Mapping[str, V_contra],
         r":py:class:`~collections.abc.Mapping`\ \[:py:class:`str`, :py:class:`~typing.TypeVar`\ \("
         "``V_contra``, contravariant=True)]",
         id="Mapping-T-int-contra",
     ),
     pytest.param(
-        Mapping[T, U_co],  # type: ignore[valid-type]
+        Mapping[T, U_co],
         r":py:class:`~collections.abc.Mapping`\ \[:py:class:`~typing.TypeVar`\ \(``T``), "
         r":py:class:`~typing.TypeVar`\ \(``U_co``, covariant=True)]",
         id="Mapping-T-int-co",
@@ -212,18 +216,18 @@ _CASES = [
     ),
     pytest.param(Dict, ":py:class:`~typing.Dict`", id="Dict"),
     pytest.param(
-        Dict[T, int],  # type: ignore[valid-type]
+        Dict[T, int],
         r":py:class:`~typing.Dict`\ \[:py:class:`~typing.TypeVar`\ \(``T``), :py:class:`int`]",
         id="Dict-T-int",
     ),
     pytest.param(
-        Dict[str, V_contra],  # type: ignore[valid-type]
+        Dict[str, V_contra],
         r":py:class:`~typing.Dict`\ \[:py:class:`str`, :py:class:`~typing.TypeVar`\ \(``V_contra``, "
         r"contravariant=True)]",
         id="Dict-T-int-contra",
     ),
     pytest.param(
-        Dict[T, U_co],  # type: ignore[valid-type]
+        Dict[T, U_co],
         r":py:class:`~typing.Dict`\ \[:py:class:`~typing.TypeVar`\ \(``T``),"
         r" :py:class:`~typing.TypeVar`\ \(``U_co``, covariant=True)]",
         id="Dict-T-int-co",
@@ -359,7 +363,7 @@ _CASES = [
     pytest.param(D, f":py:class:`~{__name__}.D`", id="D"),
     pytest.param(E, f":py:class:`~{__name__}.E`", id="E"),
     pytest.param(E[int], rf":py:class:`~{__name__}.E`\ \[:py:class:`int`]", id="E-int"),
-    pytest.param(W, r":py:obj:`~typing.NewType`\ \(``W``, :py:class:`str`)", id="W"),
+    pytest.param(W, f":py:class:`~{__name__}.W` (:py:class:`str`)", id="W"),
     pytest.param(T, r":py:class:`~typing.TypeVar`\ \(``T``)", id="T"),
     pytest.param(U_co, r":py:class:`~typing.TypeVar`\ \(``U_co``, covariant=True)", id="U-co"),
     pytest.param(V_contra, r":py:class:`~typing.TypeVar`\ \(``V_contra``, contravariant=True)", id="V-contra"),
@@ -491,6 +495,12 @@ def test_always_use_bars_union(annotation: str, expected_result: str) -> None:
         pytest.param("ClassVar", int, ":py:data:`~typing.ClassVar`\\ \\[:py:class:`int`]", id="ClassVar"),
         pytest.param("NoReturn", None, ":py:data:`~typing.NoReturn`", id="NoReturn"),
         pytest.param("Literal", ("a", 1), ":py:data:`~typing.Literal`\\ \\[``'a'``, ``1``]", id="Literal"),
+        pytest.param(
+            "Literal",
+            (SomeEnum.VALUE,),
+            rf":py:data:`~typing.Literal`\ \[:py:attr:`~{__name__}.SomeEnum.VALUE`]",
+            id="Literal-enum",
+        ),
         pytest.param("Type", None, ":py:class:`~typing.Type`", id="Type-none"),
         pytest.param("Type", (A,), rf":py:class:`~typing.Type`\ \[:py:class:`~{__name__}.A`]", id="Type-A"),
     ],
@@ -940,7 +950,7 @@ def test_bound_class_method(method: FunctionType) -> None:
 def test_syntax_error_backfill() -> None:
     # Regression test for #188
     # fmt: off
-    def func(x):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
+    def func(x):  # noqa: ANN001, ANN202
         return x
 
     # fmt: on
@@ -954,11 +964,7 @@ def test_resolve_typing_guard_imports(app: SphinxTestApp, status: StringIO, warn
     app.build()
     out = status.getvalue()
     assert "build succeeded" in out
-    err = warning.getvalue()
-    r = re.compile(r"WARNING: Failed guarded type import")
-    assert len(r.findall(err)) == 1
-    pat = r'WARNING: Failed guarded type import with ImportError\("cannot import name \'missing\' from \'functools\''
-    assert re.search(pat, err)
+    assert "Failed guarded type import" not in warning.getvalue()
 
 
 @pytest.mark.sphinx("text", testroot="resolve-typing-guard-tmp")
@@ -1220,3 +1226,57 @@ def test_wrong_module_path(app: SphinxTestApp, status: StringIO, warning: String
 
     assert "build succeeded" in status.getvalue()  # Build succeeded
     assert not warning.getvalue().strip()
+
+
+def test_inject_rtype_inserts_blank_line_before_rtype(monkeypatch: pytest.MonkeyPatch) -> None:
+    def sample() -> str:
+        return "ok"
+
+    config = create_autospec(
+        Config,
+        typehints_document_rtype=True,
+        typehints_document_rtype_none=True,
+        typehints_use_rtype=True,
+        python_display_short_literal_types=False,
+    )
+    app: Sphinx = create_autospec(Sphinx, config=config)
+
+    monkeypatch.setattr(
+        sat,
+        "get_insert_index",
+        lambda _app, _lines: sat.InsertIndexInfo(insert_index=1, found_directive=True),
+    )
+    monkeypatch.setattr(sat, "format_annotation", lambda *_args, **_kwargs: "str")
+    monkeypatch.setattr(sat, "add_type_css_class", lambda value: value)
+
+    lines = ["A paragraph.", ".. note:: hi"]
+    sat._inject_rtype({"return": str}, sample, app, "function", "sample", lines)  # noqa: SLF001
+
+    assert lines == ["A paragraph.", "", ":rtype: str", "", ".. note:: hi"]
+
+
+def test_inject_rtype_does_not_add_extra_blank_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    def sample() -> str:
+        return "ok"
+
+    config = create_autospec(
+        Config,
+        typehints_document_rtype=True,
+        typehints_document_rtype_none=True,
+        typehints_use_rtype=True,
+        python_display_short_literal_types=False,
+    )
+    app: Sphinx = create_autospec(Sphinx, config=config)
+
+    monkeypatch.setattr(
+        sat,
+        "get_insert_index",
+        lambda _app, _lines: sat.InsertIndexInfo(insert_index=1),
+    )
+    monkeypatch.setattr(sat, "format_annotation", lambda *_args, **_kwargs: "str")
+    monkeypatch.setattr(sat, "add_type_css_class", lambda value: value)
+
+    lines = ["", ""]
+    sat._inject_rtype({"return": str}, sample, app, "function", "sample", lines)  # noqa: SLF001
+
+    assert lines == ["", ":rtype: str", ""]

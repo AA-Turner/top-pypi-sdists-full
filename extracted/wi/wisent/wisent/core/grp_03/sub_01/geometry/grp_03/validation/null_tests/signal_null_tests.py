@@ -4,7 +4,14 @@ from typing import Dict, List, Tuple
 import torch
 import numpy as np
 
-from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, CONFIDENCE_LEVEL
+from wisent.core.constants import (
+    ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, CONFIDENCE_LEVEL,
+    MAX_PAIRS_FOR_NULL_TEST, SIGNIFICANCE_ALPHA,
+    NULL_TEST_Z_SCORE_NORMALIZER, NULL_TEST_Z_SCORE_SIGNIFICANT,
+    NONSENSE_PAIRS_MIN, NONSENSE_PAIRS_MAX,
+    Z_CRITICAL_95, Z_CRITICAL_99,
+    SIGNIFICANCE_MARGIN, PCA_MAX_COMPONENTS_NULL,
+)
 
 from ...metrics.probe.signal_metrics import (
     _adaptive_k, _adaptive_cv, _adaptive_pca_components,
@@ -28,8 +35,6 @@ def _compute_null_distribution(
         null_scores.append(metric_fn(X, y_perm))
     return np.array(null_scores)
 
-
-MAX_PAIRS_FOR_NULL_TEST = 1000
 
 
 def compute_signal_vs_null(
@@ -65,7 +70,7 @@ def compute_signal_vs_null(
 
     n_samples, n_features = X.shape
     # PCA reduce for high-dimensional concatenated data
-    pca_max = min(n_samples - 1, n_features, 50)
+    pca_max = min(n_samples - 1, n_features, PCA_MAX_COMPONENTS_NULL)
     if pca_max < n_features and pca_max >= 2:
         from sklearn.decomposition import PCA
         X = PCA(n_components=pca_max, random_state=DEFAULT_RANDOM_SEED).fit_transform(X)
@@ -107,7 +112,7 @@ def compute_signal_vs_null(
             "null_std": null_std,
             "z_score": z_score,
             "p_value": p_value,
-            "is_significant": p_value < 0.05,
+            "is_significant": p_value < SIGNIFICANCE_ALPHA,
         }
 
     return results
@@ -136,7 +141,7 @@ def compute_signal_vs_nonsense(
 
     n_samples = len(pos_np)
     if n_nonsense_pairs is None:
-        n_nonsense_pairs = max(30, min(n_samples, 100))
+        n_nonsense_pairs = max(NONSENSE_PAIRS_MIN, min(n_samples, NONSENSE_PAIRS_MAX))
 
     nonsense_pos, nonsense_neg = generate_nonsense_activations(
         model, tokenizer, n_pairs=n_nonsense_pairs, layer=layer, device=device
@@ -164,29 +169,29 @@ def compute_signal_vs_nonsense(
     if "knn_accuracy" in metric_keys:
         real_score = _knn_accuracy(X_real, y_real, k=k, cv=cv)
         nonsense_score = _knn_accuracy(X_nonsense, y_nonsense, k=k_nonsense, cv=cv_nonsense)
-        z_score = (real_score - nonsense_score) / 0.1
+        z_score = (real_score - nonsense_score) / NULL_TEST_Z_SCORE_NORMALIZER
         results["knn_accuracy"] = {
             "real_score": real_score, "nonsense_score": nonsense_score,
-            "z_score": z_score, "is_significant": z_score > 2.0,
+            "z_score": z_score, "is_significant": z_score > NULL_TEST_Z_SCORE_SIGNIFICANT,
         }
 
     if "knn_pca_accuracy" in metric_keys:
         pca_nonsense = _adaptive_pca_components(len(nonsense_pos_np) * 2, n_features)
         real_score = _knn_pca_accuracy(X_real, y_real, n_components=pca_components, k=k, cv=cv)
         nonsense_score = _knn_pca_accuracy(X_nonsense, y_nonsense, n_components=pca_nonsense, k=k_nonsense, cv=cv_nonsense)
-        z_score = (real_score - nonsense_score) / 0.1
+        z_score = (real_score - nonsense_score) / NULL_TEST_Z_SCORE_NORMALIZER
         results["knn_pca_accuracy"] = {
             "real_score": real_score, "nonsense_score": nonsense_score,
-            "z_score": z_score, "is_significant": z_score > 2.0,
+            "z_score": z_score, "is_significant": z_score > NULL_TEST_Z_SCORE_SIGNIFICANT,
         }
 
     if "mlp_probe_accuracy" in metric_keys:
         real_score = _mlp_accuracy(X_real, y_real, hidden=mlp_hidden, cv=cv)
         nonsense_score = _mlp_accuracy(X_nonsense, y_nonsense, hidden=mlp_hidden, cv=cv_nonsense)
-        z_score = (real_score - nonsense_score) / 0.1
+        z_score = (real_score - nonsense_score) / NULL_TEST_Z_SCORE_NORMALIZER
         results["mlp_probe_accuracy"] = {
             "real_score": real_score, "nonsense_score": nonsense_score,
-            "z_score": z_score, "is_significant": z_score > 2.0,
+            "z_score": z_score, "is_significant": z_score > NULL_TEST_Z_SCORE_SIGNIFICANT,
         }
 
     return results
@@ -217,13 +222,13 @@ def compute_aggregate_signal(
 
     if correction == "bonferroni":
         corrected_p = min(1.0, min_p * n_tests)
-        threshold = 0.05 / n_tests
+        threshold = SIGNIFICANCE_ALPHA / n_tests
     elif correction == "max_null":
         corrected_p = _max_null_correction(min_p, n_tests)
-        threshold = 0.05
+        threshold = SIGNIFICANCE_ALPHA
     else:
         corrected_p = min_p
-        threshold = 0.05
+        threshold = SIGNIFICANCE_ALPHA
 
     any_sig = corrected_p < threshold
 
@@ -264,7 +269,7 @@ def compute_signal_with_bounds(
     neg_np = neg_activations.cpu().numpy() if isinstance(neg_activations, torch.Tensor) else neg_activations
     n_samples = len(pos_np) + len(neg_np)
 
-    z_crit = 1.96 if confidence_level == 0.95 else 2.576
+    z_crit = Z_CRITICAL_95 if confidence_level == 0.95 else Z_CRITICAL_99
 
     for metric_name, metric_result in results.items():
         acc = metric_result["real_score"]
@@ -280,7 +285,7 @@ def compute_signal_with_bounds(
             "accuracy_upper": min(1.0, acc + margin),
             "margin_of_error": margin,
             "effect_size_cohens_d": effect_size,
-            "estimation_reliable": margin < 0.1,
+            "estimation_reliable": margin < SIGNIFICANCE_MARGIN,
         })
 
     return results

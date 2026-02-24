@@ -7,6 +7,7 @@ import re
 
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.huggingface_pairs.atoms import HuggingFaceBenchmarkExtractor
+from wisent.core.constants import DATA_SPLIT_SEED
 from wisent.core.contrastive_pairs.huggingface_pairs.hf_task_extractors.medium_priority_halulens_helpers import (
     entity_swap_hallucination,
     date_shift_hallucination,
@@ -56,7 +57,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
         "fabrication",      # Add completely fabricated details
     ]
 
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: int = DATA_SPLIT_SEED):
         """
         Initialize HalluLens extractor with dynamic generation.
         

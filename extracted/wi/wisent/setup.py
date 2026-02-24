@@ -67,6 +67,7 @@ setup(
         "hdbscan>=0.8.0",
         "umap-learn>=0.5.0",
         "pacmap>=0.7.0",
+        "optuna>=3.0.0",
     ],
     extras_require={
         "harness": [

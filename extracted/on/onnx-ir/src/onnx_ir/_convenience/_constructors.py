@@ -127,7 +127,8 @@ def tensor(
     if isinstance(value, str) or (
         isinstance(value, Sequence) and value and all(isinstance(elem, str) for elem in value)
     ):
-        array = np.strings.encode(array, encoding="utf-8")
+        # np,strings was added in numpy 2.0, so mypy's stubs may not include it yet.
+        array = np.strings.encode(array, encoding="utf-8")  # type: ignore[attr-defined]
         return _core.StringTensor(
             array,
             shape=_core.Shape(array.shape),
@@ -243,7 +244,7 @@ def val(
         >>> t.type
         Tensor(FLOAT)
         >>> t.shape
-        Shape([SymbolicDim(N), 42, 3])
+        Shape([SymbolicDim('N'), 42, 3])
 
     .. versionadded:: 0.1.9
 

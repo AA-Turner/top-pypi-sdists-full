@@ -668,6 +668,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def VolumeGetById(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.VolumeGetByIdRequest, modal_proto.api_pb2.VolumeGetByIdResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def VolumeGetFile(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.VolumeGetFileRequest, modal_proto.api_pb2.VolumeGetFileResponse]') -> None:
         pass
 
@@ -1704,6 +1708,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.VolumeDeleteRequest,
                 google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/VolumeGetById': grpclib.const.Handler(
+                self.VolumeGetById,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.VolumeGetByIdRequest,
+                modal_proto.api_pb2.VolumeGetByIdResponse,
             ),
             '/modal.client.ModalClient/VolumeGetFile': grpclib.const.Handler(
                 self.VolumeGetFile,
@@ -2778,6 +2788,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/VolumeDelete',
             modal_proto.api_pb2.VolumeDeleteRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.VolumeGetById = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/VolumeGetById',
+            modal_proto.api_pb2.VolumeGetByIdRequest,
+            modal_proto.api_pb2.VolumeGetByIdResponse,
         )
         self.VolumeGetFile = grpclib.client.UnaryUnaryMethod(
             channel,

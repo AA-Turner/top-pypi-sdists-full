@@ -1,34 +1,40 @@
 use std::sync::Arc;
 
-pub use cas_client::Client;
-use cas_client::RemoteClient;
+use cas_client::{Client, RemoteClient};
 
 use crate::configurations::*;
 use crate::errors::Result;
 
-pub(crate) fn create_remote_client(
+pub(crate) async fn create_remote_client(
     config: &TranslatorConfig,
     session_id: &str,
     dry_run: bool,
-) -> Result<Arc<dyn Client + Send + Sync>> {
+) -> Result<Arc<dyn Client>> {
     let cas_storage_config = &config.data_config;
 
     match cas_storage_config.endpoint {
-        Endpoint::Server(ref endpoint) => Ok(Arc::new(RemoteClient::new(
+        Endpoint::Server(ref endpoint) => Ok(RemoteClient::new(
             endpoint,
             &cas_storage_config.auth,
-            &Some(cas_storage_config.cache_config.clone()),
-            Some(config.shard_config.cache_directory.clone()),
             session_id,
             dry_run,
-        ))),
+            cas_storage_config.custom_headers.clone(),
+        )),
         Endpoint::FileSystem(ref path) => {
             #[cfg(not(target_family = "wasm"))]
             {
-                Ok(Arc::new(cas_client::LocalClient::new(path)?))
+                Ok(cas_client::LocalClient::new(path).await?)
             }
             #[cfg(target_family = "wasm")]
             unimplemented!("Local file system access is not supported in WASM builds")
+        },
+        Endpoint::InMemory => {
+            #[cfg(not(target_family = "wasm"))]
+            {
+                Ok(cas_client::MemoryClient::new())
+            }
+            #[cfg(target_family = "wasm")]
+            unimplemented!("In-memory client is not supported in WASM builds")
         },
     }
 }

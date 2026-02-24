@@ -22,7 +22,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestCall:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: Retell) -> None:
         call = client.call.retrieve(
@@ -30,7 +30,7 @@ class TestCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: Retell) -> None:
         response = client.call.with_raw_response.retrieve(
@@ -42,7 +42,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: Retell) -> None:
         with client.call.with_streaming_response.retrieve(
@@ -56,7 +56,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -64,7 +64,7 @@ class TestCall:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: Retell) -> None:
         call = client.call.update(
@@ -72,7 +72,7 @@ class TestCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: Retell) -> None:
         call = client.call.update(
@@ -90,7 +90,7 @@ class TestCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: Retell) -> None:
         response = client.call.with_raw_response.update(
@@ -102,7 +102,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: Retell) -> None:
         with client.call.with_streaming_response.update(
@@ -116,7 +116,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -124,13 +124,13 @@ class TestCall:
                 call_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list(self, client: Retell) -> None:
         call = client.call.list()
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: Retell) -> None:
         call = client.call.list(
@@ -172,7 +172,7 @@ class TestCall:
         )
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_list(self, client: Retell) -> None:
         response = client.call.with_raw_response.list()
@@ -182,7 +182,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_list(self, client: Retell) -> None:
         with client.call.with_streaming_response.list() as response:
@@ -194,7 +194,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete(self, client: Retell) -> None:
         call = client.call.delete(
@@ -202,7 +202,7 @@ class TestCall:
         )
         assert call is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: Retell) -> None:
         response = client.call.with_raw_response.delete(
@@ -214,7 +214,7 @@ class TestCall:
         call = response.parse()
         assert call is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: Retell) -> None:
         with client.call.with_streaming_response.delete(
@@ -228,7 +228,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: Retell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -236,7 +236,7 @@ class TestCall:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_phone_call(self, client: Retell) -> None:
         call = client.call.create_phone_call(
@@ -245,7 +245,7 @@ class TestCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_phone_call_with_all_params(self, client: Retell) -> None:
         call = client.call.create_phone_call(
@@ -259,6 +259,7 @@ class TestCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -267,6 +268,7 @@ class TestCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -382,7 +384,7 @@ class TestCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_create_phone_call(self, client: Retell) -> None:
         response = client.call.with_raw_response.create_phone_call(
@@ -395,7 +397,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_create_phone_call(self, client: Retell) -> None:
         with client.call.with_streaming_response.create_phone_call(
@@ -410,7 +412,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_web_call(self, client: Retell) -> None:
         call = client.call.create_web_call(
@@ -418,7 +420,7 @@ class TestCall:
         )
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_web_call_with_all_params(self, client: Retell) -> None:
         call = client.call.create_web_call(
@@ -431,6 +433,7 @@ class TestCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -439,6 +442,7 @@ class TestCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -551,7 +555,7 @@ class TestCall:
         )
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_create_web_call(self, client: Retell) -> None:
         response = client.call.with_raw_response.create_web_call(
@@ -563,7 +567,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_create_web_call(self, client: Retell) -> None:
         with client.call.with_streaming_response.create_web_call(
@@ -577,7 +581,7 @@ class TestCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_register_phone_call(self, client: Retell) -> None:
         call = client.call.register_phone_call(
@@ -585,7 +589,7 @@ class TestCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_register_phone_call_with_all_params(self, client: Retell) -> None:
         call = client.call.register_phone_call(
@@ -598,6 +602,7 @@ class TestCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -606,6 +611,7 @@ class TestCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -721,7 +727,7 @@ class TestCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_register_phone_call(self, client: Retell) -> None:
         response = client.call.with_raw_response.register_phone_call(
@@ -733,7 +739,7 @@ class TestCall:
         call = response.parse()
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_register_phone_call(self, client: Retell) -> None:
         with client.call.with_streaming_response.register_phone_call(
@@ -753,7 +759,7 @@ class TestAsyncCall:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.retrieve(
@@ -761,7 +767,7 @@ class TestAsyncCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.retrieve(
@@ -773,7 +779,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.retrieve(
@@ -787,7 +793,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -795,7 +801,7 @@ class TestAsyncCall:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.update(
@@ -803,7 +809,7 @@ class TestAsyncCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.update(
@@ -821,7 +827,7 @@ class TestAsyncCall:
         )
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.update(
@@ -833,7 +839,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(CallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.update(
@@ -847,7 +853,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -855,13 +861,13 @@ class TestAsyncCall:
                 call_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.list()
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.list(
@@ -903,7 +909,7 @@ class TestAsyncCall:
         )
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.list()
@@ -913,7 +919,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(CallListResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.list() as response:
@@ -925,7 +931,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.delete(
@@ -933,7 +939,7 @@ class TestAsyncCall:
         )
         assert call is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.delete(
@@ -945,7 +951,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert call is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.delete(
@@ -959,7 +965,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncRetell) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_id` but received ''"):
@@ -967,7 +973,7 @@ class TestAsyncCall:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_phone_call(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.create_phone_call(
@@ -976,7 +982,7 @@ class TestAsyncCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_phone_call_with_all_params(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.create_phone_call(
@@ -990,6 +996,7 @@ class TestAsyncCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -998,6 +1005,7 @@ class TestAsyncCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -1113,7 +1121,7 @@ class TestAsyncCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_create_phone_call(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.create_phone_call(
@@ -1126,7 +1134,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_create_phone_call(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.create_phone_call(
@@ -1141,7 +1149,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_web_call(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.create_web_call(
@@ -1149,7 +1157,7 @@ class TestAsyncCall:
         )
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_web_call_with_all_params(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.create_web_call(
@@ -1162,6 +1170,7 @@ class TestAsyncCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -1170,6 +1179,7 @@ class TestAsyncCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -1282,7 +1292,7 @@ class TestAsyncCall:
         )
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_create_web_call(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.create_web_call(
@@ -1294,7 +1304,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(WebCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_create_web_call(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.create_web_call(
@@ -1308,7 +1318,7 @@ class TestAsyncCall:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_register_phone_call(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.register_phone_call(
@@ -1316,7 +1326,7 @@ class TestAsyncCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_register_phone_call_with_all_params(self, async_client: AsyncRetell) -> None:
         call = await async_client.call.register_phone_call(
@@ -1329,6 +1339,7 @@ class TestAsyncCall:
                     "ambient_sound_volume": 1,
                     "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
                     "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
+                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -1337,6 +1348,7 @@ class TestAsyncCall:
                         "endpointing_ms": 0,
                         "provider": "azure",
                     },
+                    "data_storage_retention_days": 30,
                     "data_storage_setting": "everything",
                     "denoising_mode": "noise-cancellation",
                     "enable_backchannel": True,
@@ -1452,7 +1464,7 @@ class TestAsyncCall:
         )
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_register_phone_call(self, async_client: AsyncRetell) -> None:
         response = await async_client.call.with_raw_response.register_phone_call(
@@ -1464,7 +1476,7 @@ class TestAsyncCall:
         call = await response.parse()
         assert_matches_type(PhoneCallResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_register_phone_call(self, async_client: AsyncRetell) -> None:
         async with async_client.call.with_streaming_response.register_phone_call(

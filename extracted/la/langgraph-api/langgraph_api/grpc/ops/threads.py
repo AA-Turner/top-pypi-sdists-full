@@ -6,7 +6,7 @@ import asyncio
 from contextlib import AsyncExitStack
 from datetime import UTC
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -228,7 +228,7 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
     )
     status = THREAD_STATUS_FROM_PB.get(proto_thread.status, "idle")
 
-    return {
+    result = {
         "thread_id": thread_id,
         "created_at": created_at,
         "updated_at": updated_at,
@@ -242,13 +242,21 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
         "interrupts": _proto_interrupts_to_dict(dict(proto_thread.interrupts)),
     }
 
+    if proto_thread.extracted_json:
+        result["extracted"] = json_loads(proto_thread.extracted_json)
+
+    return result
+
 
 def _filter_thread_fields(
     thread: Thread, select: list[ThreadSelectField] | None
 ) -> dict[str, Any]:
     if not select:
         return dict(thread)
-    return {field: thread[field] for field in select if field in thread}
+    result = {field: thread[field] for field in select if field in thread}
+    if "extracted" in thread:
+        result["extracted"] = thread["extracted"]
+    return result
 
 
 def _normalize_uuid(value: UUID | str) -> str:
@@ -339,6 +347,7 @@ class Threads(Authenticated):
         sort_by: str | None = None,
         sort_order: str | None = None,
         select: list[ThreadSelectField] | None = None,
+        extract: dict[str, str] | None = None,
         ctx: Any = None,
     ) -> tuple[AsyncIterator[Thread], int | None]:  # type: ignore[return-value]
         metadata = metadata or {}
@@ -382,6 +391,9 @@ class Threads(Authenticated):
             request_kwargs["ids"] = [
                 pb.UUID(value=_normalize_uuid(thread_id)) for thread_id in ids
             ]
+
+        if extract:
+            request_kwargs["extract"] = extract
 
         client = await get_shared_client()
         response = await client.threads.Search(
@@ -701,8 +713,8 @@ class Threads(Authenticated):
         # table, but custom checkpointers store data elsewhere (e.g. Redis).
         # Call the custom checkpointer's acopy_thread to copy that data too.
         if USE_CUSTOM_CHECKPOINTER:
-            checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
-            await checkpointer.acopy_thread(str(thread_id), thread["thread_id"])
+            checkpointer = await api_checkpointer.get_checkpointer()
+            await checkpointer.acopy_thread(str(thread_id), str(thread["thread_id"]))
 
         async def generate_result():
             yield thread

@@ -568,7 +568,8 @@ class DynamoDBClient(BaseClient):
 
     def list_exports(self, **kwargs: Unpack[ListExportsInputTypeDef]) -> ListExportsOutputTypeDef:
         """
-        Lists completed exports within the past 90 days.
+        Lists completed exports within the past 90 days, in reverse alphanumeric order
+        of <code>ExportArn</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/list_exports.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#list_exports)

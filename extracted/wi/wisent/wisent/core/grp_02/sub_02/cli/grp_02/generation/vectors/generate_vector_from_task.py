@@ -5,7 +5,7 @@ import os
 import time
 import tempfile
 from argparse import Namespace
-from wisent.core.constants import TECZA_NUM_DIRECTIONS
+from wisent.core.constants import TECZA_NUM_DIRECTIONS, DATA_SPLIT_SEED
 
 from ..pairs.generate_pairs_from_task import execute_generate_pairs_from_task
 from ...analysis.geometry.get_activations import execute_get_activations
@@ -151,7 +151,7 @@ def execute_generate_vector_from_task(args):
             task_name=args.task,
             limit=args.num_pairs,
             output=pairs_file,
-            seed=42,
+            seed=DATA_SPLIT_SEED,
             verbose=args.verbose,
         )
         

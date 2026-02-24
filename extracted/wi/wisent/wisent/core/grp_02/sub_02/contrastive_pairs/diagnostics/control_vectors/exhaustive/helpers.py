@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple, Any
 
 from ..geometry import StructureType
 from .types import ExhaustiveCombinationResult
+from wisent.core import constants as _C
 
 
 __all__ = ["analyze_combination_patterns", "generate_exhaustive_recommendation"]
@@ -83,7 +84,7 @@ def generate_exhaustive_recommendation(
 
     parts.append(f"Tested {total_combinations} layer combinations.")
 
-    if combination_beats_single and improvement_over_single > 0.05:
+    if combination_beats_single and improvement_over_single > _C.MULTI_LAYER_IMPROVEMENT_THRESHOLD:
         layers_str = "+".join(f"L{l}" for l in best_combination)
         parts.append(
             f"BEST: {layers_str} ({best_structure.value}: {best_score:.3f}), "

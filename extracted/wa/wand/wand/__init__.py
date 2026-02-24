@@ -4,3 +4,6 @@
 .. _MagickWand API: http://www.imagemagick.org/script/magick-wand.php
 
 """
+from .version import VERSION
+
+__version__ = VERSION

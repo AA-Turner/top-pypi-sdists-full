@@ -11,7 +11,8 @@ from ..helpers.ContainerHelper import ContainerHelper
 from ..helpers.TypeTreeHelper import TypeTreeNode
 from ..helpers.UnityVersion import UnityVersion
 from ..streams import EndianBinaryWriter
-from . import BundleFile, File, ObjectReader
+from . import BundleFile, File
+from .ObjectReader import ObjectReader
 
 if TYPE_CHECKING:
     from ..classes import AssetBundle, Object
@@ -290,7 +291,7 @@ class SerializedFile(File.File):
         object_count = reader.read_int()
         self.objects = {}
         for _ in range(object_count):
-            obj = ObjectReader.ObjectReader(self, reader)
+            obj = ObjectReader.from_reader(self, reader)
             self.objects[obj.path_id] = obj
 
         # Read Scripts
@@ -315,7 +316,7 @@ class SerializedFile(File.File):
         # read the asset_bundles to get the containers
         for obj in self.objects.values():
             if obj.type == ClassIDType.AssetBundle:
-                self.assetbundle = obj.read()
+                self.assetbundle = obj.parse_as_object()
                 self._container = ContainerHelper(self.assetbundle)
                 break
         else:
@@ -413,7 +414,7 @@ class SerializedFile(File.File):
 
         # ReadObjects
         meta_writer.write_int(len(self.objects))
-        for obj in self.objects.values():
+        for obj in sorted(self.objects.values(), key=lambda x: x.path_id):
             obj.write(header, meta_writer, data_writer)
             data_writer.align_stream(8)
 

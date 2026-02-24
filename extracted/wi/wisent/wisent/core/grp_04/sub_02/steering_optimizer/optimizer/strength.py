@@ -18,7 +18,12 @@ from wisent.core.errors import (
     InsufficientDataError,
 )
 from wisent.core.steering_methods import SteeringMethodType
-from wisent.core.constants import DEFAULT_STRENGTH, DEFAULT_LIMIT
+from wisent.core.constants import (
+    DEFAULT_STRENGTH, DEFAULT_LIMIT, DEFAULT_LAYER,
+    DEFAULT_NUM_STRENGTH_STEPS, SEARCH_LAYER_OFFSET,
+    SEARCH_STRENGTH_RANGE_MIN, SEARCH_STRENGTH_RANGE_MAX,
+    AUTO_COMPREHENSIVE_TIME_MINUTES,
+)
 
 from ..types import SteeringOptimizationResult, SteeringOptimizationSummary
 
@@ -60,8 +65,8 @@ class StrengthOptimizationMixin:
                     params=["layer_search_range", "base_classification_layer"],
                     context="Layer optimization"
                 )
-            min_layer = max(1, self.base_classification_layer - 3)
-            max_layer = self.base_classification_layer + 3
+            min_layer = max(1, self.base_classification_layer - SEARCH_LAYER_OFFSET)
+            max_layer = self.base_classification_layer + SEARCH_LAYER_OFFSET
             layer_search_range = (min_layer, max_layer)
 
         raise NotImplementedError(
@@ -75,7 +80,7 @@ class StrengthOptimizationMixin:
         steering_method: SteeringMethod = SteeringMethod.CAA,
         layer: Optional[int] = None,
         strength_range: Optional[Tuple[float, float]] = None,
-        strength_steps: int = 10,
+        strength_steps: int = DEFAULT_NUM_STRENGTH_STEPS,
         limit: int = DEFAULT_LIMIT,
         method_params: Optional[Dict[str, Any]] = None
     ) -> SteeringOptimizationResult:
@@ -93,7 +98,7 @@ class StrengthOptimizationMixin:
             layer = self.base_classification_layer
 
         if strength_range is None:
-            strength_range = (0.1, 2.0)
+            strength_range = (SEARCH_STRENGTH_RANGE_MIN, SEARCH_STRENGTH_RANGE_MAX)
 
         logger.info(f"Optimizing steering strength for {task_name}")
         logger.info(f"   Method: {steering_method.value}, Layer: {layer}")
@@ -224,7 +229,7 @@ class StrengthOptimizationMixin:
         """Optimize CAA specific parameters."""
         return SteeringOptimizationResult(
             task_name=task_name,
-            best_steering_layer=layer if layer is not None else 15,
+            best_steering_layer=layer if layer is not None else DEFAULT_LAYER,
             best_steering_method="caa",
             best_steering_strength=strength,
             optimal_parameters={"normalize": True},
@@ -239,7 +244,7 @@ class StrengthOptimizationMixin:
         tasks: Optional[List[str]] = None,
         methods: Optional[List[SteeringMethod]] = None,
         limit: int = DEFAULT_LIMIT,
-        max_time_per_task_minutes: float = 20.0,
+        max_time_per_task_minutes: float = AUTO_COMPREHENSIVE_TIME_MINUTES,
         save_results: bool = True
     ) -> SteeringOptimizationSummary:
         """Run comprehensive steering optimization across multiple tasks and methods."""
@@ -280,8 +285,8 @@ class StrengthOptimizationMixin:
             total_configurations_tested=len(all_results),
             optimization_time_minutes=0.0,
             best_overall_method="caa",
-            best_overall_layer=15,
-            best_overall_strength=1.0,
+            best_overall_layer=DEFAULT_LAYER,
+            best_overall_strength=DEFAULT_STRENGTH,
             method_performance_ranking={},
             layer_effectiveness_analysis={},
             task_results=all_results,

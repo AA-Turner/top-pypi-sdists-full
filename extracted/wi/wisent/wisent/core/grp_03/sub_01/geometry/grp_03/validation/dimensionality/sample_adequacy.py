@@ -2,7 +2,12 @@
 
 import numpy as np
 from typing import Dict, Any
-from wisent.core.constants import ZERO_THRESHOLD, STAT_ALPHA, TARGET_POWER
+from wisent.core.constants import (
+    ZERO_THRESHOLD, STAT_ALPHA, TARGET_POWER,
+    SAMPLE_RATIO_ADEQUATE, SAMPLE_RATIO_GOOD, SAMPLE_RATIO_ACCEPTABLE,
+    SAMPLE_RATIO_MARGINAL,
+    EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE,
+)
 
 
 def compute_sample_dimension_ratio(
@@ -22,15 +27,15 @@ def compute_sample_dimension_ratio(
     ratio = n_samples / ambient_dim if ambient_dim > 0 else float('inf')
     eff_ratio = n_samples / effective_dim if effective_dim > 0 else float('inf')
 
-    if eff_ratio >= 20:
+    if eff_ratio >= SAMPLE_RATIO_ADEQUATE:
         adequate, warning, severity = True, None, "none"
-    elif eff_ratio >= 10:
+    elif eff_ratio >= SAMPLE_RATIO_GOOD:
         adequate, warning, severity = True, None, "none"
-    elif eff_ratio >= 5:
+    elif eff_ratio >= SAMPLE_RATIO_ACCEPTABLE:
         adequate = True
         warning = f"Marginal sample size: n/d_eff={eff_ratio:.1f}. Consider regularization."
         severity = "mild"
-    elif eff_ratio >= 2:
+    elif eff_ratio >= SAMPLE_RATIO_MARGINAL:
         adequate = False
         warning = f"Low sample size: n/d_eff={eff_ratio:.1f}. High variance expected."
         severity = "moderate"
@@ -123,7 +128,7 @@ def recommend_sample_size(
     """
     from scipy import stats
 
-    effect_sizes = {"small": 0.2, "medium": 0.5, "large": 0.8}
+    effect_sizes = {"small": EFFECT_SIZE_SMALL, "medium": EFFECT_SIZE_MEDIUM, "large": EFFECT_SIZE_LARGE}
     d = effect_sizes.get(target_effect_size, 0.5)
 
     def required_n(eff_d: float, effect: float, power: float, a: float) -> int:

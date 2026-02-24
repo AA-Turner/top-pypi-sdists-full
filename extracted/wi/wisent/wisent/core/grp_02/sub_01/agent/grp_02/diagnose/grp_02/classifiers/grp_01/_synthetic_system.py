@@ -3,6 +3,7 @@ import logging
 import time
 from typing import List, Tuple
 from wisent.core.classifier.classifier import ActivationClassifier
+from wisent.core.constants import DEFAULT_LAYER, AGENT_SYNTH_MIN_PAIRS, AGENT_SYNTH_TIME_MULTIPLIER
 from wisent.core.agent.diagnose.classifiers._synthetic_classes import (
     TraitDiscoveryResult, SyntheticClassifierResult,
     AutomaticTraitDiscovery, SyntheticClassifierFactory,
@@ -71,7 +72,7 @@ class SyntheticClassifierSystem:
         logging.info("Discovering relevant traits for this prompt...")
 
         # Estimate if we have enough budget for even basic operations
-        min_required_time = trait_discovery_cost + (data_generation_cost * 3) + classifier_training_cost
+        min_required_time = trait_discovery_cost + (data_generation_cost * AGENT_SYNTH_TIME_MULTIPLIER) + classifier_training_cost
 
         if budget_seconds < min_required_time:
             logging.info(f"Budget ({budget_seconds:.0f}s) too small for full classifier training")
@@ -126,8 +127,8 @@ class SyntheticClassifierSystem:
 
             if total_estimated_cost > remaining_budget:
                 # Try with fewer pairs
-                max_affordable_pairs = max(3, int((remaining_budget - classifier_training_cost) / data_generation_cost))
-                if max_affordable_pairs < 3:
+                max_affordable_pairs = max(AGENT_SYNTH_MIN_PAIRS, int((remaining_budget - classifier_training_cost) / data_generation_cost))
+                if max_affordable_pairs < AGENT_SYNTH_MIN_PAIRS:
                     logging.info(f"Insufficient budget ({remaining_budget:.0f}s) for training, skipping")
                     continue
                 logging.info(f"Reducing pairs from {pairs_per_trait} to {max_affordable_pairs} to fit budget")
@@ -184,7 +185,7 @@ class SyntheticClassifierSystem:
         # Extract activations from the response ONCE
         logging.info("Extracting activations from response...")
         try:
-            response_activations, _ = self.model.extract_activations(response_text, layer=15)
+            response_activations, _ = self.model.extract_activations(response_text, layer=DEFAULT_LAYER)
         except Exception as e:
             logging.info(f"Error extracting response activations: {e}")
             return []

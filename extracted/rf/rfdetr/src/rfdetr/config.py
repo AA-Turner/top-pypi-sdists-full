@@ -6,14 +6,46 @@
 
 
 import os
-from typing import List, Literal, Optional
+from typing import Any, ClassVar, Dict, List, Literal, Mapping, Optional
 
 import torch
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
-class ModelConfig(BaseModel):
+
+class BaseConfig(BaseModel):
+    """
+    Base configuration class that validates input parameters against the defined model schema.
+    If any unknown fields are provided, a ValueError is raised listing the unknown and available parameters.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def catch_typo_kwargs(cls, values: Any) -> Any:
+        if not isinstance(values, Mapping):
+            return values
+        allowed_params = set(cls.model_fields.keys())
+        provided_params = set(values)
+        unknown_params = provided_params - allowed_params
+        if unknown_params:
+            unknown_params_list = ", ".join(f"'{param}'" for param in sorted(unknown_params))
+            allowed_params_list = ", ".join(sorted(allowed_params))
+            raise ValueError(
+                f"Unknown parameter(s): {unknown_params_list}. Available parameter(s): {allowed_params_list}."
+            )
+        return values
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in type(self).model_fields:
+            super().__setattr__(name, value)
+            return
+        raise ValueError(f"Unknown attribute: '{name}'.")
+
+
+class ModelConfig(BaseConfig):
     encoder: Literal["dinov2_windowed_small", "dinov2_windowed_base"]
     out_feature_indexes: List[int]
     dec_layers: int
@@ -58,6 +90,7 @@ class RFDETRBaseConfig(ModelConfig):
     """
     The configuration for an RF-DETR Base model.
     """
+
     encoder: Literal["dinov2_windowed_small", "dinov2_windowed_base"] = "dinov2_windowed_small"
     hidden_dim: int = 256
     patch_size: int = 14
@@ -74,10 +107,12 @@ class RFDETRBaseConfig(ModelConfig):
     resolution: int = 560
     positional_encoding_size: int = 37
 
+
 class RFDETRLargeDeprecatedConfig(RFDETRBaseConfig):
     """
     The configuration for an RF-DETR Large model.
     """
+
     encoder: Literal["dinov2_windowed_small", "dinov2_windowed_base"] = "dinov2_windowed_base"
     hidden_dim: int = 384
     sa_nheads: int = 12
@@ -86,10 +121,12 @@ class RFDETRLargeDeprecatedConfig(RFDETRBaseConfig):
     projector_scale: List[Literal["P3", "P4", "P5"]] = ["P3", "P5"]
     pretrain_weights: Optional[str] = "rf-detr-large.pth"
 
+
 class RFDETRNanoConfig(RFDETRBaseConfig):
     """
     The configuration for an RF-DETR Nano model.
     """
+
     out_feature_indexes: List[int] = [3, 6, 9, 12]
     num_windows: int = 2
     dec_layers: int = 2
@@ -98,10 +135,12 @@ class RFDETRNanoConfig(RFDETRBaseConfig):
     positional_encoding_size: int = 24
     pretrain_weights: Optional[str] = "rf-detr-nano.pth"
 
+
 class RFDETRSmallConfig(RFDETRBaseConfig):
     """
     The configuration for an RF-DETR Small model.
     """
+
     out_feature_indexes: List[int] = [3, 6, 9, 12]
     num_windows: int = 2
     dec_layers: int = 3
@@ -110,10 +149,12 @@ class RFDETRSmallConfig(RFDETRBaseConfig):
     positional_encoding_size: int = 32
     pretrain_weights: Optional[str] = "rf-detr-small.pth"
 
+
 class RFDETRMediumConfig(RFDETRBaseConfig):
     """
     The configuration for an RF-DETR Medium model.
     """
+
     out_feature_indexes: List[int] = [3, 6, 9, 12]
     num_windows: int = 2
     dec_layers: int = 4
@@ -123,7 +164,7 @@ class RFDETRMediumConfig(RFDETRBaseConfig):
     pretrain_weights: Optional[str] = "rf-detr-medium.pth"
 
 
-#res 704, ps 16, 2 windows, 4 dec layers, 300 queries, ViT-S basis
+# res 704, ps 16, 2 windows, 4 dec layers, 300 queries, ViT-S basis
 class RFDETRLargeConfig(ModelConfig):
     encoder: Literal["dinov2_windowed_small"] = "dinov2_windowed_small"
     hidden_dim: int = 256
@@ -139,7 +180,6 @@ class RFDETRLargeConfig(ModelConfig):
     positional_encoding_size: int = 704 // 16
     pretrain_weights: Optional[str] = "rf-detr-large-2026.pth"
     resolution: int = 704
-
 
 
 class RFDETRSegPreviewConfig(RFDETRBaseConfig):
@@ -239,10 +279,12 @@ class RFDETRSeg2XLargeConfig(RFDETRBaseConfig):
     pretrain_weights: Optional[str] = "rf-detr-seg-xxlarge.pt"
     num_classes: int = 90
 
+
 class TrainConfig(BaseModel):
     lr: float = 1e-4
     lr_encoder: float = 1.5e-4
     batch_size: int = 4
+    device: Literal["auto", "cpu", "cuda", "mps"] = DEVICE
     grad_accum_steps: int = 4
     epochs: int = 100
     resume: Optional[str] = None
@@ -272,14 +314,18 @@ class TrainConfig(BaseModel):
     early_stopping_patience: int = 10
     early_stopping_min_delta: float = 0.001
     early_stopping_use_ema: bool = False
+    progress_bar: bool = False  # Enable tqdm progress bars during training and evaluation epochs.
     tensorboard: bool = True
     wandb: bool = False
+    mlflow: bool = False
+    clearml: bool = False
     project: Optional[str] = None
     run: Optional[str] = None
     class_names: List[str] = None
     run_test: bool = True
     segmentation_head: bool = False
     eval_max_dets: int = 500
+    aug_config: Optional[Dict[str, Any]] = None
 
     @field_validator("dataset_dir", "output_dir", mode="after")
     @classmethod
@@ -294,6 +340,7 @@ class TrainConfig(BaseModel):
 
 
 class SegmentationTrainConfig(TrainConfig):
+    num_select: Optional[int] = None
     mask_point_sample_ratio: int = 16
     mask_ce_loss_coef: float = 5.0
     mask_dice_loss_coef: float = 5.0

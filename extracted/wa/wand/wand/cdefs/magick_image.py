@@ -133,6 +133,12 @@ def load(lib, IM_VERSION):
             lib.MagickAutoThresholdImage = None
     else:
         lib.MagickAutoThresholdImage = None
+    if IM_VERSION >= 0x711:
+        lib.MagickBilateralBlurImage.argtypes = [c_void_p, c_double, c_double,
+                                                 c_double, c_double]
+        lib.MagickBilateralBlurImage.restype = c_bool
+    else:
+        lib.MagickBilateralBlurImage = None
     lib.MagickBlackThresholdImage.argtypes = [c_void_p, c_void_p]
     lib.MagickBlackThresholdImage.restype = c_bool
     lib.MagickBlueShiftImage.argtypes = [c_void_p, c_double]
@@ -155,6 +161,11 @@ def load(lib, IM_VERSION):
             c_void_p, c_int, c_double, c_double
         ]
         lib.MagickBrightnessContrastImageChannel.restype = c_bool
+    if is_im_7:
+        lib.MagickChannelFxImage.argtypes = [c_void_p, c_char_p]
+        lib.MagickChannelFxImage.restype = c_void_p
+    else:
+        lib.MagickChannelFxImage = None
     if IM_VERSION >= 0x708:
         try:
             lib.MagickCannyEdgeImage.argtypes = [c_void_p, c_double, c_double,
@@ -361,10 +372,16 @@ def load(lib, IM_VERSION):
         lib.MagickFilterImageChannel.restype = c_bool
     lib.MagickFlipImage.argtypes = [c_void_p]
     lib.MagickFlipImage.restype = c_bool
-    lib.MagickFloodfillPaintImage.argtypes = [
-        c_void_p, c_int, c_void_p, c_double, c_void_p, c_ssize_t, c_ssize_t,
-        c_bool
-    ]
+    if is_im_6:
+        lib.MagickFloodfillPaintImage.argtypes = [
+            c_void_p, c_int, c_void_p, c_double, c_void_p,
+            c_ssize_t, c_ssize_t, c_bool
+        ]
+    else:
+        lib.MagickFloodfillPaintImage.argtypes = [
+            c_void_p, c_void_p, c_double, c_void_p,
+            c_ssize_t, c_ssize_t, c_bool
+        ]
     lib.MagickFloodfillPaintImage.restype = c_bool
     lib.MagickFlopImage.argtypes = [c_void_p]
     lib.MagickFlopImage.restype = c_bool
@@ -628,6 +645,11 @@ def load(lib, IM_VERSION):
         lib.MagickHoughLineImage = None
     lib.MagickIdentifyImage.argtypes = [c_void_p]
     lib.MagickIdentifyImage.restype = c_void_p
+    if IM_VERSION >= 0x700:
+        lib.MagickIdentifyImageType.argtypes = [c_void_p]
+        lib.MagickIdentifyImageType.restype = c_int
+    else:
+        lib.MagickIdentifyImageType = None
     if is_im_6:
         lib.MagickImplodeImage.argtypes = [c_void_p, c_double]
     else:

@@ -257,8 +257,8 @@ class Attention(nn.Module):
             'attention_bias_idxs', torch.empty((N, N), device=device, dtype=torch.long), persistent=False)
         self.attention_bias_cache = {}
 
-        if not self.attention_biases.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     @torch.no_grad()
     def train(self, mode=True):
@@ -384,8 +384,8 @@ class AttentionDownsample(nn.Module):
         self.register_buffer('attention_bias_idxs', torch.empty((N_q, N_k), device=device, dtype=torch.long), persistent=False)
         self.attention_bias_cache = {}
 
-        if not self.attention_biases.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     @torch.no_grad()
     def train(self, mode=True):
@@ -691,6 +691,7 @@ class Levit(nn.Module):
         attn_act_layer = get_act_layer(attn_act_layer or act_layer)
         self.use_conv = use_conv
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.global_pool = global_pool
         self.num_features = self.head_hidden_size = embed_dim[-1]
         self.embed_dim = embed_dim
@@ -746,8 +747,8 @@ class Levit(nn.Module):
         # Classifier head
         self.head = NormLinear(embed_dim[-1], num_classes, drop=drop_rate, **dd) if num_classes > 0 else nn.Identity()
 
-        if not self.stem.conv1.linear.weight.is_meta:
-            self.init_weights(needs_reset=False)
+        # TODO: skip init when on meta device when safe to do so
+        self.init_weights(needs_reset=False)
 
     def init_weights(self, needs_reset: bool = True):
         self.apply(partial(self._init_weights, needs_reset=needs_reset))

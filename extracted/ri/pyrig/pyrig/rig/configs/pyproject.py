@@ -11,6 +11,7 @@ classifiers.
 """
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
@@ -21,7 +22,6 @@ from pyrig.rig.cli import cli
 from pyrig.rig.configs.base.base import ConfigData, ConfigDict, Priority
 from pyrig.rig.configs.base.toml import TomlConfigFile
 from pyrig.rig.configs.license import LicenseConfigFile
-from pyrig.rig.tests.mirror_test import MirrorTestConfigFile
 from pyrig.rig.tools.base.base import Tool
 from pyrig.rig.tools.docs_builder import DocsBuilder
 from pyrig.rig.tools.package_manager import PackageManager
@@ -33,12 +33,9 @@ from pyrig.rig.utils.resources import (
     return_resource_content_on_fetch_error,
 )
 from pyrig.rig.utils.versions import VersionConstraint, adjust_version_to_level
-from pyrig.src.modules.package import (
-    package_name_from_cwd,
-    package_name_from_project_name,
-    project_name_from_cwd,
+from pyrig.src.string_ import (
+    package_req_name_split_pattern,
 )
-from pyrig.src.string_ import package_req_name_split_pattern
 
 
 class PyprojectConfigFile(TomlConfigFile):
@@ -77,11 +74,11 @@ class PyprojectConfigFile(TomlConfigFile):
     def _configs(self) -> ConfigDict:
         """Generate complete pyproject.toml config (metadata, deps, build, tools)."""
         repo_owner, _ = VersionController.I.repo_owner_and_name(check_repo_url=False)
-        tests_package_name = MirrorTestConfigFile.I.tests_package_name()
+        tests_package_name = ProjectTester.I.tests_package_name()
 
         return {
             "project": {
-                "name": project_name_from_cwd(),
+                "name": PackageManager.I.project_name(),
                 "version": self.project_version(),
                 "description": self.project_description(),
                 "readme": "README.md",
@@ -106,7 +103,9 @@ class PyprojectConfigFile(TomlConfigFile):
                 },
                 "keywords": [],
                 "scripts": {
-                    project_name_from_cwd(): f"{cli.__name__}:{cli.main.__name__}"
+                    PackageManager.I.project_name(): (
+                        f"{cli.__name__}:{cli.main.__name__}"
+                    )
                 },
                 "dependencies": self.make_dependency_versions(self.dependencies()),
             },
@@ -123,7 +122,7 @@ class PyprojectConfigFile(TomlConfigFile):
             "tool": {
                 "uv": {
                     "build-backend": {
-                        "module-name": package_name_from_cwd(),
+                        "module-name": PackageManager.I.package_name(),
                         "module-root": "",
                     }
                 },
@@ -150,7 +149,7 @@ class PyprojectConfigFile(TomlConfigFile):
                 "pytest": {
                     "ini_options": {
                         "testpaths": [tests_package_name],
-                        "addopts": f"--cov={package_name_from_cwd()} --cov-report=term-missing --cov-fail-under={ProjectTester.I.coverage_threshold()}",  # noqa: E501
+                        "addopts": f"--cov={PackageManager.I.package_name()} --cov-report=term-missing --cov-fail-under={ProjectTester.I.coverage_threshold()}",  # noqa: E501
                     }
                 },
                 "bandit": {
@@ -231,24 +230,23 @@ class PyprojectConfigFile(TomlConfigFile):
 
     def make_dependency_versions(
         self,
-        dependencies: list[str],
-        additional: list[str] | None = None,
+        dependencies: Iterable[str],
+        additional: Iterable[str] | None = None,
     ) -> list[str]:
         """Normalize and merge dependency lists (sorted, deduplicated)."""
         if additional is None:
-            additional = []
+            additional = ()
         stripped_dependencies = {
             self.remove_version_from_dep(dep) for dep in dependencies
         }
-        additional = [
+        filtered_additional = (
             dep
             for dep in additional
             if self.remove_version_from_dep(dep) not in stripped_dependencies
-        ]
+        )
         # Due to caching in load(), mutating in place causes bugs.
         # Always return a new structure instead of modifying.
-        dependencies = [*dependencies, *additional]
-        return sorted(set(dependencies))
+        return sorted({*dependencies, *filtered_additional})
 
     def remove_version_from_dep(self, dep: str) -> str:
         """Strip version specifier from dependency.
@@ -260,15 +258,6 @@ class PyprojectConfigFile(TomlConfigFile):
             dep: Dependency string, optionally with version specifier.
         """
         return package_req_name_split_pattern().split(dep)[0]
-
-    def package_name(self) -> str:
-        """Get the Python package name (e.g., 'my-project' -> 'my_project')."""
-        project_name = self.project_name()
-        return package_name_from_project_name(project_name)
-
-    def project_name(self) -> str:
-        """Get project name from pyproject.toml."""
-        return str(self.load().get("project", {}).get("name", ""))
 
     def dev_dependencies(self) -> list[str]:
         """Get dev dependencies from pyproject.toml."""
@@ -329,7 +318,7 @@ class PyprojectConfigFile(TomlConfigFile):
             raise ValueError(msg)
         return lower
 
-    def supported_python_versions(self) -> list[Version]:
+    def supported_python_versions(self) -> tuple[Version, ...]:
         """Get all supported Python minor versions within requires-python constraint."""
         constraint = self.requires_python()
         version_constraint = VersionConstraint(constraint)

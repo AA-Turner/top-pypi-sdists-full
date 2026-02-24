@@ -169,7 +169,7 @@ class LogSearchClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/loggingsearch/search_logs.py.html>`__ to see an example of how to use search_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/loggingsearch/search_logs.py.html>`__ to see an example of how to use search_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

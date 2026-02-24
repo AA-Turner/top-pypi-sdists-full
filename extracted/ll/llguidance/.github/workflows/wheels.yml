@@ -10,14 +10,15 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PYTHON_VERSION: 3.12
+  PYTHON_VERSION: '3.12'
+  MATURIN_VERSION: 'v1.11.5'
 
 jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -34,7 +35,7 @@ jobs:
           args: --out dist
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-sdist
           path: dist
@@ -45,8 +46,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     environment: pkg
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -65,27 +66,51 @@ jobs:
       matrix:
         platform:
           - runner: ubuntu-latest
-            target: x86_64
+            target: x86_64-unknown-linux-gnu
+            arch: x86_64
+            zig: true
+            manylinux: auto
           - runner: ubuntu-latest
-            target: x86
+            target: i686-unknown-linux-gnu
+            arch: x86
+            zig: true
+            manylinux: auto
           - runner: ubuntu-latest
-            target: aarch64
+            target: aarch64-unknown-linux-gnu
+            arch: aarch64
+            zig: true
+            manylinux: auto
+          - runner: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            arch: riscv64
+            zig: false
+            manylinux: 2_39
+            before-script: 'sudo apt-get install -y gcc-riscv64-linux-gnu && mkdir -p ~/.cargo && printf "[target.riscv64gc-unknown-linux-gnu]\nlinker = \"riscv64-linux-gnu-gcc\"\n" >> ~/.cargo/config.toml'
+        python:
+          - version: '3.12'
+            zig: true
+          - version: '3.14t'
+            zig: false
+        exclude:
+          - platform:
+              arch: riscv64
+            python:
+              version: '3.14t'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/checkout@v6
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: ${{ env.MATURIN_VERSION }}
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --zig
+          args: --release --out dist --compatibility pypi -i python${{ matrix.python.version }} ${{ matrix.python.zig && matrix.platform.zig && '--zig' || '' }}
           sccache: 'true'
-          manylinux: auto
+          manylinux: ${{ matrix.platform.manylinux }}
+          before-script-linux: ${{ matrix.platform.before-script || '' }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: wheels-linux-${{ matrix.platform.target }}
+          name: wheels-linux-${{ matrix.platform.arch }}-${{ matrix.python.version }}
           path: dist
 
   windows:
@@ -98,22 +123,24 @@ jobs:
             target: x64
           - runner: windows-latest
             target: x86
+        python-version: ['3.12', '3.14t']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.platform.target }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: ${{ env.MATURIN_VERSION }}
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --compatibility pypi
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: wheels-windows-${{ matrix.platform.target }}
+          name: wheels-windows-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
 
   macos:
@@ -126,21 +153,23 @@ jobs:
             target: x86_64
           - runner: macos-14
             target: aarch64
+        python-version: ['3.12', '3.14t']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: ${{ env.MATURIN_VERSION }}
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --compatibility pypi
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: wheels-macos-${{ matrix.platform.target }}
+          name: wheels-macos-${{ matrix.platform.target }}-${{ matrix.python-version }}
           path: dist
 
   release:
@@ -152,9 +181,11 @@ jobs:
         id-token: write
     needs: [linux, windows, macos, sdist]
     steps:
-      - uses: actions/download-artifact@v4
-      - name: Publish to PyPI
-        uses: PyO3/maturin-action@v1
+      - uses: actions/download-artifact@v7
         with:
-          command: upload
-          args: --non-interactive --skip-existing wheels-*/*
+          path: dist
+          merge-multiple: true
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

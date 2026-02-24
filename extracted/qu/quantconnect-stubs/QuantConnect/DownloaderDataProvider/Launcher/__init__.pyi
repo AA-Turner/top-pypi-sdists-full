@@ -6,6 +6,7 @@ import QuantConnect
 import QuantConnect.DownloaderDataProvider.Launcher
 import QuantConnect.DownloaderDataProvider.Launcher.Models
 import QuantConnect.Interfaces
+import QuantConnect.Lean.Engine.DataFeeds.DataDownloader
 import System
 import System.Collections.Generic
 
@@ -28,7 +29,7 @@ class Program(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def initialize_configurations() -> None:
+    def initialize_configurations() -> QuantConnect.Lean.Engine.DataFeeds.DataDownloader.DataDownloaderSelector:
         """
         Initializes various configurations for the application.
         This method sets up logging, data providers, map file providers, and factor file providers.
@@ -45,7 +46,7 @@ class Program(System.Object):
         ...
 
     @staticmethod
-    def run_download(data_downloader: QuantConnect.IDataDownloader, data_download_config: QuantConnect.DownloaderDataProvider.Launcher.Models.DataDownloadConfig, data_directory: str, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_symbol: bool = True) -> None:
+    def run_download(data_downloader: QuantConnect.IDataDownloader, data_download_config: QuantConnect.DownloaderDataProvider.Launcher.Models.BaseDataDownloadConfig, data_directory: str, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_symbol: bool = True) -> None:
         """
         Executes a data download operation using the specified data downloader.
         

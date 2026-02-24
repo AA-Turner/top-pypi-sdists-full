@@ -210,6 +210,23 @@ class EndianBinaryReader:
         """Returns the rest of the current reader bytes."""
         return self.read_bytes(obj_size - (self.Position - obj_start))
 
+    def seek(self, offset: int, whence: int = 0) -> int:
+        if whence == 0:
+            new_pos = offset
+        elif whence == 1:
+            new_pos = self.Position + offset
+        elif whence == 2:
+            new_pos = self.Length + offset
+        else:
+            raise ValueError("Invalid whence value")
+        if new_pos < 0:
+            raise ValueError("New position is before the start of the stream")
+        self.Position = new_pos
+        return self.Position
+
+    def tell(self) -> int:
+        return self.Position
+
 
 class EndianBinaryReader_Memoryview(EndianBinaryReader):
     __slots__ = ("view", "_endian", "BaseOffset", "Position", "Length")

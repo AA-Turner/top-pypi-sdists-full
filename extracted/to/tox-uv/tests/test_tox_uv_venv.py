@@ -58,6 +58,20 @@ def test_uv_venv_preference_system_by_default(tox_project: ToxProjectCreator) ->
 
 
 @pytest.mark.usefixtures("clear_python_preference_env_var")
+def test_uv_venv_preference_empty_falls_back_to_system(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv]\nuv_python_preference ="})
+
+    result = project.run("c", "-k", "uv_python_preference")
+    result.assert_success()
+
+    parser = ConfigParser()
+    parser.read_string(result.out)
+    got = parser["testenv:py"]["uv_python_preference"]
+
+    assert got == "system"
+
+
+@pytest.mark.usefixtures("clear_python_preference_env_var")
 @pytest.mark.parametrize("env_var", ["UV_NO_MANAGED_PYTHON", "UV_MANAGED_PYTHON"])
 def test_uv_venv_preference_not_set_if_uv_no_managed_python(
     tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, env_var: str
@@ -275,10 +289,7 @@ def test_uv_venv_na(tox_project: ToxProjectCreator) -> None:
     # skip_missing_interpreters is true by default
     project = tox_project({"tox.ini": "[testenv]\npackage=skip\nbase_python=1.0"})
     result = project.run("-vv")
-
-    # When a Python interpreter is missing in a pytest environment, project.run
-    # return code is equal to -1
-    result.assert_failed(code=-1)
+    result.assert_failed(code=1)
 
 
 def test_uv_venv_na_uv_072(tox_project: ToxProjectCreator) -> None:
@@ -286,10 +297,7 @@ def test_uv_venv_na_uv_072(tox_project: ToxProjectCreator) -> None:
     # skip_missing_interpreters is true by default
     project = tox_project({"tox.ini": "[testenv]\npackage=skip\nbase_python=1.0\nrequires=uv==0.7.2"})
     result = project.run("-vv")
-
-    # When a Python interpreter is missing in a pytest environment, project.run
-    # return code is equal to -1
-    result.assert_failed(code=-1)
+    result.assert_failed(code=1)
 
 
 def test_uv_venv_skip_missing_interpreters_fail(tox_project: ToxProjectCreator) -> None:
@@ -305,9 +313,7 @@ def test_uv_venv_skip_missing_interpreters_pass(tox_project: ToxProjectCreator) 
         "tox.ini": "[tox]\nskip_missing_interpreters=true\n[testenv]\npackage=skip\nbase_python=1.0"
     })
     result = project.run("-vv")
-    # When a Python interpreter is missing in a pytest environment, project.run
-    # return code is equal to -1
-    result.assert_failed(code=-1)
+    result.assert_failed(code=1)
 
 
 def test_uv_venv_platform_check(tox_project: ToxProjectCreator) -> None:
@@ -366,6 +372,35 @@ def test_uv_env_python_preference(
 
     exe = "python.exe" if sys.platform == "win32" else "python"
     env_bin_dir = str(project.path / ".tox" / "py" / ("Scripts" if sys.platform == "win32" else "bin") / exe)
+    assert env_bin_dir in result.out
+
+
+@pytest.mark.parametrize(
+    "env",
+    ["3.10", "3.10-onlymanaged"],
+)
+def test_uv_env_python_preference_complex(
+    tox_project: ToxProjectCreator,
+    *,
+    env: str,
+) -> None:
+    project = tox_project({
+        "tox.ini": (
+            "[tox]\n"
+            "env_list =\n"
+            "    3.10\n"
+            "[testenv]\n"
+            "package=skip\n"
+            "uv_python_preference=\n"
+            "    onlymanaged: only-managed\n"
+            "commands=python -c 'print(\"{env_python}\")'"
+        )
+    })
+    result = project.run("-vv", "-e", env)
+    result.assert_success()
+
+    exe = "python.exe" if sys.platform == "win32" else "python"
+    env_bin_dir = str(project.path / ".tox" / env / ("Scripts" if sys.platform == "win32" else "bin") / exe)
     assert env_bin_dir in result.out
 
 
@@ -588,3 +623,21 @@ def test_env_version_spec_free_threaded() -> None:
     uv_venv.set_base_python(python_info)
     with mock.patch("sys.version_info", (0, 0, 0)):  # prevent picking sys.executable
         assert uv_venv.env_version_spec() == "cpython3.13+freethreaded"
+
+
+def test_relative_workdir_with_changedir(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.ini": """\
+[tox]
+toxworkdir=.tox
+
+[testenv:demo]
+changedir={toxinidir}/sub
+package = skip
+commands = python -c "print('ok')"
+allowlist_externals = python
+""",
+    })
+    (project.path / "sub").mkdir()
+    result = project.run("-e", "demo")
+    result.assert_success()

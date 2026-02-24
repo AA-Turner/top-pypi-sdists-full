@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: timm
-Version: 1.0.24
+Version: 1.0.25
 Summary: PyTorch Image Models
 Keywords: pytorch,image-classification
 Author-Email: Ross Wightman <ross@huggingface.co>
@@ -44,7 +44,19 @@ Description-Content-Type: text/markdown
 
 ## What's New
 
-## Jan 5 & 6, 2025
+## Feb 23, 2026
+* Add token distillation training support to distillation task wrappers
+* Remove some torch.jit usage in prep for official deprecation
+* Caution added to AdamP optimizer
+* Call reset_parameters() even if meta-device init so that buffers get init w/ hacks like init_empty_weights
+* Tweak Muon optimizer to work with DTensor/FSDP2 (clamp_ instead of clamp_min_, alternate NS branch for DTensor)
+* Release 1.0.25
+
+## Jan 21, 2026
+* **Compat Break**: Fix oversight w/ QKV vs MLP bias in `ParallelScalingBlock` (& `DiffParallelScalingBlock`)
+  * Does not impact any trained `timm` models but could impact downstream use.
+
+## Jan 5 & 6, 2026
 * Release 1.0.24
 * Add new benchmark result csv files for inference timing on all models w/ RTX Pro 6000, 5090, and 4090 cards w/ PyTorch 2.9.1
 * Fix moved module error in deprecated timm.models.layers import path that impacts legacy imports

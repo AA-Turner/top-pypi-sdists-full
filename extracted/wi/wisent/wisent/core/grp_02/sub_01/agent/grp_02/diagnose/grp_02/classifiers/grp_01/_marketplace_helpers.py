@@ -8,6 +8,10 @@ import time
 from datetime import datetime
 
 from wisent.core.utils import resolve_default_device
+from wisent.core import constants as _C
+from wisent.core.constants import (
+    DEFAULT_LAYER, AGENT_DIAG_MAX_TOKENS_SHORT, AGENT_DIAG_TEMPERATURE,
+)
 
 
 @dataclass
@@ -40,7 +44,7 @@ class MarketplaceEstimationMixin:
             benchmark_count = len(available_benchmarks)
             base = {
                 "training_time_minutes": 8.0 + (benchmark_count * 2.0),
-                "quality_score": min(0.80, 0.60 + (benchmark_count * 0.05)),
+                "quality_score": min(_C.MARKETPLACE_QUALITY_MAX, _C.MARKETPLACE_QUALITY_BASE + (benchmark_count * _C.MARKETPLACE_QUALITY_INCREMENT)),
                 "samples_needed": min(500, 100 + (benchmark_count * 30)),
                 "optimal_layer": self._estimate_optimal_layer_for_issue(issue_type)
             }
@@ -48,7 +52,7 @@ class MarketplaceEstimationMixin:
         else:
             base = {
                 "training_time_minutes": 6.0,
-                "quality_score": 0.55,
+                "quality_score": _C.MARKETPLACE_QUALITY_DEFAULT,
                 "samples_needed": 50,
                 "optimal_layer": 14
             }
@@ -86,7 +90,7 @@ Rate similarity from 0.0 to 10.0 (10.0 = highly similar, 0.0 = not similar).
 Respond with only the number:"""
 
         try:
-            response = self.model.generate(prompt, layer_index=15, max_new_tokens=10, temperature=0.1)
+            response = self.model.generate(prompt, layer_index=DEFAULT_LAYER, max_new_tokens=AGENT_DIAG_MAX_TOKENS_SHORT, temperature=AGENT_DIAG_TEMPERATURE)
             score_str = response.strip()
 
             match = re.search(r'(\d+\.?\d*)', score_str)
@@ -111,7 +115,7 @@ Consider:
 Respond with just the layer number (8-20):"""
 
         try:
-            response = self.model.generate(prompt, layer_index=15, max_new_tokens=10, temperature=0.1)
+            response = self.model.generate(prompt, layer_index=DEFAULT_LAYER, max_new_tokens=AGENT_DIAG_MAX_TOKENS_SHORT, temperature=AGENT_DIAG_TEMPERATURE)
             layer_str = response.strip()
 
             match = re.search(r'(\d+)', layer_str)

@@ -540,6 +540,9 @@ class SyncPlato:
                     capabilities=t.get("metadataConfig", {}).get("capabilities", []),
                     tags=t.get("metadataConfig", {}).get("tags", []),
                     rejected=t.get("metadataConfig", {}).get("rejected", False),
+                    complexity_dimensions=t.get("metadataConfig", {}).get(
+                        "complexity_dimensions", None
+                    ),
                 )
                 if t.get("metadataConfig")
                 else None,

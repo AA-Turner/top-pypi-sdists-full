@@ -41,7 +41,10 @@ class BundleFile(File.File):
         if signature == "UnityArchive":
             raise NotImplementedError("BundleFile - UnityArchive")
         elif signature in ["UnityWeb", "UnityRaw"]:
-            m_DirectoryInfo, blocksReader = self.read_web_raw(reader)
+            if self.version == 6:
+                m_DirectoryInfo, blocksReader = self.read_fs(reader)
+            else:
+                m_DirectoryInfo, blocksReader = self.read_web_raw(reader)
         elif signature == "UnityFS":
             m_DirectoryInfo, blocksReader = self.read_fs(reader)
         else:
@@ -98,6 +101,10 @@ class BundleFile(File.File):
         uncompressedSize = reader.read_u_int()
         dataflagsValue = reader.read_u_int()
 
+        # UnityWeb version 6
+        if self.signature != "UnityFS":
+            reader.read_byte()
+
         version = self.parse_version()
         # https://issuetracker.unity3d.com/issues/files-within-assetbundles-do-not-start-on-aligned-boundaries-breaking-patching-on-nintendo-switch
         # Unity CN introduced encryption before the alignment fix was introduced.
@@ -116,19 +123,12 @@ class BundleFile(File.File):
         if self.dataflags & self.dataflags.UsesAssetBundleEncryption:
             self.decryptor = ArchiveStorageManager.ArchiveStorageDecryptor(reader)
 
-        # check if we need to align the reader
-        # - align to 16 bytes and check if all are 0
-        # - if not, reset the reader to the previous position
-        if self.version >= 7:
+        # if header version is 7 or later we need to align the reader
+        # for 2019.4.15 and later, version should be 7 and aligned
+        # but some games in these versions somehow has version 6 while aligned
+        if self.version >= 7 or (version[0] == 2019 and version >= (2019, 4, 15)):
             reader.align_stream(16)
             self._uses_block_alignment = True
-        elif version >= (2019, 4):
-            pre_align = reader.Position
-            align_data = reader.read((16 - pre_align % 16) % 16)
-            if any(align_data):
-                reader.Position = pre_align
-            else:
-                self._uses_block_alignment = True
 
         start = reader.Position
         if self.dataflags & ArchiveFlags.BlocksInfoAtTheEnd:  # kArchiveBlocksInfoAtTheEnd
@@ -212,7 +212,10 @@ class BundleFile(File.File):
         if self.signature == "UnityArchive":
             raise NotImplementedError("BundleFile - UnityArchive")
         elif self.signature in ["UnityWeb", "UnityRaw"]:
-            self.save_web_raw(writer)
+            if self.version == 6:
+                self.save_fs(writer, 64, 64)
+            else:
+                self.save_web_raw(writer)
         elif self.signature == "UnityFS":
             if not packer or packer == "none":
                 self.save_fs(writer, 64, 64)
@@ -359,6 +362,10 @@ class BundleFile(File.File):
         writer.write_u_int(uncompressed_block_data_size)
         # compression and file layout flag
         writer.write_u_int(data_flag)
+
+        # UnityWeb version 6
+        if self.signature != "UnityFS":
+            writer.write_byte(0)
 
         if self._uses_block_alignment:
             # UnityFS\x00 - 8

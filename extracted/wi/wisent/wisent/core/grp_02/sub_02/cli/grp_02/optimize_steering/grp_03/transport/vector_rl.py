@@ -20,7 +20,8 @@ from wisent.core.cli.optimize_steering.steering_objects import execute_create_st
 from wisent.core.cli.optimize_steering.data.responses import execute_generate_responses
 from wisent.core.cli.optimize_steering.scores import execute_evaluate_responses
 from wisent.core.cli.optimize_steering.pipeline import _make_args
-from wisent.core.constants import COMPARE_TOL, DEFAULT_LIMIT, RL_NUM_EPISODES, RL_EPSILON
+from wisent.core.constants import (COMPARE_TOL, DEFAULT_LIMIT, RL_NUM_EPISODES, RL_EPSILON,
+    PIPELINE_STEERING_STRENGTH, PIPELINE_MAX_NEW_TOKENS, PIPELINE_TEMPERATURE, PIPELINE_TOP_P)
 
 
 def _extract_vectors(obj) -> Dict[int, torch.Tensor]:
@@ -48,9 +49,9 @@ def _evaluate_with_vectors(vectors, metadata, args, work_dir) -> float:
     execute_generate_responses(_make_args(
         task=args.task, input_file=args.enriched_pairs_file, model=args.model,
         output=rf, num_questions=getattr(args, 'limit', DEFAULT_LIMIT),
-        steering_object=sf, steering_strength=1.0, steering_strategy="constant",
+        steering_object=sf, steering_strength=PIPELINE_STEERING_STRENGTH, steering_strategy="constant",
         use_steering=True, device=getattr(args, 'device', None),
-        max_new_tokens=128, temperature=0.7, top_p=0.95,
+        max_new_tokens=PIPELINE_MAX_NEW_TOKENS, temperature=PIPELINE_TEMPERATURE, top_p=PIPELINE_TOP_P,
         verbose=False, cached_model=None,
     ))
     execute_evaluate_responses(_make_args(

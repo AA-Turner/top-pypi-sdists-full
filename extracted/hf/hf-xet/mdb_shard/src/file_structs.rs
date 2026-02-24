@@ -3,8 +3,8 @@ use std::io::{Cursor, Read, Write};
 use std::mem::size_of;
 
 use bytes::Bytes;
-use merklehash::MerkleHash;
 use merklehash::data_hash::hex;
+use merklehash::{DataHash, MerkleHash};
 use serde::Serialize;
 use utils::serialization_utils::*;
 
@@ -17,6 +17,8 @@ pub const MDB_FILE_FLAG_WITH_VERIFICATION: u32 = 1 << 31;
 pub const MDB_FILE_FLAG_VERIFICATION_MASK: u32 = 1 << 31;
 pub const MDB_FILE_FLAG_WITH_METADATA_EXT: u32 = 1 << 30;
 pub const MDB_FILE_FLAG_METADATA_EXT_MASK: u32 = 1 << 30;
+
+pub type Sha256 = DataHash;
 
 /// Each file consists of a FileDataSequenceHeader following
 /// a sequence of FileDataSequenceEntry, maybe a sequence
@@ -303,12 +305,12 @@ impl FileVerificationEntry {
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct FileMetadataExt {
     #[serde(with = "hex::serde")]
-    pub sha256: MerkleHash,
+    pub sha256: Sha256,
     pub _unused: [u64; 2],
 }
 
 impl FileMetadataExt {
-    pub fn new(sha256: MerkleHash) -> Self {
+    pub fn new(sha256: Sha256) -> Self {
         Self {
             sha256,
             _unused: Default::default(),
@@ -593,6 +595,39 @@ impl MDBFileInfoView {
     #[inline]
     pub fn bytes(&self) -> Bytes {
         self.data.clone()
+    }
+
+    /// Returns the metadata extension if present.
+    #[inline]
+    pub fn metadata_ext(&self) -> Option<FileMetadataExt> {
+        if !self.contains_metadata_ext() {
+            return None;
+        }
+        // metadata_ext is stored at the end of the data
+        let offset = self.data.len() - MDB_FILE_INFO_ENTRY_SIZE;
+        FileMetadataExt::deserialize(&mut Cursor::new(&self.data[offset..])).ok()
+    }
+}
+
+impl From<&MDBFileInfoView> for MDBFileInfo {
+    fn from(view: &MDBFileInfoView) -> Self {
+        let segments: Vec<FileDataSequenceEntry> = (0..view.num_entries()).map(|i| view.entry(i)).collect();
+        let verification = if view.contains_verification() {
+            (0..view.num_entries()).map(|i| view.verification(i)).collect()
+        } else {
+            vec![]
+        };
+        MDBFileInfo {
+            metadata: FileDataSequenceHeader::new(
+                view.file_hash(),
+                segments.len(),
+                view.contains_verification(),
+                view.contains_metadata_ext(),
+            ),
+            segments,
+            verification,
+            metadata_ext: view.metadata_ext(),
+        }
     }
 }
 

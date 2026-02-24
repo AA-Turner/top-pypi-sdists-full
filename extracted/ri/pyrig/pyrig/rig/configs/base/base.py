@@ -68,6 +68,7 @@ import inspect
 import logging
 from abc import abstractmethod
 from collections import defaultdict
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from functools import cache
 from pathlib import Path
@@ -77,7 +78,7 @@ from typing import Any, Self, TypeVar
 from pyrig.rig import configs
 from pyrig.src.iterate import nested_structure_is_subset
 from pyrig.src.string_ import split_on_uppercase
-from pyrig.src.subclass import SingletonDependencySubclass
+from pyrig.src.subclass import DependencySubclass
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class Priority:
     HIGH = MEDIUM + 10
 
 
-class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
+class ConfigFile[ConfigT: ConfigData](DependencySubclass):
     """Abstract base class for declarative configuration file management.
 
     Declarative, idempotent system for managing config files. Preserves user
@@ -205,13 +206,13 @@ class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
         return -subclass().priority()
 
     @classmethod
-    def validate_config_file(cls, config_file_cls: type["ConfigFile[ConfigT]"]) -> None:
+    def validate_config_file(cls, config_file_cls: "ConfigFile[ConfigT]") -> None:
         """Validate a single config file class.
 
         Args:
             config_file_cls: The ConfigFile subclass to validate.
         """
-        config_file_cls().validate()
+        config_file_cls.validate()
 
     def validate(self) -> None:
         """Validate config file, creating or updating as needed.
@@ -421,22 +422,9 @@ class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
         return nested_structure_is_subset(expected_config, actual_config)
 
     @classmethod
-    def priority_subclasses(cls) -> list[type[Self]]:
-        """Get ConfigFile subclasses with priority > 0.
-
-        Returns:
-            List of ConfigFile subclass types with priority > 0 (highest first).
-
-        See Also:
-            subclasses: Get all subclasses regardless of priority
-            validate_priority_subclasses: validate only priority subclasses
-        """
-        return [cf for cf in cls.subclasses() if cf().priority() > 0]
-
-    @classmethod
     def validate_subclasses(
         cls,
-        *subclasses: type[Self],
+        subclasses: Iterable[type[Self]],
     ) -> None:
         """Validate specific ConfigFile subclasses with priority-based ordering.
 
@@ -447,24 +435,21 @@ class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
 
         See Also:
             validate_all_subclasses: validate all discovered subclasses
-            validate_priority_subclasses: validate only priority subclasses
         """
-        # order by priority
-        subclasses_by_priority: dict[float, list[type[ConfigFile[Any]]]] = defaultdict(
-            list
-        )
-        for cf in subclasses:
-            subclasses_by_priority[cf().priority()].append(cf)
+        initialized = (subclass() for subclass in subclasses)
+        grouped: dict[float, list[ConfigFile[Any]]] = defaultdict(list)
+        for cf in initialized:
+            grouped[cf.priority()].append(cf)
 
         with ThreadPoolExecutor() as executor:
-            for priority in sorted(subclasses_by_priority.keys(), reverse=True):
-                cf_group = subclasses_by_priority[priority]
+            for priority in sorted(grouped.keys(), reverse=True):
+                cf_group = grouped[priority]
                 logger.debug(
                     "Validating %d config files with priority: %s",
                     len(cf_group),
                     priority,
                 )
-                list(executor.map(cls.validate_config_file, cf_group))
+                tuple(executor.map(cls.validate_config_file, cf_group))
 
     @classmethod
     def validate_all_subclasses(cls) -> None:
@@ -473,19 +458,6 @@ class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
         See Also:
             subclasses: Discovery mechanism
             validate_subclasses: validation mechanism
-            validate_priority_subclasses: validate only priority files
         """
         logger.info("Creating all config files")
-        cls.validate_subclasses(*cls.subclasses())
-
-    @classmethod
-    def validate_priority_subclasses(cls) -> None:
-        """Validate only ConfigFile subclasses with priority > 0.
-
-        See Also:
-            priority_subclasses: Discovery mechanism
-            validate_subclasses: validation mechanism
-            validate_all_subclasses: validate all files
-        """
-        logger.info("Creating priority config files")
-        cls.validate_subclasses(*cls.priority_subclasses())
+        cls.validate_subclasses(cls.subclasses())

@@ -67,8 +67,6 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     # Filter based on args
     if args.benchmarks:
         benchmarks = args.benchmarks
-    elif args.quick:
-        benchmarks = ["truthfulqa_mc1", "arc_easy", "hellaswag", "gsm8k"]
     else:
         benchmarks = all_benchmarks
 
@@ -128,7 +126,6 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
                 verbose=getattr(args, 'verbose', False),
                 layer_range=None,
                 skip_full_search=False,
-                quick=args.quick,
                 aggregation_methods=['average', 'final', 'first', 'max'],
                 threshold_range=[0.3, 0.5, 0.7],
                 optimization_metric='f1',

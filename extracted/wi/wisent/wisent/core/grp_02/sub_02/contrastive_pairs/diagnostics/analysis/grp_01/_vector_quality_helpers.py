@@ -6,8 +6,8 @@ from typing import List, Dict, Any, Optional, Tuple
 import torch
 import numpy as np
 
+from wisent.core.constants import NORM_EPS, DATA_SPLIT_RATIO
 from wisent.core.contrastive_pairs.diagnostics.analysis.vector_quality import (
-from wisent.core.constants import NORM_EPS
     _cosine_similarity,
     _create_vector_from_diffs,
 )
@@ -192,7 +192,7 @@ def _compute_held_out_transfer(
         return None
     
     # 80/20 split
-    n_train = int(n * 0.8)
+    n_train = int(n * DATA_SPLIT_RATIO)
     if n_train < 2 or n - n_train < 1:
         return None
     

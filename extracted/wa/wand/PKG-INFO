@@ -1,43 +1,44 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Wand
-Version: 0.6.13
+Version: 0.7.0
 Summary: Ctypes-based simple MagickWand API binding for Python
 Home-page: http://wand-py.org/
 Author: Hong Minhee
-Author-email: hongminhee@member.fsf.org
+Author-email: Hong Minhee <hongminhee@member.fsf.org>, "E. McConville" <emcconville@emcconville.com>
 Maintainer: E. McConville
-Maintainer-email: emcconville@emcconville.com
-License: MIT License
-Project-URL: Documentation, https://docs.wand-py.org
-Project-URL: Source, https://github.com/emcconville/wand
+Maintainer-email: "E. McConville" <emcconville@emcconville.com>
+License-Expression: MIT
+Project-URL: Homepage, https://docs.wand-py.org
+Project-URL: Documentation, https://docs.wand-py.org/en/latest/index.html
+Project-URL: Repository, https://github.com/emcconville/wand
 Project-URL: Tracker, https://github.com/emcconville/wand/issues
-Keywords: ImageMagick ctypes
+Project-URL: Changelog, https://docs.wand-py.org/en/latest/changes.html
+Keywords: ImageMagick,ctypes
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: Stackless
 Classifier: Topic :: Multimedia :: Graphics
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Provides-Extra: doc
-Requires-Dist: Sphinx>=5.3.0; extra == "doc"
 Provides-Extra: test
 Requires-Dist: pytest>=7.2.0; extra == "test"
+Provides-Extra: doc
+Requires-Dist: Sphinx>=7.2.6; extra == "doc"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
 
 .. image:: https://docs.wand-py.org/en/latest/_static/wand.png
    :width: 120

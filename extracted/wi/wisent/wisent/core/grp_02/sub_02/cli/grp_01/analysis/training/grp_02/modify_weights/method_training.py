@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 
 import torch
-from wisent.core.constants import CLASSIFIER_THRESHOLD, DEFAULT_SCORE, GROM_NUM_DIRECTIONS, TECZA_NUM_DIRECTIONS
+from wisent.core.constants import CLASSIFIER_THRESHOLD, DEFAULT_SCORE, GROM_NUM_DIRECTIONS, TECZA_NUM_DIRECTIONS, GEOMETRY_CV_FOLDS
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -55,32 +55,47 @@ def auto_select_steering_method(
     sample_pairs = pairs[:min(50, len(pairs))]
 
     num_layers = model.num_layers if hasattr(model, 'num_layers') else 36
-    analysis_layer = str(int(num_layers * 0.75))
+    candidate_layers = list(range(0, num_layers, max(1, num_layers // 4)))
+    if (num_layers - 1) not in candidate_layers:
+        candidate_layers.append(num_layers - 1)
+    candidate_layer_strs = [str(l) for l in candidate_layers]
 
-    pos_activations = []
-    neg_activations = []
+    # Collect activations from all candidate layers
+    layer_pos = {l: [] for l in candidate_layer_strs}
+    layer_neg = {l: [] for l in candidate_layer_strs}
 
     for pair in sample_pairs:
         enriched = collector.collect(
             pair,
             strategy=ExtractionStrategy.default(),
-            layers=[analysis_layer]
+            layers=candidate_layer_strs,
         )
+        for l in candidate_layer_strs:
+            if enriched.positive_response.layers_activations.get(l) is not None:
+                layer_pos[l].append(enriched.positive_response.layers_activations[l])
+            if enriched.negative_response.layers_activations.get(l) is not None:
+                layer_neg[l].append(enriched.negative_response.layers_activations[l])
 
-        if enriched.positive_response.layers_activations.get(analysis_layer) is not None:
-            pos_activations.append(enriched.positive_response.layers_activations[analysis_layer])
-        if enriched.negative_response.layers_activations.get(analysis_layer) is not None:
-            neg_activations.append(enriched.negative_response.layers_activations[analysis_layer])
+    # Pick the layer with the strongest signal
+    best_lpa, best_metrics, best_layer = -1.0, None, candidate_layer_strs[0]
+    for l in candidate_layer_strs:
+        if len(layer_pos[l]) < 10 or len(layer_neg[l]) < 10:
+            continue
+        pt = torch.stack(layer_pos[l])
+        nt = torch.stack(layer_neg[l])
+        m = compute_geometry_metrics(pt, nt, n_folds=GEOMETRY_CV_FOLDS)
+        lpa = m.get('linear_probe_accuracy', 0.0)
+        if lpa > best_lpa:
+            best_lpa, best_metrics, best_layer = lpa, m, l
 
-    if len(pos_activations) < 10 or len(neg_activations) < 10:
+    if best_metrics is None:
         if verbose:
             print("   Warning: Insufficient activations for analysis, defaulting to GROM")
         return "grom", "grom", None
 
-    pos_tensor = torch.stack(pos_activations)
-    neg_tensor = torch.stack(neg_activations)
-
-    metrics = compute_geometry_metrics(pos_tensor, neg_tensor, n_folds=3)
+    pos_tensor = torch.stack(layer_pos[best_layer])
+    neg_tensor = torch.stack(layer_neg[best_layer])
+    metrics = best_metrics
     recommendation = compute_recommendation(metrics)
     recommended_method = recommendation.get("recommended_method", "GROM").upper()
     confidence = recommendation.get("confidence", CLASSIFIER_THRESHOLD)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mteb"
-version = "2.8.4"
+version = "2.8.8"
 description = "Massive Text Embedding Benchmark"
 readme = "README.md"
 authors = [
@@ -440,6 +440,7 @@ extend-ignore-words-re = [
 ]
 extend-ignore-re = [
     "author.*",  # ignore authors in citations
+    "editor.*",  # ignore authors in citations
 ]
 
 [tool.typos.files]

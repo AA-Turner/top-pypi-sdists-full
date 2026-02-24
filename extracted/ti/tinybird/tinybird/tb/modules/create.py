@@ -500,7 +500,7 @@ def create_resources_from_url(
 ) -> List[Path]:
     result: List[Path] = []
     local_client = get_tinybird_local_client(config)
-    format = url.split(".")[-1]
+    format = url.rsplit(".", maxsplit=1)[-1]
     ds_file = _generate_datafile(url, local_client, format=format, force=True, folder=project.folder)
     result.append(ds_file)
     name = ds_file.stem

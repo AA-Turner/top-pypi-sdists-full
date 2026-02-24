@@ -6,15 +6,12 @@ untested code.
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from types import ModuleType
 
-from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tests.mirror_test import MirrorTestConfigFile
+from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.src.modules.imports import walk_package
-from pyrig.src.modules.package import create_package
-from pyrig.src.modules.path import ModulePath
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +23,7 @@ def make_test_skeletons() -> None:
     modules, classes, and functions for all untested code.
     """
     logger.info("Creating test skeletons")
-    src_package = import_module(PyprojectConfigFile.I.package_name())
+    src_package = import_module(PackageManager.I.package_name())
     logger.debug("Source package: %s", src_package.__name__)
     create_tests_for_package(src_package)
     logger.info("Test skeleton creation complete")
@@ -42,28 +39,6 @@ def create_tests_for_package(package: ModuleType) -> None:
         package: The source package to create tests for.
     """
     logger.debug("Creating tests for package: %s", package.__name__)
-    all_modules: list[ModuleType] = []
-    packages_without_modules: list[ModuleType] = []
-    for pkg, modules in walk_package(package):
-        if not modules:
-            packages_without_modules.append(pkg)
-            continue
-        all_modules.extend(modules)
-
-    with ThreadPoolExecutor() as executor:
-        list(executor.map(create_test_package, packages_without_modules))
-
+    all_modules = (m for m, is_pkg in walk_package(package) if not is_pkg)
     # create test modules for all modules
     MirrorTestConfigFile.I.create_test_modules(all_modules)
-
-
-def create_test_package(package: ModuleType) -> None:
-    """Create a test package for a source package.
-
-    Args:
-        package: The source package to create a test package for.
-    """
-    test_package_name = MirrorTestConfigFile.I.test_obj_importpath_from_obj(package)
-    test_package_path = ModulePath.package_name_to_relative_dir_path(test_package_name)
-    # create package if it doesn't exist
-    create_package(test_package_path)

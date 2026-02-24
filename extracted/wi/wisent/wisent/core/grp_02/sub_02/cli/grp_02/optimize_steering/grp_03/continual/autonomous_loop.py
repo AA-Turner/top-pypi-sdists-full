@@ -34,6 +34,7 @@ from wisent.core.cli.optimize_steering.continual._loop_helpers import (
     get_task_priority,
 )
 from wisent.core.constants import (DEFAULT_LIMIT, CONTINUAL_EWC_LAMBDA, WELFARE_LIMIT,
+    CONTINUAL_SHARED_UPDATE_RATE,
     CONTINUAL_REPLAY_INTERVAL, CONTINUAL_FORGETTING_THRESHOLD,
     CONTINUAL_CONVERGENCE_WINDOW)
 
@@ -167,7 +168,7 @@ def execute_continual_learning(args):
         )
         for layer in shared_update:
             if layer in state.shared_vectors:
-                state.shared_vectors[layer] += 0.1 * shared_update[layer]
+                state.shared_vectors[layer] += CONTINUAL_SHARED_UPDATE_RATE * shared_update[layer]
             else:
                 state.shared_vectors[layer] = shared_update[layer].clone()
         state.task_vectors[task] = task_update

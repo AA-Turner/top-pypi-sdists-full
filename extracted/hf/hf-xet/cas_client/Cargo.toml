@@ -8,67 +8,100 @@ readme = "README.md"
 [dependencies]
 cas_object = { path = "../cas_object" }
 cas_types = { path = "../cas_types" }
-chunk_cache = { path = "../chunk_cache" }
 deduplication = { path = "../deduplication" }
 error_printer = { path = "../error_printer" }
 file_utils = { path = "../file_utils" }
 mdb_shard = { path = "../mdb_shard" }
 merklehash = { path = "../merklehash" }
-progress_tracking = { path = "../progress_tracking" }
 utils = { path = "../utils" }
 xet_runtime = { path = "../xet_runtime" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+base64 = { workspace = true }
 bytes = { workspace = true }
-derivative = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
-hyper-util = { workspace = true }
 lazy_static = { workspace = true }
 more-asserts = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 reqwest-retry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+statrs = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
-tower-service = { workspace = true }
 tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true }
 url = { workspace = true }
 
 # Reqwest -- uses different flags with different features.
 [features]
 strict = []
 default = ["rustls-tls"]
+elevated_information_level = []
 
-# Three options for compliation here.
-rustls-tls = [
-    "reqwest/rustls-tls",
-    "reqwest/rustls-tls-webpki-roots",
-    "reqwest/rustls-tls-native-roots",
-]
+# rustls-tls uses the rustls package with rustls-platform-verifier, which verifies TLS
+# certificates using the platform's native certificate store (Security.framework on macOS,
+# SChannel on Windows, system cert paths on Linux). Falls back to bundled webpki-roots
+# when the system store is unavailable (e.g. minimal containers).
+rustls-tls = ["reqwest/rustls"]
 
-# rustls-tls uses the rustls package, which embeds all of the ssl stuff in a rust package.  This is the
-# most portable option, but also may not respect local network configurations.  Use this if the native-ssl options don't work.
-# Uses native tls in the request package; this uses the native-tls package to wrap openssl, which is a more robust and portable
-# way of ensuring that tls just works.
+# native-tls wraps the platform's TLS library (OpenSSL on Linux, SChannel on Windows,
+# Security.framework on macOS). Use this if rustls causes issues in specific environments.
 native-tls = ["reqwest/native-tls"]
 
-# This uses the above, but statically compiles in openssl, which makes the result more portable at the expense of
-# library size.
+# Same as native-tls but statically compiles OpenSSL, making the result more portable
+# at the expense of binary size. Useful for manylinux builds where system OpenSSL may
+# not be available.
 native-tls-vendored = ["reqwest/native-tls-vendored"]
 
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+axum = { workspace = true }
+futures-util = { workspace = true }
 heed = { workspace = true }
 hyper = { workspace = true }
+tower-http = { version = "0.6", features = ["cors"] }
+warp = { workspace = true }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-time = { workspace = true }
 
 [dev-dependencies]
+approx = { workspace = true }
 httpmock = { workspace = true }
-rand = { workspace = true }
+rand_distr = { workspace = true }
 tracing-test = { workspace = true }
 wiremock = { workspace = true }
+
+# Local CAS server binary - wraps LocalClient with HTTP API for testing
+[[bin]]
+name = "local_cas_server"
+path = "src/simulation/local_server/main.rs"
+
+[[bin]]
+name = "simulation_server"
+path = "tests/adaptive_concurrency/src/simulation_server.rs"
+
+[[bin]]
+name = "simulation_client"
+path = "tests/adaptive_concurrency/src/simulation_client.rs"
+test = true
+
+[[bin]]
+name = "generate_summary"
+path = "tests/adaptive_concurrency/src/generate_summary.rs"
+test = true
+
+[[bin]]
+name = "generate_scenario_report"
+path = "tests/adaptive_concurrency/src/generate_scenario_report.rs"
+test = true

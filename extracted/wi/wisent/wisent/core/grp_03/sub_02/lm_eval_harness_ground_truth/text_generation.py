@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict
 
 from wisent.core.activations.activations import Activations
+from wisent.core.constants import EVAL_MAX_NEW_TOKENS, AGENT_DIAG_TEMPERATURE
 from wisent.core.layer import Layer
 from wisent.core.models import get_generate_kwargs
 
@@ -31,7 +32,7 @@ def evaluate_text_generation(evaluator, classifier, task_name: str, num_samples:
                 else:
                     question = str(doc.get("question", doc.get("text", "")))
                 logger.debug(f"Generating response for: {question}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=150, temperature=0.1, do_sample=False)
+                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_MAX_NEW_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
                 generated_response, _ = model.generate(prompt=question, layer_index=layer, **gen_kwargs)
                 if task_name.startswith("hle") or task_name in ["math500", "math", "hendrycks_math"]:
                     ground_truth = doc.get("answer", "")

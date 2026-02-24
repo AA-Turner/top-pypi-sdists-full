@@ -13,10 +13,15 @@ safe-transmute = { workspace = true }
 serde = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+bytemuck = { workspace = true }
 heed = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
+
+[dev-dependencies]
+bincode = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [features]
 strict = []

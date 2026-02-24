@@ -2,6 +2,8 @@
 
 import argparse
 
+from wisent.core.constants import DATA_SPLIT_RATIO, DATA_SPLIT_SEED
+
 
 def setup_train_unified_goodness_parser(parser: argparse.ArgumentParser) -> None:
     """
@@ -73,13 +75,13 @@ def setup_train_unified_goodness_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--train-ratio",
         type=float,
-        default=0.8,
+        default=DATA_SPLIT_RATIO,
         help="Fraction of pairs used for training vs evaluation (default: 0.8)"
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
+        default=DATA_SPLIT_SEED,
         help="Random seed for reproducibility (default: 42)"
     )
 

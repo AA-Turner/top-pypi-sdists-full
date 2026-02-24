@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 1.1.1
+Version: 1.2.0
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT
@@ -103,6 +103,22 @@ found_repo = await storage.find_one(id="repo-id")
 if found_repo:
     url = await found_repo.get_remote_url()
     print(f"Repository URL: {url}")
+```
+
+### Hydrating a Repository Without a Request
+
+If you already know the repo metadata, you can construct a `Repo` directly:
+
+```python
+repo = storage.repo(
+    id="repo-id",
+    default_branch="main",
+    created_at="2024-06-15T12:00:00Z",
+)
+
+# No HTTP request is made by repo()
+url = await repo.get_remote_url()
+print(url)
 ```
 
 ### Grep
@@ -570,6 +586,13 @@ class GitStorage:
         ttl: Optional[int] = None,
     ) -> Repo: ...
     async def find_one(self, *, id: str) -> Optional[Repo]: ...
+    def repo(
+        self,
+        *,
+        id: str,
+        default_branch: Optional[str] = None,  # defaults to "main"
+        created_at: Optional[str] = None,  # defaults to ""
+    ) -> Repo: ...
     def get_config(self) -> GitStorageOptions: ...
 ```
 

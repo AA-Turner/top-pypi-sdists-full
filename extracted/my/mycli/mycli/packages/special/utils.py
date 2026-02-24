@@ -1,5 +1,13 @@
+import logging
 import os
 import subprocess
+
+import pymysql
+from pymysql.cursors import Cursor
+
+logger = logging.getLogger(__name__)
+
+CACHED_SSL_VERSION: dict[tuple, str | None] = {}
 
 
 def handle_cd_command(arg: str) -> tuple[bool, str | None]:
@@ -46,3 +54,43 @@ def format_uptime(uptime_in_seconds: str) -> str:
 
     uptime = " ".join(uptime_values)
     return uptime
+
+
+def get_uptime(cur: Cursor) -> int:
+    query = 'SHOW STATUS LIKE "Uptime"'
+    logger.debug(query)
+
+    uptime = 0
+
+    try:
+        cur.execute(query)
+        if one := cur.fetchone():
+            uptime = int(one[1] or 0)
+    except pymysql.err.OperationalError:
+        pass
+
+    return uptime
+
+
+def get_ssl_version(cur: Cursor) -> str | None:
+    cache_key = (id(cur.connection), cur.connection.thread_id())
+
+    if cache_key in CACHED_SSL_VERSION:
+        return CACHED_SSL_VERSION[cache_key] or None
+
+    query = 'SHOW STATUS LIKE "Ssl_version"'
+    logger.debug(query)
+
+    ssl_version = None
+
+    try:
+        cur.execute(query)
+        if one := cur.fetchone():
+            CACHED_SSL_VERSION[cache_key] = one[1]
+            ssl_version = one[1] or None
+        else:
+            CACHED_SSL_VERSION[cache_key] = ''
+    except pymysql.err.OperationalError:
+        pass
+
+    return ssl_version

@@ -16,15 +16,12 @@ class SteeringLayerConfig(str, Enum):
     SINGLE_BEST = "single_best"  # Only the optimal single layer
     RANGE_3 = "range_3"  # 3 consecutive layers around best
     RANGE_5 = "range_5"  # 5 consecutive layers around best
-    ALL_LATE = "all_late"  # All layers in last quarter
     CUSTOM = "custom"  # User-specified layers
 
 
 class SensorLayerConfig(str, Enum):
     """Predefined sensor layer positions."""
     MIDDLE = "middle"  # Middle of the network
-    LATE = "late"  # 75% through the network
-    LAST_QUARTER = "last_quarter"  # Start of last quarter
     CUSTOM = "custom"  # User-specified
 
 
@@ -134,7 +131,7 @@ class TETNOSearchSpace(BaseSearchSpace):
     # Override base - TETNO uses different layer logic
     layers: List[int] = field(default_factory=lambda: [])  # Not used directly
     
-    sensor_layer_config: List[str] = field(default_factory=lambda: ["middle", "late", "last_quarter"])
+    sensor_layer_config: List[str] = field(default_factory=lambda: ["middle"])
     steering_layer_config: List[str] = field(default_factory=lambda: ["single_best", "range_3", "range_5"])
     condition_threshold: List[float] = field(default_factory=lambda: [0.3, 0.5, 0.7])
     gate_temperature: List[float] = field(default_factory=lambda: [0.1, 0.5, 1.0])
@@ -189,13 +186,14 @@ class TETNOSearchSpace(BaseSearchSpace):
         """Convert sensor layer config to actual layer index."""
         if config == "middle":
             return num_layers // 2
-        elif config == "late":
-            return int(num_layers * 0.75)
-        elif config == "last_quarter":
-            return int(num_layers * 0.75)
+        elif isinstance(config, int):
+            return config
         else:
-            return num_layers - 4  # Default
-    
+            raise ValueError(
+                f"Unknown sensor_layer config: {config}. "
+                f"Use 'middle' or an explicit integer layer index."
+            )
+
     def resolve_steering_layers(self, config: str, best_layer: int, num_layers: int) -> List[int]:
         """Convert steering layer config to actual layer indices."""
         if config == "single_best":
@@ -204,9 +202,6 @@ class TETNOSearchSpace(BaseSearchSpace):
             return [max(0, best_layer - 1), best_layer, min(num_layers - 1, best_layer + 1)]
         elif config == "range_5":
             return list(range(max(0, best_layer - 2), min(num_layers, best_layer + 3)))
-        elif config == "all_late":
-            start = int(num_layers * 0.75)
-            return list(range(start, num_layers - 1))
         else:
             return [best_layer]
 
@@ -214,13 +209,13 @@ class TETNOSearchSpace(BaseSearchSpace):
 @dataclass
 class GROMSearchSpace(BaseSearchSpace):
     """Search space for GROM method."""
-    
+
     # Override base - GROM uses different layer logic
     layers: List[int] = field(default_factory=lambda: [])  # Not used directly
-    
+
     num_directions: List[int] = field(default_factory=lambda: [2, 3, 5])
-    sensor_layer_config: List[str] = field(default_factory=lambda: ["middle", "late"])
-    steering_layer_config: List[str] = field(default_factory=lambda: ["range_3", "range_5", "all_late"])
+    sensor_layer_config: List[str] = field(default_factory=lambda: ["middle"])
+    steering_layer_config: List[str] = field(default_factory=lambda: ["range_3", "range_5"])
     gate_hidden_dim: List[int] = field(default_factory=lambda: [32, 64, 128])
     intensity_hidden_dim: List[int] = field(default_factory=lambda: [16, 32, 64])
     behavior_weight: List[float] = field(default_factory=lambda: [0.5, 1.0])
@@ -277,10 +272,13 @@ class GROMSearchSpace(BaseSearchSpace):
         """Convert sensor layer config to actual layer index."""
         if config == "middle":
             return num_layers // 2
-        elif config == "late":
-            return int(num_layers * 0.75)
+        elif isinstance(config, int):
+            return config
         else:
-            return num_layers - 4
+            raise ValueError(
+                f"Unknown sensor_layer config: {config}. "
+                f"Use 'middle' or an explicit integer layer index."
+            )
     
     def resolve_steering_layers(self, config: str, best_layer: int, num_layers: int) -> List[int]:
         """Convert steering layer config to actual layer indices."""
@@ -288,10 +286,10 @@ class GROMSearchSpace(BaseSearchSpace):
             return [max(0, best_layer - 1), best_layer, min(num_layers - 1, best_layer + 1)]
         elif config == "range_5":
             return list(range(max(0, best_layer - 2), min(num_layers, best_layer + 3)))
-        elif config == "all_late":
-            start = int(num_layers * 0.75)
-            return list(range(start, num_layers - 1))
         else:
-            return [best_layer]
+            raise ValueError(
+                f"Unknown steering_layer config: {config}. "
+                f"Use 'range_3' or 'range_5'."
+            )
 
 

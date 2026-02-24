@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 from wisent.examples.scripts._sae import train_sparse_autoencoder
-from wisent.examples.scripts._sae_analysis import (
 from wisent.core.constants import DEFAULT_CLASSIFIER_LR
+from wisent.examples.scripts._sae_analysis import (
     analyze_sae_features,
     visualize_sae_analysis,
 )

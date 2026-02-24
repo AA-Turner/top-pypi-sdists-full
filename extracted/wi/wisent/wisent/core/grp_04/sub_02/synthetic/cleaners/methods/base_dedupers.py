@@ -7,6 +7,7 @@ from typing import Mapping, Sequence, Callable
 from wisent.core.synthetic.cleaners.methods.core.atoms import Deduper
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.errors import InvalidValueError, InvalidRangeError
+from wisent.core.constants import DEDUP_THRESHOLD_BITS, DEDUP_WORD_NGRAM, DEDUP_CHAR_NGRAM, DEDUP_NUM_BANDS, SIMHASH_BIT_WIDTH
 
 __all__ = [
     "SimHashDeduper",
@@ -32,7 +33,7 @@ class SimHashDeduper(Deduper):
         exact_keys: Sequence[str] = ("prompt", "positive", "negative"),
         key_fn: Callable[[Mapping[str, str]], str] | None = None,
     ) -> None:
-        if 64 % num_bands != 0:
+        if SIMHASH_BIT_WIDTH % num_bands != 0:
             raise InvalidValueError(param_name="num_bands", actual=num_bands, expected="divisor of 64 (e.g., 4, 8, 16, 32)")
         if tokenizer not in {"auto", "word", "char"}:
             raise InvalidValueError(param_name="tokenizer", actual=tokenizer, expected="'auto', 'word', or 'char'")
@@ -48,7 +49,7 @@ class SimHashDeduper(Deduper):
         self.strip_accents = bool(strip_accents)
         self.stopwords = set(stopwords or self._default_stopwords())
         self.num_bands = int(num_bands)
-        self.band_size = 64 // self.num_bands
+        self.band_size = SIMHASH_BIT_WIDTH // self.num_bands
         self.exact_keys = tuple(exact_keys)
         self.key_fn = key_fn
 
@@ -170,17 +171,17 @@ class SimHashDeduper(Deduper):
             >>> SimHashDeduper()._simhash64(Counter({'cat': 1, 'sat': 1, 'mat': 1}))
             0b101010101010... (64 bits)
         """
-        v = [0.0] * 64
+        v = [0.0] * SIMHASH_BIT_WIDTH
         for feat, weight in features.items():
             h = self._hash64(feat)
-            for i in range(64):
+            for i in range(SIMHASH_BIT_WIDTH):
                 if h & (1 << i):
                     v[i] += weight
                 else:
                     v[i] -= weight
 
         fp = 0
-        for i in range(64):
+        for i in range(SIMHASH_BIT_WIDTH):
             if v[i] >= 0:
                 fp |= (1 << i)
         return fp
@@ -281,19 +282,11 @@ class SimHashDeduper(Deduper):
             
         example:
             >>> SimHashDeduper()._hash64("wisent")
-            TODO: actual value" 
+            TODO: actual value
         """
         h = hashlib.blake2b(s.encode("utf-8"), digest_size=8)
         return int.from_bytes(h.digest(), "big", signed=False)
 
     def _hamming_distance(self, a: int, b: int) -> int:
-        """
-        Compute Hamming distance between two 64-bit integers.
-
-        arguments:
-            a, b: 64-bit integers
-
-        returns:
-            Hamming distance (number of differing bits)
-
-        intuition:
+        """Compute Hamming distance between two 64-bit integers."""
+        return bin(a ^ b).count('1')

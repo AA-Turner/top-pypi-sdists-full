@@ -8,16 +8,21 @@ consistent discovery API.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Generator
+from functools import cache
 from types import ModuleType
 from typing import Any, Self, TypeVar
 
 import pyrig
-from pyrig.src.modules.class_ import classproperty
+from pyrig.src.iterate import generator_has_items
+from pyrig.src.modules.class_ import (
+    classproperty,
+    discard_abstract_classes,
+    discard_parent_classes,
+)
 from pyrig.src.modules.package import (
-    discover_leaf_subclass_across_dependents,
     discover_subclasses_across_dependents,
 )
-from pyrig.src.singleton import Singleton
 
 T = TypeVar("T", bound="DependencySubclass")
 
@@ -69,28 +74,41 @@ class DependencySubclass(ABC):
         return pyrig
 
     @classmethod
-    def subclasses(cls) -> list[type[Self]]:
+    def subclasses_sorted(cls, *subclasses: type[Self]) -> list[type[Self]]:
+        """Discover and return all concrete subclasses, sorted by sorting key.
+
+        Discovers all non-abstract subclasses across dependent packages, scoped to
+        the definition package. Returns them as a tuple sorted by the value
+        returned from `sorting_key()`.
+
+        Returns:
+            List of concrete subclass types, sorted by sorting key.
+        """
+        return sorted(subclasses, key=cls.sorting_key)
+
+    @classmethod
+    def subclasses(cls) -> Generator[type[Self], None, None]:
         """Discover all non-abstract subclasses.
 
         Search all dependent packages of the base dependency, scoped to the
         definition package, and return the results sorted by `sorting_key`.
 
         Returns:
-            Sorted list of concrete subclass types.
+            Sorted tuple of concrete subclass types.
         """
-        return sorted(
-            discover_subclasses_across_dependents(
-                cls,
-                cls.base_dependency(),
-                cls.definition_package(),
-                discard_parents=True,
-                exclude_abstract=True,
-            ),
-            key=cls.sorting_key,
+        return discard_parent_classes(
+            discard_abstract_classes(
+                discover_subclasses_across_dependents(
+                    cls,
+                    dep=cls.base_dependency(),
+                    load_package_before=cls.definition_package(),
+                )
+            )
         )
 
     @classproperty
-    def L(cls) -> type[Self]:  # noqa: N802, N805
+    @cache  # noqa: B019  # false warning bc of custom classproperty decorator
+    def L(cls: type[Self]) -> type[Self]:  # noqa: N802, N805
         """Get the final leaf subclass (deepest in the inheritance tree).
 
         Returns:
@@ -99,22 +117,24 @@ class DependencySubclass(ABC):
         See Also:
             subclasses: Discover all concrete subclasses, sorted by sorting key.
         """
-        return discover_leaf_subclass_across_dependents(
-            cls=cls,
-            dep=cls.base_dependency(),
-            load_package_before=cls.definition_package(),
-        )
+        has_leaf, subclasses = generator_has_items(cls.subclasses())
+
+        if not has_leaf:
+            msg = f"No concrete subclasses found for {cls.__name__}"
+            raise TypeError(msg)
+
+        leaf = next(subclasses)
+        second = next(subclasses, None)
+        if second is not None:
+            msg = (
+                f"Multiple concrete subclasses found for {cls.__name__}: "
+                f"{', '.join(c.__name__ for c in (leaf, second, *subclasses))}"
+            )
+            raise TypeError(msg)
+        return leaf
 
     @classproperty
-    def I(cls) -> Self:  # noqa: E743, N802, N805
+    @cache  # noqa: B019  # false warning bc of custom classproperty decorator
+    def I(cls: type[Self]) -> Self:  # noqa: E743, N802, N805
         """Get an instance of the final leaf subclass."""
         return cls.L()
-
-
-class SingletonDependencySubclass(Singleton, DependencySubclass):
-    """Convenience base combining `Singleton` with `DependencySubclass`.
-
-    By inheriting from `Singleton`, the inherited `I` property returns a
-    cached singleton instance of the leaf subclass instead of creating a new
-    one on every access.
-    """

@@ -162,7 +162,7 @@ class DomainClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/create_domain.py.html>`__ to see an example of how to use create_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/tenantmanagercontrolplane/create_domain.py.html>`__ to see an example of how to use create_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -265,7 +265,7 @@ class DomainClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/delete_domain.py.html>`__ to see an example of how to use delete_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/tenantmanagercontrolplane/delete_domain.py.html>`__ to see an example of how to use delete_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainId']
@@ -368,7 +368,7 @@ class DomainClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/get_domain.py.html>`__ to see an example of how to use get_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/tenantmanagercontrolplane/get_domain.py.html>`__ to see an example of how to use get_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainId']
@@ -506,7 +506,7 @@ class DomainClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/list_domains.py.html>`__ to see an example of how to use list_domains API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/tenantmanagercontrolplane/list_domains.py.html>`__ to see an example of how to use list_domains API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -658,7 +658,7 @@ class DomainClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/update_domain.py.html>`__ to see an example of how to use update_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/tenantmanagercontrolplane/update_domain.py.html>`__ to see an example of how to use update_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainId']

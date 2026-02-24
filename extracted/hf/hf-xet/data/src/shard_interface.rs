@@ -8,24 +8,20 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use cas_client::Client;
 use error_printer::ErrorPrinter;
-use mdb_shard::ShardFileManager;
 use mdb_shard::cas_structs::MDBCASInfo;
-use mdb_shard::constants::MDB_SHARD_MAX_TARGET_SIZE;
 use mdb_shard::file_structs::{FileDataSequenceEntry, MDBFileInfo};
 use mdb_shard::session_directory::{ShardMergeResult, consolidate_shards_in_directory, merge_shards_background};
 use mdb_shard::shard_in_memory::MDBInMemoryShard;
+use mdb_shard::{MDB_SHARD_LOCAL_CACHE_EXPIRATION, MDBShardFile, MDBShardFileHeader, ShardFileManager};
 use merklehash::MerkleHash;
 use tempfile::TempDir;
 use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 use tracing::{Instrument, debug, info, info_span};
+use xet_runtime::xet_config;
 
 use crate::configurations::TranslatorConfig;
-use crate::constants::{
-    MDB_SHARD_LOCAL_CACHE_EXPIRATION, SESSION_XORB_METADATA_FLUSH_INTERVAL, SESSION_XORB_METADATA_FLUSH_MAX_COUNT,
-};
 use crate::errors::Result;
-use crate::file_upload_session::acquire_upload_permit;
 
 pub struct SessionShardInterface {
     session_shard_manager: Arc<ShardFileManager>,
@@ -81,7 +77,7 @@ impl SessionShardInterface {
                 Some(merge_shards_background(
                     &xorb_metadata_staging_dir,
                     &session_dir,
-                    *MDB_SHARD_MAX_TARGET_SIZE,
+                    xet_config().mdb_shard.max_target_size,
                     true,
                 ))
             } else {
@@ -203,11 +199,11 @@ impl SessionShardInterface {
         xorb_shard.add_cas_block(cas_block_contents)?;
 
         let time_now = SystemTime::now();
-        let flush_interval = *SESSION_XORB_METADATA_FLUSH_INTERVAL;
+        let flush_interval = xet_config().data.session_xorb_metadata_flush_interval;
 
         // Flush if it's time or we've hit enough new shards that we should do the flush
         if *last_flush + flush_interval < time_now
-            || xorb_shard.num_cas_entries() >= *SESSION_XORB_METADATA_FLUSH_MAX_COUNT
+            || xorb_shard.num_cas_entries() >= xet_config().data.session_xorb_metadata_flush_max_count
         {
             xorb_shard.write_to_directory(&self.xorb_metadata_staging_dir, Some(*MDB_SHARD_LOCAL_CACHE_EXPIRATION))?;
 
@@ -240,7 +236,7 @@ impl SessionShardInterface {
         // First, scan, merge, and fill out any shards in the session directory
         let shard_list = consolidate_shards_in_directory(
             self.session_shard_manager.shard_directory(),
-            *MDB_SHARD_MAX_TARGET_SIZE,
+            xet_config().mdb_shard.max_target_size,
             // Here, we want to error out if some of the information isn't present or corrupt, so set skip_on_error to
             // false.
             false,
@@ -253,7 +249,6 @@ impl SessionShardInterface {
 
         for si in shard_list {
             let shard_client = self.client.clone();
-            let shard_prefix = self.config.shard_config.prefix.clone();
             let cache_shard_manager = self.cache_shard_manager.clone();
             let shard_bytes_uploaded = shard_bytes_uploaded.clone();
             let dry_run = self.dry_run;
@@ -264,23 +259,13 @@ impl SessionShardInterface {
             // It's also important to acquire the permit before the task is launched; otherwise, we may spawn an
             // unlimited number of tasks that end up using up a ton of memory; this forces the pipeline to
             // block here while the upload is happening.
-            let upload_permit = acquire_upload_permit().await?;
+            let upload_permit = shard_client.acquire_upload_permit().await?;
 
             shard_uploads.spawn(
                 async move {
-                    debug!("Uploading shard {shard_prefix}/{:?} from staging area to CAS.", &si.shard_hash);
+                    debug!("Uploading shard {:?} from staging area to CAS.", &si.shard_hash);
 
-                    let data: Bytes = if !shard_client.use_shard_footer() {
-                        let split_off_index = si.shard.metadata.file_lookup_offset as usize;
-                        // Read only the portion of the shard file up to the file_lookup_offset,
-                        // which excludes the footer and lookup sections.
-                        let mut file = File::open(&si.path)?;
-                        let mut buf = vec![0u8; split_off_index];
-                        file.read_exact(&mut buf)?;
-                        Bytes::from(buf)
-                    } else {
-                        std::fs::read(&si.path)?.into()
-                    };
+                    let data: Bytes = read_shard_to_bytes_remove_footer(&si)?;
 
                     shard_bytes_uploaded.fetch_add(data.len() as u64, Ordering::Relaxed);
 
@@ -290,12 +275,9 @@ impl SessionShardInterface {
                     }
 
                     // Upload the shard.
-                    shard_client.upload_shard(data).await?;
+                    shard_client.upload_shard(data, upload_permit).await?;
 
-                    // Done with the upload, drop the permit.
-                    drop(upload_permit);
-
-                    info!("Shard {shard_prefix}/{:?} upload + sync completed successfully.", &si.shard_hash);
+                    info!("Shard {:?} upload + sync completed successfully.", &si.shard_hash);
 
                     // Now that the upload succeeded, move that shard to the cache directory, adding in an expiration
                     // time.
@@ -326,5 +308,50 @@ impl SessionShardInterface {
         }
 
         Ok(shard_bytes_uploaded.load(Ordering::Relaxed))
+    }
+}
+
+fn read_shard_to_bytes_remove_footer(si: &Arc<MDBShardFile>) -> Result<Bytes> {
+    let split_off_index = si.shard.metadata.file_lookup_offset as usize;
+    // Read only the portion of the shard file up to the file_lookup_offset,
+    // which excludes the footer and lookup sections.
+    let mut file = File::open(&si.path)?;
+    let mut buf = vec![0u8; split_off_index];
+    file.read_exact(&mut buf)?;
+    // re-write the header to set footer_size to 0.
+    let mut header = si.shard.header.clone();
+    header.footer_size = 0;
+    header.serialize(&mut (&mut buf[..size_of::<MDBShardFileHeader>()]))?;
+    #[cfg(debug_assertions)]
+    {
+        let new_header =
+            MDBShardFileHeader::deserialize(&mut std::io::Cursor::new(&buf[..size_of::<MDBShardFileHeader>()]))?;
+        debug_assert_eq!(new_header.footer_size, 0);
+    }
+    Ok(Bytes::from(buf))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn test_read_shard_to_bytes_remove_footer() -> Result<()> {
+        let tmp_dir = TempDir::with_prefix("test_read_shard_to_bytes_remove_footer")?;
+        let tmp_dir_path = tmp_dir.path();
+
+        let mdb_in_mem = MDBInMemoryShard::default();
+        let temp_shard_file_path = mdb_in_mem.write_to_directory(tmp_dir_path, None)?;
+
+        let shard_file = MDBShardFile::load_from_file(&temp_shard_file_path)?;
+        assert_eq!(shard_file.shard.header.footer_size, size_of::<mdb_shard::MDBShardFileFooter>() as u64);
+
+        let no_footer_shard_buf = read_shard_to_bytes_remove_footer(&shard_file)?;
+        let buf_shard_header =
+            MDBShardFileHeader::deserialize(&mut Cursor::new(&no_footer_shard_buf[..size_of::<MDBShardFileHeader>()]))?;
+        assert_eq!(buf_shard_header.footer_size, 0);
+        Ok(())
     }
 }

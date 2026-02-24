@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from wisent.core.constants import NORM_EPS, GROM_ROUTER_HIDDEN_DIM
+from wisent.core.constants import NORM_EPS, GROM_ROUTER_HIDDEN_DIM, GROM_ROUTING_TEMP_EPS
 
 
 class DirectionRoutingNetwork(nn.Module):
@@ -72,7 +72,7 @@ class DirectionRoutingNetwork(nn.Module):
         for head in self.routing_heads:
             logits = head(encoded)
             # Temperature-scaled softmax for sharper/softer routing
-            w = F.softmax(logits / (self.temperature.abs() + 0.1), dim=-1)
+            w = F.softmax(logits / (self.temperature.abs() + GROM_ROUTING_TEMP_EPS), dim=-1)
             weights.append(w)
 
         return weights

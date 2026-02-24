@@ -9,6 +9,10 @@ from abc import ABC, abstractmethod
 from wisent.core.constants import (
     NORM_EPS, DEFAULT_STRENGTH, DIAG_NUM_COMPONENTS,
     BLEND_DEFAULT, MLP_HIDDEN_DIM, MLP_OPTIMIZATION_STEPS,
+    CLAMPING_MARGIN_DEFAULT, CENTROID_SHIFT_FACTOR,
+    ADVANCED_MLP_LR, ADAPTIVE_MAX_STRENGTH, ADVANCED_DEFAULT_STRENGTHS,
+    CLASSIFIER_MLP_HIDDEN_DIM, CLASSIFIER_NUM_EPOCHS,
+    VIZ_MLP_HIDDEN_DIM, VIZ_MLP_EPOCHS,
 )
 
 
@@ -64,7 +68,7 @@ class LinearSteering(SteeringMethod):
 class ClampingSteering(SteeringMethod):
     """Clamp activations to stay within truthful region bounds."""
 
-    def __init__(self, margin: float = 0.1):
+    def __init__(self, margin: float = CLAMPING_MARGIN_DEFAULT):
         self.margin = margin
         self.pos_min = None
         self.pos_max = None
@@ -112,7 +116,7 @@ class ProjectionSteering(SteeringMethod):
             proj = torch.sum(activations * component, dim=-1, keepdim=True) * component
             activations = activations - self.strength * proj
         # Shift toward truthful centroid
-        activations = activations + self.strength * 0.1 * (centroid - activations)
+        activations = activations + self.strength * CENTROID_SHIFT_FACTOR * (centroid - activations)
         return activations
 
     @property
@@ -164,7 +168,7 @@ class ContrastSteering(SteeringMethod):
         toward_dir = toward_dir / (torch.norm(toward_dir, dim=-1, keepdim=True) + NORM_EPS)
         # Combined push
         orig_norm = torch.norm(activations, dim=-1, keepdim=True)
-        steered = activations + self.strength * (away_dir + toward_dir) * orig_norm * 0.1
+        steered = activations + self.strength * (away_dir + toward_dir) * orig_norm * CENTROID_SHIFT_FACTOR
         return steered
 
     @property
@@ -197,7 +201,7 @@ class MLPSteering(SteeringMethod):
         pos_centroid = torch.from_numpy(pos_acts.mean(axis=0)).float()
         Y = pos_centroid.unsqueeze(0).expand(len(neg_acts), -1)
 
-        optimizer = torch.optim.Adam(self.mlp.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(self.mlp.parameters(), lr=ADVANCED_MLP_LR)
         for _ in range(self.epochs):
             optimizer.zero_grad()
             pred = self.mlp(X)
@@ -221,7 +225,7 @@ class MLPSteering(SteeringMethod):
 class AdaptiveSteering(SteeringMethod):
     """Adaptive steering that adjusts strength based on distance from boundary."""
 
-    def __init__(self, max_strength: float = 2.0):
+    def __init__(self, max_strength: float = ADAPTIVE_MAX_STRENGTH):
         self.max_strength = max_strength
         self.classifier = None
         self.direction = None
@@ -253,12 +257,12 @@ class AdaptiveSteering(SteeringMethod):
 def get_all_steering_methods(strengths: List[float] = None) -> List[SteeringMethod]:
     """Get all available steering methods with various configurations."""
     if strengths is None:
-        strengths = [0.5, 1.0, 2.0, 5.0]
+        strengths = list(ADVANCED_DEFAULT_STRENGTHS)
 
     methods = []
     for s in strengths:
         methods.append(LinearSteering(strength=s))
-    methods.append(ClampingSteering(margin=0.1))
+    methods.append(ClampingSteering(margin=CLAMPING_MARGIN_DEFAULT))
     methods.append(ClampingSteering(margin=0.5))
     for n in [3, 5, 10]:
         methods.append(ProjectionSteering(n_components=n, strength=1.0))
@@ -266,8 +270,8 @@ def get_all_steering_methods(strengths: List[float] = None) -> List[SteeringMeth
         methods.append(ReplacementSteering(blend=b))
     for s in strengths:
         methods.append(ContrastSteering(strength=s))
-    methods.append(MLPSteering(hidden_dim=128, epochs=50))
-    methods.append(MLPSteering(hidden_dim=256, epochs=100))
+    methods.append(MLPSteering(hidden_dim=CLASSIFIER_MLP_HIDDEN_DIM, epochs=CLASSIFIER_NUM_EPOCHS))
+    methods.append(MLPSteering(hidden_dim=VIZ_MLP_HIDDEN_DIM, epochs=VIZ_MLP_EPOCHS))
     for s in [1.0, 2.0, 5.0]:
         methods.append(AdaptiveSteering(max_strength=s))
 

@@ -19,7 +19,10 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from connector_sdk_types.generated.models.access_graph_entitlement_rule import AccessGraphEntitlementRule
+from connector_sdk_types.generated.models.access_graph_entitlement_type import AccessGraphEntitlementType
 from connector_sdk_types.generated.models.entitlement_type import EntitlementType
+from connector_sdk_types.generated.models.implied_access_rule import ImpliedAccessRule
 from connector_sdk_types.generated.models.resource_type import ResourceType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -35,13 +38,16 @@ class OpenAPISpecificationInfo(BaseModel):
     x_app_logo_url: StrictStr = Field(alias="x-app-logo-url")
     x_app_vendor_domain: StrictStr = Field(alias="x-app-vendor-domain")
     x_entitlement_types: List[EntitlementType] = Field(alias="x-entitlement-types")
+    x_access_graph_entitlement_types: Optional[List[AccessGraphEntitlementType]] = Field(default=None, alias="x-access-graph-entitlement-types")
+    x_access_graph_entitlement_rules: Optional[List[AccessGraphEntitlementRule]] = Field(default=None, alias="x-access-graph-entitlement-rules")
+    x_implied_access_rules: Optional[List[ImpliedAccessRule]] = Field(default=None, alias="x-implied-access-rules")
     x_resource_types: List[ResourceType] = Field(alias="x-resource-types")
     x_categories: Dict[str, Any] = Field(alias="x-categories")
     x_oauth_settings: Optional[Dict[str, Any]] = Field(default=None, alias="x-oauth-settings")
     x_capabilities: List[StrictStr] = Field(alias="x-capabilities")
     x_multi_credential: StrictBool = Field(alias="x-multi-credential")
     x_allowed_credentials: List[List[StrictStr]] = Field(alias="x-allowed-credentials")
-    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-allowed-credentials"]
+    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-access-graph-entitlement-types", "x-access-graph-entitlement-rules", "x-implied-access-rules", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-allowed-credentials"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,6 +95,27 @@ class OpenAPISpecificationInfo(BaseModel):
                 if _item_x_entitlement_types:
                     _items.append(_item_x_entitlement_types.to_dict())
             _dict['x-entitlement-types'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in x_access_graph_entitlement_types (list)
+        _items = []
+        if self.x_access_graph_entitlement_types:
+            for _item_x_access_graph_entitlement_types in self.x_access_graph_entitlement_types:
+                if _item_x_access_graph_entitlement_types:
+                    _items.append(_item_x_access_graph_entitlement_types.to_dict())
+            _dict['x-access-graph-entitlement-types'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in x_access_graph_entitlement_rules (list)
+        _items = []
+        if self.x_access_graph_entitlement_rules:
+            for _item_x_access_graph_entitlement_rules in self.x_access_graph_entitlement_rules:
+                if _item_x_access_graph_entitlement_rules:
+                    _items.append(_item_x_access_graph_entitlement_rules.to_dict())
+            _dict['x-access-graph-entitlement-rules'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in x_implied_access_rules (list)
+        _items = []
+        if self.x_implied_access_rules:
+            for _item_x_implied_access_rules in self.x_implied_access_rules:
+                if _item_x_implied_access_rules:
+                    _items.append(_item_x_implied_access_rules.to_dict())
+            _dict['x-implied-access-rules'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in x_resource_types (list)
         _items = []
         if self.x_resource_types:
@@ -115,6 +142,9 @@ class OpenAPISpecificationInfo(BaseModel):
             "x-app-logo-url": obj.get("x-app-logo-url"),
             "x-app-vendor-domain": obj.get("x-app-vendor-domain"),
             "x-entitlement-types": [EntitlementType.from_dict(_item) for _item in obj["x-entitlement-types"]] if obj.get("x-entitlement-types") is not None else None,
+            "x-access-graph-entitlement-types": [AccessGraphEntitlementType.from_dict(_item) for _item in obj["x-access-graph-entitlement-types"]] if obj.get("x-access-graph-entitlement-types") is not None else None,
+            "x-access-graph-entitlement-rules": [AccessGraphEntitlementRule.from_dict(_item) for _item in obj["x-access-graph-entitlement-rules"]] if obj.get("x-access-graph-entitlement-rules") is not None else None,
+            "x-implied-access-rules": [ImpliedAccessRule.from_dict(_item) for _item in obj["x-implied-access-rules"]] if obj.get("x-implied-access-rules") is not None else None,
             "x-resource-types": [ResourceType.from_dict(_item) for _item in obj["x-resource-types"]] if obj.get("x-resource-types") is not None else None,
             "x-categories": obj.get("x-categories"),
             "x-oauth-settings": obj.get("x-oauth-settings"),

@@ -100,7 +100,7 @@ class default__:
 
     @staticmethod
     def DafnyUserAgentSuffix(runtime):
-        d_0_version_ = _dafny.Seq("1.11.0")
+        d_0_version_ = _dafny.Seq("1.11.2")
         return (((_dafny.Seq("AwsCryptographicMPL/")) + (runtime)) + (_dafny.Seq("/"))) + (d_0_version_)
 
     @staticmethod

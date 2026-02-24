@@ -203,20 +203,9 @@ class GitStorage:
                     response=response,
                 )
 
-        # These are guaranteed to be set in __init__
-        api_base_url: str = self.options["api_base_url"]  # type: ignore[assignment]
-        storage_base_url: str = self.options["storage_base_url"]  # type: ignore[assignment]
-        name: str = self.options["name"]
-        api_version: int = self.options["api_version"]  # type: ignore[assignment]
-
-        return RepoImpl(
-            repo_id,
-            resolved_default_branch or "main",
-            api_base_url,
-            storage_base_url,
-            name,
-            api_version,
-            self._generate_jwt,
+        return self.repo(
+            id=repo_id,
+            default_branch=resolved_default_branch or "main",
             created_at=datetime.now(timezone.utc).isoformat(),
         )
 
@@ -321,6 +310,31 @@ class GitStorage:
             default_branch = body.get("default_branch", "main")
             created_at = body.get("created_at", "")
 
+        return self.repo(id=repo_id, default_branch=default_branch, created_at=created_at)
+
+    def repo(
+        self,
+        *,
+        id: str,
+        default_branch: Optional[str] = None,
+        created_at: Optional[str] = None,
+    ) -> Repo:
+        """Create a Repo handle from known metadata without making an HTTP request.
+
+        Args:
+            id: Repository ID
+            default_branch: Optional default branch (defaults to "main")
+            created_at: Optional creation timestamp (defaults to "")
+
+        Returns:
+            Repository instance
+
+        Raises:
+            ValueError: If id is missing or invalid
+        """
+        if not isinstance(id, str) or not id.strip():
+            raise ValueError("repo requires a non-empty repository id.")
+
         # These are guaranteed to be set in __init__
         api_base_url: str = self.options["api_base_url"]  # type: ignore[assignment]
         storage_base_url: str = self.options["storage_base_url"]  # type: ignore[assignment]
@@ -328,14 +342,14 @@ class GitStorage:
         api_version: int = self.options["api_version"]  # type: ignore[assignment]
 
         return RepoImpl(
-            repo_id,
-            default_branch,
+            id,
+            default_branch or "main",
             api_base_url,
             storage_base_url,
             name,
             api_version,
             self._generate_jwt,
-            created_at=created_at,
+            created_at=created_at or "",
         )
 
     async def delete_repo(

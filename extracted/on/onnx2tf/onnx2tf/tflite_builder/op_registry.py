@@ -25,9 +25,11 @@ from onnx2tf.tflite_builder.op_builders import (
     build_constant_of_shape_op,
     build_conv2d_or_depthwise_op,
     build_conv_transpose_op,
+    build_fused_conv_op,
     build_cosh_op,
     build_custom_passthrough_op,
     build_dequantize_linear_op,
+    build_depth_to_space_op,
     build_dynamic_quantize_linear_op,
     build_div_op,
     build_einsum_op,
@@ -48,6 +50,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_hardsigmoid_op,
     build_global_average_pool_op,
     build_logsoftmax_op,
+    build_min_op,
     build_mish_op,
     build_nonzero_op,
     build_qgemm_op,
@@ -56,6 +59,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_pad_op,
     build_mod_op,
     build_one_hot_op,
+    build_topk_op,
     build_l2_normalization_op,
     build_lrn_op,
     build_logistic_op,
@@ -1192,6 +1196,207 @@ def _validate_conv(node: Any, ctx: Any) -> None:
         return
 
 
+def _validate_fused_conv(node: Any, ctx: Any) -> None:
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    output_shape = ctx.get_tensor_shape(node.outputs[0].name)
+    if input_shape != [1] and output_shape != [1]:
+        _validate_conv(node, ctx)
+    else:
+        weights = _require_const_input(node, ctx, 1, "conv weights")
+        if weights.ndim not in [3, 4]:
+            raise NodeValidationError(
+                reason_code="unsupported_weight_rank",
+                message=f"FusedConv weight rank must be 3 or 4. weight_shape={list(weights.shape)}",
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if int(weights.ndim) == 4:
+            if input_shape != [1] and len(input_shape) != 4:
+                raise NodeValidationError(
+                    reason_code="unsupported_tensor_rank",
+                    message=(
+                        "FusedConv2D input rank must be 4 (or unknown placeholder rank=1). "
+                        f"input_shape={input_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if output_shape != [1] and len(output_shape) != 4:
+                raise NodeValidationError(
+                    reason_code="unsupported_tensor_rank",
+                    message=(
+                        "FusedConv2D output rank must be 4 (or unknown placeholder rank=1). "
+                        f"output_shape={output_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+        else:
+            if input_shape != [1] and len(input_shape) != 3:
+                raise NodeValidationError(
+                    reason_code="unsupported_tensor_rank",
+                    message=(
+                        "FusedConv1D input rank must be 3 (or unknown placeholder rank=1). "
+                        f"input_shape={input_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if output_shape != [1] and len(output_shape) != 3:
+                raise NodeValidationError(
+                    reason_code="unsupported_tensor_rank",
+                    message=(
+                        "FusedConv1D output rank must be 3 (or unknown placeholder rank=1). "
+                        f"output_shape={output_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+        group = int(node.attrs.get("group", 1))
+        if group <= 0:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=f"FusedConv group must be > 0. group={group}",
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+    activation_raw = node.attrs.get("activation", "Relu")
+    if isinstance(activation_raw, (bytes, bytearray)):
+        activation = activation_raw.decode("utf-8")
+    else:
+        activation = str(activation_raw)
+    activation_key = str(activation).lower()
+    supported = {"relu", "tanh", "sigmoid", "leakyrelu", "clip", "hardsigmoid"}
+    if activation_key not in supported:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=(
+                "FusedConv activation must be one of "
+                "[Relu, Tanh, Sigmoid, LeakyRelu, Clip, HardSigmoid]. "
+                f"activation={activation}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    params_attr = node.attrs.get("activation_params", [])
+    if params_attr is None:
+        params: list[Any] = []
+    elif isinstance(params_attr, np.ndarray):
+        params = list(np.asarray(params_attr).reshape(-1))
+    elif isinstance(params_attr, (list, tuple)):
+        params = []
+        for item in params_attr:
+            if isinstance(item, np.ndarray):
+                params.extend(list(np.asarray(item).reshape(-1)))
+            elif isinstance(item, (list, tuple)):
+                params.extend(list(np.asarray(item).reshape(-1)))
+            else:
+                params.append(item)
+    else:
+        params = [params_attr]
+
+    def _to_optional_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        arr = np.asarray(value)
+        if int(arr.size) == 0:
+            return None
+        try:
+            return float(arr.reshape(-1)[0])
+        except Exception:
+            return None
+
+    if activation_key == "leakyrelu":
+        if len(params) > 0 and _to_optional_float(params[0]) is None:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv LeakyRelu alpha must be scalar-convertible when provided. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+    elif activation_key == "clip":
+        if len(params) == 0:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv Clip requires activation_params with at least one bound. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        min_value = _to_optional_float(params[0]) if len(params) >= 1 else None
+        max_value = _to_optional_float(params[1]) if len(params) >= 2 else None
+        if len(params) >= 1 and params[0] is not None and min_value is None:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv Clip minimum must be scalar-convertible when provided. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if len(params) >= 2 and params[1] is not None and max_value is None:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv Clip maximum must be scalar-convertible when provided. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if min_value is not None and max_value is not None and float(min_value) > float(max_value):
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv Clip minimum must be <= maximum. "
+                    f"min={min_value} max={max_value}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if min_value is None and max_value is None:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv Clip requires at least one concrete bound. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+    elif activation_key == "hardsigmoid":
+        if len(params) < 2:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv HardSigmoid requires activation_params [alpha, beta]. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        alpha = _to_optional_float(params[0])
+        beta = _to_optional_float(params[1])
+        if alpha is None or beta is None:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "FusedConv HardSigmoid alpha/beta must be scalar-convertible. "
+                    f"activation_params={params_attr}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+
 def _validate_global_average_pool(node: Any, ctx: Any) -> None:
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
     if len(input_shape) < 3:
@@ -1286,6 +1491,14 @@ def _validate_pool(node: Any, ctx: Any) -> None:
             raise NodeValidationError(
                 reason_code="unsupported_attribute_value",
                 message="Pool ceil_mode must be 0.",
+                node_name=node.name,
+                node_op=node.op,
+            )
+        count_include_pad = int(node.attrs.get("count_include_pad", 0))
+        if count_include_pad not in [0, 1]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=f"AveragePool count_include_pad must be 0 or 1. got={count_include_pad}",
                 node_name=node.name,
                 node_op=node.op,
             )
@@ -1930,6 +2143,96 @@ def _validate_argmin(node: Any, ctx: Any) -> None:
         )
 
 
+def _validate_topk(node: Any, ctx: Any) -> None:
+    input_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+    input_rank = len(input_shape)
+    if input_rank <= 0:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"TopK input rank must be >= 1. input_shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    input_dtype = str(ctx.get_tensor_dtype(node.inputs[0].name)).upper()
+    if input_dtype not in {"FLOAT16", "FLOAT32"}:
+        raise NodeValidationError(
+            reason_code="unsupported_input_dtype",
+            message=(
+                "TopK currently supports FLOAT16/FLOAT32 input in flatbuffer_direct. "
+                f"input_dtype={input_dtype}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    axis = int(node.attrs.get("axis", -1))
+    if axis < 0:
+        axis += input_rank
+    if axis < 0 or axis >= input_rank:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"TopK axis out of range. axis={axis} rank={input_rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    largest = int(node.attrs.get("largest", 1))
+    if largest not in {0, 1}:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"TopK largest must be 0 or 1. largest={largest}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    sorted_attr = int(node.attrs.get("sorted", 1))
+    if sorted_attr != 1:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"TopK sorted must be 1 in flatbuffer_direct builtin lowering. sorted={sorted_attr}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    k_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+    if len(k_shape) == 0:
+        pass
+    elif len(k_shape) == 1 and int(k_shape[0]) <= 1:
+        pass
+    else:
+        raise NodeValidationError(
+            reason_code="unsupported_input_shape",
+            message=(
+                "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
+                f"k_shape={k_shape}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    k_dtype = str(ctx.get_tensor_dtype(node.inputs[1].name)).upper()
+    if not _is_integer_dtype(k_dtype):
+        raise NodeValidationError(
+            reason_code="unsupported_input_dtype",
+            message=f"TopK k input must be integer dtype. k_dtype={k_dtype}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    if len(node.outputs) >= 2:
+        indices_dtype = str(ctx.get_tensor_dtype(node.outputs[1].name)).upper()
+        if indices_dtype not in {"INT32", "INT64"}:
+            raise NodeValidationError(
+                reason_code="unsupported_output_dtype",
+                message=(
+                    "TopK indices output dtype must be INT32 or INT64 in flatbuffer_direct. "
+                    f"indices_dtype={indices_dtype}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+
 def _validate_hardmax(node: Any, ctx: Any) -> None:
     input_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
     input_rank = len(input_shape)
@@ -2014,12 +2317,12 @@ def _validate_non_max_suppression(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         )
-    if not output_nms_with_argmax and int(scores_shape[1]) != 1:
+    if not output_nms_with_argmax and int(scores_shape[1]) <= 0:
         raise NodeValidationError(
             reason_code="unsupported_input_shape",
             message=(
-                "NonMaxSuppression class dimension > 1 requires --output_nms_with_argmax "
-                "for flatbuffer_direct builtin lowering. "
+                "NonMaxSuppression requires static positive class dimension when "
+                "--output_nms_with_argmax is disabled for flatbuffer_direct builtin lowering. "
                 f"scores_shape={scores_shape}"
             ),
             node_name=node.name,
@@ -2655,11 +2958,38 @@ def _validate_space_to_depth(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         )
-    mode = str(node.attrs.get("mode", "DCR")).upper()
+    mode_raw = node.attrs.get("mode", "DCR")
+    if isinstance(mode_raw, (bytes, bytearray)):
+        mode = mode_raw.decode("utf-8").upper()
+    else:
+        mode = str(mode_raw).upper()
     if mode != "DCR":
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
             message=f"SpaceToDepth mode must be DCR. got={mode}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_depth_to_space(node: Any, ctx: Any) -> None:
+    block_size = int(node.attrs.get("blocksize", 0))
+    if block_size <= 1:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"DepthToSpace blocksize must be > 1. got={block_size}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    mode_raw = node.attrs.get("mode", "DCR")
+    if isinstance(mode_raw, (bytes, bytearray)):
+        mode = mode_raw.decode("utf-8").upper()
+    else:
+        mode = str(mode_raw).upper()
+    if mode not in {"DCR", "CRD"}:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"DepthToSpace mode must be DCR or CRD. got={mode}",
             node_name=node.name,
             node_op=node.op,
         )
@@ -3122,10 +3452,10 @@ def _validate_resize(node: Any, ctx: Any) -> None:
         )
 
     mode = str(node.attrs.get("mode", "nearest")).lower()
-    if mode not in ["nearest", "linear"]:
+    if mode not in ["nearest", "linear", "cubic"]:
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
-            message=f"Resize mode must be nearest or linear. got={mode}",
+            message=f"Resize mode must be nearest, linear, or cubic. got={mode}",
             node_name=node.name,
             node_op=node.op,
         )
@@ -3154,7 +3484,7 @@ def _validate_resize(node: Any, ctx: Any) -> None:
             raise NodeValidationError(
                 reason_code="unsupported_attribute_value",
                 message=(
-                    "Resize(linear) supports coordinate_transformation_mode "
+                    "Resize(linear/cubic) supports coordinate_transformation_mode "
                     f"half_pixel/pytorch_half_pixel/asymmetric/align_corners only. got={ctm}"
                 ),
                 node_name=node.name,
@@ -3434,6 +3764,12 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         tflite_ops=["DIV", "MUL"],
         builder=build_div_op,
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+    ),
+    "Min": DispatchEntry(
+        onnx_op="Min",
+        tflite_ops=["MINIMUM"],
+        builder=build_min_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=None, min_outputs=1, max_outputs=1),
     ),
     "Abs": DispatchEntry(
         onnx_op="Abs",
@@ -3772,6 +4108,13 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         tflite_ops=["MUL", "ADD", "MAXIMUM", "MINIMUM"],
         builder=build_hardsigmoid_op,
         validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+    ),
+    "HardSwish": DispatchEntry(
+        onnx_op="HardSwish",
+        tflite_ops=["HARD_SWISH"],
+        builder=_make_unary_builder("HARD_SWISH"),
+        validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_float_unary,
     ),
     "Relu": DispatchEntry(
         onnx_op="Relu",
@@ -4119,6 +4462,13 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
         extra_validator=_validate_argmin,
     ),
+    "TopK": DispatchEntry(
+        onnx_op="TopK",
+        tflite_ops=["CAST", "SQUEEZE", "TRANSPOSE", "NEG", "TOPK_V2"],
+        builder=build_topk_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=2),
+        extra_validator=_validate_topk,
+    ),
     "Hardmax": DispatchEntry(
         onnx_op="Hardmax",
         tflite_ops=["TRANSPOSE", "ARG_MAX", "ONE_HOT"],
@@ -4174,6 +4524,20 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         ),
         extra_validator=_validate_space_to_depth,
     ),
+    "DepthToSpace": DispatchEntry(
+        onnx_op="DepthToSpace",
+        tflite_ops=["DEPTH_TO_SPACE"],
+        builder=build_depth_to_space_op,
+        validation=ValidationSpec(
+            min_inputs=1,
+            max_inputs=1,
+            min_outputs=1,
+            max_outputs=1,
+            input_rank={0: [4]},
+            output_rank={0: [4]},
+        ),
+        extra_validator=_validate_depth_to_space,
+    ),
     "Conv": DispatchEntry(
         onnx_op="Conv",
         tflite_ops=["CONV_2D", "DEPTHWISE_CONV_2D"],
@@ -4187,6 +4551,32 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             output_rank={0: [3, 4]},
         ),
         extra_validator=_validate_conv,
+    ),
+    "FusedConv": DispatchEntry(
+        onnx_op="FusedConv",
+        tflite_ops=[
+            "CONV_2D",
+            "DEPTHWISE_CONV_2D",
+            "RELU",
+            "RELU6",
+            "TANH",
+            "LOGISTIC",
+            "LEAKY_RELU",
+            "MUL",
+            "ADD",
+            "MAXIMUM",
+            "MINIMUM",
+        ],
+        builder=build_fused_conv_op,
+        validation=ValidationSpec(
+            min_inputs=2,
+            max_inputs=3,
+            min_outputs=1,
+            max_outputs=1,
+            input_rank={0: [1, 3, 4]},
+            output_rank={0: [1, 3, 4]},
+        ),
+        extra_validator=_validate_fused_conv,
     ),
     "ConvTranspose": DispatchEntry(
         onnx_op="ConvTranspose",

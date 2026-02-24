@@ -1148,7 +1148,8 @@ pub enum ProjectCommand {
     Lock(LockArgs),
     /// Export the project's lockfile to an alternate format.
     ///
-    /// At present, both `requirements.txt` and `pylock.toml` (PEP 751) formats are supported.
+    /// At present, `requirements.txt`, `pylock.toml` (PEP 751) and CycloneDX v1.5 JSON output
+    /// formats are supported.
     ///
     /// The project is re-locked before exporting unless the `--locked` or `--frozen` flag is
     /// provided.
@@ -3235,7 +3236,7 @@ pub struct VenvArgs {
     ///
     /// This option is only used for installing seed packages.
     ///
-    /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
+    /// Defaults to `clone` (also known as Copy-on-Write) on macOS and Linux, and `hardlink` on
     /// Windows.
     ///
     /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -3531,7 +3532,7 @@ pub struct RunArgs {
     ///
     /// uv includes the groups defined in `tool.uv.default-groups` by default.
     /// This disables that option, however, specific groups can still be included with `--group`.
-    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS)]
+    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_default_groups: bool,
 
     /// Only include dependencies from the specified dependency group.
@@ -3869,7 +3870,7 @@ pub struct SyncArgs {
     ///
     /// uv includes the groups defined in `tool.uv.default-groups` by default.
     /// This disables that option, however, specific groups can still be included with `--group`.
-    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS)]
+    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_default_groups: bool,
 
     /// Only include dependencies from the specified dependency group.
@@ -4684,7 +4685,7 @@ pub struct TreeArgs {
     ///
     /// uv includes the groups defined in `tool.uv.default-groups` by default.
     /// This disables that option, however, specific groups can still be included with `--group`.
-    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS)]
+    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_default_groups: bool,
 
     /// Only include dependencies from the specified dependency group.
@@ -4769,7 +4770,6 @@ pub struct TreeArgs {
 
 #[derive(Args)]
 pub struct ExportArgs {
-    #[expect(clippy::doc_markdown)]
     /// The format to which `uv.lock` should be exported.
     ///
     /// Supports `requirements.txt`, `pylock.toml` (PEP 751) and CycloneDX v1.5 JSON output formats.
@@ -4861,7 +4861,7 @@ pub struct ExportArgs {
     ///
     /// uv includes the groups defined in `tool.uv.default-groups` by default.
     /// This disables that option, however, specific groups can still be included with `--group`.
-    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS)]
+    #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_default_groups: bool,
 
     /// Only include dependencies from the specified dependency group.
@@ -5908,7 +5908,7 @@ pub struct ToolUpgradeArgs {
 
     /// The method to use when installing packages from the global cache.
     ///
-    /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
+    /// Defaults to `clone` (also known as Copy-on-Write) on macOS and Linux, and `hardlink` on
     /// Windows.
     ///
     /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -6963,7 +6963,7 @@ pub struct InstallerArgs {
 
     /// The method to use when installing packages from the global cache.
     ///
-    /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
+    /// Defaults to `clone` (also known as Copy-on-Write) on macOS and Linux, and `hardlink` on
     /// Windows.
     ///
     /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -7203,7 +7203,7 @@ pub struct ResolverArgs {
     ///
     /// This option is only used when building source distributions.
     ///
-    /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
+    /// Defaults to `clone` (also known as Copy-on-Write) on macOS and Linux, and `hardlink` on
     /// Windows.
     ///
     /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -7442,7 +7442,7 @@ pub struct ResolverInstallerArgs {
 
     /// The method to use when installing packages from the global cache.
     ///
-    /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
+    /// Defaults to `clone` (also known as Copy-on-Write) on macOS and Linux, and `hardlink` on
     /// Windows.
     ///
     /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between

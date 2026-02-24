@@ -11,8 +11,8 @@ import torch
 import numpy as np
 from typing import Dict, Any
 
-from wisent.core.geometry.analysis.structure._cloud_metrics import (
 from wisent.core.constants import NORM_EPS
+from wisent.core.geometry.analysis.structure._cloud_metrics import (
     compute_cloud_shape,
     compute_cone_fit,
     compute_sphere_fit,

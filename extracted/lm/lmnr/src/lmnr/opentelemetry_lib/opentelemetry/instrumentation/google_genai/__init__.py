@@ -19,12 +19,12 @@ from .config import (
 )
 from .schema_utils import SchemaJSONEncoder, process_schema
 from .utils import (
+    content_union_to_dict,
     dont_throw,
     get_content,
     merge_text_parts,
     process_content_union,
     process_stream_chunk,
-    role_from_content_union,
     set_span_attribute,
     strip_none_values,
     to_dict,
@@ -143,7 +143,7 @@ def _set_request_attributes(span, args, kwargs):
         try:
             set_span_attribute(
                 span,
-                SpanAttributes.LLM_REQUEST_STRUCTURED_OUTPUT_SCHEMA,
+                "gen_ai.request.structured_output_schema",
                 json.dumps(process_schema(schema), cls=SchemaJSONEncoder),
             )
         except Exception:
@@ -152,7 +152,7 @@ def _set_request_attributes(span, args, kwargs):
         try:
             set_span_attribute(
                 span,
-                SpanAttributes.LLM_REQUEST_STRUCTURED_OUTPUT_SCHEMA,
+                "gen_ai.request.structured_output_schema",
                 json_dumps(json_schema),
             )
         except Exception:
@@ -196,82 +196,20 @@ def _set_request_attributes(span, args, kwargs):
             )
 
     if should_send_prompts():
-        i = 0
-        system_instruction: types.ContentUnion | None = config_dict.get(
-            "system_instruction"
-        )
+        messages = []
+        system_instruction = config_dict.get("system_instruction")
         if system_instruction:
-            system_content = (
-                get_content(process_content_union(system_instruction)) or {}
-            ).get("text", "")
-            set_span_attribute(
-                span,
-                f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.content",
-                system_content,
-            )
-            set_span_attribute(
-                span, f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.role", "system"
-            )
-            i += 1
+            msg = content_union_to_dict(system_instruction, default_role="system")
+            msg["role"] = "system"
+            messages.append(msg)
 
         contents = kwargs.get("contents", [])
         if not isinstance(contents, list):
             contents = [contents]
         for content in contents:
-            processed_content = process_content_union(content)
-            content_payload = get_content(processed_content)
-            if isinstance(content_payload, dict):
-                content_payload = [content_payload]
+            messages.append(content_union_to_dict(content))
 
-            set_span_attribute(
-                span,
-                f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.content",
-                (
-                    content_payload
-                    if isinstance(content_payload, str)
-                    else json_dumps(content_payload)
-                ),
-            )
-            blocks = (
-                processed_content
-                if isinstance(processed_content, list)
-                else [processed_content]
-            )
-            tool_call_index = 0
-            for block in blocks:
-                block_dict = to_dict(block)
-
-                if not block_dict.get("function_call"):
-                    continue
-                function_call = to_dict(block_dict.get("function_call", {}))
-
-                set_span_attribute(
-                    span,
-                    f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.tool_calls.{tool_call_index}.name",
-                    function_call.get("name"),
-                )
-                set_span_attribute(
-                    span,
-                    f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.tool_calls.{tool_call_index}.id",
-                    (
-                        function_call.get("id")
-                        if function_call.get("id") is not None
-                        else function_call.get("name")
-                    ),  # google genai doesn't support tool call ids
-                )
-                set_span_attribute(
-                    span,
-                    f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.tool_calls.{tool_call_index}.arguments",
-                    json_dumps(function_call.get("arguments")),
-                )
-                tool_call_index += 1
-
-            set_span_attribute(
-                span,
-                f"{gen_ai_attributes.GEN_AI_PROMPT}.{i}.role",
-                role_from_content_union(content) or "user",
-            )
-            i += 1
+        set_span_attribute(span, "gen_ai.input.messages", json_dumps(messages))
     if tools:
         span.set_attribute(
             "gen_ai.tool.definitions",
@@ -325,7 +263,7 @@ def _set_response_attributes(span, response: types.GenerateContentResponse):
         )
         set_span_attribute(
             span,
-            SpanAttributes.LLM_USAGE_REASONING_TOKENS,
+            "gen_ai.usage.reasoning_tokens",
             thoughts_token_count,
         )
 
@@ -402,7 +340,7 @@ def _set_raw_response_attribute(
         "gen_ai.output.messages",
         json_dumps(
             [
-                candidate.model_dump_json(exclude_unset=True)
+                candidate.model_dump(mode="json", exclude_unset=True)
                 for candidate in (response.candidates or [])
             ]
         ),
@@ -549,7 +487,7 @@ def _wrap(tracer: Tracer, to_wrap, wrapped, instance, args, kwargs):
     )
     span.set_attributes(
         {
-            SpanAttributes.LLM_SYSTEM: "gemini",
+            gen_ai_attributes.GEN_AI_SYSTEM: "gemini",
             SpanAttributes.LLM_REQUEST_TYPE: LLMRequestTypeValues.COMPLETION.value,
         }
     )
@@ -617,7 +555,7 @@ async def _awrap(tracer: Tracer, to_wrap, wrapped, instance, args, kwargs):
     )
     span.set_attributes(
         {
-            SpanAttributes.LLM_SYSTEM: "gemini",
+            gen_ai_attributes.GEN_AI_SYSTEM: "gemini",
             SpanAttributes.LLM_REQUEST_TYPE: LLMRequestTypeValues.COMPLETION.value,
         }
     )

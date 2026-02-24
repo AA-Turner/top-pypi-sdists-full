@@ -126,7 +126,9 @@ class _CloudBucketMount:
 def cloud_bucket_mounts_to_proto(
     mounts: typing.Sequence[tuple[str, _CloudBucketMount]],
 ) -> list[modal_proto.api_pb2.CloudBucketMount]:
-    """Helper function to convert `CloudBucketMount` to a list of protobufs that can be passed to the server."""
+    """mdmd:hidden
+    Helper function to convert `CloudBucketMount` to a list of protobufs that can be passed to the server.
+    """
     ...
 
 class CloudBucketMount:

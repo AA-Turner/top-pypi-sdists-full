@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-solutions-constructs.core
-Version: 2.99.0
+Version: 2.100.0
 Summary: Core CDK Construct for patterns library
 Home-page: https://github.com/awslabs/aws-solutions-constructs.git
 Author: Amazon Web Services
@@ -18,12 +18,12 @@ Classifier: License :: OSI Approved
 Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.238.0
-Requires-Dist: aws-cdk.cloud-assembly-schema<49.0.0,>=48.6.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.239.0
+Requires-Dist: aws-cdk.cloud-assembly-schema<51.0.0,>=50.3.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.119.0
+Requires-Dist: jsii<2.0.0,>=1.126.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # core module
 

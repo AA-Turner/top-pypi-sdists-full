@@ -247,18 +247,24 @@ class BaseSteeringObject(ABC):
         
         method = data.get('method', 'caa')
         
-        # Dispatch to appropriate class
+        # Dispatch to appropriate class (lazy imports to avoid circular deps)
         if method == 'caa':
+            from wisent.core.steering_methods._steering_object_simple import CAASteeringObject
             return CAASteeringObject.from_dict(data)
         elif method == 'ostrze':
+            from wisent.core.steering_methods._steering_object_simple import OstrzeSteeringObject
             return OstrzeSteeringObject.from_dict(data)
         elif method == 'mlp':
+            from wisent.core.steering_methods._steering_object_simple import MLPSteeringObject
             return MLPSteeringObject.from_dict(data)
         elif method == 'tecza':
+            from wisent.core.steering_methods._steering_object_advanced import TECZASteeringObject
             return TECZASteeringObject.from_dict(data)
         elif method == 'tetno':
+            from wisent.core.steering_methods._steering_object_advanced import TETNOSteeringObject
             return TETNOSteeringObject.from_dict(data)
         elif method == 'grom':
+            from wisent.core.steering_methods._steering_object_grom import GROMSteeringObject
             return GROMSteeringObject.from_dict(data)
         elif method == 'nurt':
             from wisent.core.steering_methods.methods.nurt import NurtSteeringObject

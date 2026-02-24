@@ -8,22 +8,21 @@ implementations, and CLI commands across the package dependency ecosystem.
 Key functions:
     walk_package: Recursive package traversal for discovery
     import_package_with_dir_fallback: Import with direct file fallback
-    modules_and_packages_from_package: Extract direct children from a package
+    iter_modules: Extract direct children from a package
 """
 
 import importlib.machinery
 import importlib.util
 import logging
 import pkgutil
+import sys
 from collections.abc import Generator
-from functools import cache
+from importlib import import_module
 from pathlib import Path
 from types import ModuleType
-from typing import Any
 
 from pyrig.src.modules.module import (
     import_module_with_default,
-    import_module_with_file_fallback,
 )
 from pyrig.src.modules.path import ModulePath
 
@@ -74,6 +73,7 @@ def import_package_from_dir(package_dir: Path) -> ModuleType:
         raise ValueError(msg)
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
+    sys.modules[package_name] = module
     return module
 
 
@@ -106,36 +106,39 @@ def import_package_with_dir_fallback(path: Path) -> ModuleType:
     return import_package_from_dir(path)
 
 
-def import_package_with_dir_fallback_with_default(
-    path: Path, default: Any = None
-) -> ModuleType | Any:
-    """Import a package, returning a default value if the package doesn't exist.
+def walk_package(
+    package: ModuleType,
+) -> Generator[tuple[ModuleType, bool], None, None]:
+    """Recursively walk and import all modules in a package hierarchy.
 
-    Wrapper around ``import_package_with_dir_fallback`` that catches
-    ``FileNotFoundError`` and returns a default value instead.
+    Performs depth-first traversal, yielding each package with its direct
+    module children. Essential for pyrig's discovery system - ensures all
+    modules are imported so that subclass registration (via ``__subclasses__()``)
+    is complete before discovery queries.
 
-    Note:
-        Only catches ``FileNotFoundError``. Other exceptions (``ValueError``,
-        ``ImportError`` from syntax errors, etc.) will still propagate.
+    See Also:
+        `pyrig.src.modules.class_.discover_all_subclasses`: Subclass discovery.
+        `pyrig.rig.cli.commands.create_tests.create_tests_for_package`: Test
+            generation.
 
     Args:
-        path: Path to the package directory.
-        default: Value to return if the package doesn't exist. Defaults to None.
+        package: Root package module to start traversal from.
 
-    Returns:
-        The imported package module, or ``default`` if import fails due to
-        missing files.
+    Yields:
+        Tuples of (package, modules) where modules is the list of direct
+        module children (not subpackages) in that package.
     """
-    try:
-        return import_package_with_dir_fallback(path)
-    except FileNotFoundError:
-        return default
+    yield package, True
+    for module, is_package in iter_modules(package):
+        if is_package:
+            yield from walk_package(module)
+        else:
+            yield module, False
 
 
-@cache
-def modules_and_packages_from_package(
+def iter_modules(
     package: ModuleType,
-) -> tuple[list[ModuleType], list[ModuleType]]:
+) -> Generator[tuple[ModuleType, bool], None, None]:
     """Extract and import all direct subpackages and modules from a package.
 
     Uses ``pkgutil.iter_modules`` to discover direct children of the package,
@@ -159,57 +162,8 @@ def modules_and_packages_from_package(
             - ``subpackages``: List of imported subpackage modules, sorted by name
             - ``modules``: List of imported module objects, sorted by name
     """
-    modules_and_packages = list(
-        pkgutil.iter_modules(package.__path__, prefix=package.__name__ + ".")
-    )
-    packages: list[ModuleType] = []
-    modules: list[ModuleType] = []
-    for _finder, name, is_package in modules_and_packages:
-        if is_package:
-            path = ModulePath.package_name_to_relative_dir_path(name)
-            package = import_package_with_dir_fallback(path)
-            packages.append(package)
-        else:
-            path = ModulePath.module_name_to_relative_file_path(name)
-            mod = import_module_with_file_fallback(path)
-            modules.append(mod)
-
-    # make consistent order
-    packages.sort(key=lambda p: p.__name__)
-    modules.sort(key=lambda m: m.__name__)
-
-    logger.debug(
-        "Extracted from package %s: subpackages=%s, modules=%s",
-        package.__name__,
-        [p.__name__ for p in packages],
-        [m.__name__ for m in modules],
-    )
-    return packages, modules
-
-
-def walk_package(
-    package: ModuleType,
-) -> Generator[tuple[ModuleType, list[ModuleType]], None, None]:
-    """Recursively walk and import all modules in a package hierarchy.
-
-    Performs depth-first traversal, yielding each package with its direct
-    module children. Essential for pyrig's discovery system - ensures all
-    modules are imported so that subclass registration (via ``__subclasses__()``)
-    is complete before discovery queries.
-
-    See Also:
-        `pyrig.src.modules.class_.discover_all_subclasses`: Subclass discovery.
-        `pyrig.rig.cli.commands.create_tests.create_tests_for_package`: Test
-            generation.
-
-    Args:
-        package: Root package module to start traversal from.
-
-    Yields:
-        Tuples of (package, modules) where modules is the list of direct
-        module children (not subpackages) in that package.
-    """
-    subpackages, submodules = modules_and_packages_from_package(package)
-    yield package, submodules
-    for subpackage in subpackages:
-        yield from walk_package(subpackage)
+    for _finder, name, is_package in pkgutil.iter_modules(
+        package.__path__, prefix=package.__name__ + "."
+    ):
+        mod = import_module(name)
+        yield mod, is_package

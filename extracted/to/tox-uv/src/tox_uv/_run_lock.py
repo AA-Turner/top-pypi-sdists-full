@@ -52,6 +52,12 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
             desc="dependency groups to install of the target package",
         )
         self.conf.add_config(
+            keys=["only_groups"],
+            of_type=set[str],
+            default=set(),
+            desc="install only these dependency groups (maps to uv sync --only-group)",
+        )
+        self.conf.add_config(
             keys=["no_default_groups"],
             of_type=bool,
             default=lambda _, __: bool(self.conf["dependency_groups"]),
@@ -71,9 +77,15 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
         )
         self.conf.add_config(  # type: ignore[call-overload]
             keys=["package"],
-            of_type=Literal["editable", "wheel", "skip"],
+            of_type=Literal["editable", "wheel", "skip", "uv", "uv-editable"],
             default="editable",
             desc="How should the package be installed",
+        )
+        self.conf.add_config(
+            keys=["package_root", "setupdir"],
+            of_type=Path,
+            default=cast("Path", self.core["tox_root"]),
+            desc="indicates where the pyproject.toml and uv.lock files exist",
         )
         add_skip_missing_interpreters_to_core(self.core, self.options)
 
@@ -81,10 +93,15 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
         super()._setup_env()
         install_pkg = getattr(self.options, "install_pkg", None)
         if not getattr(self.options, "skip_uv_sync", False):
+            package_root: Path = self.conf["package_root"]
+            if not package_root.is_absolute():
+                package_root = self.core["tox_root"] / package_root
             cmd = [
-                "uv",
+                self.uv,
                 "sync",
             ]
+            if package_root != self.core["tox_root"]:
+                cmd.extend(("--directory", str(package_root)))
             if self.conf["uv_sync_locked"]:
                 cmd.append("--locked")
             if self.conf["uv_python_preference"] != "none":
@@ -101,9 +118,8 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
                 cmd.append("--no-install-project")
             if self.options.verbosity > 3:  # noqa: PLR2004
                 cmd.append("-v")
-            if package == "wheel":
-                # need the package name here but we don't have the packaging infrastructure -> read from pyproject.toml
-                project_file = self.core["tox_root"] / "pyproject.toml"
+            if package in {"wheel", "uv"}:
+                project_file = package_root / "pyproject.toml"
                 name = None
                 if project_file.exists():
                     with project_file.open("rb") as file_handler:
@@ -115,6 +131,8 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
                 cmd.extend(("--no-editable", "--reinstall-package", name))
             for group in groups:
                 cmd.extend(("--group", group))
+            for group in sorted(self.conf["only_groups"]):
+                cmd.extend(("--only-group", group))
             cmd.extend(self.conf["uv_sync_flags"])
             cmd.extend(("-p", self.env_version_spec()))
 

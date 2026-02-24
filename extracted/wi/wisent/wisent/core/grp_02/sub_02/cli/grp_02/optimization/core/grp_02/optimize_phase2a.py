@@ -49,7 +49,6 @@ def run_benchmark_steering(args, benchmarks, results):
                 use_cached=False,
                 save_as_default=True,
                 compute_baseline=True,
-                quick_search=args.quick,
                 search_strategy=getattr(args, 'search_strategy', 'grid'),
                 n_trials=getattr(args, 'n_trials', WELFARE_LIMIT),
                 n_startup_trials=getattr(args, 'n_startup_trials', RL_NUM_EPISODES),

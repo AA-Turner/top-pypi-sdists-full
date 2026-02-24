@@ -1,8 +1,22 @@
+from __future__ import annotations
+
 import functools
 import inspect
 import types
+from functools import cached_property, partial, partialmethod
 from sys import version_info
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Mapping,
+    Protocol,
+    TypeVar,
+    cast,
+    Sequence,
+)
 from warnings import warn
+from ._line_profiler import label
 from .scoping_policy import ScopingPolicy
 
 
@@ -13,12 +27,14 @@ is_async_generator = inspect.isasyncgenfunction
 
 # These objects are callables, but are defined in C(-ython) so we can't
 # handle them anyway
-C_LEVEL_CALLABLE_TYPES = (types.BuiltinFunctionType,
-                          types.BuiltinMethodType,
-                          types.ClassMethodDescriptorType,
-                          types.MethodDescriptorType,
-                          types.MethodWrapperType,
-                          types.WrapperDescriptorType)
+C_LEVEL_CALLABLE_TYPES = (
+    types.BuiltinFunctionType,
+    types.BuiltinMethodType,
+    types.ClassMethodDescriptorType,
+    types.MethodDescriptorType,
+    types.MethodWrapperType,
+    types.WrapperDescriptorType,
+)
 
 # Can't line-profile Cython in 3.12 since the old C API was upended
 # without an appropriate replacement (which only came in 3.13);
@@ -26,8 +42,96 @@ C_LEVEL_CALLABLE_TYPES = (types.BuiltinFunctionType,
 # https://cython.readthedocs.io/en/latest/src/tutorial/profiling_tutorial.html
 _CANNOT_LINE_TRACE_CYTHON = (3, 12) <= version_info < (3, 13, 0, 'beta', 1)
 
+if TYPE_CHECKING:
+    from typing_extensions import ParamSpec, TypeIs
 
-def is_c_level_callable(func):
+    UnparametrizedCallableLike = TypeVar(
+        'UnparametrizedCallableLike',
+        types.FunctionType,
+        property,
+        types.MethodType,
+    )
+    T = TypeVar('T')
+    T_co = TypeVar('T_co', covariant=True)
+    PS = ParamSpec('PS')
+
+    class CythonCallable(Protocol[PS, T_co]):
+        def __call__(self, *args: PS.args, **kwargs: PS.kwargs) -> T_co: ...
+
+        @property
+        def __code__(self) -> types.CodeType: ...
+
+        @property
+        def func_code(self) -> types.CodeType: ...
+
+        @property
+        def __name__(self) -> str: ...
+
+        @property
+        def func_name(self) -> str: ...
+
+        @property
+        def __qualname__(self) -> str: ...
+
+        @property
+        def __doc__(self) -> str | None: ...
+
+        @__doc__.setter
+        def __doc__(self, doc: str | None) -> None: ...
+
+        @property
+        def func_doc(self) -> str | None: ...
+
+        @property
+        def __globals__(self) -> dict[str, Any]: ...
+
+        @property
+        def func_globals(self) -> dict[str, Any]: ...
+
+        @property
+        def __dict__(self) -> dict[str, Any]: ...
+
+        @__dict__.setter
+        def __dict__(self, dict: dict[str, Any]) -> None: ...
+
+        @property
+        def func_dict(self) -> dict[str, Any]: ...
+
+        @property
+        def __annotations__(self) -> dict[str, Any]: ...
+
+        @__annotations__.setter
+        def __annotations__(self, annotations: dict[str, Any]) -> None: ...
+
+        @property
+        def __defaults__(self): ...
+
+        @property
+        def func_defaults(self): ...
+
+        @property
+        def __kwdefaults__(self): ...
+
+        @property
+        def __closure__(self): ...
+
+        @property
+        def func_closure(self): ...
+else:
+    CythonCallable = type(label)
+
+CLevelCallable = TypeVar(
+    'CLevelCallable',
+    types.BuiltinFunctionType,
+    types.BuiltinMethodType,
+    types.ClassMethodDescriptorType,
+    types.MethodDescriptorType,
+    types.MethodWrapperType,
+    types.WrapperDescriptorType,
+)
+
+
+def is_c_level_callable(func: Any) -> TypeIs[CLevelCallable]:
     """
     Returns:
         func_is_c_level (bool):
@@ -37,42 +141,44 @@ def is_c_level_callable(func):
     return isinstance(func, C_LEVEL_CALLABLE_TYPES)
 
 
-def is_cython_callable(func):
+def is_cython_callable(func: Any) -> TypeIs[CythonCallable]:
     if not callable(func):
         return False
     # Note: don't directly check against a Cython function type, since
     # said type depends on the Cython version used for building the
     # Cython code;
     # just check for what is common between Cython versions
-    return (type(func).__name__
-            in ('cython_function_or_method', 'fused_cython_function'))
+    return type(func).__name__ in (
+        'cython_function_or_method',
+        'fused_cython_function',
+    )
 
 
-def is_classmethod(f):
+def is_classmethod(f: Any) -> TypeIs[classmethod]:
     return isinstance(f, classmethod)
 
 
-def is_staticmethod(f):
+def is_staticmethod(f: Any) -> TypeIs[staticmethod]:
     return isinstance(f, staticmethod)
 
 
-def is_boundmethod(f):
+def is_boundmethod(f: Any) -> TypeIs[types.MethodType]:
     return isinstance(f, types.MethodType)
 
 
-def is_partialmethod(f):
+def is_partialmethod(f: Any) -> TypeIs[partialmethod]:
     return isinstance(f, functools.partialmethod)
 
 
-def is_partial(f):
+def is_partial(f: Any) -> TypeIs[partial]:
     return isinstance(f, functools.partial)
 
 
-def is_property(f):
+def is_property(f: Any) -> TypeIs[property]:
     return isinstance(f, property)
 
 
-def is_cached_property(f):
+def is_cached_property(f: Any) -> TypeIs[cached_property]:
     return isinstance(f, functools.cached_property)
 
 
@@ -86,7 +192,14 @@ class ByCountProfilerMixin:
     Used by :py:class:`line_profiler.line_profiler.LineProfiler` and
     :py:class:`kernprof.ContextualProfile`.
     """
-    def wrap_callable(self, func):
+
+    def enable_by_count(self) -> None:  # pragma: no cover - implemented in C
+        raise NotImplementedError
+
+    def disable_by_count(self) -> None:  # pragma: no cover - implemented in C
+        raise NotImplementedError
+
+    def wrap_callable(self, func: Callable) -> Callable:
         """
         Decorate a function to start the profiler on function entry and
         stop it on function exit.
@@ -115,11 +228,14 @@ class ByCountProfilerMixin:
             return self.wrap_class(func)
         if callable(func):
             return self.wrap_function(func)
-        raise TypeError(f'func = {func!r}: does not look like a callable or '
-                        'callable wrapper')
+        raise TypeError(
+            f'func = {func!r}: does not look like a callable or callable wrapper'
+        )
 
     @classmethod
-    def get_underlying_functions(cls, func):
+    def get_underlying_functions(
+        cls, func: object
+    ) -> list[types.FunctionType | CythonCallable]:
         """
         Get the underlying function objects of a callable or an adjacent
         object.
@@ -127,31 +243,55 @@ class ByCountProfilerMixin:
         Returns:
             funcs (list[Callable])
         """
-        return cls._get_underlying_functions(func)
+        result = []
+        for impl in cls._get_underlying_functions(func):
+            # Include FunctionType and CythonCallable, but not type objects
+            if isinstance(impl, types.FunctionType) or is_cython_callable(impl):
+                result.append(impl)
+        return result
 
     @classmethod
-    def _get_underlying_functions(cls, func, seen=None, stop_at_classes=False):
+    def _get_underlying_functions(
+        cls,
+        func: object,
+        seen: set[int] | None = None,
+        stop_at_classes: bool = False,
+    ) -> Sequence[Callable]:
         if seen is None:
             seen = set()
-        kwargs = {'seen': seen, 'stop_at_classes': stop_at_classes}
         # Extract inner functions
-        if any(check(func)
-               for check in (is_boundmethod, is_classmethod, is_staticmethod)):
-            return cls._get_underlying_functions(func.__func__, **kwargs)
-        if any(check(func)
-               for check in (is_partial, is_partialmethod, is_cached_property)):
-            return cls._get_underlying_functions(func.func, **kwargs)
+        if is_boundmethod(func):
+            return cls._get_underlying_functions(
+                func.__func__, seen=seen, stop_at_classes=stop_at_classes
+            )
+        if is_classmethod(func) or is_staticmethod(func):
+            return cls._get_underlying_functions(
+                func.__func__, seen=seen, stop_at_classes=stop_at_classes
+            )
+        if (
+            is_partial(func)
+            or is_partialmethod(func)
+            or is_cached_property(func)
+        ):
+            return cls._get_underlying_functions(
+                func.func, seen=seen, stop_at_classes=stop_at_classes
+            )
         # Dispatch to specific handlers
         if is_property(func):
-            return cls._get_underlying_functions_from_property(func, **kwargs)
+            return cls._get_underlying_functions_from_property(
+                func, seen, stop_at_classes
+            )
         if isinstance(func, type):
             if stop_at_classes:
                 return [func]
-            return cls._get_underlying_functions_from_type(func, **kwargs)
+            return cls._get_underlying_functions_from_type(
+                func, seen, stop_at_classes
+            )
         # Otherwise, the object should either be a function...
         if not callable(func):
-            raise TypeError(f'func = {func!r}: '
-                            f'cannot get functions from {type(func)} objects')
+            raise TypeError(
+                f'func = {func!r}: cannot get functions from {type(func)} objects'
+            )
         if id(func) in seen:
             return []
         seen.add(id(func))
@@ -165,28 +305,33 @@ class ByCountProfilerMixin:
         func = type(func).__call__
         if is_c_level_callable(func):  # Can happen with builtin types
             return []
-        return [func]
+        return [cast(types.FunctionType, func)]
 
     @classmethod
     def _get_underlying_functions_from_property(
-            cls, prop, seen, stop_at_classes):
-        result = []
+        cls, prop: property, seen: set[int], stop_at_classes: bool
+    ) -> Sequence[Callable]:
+        result: list[Callable] = []
         for impl in prop.fget, prop.fset, prop.fdel:
             if impl is not None:
                 result.extend(
-                    cls._get_underlying_functions(impl, seen, stop_at_classes))
+                    cls._get_underlying_functions(impl, seen, stop_at_classes)
+                )
         return result
 
     @classmethod
-    def _get_underlying_functions_from_type(cls, kls, seen, stop_at_classes):
-        result = []
+    def _get_underlying_functions_from_type(
+        cls, kls: type, seen: set[int], stop_at_classes: bool
+    ) -> Sequence[Callable]:
+        result: list[Callable] = []
         get_filter = cls._class_scoping_policy.get_filter
         func_check = get_filter(kls, 'func')
         cls_check = get_filter(kls, 'class')
         for member in vars(kls).values():
             try:  # Stop at class boundaries to enforce scoping behavior
                 member_funcs = cls._get_underlying_functions(
-                    member, seen, stop_at_classes=True)
+                    member, seen, stop_at_classes=True
+                )
             except TypeError:
                 continue
             for impl in member_funcs:
@@ -194,8 +339,11 @@ class ByCountProfilerMixin:
                     # Only descend into nested classes if the policy
                     # says so
                     if cls_check(impl):
-                        result.extend(cls._get_underlying_functions(
-                            impl, seen, stop_at_classes))
+                        result.extend(
+                            cls._get_underlying_functions(
+                                impl, seen, stop_at_classes
+                            )
+                        )
                 else:
                     # For non-class callables, they are already filtered
                     # (and added to `seen`) by the above call to
@@ -205,8 +353,9 @@ class ByCountProfilerMixin:
                         result.append(impl)
         return result
 
-    def _wrap_callable_wrapper(self, wrapper, impl_attrs, *,
-                               args=None, kwargs=None, name_attr=None):
+    def _wrap_callable_wrapper(
+        self, wrapper, impl_attrs, *, args=None, kwargs=None, name_attr=None
+    ):
         """
         Create a profiled wrapper object around callables based on an
         existing wrapper.
@@ -248,8 +397,9 @@ class ByCountProfilerMixin:
         """
         # Wrap implementations
         impls = [getattr(wrapper, attr) for attr in impl_attrs]
-        new_impls = [None if impl is None else self.wrap_callable(impl)
-                     for impl in impls]
+        new_impls = [
+            None if impl is None else self.wrap_callable(impl) for impl in impls
+        ]
 
         # Get additional init args for the constructor
         if args is None:
@@ -302,16 +452,18 @@ class ByCountProfilerMixin:
         """
         Wrap a :py:class:`types.MethodType` to profile it.
         """
-        return self._wrap_callable_wrapper(func, ('__func__',),
-                                           args=('__self__',))
+        return self._wrap_callable_wrapper(
+            func, ('__func__',), args=('__self__',)
+        )
 
     def _wrap_partial(self, func):
         """
         Wrap a :py:func:`functools.partial` or
         :py:class:`functools.partialmethod` to profile it.
         """
-        return self._wrap_callable_wrapper(func, ('func',),
-                                           args='args', kwargs='keywords')
+        return self._wrap_callable_wrapper(
+            func, ('func',), args='args', kwargs='keywords'
+        )
 
     wrap_partial = wrap_partialmethod = _wrap_partial
 
@@ -319,16 +471,20 @@ class ByCountProfilerMixin:
         """
         Wrap a :py:class:`property` to profile it.
         """
-        return self._wrap_callable_wrapper(func, ('fget', 'fset', 'fdel'),
-                                           kwargs={'doc': '__doc__'},
-                                           name_attr='__name__')
+        return self._wrap_callable_wrapper(
+            func,
+            ('fget', 'fset', 'fdel'),
+            kwargs={'doc': '__doc__'},
+            name_attr='__name__',
+        )
 
     def wrap_cached_property(self, func):
         """
         Wrap a :py:func:`functools.cached_property` to profile it.
         """
-        return self._wrap_callable_wrapper(func, ('func',),
-                                           name_attr='attrname')
+        return self._wrap_callable_wrapper(
+            func, ('func',), name_attr='attrname'
+        )
 
     def wrap_async_generator(self, func):
         """
@@ -346,12 +502,12 @@ class ByCountProfilerMixin:
             while True:
                 self.enable_by_count()
                 try:
-                    item = (await g.asend(input_))
+                    item = await g.asend(input_)
                 except StopAsyncIteration:
                     return
                 finally:
                     self.disable_by_count()
-                input_ = (yield item)
+                input_ = yield item
 
         return self._mark_wrapper(wrapper)
 
@@ -395,7 +551,7 @@ class ByCountProfilerMixin:
                     return
                 finally:
                     self.disable_by_count()
-                input_ = (yield item)
+                input_ = yield item
 
         return self._mark_wrapper(wrapper)
 
@@ -441,20 +597,27 @@ class ByCountProfilerMixin:
         for name, member in vars(func).items():
             try:
                 impls = self._get_underlying_functions(
-                    member, stop_at_classes=True)
+                    member, stop_at_classes=True
+                )
             except TypeError:  # Not a callable (wrapper)
                 continue
-            if any((cls_check(impl)
-                    if isinstance(impl, type) else
-                    func_check(impl))
-                   for impl in impls):
+            if any(
+                (
+                    cls_check(impl)
+                    if isinstance(impl, type)
+                    else func_check(impl)
+                )
+                for impl in impls
+            ):
                 members_to_wrap[name] = member
-        self._wrap_namespace_members(func, members_to_wrap,
-                                     warning_stack_level=2)
+        self._wrap_namespace_members(
+            func, members_to_wrap, warning_stack_level=2
+        )
         return func
 
     def _wrap_namespace_members(
-            self, namespace, members, *, warning_stack_level=2):
+        self, namespace, members, *, warning_stack_level=2
+    ):
         wrap_failures = {}
         for name, member in members.items():
             wrapper = self.wrap_callable(member)
@@ -470,8 +633,10 @@ class ByCountProfilerMixin:
                 # and we shouldn't be here)
                 wrap_failures[name] = member
         if wrap_failures:
-            msg = (f'cannot wrap {len(wrap_failures)} attribute(s) of '
-                   f'{namespace!r} (`{{attr: value}}`): {wrap_failures!r}')
+            msg = (
+                f'cannot wrap {len(wrap_failures)} attribute(s) of '
+                f'{namespace!r} (`{{attr: value}}`): {wrap_failures!r}'
+            )
             warn(msg, stacklevel=warning_stack_level)
 
     def _already_a_wrapper(self, func):
@@ -482,15 +647,14 @@ class ByCountProfilerMixin:
         return wrapper
 
     def run(self, cmd):
-        """ Profile a single executable statment in the main namespace.
-        """
+        """Profile a single executable statment in the main namespace."""
         import __main__
+
         main_dict = __main__.__dict__
         return self.runctx(cmd, main_dict, main_dict)
 
     def runctx(self, cmd, globals, locals):
-        """ Profile a single executable statement in the given namespaces.
-        """
+        """Profile a single executable statement in the given namespaces."""
         self.enable_by_count()
         try:
             exec(cmd, globals, locals)
@@ -499,8 +663,7 @@ class ByCountProfilerMixin:
         return self
 
     def runcall(self, func, /, *args, **kw):
-        """ Profile a single function call.
-        """
+        """Profile a single function call."""
         self.enable_by_count()
         try:
             return func(*args, **kw)
@@ -515,4 +678,6 @@ class ByCountProfilerMixin:
         self.disable_by_count()
 
     _profiler_wrapped_marker = '__line_profiler_id__'
-    _class_scoping_policy = ScopingPolicy.CHILDREN
+    _class_scoping_policy: ScopingPolicy = cast(
+        ScopingPolicy, ScopingPolicy.CHILDREN
+    )

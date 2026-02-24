@@ -6288,6 +6288,7 @@ def bulk_delete_resource_permission(ctx, **kwargs):
 @click.option("--has-label", type=bool, default=None)
 @click.option("--search-params", type=str, multiple=True, default=None)
 @click.option("--published", type=bool, default=None)
+@click.option("--resource-urls", type=bool, default=None)
 @click.pass_context
 def list_resources(ctx, reset_columns=None, show_columns=None, **kwargs):
     """Lists generic resources, which can be filtered by type, organisation, etc."""

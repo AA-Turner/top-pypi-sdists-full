@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 from typing import TYPE_CHECKING
-from wisent.core.constants import DEFAULT_STRENGTH, TETNO_GATE_TEMPERATURE
+from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH, TETNO_GATE_TEMPERATURE
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.cli.cli_logger import setup_logger, bind
 
@@ -41,7 +41,7 @@ class TETNORuntimeHooks:
                     layer_indices.append(idx)
                 except (ValueError, IndexError):
                     pass
-            sensor_layer = layer_indices[len(layer_indices)//2] if layer_indices else 15
+            sensor_layer = layer_indices[len(layer_indices)//2] if layer_indices else DEFAULT_LAYER
         self._sensor_layer_idx = sensor_layer
         self._layer_name_to_idx = {}
         for layer_name in tetno_result.behavior_vectors.keys():

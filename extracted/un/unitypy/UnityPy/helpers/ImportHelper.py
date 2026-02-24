@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import io
 import os
-from typing import List, Optional, Tuple, Union
+from gzip import GzipFile
+from typing import BinaryIO, List, Optional, Tuple, Union
 
 from .. import files
 from ..enums import FileType
 from ..streams import EndianBinaryReader
 from .CompressionHelper import BROTLI_MAGIC, GZIP_MAGIC
 
-FileSourceType = Union[str, bytes, bytearray, io.IOBase, EndianBinaryReader]
+FileSourceType = Union[str, bytes, bytearray, io.IOBase, EndianBinaryReader, BinaryIO]
 
 
 def file_name_without_extension(file_name: str) -> str:
@@ -74,7 +75,12 @@ def check_file_type(
         magic = bytes(reader.read_bytes(2))
         reader.Position = 0
         if GZIP_MAGIC == magic:
-            return FileType.WebFile, reader
+            g_stream = GzipFile(fileobj=reader)
+            g_reader = EndianBinaryReader(g_stream, endian="<")
+            signature = g_reader.read_string_to_null(20)
+            g_stream.close()
+            if signature.startswith(("UnityWebData", "TuanjieWebData")):
+                return FileType.WebFile, reader
         reader.Position = 0x20
         magic = bytes(reader.read_bytes(6))
         reader.Position = 0
@@ -127,22 +133,26 @@ def parse_file(
 ) -> Union[files.File, EndianBinaryReader]:
     if typ is None:
         typ, _ = check_file_type(reader)
-    if typ == FileType.AssetsFile and not name.endswith(
-        (
-            ".resS",
-            ".resource",
-            ".config",
-            ".xml",
-            ".dat",
-        )
-    ):
-        f = files.SerializedFile(reader, parent, name=name, is_dependency=is_dependency)
-    elif typ == FileType.BundleFile:
-        f = files.BundleFile(reader, parent, name=name, is_dependency=is_dependency)
-    elif typ == FileType.WebFile:
-        f = files.WebFile(reader, parent, name=name, is_dependency=is_dependency)
-    else:
-        f = reader
+    f = reader
+    try:
+        if typ == FileType.AssetsFile and not name.endswith(
+            (
+                ".resS",
+                ".resource",
+                ".config",
+                ".xml",
+                ".dat",
+            )
+        ):
+            f = files.SerializedFile(reader, parent, name=name, is_dependency=is_dependency)
+        elif typ == FileType.BundleFile:
+            f = files.BundleFile(reader, parent, name=name, is_dependency=is_dependency)
+        elif typ == FileType.WebFile:
+            f = files.WebFile(reader, parent, name=name, is_dependency=is_dependency)
+    except Exception as e:
+        reader.seek(0)
+        print(f"Error parsing file {name!r} as {typ}: {e}")
+        raise e
     return f
 
 

@@ -6,6 +6,7 @@ import torch
 from typing import Any, Dict
 
 from wisent.core.activations.activations import Activations
+from wisent.core.constants import EVAL_GT_PERPLEXITY_MAX_TOKENS, AGENT_DIAG_TEMPERATURE, PERPLEXITY_WIKITEXT_THRESHOLD
 from wisent.core.layer import Layer
 from wisent.core.models import get_generate_kwargs
 
@@ -90,7 +91,7 @@ def evaluate_perplexity(evaluator, classifier, task_name: str, num_samples: int,
                 elif "choices" in doc:
                     choices = doc["choices"]
                 else:
-                    gen_kwargs = get_generate_kwargs(max_new_tokens=100, temperature=0.1, do_sample=False)
+                    gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_GT_PERPLEXITY_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
                     generated_response, _ = model.generate(prompt=prompt, layer_index=layer, **gen_kwargs)
                     choices = [generated_response]
                 choice_perplexities = []
@@ -148,8 +149,8 @@ def evaluate_perplexity(evaluator, classifier, task_name: str, num_samples: int,
             avg_perplexity = sum(perplexities) / len(perplexities) if perplexities else float("inf")
             classifier_scores = [r["classifier_score"] for r in perplexity_results if r["classifier_score"] is not None]
             avg_classifier_score = sum(classifier_scores) / len(classifier_scores) if classifier_scores else None
-            perplexity_accuracy = 1.0 if avg_perplexity < 100 else 0.0
-            correct_perplexity = sum(1 for r in perplexity_results if r["perplexity"] < 100)
+            perplexity_accuracy = 1.0 if avg_perplexity < PERPLEXITY_WIKITEXT_THRESHOLD else 0.0
+            correct_perplexity = sum(1 for r in perplexity_results if r["perplexity"] < PERPLEXITY_WIKITEXT_THRESHOLD)
         else:
             correct_perplexity = sum(1 for r in perplexity_results if r.get("perplexity_correct") == True)
             perplexity_accuracy = correct_perplexity / total_samples if total_samples > 0 else 0.0

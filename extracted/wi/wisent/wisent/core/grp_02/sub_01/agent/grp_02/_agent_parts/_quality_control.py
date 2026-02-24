@@ -7,13 +7,14 @@ iterative improvement loop, and steered generation.
 """
 
 import time
+from wisent.core.constants import QUALITY_CONTROL_MAX_ATTEMPTS
 
 
 class QualityControlMixin:
     """Mixin providing quality-controlled response generation."""
 
     async def respond_with_quality_control(
-        self, prompt: str, max_attempts: int = 5, time_budget_minutes: float = None
+        self, prompt: str, max_attempts: int = QUALITY_CONTROL_MAX_ATTEMPTS, time_budget_minutes: float = None
     ) -> "QualityControlledResponse":
         """
         Generate response with iterative quality control and adaptive steering.

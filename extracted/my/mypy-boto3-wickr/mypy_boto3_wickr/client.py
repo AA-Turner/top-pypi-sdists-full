@@ -3,7 +3,7 @@ Type annotations for wickr service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -81,6 +81,8 @@ from .type_defs import (
     GetNetworkSettingsResponseTypeDef,
     GetOidcInfoRequestTypeDef,
     GetOidcInfoResponseTypeDef,
+    GetOpentdfConfigRequestTypeDef,
+    GetOpentdfConfigResponseTypeDef,
     GetSecurityGroupRequestTypeDef,
     GetSecurityGroupResponseTypeDef,
     GetUserRequestTypeDef,
@@ -107,6 +109,8 @@ from .type_defs import (
     RegisterOidcConfigResponseTypeDef,
     RegisterOidcConfigTestRequestTypeDef,
     RegisterOidcConfigTestResponseTypeDef,
+    RegisterOpentdfConfigRequestTypeDef,
+    RegisterOpentdfConfigResponseTypeDef,
     UpdateBotRequestTypeDef,
     UpdateBotResponseTypeDef,
     UpdateDataRetentionRequestTypeDef,
@@ -400,6 +404,16 @@ class WickrAdminAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/client/#get_oidc_info)
         """
 
+    def get_opentdf_config(
+        self, **kwargs: Unpack[GetOpentdfConfigRequestTypeDef]
+    ) -> GetOpentdfConfigResponseTypeDef:
+        """
+        Retrieves the OpenTDF integration configuration for a Wickr network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/get_opentdf_config.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/client/#get_opentdf_config)
+        """
+
     def get_security_group(
         self, **kwargs: Unpack[GetSecurityGroupRequestTypeDef]
     ) -> GetSecurityGroupResponseTypeDef:
@@ -533,6 +547,17 @@ class WickrAdminAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/register_oidc_config_test.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/client/#register_oidc_config_test)
+        """
+
+    def register_opentdf_config(
+        self, **kwargs: Unpack[RegisterOpentdfConfigRequestTypeDef]
+    ) -> RegisterOpentdfConfigResponseTypeDef:
+        """
+        Registers and saves OpenTDF configuration for a Wickr network, enabling
+        attribute-based access control for Wickr through an OpenTDF provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/register_opentdf_config.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wickr/client/#register_opentdf_config)
         """
 
     def update_bot(self, **kwargs: Unpack[UpdateBotRequestTypeDef]) -> UpdateBotResponseTypeDef:

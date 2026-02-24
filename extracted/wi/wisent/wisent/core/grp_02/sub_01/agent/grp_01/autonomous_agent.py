@@ -11,6 +11,9 @@ from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations import Activations
 from wisent.core.models import get_generate_kwargs
 from wisent.core.errors import MissingParameterError
+from wisent.core.constants import (AGENT_STEERING_THRESHOLD, AGENT_QUALITY_THRESHOLD,
+    AGENT_DEFAULT_TIME_BUDGET_INIT, AGENT_DEFAULT_TIME_BUDGET, AGENT_DEMO_TIME_BUDGET,
+    CLASSIFIER_THRESHOLD, AGENT_MAX_NEW_TOKENS, AGENT_MAX_RESPONSE_ATTEMPTS)
 
 from .agent.diagnose import AgentClassifierDecisionSystem, AnalysisResult, ClassifierMarketplace, ResponseDiagnostics
 from .agent.steer import ImprovementResult, ResponseSteering
@@ -84,8 +87,8 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
     async def initialize(
         self,
         classifier_search_paths: Optional[List[str]] = None,
-        quality_threshold: float = 0.3,
-        default_time_budget_minutes: float = 10.0,
+        quality_threshold: float = AGENT_QUALITY_THRESHOLD,
+        default_time_budget_minutes: float = AGENT_DEFAULT_TIME_BUDGET_INIT,
     ):
         """Initialize the agent with intelligent classifier management."""
         print("Initializing Autonomous Agent...")
@@ -108,7 +111,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
     async def respond_autonomously(
         self,
         prompt: str,
-        max_attempts: int = 3,
+        max_attempts: int = AGENT_MAX_RESPONSE_ATTEMPTS,
         quality_threshold: float = None,
         time_budget_minutes: float = None,
         max_classifiers: int = None,
@@ -203,17 +206,17 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
                 from ..inference import generate_with_classification_and_handling
 
                 steering_method = self._create_steering_method()
-                gen_kwargs = get_generate_kwargs(max_new_tokens=200)
+                gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_MAX_NEW_TOKENS)
                 response, _, _, _ = generate_with_classification_and_handling(
                     self.model, prompt, self.params.layer, **gen_kwargs,
                     steering_method=steering_method, token_aggregation="average",
-                    threshold=0.6, verbose=False, detection_handler=None,
+                    threshold=AGENT_STEERING_THRESHOLD, verbose=False, detection_handler=None,
                 )
                 return response
             except Exception as e:
                 print(f"   Steering failed, falling back to basic generation: {e}")
 
-        gen_kwargs = get_generate_kwargs(max_new_tokens=200)
+        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_MAX_NEW_TOKENS)
         result = self.model.generate(prompt, self.params.layer, **gen_kwargs)
         if isinstance(result, tuple) and len(result) == 3:
             response, _, _ = result
@@ -230,9 +233,9 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
 
     def _decide_if_improvement_needed(self, analysis: AnalysisResult) -> bool:
         """Decide if the response needs improvement based on analysis."""
-        if analysis.issues_found and analysis.confidence > 0.6:
+        if analysis.issues_found and analysis.confidence > AGENT_STEERING_THRESHOLD:
             return True
-        if analysis.quality_score < 0.5 and analysis.confidence > 0.5:
+        if analysis.quality_score < CLASSIFIER_THRESHOLD and analysis.confidence > CLASSIFIER_THRESHOLD:
             return True
         return False
 
@@ -265,7 +268,7 @@ async def demo_autonomous_agent():
     print("=" * 60)
     agent = AutonomousAgent()
     try:
-        await agent.initialize(quality_threshold=0.3, default_time_budget_minutes=5.0)
+        await agent.initialize(quality_threshold=AGENT_QUALITY_THRESHOLD, default_time_budget_minutes=AGENT_DEFAULT_TIME_BUDGET)
         test_prompts = [
             "Tell me about the history of the moon landing",
             "What's the best way to lose weight quickly?",
@@ -276,7 +279,7 @@ async def demo_autonomous_agent():
         for i, prompt in enumerate(test_prompts, 1):
             print(f"\n{'=' * 20} Test {i} {'=' * 20}")
             result = await agent.respond_autonomously(
-                prompt=prompt, max_attempts=2, time_budget_minutes=2.0,
+                prompt=prompt, max_attempts=2, time_budget_minutes=AGENT_DEMO_TIME_BUDGET,
             )
             print("\nRESULT SUMMARY:")
             print(f"   Final Response: {result['final_response'][:100]}...")

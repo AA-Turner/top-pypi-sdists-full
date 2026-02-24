@@ -56,7 +56,7 @@ class Environment:
                         if ntpath.splitext(arg)[-1] in [".apk", ".zip"]:
                             self.load_zip_file(arg)
                         else:
-                            self.path = ntpath.dirname(arg)
+                            self.path = ntpath.dirname(arg) or ntpath.curdir
                             if reSplit.match(arg):
                                 self.load_files([arg])
                             else:
@@ -291,7 +291,7 @@ class Environment:
                 data = self._load_split_file(basepath)
                 path = basepath
             else:
-                data = open_f(path).read()
+                data = open_f(path)
             self.load_file(data, name=path)
 
     def find_file(self, name: str, is_dependency: bool = True) -> Union[File, None]:

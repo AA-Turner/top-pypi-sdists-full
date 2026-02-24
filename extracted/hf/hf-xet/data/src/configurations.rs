@@ -3,8 +3,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use cas_client::remote_client::PREFIX_DEFAULT;
-use cas_client::{CHUNK_CACHE_SIZE_BYTES, CacheConfig};
 use cas_object::CompressionScheme;
+use http::HeaderMap;
 use utils::auth::AuthConfig;
 
 use crate::errors::Result;
@@ -13,6 +13,7 @@ use crate::errors::Result;
 pub enum Endpoint {
     Server(String),
     FileSystem(PathBuf),
+    InMemory,
 }
 
 #[derive(Debug)]
@@ -21,8 +22,8 @@ pub struct DataConfig {
     pub compression: Option<CompressionScheme>,
     pub auth: Option<AuthConfig>,
     pub prefix: String,
-    pub cache_config: CacheConfig,
     pub staging_directory: Option<PathBuf>,
+    pub custom_headers: Option<Arc<HeaderMap>>,
 }
 
 #[derive(Debug)]
@@ -83,7 +84,7 @@ pub struct TranslatorConfig {
 }
 
 impl TranslatorConfig {
-    pub fn local_config(base_dir: impl AsRef<Path>) -> Result<Arc<Self>> {
+    pub fn local_config(base_dir: impl AsRef<Path>) -> Result<Self> {
         let path = base_dir.as_ref().join("xet");
         std::fs::create_dir_all(&path)?;
 
@@ -93,11 +94,8 @@ impl TranslatorConfig {
                 compression: Default::default(),
                 auth: None,
                 prefix: PREFIX_DEFAULT.into(),
-                cache_config: CacheConfig {
-                    cache_directory: path.join("cache"),
-                    cache_size: *CHUNK_CACHE_SIZE_BYTES,
-                },
                 staging_directory: None,
+                custom_headers: None,
             },
             shard_config: ShardConfig {
                 prefix: PREFIX_DEFAULT.into(),
@@ -112,25 +110,75 @@ impl TranslatorConfig {
             progress_config: ProgressConfig { aggregate: true },
         };
 
-        Ok(Arc::new(translator_config))
+        Ok(translator_config)
+    }
+
+    /// Creates a TranslatorConfig that uses in-memory storage for XORBs.
+    /// Shard data still uses file-based storage in the provided base directory.
+    pub fn memory_config(base_dir: impl AsRef<Path>) -> Result<Self> {
+        let path = base_dir.as_ref().join("xet");
+        std::fs::create_dir_all(&path)?;
+
+        let translator_config = Self {
+            data_config: DataConfig {
+                endpoint: Endpoint::InMemory,
+                compression: Default::default(),
+                auth: None,
+                prefix: PREFIX_DEFAULT.into(),
+                staging_directory: None,
+                custom_headers: None,
+            },
+            shard_config: ShardConfig {
+                prefix: PREFIX_DEFAULT.into(),
+                cache_directory: path.join("shard-cache"),
+                session_directory: path.join("shard-session"),
+                global_dedup_policy: Default::default(),
+            },
+            repo_info: Some(RepoInfo {
+                repo_paths: vec!["".into()],
+            }),
+            session_id: None,
+            progress_config: ProgressConfig { aggregate: true },
+        };
+
+        Ok(translator_config)
+    }
+
+    /// Creates a TranslatorConfig that connects to a CAS server at the given endpoint.
+    /// Shard cache and session directories are created under the provided base directory.
+    /// Useful for tests that use LocalTestServer.
+    pub fn test_server_config(endpoint: impl AsRef<str>, base_dir: impl AsRef<Path>) -> Result<Self> {
+        let path = base_dir.as_ref().join("xet");
+        std::fs::create_dir_all(&path)?;
+
+        let translator_config = Self {
+            data_config: DataConfig {
+                endpoint: Endpoint::Server(endpoint.as_ref().to_string()),
+                compression: Default::default(),
+                auth: None,
+                prefix: PREFIX_DEFAULT.into(),
+                staging_directory: None,
+                custom_headers: None,
+            },
+            shard_config: ShardConfig {
+                prefix: PREFIX_DEFAULT.into(),
+                cache_directory: path.join("shard-cache"),
+                session_directory: path.join("shard-session"),
+                global_dedup_policy: Default::default(),
+            },
+            repo_info: Some(RepoInfo {
+                repo_paths: vec!["".into()],
+            }),
+            session_id: None,
+            progress_config: ProgressConfig { aggregate: true },
+        };
+
+        Ok(translator_config)
     }
 
     pub fn disable_progress_aggregation(self) -> Self {
         Self {
             progress_config: ProgressConfig { aggregate: false },
-            ..self
-        }
-    }
-
-    pub fn with_cache_size(self, cache_size: u64) -> Self {
-        Self {
-            data_config: DataConfig {
-                cache_config: CacheConfig {
-                    cache_size,
-                    ..self.data_config.cache_config
-                },
-                ..self.data_config
-            },
             ..self
         }
     }

@@ -6,12 +6,12 @@ use std::sync::{Arc, OnceLock};
 
 use reqwest::Client;
 use tokio::runtime::{Builder as TokioRuntimeBuilder, Handle as TokioRuntimeHandle, Runtime as TokioRuntime};
-use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 use tracing::{debug, info};
+use xet_config::XetConfig;
 
+use crate::common::XetCommon;
 use crate::errors::MultithreadedRuntimeError;
-use crate::global_semaphores::{GlobalSemaphoreHandle, GlobalSemaphoreLookup};
 
 const THREADPOOL_THREAD_ID_PREFIX: &str = "hf-xet"; // thread names will be hf-xet-0, hf-xet-1, etc.
 const THREADPOOL_STACK_SIZE: usize = 8_000_000; // 8MB stack size
@@ -54,6 +54,19 @@ fn get_num_tokio_worker_threads() -> usize {
     let n = cores.clamp(2, THREADPOOL_MAX_ASYNC_THREADS);
     info!("Using {n} async threads for tokio runtime");
     n
+}
+
+/// Quick function to check for a sigint shutdown.
+#[inline]
+pub fn check_sigint_shutdown() -> Result<(), MultithreadedRuntimeError> {
+    if XetRuntime::current_if_exists()
+        .map(|rt| rt.in_sigint_shutdown())
+        .unwrap_or(false)
+    {
+        Err(MultithreadedRuntimeError::TaskCanceled("CTRL-C Cancellation".to_owned()))
+    } else {
+        Ok(())
+    }
 }
 
 /// This module provides a simple wrapper around Tokio's runtime to create a thread pool
@@ -115,11 +128,11 @@ pub struct XetRuntime {
     // Are we in the middle of a sigint shutdown?
     sigint_shutdown: AtomicBool,
 
-    // Semaphores.  We use an initialization function as the handle here.
-    global_semaphore_table: GlobalSemaphoreLookup,
+    // Shared state that is common across the entire runtime.
+    common: XetCommon,
 
-    // A cached reqwest Client to be shared by all high-level clients.
-    global_reqwest_client: OnceLock<Client>,
+    // Primary configuration struct
+    config: Arc<XetConfig>,
 }
 
 // Use thread-local references to the runtime that are set on initialization among all
@@ -145,7 +158,8 @@ impl XetRuntime {
         Self::from_external(tokio_rt)
     }
 
-    fn current_if_exists() -> Option<Arc<Self>> {
+    #[inline]
+    pub fn current_if_exists() -> Option<Arc<Self>> {
         let maybe_rt = THREAD_RUNTIME_REF.with_borrow(|rt| rt.clone());
 
         if let Some((pid, rt)) = maybe_rt
@@ -154,10 +168,20 @@ impl XetRuntime {
             return Some(rt);
         }
 
-        None
+        if let Ok(tokio_rt) = TokioRuntimeHandle::try_current() {
+            Some(Self::from_external(tokio_rt))
+        } else {
+            None
+        }
     }
 
+    /// Creates a new runtime with the default configuration.
     pub fn new() -> Result<Arc<Self>, MultithreadedRuntimeError> {
+        Self::new_with_config(XetConfig::new())
+    }
+
+    /// Creates a new runtime with the given configuration.
+    pub fn new_with_config(config: XetConfig) -> Result<Arc<Self>, MultithreadedRuntimeError> {
         // First, get an Arc value holding the runtime that we can initialize the
         // thread-local THREAD_RUNTIME_REF with
         let rt = Arc::new(Self {
@@ -165,8 +189,8 @@ impl XetRuntime {
             handle_ref: OnceLock::new(),
             external_executor_count: 0.into(),
             sigint_shutdown: false.into(),
-            global_semaphore_table: GlobalSemaphoreLookup::default(),
-            global_reqwest_client: OnceLock::new(),
+            common: XetCommon::new(&config),
+            config: Arc::new(config),
         });
 
         // Each thread in each of the tokio worker threads holds a reference to the runtime handling
@@ -222,13 +246,14 @@ impl XetRuntime {
     }
 
     pub fn from_external(rt_handle: TokioRuntimeHandle) -> Arc<Self> {
+        let config = XetConfig::new();
         Arc::new(Self {
             runtime: std::sync::RwLock::new(None),
             handle_ref: rt_handle.into(),
             external_executor_count: 0.into(),
             sigint_shutdown: false.into(),
-            global_semaphore_table: GlobalSemaphoreLookup::default(),
-            global_reqwest_client: OnceLock::new(),
+            common: XetCommon::new(&config),
+            config: Arc::new(config),
         })
     }
 
@@ -237,22 +262,23 @@ impl XetRuntime {
         self.handle_ref.get().expect("Not initialized with handle set.").clone()
     }
 
-    pub fn get_or_create_reqwest_client_in_runtime<F>(&self, f: F) -> std::result::Result<Client, reqwest::Error>
-    where
-        F: FnOnce() -> std::result::Result<Client, reqwest::Error>,
-    {
-        // atomic get or set
-        let client_ref = self.global_reqwest_client.get_or_init(
-            // We unwrap the result of `f()` because we can't recover from this error anyway.
-            // There exists a function `get_or_try_init` which let the error propagate,
-            // but unfortunately it's marked as unstable.
-            || f().expect("failed to create reqwest client"),
-        );
-
-        Ok(client_ref.clone())
+    /// Returns a reference to the shared `XetCommon` state.
+    #[inline]
+    pub fn common(&self) -> &XetCommon {
+        &self.common
     }
 
-    pub fn get_or_create_reqwest_client<F>(f: F) -> std::result::Result<Client, reqwest::Error>
+    /// Gets or creates a reqwest client, using a tag to identify the client type.
+    ///
+    /// # Arguments
+    /// * `tag` - A string identifier for the client (e.g., "tcp" for regular, socket path for UDS)
+    /// * `f` - A function that creates the client if needed
+    ///
+    /// # Returns
+    /// Returns a clone of the cached client if the tag matches and we're in a runtime,
+    /// or creates a new client otherwise. This allows creating high-level clients outside
+    /// a runtime, like in tests.
+    pub fn get_or_create_reqwest_client<F>(tag: String, f: F) -> std::result::Result<Client, reqwest::Error>
     where
         F: FnOnce() -> std::result::Result<Client, reqwest::Error>,
     {
@@ -260,7 +286,7 @@ impl XetRuntime {
         // create a new one. This allows creating high-level clients outside a
         // runtime, like in tests.
         if let Some(rt) = Self::current_if_exists() {
-            rt.get_or_create_reqwest_client_in_runtime(f)
+            rt.common().get_or_create_reqwest_client(tag, f)
         } else {
             f()
         }
@@ -359,12 +385,28 @@ impl XetRuntime {
         self.handle().spawn(future)
     }
 
-    /// Allows a user to access a global semaphore that is associated with the runtime.
+    /// Spawn a blocking task on the runtime's blocking thread pool. The task runs with this
+    /// runtime stored in thread-local storage so [`XetRuntime::current()`] works inside `f`.
     ///
-    /// The key here is a function handle that, when called, returns the number of permits
-    /// to use in the semaphore.  It's reset on new runtimes.
-    pub fn global_semaphore(&self, handle: impl Into<GlobalSemaphoreHandle>) -> Arc<Semaphore> {
-        self.global_semaphore_table.get(handle)
+    /// The receiver must be an `Arc<XetRuntime>` so the runtime can be installed in the
+    /// blocking thread (e.g. `rt.spawn_blocking(|| { ... })` where `rt: Arc<XetRuntime>`).
+    pub fn spawn_blocking<F, R>(self: &Arc<Self>, f: F) -> JoinHandle<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        let rt = self.clone();
+        self.handle().spawn_blocking(move || {
+            let pid = std::process::id();
+            THREAD_RUNTIME_REF.set(Some((pid, rt)));
+            f()
+        })
+    }
+
+    /// Returns a reference to the primary configuration struct.
+    #[inline]
+    pub fn config(&self) -> &Arc<XetConfig> {
+        &self.config
     }
 }
 
@@ -388,5 +430,29 @@ impl Display for XetRuntime {
             metrics.num_alive_tasks(),
             metrics.global_queue_depth()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_or_create_reqwest_client_returns_client() {
+        let result =
+            XetRuntime::get_or_create_reqwest_client("test".to_string(), || reqwest::Client::builder().build());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_spawn_blocking_sets_current_runtime() {
+        let rt = XetRuntime::new().expect("Failed to create runtime");
+        let rt_clone = rt.clone();
+        let jh = rt.spawn_blocking(move || {
+            let current = XetRuntime::current();
+            Arc::ptr_eq(&current, &rt_clone)
+        });
+        let same = rt.external_run_async_task(async { jh.await.unwrap() }).unwrap();
+        assert!(same);
     }
 }

@@ -175,7 +175,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/change_runbook_compartment.py.html>`__ to see an example of how to use change_runbook_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/change_runbook_compartment.py.html>`__ to see an example of how to use change_runbook_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId']
@@ -305,7 +305,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/change_task_record_compartment.py.html>`__ to see an example of how to use change_task_record_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/change_task_record_compartment.py.html>`__ to see an example of how to use change_task_record_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['taskRecordId']
@@ -422,7 +422,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/create_runbook.py.html>`__ to see an example of how to use create_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/create_runbook.py.html>`__ to see an example of how to use create_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -527,7 +527,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/create_runbook_version.py.html>`__ to see an example of how to use create_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/create_runbook_version.py.html>`__ to see an example of how to use create_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -632,7 +632,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/create_task_record.py.html>`__ to see an example of how to use create_task_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/create_task_record.py.html>`__ to see an example of how to use create_task_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -737,7 +737,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/delete_runbook.py.html>`__ to see an example of how to use delete_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/delete_runbook.py.html>`__ to see an example of how to use delete_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId']
@@ -849,7 +849,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/delete_runbook_version.py.html>`__ to see an example of how to use delete_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/delete_runbook_version.py.html>`__ to see an example of how to use delete_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookVersionId']
@@ -961,7 +961,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/delete_task_record.py.html>`__ to see an example of how to use delete_task_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/delete_task_record.py.html>`__ to see an example of how to use delete_task_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['taskRecordId']
@@ -1083,7 +1083,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/export_runbook.py.html>`__ to see an example of how to use export_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/export_runbook.py.html>`__ to see an example of how to use export_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId']
@@ -1210,7 +1210,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/export_runbook_version.py.html>`__ to see an example of how to use export_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/export_runbook_version.py.html>`__ to see an example of how to use export_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookVersionId']
@@ -1326,7 +1326,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/find_runbook_export_dependency.py.html>`__ to see an example of how to use find_runbook_export_dependency API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/find_runbook_export_dependency.py.html>`__ to see an example of how to use find_runbook_export_dependency API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1437,7 +1437,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/find_runbook_import_dependency.py.html>`__ to see an example of how to use find_runbook_import_dependency API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/find_runbook_import_dependency.py.html>`__ to see an example of how to use find_runbook_import_dependency API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1542,7 +1542,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/get_runbook.py.html>`__ to see an example of how to use get_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/get_runbook.py.html>`__ to see an example of how to use get_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId']
@@ -1650,7 +1650,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/get_runbook_export.py.html>`__ to see an example of how to use get_runbook_export API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/get_runbook_export.py.html>`__ to see an example of how to use get_runbook_export API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId', 'exportId']
@@ -1759,7 +1759,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/get_runbook_import.py.html>`__ to see an example of how to use get_runbook_import API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/get_runbook_import.py.html>`__ to see an example of how to use get_runbook_import API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId', 'importId']
@@ -1865,7 +1865,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/get_runbook_version.py.html>`__ to see an example of how to use get_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/get_runbook_version.py.html>`__ to see an example of how to use get_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookVersionId']
@@ -1970,7 +1970,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/get_task_record.py.html>`__ to see an example of how to use get_task_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/get_task_record.py.html>`__ to see an example of how to use get_task_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['taskRecordId']
@@ -2089,7 +2089,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/import_runbook.py.html>`__ to see an example of how to use import_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/import_runbook.py.html>`__ to see an example of how to use import_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2201,7 +2201,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/import_runbook_precheck.py.html>`__ to see an example of how to use import_runbook_precheck API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/import_runbook_precheck.py.html>`__ to see an example of how to use import_runbook_precheck API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2313,7 +2313,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/import_runbook_version.py.html>`__ to see an example of how to use import_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/import_runbook_version.py.html>`__ to see an example of how to use import_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2432,7 +2432,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/list_runbook_export_statuses.py.html>`__ to see an example of how to use list_runbook_export_statuses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/list_runbook_export_statuses.py.html>`__ to see an example of how to use list_runbook_export_statuses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2577,7 +2577,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/list_runbook_import_statuses.py.html>`__ to see an example of how to use list_runbook_import_statuses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/list_runbook_import_statuses.py.html>`__ to see an example of how to use list_runbook_import_statuses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2732,7 +2732,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/list_runbook_versions.py.html>`__ to see an example of how to use list_runbook_versions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/list_runbook_versions.py.html>`__ to see an example of how to use list_runbook_versions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2911,7 +2911,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/list_runbooks.py.html>`__ to see an example of how to use list_runbooks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/list_runbooks.py.html>`__ to see an example of how to use list_runbooks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3101,7 +3101,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/list_task_records.py.html>`__ to see an example of how to use list_task_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/list_task_records.py.html>`__ to see an example of how to use list_task_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3265,7 +3265,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/publish_runbook.py.html>`__ to see an example of how to use publish_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/publish_runbook.py.html>`__ to see an example of how to use publish_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3377,7 +3377,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/set_default_runbook.py.html>`__ to see an example of how to use set_default_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/set_default_runbook.py.html>`__ to see an example of how to use set_default_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3487,7 +3487,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/update_runbook.py.html>`__ to see an example of how to use update_runbook API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/update_runbook.py.html>`__ to see an example of how to use update_runbook API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookId']
@@ -3604,7 +3604,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/update_runbook_version.py.html>`__ to see an example of how to use update_runbook_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/update_runbook_version.py.html>`__ to see an example of how to use update_runbook_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['runbookVersionId']
@@ -3721,7 +3721,7 @@ class FleetAppsManagementRunbooksClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fleetappsmanagement/update_task_record.py.html>`__ to see an example of how to use update_task_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/fleetappsmanagement/update_task_record.py.html>`__ to see an example of how to use update_task_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['taskRecordId']

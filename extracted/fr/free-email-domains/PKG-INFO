@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: free_email_domains
-Version: 1.0.1
+Version: 1.0.2
 Summary: A package containing a list of free email domains.
 Home-page: https://github.com/LukeRenton/free-email-domain-list
 Author: Luke Renton
@@ -9,6 +9,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: summary
 
 # List of free email domains
 This repo is a python package that provides a comprehensive list of free email domains from around the world. This package is designed to simplify the process of checking if an email address belongs to a free email provider.

@@ -39005,6 +39005,7 @@ __all__ = [
     "aws_ecs_patterns",
     "aws_efs",
     "aws_eks",
+    "aws_eks_v2",
     "aws_elasticache",
     "aws_elasticbeanstalk",
     "aws_elasticloadbalancing",
@@ -39318,6 +39319,7 @@ from . import aws_ecs
 from . import aws_ecs_patterns
 from . import aws_efs
 from . import aws_eks
+from . import aws_eks_v2
 from . import aws_elasticache
 from . import aws_elasticbeanstalk
 from . import aws_elasticloadbalancing

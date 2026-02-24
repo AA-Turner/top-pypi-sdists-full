@@ -13,14 +13,8 @@ import torch
 from collections import defaultdict
 from datetime import datetime
 
-from wisent.core.steering_methods.steering_object import (
+from wisent.core.steering_methods._steering_object_base import (
     SteeringObjectMetadata,
-    CAASteeringObject,
-    OstrzeSteeringObject,
-    MLPSteeringObject,
-    TECZASteeringObject,
-    TETNOSteeringObject,
-    GROMSteeringObject,
     BaseSteeringObject,
 )
 from wisent.core.utils import preferred_dtype
@@ -231,7 +225,7 @@ def execute_create_steering_object(args):
         if getattr(args, 'verbose', False):
             import traceback
             traceback.print_exc()
-        sys.exit(1)
+        raise
 
 
 def _create_simple_steering_object(
@@ -246,10 +240,12 @@ def _create_simple_steering_object(
     # Get method class
     if method_name == 'caa':
         from wisent.core.steering_methods.methods.caa import CAAMethod
+        from wisent.core.steering_methods._steering_object_simple import CAASteeringObject
         method = CAAMethod(normalize=getattr(args, 'normalize', True))
         obj_class = CAASteeringObject
     elif method_name == 'ostrze':
         from wisent.core.steering_methods.methods.ostrze import OstrzeMethod
+        from wisent.core.steering_methods._steering_object_simple import OstrzeSteeringObject
         method = OstrzeMethod(
             normalize=getattr(args, 'normalize', True),
             C=getattr(args, 'ostrze_C', OSTRZE_C),
@@ -257,6 +253,7 @@ def _create_simple_steering_object(
         obj_class = OstrzeSteeringObject
     elif method_name == 'mlp':
         from wisent.core.steering_methods.methods.mlp import MLPMethod
+        from wisent.core.steering_methods._steering_object_simple import MLPSteeringObject
         method = MLPMethod(
             normalize=getattr(args, 'normalize', True),
             hidden_dim=getattr(args, 'mlp_hidden_dim', MLP_HIDDEN_DIM),

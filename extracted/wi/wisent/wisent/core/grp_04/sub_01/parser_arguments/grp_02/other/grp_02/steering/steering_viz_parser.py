@@ -1,5 +1,7 @@
 """Parser for the 'steering-viz' command - steering effect visualization."""
 
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL, AUTOTUNE_VAL_SPLIT
+
 
 def setup_steering_viz_parser(parser):
     """Set up the steering-viz command parser."""
@@ -79,7 +81,7 @@ def setup_steering_viz_parser(parser):
     parser.add_argument(
         "--max-new-tokens",
         type=int,
-        default=100,
+        default=DEFAULT_MAX_NEW_TOKENS_EVAL,
         help="Max tokens to generate per response (default: 100)"
     )
     parser.add_argument(
@@ -162,7 +164,7 @@ def setup_steering_viz_parser(parser):
     parser.add_argument(
         "--val-split",
         type=float,
-        default=0.5,
+        default=AUTOTUNE_VAL_SPLIT,
         help="Fraction of test set to use for validation during autotune (default: 0.5)"
     )
     parser.add_argument(

@@ -1540,80 +1540,83 @@ except for when using the function decorator.
             print(f"** {arg} not in the display list **", file=self.stdout)
 
     def _print_if_sticky(self):
-        if self.sticky and not self.commands_defining:
-            self._sticky_handle_cls()
-            width, height = self.get_terminal_size()
+        if not self.sticky:
+            return
 
-            frame, lineno = self.stack[self.curindex]
-            stack_entry = self._get_formatted_stack_entry(
-                self.stack[self.curindex], "__CUTOFF_MARKER__"
-            )
-            s = stack_entry.split("__CUTOFF_MARKER__")[0]  # hack
-            top_lines = []
-            if self._sticky_messages:
-                for msg in self._sticky_messages:
-                    if msg == "--Return--" and (
-                        "__return__" in frame.f_locals
-                        or "__exception__" in frame.f_locals
-                    ):
-                        # Handled below.
-                        continue
-                    if msg.startswith("--") and msg.endswith("--"):
-                        s += f", {msg}"
-                    else:
-                        top_lines.append(msg)
-                self._sticky_messages = []
+        if self.commands_defining:
+            return
 
-            if self.config.show_hidden_frames_count:
-                n = len(self._hidden_frames)
-                if n:
-                    s += f", {n} frame{'s' if n > 1 else ''} hidden"
-            top_lines.append(s)
+        self._sticky_handle_cls()
+        width, height = self.get_terminal_size()
 
-            sticky_range = self.sticky_ranges.get(self.curframe, None)
+        frame, lineno = self.stack[self.curindex]
+        stack_entry = self._get_formatted_stack_entry(
+            self.stack[self.curindex], "__CUTOFF_MARKER__"
+        )
+        s = stack_entry.split("__CUTOFF_MARKER__")[0]  # hack
+        top_lines = []
+        if self._sticky_messages:
+            for msg in self._sticky_messages:
+                if msg == "--Return--" and (
+                    "__return__" in frame.f_locals or "__exception__" in frame.f_locals
+                ):
+                    # Handled below.
+                    continue
+                if msg.startswith("--") and msg.endswith("--"):
+                    s += f", {msg}"
+                else:
+                    top_lines.append(msg)
+            self._sticky_messages = []
 
-            after_lines = []
-            if "__exception__" in frame.f_locals:
-                s = self._format_exc_for_sticky(frame.f_locals["__exception__"])
-                if s:
-                    after_lines.append(s)
+        if self.config.show_hidden_frames_count:
+            n = len(self._hidden_frames)
+            if n:
+                s += f", {n} frame{'s' if n > 1 else ''} hidden"
+        top_lines.append(s)
 
-            elif getattr(sys, "last_value", None):
-                s = self._format_exc_for_sticky((type(sys.last_value), sys.last_value))
-                if s:
-                    after_lines.append(s)
+        sticky_range = self.sticky_ranges.get(self.curframe, None)
 
-            elif "__return__" in frame.f_locals:
-                rv = frame.f_locals["__return__"]
-                try:
-                    s = repr(rv)
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    s = "(unprintable return value)"
-
-                s = " return " + s
-                if self.config.highlight:
-                    s = Color.set(self.config.line_number_color, s)
+        after_lines = []
+        if "__exception__" in frame.f_locals:
+            s = self._format_exc_for_sticky(frame.f_locals["__exception__"])
+            if s:
                 after_lines.append(s)
 
-            top_extra_lines = 0
-            for line in top_lines:
-                print(line, file=self.stdout)
-                len_visible = len(RE_COLOR_ESCAPES.sub("", line))
-                top_extra_lines += (len_visible - 1) // width + 2
-            print(file=self.stdout)
+        elif getattr(sys, "last_value", None):
+            s = self._format_exc_for_sticky((type(sys.last_value), sys.last_value))
+            if s:
+                after_lines.append(s)
 
-            # Arrange for prompt and extra lines on top (location + newline
-            # typically), and keep an empty line at the end (after prompt), so
-            # that any output shows up at the top.
-            max_lines = height - top_extra_lines - len(after_lines) - 2
+        elif "__return__" in frame.f_locals:
+            rv = frame.f_locals["__return__"]
+            try:
+                s = repr(rv)
+            except KeyboardInterrupt:
+                raise
+            except:
+                s = "(unprintable return value)"
 
-            self._printlonglist(sticky_range, max_lines=max_lines)
+            s = " return " + s
+            if self.config.highlight:
+                s = Color.set(self.config.line_number_color, s)
+            after_lines.append(s)
 
-            for line in after_lines:
-                print(line, file=self.stdout)
-            self._sticky_need_cls = True
+        top_extra_lines = 0
+        for line in top_lines:
+            print(line, file=self.stdout)
+            len_visible = len(RE_COLOR_ESCAPES.sub("", line))
+            top_extra_lines += (len_visible - 1) // width + 2
+
+        # Arrange for prompt and extra lines on top (location + newline
+        # typically), and keep an empty line at the end (after prompt), so
+        # that any output shows up at the top.
+        max_lines = height - top_extra_lines - len(after_lines) - 2
+
+        self._printlonglist(sticky_range, max_lines=max_lines)
+
+        for line in after_lines:
+            print(line, file=self.stdout)
+        self._sticky_need_cls = True
 
     def _format_exc_for_sticky(self, exc):
         if len(exc) != 2:
@@ -1698,10 +1701,18 @@ except for when using the function decorator.
         prompt_prefix=pdb.line_prefix,
         frame_index=None,
     ):
-        if self.sticky:
-            if sys._getframe(1).f_code.co_name == "bp_commands":
-                # Skip display of current frame when sticky mode display it later.
-                return
+        co_name = sys._getframe(1).f_code.co_name
+        if self.sticky and co_name == "bp_commands":
+            # Skip display of current frame when sticky mode display it later.
+            return
+
+        if self.sticky and (
+            (co_name in ("do_up", "do_down"))
+            or (
+                (co_name == "_select_frame")
+                and sys._getframe(2).f_code.co_name in ("do_top", "do_bottom")
+            )
+        ):
             self._print_if_sticky()
             return
 
@@ -1829,7 +1840,10 @@ except for when using the function decorator.
             self.curindex = len(self.stack) + arg
         self.curframe = self.stack[self.curindex][0]
         self.curframe_locals = self.curframe.f_locals
-        self.print_stack_entry()
+        if self.sticky:
+            self._print_if_sticky()
+        else:
+            self.print_stack_entry()
         self.lineno = None
 
     do_f = do_frame

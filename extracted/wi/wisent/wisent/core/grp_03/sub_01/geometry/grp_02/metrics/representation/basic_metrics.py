@@ -7,7 +7,7 @@ Metrics for magnitude, sparsity, and per-pair quality.
 import torch
 import numpy as np
 from typing import Dict, Any
-from wisent.core.constants import NORM_EPS
+from wisent.core.constants import NORM_EPS, SPARSITY_THRESHOLD_FRACTION
 
 
 def compute_magnitude_metrics(

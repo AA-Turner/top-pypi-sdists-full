@@ -280,7 +280,7 @@ class LocalCMC(AwsCryptographyMaterialProvidersTypes.ICryptographicMaterialsCach
     def ctor__(self, entryCapacity_k, entryPruningTailSize_k):
         (self)._entryCapacity = entryCapacity_k
         (self)._entryPruningTailSize = entryPruningTailSize_k
-        nw0_ = DafnyLibraries.MutableMap()
+        nw0_ = DafnyLibraries.MutableMap(True)
         (self).cache = nw0_
         nw1_ = DoublyLinkedCacheEntryList()
         nw1_.ctor__()

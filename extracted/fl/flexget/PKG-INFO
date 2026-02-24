@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.18.49
+Version: 3.18.50
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Forum, https://github.com/Flexget/Flexget/discussions
 Project-URL: Homepage, https://flexget.com
@@ -170,7 +170,7 @@ Requires-Dist: flask-compress==1.23; extra == 'locked'
 Requires-Dist: flask-cors==6.0.2; extra == 'locked'
 Requires-Dist: flask-login==0.6.3; extra == 'locked'
 Requires-Dist: flask-restx==1.3.2; extra == 'locked'
-Requires-Dist: flask==3.1.2; extra == 'locked'
+Requires-Dist: flask==3.1.3; extra == 'locked'
 Requires-Dist: greenlet==3.3.1; (platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64') and extra == 'locked'
 Requires-Dist: guessit==3.8.0; extra == 'locked'
 Requires-Dist: html5lib==1.1; extra == 'locked'
@@ -218,7 +218,7 @@ Requires-Dist: requests==2.32.5; extra == 'locked'
 Requires-Dist: rich==14.3.2; extra == 'locked'
 Requires-Dist: rpds-py==0.30.0; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
-Requires-Dist: ruff==0.15.1; extra == 'locked'
+Requires-Dist: ruff==0.15.2; extra == 'locked'
 Requires-Dist: setuptools==82.0.0; extra == 'locked'
 Requires-Dist: sgmllib3k==1.0.0; extra == 'locked'
 Requires-Dist: shellingham==1.5.4; extra == 'locked'

@@ -4,16 +4,8 @@ Add custom CLI commands here as public functions. All public functions are
 automatically discovered and registered as CLI commands.
 """
 
-import typer
 
-
-def mkroot(
-    *,
-    priority: bool = typer.Option(
-        default=False,
-        help="Only create priority config files.",
-    ),
-) -> None:
+def mkroot() -> None:
     """Create or update project configuration files and directory structure.
 
     Discovers all ConfigFile subclasses across the project and its dependencies,
@@ -24,24 +16,15 @@ def mkroot(
     The command is idempotent: safe to run multiple times, overwrites incorrect
     files but respects opt-out markers.
 
-    Args:
-        priority: If True, only creates high-priority config files (e.g.,
-            LICENSE, pyproject.toml). Used during `init` to create essential
-            files before installing dependencies. Default: False.
-
     Example:
         $ uv run pyrig mkroot
-        $ uv run pyrig mkroot --priority
 
-    Note:
-        Config files are created in parallel within each priority group for
-        performance. The command is automatically called twice by `pyrig init`.
     """
     # local imports in pyrig to avoid cli failure when installing without dev deps
     # as some pyrig commands are dependend on dev deps and can only be used in a dev env
     from pyrig.rig.cli.commands.create_root import make_project_root  # noqa: PLC0415
 
-    make_project_root(priority=priority)
+    make_project_root()
 
 
 def mktests() -> None:
@@ -107,9 +90,8 @@ def init() -> None:
         - Initialize version control (git init)
         - Add development dependencies (uv add --group dev)
         - Sync virtual environment (uv sync)
-        - Create priority config files (mkroot --priority)
+        - Create project root (mkroot)
         - Sync virtual environment again (apply new configs)
-        - Create complete project structure (mkroot)
         - Generate test skeletons (mktests)
         - Install prek hooks (prek install)
         - Add all files to version control (git add .)
@@ -202,3 +184,44 @@ def protect_repo() -> None:
     from pyrig.rig.cli.commands.protect_repo import protect_repository  # noqa: PLC0415
 
     protect_repository()
+
+
+def scratch() -> None:
+    """Execute the .scratch file for temporary, ad-hoc code.
+
+    The .scratch file is a Python script located at the project root, intended
+    for temporary, experimental code that doesn't belong in the main source
+    files. This command checks for the existence of .scratch and executes it in
+    a clean namespace.
+
+    Example usage:
+        $ uv run pyrig scratch
+
+    Note:
+        The .scratch file is not tracked by version control and should be used
+        for one-off scripts, debugging, or experimental code related to the
+        project.
+    """
+    from pyrig.rig.cli.commands.scratch import run_scratch_file  # noqa: PLC0415
+
+    run_scratch_file()
+
+
+def rmpyc() -> None:
+    """Remove all __pycache__ directories and their contents from the project.
+
+    This command recursively searches the project directory for any __pycache__
+    directories and deletes them along with their contents. Useful for cleaning up
+    compiled Python files that may be causing issues or taking up unnecessary
+    space.
+
+    Example usage:
+        $ uv run pyrig rmpyc
+    Note:
+        Use with caution, as this will permanently delete all __pycache__ directories
+        and their contents. Safe to run multiple times, as it only targets existing
+        __pycache__ directories.
+    """
+    from pyrig.rig.cli.commands.remove_pycache import remove_pycache  # noqa: PLC0415
+
+    remove_pycache()

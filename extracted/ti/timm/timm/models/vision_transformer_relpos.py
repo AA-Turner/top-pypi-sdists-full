@@ -303,6 +303,7 @@ class VisionTransformerRelPos(nn.Module):
         act_layer = act_layer or nn.GELU
 
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.global_pool = global_pool
         self.num_features = self.head_hidden_size = self.embed_dim = embed_dim  # for consistency with other models
         self.num_prefix_tokens = 1 if class_token else 0
@@ -364,7 +365,8 @@ class VisionTransformerRelPos(nn.Module):
 
         self.weight_init_mode = 'reset' if weight_init == 'skip' else weight_init
         self.fix_init = fix_init
-        if weight_init != 'skip' and not self.patch_embed.proj.weight.is_meta:
+        # TODO: skip init when on meta device when safe to do so
+        if weight_init != 'skip':
             self.init_weights(needs_reset=False)
 
     def fix_init_weight(self) -> None:

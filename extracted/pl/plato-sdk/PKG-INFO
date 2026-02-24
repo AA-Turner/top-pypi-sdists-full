@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk
-Version: 1.6.0
+Version: 1.8.9
 Summary: Plato SDK
 Author-email: Pranav Putta <pranav@plato.so>, Rob Farlow <rob@plato.so>
 Requires-Python: >=3.10

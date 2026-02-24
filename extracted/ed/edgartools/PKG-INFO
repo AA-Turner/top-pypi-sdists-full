@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edgartools
-Version: 5.16.3
+Version: 5.17.0
 Summary: Python library to access and analyze SEC Edgar filings, XBRL financial statements, 10-K, 10-Q, and 8-K reports
 Project-URL: Homepage, https://github.com/dgunning/edgartools
 Project-URL: Documentation, https://dgunning.github.io/edgartools/
@@ -391,12 +391,7 @@ This adds SEC analysis capabilities to Claude, including 3,450+ lines of API doc
 
 ### Option 2: MCP Server
 
-Run EdgarTools as an MCP server for Claude Code or Claude Desktop:
-
-```bash
-pip install "edgartools[ai]"
-python -m edgar.ai
-```
+Run EdgarTools as an MCP server for any AI client -- Claude Desktop, Cline, or your own containerized deployment.
 
 Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
@@ -404,8 +399,8 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 {
   "mcpServers": {
     "edgartools": {
-      "command": "python",
-      "args": ["-m", "edgar.ai"],
+      "command": "uvx",
+      "args": ["--from", "edgartools[ai]", "edgartools-mcp"],
       "env": {
         "EDGAR_IDENTITY": "Your Name your.email@example.com"
       }
@@ -413,6 +408,8 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
   }
 }
 ```
+
+Requires [uv](https://docs.astral.sh/uv/). Alternatively, `pip install "edgartools[ai]"` and use `python -m edgar.ai`.
 
 See [AI Integration Guide](docs/ai-integration.md) for complete documentation.
 

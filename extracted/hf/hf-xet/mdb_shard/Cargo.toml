@@ -8,6 +8,7 @@ readme = "README.md"
 [dependencies]
 merklehash = { path = "../merklehash" }
 utils = { path = "../utils" }
+xet_runtime = { path = "../xet_runtime" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -27,6 +28,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+more-asserts = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 uuid = { workspace = true, features = ["v4", "js"] }

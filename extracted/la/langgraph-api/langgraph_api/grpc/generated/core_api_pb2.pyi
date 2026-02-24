@@ -475,7 +475,7 @@ class Interrupts(_message.Message):
     def __init__(self, interrupts: _Optional[_Iterable[_Union[Interrupt, _Mapping]]] = ...) -> None: ...
 
 class Thread(_message.Message):
-    __slots__ = ("thread_id", "created_at", "updated_at", "metadata", "config", "status", "values", "interrupts", "error")
+    __slots__ = ("thread_id", "created_at", "updated_at", "metadata", "config", "status", "values", "interrupts", "error", "extracted_json")
     class InterruptsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -492,6 +492,7 @@ class Thread(_message.Message):
     VALUES_FIELD_NUMBER: _ClassVar[int]
     INTERRUPTS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXTRACTED_JSON_FIELD_NUMBER: _ClassVar[int]
     thread_id: UUID
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
@@ -501,7 +502,8 @@ class Thread(_message.Message):
     values: Fragment
     interrupts: _containers.MessageMap[str, Interrupts]
     error: Fragment
-    def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., metadata: _Optional[_Union[Fragment, _Mapping]] = ..., config: _Optional[_Union[Fragment, _Mapping]] = ..., status: _Optional[_Union[_enum_thread_status_pb2.ThreadStatus, str]] = ..., values: _Optional[_Union[Fragment, _Mapping]] = ..., interrupts: _Optional[_Mapping[str, Interrupts]] = ..., error: _Optional[_Union[Fragment, _Mapping]] = ...) -> None: ...
+    extracted_json: bytes
+    def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., metadata: _Optional[_Union[Fragment, _Mapping]] = ..., config: _Optional[_Union[Fragment, _Mapping]] = ..., status: _Optional[_Union[_enum_thread_status_pb2.ThreadStatus, str]] = ..., values: _Optional[_Union[Fragment, _Mapping]] = ..., interrupts: _Optional[_Mapping[str, Interrupts]] = ..., error: _Optional[_Union[Fragment, _Mapping]] = ..., extracted_json: _Optional[bytes] = ...) -> None: ...
 
 class CreateThreadRequest(_message.Message):
     __slots__ = ("thread_id", "filters", "if_exists", "metadata_json", "ttl")
@@ -554,7 +556,7 @@ class CopyThreadRequest(_message.Message):
     def __init__(self, thread_id: _Optional[_Union[UUID, _Mapping]] = ..., filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ...) -> None: ...
 
 class SearchThreadsRequest(_message.Message):
-    __slots__ = ("filters", "metadata_json", "values_json", "status", "limit", "offset", "sort_by", "sort_order", "select")
+    __slots__ = ("filters", "metadata_json", "values_json", "status", "limit", "offset", "sort_by", "sort_order", "select", "extract")
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     METADATA_JSON_FIELD_NUMBER: _ClassVar[int]
     VALUES_JSON_FIELD_NUMBER: _ClassVar[int]
@@ -564,6 +566,14 @@ class SearchThreadsRequest(_message.Message):
     SORT_BY_FIELD_NUMBER: _ClassVar[int]
     SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
     SELECT_FIELD_NUMBER: _ClassVar[int]
+    EXTRACT_FIELD_NUMBER: _ClassVar[int]
+    class ExtractEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
     metadata_json: bytes
     values_json: bytes
@@ -573,7 +583,8 @@ class SearchThreadsRequest(_message.Message):
     sort_by: ThreadsSortBy
     sort_order: SortOrder
     select: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., metadata_json: _Optional[bytes] = ..., values_json: _Optional[bytes] = ..., status: _Optional[_Union[_enum_thread_status_pb2.ThreadStatus, str]] = ..., limit: _Optional[int] = ..., offset: _Optional[int] = ..., sort_by: _Optional[_Union[ThreadsSortBy, str]] = ..., sort_order: _Optional[_Union[SortOrder, str]] = ..., select: _Optional[_Iterable[str]] = ...) -> None: ...
+    extract: _containers.ScalarMap[str, str]
+    def __init__(self, filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., metadata_json: _Optional[bytes] = ..., values_json: _Optional[bytes] = ..., status: _Optional[_Union[_enum_thread_status_pb2.ThreadStatus, str]] = ..., limit: _Optional[int] = ..., offset: _Optional[int] = ..., sort_by: _Optional[_Union[ThreadsSortBy, str]] = ..., sort_order: _Optional[_Union[SortOrder, str]] = ..., select: _Optional[_Iterable[str]] = ..., extract: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class SearchThreadsResponse(_message.Message):
     __slots__ = ("threads",)

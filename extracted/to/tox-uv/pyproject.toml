@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.27",
+  "hatchling>=1.28",
 ]
 
 [project]
@@ -39,11 +39,11 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "packaging>=25",
-  "tomli>=2.3; python_version<'3.11'",
-  "tox<5,>=4.31",
+  "packaging>=26",
+  "tomli>=2.4; python_version<'3.11'",
+  "tox<5,>=4.40",
   "typing-extensions>=4.15; python_version<'3.10'",
-  "uv<1,>=0.9.1",
+  "uv<1,>=0.9.27",
 ]
 urls.Changelog = "https://github.com/tox-dev/tox-uv/releases"
 urls.Documentation = "https://github.com/tox-dev/tox-uv#tox-uv"
@@ -61,15 +61,15 @@ dev = [
 ]
 test = [
   "covdefaults>=2.3",
-  "devpi-process>=1.0.2",
-  "diff-cover>=9.7.1",
-  "pytest>=8.4.2",
+  "devpi-process>=1.1",
+  "diff-cover>=10.2",
+  "pytest>=9.0.2",
   "pytest-cov>=7",
   "pytest-mock>=3.15.1",
 ]
-type = [ "mypy==1.18.2", "types-setuptools>=80.9.0.20250822", { include-group = "test" } ]
+type = [ "ty>=0.0.17", { include-group = "test" } ]
 lint = [ "pre-commit-uv>=4.2" ]
-pkg-meta = [ "check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.9.1" ]
+pkg-meta = [ "check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.9.27" ]
 
 [tool.hatch]
 build.hooks.vcs.version-file = "src/tox_uv/version.py"
@@ -96,10 +96,11 @@ lint.ignore = [
   "D203",   # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
   "D205",   # 1 blank line required between summary line and description
   "D212",   # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible
-  "D301",   #  Use `r"""` if any backslashes in a docstring
+  "D301",   # Use `r"""` if any backslashes in a docstring
   "D401",   # First line of docstring should be in imperative mood
   "DOC201", # no support for sphinx
   "ISC001", # Conflict with formatter
+  "RUF067", # `__init__` module should only contain docstrings and re-exports
   "S104",   # Possible binding to all interface
 ]
 lint.per-file-ignores."tests/**/*.py" = [
@@ -124,13 +125,21 @@ builtin = "clear,usage,en-GB_to_en-US"
 write-changes = true
 count = true
 
-[tool.pytest.ini_options]
-norecursedirs = "tests/data/*"
-verbosity_assertions = 2
+[tool.pytest]
+ini_options.norecursedirs = "tests/data/*"
+ini_options.verbosity_assertions = 2
 
 [tool.coverage]
-html.show_contexts = true
-html.skip_covered = false
+run.parallel = true
+run.patch = [ "subprocess" ]
+run.plugins = [
+  "covdefaults",
+]
+paths.other = [
+  ".",
+  "*/tox_uv",
+  "*\\tox_uv",
+]
 paths.source = [
   "src",
   ".tox/*/lib/*/site-packages",
@@ -138,28 +147,12 @@ paths.source = [
   "**/src",
   "**\\src",
 ]
-paths.other = [
-  ".",
-  "*/tox_uv",
-  "*\\tox_uv",
-]
+report.fail_under = 100
 report.omit = [
   "src/tox_uv/_venv_query.py",
 ]
-report.fail_under = 100
-run.parallel = true
-run.patch = [ "subprocess" ]
-run.plugins = [
-  "covdefaults",
-]
+html.show_contexts = true
+html.skip_covered = false
 
-[tool.mypy]
-python_version = "3.12"
-show_error_codes = true
-strict = true
-overrides = [
-  { module = [
-    "virtualenv.*",
-    "uv.*",
-  ], ignore_missing_imports = true },
-]
+[tool.ty]
+environment.python-version = "3.14"

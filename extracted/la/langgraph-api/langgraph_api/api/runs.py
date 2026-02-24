@@ -152,6 +152,18 @@ def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
     return fetch_thread_values
 
 
+def _merge_feedback(body: bytes, feedback: bytes | None) -> bytes:
+    """Merge feedback URLs into a JSON response body under ``__feedback__``.
+
+    If *feedback* is ``None`` the original *body* is returned unchanged.
+    """
+    if feedback is None:
+        return body
+    result = orjson.loads(body)
+    result["__feedback__"] = orjson.loads(feedback)
+    return orjson.dumps(result)
+
+
 def _run_result_body(
     *,
     run_id: UUID,
@@ -166,6 +178,7 @@ def _run_result_body(
 
     async def consume() -> None:
         vchunk: bytes | None = None
+        fchunk: bytes | None = None
         try:
             async for mode, chunk, _ in Runs.Stream.join(
                 run_id,
@@ -180,10 +193,14 @@ def _run_result_body(
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+                elif mode == b"feedback":
+                    fchunk = chunk
             if vchunk is not None:
-                last_chunk.set(vchunk)
+                last_chunk.set(_merge_feedback(vchunk, fchunk))
             elif fallback is not None:
-                last_chunk.set(await fallback())
+                last_chunk.set(_merge_feedback(await fallback(), fchunk))
+            elif fchunk is not None:
+                last_chunk.set(orjson.dumps({"__feedback__": orjson.loads(fchunk)}))
             else:
                 last_chunk.set(b"{}")
         finally:

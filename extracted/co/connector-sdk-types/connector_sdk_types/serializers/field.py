@@ -22,6 +22,8 @@ class SemanticType(str, Enum):
     AWS_EXTERNAL_ID = "aws-external-id"
     # Represents the ID of an entitlement discovered by the connector
     ENTITLEMENT_ID = "entitlement-id"
+    # Represents the type of an entitlement discovered by the connector
+    ENTITLEMENT_TYPE = "entitlement-type"
     # Represents the ID of a resource discovered by the connector
     RESOURCE_ID = "resource-id"
     # Represents the password of an account
@@ -34,6 +36,8 @@ class SemanticType(str, Enum):
     SERVICE_ACCOUNT_CLIENT_ID = "service-account-client-id"
     # Represents a mapping from a SDK Enum to Customer provided Enum.
     ENUM_MAPPING = "enum-mapping"
+    # Represents the type of a resource
+    RESOURCE_TYPE = "resource-type"
 
 
 @dataclass

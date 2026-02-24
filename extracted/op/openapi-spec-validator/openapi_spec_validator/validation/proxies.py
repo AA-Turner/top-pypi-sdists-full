@@ -1,16 +1,12 @@
 """OpenAPI spec validator validation proxies module."""
+
 import warnings
-from typing import Any
-from typing import Hashable
-from typing import Iterator
-from typing import Mapping
-from typing import Optional
-from typing import Tuple
+from collections.abc import Iterator
+from collections.abc import Mapping
 
 from jsonschema.exceptions import ValidationError
 from jsonschema_path.typing import Schema
 
-from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 from openapi_spec_validator.validation.exceptions import ValidatorDetectError
 from openapi_spec_validator.validation.types import SpecValidatorType
 
@@ -20,7 +16,7 @@ class SpecValidatorProxy:
         self,
         cls: SpecValidatorType,
         deprecated: str = "SpecValidator",
-        use: Optional[str] = None,
+        use: str | None = None,
     ):
         self.cls = cls
 
@@ -31,7 +27,7 @@ class SpecValidatorProxy:
         self,
         schema: Schema,
         base_uri: str = "",
-        spec_url: Optional[str] = None,
+        spec_url: str | None = None,
     ) -> None:
         for err in self.iter_errors(
             schema,
@@ -48,7 +44,7 @@ class SpecValidatorProxy:
         self,
         schema: Schema,
         base_uri: str = "",
-        spec_url: Optional[str] = None,
+        spec_url: str | None = None,
     ) -> Iterator[ValidationError]:
         warnings.warn(
             f"{self.deprecated} is deprecated. Use {self.use} instead.",
@@ -59,10 +55,10 @@ class SpecValidatorProxy:
 
 
 class DetectValidatorProxy:
-    def __init__(self, choices: Mapping[Tuple[str, str], SpecValidatorProxy]):
+    def __init__(self, choices: Mapping[tuple[str, str], SpecValidatorProxy]):
         self.choices = choices
 
-    def detect(self, instance: Mapping[Hashable, Any]) -> SpecValidatorProxy:
+    def detect(self, instance: Schema) -> SpecValidatorProxy:
         for (key, value), validator in self.choices.items():
             if key in instance and instance[key].startswith(value):
                 return validator
@@ -70,9 +66,9 @@ class DetectValidatorProxy:
 
     def validate(
         self,
-        instance: Mapping[Hashable, Any],
+        instance: Schema,
         base_uri: str = "",
-        spec_url: Optional[str] = None,
+        spec_url: str | None = None,
     ) -> None:
         validator = self.detect(instance)
         for err in validator.iter_errors(
@@ -80,17 +76,17 @@ class DetectValidatorProxy:
         ):
             raise err
 
-    def is_valid(self, instance: Mapping[Hashable, Any]) -> bool:
+    def is_valid(self, instance: Schema) -> bool:
         validator = self.detect(instance)
         error = next(validator.iter_errors(instance), None)
         return error is None
 
     def iter_errors(
         self,
-        instance: Mapping[Hashable, Any],
+        instance: Schema,
         base_uri: str = "",
-        spec_url: Optional[str] = None,
-    ) -> Iterator[OpenAPIValidationError]:
+        spec_url: str | None = None,
+    ) -> Iterator[ValidationError]:
         warnings.warn(
             "openapi_spec_validator_proxy is deprecated.",
             DeprecationWarning,

@@ -65,3 +65,41 @@ class BaseEnum(Enum):
         for m in cls:
             if m.name != "UNKNOWN":
                 yield m
+
+    @classmethod
+    def values(cls) -> list[Any]:
+        """Return all enum values as a list.
+
+        Returns:
+            List of all enum values in definition order, including UNKNOWN.
+
+        Example:
+            >>> class MyEnum(str, BaseEnum):
+            ...     VALUE_1 = "value1"
+            ...     VALUE_2 = "value2"
+            ...     UNKNOWN = "unknown"
+            >>> MyEnum.values()
+            ['value1', 'value2', 'unknown']
+        """
+        return [member.value for member in cls]
+
+    @classmethod
+    def has_value(cls, value: Any) -> bool:
+        """Check if a value exists in the enum.
+
+        Args:
+            value: The value to check.
+
+        Returns:
+            True if the value exists (including UNKNOWN), False otherwise.
+
+        Example:
+            >>> class MyEnum(str, BaseEnum):
+            ...     VALUE_1 = "value1"
+            ...     UNKNOWN = "unknown"
+            >>> MyEnum.has_value('value1')
+            True
+            >>> MyEnum.has_value('invalid')
+            False
+        """
+        return value in cls.values()

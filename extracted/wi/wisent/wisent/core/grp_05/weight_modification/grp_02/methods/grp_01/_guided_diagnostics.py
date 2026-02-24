@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 from wisent.core.weight_modification.methods.guided import (
     LayerDiagnostics,
 )
-from wisent.core.weight_modification.methods._guided_scoring import (
 from wisent.core.constants import NORM_EPS
+from wisent.core.weight_modification.methods._guided_scoring import (
     _compute_knn_accuracy,
     _compute_fisher_ratio,
     _compute_recommended_weight,

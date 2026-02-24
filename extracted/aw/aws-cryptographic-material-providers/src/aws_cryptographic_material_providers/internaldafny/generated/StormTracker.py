@@ -208,7 +208,7 @@ class StormTracker:
         nw0_ = LocalCMC.LocalCMC()
         nw0_.ctor__((cache).entryCapacity, ((cache).entryPruningTailSize).UnwrapOr(1))
         (self).wrapped = nw0_
-        nw1_ = DafnyLibraries.MutableMap()
+        nw1_ = DafnyLibraries.MutableMap(True)
         (self).inFlight = nw1_
         (self).gracePeriod = d_0_gracePeriod_
         (self).graceInterval = d_1_graceInterval_

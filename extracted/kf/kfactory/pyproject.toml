@@ -15,7 +15,7 @@ classifiers = [
 requires-python = ">=3.11"
 
 
-version = "2.4.2"
+version = "2.4.3"
 authors = [{ name = "gdsfactory community", email = "contact@gdsfactory.com" }]
 dependencies = [
     "aenum >= 3.1.16, < 4",
@@ -34,7 +34,7 @@ dependencies = [
     "semver >= 3.0.4, < 4",
     "scipy >= 1.17.0, < 2",
     "toolz >= 1.1.0, < 2",
-    "typer >= 0.21.1, < 0.22",
+    "typer >= 0.21.1, < 0.25",
 ]
 
 [project.optional-dependencies]
@@ -217,7 +217,7 @@ omit = ["src/kfactory/cli/**/*.py"]
 # github_url = "https://github.com/<user or organization>/<project>/"
 
 [tool.tbump.version]
-current = "2.4.2"
+current = "2.4.3"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before

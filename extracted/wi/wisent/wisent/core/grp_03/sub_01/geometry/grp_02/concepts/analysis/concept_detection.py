@@ -8,7 +8,7 @@ Supports multi-layer concatenation for capturing concepts across all layers.
 import numpy as np
 import torch
 from typing import Dict, Any, Tuple
-from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
+from wisent.core import constants as _C
 
 
 def detect_concepts_multilayer(
@@ -48,7 +48,7 @@ def detect_concepts_multilayer(
 
         # L2 normalize this layer's diff vectors
         norms = np.linalg.norm(diff, axis=1, keepdims=True)
-        norms = np.where(norms < NORM_EPS, 1.0, norms)
+        norms = np.where(norms < _C.NORM_EPS, 1.0, norms)
         diff_normalized = diff / norms
 
         all_layer_diffs.append(diff_normalized)
@@ -127,7 +127,7 @@ def detect_with_coarse_fine_search(diff_normalized: np.ndarray) -> Dict[str, Any
     kmeans_scores = {}
     for k in coarse_k_values:
         try:
-            kmeans = KMeans(n_clusters=k, random_state=DEFAULT_RANDOM_SEED, n_init=3, )
+            kmeans = KMeans(n_clusters=k, random_state=_C.DEFAULT_RANDOM_SEED, n_init=3, )
             labels = kmeans.fit_predict(diff_normalized)
             score = silhouette_score(diff_normalized, labels)
             kmeans_scores[k] = float(score)
@@ -142,7 +142,7 @@ def detect_with_coarse_fine_search(diff_normalized: np.ndarray) -> Dict[str, Any
     top_candidates = [k for k, _ in sorted_k[:3]]
 
     # Phase 2: Refine around top candidates with SpectralClustering
-    n_neighbors = min(10, n_samples - 1)
+    n_neighbors = min(_C.SPECTRAL_N_NEIGHBORS_DEFAULT, n_samples - 1)
     refine_k_values = set()
 
     for k in top_candidates:
@@ -161,7 +161,7 @@ def detect_with_coarse_fine_search(diff_normalized: np.ndarray) -> Dict[str, Any
     for k in refine_k_values:
         try:
             spectral = SpectralClustering(
-                n_clusters=k, random_state=DEFAULT_RANDOM_SEED,
+                n_clusters=k, random_state=_C.DEFAULT_RANDOM_SEED,
                 affinity='nearest_neighbors', n_neighbors=n_neighbors
             )
             labels = spectral.fit_predict(diff_normalized)
@@ -187,7 +187,7 @@ def detect_with_coarse_fine_search(diff_normalized: np.ndarray) -> Dict[str, Any
     if not silhouette_scores:
         best_k = max(kmeans_scores, key=kmeans_scores.get)
         # Re-run K-means with best_k to get labels
-        kmeans = KMeans(n_clusters=best_k, random_state=DEFAULT_RANDOM_SEED, n_init=3, )
+        kmeans = KMeans(n_clusters=best_k, random_state=_C.DEFAULT_RANDOM_SEED, n_init=3, )
         best_labels = kmeans.fit_predict(diff_normalized)
         return {
             "best_k": best_k,
@@ -200,7 +200,7 @@ def detect_with_coarse_fine_search(diff_normalized: np.ndarray) -> Dict[str, Any
 
     # Re-run SpectralClustering with best_k to get final labels
     spectral = SpectralClustering(
-        n_clusters=best_k, random_state=DEFAULT_RANDOM_SEED,
+        n_clusters=best_k, random_state=_C.DEFAULT_RANDOM_SEED,
         affinity='nearest_neighbors', n_neighbors=n_neighbors
     )
     best_labels = spectral.fit_predict(diff_normalized)

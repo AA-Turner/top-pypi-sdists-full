@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-haystack
-Version: 0.52.4
+Version: 0.52.5
 Summary: OpenTelemetry Haystack instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-haystack
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>, Tomer Friedman <tomer@traceloop.com>

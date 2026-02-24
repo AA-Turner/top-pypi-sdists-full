@@ -25,7 +25,7 @@ from meutils.llm.clients import chatfire_client, zhipuai_client, AsyncOpenAI
 from meutils.llm.openai_utils import to_openai_params
 
 from meutils.schemas.openai_types import ChatCompletionRequest
-from meutils.schemas.openai_types import chat_completion, chat_completion_chunk, CompletionRequest, ImageRequest
+from meutils.schemas.openai_types import chat_completion, chat_completion_chunk, CompletionRequest
 
 """
 delta = chunk.choices[0].delta

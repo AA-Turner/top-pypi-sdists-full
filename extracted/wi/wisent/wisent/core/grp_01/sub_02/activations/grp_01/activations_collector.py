@@ -12,7 +12,7 @@ from wisent.core.activations import (
     extract_activation,
 )
 from wisent.core.errors import NoHiddenStatesError
-from wisent.core.constants import LOG_EPS, ACTIVATIONS_BATCH_SIZE
+from wisent.core.constants import LOG_EPS, ACTIVATIONS_BATCH_SIZE, MAX_TOKENIZATION_LENGTH
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -93,7 +93,7 @@ class ActivationCollector:
                 prompt_len = int(prompt_enc["input_ids"].shape[-1])
             else:
                 prompt_len = 0
-            full_enc = tok(full_text, return_tensors="pt", add_special_tokens=False, truncation=True, max_length=2048)
+            full_enc = tok(full_text, return_tensors="pt", add_special_tokens=False, truncation=True, max_length=MAX_TOKENIZATION_LENGTH)
             compute_device = getattr(self.model, "compute_device", None) or next(self.model.hf_model.parameters()).device
             full_enc = {k: v.to(compute_device) for k, v in full_enc.items()}
             n_blocks = self.model.num_layers
@@ -196,7 +196,7 @@ class ActivationCollector:
 
                 encoded = tok(
                     batch_texts, return_tensors="pt", padding=True,
-                    truncation=True, max_length=2048, add_special_tokens=True,
+                    truncation=True, max_length=MAX_TOKENIZATION_LENGTH, add_special_tokens=True,
                 )
                 encoded = {k: v.to(compute_device) for k, v in encoded.items()}
 

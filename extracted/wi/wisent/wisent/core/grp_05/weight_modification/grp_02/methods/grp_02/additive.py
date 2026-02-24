@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 
 from wisent.core.errors import UnknownTypeError
 from wisent.core.cli.cli_logger import setup_logger, bind
-from wisent.core.constants import NORM_EPS, DEFAULT_STRENGTH
+from wisent.core.constants import NORM_EPS, DEFAULT_STRENGTH, KERNEL_DISTANCE_FRACTION, KERNEL_MIN_ALPHA
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -269,7 +269,7 @@ def bake_steering_with_kernel(
     steering_vectors: dict[int, Tensor],
     max_alpha: float = 2.0,
     max_alpha_position: float | None = None,
-    min_alpha: float = 0.5,
+    min_alpha: float = KERNEL_MIN_ALPHA,
     min_alpha_distance: float | None = None,
     components: list[str] | None = None,
     method: str = "bias",
@@ -282,7 +282,7 @@ def bake_steering_with_kernel(
         return {"layers_modified": 0, "components_modified": 0, "total_parameters_modified": 0}
     n_layers = max(layer_indices) + 1
     center = max_alpha_position if max_alpha_position is not None else n_layers / 2.0
-    dist = min_alpha_distance if min_alpha_distance is not None else n_layers * 0.6
+    dist = min_alpha_distance if min_alpha_distance is not None else n_layers * KERNEL_DISTANCE_FRACTION
     if dist < NORM_EPS:
         dist = 1.0
     sigma = dist / 2.0

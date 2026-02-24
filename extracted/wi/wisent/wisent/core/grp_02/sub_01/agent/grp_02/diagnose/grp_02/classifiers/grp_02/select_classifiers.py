@@ -17,6 +17,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from ...model_persistence import ModelPersistence
 from wisent.core.errors import NoSuitableClassifierError
+from wisent.core.constants import DEFAULT_LAYER, SELECT_F1_WEIGHT, SELECT_ACCURACY_WEIGHT
 
 
 from wisent.core.agent.diagnose.classifiers._select_classifiers_helpers import ClassifierSelectorHelpersMixin, auto_select_classifiers_for_agent  # noqa: F401
@@ -177,14 +178,14 @@ class ClassifierSelector(ClassifierSelectorHelpersMixin):
         elif "_classifier" in filename:
             parts = filename.replace("_classifier.pkl", "").split("_")
             # Default layer if not specified
-            layer = 15  
+            layer = DEFAULT_LAYER
             issue_type = "_".join(parts[:-1]) if len(parts) > 1 else parts[0]
             return layer, issue_type
         
         # Fallback: extract from path structure
         else:
             path_parts = Path(filepath).parts
-            layer = 15  # Default
+            layer = DEFAULT_LAYER
             issue_type = "unknown"
             
             # Look for layer information in path
@@ -258,9 +259,9 @@ class ClassifierSelector(ClassifierSelectorHelpersMixin):
         accuracy = metadata.get('accuracy', metadata.get('training_accuracy', 0.0))
         
         if f1_score > 0:
-            score += f1_score * 0.6
+            score += f1_score * SELECT_F1_WEIGHT
         elif accuracy > 0:
-            score += accuracy * 0.4
+            score += accuracy * SELECT_ACCURACY_WEIGHT
         
         # Bonus for larger training sets
         training_samples = metadata.get('training_samples', 0)

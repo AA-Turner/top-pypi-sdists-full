@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: line_profiler
-Version: 5.0.1
+Version: 5.0.2
 Summary: Line-by-line profiler
 Home-page: https://github.com/pyutils/line_profiler
 Author: Robert Kern
@@ -26,8 +26,10 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: LICENSE_Python.txt
 Requires-Dist: tomli; python_version < "3.11"
+Requires-Dist: typing_extensions
 Provides-Extra: all
 Requires-Dist: tomli; python_version < "3.11" and extra == "all"
+Requires-Dist: typing_extensions; extra == "all"
 Requires-Dist: pytest>=7.4.4; (python_version < "4.0" and python_version >= "3.13") and extra == "all"
 Requires-Dist: pytest>=7.4.4; (python_version < "3.13" and python_version >= "3.12") and extra == "all"
 Requires-Dist: pytest>=7.4.4; (python_version < "3.12" and python_version >= "3.11") and extra == "all"
@@ -51,8 +53,8 @@ Requires-Dist: cmake>=3.21.2; extra == "all"
 Requires-Dist: ninja>=1.10.2; extra == "all"
 Requires-Dist: cibuildwheel>=3.1.2; (python_version < "4.0" and python_version >= "3.11") and extra == "all"
 Requires-Dist: cibuildwheel>=3.1.2; (python_version < "3.11" and python_version >= "3.10") and extra == "all"
-Requires-Dist: cibuildwheel>=3.1.2; (python_version < "3.10" and python_version >= "3.9") and extra == "all"
-Requires-Dist: cibuildwheel>=3.1.2; (python_version < "3.9" and python_version >= "3.8") and extra == "all"
+Requires-Dist: cibuildwheel>=2.19.2; (python_version < "3.10" and python_version >= "3.9") and extra == "all"
+Requires-Dist: cibuildwheel>=2.19.2; (python_version < "3.9" and python_version >= "3.8") and extra == "all"
 Provides-Extra: tests
 Requires-Dist: pytest>=7.4.4; (python_version < "4.0" and python_version >= "3.13") and extra == "tests"
 Requires-Dist: pytest>=7.4.4; (python_version < "3.13" and python_version >= "3.12") and extra == "tests"
@@ -73,6 +75,7 @@ Requires-Dist: IPython>=8.14.0; (python_version < "4.0.0" and python_version >= 
 Requires-Dist: IPython>=8.12.2; (python_version < "3.9.0" and python_version >= "3.8.0") and extra == "optional"
 Provides-Extra: all-strict
 Requires-Dist: tomli; python_version < "3.11" and extra == "all-strict"
+Requires-Dist: typing_extensions; extra == "all-strict"
 Requires-Dist: pytest==7.4.4; (python_version < "4.0" and python_version >= "3.13") and extra == "all-strict"
 Requires-Dist: pytest==7.4.4; (python_version < "3.13" and python_version >= "3.12") and extra == "all-strict"
 Requires-Dist: pytest==7.4.4; (python_version < "3.12" and python_version >= "3.11") and extra == "all-strict"
@@ -96,10 +99,11 @@ Requires-Dist: cmake==3.21.2; extra == "all-strict"
 Requires-Dist: ninja==1.10.2; extra == "all-strict"
 Requires-Dist: cibuildwheel==3.1.2; (python_version < "4.0" and python_version >= "3.11") and extra == "all-strict"
 Requires-Dist: cibuildwheel==3.1.2; (python_version < "3.11" and python_version >= "3.10") and extra == "all-strict"
-Requires-Dist: cibuildwheel==3.1.2; (python_version < "3.10" and python_version >= "3.9") and extra == "all-strict"
-Requires-Dist: cibuildwheel==3.1.2; (python_version < "3.9" and python_version >= "3.8") and extra == "all-strict"
+Requires-Dist: cibuildwheel==2.19.2; (python_version < "3.10" and python_version >= "3.9") and extra == "all-strict"
+Requires-Dist: cibuildwheel==2.19.2; (python_version < "3.9" and python_version >= "3.8") and extra == "all-strict"
 Provides-Extra: runtime-strict
 Requires-Dist: tomli; python_version < "3.11" and extra == "runtime-strict"
+Requires-Dist: typing_extensions; extra == "runtime-strict"
 Provides-Extra: tests-strict
 Requires-Dist: pytest==7.4.4; (python_version < "4.0" and python_version >= "3.13") and extra == "tests-strict"
 Requires-Dist: pytest==7.4.4; (python_version < "3.13" and python_version >= "3.12") and extra == "tests-strict"

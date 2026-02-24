@@ -73,10 +73,14 @@ class UvVenv(Python, ABC):
                 else os.environ.get("UV_PYTHON_PREFERENCE", "system")
             )
 
-        # The cast(...) might seems superfluous but removing it makes mypy crash. The problem isy on tox typing side.
-        self.conf.add_config(
+        def uv_python_preference_post_process(value: str | None) -> str:
+            if value is not None:
+                return value.lower()
+            return "system"
+
+        self.conf.add_config(  # ty: ignore[no-matching-overload]
             keys=["uv_python_preference"],
-            of_type=cast("type[PythonPreference | None]", PythonPreference | None),  # type: ignore[valid-type]
+            of_type=cast("type[PythonPreference | None]", PythonPreference | None),
             # use os.environ here instead of self.environment_variables as this value is needed to create the virtual
             # environment, if environment variables use env_site_packages_dir we would run into a chicken-egg problem.
             default=uv_python_preference_default,
@@ -90,6 +94,7 @@ class UvVenv(Python, ABC):
                 " interpreters with all tox environments and avoid accidental"
                 " downloading of other interpreters."
             ),
+            post_process=uv_python_preference_post_process,
         )
 
     def python_cache(self) -> dict[str, Any]:
@@ -97,7 +102,10 @@ class UvVenv(Python, ABC):
         result["seed"] = self.conf["uv_seed"]
         if self.conf["uv_python_preference"] != "none":
             result["python_preference"] = self.conf["uv_python_preference"]
-        result["venv"] = str(self.venv_dir.relative_to(self.env_dir))
+        env_dir = cast("Path", self.conf["env_dir"])
+        if not env_dir.is_absolute():
+            env_dir = cast("Path", self.core["tox_root"]) / env_dir
+        result["venv"] = str(self.venv_dir.relative_to(env_dir))
         return result
 
     @property
@@ -182,7 +190,10 @@ class UvVenv(Python, ABC):
 
     @property
     def venv_dir(self) -> Path:
-        return cast("Path", self.conf["env_dir"])
+        result = cast("Path", self.conf["env_dir"])
+        if not result.is_absolute():
+            result = cast("Path", self.core["tox_root"]) / result
+        return result
 
     @property
     def environment_variables(self) -> dict[str, str]:

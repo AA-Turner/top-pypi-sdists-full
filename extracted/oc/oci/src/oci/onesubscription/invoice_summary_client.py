@@ -182,7 +182,7 @@ class InvoiceSummaryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/onesubscription/list_invoiceline_computed_usages.py.html>`__ to see an example of how to use list_invoiceline_computed_usages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/onesubscription/list_invoiceline_computed_usages.py.html>`__ to see an example of how to use list_invoiceline_computed_usages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'invoiceLineId']
@@ -338,7 +338,7 @@ class InvoiceSummaryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/onesubscription/list_invoices.py.html>`__ to see an example of how to use list_invoices API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/onesubscription/list_invoices.py.html>`__ to see an example of how to use list_invoices API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'arCustomerTransactionId']

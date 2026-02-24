@@ -1,35 +1,45 @@
-"""Utility functions and helpers for deprecation management.
+"""Low-level helpers for the deprecation system.
 
-This module provides supporting utilities for the deprecation system, including:
-    - Function introspection helpers
-    - Testing utilities for deprecated code
-    - Warning management tools
+This module provides two kinds of helpers:
 
-Key Functions:
-    - get_func_arguments_types_defaults(): Extract function signature details
-    - no_warning_call(): Context manager for testing code without warnings
-    - void(): Helper to silence IDE warnings about unused parameters
+**Internal** (used by :mod:`deprecate.deprecation` and :mod:`deprecate.audit`):
+    - :func:`~deprecate.utils.get_func_arguments_types_defaults`: Extract parameter names, annotations,
+      and defaults from a callable's signature. Used when applying ``args_mapping``
+      and when auditing wrapper configuration.
 
-Copyright (C) 2020-2023 Jiri Borovec <...>
+**Public — decorator companion** (exported via :mod:`deprecate`):
+    - :func:`~deprecate.utils.void`: Accepts any arguments and returns ``None``. Used in deprecated
+      function stubs to satisfy IDEs and mypy about unused parameters.
+
+**Public — testing** (exported via :mod:`deprecate`):
+    - :func:`~deprecate.utils.no_warning_call`: Context manager that asserts no warnings are raised
+      during a block — the inverse of ``pytest.warns()``.
+
+Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 """
 
 import inspect
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import Any, Callable, Optional, Union
 
 
-def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, tuple, Any]]:
+def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, Any, Any]]:
     """Parse function arguments, types and default values.
 
+    This introspection helper extracts the complete signature information from
+    a function, including parameter names, type annotations, and default values.
+    Useful for dynamic argument handling and validation in wrapper functions.
+
     Args:
-        func: a function to be examined
+        func: A function to be examined.
 
     Returns:
         List of tuples, one per argument, each containing:
             - str: argument name
-            - type: argument type annotation (or inspect._empty if no annotation)
+            - Any: argument type annotation (or inspect._empty if no annotation)
             - Any: default value (or inspect._empty if no default)
 
     Example:
@@ -42,12 +52,13 @@ def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, tuple, 
         y: type=<class 'str'>, default=hello
         z: type=<class 'inspect._empty'>, default=42
 
-        >>> # Example with the function itself
-        >>> get_func_arguments_types_defaults(get_func_arguments_types_defaults)
-        [('func', typing.Callable, <class 'inspect._empty'>)]
+    Note:
+        - Parameters without type annotations have annotation = inspect._empty
+        - Parameters without defaults have default = inspect._empty
+        - Excludes *args and **kwargs (use inspect.getfullargspec for those)
 
     """
-    func_default_params = inspect.signature(func).parameters
+    func_default_params = _get_signature(func).parameters
     func_arg_type_val = []
     for arg in func_default_params:
         arg_type = func_default_params[arg].annotation
@@ -56,14 +67,35 @@ def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, tuple, 
     return func_arg_type_val
 
 
+@lru_cache(maxsize=256)
+def _get_signature_cached(func: Callable) -> inspect.Signature:
+    """Cache inspect.signature lookups for repeated calls.
+
+    Uses an LRU cache (maxsize=256) since function signatures are stable at runtime.
+    The size balances reuse for common callables without unbounded memory growth.
+    """
+    return inspect.signature(func)
+
+
+def _get_signature(func: Callable) -> inspect.Signature:
+    """Get function signature with caching when possible.
+
+    Falls back to uncached lookup for unhashable callables.
+    """
+    try:
+        return _get_signature_cached(func)
+    except TypeError:
+        return inspect.signature(func)
+
+
 def _warns_repr(warns: list[warnings.WarningMessage]) -> list[Union[Warning, str]]:
     """Convert list of warning messages to their string representations.
 
     Args:
-        warns: List of warning message objects captured during execution
+        warns: List of warning message objects captured during execution.
 
     Returns:
-        List of warning messages as strings or Warning objects
+        List of warning messages as strings or Warning objects.
 
     """
     return [w.message for w in warns]
@@ -71,15 +103,17 @@ def _warns_repr(warns: list[warnings.WarningMessage]) -> list[Union[Warning, str
 
 @contextmanager
 def no_warning_call(warning_type: Optional[type[Warning]] = None, match: Optional[str] = None) -> Generator:
-    """Context manager to assert that no warnings are raised.
+    """Context manager to assert that no warnings are raised during execution.
 
-    This is useful for testing that new/replacement functions don't trigger
-    deprecation warnings, or that code paths properly avoid deprecated functionality.
+    This is the inverse of ``pytest.warns()`` - it ensures that specified warnings
+    are NOT raised. Useful for testing that refactored code properly avoids
+    deprecated functionality or that new implementations don't trigger warnings.
 
     Args:
-        warning_type: The type of warning to catch (e.g., FutureWarning, DeprecationWarning).
-            If None, catches all warning types.
-        match: If specified, only fail if warning message contains this string.
+        warning_type: The type of warning to catch (e.g., :class:`FutureWarning`,
+            :class:`DeprecationWarning`). If None, checks that NO warnings of any
+            type are raised.
+        match: If specified, only fail if a warning message contains this string.
             If None, fails on any warning of the specified type.
 
     Raises:
@@ -87,31 +121,31 @@ def no_warning_call(warning_type: Optional[type[Warning]] = None, match: Optiona
             the message pattern) was raised during the context.
 
     Example:
-        >>> # Basic usage
+        >>> # Test that new function doesn't trigger FutureWarning
         >>> import warnings
         >>> def new_func(x: int) -> int:
         ...     return x * 2
-        >>> # Test passes only if no FutureWarning is raised
         >>> with no_warning_call(FutureWarning):
         ...     result = new_func(42)
         >>> result
         84
 
-        >>> # Only fails if warning contains "deprecated"
-        >>> def some_function():
-        ...     warnings.warn("deprecated feature", FutureWarning)
-        >>> with no_warning_call(FutureWarning, match="other"):  # doesn't match, so passes
-        ...     some_function()
-
-        >>> # Fails if ANY warning is raised
+        >>> # Test that NO warnings at all are raised
         >>> def clean_function():
         ...     pass
         >>> with no_warning_call():
         ...     clean_function()
 
-    .. note:
-        This is the inverse of ``pytest.warns()`` - it ensures warnings are NOT raised.
-        Useful for testing that refactored code properly uses new APIs.
+        >>> # Only fail if warning message matches pattern
+        >>> def some_function():
+        ...     warnings.warn("deprecated feature", FutureWarning)
+        >>> # Passes because warning contains "feature", not "other"
+        >>> with no_warning_call(FutureWarning, match="other"):
+        ...     some_function()
+
+    Note:
+        This context manager is particularly useful in pytest for testing that
+        refactored code properly uses new APIs without triggering deprecation warnings.
 
     """
     with warnings.catch_warnings(record=True) as called:
@@ -141,19 +175,19 @@ def no_warning_call(warning_type: Optional[type[Warning]] = None, match: Optiona
             )
 
 
-def void(*args: Any, **kwrgs: Any) -> Any:
+def void(*args: Any, **kwrgs: Any) -> Any:  # noqa: ANN401
     """Empty function that accepts any arguments and returns None.
 
     This helper function is used to silence IDE warnings about unused parameters
     in deprecated functions where the body is never executed (calls are forwarded
-    to a target function).
+    to a target function). It's purely a convenience for developers.
 
     Args:
-        *args: Any positional arguments (ignored)
-        **kwrgs: Any keyword arguments (ignored)
+        *args: Any positional arguments (ignored).
+        **kwrgs: Any keyword arguments (ignored).
 
     Returns:
-        None
+        None always.
 
     Example:
         >>> from deprecate import deprecated, void
@@ -165,13 +199,10 @@ def void(*args: Any, **kwrgs: Any) -> Any:
         ... def old_func(x: int) -> int:
         ...     void(x)  # Silences IDE warning about unused 'x'
         ...     # This line is never reached - call forwarded to new_func
-        >>>
-        >>> old_func(5)  # Returns 10
-        10
 
-    .. note:
-        This function has no runtime effect - it's purely for developer convenience
-        to avoid IDE warnings. You can also use ``pass`` or just a docstring instead.
+    Note:
+        This function has no runtime effect - it's purely for developer convenience.
+        You can also use ``pass`` or just a docstring instead of calling ``void()``.
 
     """
     _, _ = args, kwrgs

@@ -7,7 +7,7 @@ import os
 os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import json
-from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_MAX_NEW_TOKENS_EVAL
+from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_MAX_NEW_TOKENS_EVAL, AGENT_DIAG_TEMPERATURE
 import base64
 import tempfile
 from pathlib import Path
@@ -205,7 +205,7 @@ def _generate_and_extract(args, steering_vector):
         messages = [{"role": "user", "content": prompt}]
         formatted_prompt = adapter.apply_chat_template(messages, add_generation_prompt=True)
 
-        base_full = adapter._generate_unsteered(formatted_prompt, max_new_tokens=max_new_tokens, temperature=0.1, do_sample=True)
+        base_full = adapter._generate_unsteered(formatted_prompt, max_new_tokens=max_new_tokens, temperature=AGENT_DIAG_TEMPERATURE, do_sample=True)
         steered_full = adapter.forward_with_steering(formatted_prompt, steering_vectors=steering_vectors, config=config)
 
         # Extract just the assistant response, handling various chat template formats

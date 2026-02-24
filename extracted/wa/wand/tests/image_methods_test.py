@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # These test cover the Image methods that directly map to C-API function calls.
 #
@@ -8,10 +7,9 @@ import warnings
 from pytest import mark, raises
 
 from wand.color import Color
-from wand.exceptions import (MissingDelegateError, OptionError,
-                             WandRuntimeError)
-from wand.image import Image
+from wand.exceptions import MissingDelegateError, OptionError, WandRuntimeError
 from wand.font import Font
+from wand.image import Image
 from wand.version import MAGICK_VERSION_NUMBER
 
 
@@ -56,6 +54,17 @@ def test_adaptive_threshold():
         offset = 0.1 * img.quantum_range
         img.adaptive_threshold(15, 15, offset)
         assert was != img.signature
+
+
+def test_affine():
+    with Image(filename='rose:') as img:
+        was_page = img.page
+        was_sign = img.signature
+        img.affine(sx=0.9, rx=1.1,
+                   ry=0.1, sy=1.9,
+                   tx=150, ty=-50)
+        assert was_sign != img.signature
+        assert was_page != img.page
 
 
 def test_annotate(fx_asset):
@@ -118,6 +127,15 @@ def test_auto_threshold():
     with Image(filename='rose:') as img:
         was = img.signature
         img.auto_threshold()
+        assert was != img.signature
+
+
+@mark.skipif(MAGICK_VERSION_NUMBER < 0x711,
+             reason="BilateralBlur requires ImageMagick-7.1.1")
+def test_bilateral_blur():
+    with Image(filename='wizard:') as img:
+        was = img.signature
+        img.bilateral_blur(width=8)
         assert was != img.signature
 
 
@@ -232,9 +250,9 @@ def test_chop_gravity():
     with Image(filename='rose:') as img:
         img.chop(width=10, height=10, gravity='south_east')
         assert (60, 36, 0, 0) == img.page
-    with raises(ValueError):
-        with Image(filename='rose:') as img:
-            img.chop(x=10, gravity='north')
+    with Image(filename='rose:') as img:
+        img.chop(width=10, height=10, x=10, y=10, gravity='north')
+        assert (60, 36, 0, 0) == img.page
 
 
 @mark.skipif(MAGICK_VERSION_NUMBER < 0x709,
@@ -642,14 +660,6 @@ def test_crop_gravity(fx_asset):
             assert southeast[mid_width, mid_height] == Color('transparent')
 
 
-def test_crop_gravity_error():
-    with Image(filename='rose:') as img:
-        with raises(TypeError):
-            img.crop(gravity='center')
-        with raises(ValueError):
-            img.crop(width=1, height=1, gravity='nowhere')
-
-
 def test_crop_issue367():
     with Image(filename='rose:') as img:
         expected = img.size
@@ -659,6 +669,12 @@ def test_crop_issue367():
             with Image(img) as actual:
                 actual.crop(width=200, height=200, gravity=gravity)
                 assert actual.size == expected
+
+
+def test_crop_issue669():
+    with Image(filename='rose:') as img:
+        img.crop(width=50, height=25, left=10, gravity='south')
+        assert 50, 25 == img.size
 
 
 def test_cycle_color_map(fx_asset):
@@ -780,6 +796,14 @@ def test_evaluate_user_error():
             img.evaluate(operator='set', value=1.0, channel='Not a channel')
 
 
+def test_evaluate_images():
+    with Image(filename='hald:3') as img:
+        with img.clone() as i:
+            img.image_add(i)
+        with img.evaluate_images(operator='add') as nue:
+            assert nue != img
+
+
 def test_export_pixels():
     with Image(filename='hald:2') as img:
         img.depth = 8  # Not need, but want to match import.
@@ -848,9 +872,9 @@ def test_extent_gravity():
         assert (10, 10, 0, 0) == img.page
         img.extent(width=100, height=100, gravity='center')
         assert (100, 100, 0, 0) == img.page
-    with raises(ValueError):
-        with Image(filename='rose:') as img:
-            img.extent(x=10, gravity='north')
+    with Image(filename='rose:') as img:
+        img.extent(x=10, gravity='north')
+        assert 70, 46 == img.size
 
 
 def test_features():
@@ -869,6 +893,13 @@ def test_flip():
             assert flipped[0, -1] == img[0, 0]
             assert flipped[-1, 0] == img[-1, -1]
             assert flipped[-1, -1] == img[-1, 0]
+
+
+def test_floodfill():
+    with Image(filename='wizard:') as img:
+        was = img.signature
+        img.floodfill(fill='green', fuzz=0.2)
+        assert was != img.signature
 
 
 def test_flop():
@@ -1426,6 +1457,13 @@ def test_modulate():
         assert was != img.signature
 
 
+def test_morph():
+    with Image(filename='rose:') as img:
+        img.read(filename='rose:')
+        with img.morph(4) as morph:
+            assert morph.iterator_length() != img.iterator_length()
+
+
 def test_morphology_builtin():
     known = []
     args = (('erode', 'ring'),
@@ -1690,10 +1728,10 @@ def test_region():
         with src.region(width=10, height=10, gravity='south_east') as dst:
             assert (70, 46, 60, 36) == dst.page
             assert (10, 10) == dst.size
-    with raises(ValueError):
-        with Image(filename='rose:') as img:
-            with img.region(x=10, gravity='center') as _:
-                pass
+    with Image(filename='rose:') as img:
+        with img.region(x=10, gravity='center') as dst:
+            assert (70, 46, 10, 0) == dst.page
+            assert (60, 46) == dst.size
 
 
 def test_remap():
@@ -2090,11 +2128,14 @@ def test_solarize():
 
 
 def test_sparse_color():
-    with Image(width=10, height=10, background=Color('WHITE')) as img:
-        colors = {'#F00': (0, 0), '#00F': (9, 9)}
+    with Image(width=10, height=10, background='white') as img:
+        was = img.signature
+        colors = [
+            (0, 0, '#F00'),
+            (9, 9, '#00F'),
+        ]
         img.sparse_color('barycentric', colors)
-        assert img[0, 0] == Color('#F00')
-        assert img[9, 9] == Color('#00F')
+        assert was != img.signature
         with raises(TypeError):
             img.sparse_color(0xDEADBEEF, colors)
         with raises(TypeError):
@@ -2115,9 +2156,9 @@ def test_splice():
         was = img.signature
         img.splice(width=10, height=10, gravity='center')
         assert img.signature != was
-    with raises(ValueError):
-        with Image(filename='rose:') as img:
-            img.splice(width=10, height=10, x=10, gravity='center')
+    with Image(filename='rose:') as img:
+        img.splice(width=10, height=10, x=10, gravity='center')
+        assert (80, 56) == img.size
 
 
 def test_spread():

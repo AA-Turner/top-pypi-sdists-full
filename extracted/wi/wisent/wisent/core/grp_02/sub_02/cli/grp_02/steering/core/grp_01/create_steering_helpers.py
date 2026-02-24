@@ -2,6 +2,7 @@
 from __future__ import annotations
 import torch
 
+from wisent.core import constants as _C
 from wisent.core.constants import (
     DEFAULT_SCORE,
     TECZA_LEARNING_RATE,
@@ -9,6 +10,7 @@ from wisent.core.constants import (
     TECZA_OPTIMIZATION_STEPS,
     TETNO_CONDITION_THRESHOLD,
     TETNO_GATE_TEMPERATURE,
+    TETNO_LEARNING_RATE,
 )
 
 
@@ -54,6 +56,7 @@ def _create_tecza_steering_object(
         
         print(f"   Layer {layer_str}: {layer_dirs.shape[0]} directions, avg_cosine={meta.get('avg_cosine_similarity', DEFAULT_SCORE):.3f}")
     
+    from wisent.core.steering_methods._steering_object_advanced import TECZASteeringObject
     return TECZASteeringObject(
         metadata=metadata,
         directions=directions,
@@ -71,11 +74,11 @@ def _create_tetno_steering_object(
     """Create TETNO steering object with conditional gating."""
     from wisent.core.steering_methods.methods.advanced import TETNOMethod
     
-    # Determine sensor layer (default: 75% through network)
+    # Determine sensor layer — use last available layer if not specified
     num_layers = len(available_layers)
     sensor_layer_idx = getattr(args, 'tetno_sensor_layer', None)
     if sensor_layer_idx is None:
-        sensor_layer_idx = int(num_layers * 0.75)
+        sensor_layer_idx = num_layers - 1
     sensor_layer = int(available_layers[min(sensor_layer_idx, num_layers - 1)])
     
     method = TETNOMethod(
@@ -111,7 +114,7 @@ def _create_tetno_steering_object(
         pos_proj = (pos_tensor * behavior_vec).sum(dim=1).mean()
         neg_proj = (neg_tensor * behavior_vec).sum(dim=1).mean()
         separation = (pos_proj - neg_proj).item()
-        layer_scales[layer_int] = max(0.1, separation)
+        layer_scales[layer_int] = max(_C.TETNO_MIN_LAYER_SCALE, separation)
         
         print(f"   Layer {layer_str}: separation={separation:.3f}")
     
@@ -132,7 +135,7 @@ def _create_tetno_steering_object(
     
     # Optimize condition vector
     condition_vec = condition_vec.clone().requires_grad_(True)
-    optimizer = torch.optim.Adam([condition_vec], lr=0.01)
+    optimizer = torch.optim.Adam([condition_vec], lr=TETNO_LEARNING_RATE)
     
     for _ in range(50):
         optimizer.zero_grad()
@@ -143,7 +146,7 @@ def _create_tetno_steering_object(
         pos_sim = (pos_norm * c_norm).sum(dim=1)
         neg_sim = (neg_norm * c_norm).sum(dim=1)
         
-        loss = torch.relu(0.5 - pos_sim).mean() + torch.relu(neg_sim + 0.5).mean()
+        loss = torch.relu(_C.STEERING_LOSS_MARGIN - pos_sim).mean() + torch.relu(neg_sim + _C.STEERING_LOSS_MARGIN).mean()
         loss.backward()
         optimizer.step()
     
@@ -164,6 +167,7 @@ def _create_tetno_steering_object(
     print(f"   Sensor layer: {sensor_layer}")
     print(f"   Optimal threshold: {best_threshold:.3f} (accuracy: {best_acc:.3f})")
     
+    from wisent.core.steering_methods._steering_object_advanced import TETNOSteeringObject
     return TETNOSteeringObject(
         metadata=metadata,
         behavior_vectors=behavior_vectors,

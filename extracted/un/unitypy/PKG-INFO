@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: UnityPy
-Version: 1.24.2
+Version: 1.25.0
 Summary: A Unity extraction and patching package
 Author-email: Rudolf Kolbe <rkolbe96@gmail.com>
 License: MIT License

@@ -34,16 +34,6 @@ class CatBnAct(nn.Module):
         super().__init__()
         self.bn = norm_layer(in_chs, eps=0.001, **dd)
 
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (Tuple[torch.Tensor, torch.Tensor]) -> (torch.Tensor)
-        pass
-
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (torch.Tensor) -> (torch.Tensor)
-        pass
-
     def forward(self, x):
         if isinstance(x, tuple):
             x = torch.cat(x, dim=1)
@@ -124,16 +114,6 @@ class DualPathBlock(nn.Module):
             self.c1x1_c1 = None
             self.c1x1_c2 = None
 
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]
-        pass
-
-    @torch.jit._overload_method  # noqa: F811
-    def forward(self, x):
-        # type: (torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]
-        pass
-
     def forward(self, x) -> Tuple[torch.Tensor, torch.Tensor]:
         if isinstance(x, tuple):
             x_in = torch.cat(x, dim=1)
@@ -192,6 +172,7 @@ class DPN(nn.Module):
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.drop_rate = drop_rate
         self.b = b
         assert output_stride == 32  # FIXME look into dilation support

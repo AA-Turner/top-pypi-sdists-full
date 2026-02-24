@@ -8,10 +8,9 @@ import torch
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.activations.core.atoms import LayerName
 from wisent.core.steering._subspace_compression import UniversalBasis, compute_universal_basis
-from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_VARIANCE_THRESHOLD, TECZA_MAX_DIRECTIONS
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_VARIANCE_THRESHOLD, TECZA_MAX_DIRECTIONS, MARGINAL_VARIANCE_THRESHOLD
 
 VARIANCE_EXPLAINED_THRESHOLD = DEFAULT_VARIANCE_THRESHOLD
-MARGINAL_VARIANCE_THRESHOLD = 0.05
 
 _LOG = setup_logger(__name__)
 

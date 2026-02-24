@@ -161,14 +161,7 @@ def setup_comprehensive_parser(steering_subparsers):
     )
     
     # SEARCH SPACE CONFIGURATION
-    
-    # Quick search mode
-    comprehensive_parser.add_argument(
-        "--quick-search",
-        action="store_true",
-        help="Use reduced search space for faster testing (fewer configurations)"
-    )
-    
+
     # Base search space overrides
     comprehensive_parser.add_argument(
         "--search-layers", "--layers",
@@ -236,7 +229,7 @@ def setup_comprehensive_parser(steering_subparsers):
         type=str,
         nargs="+",
         default=None,
-        choices=["middle", "late", "last_quarter"],
+        choices=["middle"],
         help="[TETNO/GROM] Sensor layer configurations to search"
     )
     comprehensive_parser.add_argument(
@@ -244,7 +237,7 @@ def setup_comprehensive_parser(steering_subparsers):
         type=str,
         nargs="+",
         default=None,
-        choices=["single_best", "range_3", "range_5", "all_late"],
+        choices=["single_best", "range_3", "range_5"],
         help="[TETNO/GROM] Steering layer configurations to search"
     )
     comprehensive_parser.add_argument(

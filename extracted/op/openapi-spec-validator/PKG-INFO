@@ -1,33 +1,32 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: openapi-spec-validator
-Version: 0.7.2
+Version: 0.8.0
 Summary: OpenAPI 2.0 (aka Swagger) and OpenAPI 3 spec validator
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Keywords: openapi,swagger,schema
 Author: Artur Maciag
 Author-email: maciag.artur@gmail.com
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Provides-Extra: docs
-Requires-Dist: importlib-resources (>=5.8,<7.0) ; python_version < "3.9"
-Requires-Dist: jsonschema (>=4.18.0,<5.0.0)
-Requires-Dist: jsonschema-path (>=0.3.1,<0.4.0)
-Requires-Dist: lazy-object-proxy (>=1.7.1,<2.0.0)
-Requires-Dist: openapi-schema-validator (>=0.6.0,<0.7.0)
-Project-URL: Repository, https://github.com/python-openapi/openapi-spec-validator
+Requires-Dist: jsonschema (>=4.24.0,<4.25.0)
+Requires-Dist: jsonschema-path (>=0.4.2,<0.5.0)
+Requires-Dist: lazy-object-proxy (>=1.7.1,<2.0)
+Requires-Dist: openapi-schema-validator (>=0.7.0,<0.8.0)
+Project-URL: Documentation, https://openapi-spec-validator.readthedocs.io/en/latest/
+Project-URL: Source, https://github.com/python-openapi/openapi-spec-validator
 Description-Content-Type: text/x-rst
 
 **********************
@@ -38,8 +37,6 @@ OpenAPI Spec validator
      :target: https://hub.docker.com/r/pythonopenapi/openapi-spec-validator
 .. image:: https://img.shields.io/pypi/v/openapi-spec-validator.svg
      :target: https://pypi.python.org/pypi/openapi-spec-validator
-.. image:: https://travis-ci.org/python-openapi/openapi-spec-validator.svg?branch=master
-     :target: https://travis-ci.org/python-openapi/openapi-spec-validator
 .. image:: https://img.shields.io/codecov/c/github/python-openapi/openapi-spec-validator/master.svg?style=flat
      :target: https://codecov.io/github/python-openapi/openapi-spec-validator?branch=master
 .. image:: https://img.shields.io/pypi/pyversions/openapi-spec-validator.svg
@@ -119,7 +116,7 @@ pre-commit hook
 
    repos:
    -   repo: https://github.com/python-openapi/openapi-spec-validator
-       rev: 0.5.5 # The version to use or 'master' for latest
+       rev: 0.8.0 # The version to use or 'master' for latest
        hooks:
        -   id: openapi-spec-validator
 

@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 from wisent.core.errors import BudgetCalculationError, NoBenchmarkDataError, ResourceEstimationError
 from wisent.core.agent.resources._budget_types import ResourceType, ResourceBudget, TaskEstimate
 from wisent.core.agent.resources._budget_manager import BudgetManager
+from wisent.core.constants import AGENT_RESOURCE_BUDGET_MINUTES
 logger = logging.getLogger(__name__)
 
 def get_budget_manager() -> BudgetManager:
@@ -17,8 +18,8 @@ def set_time_budget(minutes: float) -> None:
     _budget_manager.set_time_budget(minutes)
 
 
-def calculate_max_tasks_for_time_budget(task_type: str = "benchmark_evaluation", 
-                                       time_budget_minutes: float = 5.0) -> int:
+def calculate_max_tasks_for_time_budget(task_type: str = "benchmark_evaluation",
+                                       time_budget_minutes: float = AGENT_RESOURCE_BUDGET_MINUTES) -> int:
     """
     Calculate maximum number of tasks that can fit within a time budget.
     
@@ -59,8 +60,8 @@ def calculate_max_tasks_for_time_budget(task_type: str = "benchmark_evaluation",
         raise BudgetCalculationError(task_type=task_type, cause=e)
 
 
-def optimize_tasks_for_budget(task_candidates: List[str], 
-                            time_budget_minutes: float = 5.0,
+def optimize_tasks_for_budget(task_candidates: List[str],
+                            time_budget_minutes: float = AGENT_RESOURCE_BUDGET_MINUTES,
                             max_tasks: Optional[int] = None) -> List[str]:
     """
     Optimize task selection within a time budget.
@@ -81,8 +82,8 @@ def optimize_tasks_for_budget(task_candidates: List[str],
     )
 
 
-def optimize_benchmarks_for_budget(task_candidates: List[str], 
-                                 time_budget_minutes: float = 5.0,
+def optimize_benchmarks_for_budget(task_candidates: List[str],
+                                 time_budget_minutes: float = AGENT_RESOURCE_BUDGET_MINUTES,
                                  max_tasks: Optional[int] = None,
                                  prefer_fast: bool = False) -> List[str]:
     """

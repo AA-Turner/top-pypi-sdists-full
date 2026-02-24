@@ -1,6 +1,6 @@
 // The shard structure for the in memory querying
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::io::{BufWriter, Write};
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use merklehash::{HashedWrite, MerkleHash};
 use tracing::debug;
+use utils::MerkleHashMap;
 
 use crate::cas_structs::*;
 use crate::error::Result;
@@ -21,7 +22,7 @@ use crate::utils::{shard_file_name, temp_shard_file_name};
 pub struct MDBInMemoryShard {
     pub cas_content: BTreeMap<MerkleHash, Arc<MDBCASInfo>>,
     pub file_content: BTreeMap<MerkleHash, MDBFileInfo>,
-    pub chunk_hash_lookup: HashMap<MerkleHash, (Arc<MDBCASInfo>, u64)>,
+    pub chunk_hash_lookup: MerkleHashMap<(Arc<MDBCASInfo>, u64)>,
     current_shard_file_size: u64,
 }
 
@@ -263,5 +264,12 @@ impl MDBInMemoryShard {
         }
 
         Ok(full_file_name)
+    }
+
+    /// Serializes the shard to a vector of bytes.
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        MDBShardInfo::serialize_from(&mut buf, self, None)?;
+        Ok(buf)
     }
 }

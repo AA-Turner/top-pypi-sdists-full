@@ -3,7 +3,7 @@ Main interface for controlcatalog service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_controlcatalog/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

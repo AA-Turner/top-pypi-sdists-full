@@ -4,6 +4,7 @@
 def evaluate_standard(
     args, input_data, responses, task_name,
     evaluation_results, task_results, evaluator, task_docs,
+    evaluation_type="generate_until",
 ):
     """Run standard evaluation loop for benchmark responses."""
     for idx, response_data in enumerate(responses, 1):

@@ -2308,7 +2308,7 @@ def sys_exit(event: str, msg: str) -> None:
 
 def get_error_event(error: str) -> Tuple[str, str]:
     try:
-        error_event = error.split(event_error_separator)[0]
+        error_event = error.split(event_error_separator, maxsplit=1)[0]
         silent_error_msg = error.split(event_error_separator)[1]
     except Exception:
         error_event = "error"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-haystack
-Version: 0.1.29
+Version: 0.1.30
 Summary: OpenInference Haystack Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-haystack
 Author-email: OpenInference Authors <oss@arize.com>
@@ -11,11 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <3.14,>=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.27
 Requires-Dist: openinference-semantic-conventions>=0.1.25
 Requires-Dist: opentelemetry-api
@@ -31,7 +32,7 @@ Requires-Dist: haystack-ai==2.18.0; extra == 'test'
 Requires-Dist: opentelemetry-sdk; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-recording; extra == 'test'
-Requires-Dist: vcrpy>=7.0.0; extra == 'test'
+Requires-Dist: vcrpy<8.0.0,>=7.0.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 # OpenInference Haystack Instrumentation

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyvcf2
-Version: 0.31.4
+Version: 0.32.1
 Summary: fast vcf parsing with cython + htslib
 Home-page: https://github.com/brentp/cyvcf2/
 Author: Brent Pedersen
@@ -9,7 +9,8 @@ License: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.16.0
+Requires-Dist: numpy>=1.16.0; python_version < "3.9"
+Requires-Dist: numpy>=2.0.0; python_version >= "3.9"
 Requires-Dist: coloredlogs
 Requires-Dist: click
 Dynamic: author
@@ -90,6 +91,11 @@ vcf = VCF('some.vcf.gz')
 for v in vcf('11:435345-556565'):
     if v.INFO["AF"] > 0.1: continue
     print(str(v))
+
+# to query "all records" via __call__:
+# this uses the index (HTS_IDX_START), so an index is required.
+# if no index is available, this yields zero records.
+all_vars = list(vcf())
 ```
 
 Installation

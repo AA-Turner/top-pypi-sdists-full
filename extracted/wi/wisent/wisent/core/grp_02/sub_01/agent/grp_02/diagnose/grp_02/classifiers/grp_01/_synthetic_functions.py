@@ -1,8 +1,8 @@
 """Public functions for synthetic classifier creation."""
-import logging
-import time
+import logging, time
 from typing import List, Tuple
 from wisent.core.classifier.classifier import ActivationClassifier
+from wisent.core.constants import DEFAULT_LAYER, AGENT_SYNTH_MIN_PAIRS
 from wisent.core.errors import InsufficientDataError, MissingParameterError, ExecutionError
 from wisent.core.agent.diagnose.classifiers._synthetic_classes import (
     TraitDiscoveryResult, SyntheticClassifierResult,
@@ -132,10 +132,10 @@ def create_classifier_from_trait_description(
 
     log_and_print("=" * 80)
 
-    if len(pair_set.pairs) < 3:
+    if len(pair_set.pairs) < AGENT_SYNTH_MIN_PAIRS:
         error_msg = f"Insufficient training pairs generated: {len(pair_set.pairs)}"
         log_and_print(f"❌ ERROR: {error_msg}")
-        raise InsufficientDataError(reason="training pairs", required=10, actual=len(pair_set.pairs))
+        raise InsufficientDataError(reason="training pairs", required=AGENT_SYNTH_MIN_PAIRS, actual=len(pair_set.pairs))
 
     # Extract activations for training
     positive_activations = []
@@ -146,7 +146,7 @@ def create_classifier_from_trait_description(
     # Create Layer object for activation extraction
     from wisent.core.layer import Layer
 
-    layer_obj = Layer(index=15, type="transformer")
+    layer_obj = Layer(index=DEFAULT_LAYER, type="transformer")
     log_and_print(f"🔧 Created Layer object: index={layer_obj.index}, type={layer_obj.type}")
 
     for i, pair in enumerate(pair_set.pairs):
@@ -270,7 +270,7 @@ def evaluate_response_with_trait_classifier(
 
     # Extract activations from response
     try:
-        response_activations, _ = model.extract_activations(response_text, layer=15)
+        response_activations, _ = model.extract_activations(response_text, layer=DEFAULT_LAYER)
     except Exception as e:
         raise ExecutionError(reason=f"Error extracting response activations: {e}", cause=e)
 

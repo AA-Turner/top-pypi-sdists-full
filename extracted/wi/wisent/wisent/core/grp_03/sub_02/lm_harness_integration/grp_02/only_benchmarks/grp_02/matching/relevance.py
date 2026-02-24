@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
+from wisent.core.constants import RELEVANCE_MAX_NEW_TOKENS, RELEVANCE_TEMPERATURE
 from .descriptions import BENCHMARK_DESCRIPTIONS
 from .filtering import apply_priority_filtering
 
@@ -167,10 +168,10 @@ def find_most_relevant_benchmarks(
             model="microsoft/DialoGPT-medium",
             max_length=512,
             do_sample=True,
-            temperature=0.3,
+            temperature=RELEVANCE_TEMPERATURE,
         )
 
-        response = generator(llm_prompt, max_new_tokens=200, return_full_text=False)
+        response = generator(llm_prompt, max_new_tokens=RELEVANCE_MAX_NEW_TOKENS, return_full_text=False)
         response_text = response[0]["generated_text"].strip()
 
         try:

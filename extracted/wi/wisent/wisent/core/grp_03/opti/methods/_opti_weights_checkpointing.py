@@ -10,7 +10,7 @@ import optuna
 import torch
 
 from wisent.core.opti.core.atoms import Direction, HPOConfig, HPORun
-from wisent.core.constants import DEFAULT_CHECKPOINT_INTERVAL
+from wisent.core.constants import DEFAULT_CHECKPOINT_INTERVAL, WEIGHT_MIN_DISTANCE_FRACTION
 
 class WeightsCheckpointingMixin:
     """Mixin providing checkpointing support for WeightsOptimizer."""
@@ -25,7 +25,7 @@ class WeightsCheckpointingMixin:
         strength = params["strength"] * params["max_weight"]
         max_weight_position = params["max_weight_position"] * (self.num_layers - 1)
         min_weight = params["min_weight"]
-        min_weight_distance = 0.6 * (self.num_layers - 1)
+        min_weight_distance = WEIGHT_MIN_DISTANCE_FRACTION * (self.num_layers - 1)
 
         if hasattr(self.model, "model"):
             layers = self.model.model.layers

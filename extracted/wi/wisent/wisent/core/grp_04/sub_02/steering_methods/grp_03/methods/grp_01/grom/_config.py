@@ -13,6 +13,9 @@ from wisent.core.constants import (
     GROM_MAX_ALPHA, GROM_GATE_TEMPERATURE, GROM_MIN_COSINE_SIM,
     GROM_MAX_COSINE_SIM, GROM_LINEAR_THRESHOLD, GROM_HIDDEN_DIM,
     GROM_ROUTER_HIDDEN_DIM, GROM_INTENSITY_HIDDEN_DIM, GROM_ROUTER_TEMPERATURE,
+    GROM_GATE_DIM_MIN, GROM_GATE_DIM_MAX, GROM_GATE_DIM_DIVISOR,
+    GROM_INTENSITY_DIM_MIN, GROM_INTENSITY_DIM_MAX, GROM_INTENSITY_DIM_DIVISOR,
+    GATING_HIDDEN_DIM_DIVISOR,
 )
 
 @dataclass
@@ -37,13 +40,15 @@ class GROMConfig:
         """Resolve steering_layers and sensor_layer based on model's num_layers."""
         self.num_layers = num_layers
         if self.sensor_layer is None:
-            # 75% through the network
-            self.sensor_layer = int(num_layers * 0.75)
+            raise ValueError(
+                "sensor_layer must be specified explicitly. "
+                "Pass an integer layer index."
+            )
         if self.steering_layers is None:
-            # Middle to late layers (50% to 90% of network)
-            start = int(num_layers * 0.5)
-            end = int(num_layers * 0.9)
-            self.steering_layers = list(range(start, end))
+            raise ValueError(
+                "steering_layers must be specified explicitly. "
+                "Pass a list of integer layer indices."
+            )
     
     # Network architecture
     gate_hidden_dim: Optional[int] = None
@@ -61,11 +66,11 @@ class GROMConfig:
     def resolve_network_dims(self, hidden_dim: int) -> None:
         """Resolve network dimensions based on model's hidden dimension."""
         if self.gate_hidden_dim is None:
-            # Scale with model size, but clamp to reasonable range [32, 512]
-            self.gate_hidden_dim = max(32, min(512, hidden_dim // 16))
+            # Scale with model size, but clamp to reasonable range
+            self.gate_hidden_dim = max(GROM_GATE_DIM_MIN, min(GROM_GATE_DIM_MAX, hidden_dim // GROM_GATE_DIM_DIVISOR))
         if self.intensity_hidden_dim is None:
-            # Scale with model size, but clamp to reasonable range [16, 256]
-            self.intensity_hidden_dim = max(16, min(256, hidden_dim // 32))
+            # Scale with model size, but clamp to reasonable range
+            self.intensity_hidden_dim = max(GROM_INTENSITY_DIM_MIN, min(GROM_INTENSITY_DIM_MAX, hidden_dim // GROM_INTENSITY_DIM_DIVISOR))
     
     # Training
     optimization_steps: int = GROM_OPTIMIZATION_STEPS
@@ -143,9 +148,9 @@ class GatingNetwork(nn.Module):
             nn.Linear(input_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(hidden_dim, hidden_dim // GATING_HIDDEN_DIM_DIVISOR),
             nn.GELU(),
-            nn.Linear(hidden_dim // 2, 1),
+            nn.Linear(hidden_dim // GATING_HIDDEN_DIM_DIVISOR, 1),
         )
     
     def forward(self, h: torch.Tensor, temperature: float = GROM_ROUTER_TEMPERATURE) -> torch.Tensor:

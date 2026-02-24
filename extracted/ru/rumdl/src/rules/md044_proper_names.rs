@@ -64,6 +64,11 @@ type WarningPosition = (usize, usize, String); // (line, column, found_name)
 /// When fixing issues, this rule replaces incorrect capitalization with the correct form
 /// as defined in the configuration.
 ///
+/// Check if a trimmed line is an inline config comment (rumdl or markdownlint directives).
+fn is_inline_config_comment(trimmed: &str) -> bool {
+    trimmed.starts_with("<!-- rumdl-") || trimmed.starts_with("<!-- markdownlint-")
+}
+
 #[derive(Clone)]
 pub struct MD044ProperNames {
     config: MD044Config,
@@ -263,6 +268,16 @@ impl MD044ProperNames {
 
             // Skip Obsidian comments (Obsidian flavor)
             if line_info.in_obsidian_comment {
+                continue;
+            }
+
+            // Skip frontmatter entirely
+            if line_info.in_front_matter {
+                continue;
+            }
+
+            // Skip inline config comments (rumdl-disable, markdownlint-enable, etc.)
+            if is_inline_config_comment(trimmed) {
                 continue;
             }
 
@@ -889,7 +904,131 @@ Third line with RUST and PYTHON."#;
     fn test_default_config() {
         let config = MD044Config::default();
         assert!(config.names.is_empty());
-        assert!(!config.code_blocks); // Default is false (skip code blocks)
+        assert!(!config.code_blocks);
+        assert!(config.html_elements);
+        assert!(config.html_comments);
+    }
+
+    #[test]
+    fn test_default_config_checks_html_comments() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "# Guide\n\n<!-- javascript mentioned here -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 1, "Default config should check HTML comments");
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_default_config_skips_code_blocks() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "# Guide\n\n```\njavascript in code\n```\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 0, "Default config should skip code blocks");
+    }
+
+    #[test]
+    fn test_standalone_html_comment_checked() {
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "# Heading\n\n<!-- this is a test example -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 1, "Should flag proper name in standalone HTML comment");
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_inline_config_comments_not_flagged() {
+        let config = MD044Config {
+            names: vec!["RUMDL".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        // Lines 1, 3, 4, 6 are inline config comments — should not be flagged.
+        // Lines 2, 5 contain "rumdl" in regular text — flagged by rule.check(),
+        // but would be suppressed by the linting engine's inline config filtering.
+        let content = "<!-- rumdl-disable MD044 -->\nSome rumdl text here.\n<!-- rumdl-enable MD044 -->\n<!-- markdownlint-disable -->\nMore rumdl text.\n<!-- markdownlint-enable -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 2, "Should only flag body lines, not config comments");
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[1].line, 5);
+    }
+
+    #[test]
+    fn test_html_comment_skipped_when_disabled() {
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            code_blocks: true,
+            html_elements: true,
+            html_comments: false,
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "# Heading\n\n<!-- this is a test example -->\n\nRegular test here.\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            1,
+            "Should only flag 'test' outside HTML comment when html_comments=false"
+        );
+        assert_eq!(result[0].line, 5);
+    }
+
+    #[test]
+    fn test_fix_corrects_html_comment_content() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "# Guide\n\n<!-- javascript mentioned here -->\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(fixed, "# Guide\n\n<!-- JavaScript mentioned here -->\n");
+    }
+
+    #[test]
+    fn test_fix_does_not_modify_inline_config_comments() {
+        let config = MD044Config {
+            names: vec!["RUMDL".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- rumdl-disable -->\nSome rumdl text.\n<!-- rumdl-enable -->\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Config comments should be untouched; body text should be fixed
+        assert!(fixed.contains("<!-- rumdl-disable -->"));
+        assert!(fixed.contains("<!-- rumdl-enable -->"));
+        assert!(fixed.contains("Some RUMDL text."));
     }
 
     #[test]
@@ -1393,5 +1532,145 @@ Visit [github documentation](https://github.com/docs) for details.
         let cols: Vec<usize> = result.iter().map(|w| w.column).collect();
         assert!(cols.contains(&1), "Should flag col 1 (test_image): {cols:?}");
         assert!(cols.contains(&29), "Should flag col 29 (just_test): {cols:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_yaml_keys_not_flagged() {
+        // YAML keys in frontmatter should NOT be checked for proper name violations.
+        // Only values should be checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: Heading\ntest: Some Test value\n---\n\nTest\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "test" in the YAML key (line 3) should NOT be flagged
+        // "Test" in the YAML value (line 3) is correct capitalization, no flag
+        // "Test" in body (line 6) is correct capitalization, no flag
+        assert!(
+            result.is_empty(),
+            "Should not flag YAML keys or correctly capitalized values: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_yaml_values_not_flagged() {
+        // Frontmatter is skipped entirely, matching markdownlint behavior.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: Heading\nkey: a test value\n---\n\nTest\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "test" in the YAML value (line 3) should NOT be flagged — frontmatter is skipped
+        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_key_matches_name_not_flagged() {
+        // A YAML key that happens to match a configured name should NOT be flagged.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntest: other value\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag YAML key that matches configured name: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_empty_value_not_flagged() {
+        // YAML key with no value should be skipped entirely.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntest:\ntest: \n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag YAML keys with empty values: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_nested_yaml_key_not_flagged() {
+        // Nested/indented YAML keys should also be skipped.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nparent:\n  test: nested value\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "test" as a nested key should NOT be flagged
+        assert!(result.is_empty(), "Should not flag nested YAML keys: {result:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_list_items_not_checked() {
+        // Frontmatter is skipped entirely, including list items.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntags:\n  - test\n  - other\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names in frontmatter list items: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_value_with_multiple_colons_not_checked() {
+        // Frontmatter is skipped entirely, matching markdownlint behavior.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntest: description: a test thing\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_does_not_affect_body() {
+        // Body text after frontmatter should still be fully checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: Heading\n---\n\ntest should be flagged here\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 1, "Should flag 'test' in body text: {result:?}");
+        assert_eq!(result[0].line, 5);
+    }
+
+    #[test]
+    fn test_frontmatter_fix_skips_entirely() {
+        // Fix should not modify any frontmatter content, only body text.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntest: a test value\n---\n\ntest here\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Frontmatter should be entirely preserved; body "test" should become "Test"
+        assert_eq!(fixed, "---\ntest: a test value\n---\n\nTest here\n");
+    }
+
+    #[test]
+    fn test_frontmatter_multiword_value_not_flagged() {
+        // Frontmatter is skipped entirely, matching markdownlint behavior.
+        let rule = MD044ProperNames::new(vec!["JavaScript".to_string(), "TypeScript".to_string()], true);
+
+        let content = "---\ndescription: Learn javascript and typescript\n---\n\nBody\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
     }
 }

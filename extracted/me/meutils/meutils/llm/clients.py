@@ -12,6 +12,9 @@ from zhipuai import ZhipuAI
 
 from meutils.pipe import *
 
+logfire.instrument_openai()  #######
+logfire.instrument_httpx()
+
 OpenAI = lru_cache(Client)
 AsyncOpenAI = lru_cache(AsyncClient)
 ZhipuAI = lru_cache(ZhipuAI)

@@ -84,10 +84,44 @@ class CheckpointerProtocol(Protocol):
 
     async def adelete_thread(self, thread_id: str) -> None: ...
 
-    # NOTE: adelete_for_runs, acopy_thread, and aprune are optional extended
-    # capabilities checked at runtime via CheckpointerCapabilities. They are
-    # NOT part of this protocol to avoid breaking isinstance checks.
-
     async def aget_iter(
         self, config: RunnableConfig
     ) -> AsyncIterator[CheckpointTuple]: ...
+
+
+@runtime_checkable
+class FullCheckpointerProtocol(CheckpointerProtocol, Protocol):
+    """Protocol for checkpointers implementing the full conformance spec.
+
+    Extends CheckpointerProtocol with the optional extended capabilities
+    (delete_for_runs, copy_thread, prune). Concrete implementations that
+    override these methods satisfy this protocol.
+
+    Use CheckpointerProtocol for base validation (isinstance checks at
+    startup). Use FullCheckpointerProtocol when you need the extended
+    methods to be present.
+    """
+
+    def delete_for_runs(self, run_ids: Sequence[str]) -> None: ...
+
+    def copy_thread(self, source_thread_id: str, target_thread_id: str) -> None: ...
+
+    def prune(
+        self,
+        thread_ids: Sequence[str],
+        *,
+        strategy: str = "keep_latest",
+    ) -> None: ...
+
+    async def adelete_for_runs(self, run_ids: Sequence[str]) -> None: ...
+
+    async def acopy_thread(
+        self, source_thread_id: str, target_thread_id: str
+    ) -> None: ...
+
+    async def aprune(
+        self,
+        thread_ids: Sequence[str],
+        *,
+        strategy: str = "keep_latest",
+    ) -> None: ...

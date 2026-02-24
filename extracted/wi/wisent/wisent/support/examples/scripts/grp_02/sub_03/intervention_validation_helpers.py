@@ -183,10 +183,8 @@ def get_diagnosis_for_benchmark(
                 signal = r["signal_strength"]
                 linear = r["linear_probe_accuracy"]
                 layers = r["layers"]
-                # Use ~60% through the network (layer 20-22 for 36 layers)
-                # This is typically where semantic representations are strongest
                 num_layers = len(layers) if layers else 36
-                best_layer = int(num_layers * 0.6)
+                best_layer = num_layers // 2
                 
                 # Determine diagnosis
                 if signal < 0.6:

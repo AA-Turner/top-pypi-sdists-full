@@ -1,6 +1,9 @@
 """Advanced arguments for optimize-weights parser."""
 import argparse
 
+from wisent.core import constants as _C
+from wisent.core.constants import PAIRS_SIMILARITY_THRESHOLD
+
 
 def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> None:
     """Set up advanced optimize-weights arguments."""
@@ -12,13 +15,13 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     optim_group.add_argument(
         "--trials",
         type=int,
-        default=300,
+        default=_C.PARSER_OPTUNA_TRIALS,
         help="Number of optimization trials. Default: 300"
     )
     optim_group.add_argument(
         "--startup-trials",
         type=int,
-        default=10,
+        default=_C.PARSER_OPTUNA_STARTUP_TRIALS,
         help="Number of random startup trials before TPE. Default: 10"
     )
     optim_group.add_argument(
@@ -29,7 +32,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     optim_group.add_argument(
         "--early-stop-patience",
         type=int,
-        default=10,
+        default=_C.PARSER_OPTUNA_EARLY_STOP_PATIENCE,
         help="Stop if no improvement for N trials. Default: 10"
     )
 
@@ -64,7 +67,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     search_group.add_argument(
         "--num-pairs",
         type=int,
-        default=100,
+        default=_C.PARSER_OPTUNA_NUM_PAIRS,
         help="Number of contrastive pairs to generate (fixed, not optimized). Default: 100"
     )
     search_group.add_argument(
@@ -148,7 +151,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     vector_group.add_argument(
         "--similarity-threshold",
         type=float,
-        default=0.8,
+        default=PAIRS_SIMILARITY_THRESHOLD,
         help="Similarity threshold for synthetic pair filtering. Default: 0.8"
     )
     vector_group.add_argument(

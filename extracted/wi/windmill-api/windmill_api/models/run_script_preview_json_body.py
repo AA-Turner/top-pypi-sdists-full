@@ -27,6 +27,7 @@ class RunScriptPreviewJsonBody:
         kind (Union[Unset, RunScriptPreviewJsonBodyKind]):
         dedicated_worker (Union[Unset, bool]):
         lock (Union[Unset, str]):
+        flow_path (Union[Unset, str]):
     """
 
     args: "RunScriptPreviewJsonBodyArgs"
@@ -38,6 +39,7 @@ class RunScriptPreviewJsonBody:
     kind: Union[Unset, RunScriptPreviewJsonBodyKind] = UNSET
     dedicated_worker: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
+    flow_path: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,6 +59,7 @@ class RunScriptPreviewJsonBody:
 
         dedicated_worker = self.dedicated_worker
         lock = self.lock
+        flow_path = self.flow_path
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -81,6 +84,8 @@ class RunScriptPreviewJsonBody:
             field_dict["dedicated_worker"] = dedicated_worker
         if lock is not UNSET:
             field_dict["lock"] = lock
+        if flow_path is not UNSET:
+            field_dict["flow_path"] = flow_path
 
         return field_dict
 
@@ -117,6 +122,8 @@ class RunScriptPreviewJsonBody:
 
         lock = d.pop("lock", UNSET)
 
+        flow_path = d.pop("flow_path", UNSET)
+
         run_script_preview_json_body = cls(
             args=args,
             content=content,
@@ -127,6 +134,7 @@ class RunScriptPreviewJsonBody:
             kind=kind,
             dedicated_worker=dedicated_worker,
             lock=lock,
+            flow_path=flow_path,
         )
 
         run_script_preview_json_body.additional_properties = d

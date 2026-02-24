@@ -215,13 +215,12 @@ fn invalid_pyproject_toml_option_unknown_field() -> Result<()> {
         build-backend = "setuptools.build_meta"
     "#})?;
 
-    let mut filters = context.filters();
-    filters.push((
+    let context = context.with_filter((
         "expected one of `required-version`, `native-tls`, .*",
         "expected one of `required-version`, `native-tls`, [...]",
     ));
 
-    uv_snapshot!(filters, context.pip_install()
+    uv_snapshot!(context.filters(), context.pip_install()
         .arg("-r")
         .arg("pyproject.toml"), @r#"
     success: true
@@ -2205,14 +2204,12 @@ fn update_ref_git_public_https() {
 #[test]
 #[cfg(feature = "test-git")]
 fn install_git_public_https_missing_branch_or_tag() {
-    let context = uv_test::test_context!(DEFAULT_PYTHON_VERSION);
-
-    let mut filters = context.filters();
     // Windows does not style the command the same as Unix, so we must omit it from the snapshot
-    filters.push(("`.*/git(.exe)? fetch .*`", "`git fetch [...]`"));
-    filters.push(("exit status", "exit code"));
+    let context = uv_test::test_context!(DEFAULT_PYTHON_VERSION)
+        .with_filter(("`.*/git(.exe)? fetch .*`", "`git fetch [...]`"))
+        .with_filter(("exit status", "exit code"));
 
-    uv_snapshot!(filters, context.pip_install()
+    uv_snapshot!(context.filters(), context.pip_install()
         // 2.0.0 does not exist
         .arg("uv-public-pypackage @ git+https://github.com/astral-test/uv-public-pypackage@2.0.0"), @"
     success: false
@@ -2293,20 +2290,17 @@ async fn install_git_public_rate_limited_by_github_rest_api_429_response() {
 #[test]
 #[cfg(feature = "test-git")]
 fn install_git_public_https_missing_commit() {
-    let context = uv_test::test_context!(DEFAULT_PYTHON_VERSION);
-
-    let mut filters = context.filters();
     // Windows does not style the command the same as Unix, so we must omit it from the snapshot
-    filters.push(("`.*/git(.exe)? rev-parse .*`", "`git rev-parse [...]`"));
-    filters.push(("exit status", "exit code"));
+    let context = uv_test::test_context!(DEFAULT_PYTHON_VERSION)
+        .with_filter(("`.*/git(.exe)? rev-parse .*`", "`git rev-parse [...]`"))
+        .with_filter(("exit status", "exit code"))
+        // There are flakes on Windows where this irrelevant error is appended
+        .with_filter((
+            "fatal: unable to write response end packet: Broken pipe\n",
+            "",
+        ));
 
-    // There are flakes on Windows where this irrelevant error is appended
-    filters.push((
-        "fatal: unable to write response end packet: Broken pipe\n",
-        "",
-    ));
-
-    uv_snapshot!(filters, context.pip_install()
+    uv_snapshot!(context.filters(), context.pip_install()
         // 2.0.0 does not exist
         .arg("uv-public-pypackage @ git+https://github.com/astral-test/uv-public-pypackage@79a935a7a1a0ad6d0bdf72dce0e16cb0a24a1b3b")
         , @"
@@ -2536,16 +2530,16 @@ fn install_git_private_https_pat_not_authorized() {
     // A revoked token
     let token = "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";
 
-    let mut filters = context.filters();
     // TODO(john): We need this filter because we are displaying the token when
     // an underlying process error message is being displayed. We should actually
     // mask it.
-    filters.push((token, "***"));
-    filters.push(("`.*/git fetch (.*)`", "`git fetch $1`"));
+    let context = context
+        .with_filter((token, "***"))
+        .with_filter(("`.*/git fetch (.*)`", "`git fetch $1`"));
 
     // We provide a username otherwise (since the token is invalid), the git cli will prompt for a password
     // and hang the test
-    uv_snapshot!(filters, context.pip_install()
+    uv_snapshot!(context.filters(), context.pip_install()
         .arg(format!("uv-private-pypackage @ git+https://git:{token}@github.com/astral-test/uv-private-pypackage"))
         , @"
     success: false
@@ -3425,9 +3419,13 @@ fn install_no_downgrade() -> Result<()> {
         dependencies = []
 
         [build-system]
-        requires = ["setuptools>=42"]
-        build-backend = "setuptools.build_meta"
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
     "#})?;
+    idna.child("src")
+        .child("idna")
+        .child("__init__.py")
+        .touch()?;
 
     // Install the local `idna`.
     uv_snapshot!(context.filters(), context.pip_install()
@@ -14200,4 +14198,158 @@ fn warn_on_lzma_wheel() {
       ╰─▶ stream/file format not recognized
     "
     );
+}
+
+/// Install a package with the cache on a different filesystem than the venv.
+/// This exercises the cross-device fallback path.
+///
+/// Requires `UV_INTERNAL__TEST_ALT_FS`.
+#[test]
+fn install_cross_device() -> anyhow::Result<()> {
+    let Some(context) = uv_test::test_context!("3.12").with_cache_on_alt_fs()? else {
+        return Ok(());
+    };
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg("iniconfig"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+             If the cache and target directories are on different filesystems, hardlinking may not be supported.
+             If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
+/// Install a package across filesystems with `--link-mode copy`.
+/// The warning should not appear since copy mode is explicitly requested.
+///
+/// Requires `UV_INTERNAL__TEST_ALT_FS`.
+#[test]
+fn install_cross_device_explicit_copy() -> anyhow::Result<()> {
+    let Some(context) = uv_test::test_context!("3.12").with_cache_on_alt_fs()? else {
+        return Ok(());
+    };
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg("--link-mode")
+        .arg("copy")
+        .arg("iniconfig"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
+/// Install a package across filesystems with `--link-mode symlink`.
+/// Symlinks work across devices so no fallback warning should appear.
+///
+/// Requires `UV_INTERNAL__TEST_ALT_FS`.
+#[test]
+#[cfg(unix)]
+fn install_cross_device_symlink() -> anyhow::Result<()> {
+    let Some(context) = uv_test::test_context!("3.12").with_cache_on_alt_fs()? else {
+        return Ok(());
+    };
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg("--link-mode")
+        .arg("symlink")
+        .arg("iniconfig"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
+/// Install a package with both cache and venv on a copy-on-write filesystem.
+///
+/// Requires `UV_INTERNAL__TEST_COW_FS`.
+#[test]
+fn install_copy_on_write_fs() -> anyhow::Result<()> {
+    let Some(context) = uv_test::test_context!("3.12").with_cache_on_cow_fs()? else {
+        return Ok(());
+    };
+    let Some(context) = context.with_working_dir_on_cow_fs()? else {
+        return Ok(());
+    };
+    context.venv().assert().success();
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg("iniconfig"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
+/// Install a package with both cache and venv on a filesystem without copy-on-write support.
+///
+/// Requires `UV_INTERNAL__TEST_NOCOW_FS`.
+#[test]
+fn install_no_copy_on_write_fs() -> anyhow::Result<()> {
+    let Some(context) = uv_test::test_context!("3.12").with_cache_on_nocow_fs()? else {
+        return Ok(());
+    };
+    let Some(context) = context.with_working_dir_on_nocow_fs()? else {
+        return Ok(());
+    };
+    context.venv().assert().success();
+
+    uv_snapshot!(context.filters(), context
+        .pip_install()
+        .arg("iniconfig"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    Ok(())
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import queue
 import random
@@ -33,10 +34,9 @@ class BackendSpanExporter(TracingExporter):
         {
             "input_tokens",
             "output_tokens",
-            "input_tokens_details",
-            "output_tokens_details",
         }
     )
+    _UNSERIALIZABLE = object()
 
     def __init__(
         self,
@@ -181,7 +181,7 @@ class BackendSpanExporter(TracingExporter):
         return self.endpoint.rstrip("/") == self._OPENAI_TRACING_INGEST_ENDPOINT.rstrip("/")
 
     def _sanitize_for_openai_tracing_api(self, payload_item: dict[str, Any]) -> dict[str, Any]:
-        """Drop fields known to be rejected by OpenAI tracing ingestion."""
+        """Move unsupported generation usage fields under usage.details for traces ingest."""
         span_data = payload_item.get("span_data")
         if not isinstance(span_data, dict):
             return payload_item
@@ -193,19 +193,108 @@ class BackendSpanExporter(TracingExporter):
         if not isinstance(usage, dict):
             return payload_item
 
-        filtered_usage = {
-            key: value
-            for key, value in usage.items()
-            if key in self._OPENAI_TRACING_ALLOWED_USAGE_KEYS
-        }
-        if filtered_usage == usage:
+        sanitized_usage = self._sanitize_generation_usage_for_openai_tracing_api(usage)
+
+        if sanitized_usage is None:
+            sanitized_span_data = dict(span_data)
+            sanitized_span_data.pop("usage", None)
+            sanitized_payload_item = dict(payload_item)
+            sanitized_payload_item["span_data"] = sanitized_span_data
+            return sanitized_payload_item
+
+        if sanitized_usage == usage:
             return payload_item
 
         sanitized_span_data = dict(span_data)
-        sanitized_span_data["usage"] = filtered_usage
+        sanitized_span_data["usage"] = sanitized_usage
         sanitized_payload_item = dict(payload_item)
         sanitized_payload_item["span_data"] = sanitized_span_data
         return sanitized_payload_item
+
+    def _sanitize_generation_usage_for_openai_tracing_api(
+        self, usage: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        input_tokens = usage.get("input_tokens")
+        output_tokens = usage.get("output_tokens")
+        if not self._is_finite_json_number(input_tokens) or not self._is_finite_json_number(
+            output_tokens
+        ):
+            return None
+
+        details: dict[str, Any] = {}
+        existing_details = usage.get("details")
+        if isinstance(existing_details, dict):
+            for key, value in existing_details.items():
+                if not isinstance(key, str):
+                    continue
+                sanitized_value = self._sanitize_json_compatible_value(value)
+                if sanitized_value is self._UNSERIALIZABLE:
+                    continue
+                details[key] = sanitized_value
+
+        for key, value in usage.items():
+            if key in self._OPENAI_TRACING_ALLOWED_USAGE_KEYS or key == "details" or value is None:
+                continue
+            sanitized_value = self._sanitize_json_compatible_value(value)
+            if sanitized_value is self._UNSERIALIZABLE:
+                continue
+            details[key] = sanitized_value
+
+        sanitized_usage: dict[str, Any] = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
+        if details:
+            sanitized_usage["details"] = details
+        return sanitized_usage
+
+    def _is_finite_json_number(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return False
+        return isinstance(value, int | float) and not (
+            isinstance(value, float) and not math.isfinite(value)
+        )
+
+    def _sanitize_json_compatible_value(self, value: Any, seen_ids: set[int] | None = None) -> Any:
+        if value is None or isinstance(value, str | bool | int):
+            return value
+        if isinstance(value, float):
+            return value if math.isfinite(value) else self._UNSERIALIZABLE
+        if seen_ids is None:
+            seen_ids = set()
+        if isinstance(value, dict):
+            value_id = id(value)
+            if value_id in seen_ids:
+                return self._UNSERIALIZABLE
+            seen_ids.add(value_id)
+            sanitized_dict: dict[str, Any] = {}
+            try:
+                for key, nested_value in value.items():
+                    if not isinstance(key, str):
+                        continue
+                    sanitized_nested = self._sanitize_json_compatible_value(nested_value, seen_ids)
+                    if sanitized_nested is self._UNSERIALIZABLE:
+                        continue
+                    sanitized_dict[key] = sanitized_nested
+            finally:
+                seen_ids.remove(value_id)
+            return sanitized_dict
+        if isinstance(value, list | tuple):
+            value_id = id(value)
+            if value_id in seen_ids:
+                return self._UNSERIALIZABLE
+            seen_ids.add(value_id)
+            sanitized_list: list[Any] = []
+            try:
+                for nested_value in value:
+                    sanitized_nested = self._sanitize_json_compatible_value(nested_value, seen_ids)
+                    if sanitized_nested is self._UNSERIALIZABLE:
+                        continue
+                    sanitized_list.append(sanitized_nested)
+            finally:
+                seen_ids.remove(value_id)
+            return sanitized_list
+        return self._UNSERIALIZABLE
 
     def close(self):
         """Close the underlying HTTP client."""

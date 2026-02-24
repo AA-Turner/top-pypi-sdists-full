@@ -7,7 +7,7 @@ import json
 import random
 import numpy as np
 from pathlib import Path
-from wisent.core.constants import NORM_EPS
+from wisent.core.constants import NORM_EPS, STEERING_GEN_MAX_TOKENS, AGENT_DIAG_TEMPERATURE, DATA_SPLIT_RATIO
 
 
 def execute_discover_steering(args):
@@ -38,7 +38,7 @@ def execute_discover_steering(args):
     random.seed(42)
     random.shuffle(all_pair_ids)
 
-    split_idx = int(len(all_pair_ids) * 0.8)
+    split_idx = int(len(all_pair_ids) * DATA_SPLIT_RATIO)
     train_ids = set(all_pair_ids[:split_idx])
     test_ids = all_pair_ids[split_idx:][:args.n_test_samples]
 
@@ -82,7 +82,7 @@ def execute_discover_steering(args):
         for prompt, pos_ref, neg_ref in zip(test_prompts, test_pos_refs, test_neg_refs):
             msgs = [{"role": "user", "content": prompt}]
             fmt = adapter.apply_chat_template(msgs, add_generation_prompt=True)
-            base_r = _extract_response(adapter._generate_unsteered(fmt, max_new_tokens=100, temperature=0.1))
+            base_r = _extract_response(adapter._generate_unsteered(fmt, max_new_tokens=STEERING_GEN_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE))
             base_evals.append(evaluator.evaluate(base_r, pos_ref, correct_answers=[pos_ref], incorrect_answers=[neg_ref]).ground_truth)
             base_resps.append(base_r)
             steer_r = _extract_response(adapter.forward_with_steering(fmt, steering_vectors=steering_vectors, config=SteeringConfig(scale=1.0)))

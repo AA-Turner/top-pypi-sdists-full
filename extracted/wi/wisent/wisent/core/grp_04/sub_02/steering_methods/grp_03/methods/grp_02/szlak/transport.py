@@ -25,6 +25,7 @@ from wisent.core.constants import (
     SZLAK_MAX_ITER,
     SZLAK_HIGH_REG,
     SZLAK_SPARSE_K,
+    SZLAK_GEODESIC_INF_MULTIPLIER,
 )
 
 __all__ = [
@@ -197,7 +198,7 @@ def compute_geodesic_cost(
 
     # Replace inf with large finite value (disconnected components)
     max_finite = geodesic_all[np.isfinite(geodesic_all)].max()
-    geodesic_all[~np.isfinite(geodesic_all)] = max_finite * 2.0
+    geodesic_all[~np.isfinite(geodesic_all)] = max_finite * SZLAK_GEODESIC_INF_MULTIPLIER
 
     # Extract neg-to-pos block
     cost_np = geodesic_all[:N_neg, N_neg:]

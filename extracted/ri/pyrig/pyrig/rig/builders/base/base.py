@@ -31,6 +31,8 @@ import platform
 import shutil
 import tempfile
 from abc import abstractmethod
+from collections.abc import Generator, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
@@ -39,7 +41,7 @@ import pyrig
 from pyrig import main, resources
 from pyrig.rig import builders
 from pyrig.rig.configs.base.list_cf import ListConfigFile
-from pyrig.rig.configs.pyproject import PyprojectConfigFile
+from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.src.modules.path import ModulePath
 
 logger = logging.getLogger(__name__)
@@ -185,21 +187,18 @@ class BuilderConfigFile(ListConfigFile):
             self.create_artifacts(temp_artifacts_dir)
             artifacts = self.temp_artifacts(temp_artifacts_dir)
             self.rename_artifacts(artifacts)
-        logger.debug(
-            "Built %d artifact(s) with %s", len(artifacts), self.__class__.__name__
-        )
 
-    def rename_artifacts(self, artifacts: list[Path]) -> None:
+    def rename_artifacts(self, artifacts: Iterable[Path]) -> None:
         """Move artifacts to output directory with platform-specific names.
 
         Renames artifacts with platform-specific suffixes (`-Linux`, `-Windows`,
         `-Darwin`) and moves them to the final output directory.
 
         Args:
-            artifacts: List of artifact paths from the temporary directory.
+            artifacts: Iterable of artifact paths from the temporary directory.
         """
-        for artifact in artifacts:
-            self.rename_artifact(artifact)
+        with ThreadPoolExecutor() as executor:
+            tuple(executor.map(self.rename_artifact, artifacts))
 
     def rename_artifact(self, artifact: Path) -> None:
         """Move a single artifact to the output directory with a platform-specific name.
@@ -230,17 +229,17 @@ class BuilderConfigFile(ListConfigFile):
         """
         return f"{artifact.stem}-{platform.system()}{artifact.suffix}"
 
-    def temp_artifacts(self, temp_artifacts_dir: Path) -> list[Path]:
+    def temp_artifacts(self, temp_artifacts_dir: Path) -> Generator[Path, None, None]:
         """Get all artifacts from the temporary build directory.
 
         Args:
             temp_artifacts_dir: Path to the temporary artifacts directory.
 
         Returns:
-            List of artifact paths (non-recursive). May be empty if no
+            Iterable of artifact paths (non-recursive). May be empty if no
             artifacts were created.
         """
-        return list(temp_artifacts_dir.glob("*"))
+        return temp_artifacts_dir.glob("*")
 
     def temp_artifacts_path(self, temp_dir: Path) -> Path:
         """Create and return the temporary artifacts subdirectory.
@@ -257,11 +256,11 @@ class BuilderConfigFile(ListConfigFile):
 
     def app_name(self) -> str:
         """Return the application name from pyproject.toml."""
-        return PyprojectConfigFile.I.project_name()
+        return PackageManager.I.project_name()
 
     def root_path(self) -> Path:
         """Return the absolute path to the project root directory."""
-        src_package = import_module(PyprojectConfigFile.I.package_name())
+        src_package = import_module(PackageManager.I.package_name())
         src_path = ModulePath.package_type_to_dir_path(src_package)
         return src_path.parent
 
@@ -275,7 +274,7 @@ class BuilderConfigFile(ListConfigFile):
 
     def src_package_path(self) -> Path:
         """Return the absolute path to the source package directory."""
-        return self.root_path() / PyprojectConfigFile.I.package_name()
+        return self.root_path() / PackageManager.I.package_name()
 
     def main_path_relative_to_src_package(self) -> Path:
         """Return the relative path to main.py from the source package."""

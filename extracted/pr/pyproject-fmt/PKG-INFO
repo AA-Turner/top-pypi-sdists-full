@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.16.1
+Version: 2.16.2
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -32,20 +32,24 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- 🐛 fix(project): stop sorting authors and maintainers (#228) by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#229 <https://github.com/tox-dev/toml-fmt/pull/229>`_
+- ⬆️ build(deps): update Rust and Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#243 <https://github.com/tox-dev/toml-fmt/pull/243>`_
+- Fix panic on non-valid classifiers by `@Nicolaus93 <https://github.com/Nicolaus93>`_ in
+  `#241 <https://github.com/tox-dev/toml-fmt/pull/241>`_
 - Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#227 <https://github.com/tox-dev/toml-fmt/pull/227>`_
+  `#240 <https://github.com/tox-dev/toml-fmt/pull/240>`_
+- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#238 <https://github.com/tox-dev/toml-fmt/pull/238>`_
+- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#236 <https://github.com/tox-dev/toml-fmt/pull/236>`_
 - Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#226 <https://github.com/tox-dev/toml-fmt/pull/226>`_
+  `#235 <https://github.com/tox-dev/toml-fmt/pull/235>`_
+- 🐛 fix(tox-toml-fmt): handle quoted keys with dots in env tables by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#234 <https://github.com/tox-dev/toml-fmt/pull/234>`_
 - Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#225 <https://github.com/tox-dev/toml-fmt/pull/225>`_
-- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#224 <https://github.com/tox-dev/toml-fmt/pull/224>`_
-- 📝🐛 docs(config): document column_width string wrapping by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#223 <https://github.com/tox-dev/toml-fmt/pull/223>`_
-- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#221 <https://github.com/tox-dev/toml-fmt/pull/221>`_ <a id="2.16.0"></a>
+  `#232 <https://github.com/tox-dev/toml-fmt/pull/232>`_
+- ✨ feat(tox-toml-fmt): add semantic formatting matching tox-ini-fmt by `@gaborbernat <https://github.com/gaborbernat>`_
+  in `#230 <https://github.com/tox-dev/toml-fmt/pull/230>`_ <a id="2.16.1"></a>
 
 Philosophy
 ----------

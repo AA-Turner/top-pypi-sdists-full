@@ -14,8 +14,8 @@ from wisent.core.models.wisent_model import WisentModel
 from wisent.core.activations.activations_collector import ActivationCollector
 from wisent.core.activations import ExtractionStrategy
 from wisent.core.contrastive_pairs.lm_eval_pairs.lm_extractor_registry import get_extractor
-from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
 from wisent.core.constants import NORM_EPS
+from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
     detect_geometry_structure,
     GeometryAnalysisConfig,
 )

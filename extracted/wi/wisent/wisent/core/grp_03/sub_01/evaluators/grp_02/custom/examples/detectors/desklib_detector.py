@@ -19,8 +19,8 @@ import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoConfig, AutoModel, PreTrainedModel
 
+from wisent.core.constants import NEAR_ZERO_TOL, DESKLIB_MAX_LENGTH
 from wisent.core.evaluators.custom.custom_evaluator import (
-from wisent.core.constants import NEAR_ZERO_TOL
     CustomEvaluator,
     CustomEvaluatorConfig,
 )
@@ -69,7 +69,7 @@ class DesklibDetectorEvaluator(CustomEvaluator):
     Score is normalized to [0, 1] where higher = more human-like.
     """
     
-    def __init__(self, device: Optional[str] = None, max_length: int = 768):
+    def __init__(self, device: Optional[str] = None, max_length: int = DESKLIB_MAX_LENGTH):
         config = CustomEvaluatorConfig(
             name="desklib_detector",
             description="Desklib AI detector (RAID benchmark leader, higher = more human-like)",
@@ -147,14 +147,14 @@ class DesklibDetectorEvaluator(CustomEvaluator):
 
 def create_desklib_detector_evaluator(
     device: Optional[str] = None,
-    max_length: int = 768,
+    max_length: int = DESKLIB_MAX_LENGTH,
     **kwargs
 ) -> DesklibDetectorEvaluator:
     """Create a Desklib detector evaluator.
     
     Args:
         device: Device to run on (cuda, mps, cpu)
-        max_length: Max token length (default 768)
+        max_length: Max token length (default DESKLIB_MAX_LENGTH)
     
     Returns:
         DesklibDetectorEvaluator instance

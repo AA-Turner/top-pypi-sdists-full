@@ -72,7 +72,8 @@ async def register_graph(
         from langgraph_runtime.ops import Assistants  # noqa: PLC0415
 
     GRAPHS[graph_id] = graph
-    SYSTEM_ASSISTANT_IDS.add(str(uuid5(NAMESPACE_GRAPH, graph_id)))
+    assistant_id = uuid5(NAMESPACE_GRAPH, graph_id)
+    SYSTEM_ASSISTANT_IDS.add(str(assistant_id))
     if callable(graph):
         classify_factory(graph, graph_id)
 
@@ -89,9 +90,9 @@ async def register_graph(
                 if graph_name is not None and graph_name != "LangGraph"
                 else graph_id
             )
-            await Assistants.put(
+            result = Assistants.put(
                 conn,
-                str(uuid5(NAMESPACE_GRAPH, graph_id)),
+                str(assistant_id),
                 graph_id=graph_id,
                 metadata={"created_by": "system"},
                 config=config or {},
@@ -101,6 +102,24 @@ async def register_graph(
                 description=description,
                 system=True,
             )
+            assistant = None
+            async for a in await result:
+                assistant = a
+            # Sync description and name for existing assistants.
+            # put() with if_exists="do_nothing" won't update existing
+            # assistants, so we need to patch them to reflect any
+            # config changes (e.g. description added to LANGSERVE_GRAPHS).
+            if assistant and (
+                assistant.get("description") != description
+                or assistant.get("name") != assistant_name
+            ):
+                async for _ in await Assistants.patch(
+                    conn,
+                    assistant_id,
+                    description=description,
+                    name=assistant_name,
+                ):
+                    pass
 
     if not lg_api_config.IS_EXECUTOR_ENTRYPOINT:
         await register_graph_db()

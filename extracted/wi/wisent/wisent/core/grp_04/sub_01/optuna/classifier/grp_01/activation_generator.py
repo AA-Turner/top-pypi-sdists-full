@@ -297,3 +297,6 @@ class ActivationGenerator:
         try:
             with open(cache_file, "rb") as f:
                 data = pickle.load(f)
+                return data
+        except Exception:
+            return None

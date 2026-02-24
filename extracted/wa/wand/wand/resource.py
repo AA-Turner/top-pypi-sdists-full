@@ -9,9 +9,9 @@ import atexit
 import contextlib
 import ctypes
 import warnings
+from collections import abc
 
 from .api import library
-from .compat import abc, string_type
 from .exceptions import TYPE_MAP, WandException
 from .version import MAGICK_VERSION_NUMBER
 
@@ -21,24 +21,12 @@ __all__ = ('genesis', 'limits', 'shutdown', 'terminus',
 
 def genesis():
     """Instantiates the MagickWand API.
-
-    .. warning::
-
-       Don't call this function directly. Use :func:`increment_refcount()` and
-       :func:`decrement_refcount()` functions instead.
-
     """
     library.MagickWandGenesis()
 
 
 def terminus():
     """Cleans up the MagickWand API.
-
-    .. warning::
-
-       Don't call this function directly. Use :func:`increment_refcount()` and
-       :func:`decrement_refcount()` functions instead.
-
     """
     if library.IsMagickWandInstantiated is None:  # pragma no cover
         library.MagickWandTerminus()
@@ -46,31 +34,28 @@ def terminus():
         library.MagickWandTerminus()
 
 
-allocation_map = {}
+_allocation_map = {}
 
 
 def allocate_ref(addr, deallocator):
-    global allocation_map
-    if len(allocation_map) == 0:
+    if len(_allocation_map) == 0:
         genesis()
     if addr:
-        allocation_map[addr] = deallocator
+        _allocation_map[addr] = deallocator
 
 
 def deallocate_ref(addr):
-    global allocation_map
-    if addr in list(allocation_map):
-        deallocator = allocation_map.pop(addr)
+    if addr in list(_allocation_map):
+        deallocator = _allocation_map.pop(addr)
         if callable(deallocator):
             deallocator(addr)
 
 
 @atexit.register
 def shutdown():
-    global allocation_map
-    for addr in list(allocation_map):
+    for addr in list(_allocation_map):
         try:
-            deallocator = allocation_map.pop(addr)
+            deallocator = _allocation_map.pop(addr)
             if callable(deallocator):
                 deallocator(addr)
         except KeyError:
@@ -78,7 +63,7 @@ def shutdown():
     terminus()
 
 
-class Resource(object):
+class Resource:
     """Abstract base class for MagickWand object that requires resource
     management. Its all subclasses manage the resource semiautomatically
     and support :keyword:`with` statement as well::
@@ -212,7 +197,7 @@ class Resource(object):
             desc = library.MagickRelinquishMemory(desc)
         else:
             message = b''
-        if not isinstance(message, string_type):
+        if not isinstance(message, str):
             message = message.decode(errors='replace')
         return exc_cls(message)
 
@@ -335,7 +320,7 @@ class ResourceLimits(abc.MutableMapping):
         """Get the current value for the resource type.
 
         :param resource: Resource type.
-        :type resource: :class:`basestring`
+        :type resource: :class:`str`
         :rtype: :class:`numeric.Integral`
 
         .. versionadded:: 0.5.1
@@ -346,7 +331,7 @@ class ResourceLimits(abc.MutableMapping):
         """Get the current limit for the resource type.
 
         :param resource: Resource type.
-        :type resource: :class:`basestring`
+        :type resource: :class:`str`
         :rtype: :class:`numeric.Integral`
 
         .. versionadded:: 0.5.1
@@ -364,7 +349,7 @@ class ResourceLimits(abc.MutableMapping):
             normal bounds will be ignored silently.
 
         :param resource: Resource type.
-        :type resource: :class:`basestring`
+        :type resource: :class:`str`
         :param limit: New limit value.
         :type limit: :class:`numeric.Integral`
 

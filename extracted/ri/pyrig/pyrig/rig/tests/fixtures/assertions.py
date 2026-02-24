@@ -17,11 +17,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 from pyrig import main
-from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.configs.python.main import MainConfigFile
 from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.src.modules.module import (
-    module_content_as_str,
+    module_content,
     module_name_replacing_start_module,
 )
 
@@ -53,13 +52,13 @@ def main_test_fixture(mocker: MockerFixture) -> None:
         pyrig.rig.configs.testing.main_test.MainTestConfigFile: Generates test.
         pyrig.rig.configs.python.main.MainConfigFile: Generates main.py.
     """
-    project_name = PyprojectConfigFile.I.project_name()
-    src_package_name = PyprojectConfigFile.I.package_name()
+    project_name = PackageManager.I.project_name()
+    src_package_name = PackageManager.I.package_name()
 
-    cmds = [
+    cmds = (
         PackageManager.I.run_args(project_name, "--help"),
         PackageManager.I.run_args(project_name, main.main.__name__, "--help"),
-    ]
+    )
     success = False
     for cmd in cmds:
         completed_process = cmd.run(check=False)
@@ -67,7 +66,7 @@ def main_test_fixture(mocker: MockerFixture) -> None:
             success = True
             break
     else:
-        cmd_strs = [" ".join(cmd) for cmd in cmds]
+        cmd_strs = tuple(" ".join(cmd) for cmd in cmds)
         msg = f"Expected {main.main.__name__} to be callable by one of {cmd_strs}"
         assert success, msg
 
@@ -85,7 +84,7 @@ def main_test_fixture(mocker: MockerFixture) -> None:
     del sys.modules[main_module_name]
     # run module as __main__, pytest-cov will see it
     # run only if file content is the same as pyrig.main
-    main_module_content = module_content_as_str(main_module).strip()
+    main_module_content = module_content(main_module).strip()
 
     lines = MainConfigFile.I.lines()
     config_main_module_content = MainConfigFile.I.make_string_from_lines(lines).strip()

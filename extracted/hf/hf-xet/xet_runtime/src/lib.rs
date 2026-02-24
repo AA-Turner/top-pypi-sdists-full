@@ -1,17 +1,16 @@
+pub mod common;
 pub mod errors;
 pub mod exports;
 
 pub mod runtime;
 
-pub use runtime::XetRuntime;
+pub use common::XetCommon;
+pub use runtime::{XetRuntime, check_sigint_shutdown};
+
 pub mod sync_primatives;
 pub use sync_primatives::{SyncJoinHandle, spawn_os_thread};
 
-#[macro_use]
-mod global_semaphores;
 pub mod utils;
-
-pub use global_semaphores::GlobalSemaphoreHandle;
 
 pub mod file_handle_limits;
 
@@ -20,3 +19,7 @@ mod cache_dir;
 
 #[cfg(not(target_family = "wasm"))]
 pub use cache_dir::xet_cache_root;
+
+mod config;
+
+pub use config::xet_config;

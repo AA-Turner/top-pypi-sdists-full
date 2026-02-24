@@ -1194,7 +1194,7 @@ class TestDependencies:
         )
 
         normalized_path = str(isolation).replace("\\", "/")
-        assert environment.dependencies == ["dep2", f"proj@ file:{uri_slash_prefix}{normalized_path}", "dep1"]
+        assert environment.dependencies == ["dep2", f"proj @ file:{uri_slash_prefix}{normalized_path}", "dep1"]
 
     def test_project_dependencies_context_formatting(
         self, temp_dir, isolated_data_dir, platform, temp_application, uri_slash_prefix
@@ -1244,7 +1244,7 @@ class TestDependencies:
         )
 
         normalized_parent_path = str(temp_dir.parent).replace("\\", "/")
-        expected_dep = f"sibling-project@ file:{uri_slash_prefix}{normalized_parent_path}/sibling-project"
+        expected_dep = f"sibling-project @ file:{uri_slash_prefix}{normalized_parent_path}/sibling-project"
 
         # Verify the dependency was formatted correctly
         assert expected_dep in environment.dependencies
@@ -3220,6 +3220,59 @@ class TestWorkspaceConfig:
         assert members[0].project.location == member1_path
         assert members[1].project.location == member2_path
         assert members[2].project.location == member3_path
+
+    def test_member_outside_root_with_shared_prefix(self, temp_dir, isolated_data_dir, platform, global_application):
+        """Verify correct workspace member discovery with shared path prefix.
+
+        os.path.commonprefix works character-by-character, so for paths that
+        share a partial directory name (e.g. 'local_app' and 'lib_member' both
+        start with 'l'), it would return an invalid path like '.../l' instead
+        of the true common ancestor directory. os.path.commonpath correctly
+        returns the nearest common directory, which is what we need as the
+        base for the member glob search.
+
+        Example of the mismatch:
+            os.path.commonprefix(['/usr/lib', '/usr/local/lib']) == '/usr/l'
+            os.path.commonpath(['/usr/lib', '/usr/local/lib'])   == '/usr'
+        """
+        project_root = temp_dir / "local_app"
+        project_root.mkdir()
+
+        member_path = temp_dir / "lib_member"
+        member_path.mkdir()
+        (member_path / "pyproject.toml").write_text(
+            """\
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lib-member"
+version = "0.1.0"
+"""
+        )
+
+        config = {
+            "project": {"name": "my_app", "version": "0.0.1"},
+            "tool": {"hatch": {"envs": {"default": {"workspace": {"members": [{"path": "../lib_member"}]}}}}},
+        }
+        project = Project(project_root, config=config)
+        environment = MockEnvironment(
+            project_root,
+            project.metadata,
+            "default",
+            project.config.envs["default"],
+            {},
+            isolated_data_dir,
+            isolated_data_dir,
+            platform,
+            0,
+            global_application,
+        )
+
+        members = environment.workspace.members
+        assert len(members) == 1
+        assert members[0].project.location == member_path
 
 
 class TestWorkspaceDependencies:

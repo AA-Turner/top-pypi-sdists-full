@@ -251,8 +251,8 @@ class Attention(torch.nn.Module):
         )
         self.attention_bias_cache = {}
 
-        if not self.attention_biases.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     @torch.no_grad()
     def train(self, mode=True):
@@ -530,6 +530,7 @@ class TinyVit(nn.Module):
         dd = {'device': device, 'dtype': dtype}
 
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.depths = depths
         self.num_stages = len(depths)
         self.mlp_ratio = mlp_ratio
@@ -594,8 +595,8 @@ class TinyVit(nn.Module):
             **dd,
         )
 
-        if not self.patch_embed.conv1.conv.weight.is_meta:
-            self.init_weights(needs_reset=False)
+        # TODO: skip init when on meta device when safe to do so
+        self.init_weights(needs_reset=False)
 
     def init_weights(self, needs_reset: bool = True):
         self.apply(partial(self._init_weights, needs_reset=needs_reset))

@@ -67,13 +67,15 @@ class TETNOConfig:
         """Resolve steering_layers and sensor_layer based on model's num_layers."""
         self.num_layers = num_layers
         if self.sensor_layer is None:
-            # 75% through the network
-            self.sensor_layer = int(num_layers * 0.75)
+            raise ValueError(
+                "sensor_layer must be specified explicitly. "
+                "Pass an integer layer index."
+            )
         if self.steering_layers is None:
-            # Middle to late layers (50% to 85% of network)
-            start = int(num_layers * 0.5)
-            end = int(num_layers * 0.85)
-            self.steering_layers = list(range(start, end))
+            raise ValueError(
+                "steering_layers must be specified explicitly. "
+                "Pass a list of integer layer indices."
+            )
     
     # Condition gating
     condition_threshold: float = TETNO_CONDITION_THRESHOLD

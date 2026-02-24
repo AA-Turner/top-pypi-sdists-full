@@ -10,8 +10,8 @@ from wisent.core.errors import InvalidValueError, InvalidRangeError
 from wisent.core.utils import preferred_dtype
 
 # Re-export from helpers
-from wisent.core.models.core._atoms_helpers import (
 from wisent.core.constants import LOG_EPS
+from wisent.core.models.core._atoms_helpers import (
     HookHandleGroup,
     TopLogits,
     GenerationStats,

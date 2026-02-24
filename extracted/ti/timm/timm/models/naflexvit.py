@@ -492,8 +492,8 @@ class NaFlexEmbeds(nn.Module):
         # Dropout layer
         self.pos_drop = nn.Dropout(p=pos_drop_rate)
 
-        if not self.proj.weight.is_meta:
-            self.reset_parameters()
+        # TODO: skip init when on meta device when safe to do so
+        self.reset_parameters()
 
     def reset_parameters(self) -> None:
         if self.cls_token is not None:
@@ -1141,6 +1141,7 @@ class NaFlexVit(nn.Module):
 
         # Store instance variables
         self.num_classes = num_classes
+        self.in_chans = in_chans
         self.global_pool = cfg.global_pool
         self.num_features = self.head_hidden_size = self.embed_dim = cfg.embed_dim  # for consistency with other models
         self.num_prefix_tokens = 1 if cfg.class_token else 0
@@ -1270,8 +1271,8 @@ class NaFlexVit(nn.Module):
 
         self.weight_init_mode = cfg.weight_init
         self.fix_init = cfg.fix_init
-        if not self.embeds.proj.weight.is_meta:
-            self.init_weights(cfg.weight_init, needs_reset=False)
+        # TODO: skip init when on meta device when safe to do so
+        self.init_weights(cfg.weight_init, needs_reset=False)
 
     def fix_init_weight(self) -> None:
         """Apply initialization weight fix with layer-wise scaling."""

@@ -3,7 +3,7 @@
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.synthetic.generators.core.atoms import GenerationReport
 from wisent.core.errors import PairGenerationError
-from wisent.core.constants import AGENT_MAX_WORKERS
+from wisent.core.constants import AGENT_MAX_WORKERS, GENERATE_PAIRS_MIN_TOKENS, GENERATE_PAIRS_MAX_TOKENS
 
 
 def generate_synthetic_pairs(
@@ -61,7 +61,7 @@ def generate_synthetic_pairs(
 
     # Scale max_new_tokens based on number of pairs (same as generate-pairs CLI)
     estimated_tokens = num_pairs * 150 + 500
-    max_tokens = max(2048, min(estimated_tokens, 8192))
+    max_tokens = max(GENERATE_PAIRS_MIN_TOKENS, min(estimated_tokens, GENERATE_PAIRS_MAX_TOKENS))
 
     generation_config = {
         "max_new_tokens": max_tokens,

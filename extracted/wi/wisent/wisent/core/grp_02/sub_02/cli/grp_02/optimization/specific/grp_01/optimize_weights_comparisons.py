@@ -6,6 +6,7 @@ import re
 import torch
 from wisent.core.models.wisent_model import WisentModel
 from wisent.core.opti.methods.opti_weights import WeightsOptimizerConfig
+from wisent.core.constants import WEIGHT_MIN_DISTANCE_FRACTION, WEIGHT_COMPARISON_MAX_NEW_TOKENS
 
 
 def _apply_weight_modification_standalone(
@@ -19,7 +20,7 @@ def _apply_weight_modification_standalone(
     from wisent.core.weight_modification import project_with_kernel, bake_steering_with_kernel
 
     max_weight_position = params["max_weight_position"] * (num_layers - 1)
-    min_weight_distance = 0.6 * (num_layers - 1)
+    min_weight_distance = WEIGHT_MIN_DISTANCE_FRACTION * (num_layers - 1)
 
     if config.method == "directional":
         project_with_kernel(
@@ -115,7 +116,7 @@ def _show_response_comparisons(
         messages = [{"role": "user", "content": prompt_text}]
         responses = wisent_model.generate(
             [messages],
-            **get_generate_kwargs(max_new_tokens=150),
+            **get_generate_kwargs(max_new_tokens=WEIGHT_COMPARISON_MAX_NEW_TOKENS),
         )
 
         response = responses[0] if responses else ""

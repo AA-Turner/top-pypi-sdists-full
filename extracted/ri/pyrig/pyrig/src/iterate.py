@@ -10,10 +10,82 @@ See Also:
 """
 
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def empty_generator() -> Generator[Any, None, None]:
+    """Return an empty generator."""
+    if False:
+        yield
+
+
+def generator(iterable: Iterable[Any]) -> Generator[Any, None, None]:
+    """Convert an iterable to a generator."""
+    yield from iterable
+
+
+def generator_has_items[T](
+    gen: Generator[T, Any, Any],
+) -> tuple[bool, Generator[T, Any, Any]]:
+    """Check if a generator has any items without consuming them.
+
+    Returns a tuple of (has_items, generator). The returned generator will yield
+    all the original items including the first one that was checked.
+
+    Example:
+        >>> gen = (x for x in [1, 2, 3])
+        >>> has_items, gen = generator_has_items(gen)
+        >>> has_items
+        True
+        >>> list(gen)
+        [1, 2, 3]
+
+        >>> empty_gen = (x for x in [])
+        >>> has_items, empty_gen = generator_has_items(empty_gen)
+        >>> has_items
+        False
+        >>> list(empty_gen)
+        []
+    """
+    sentinel = object()
+    first = next(gen, sentinel)
+    if first is sentinel:
+        return False, empty_generator()
+    return True, combine_generators(generator((first,)), gen)
+
+
+def combine_generators(*generators: Iterable[Any]) -> Generator[Any, None, None]:
+    """Combine multiple generators into a single generator.
+
+    Args:
+        *generators: Any number of generators to combine.
+
+    Yields:
+        Items from all generators in the order they were provided.
+    """
+    for generator in generators:
+        yield from generator
+
+
+def generator_length(generator: Generator[Any, None, None]) -> int:
+    """Calculate the length of a generator without consuming it.
+
+    Warning:
+    This function will consume the generator, so it should only be used when
+    the generator is not needed afterward or when it can be recreated. If you need
+    to both calculate the length and use the items, consider converting the generator
+    to a Sequence first.
+
+    Args:
+        generator: The generator to measure.
+
+    Returns:
+        The number of items in the generator.
+    """
+    return sum(1 for _ in generator)
 
 
 def nested_structure_is_subset(  # noqa: C901

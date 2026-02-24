@@ -32,7 +32,7 @@ from typing import Self
 from pyrig.rig import tools
 from pyrig.src.processes import Args
 from pyrig.src.string_ import make_linked_badge_markdown
-from pyrig.src.subclass import SingletonDependencySubclass
+from pyrig.src.subclass import DependencySubclass
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ToolGroup:
     TESTING = "testing"
 
 
-class Tool(SingletonDependencySubclass):
+class Tool(DependencySubclass):
     """Abstract base for tool command argument construction.
 
     Provides consistent interface for constructing command-line arguments.
@@ -132,13 +132,13 @@ class Tool(SingletonDependencySubclass):
             alt_text=self.name(),
         )
 
-    def dev_dependencies(self) -> list[str]:
+    def dev_dependencies(self) -> tuple[str, ...]:
         """Get tool dependencies.
 
         Returns:
-            List of tool dependencies. Defaults to the name of the tool.
+            Tuple of tool dependencies. Defaults to the name of the tool.
         """
-        return [self.name()]
+        return (self.name(),)
 
     def args(self, *args: str) -> Args:
         """Construct command arguments with tool name prepended.
@@ -157,7 +157,7 @@ class Tool(SingletonDependencySubclass):
     @classmethod
     def grouped_badges(cls) -> dict[str, list[str]]:
         """Get a dict with all badges of tools grouped by their group."""
-        subclasses = cls.subclasses()
+        subclasses = cls.subclasses_sorted(*cls.subclasses())
         groups: defaultdict[str, list[str]] = defaultdict(list)
         for tool in subclasses:
             t = tool()
@@ -177,8 +177,8 @@ class Tool(SingletonDependencySubclass):
         Returns:
             List of all tool dependencies.
         """
-        subclasses = cls.subclasses()
-        all_dev_deps: list[str] = []
-        for subclass in subclasses:
-            all_dev_deps.extend(subclass().dev_dependencies())
-        return sorted(all_dev_deps)
+        return sorted(
+            dep
+            for subclass in cls.subclasses()
+            for dep in subclass().dev_dependencies()
+        )

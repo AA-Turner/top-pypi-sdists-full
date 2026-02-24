@@ -6,7 +6,7 @@ using Cohen's d effect size by comparing outputs before and after steering.
 from typing import Dict, List, Optional, Any
 import numpy as np
 import torch
-from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_STRENGTH, MAX_NEW_TOKENS_STEERED
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_STRENGTH, MAX_NEW_TOKENS_STEERED, EFFECT_SIZE_MEDIUM
 
 
 def compute_steering_effect_size(
@@ -46,8 +46,8 @@ def compute_steering_effect_size(
     if target_direction == "decrease":
         effect_size = -effect_size
 
-    # Significance: |d| > 0.5 is medium effect
-    significant = abs(effect_size) > 0.5
+    # Significance: |d| > medium effect threshold
+    significant = abs(effect_size) > EFFECT_SIZE_MEDIUM
 
     return {
         "effect_size_cohens_d": float(effect_size),

@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 use std::ops::Index;
 
-use tombi_config::TomlVersion;
 use tombi_syntax::SyntaxKind::{
     ARRAY_OF_TABLE, BARE_KEY, BASIC_STRING, BRACKET_END, BRACKET_START, COMMENT, DOUBLE_BRACKET_START, EQUAL,
     KEY_VALUE, KEYS, LINE_BREAK, LITERAL_STRING, TABLE, WHITESPACE,
@@ -71,9 +70,7 @@ fn filter_entries(table: &mut RefMut<Vec<SyntaxElement>>, entries_to_remove: &Ha
 use crate::string::load_text;
 
 fn parse(source: &str) -> SyntaxNode {
-    tombi_parser::parse(source, TomlVersion::default())
-        .syntax_node()
-        .clone_for_update()
+    tombi_parser::parse(source).syntax_node().clone_for_update()
 }
 
 #[derive(Debug)]
@@ -416,6 +413,31 @@ where
                 } else if is_value_kind(entry.kind()) {
                     f(key.clone(), entry.as_node().unwrap());
                 }
+            }
+        }
+    }
+}
+
+pub fn rename_keys(table: &mut RefMut<Vec<SyntaxElement>>, aliases: &[(&str, &str)]) {
+    use crate::create::make_key;
+    for entry in table.iter() {
+        if entry.kind() != KEY_VALUE {
+            continue;
+        }
+        let node = entry.as_node().unwrap();
+        let keys_node = node
+            .children_with_tokens()
+            .find(|c| c.kind() == KEYS)
+            .expect("KEY_VALUE must have KEYS child");
+        let keys_node = keys_node.as_node().unwrap();
+        let key_text = keys_node.text().to_string().trim().to_string();
+        for &(old, new) in aliases {
+            if key_text == old {
+                let new_key = make_key(new);
+                let count = keys_node.children_with_tokens().count();
+                let new_children: Vec<SyntaxElement> = new_key.as_node().unwrap().children_with_tokens().collect();
+                keys_node.splice_children(0..count, new_children);
+                break;
             }
         }
     }
@@ -862,20 +884,27 @@ pub fn expand_sub_table(tables: &mut Tables, parent_name: &str, sub_name: &str) 
     tables.header_to_pos.entry(full_name).or_default().push(pos);
 }
 
-fn count_unquoted_dots(s: &str) -> usize {
-    let mut count = 0;
+fn unquoted_dot_positions(s: &str) -> impl Iterator<Item = usize> + '_ {
     let mut in_quotes = false;
-    for c in s.chars() {
-        match c {
-            '"' => in_quotes = !in_quotes,
-            '.' if !in_quotes => count += 1,
-            _ => {}
+    s.char_indices().filter_map(move |(i, c)| match c {
+        '"' => {
+            in_quotes = !in_quotes;
+            None
         }
-    }
-    count
+        '.' if !in_quotes => Some(i),
+        _ => None,
+    })
 }
 
-fn split_table_name(full_name: &str) -> (&str, &str) {
+pub fn count_unquoted_dots(s: &str) -> usize {
+    unquoted_dot_positions(s).count()
+}
+
+pub fn first_unquoted_dot(s: &str) -> usize {
+    unquoted_dot_positions(s).next().expect("no unquoted dot found")
+}
+
+pub fn split_table_name(full_name: &str) -> (&str, &str) {
     let mut depth = 0;
     for (i, c) in full_name.char_indices().rev() {
         match c {
@@ -930,7 +959,7 @@ pub fn collect_all_sub_tables(tables: &Tables, parent_name: &str, result: &mut V
     let main = tables.table_set[*pos].borrow();
     for element in main.iter().filter(|e| e.kind() == KEY_VALUE) {
         let key_text = get_key_text(element);
-        if let Some(dot_pos) = key_text.find('.') {
+        if let Some(dot_pos) = unquoted_dot_positions(&key_text).next() {
             let sub_name = &key_text[..dot_pos];
             let full_name = format!("{parent_name}.{sub_name}");
             if !result.contains(&full_name) {

@@ -27,8 +27,8 @@ from ee import projection
 from ee import reducer
 
 Array = Union[
-    AnyType,
-    list[AnyType],
+    Sequence[float | ee_number.Number],
+    Sequence[Sequence[AnyType]],
     ee_array.Array,
     ee_list.List,
     computedobject.ComputedObject,
@@ -49,7 +49,7 @@ Dictionary = Union[
     computedobject.ComputedObject,
 ]
 Any = Union[AnyType, computedobject.ComputedObject]
-Element = Union[AnyType, element.Element, computedobject.ComputedObject]
+Element = Union[element.Element, computedobject.ComputedObject]
 ErrorMargin = Union[
     float,
     ee_number.Number,
@@ -57,13 +57,19 @@ ErrorMargin = Union[
     computedobject.ComputedObject,
 ]
 FeatureCollection = Union[
-    AnyType, featurecollection.FeatureCollection, computedobject.ComputedObject
+    str,
+    ee_string.String,
+    featurecollection.FeatureCollection,
+    computedobject.ComputedObject,
 ]
 Filter = Union[ee_filter.Filter, computedobject.ComputedObject]
 Geometry = Union[AnyType, computedobject.ComputedObject]
-Image = Union[AnyType, image.Image, computedobject.ComputedObject]
+Image = Union[str, ee_string.String, image.Image, computedobject.ComputedObject]
 ImageCollection = Union[
-    AnyType, imagecollection.ImageCollection, computedobject.ComputedObject
+    str,
+    ee_string.String,
+    imagecollection.ImageCollection,
+    computedobject.ComputedObject,
 ]
 Integer = Union[int, ee_number.Number, computedobject.ComputedObject]
 Kernel = Union[kernel.Kernel, computedobject.ComputedObject]

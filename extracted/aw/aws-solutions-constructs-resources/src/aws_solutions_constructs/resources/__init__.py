@@ -73,8 +73,8 @@ class CreateKeyPolicyUpdaterResponse:
     def __init__(
         self,
         *,
-        custom_resource: _aws_cdk_ceddda9d.CustomResource,
-        lambda_function: _aws_cdk_aws_lambda_ceddda9d.Function,
+        custom_resource: "_aws_cdk_ceddda9d.CustomResource",
+        lambda_function: "_aws_cdk_aws_lambda_ceddda9d.Function",
     ) -> None:
         '''
         :param custom_resource: -
@@ -90,16 +90,16 @@ class CreateKeyPolicyUpdaterResponse:
         }
 
     @builtins.property
-    def custom_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def custom_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         result = self._values.get("custom_resource")
         assert result is not None, "Required property 'custom_resource' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.CustomResource, result)
+        return typing.cast("_aws_cdk_ceddda9d.CustomResource", result)
 
     @builtins.property
-    def lambda_function(self) -> _aws_cdk_aws_lambda_ceddda9d.Function:
+    def lambda_function(self) -> "_aws_cdk_aws_lambda_ceddda9d.Function":
         result = self._values.get("lambda_function")
         assert result is not None, "Required property 'lambda_function' is missing"
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.Function, result)
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.Function", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -126,8 +126,8 @@ class CreateTemplateWriterResponse:
     def __init__(
         self,
         *,
-        custom_resource: _aws_cdk_ceddda9d.CustomResource,
-        s3_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        custom_resource: "_aws_cdk_ceddda9d.CustomResource",
+        s3_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         s3_key: builtins.str,
     ) -> None:
         '''
@@ -147,16 +147,16 @@ class CreateTemplateWriterResponse:
         }
 
     @builtins.property
-    def custom_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def custom_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         result = self._values.get("custom_resource")
         assert result is not None, "Required property 'custom_resource' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.CustomResource, result)
+        return typing.cast("_aws_cdk_ceddda9d.CustomResource", result)
 
     @builtins.property
-    def s3_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def s3_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         result = self._values.get("s3_bucket")
         assert result is not None, "Required property 's3_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def s3_key(self) -> builtins.str:
@@ -190,10 +190,10 @@ class KeyPolicyUpdaterProps:
     def __init__(
         self,
         *,
-        distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-        encryption_key: _aws_cdk_aws_kms_ceddda9d.IKey,
+        distribution: "_aws_cdk_aws_cloudfront_ceddda9d.Distribution",
+        encryption_key: "_aws_cdk_aws_kms_ceddda9d.IKey",
         memory_size: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param distribution: -
@@ -217,16 +217,16 @@ class KeyPolicyUpdaterProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def distribution(self) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
+    def distribution(self) -> "_aws_cdk_aws_cloudfront_ceddda9d.Distribution":
         result = self._values.get("distribution")
         assert result is not None, "Required property 'distribution' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, result)
+        return typing.cast("_aws_cdk_aws_cloudfront_ceddda9d.Distribution", result)
 
     @builtins.property
-    def encryption_key(self) -> _aws_cdk_aws_kms_ceddda9d.IKey:
+    def encryption_key(self) -> "_aws_cdk_aws_kms_ceddda9d.IKey":
         result = self._values.get("encryption_key")
         assert result is not None, "Required property 'encryption_key' is missing"
-        return typing.cast(_aws_cdk_aws_kms_ceddda9d.IKey, result)
+        return typing.cast("_aws_cdk_aws_kms_ceddda9d.IKey", result)
 
     @builtins.property
     def memory_size(self) -> typing.Optional[jsii.Number]:
@@ -234,9 +234,9 @@ class KeyPolicyUpdaterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -322,11 +322,11 @@ class TemplateWriterProps:
     def __init__(
         self,
         *,
-        template_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        template_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         template_key: builtins.str,
-        template_values: typing.Sequence[typing.Union[TemplateValue, typing.Dict[builtins.str, typing.Any]]],
+        template_values: typing.Sequence[typing.Union["TemplateValue", typing.Dict[builtins.str, typing.Any]]],
         memory_size: typing.Optional[jsii.Number] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param template_bucket: The S3 bucket that holds the template to transform. Upstream this can come either from an Asset or S3 bucket directly. Internally it will always resolve to S3 bucket in either case (the cdk asset bucket or the customer-defined bucket).
@@ -353,7 +353,7 @@ class TemplateWriterProps:
             self._values["timeout"] = timeout
 
     @builtins.property
-    def template_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def template_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''The S3 bucket that holds the template to transform.
 
         Upstream this can come either from an Asset or S3 bucket directly.
@@ -361,7 +361,7 @@ class TemplateWriterProps:
         '''
         result = self._values.get("template_bucket")
         assert result is not None, "Required property 'template_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
     def template_key(self) -> builtins.str:
@@ -371,11 +371,11 @@ class TemplateWriterProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def template_values(self) -> typing.List[TemplateValue]:
+    def template_values(self) -> typing.List["TemplateValue"]:
         '''An array of TemplateValue objects, each defining a placeholder string in the template that will be replaced with its corresponding value.'''
         result = self._values.get("template_values")
         assert result is not None, "Required property 'template_values' is missing"
-        return typing.cast(typing.List[TemplateValue], result)
+        return typing.cast(typing.List["TemplateValue"], result)
 
     @builtins.property
     def memory_size(self) -> typing.Optional[jsii.Number]:
@@ -387,13 +387,13 @@ class TemplateWriterProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''Optional configuration for user-defined duration of the backing Lambda function, which may be necessary when transforming very large objects.
 
         :default: Duration.seconds(3)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

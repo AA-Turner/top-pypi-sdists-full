@@ -1,5 +1,7 @@
 """Parser setup for the 'generate-pairs' command."""
 
+from wisent.core.constants import PAIRS_SIMILARITY_THRESHOLD
+
 
 def setup_generate_pairs_parser(parser):
     """Set up the generate-pairs subcommand parser."""
@@ -20,7 +22,7 @@ def setup_generate_pairs_parser(parser):
     parser.add_argument(
         "--similarity-threshold",
         type=float,
-        default=0.8,
+        default=PAIRS_SIMILARITY_THRESHOLD,
         help="Similarity threshold for deduplication (0-1, higher = more strict)",
     )
     parser.add_argument("--timing", action="store_true", help="Show detailed timing for each generation step")

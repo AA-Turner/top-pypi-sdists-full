@@ -139,6 +139,7 @@ def format_resources(ctx, resources, show_columns=None, reset_columns=None):
           - spec.resource_type(newname=resource_type)
           - spec.name(newname=name)
           - status.resource_stats.overall_status(newname=status)
+          - status.connector_id(newname=connector_id)
         """,
         show=show_columns,
         clear=reset_columns,

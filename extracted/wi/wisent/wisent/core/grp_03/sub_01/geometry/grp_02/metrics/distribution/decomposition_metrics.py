@@ -6,23 +6,34 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
-from wisent.core.constants import DEFAULT_RANDOM_SEED, ZERO_THRESHOLD
+from wisent.core.constants import (
+    DEFAULT_RANDOM_SEED, ZERO_THRESHOLD,
+    DECOMP_ADAPTIVE_K_MIN, DECOMP_ADAPTIVE_K_MAX,
+    DECOMP_MIN_CLUSTER_SIZE_BASE, DECOMP_CLUSTER_SIZE_RATIO,
+    DECOMP_MIN_SILHOUETTE, DECOMP_MAX_SILHOUETTE_SAMPLES,
+    DECOMP_MIN_CONCEPT_SAMPLES, DECOMP_MIN_CONCEPT_SAMPLES_CHOW,
+    DECOMP_THRESHOLD_BASE, DECOMP_THRESHOLD_MIN, DECOMP_THRESHOLD_MAX,
+    DECOMP_COSINE_SIM_THRESHOLD,
+    DECOMP_PCA_DIMS_MAX,
+    DECOMP_KMEANS_N_INIT_MIN, DECOMP_KMEANS_N_INIT_MAX,
+    DECOMP_KMEANS_SCALING_FACTOR,
+)
 
 
 def _adaptive_max_k(n_samples: int) -> int:
     """Adaptive max clusters: sqrt(n/2) clamped to [2, 15]."""
     max_k = int(np.sqrt(n_samples / 2))
-    return max(2, min(max_k, 15))
+    return max(DECOMP_ADAPTIVE_K_MIN, min(max_k, DECOMP_ADAPTIVE_K_MAX))
 
 
 def _adaptive_min_cluster_size(n_samples: int) -> int:
     """Adaptive min samples per cluster: max(5, n/20)."""
-    return max(5, n_samples // 20)
+    return max(DECOMP_MIN_CLUSTER_SIZE_BASE, n_samples // DECOMP_CLUSTER_SIZE_RATIO)
 
 
 def find_optimal_clustering(
     diff_vectors: torch.Tensor,
-    min_silhouette: float = 0.3,
+    min_silhouette: float = DECOMP_MIN_SILHOUETTE,
 ) -> Tuple[int, List[int], float]:
     """
     Find optimal number of clusters with adaptive parameters.
@@ -32,7 +43,7 @@ def find_optimal_clustering(
 
     Args:
         diff_vectors: Difference vectors (pos - neg) to cluster
-        min_silhouette: Minimum silhouette score to accept multiple clusters (default 0.3)
+        min_silhouette: Minimum silhouette score to accept multiple clusters
 
     Returns:
         Tuple of (n_concepts, cluster_labels, best_silhouette)
@@ -40,17 +51,16 @@ def find_optimal_clustering(
     diff_np = diff_vectors.cpu().numpy() if isinstance(diff_vectors, torch.Tensor) else diff_vectors
     n_samples, n_features = diff_np.shape
 
-    pca_dims = min(n_samples - 1, n_features, 50)
+    pca_dims = min(n_samples - 1, n_features, DECOMP_PCA_DIMS_MAX)
     if pca_dims < n_features and pca_dims >= 2:
         _pca = PCA(n_components=pca_dims, random_state=DEFAULT_RANDOM_SEED)
         diff_np = _pca.fit_transform(diff_np)
 
     # Subsample for silhouette search (O(n²)), refit on full data with best k
-    MAX_FOR_SIL = 1000
-    if n_samples > MAX_FOR_SIL:
-        _idx = np.random.RandomState(DEFAULT_RANDOM_SEED).choice(n_samples, MAX_FOR_SIL, replace=False)
+    if n_samples > DECOMP_MAX_SILHOUETTE_SAMPLES:
+        _idx = np.random.RandomState(DEFAULT_RANDOM_SEED).choice(n_samples, DECOMP_MAX_SILHOUETTE_SAMPLES, replace=False)
         diff_sub = diff_np[_idx]
-        n_sub = MAX_FOR_SIL
+        n_sub = DECOMP_MAX_SILHOUETTE_SAMPLES
     else:
         diff_sub = diff_np
         n_sub = n_samples
@@ -61,7 +71,7 @@ def find_optimal_clustering(
     if max_k < 2:
         return 1, [0] * n_samples, 0.0
 
-    n_init = max(3, min(10, 1000 // n_sub + 1))
+    n_init = max(DECOMP_KMEANS_N_INIT_MIN, min(DECOMP_KMEANS_N_INIT_MAX, DECOMP_KMEANS_SCALING_FACTOR // n_sub + 1))
     best_k = 1
     best_silhouette = -1.0
 
@@ -110,7 +120,7 @@ def geometry_per_concept(
 
     for concept_id in range(n_concepts):
         mask = labels == concept_id
-        if mask.sum() < 10:
+        if mask.sum() < DECOMP_MIN_CONCEPT_SAMPLES:
             results[concept_id] = {
                 "n_samples": int(mask.sum()),
                 "linear_accuracy": None,
@@ -127,8 +137,8 @@ def geometry_per_concept(
         gap = nonlinear_acc - linear_acc
 
         n_samples = int(mask.sum())
-        adaptive_threshold = 0.5 / np.sqrt(n_samples)
-        adaptive_threshold = max(0.02, min(adaptive_threshold, 0.1))
+        adaptive_threshold = DECOMP_THRESHOLD_BASE / np.sqrt(n_samples)
+        adaptive_threshold = max(DECOMP_THRESHOLD_MIN, min(adaptive_threshold, DECOMP_THRESHOLD_MAX))
 
         diagnosis = "NONLINEAR" if gap > adaptive_threshold else "LINEAR"
 
@@ -147,7 +157,7 @@ def geometry_per_concept(
 def compute_decomposition_metrics(
     pos: torch.Tensor,
     neg: torch.Tensor,
-    min_silhouette: float = 0.3,
+    min_silhouette: float = DECOMP_MIN_SILHOUETTE,
 ) -> Dict:
     """
     Compute decomposition metrics: clustering and per-concept geometry analysis.
@@ -198,7 +208,7 @@ def chow_test_analog(
 
     for concept_id in range(n_concepts):
         mask = labels == concept_id
-        if mask.sum() < 20:
+        if mask.sum() < DECOMP_MIN_CONCEPT_SAMPLES_CHOW:
             continue
 
         X = np.vstack([pos_np[mask], neg_np[mask]])
@@ -227,7 +237,7 @@ def chow_test_analog(
     mean_cos = float(np.mean(cosine_similarities))
     min_cos = float(np.min(cosine_similarities))
 
-    coefficients_differ = min_cos < 0.8
+    coefficients_differ = min_cos < DECOMP_COSINE_SIM_THRESHOLD
 
     return {
         "n_concepts_tested": len(coefficients),

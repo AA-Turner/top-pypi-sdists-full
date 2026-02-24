@@ -780,6 +780,13 @@ def _register_cautious_optimizers(registry: OptimizerRegistry) -> None:
             has_momentum=True,
             defaults={'nesterov': True, 'caution': True}
         ),
+        OptimInfo(
+            name='cadamp',
+            opt_class=AdamP,
+            description='Add the spherical cautious optimizer and the standard cautious optimizer to AdamP',
+            has_betas=True,
+            defaults={'wd_ratio': 0.01, 'nesterov': True, 'caution': True}
+        ),
     ]
     for opt in cautious_optimizers:
         registry.register(opt)
@@ -839,6 +846,7 @@ def _register_other_optimizers(registry: OptimizerRegistry) -> None:
             name='kron',
             opt_class=Kron,
             description='PSGD optimizer with Kronecker-factored preconditioner',
+            has_eps=False,
             has_momentum=True,
         ),
         OptimInfo(
@@ -846,6 +854,7 @@ def _register_other_optimizers(registry: OptimizerRegistry) -> None:
             opt_class=Kron,
             description='PSGD optimizer with Kronecker-factored preconditioner and decoupled weight decay',
             has_momentum=True,
+            has_eps=False,
             defaults={'decoupled_decay': True}
         ),
         OptimInfo(

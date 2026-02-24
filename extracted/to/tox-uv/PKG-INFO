@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-uv
-Version: 1.29.0
+Version: 1.30.0
 Summary: Integration of uv with tox.
 Project-URL: Changelog, https://github.com/tox-dev/tox-uv/releases
 Project-URL: Documentation, https://github.com/tox-dev/tox-uv#tox-uv
@@ -25,11 +25,11 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System
 Requires-Python: >=3.10
-Requires-Dist: packaging>=25
-Requires-Dist: tomli>=2.3; python_version < '3.11'
-Requires-Dist: tox<5,>=4.31
+Requires-Dist: packaging>=26
+Requires-Dist: tomli>=2.4; python_version < '3.11'
+Requires-Dist: tox<5,>=4.40
 Requires-Dist: typing-extensions>=4.15; python_version < '3.10'
-Requires-Dist: uv<1,>=0.9.1
+Requires-Dist: uv<1,>=0.9.27
 Description-Content-Type: text/markdown
 
 # tox-uv
@@ -51,6 +51,7 @@ will get both the benefits (performance) or downsides (bugs) of `uv`.
   - [extras](#extras)
   - [no_default_groups](#no_default_groups)
   - [dependency_groups](#dependency_groups)
+  - [only_groups](#only_groups)
   - [uv_sync_flags](#uv_sync_flags)
   - [uv_sync_locked](#uv_sync_locked)
   - [External package support](#external-package-support)
@@ -135,13 +136,16 @@ Therefore, options like `deps` are ignored (and all others
 
 How to install the source tree package, must be one of:
 
-- `skip`,
-- `wheel`,
-- `editable` (default),
-- `uv` (use uv to install the project, rather than build wheel via `tox`),
-- `uv-editable` (use uv to install the project in editable mode, rather than build wheel via `tox`).
+- `skip` - do not install the project,
+- `wheel` - install the project as a non-editable wheel,
+- `editable` (default) - install the project in editable mode,
+- `uv` - with `uv-venv-runner` uses uv directly to install the project (bypassing tox's PEP-517 packaging), with
+  `uv-venv-lock-runner` behaves like `wheel`,
+- `uv-editable` - with `uv-venv-runner` uses uv directly to install in editable mode (bypassing tox's PEP-517
+  packaging), with `uv-venv-lock-runner` behaves like `editable`.
 
-You should use the latter two in case you need to use any non-standard features of `uv`, such as `tool.uv.sources`.
+With `uv-venv-runner`, prefer `uv`/`uv-editable` when you need non-standard features of `uv`, such as `tool.uv.sources`.
+With `uv-venv-lock-runner`, `uv sync` already handles installation natively so all modes work through it.
 
 ### `extras`
 
@@ -155,7 +159,19 @@ will be `true` if the `dependency_groups` is not empty and `false` otherwise.
 
 ### `dependency_groups`
 
-Specify [PEP 735 – Dependency Groups](https://peps.python.org/pep-0735/) to install.
+Specify [PEP 735 – Dependency Groups](https://peps.python.org/pep-0735/) to install **in addition to** the project and
+its dependencies (maps to `uv sync --group`). For example, `dependency_groups = ["test", "docs"]` installs the project,
+its default dependencies, and the `test` and `docs` groups.
+
+### `only_groups`
+
+Install **only** these [PEP 735 – Dependency Groups](https://peps.python.org/pep-0735/), excluding the project and all
+other dependencies (maps to `uv sync --only-group`). Use this when you need a dependency group in complete isolation,
+such as CI tooling from a private index. For example, `only_groups = ["ci"]` installs only the `ci` group without the
+project or any of its dependencies.
+
+**Key difference**: `dependency_groups` adds groups to the standard install, while `only_groups` replaces the entire
+install with just those groups.
 
 ### `uv_sync_flags`
 

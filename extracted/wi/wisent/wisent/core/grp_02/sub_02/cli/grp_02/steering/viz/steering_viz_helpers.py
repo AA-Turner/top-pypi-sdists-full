@@ -11,7 +11,10 @@ from wisent.core.cli.steering_behavioral import (
     collect_behavioral_labels_all_layers,
 )
 
-from wisent.core.constants import NORM_EPS, VIZ_LIMIT
+from wisent.core.constants import (
+    NORM_EPS, VIZ_LIMIT, VIZ_CLAMPING_MARGIN, VIZ_PROJECTION_COMPONENTS,
+    VIZ_REPLACEMENT_BLEND, VIZ_MLP_HIDDEN_DIM, VIZ_MLP_EPOCHS,
+)
 # Re-export from steering_viz_utils for backwards compatibility
 from wisent.core.geometry.steering_viz_utils import (
     create_steering_object_from_pairs,
@@ -110,15 +113,15 @@ def create_steering_method(
     if steering_method_name == "linear":
         method = LinearSteering(strength=strength)
     elif steering_method_name == "clamping":
-        method = ClampingSteering(margin=0.1)
+        method = ClampingSteering(margin=VIZ_CLAMPING_MARGIN)
     elif steering_method_name == "projection":
-        method = ProjectionSteering(n_components=5, strength=1.0)
+        method = ProjectionSteering(n_components=VIZ_PROJECTION_COMPONENTS, strength=strength)
     elif steering_method_name == "replacement":
-        method = ReplacementSteering(blend=0.5)
+        method = ReplacementSteering(blend=VIZ_REPLACEMENT_BLEND)
     elif steering_method_name == "contrast":
         method = ContrastSteering(strength=strength)
     elif steering_method_name == "mlp":
-        method = MLPSteering(hidden_dim=256, epochs=100)
+        method = MLPSteering(hidden_dim=VIZ_MLP_HIDDEN_DIM, epochs=VIZ_MLP_EPOCHS)
     elif steering_method_name == "adaptive":
         method = AdaptiveSteering(max_strength=strength * 2)
     else:

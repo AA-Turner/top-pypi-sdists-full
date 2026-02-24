@@ -1,17 +1,29 @@
 from base64 import b64encode
+from typing import Any
+from typing import cast
 
 import pytest
 from jsonschema import ValidationError
+from jsonschema.exceptions import (
+    _WrappedReferencingError as WrappedReferencingError,
+)
 from referencing import Registry
 from referencing import Resource
+from referencing.exceptions import InvalidAnchor
+from referencing.exceptions import NoSuchAnchor
+from referencing.exceptions import PointerToNowhere
 from referencing.jsonschema import DRAFT202012
 
 from openapi_schema_validator import OAS30ReadValidator
+from openapi_schema_validator import OAS30StrictValidator
 from openapi_schema_validator import OAS30Validator
 from openapi_schema_validator import OAS30WriteValidator
 from openapi_schema_validator import OAS31Validator
+from openapi_schema_validator import OAS32Validator
 from openapi_schema_validator import oas30_format_checker
+from openapi_schema_validator import oas30_strict_format_checker
 from openapi_schema_validator import oas31_format_checker
+from openapi_schema_validator import oas32_format_checker
 
 
 class TestOAS30ValidatorFormatChecker:
@@ -142,7 +154,7 @@ class BaseTestOASValidatorValidate:
         }
 
         validator = validator_class(schema, registry=registry)
-        result = validator.validate({"name": "John", "age": 23}, schema)
+        result = validator.validate({"name": "John", "age": 23})
 
         assert result is None
 
@@ -179,7 +191,6 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
 
         assert result is None
 
-    @pytest.mark.xfail(reason="OAS 3.0 string type checker allows byte")
     @pytest.mark.parametrize("value", [b"test"])
     def test_string_disallow_binary(self, validator_class, value):
         schema = {"type": "string"}
@@ -197,7 +208,7 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
 
         assert result is None
 
-    @pytest.mark.parametrize("value", ["test", True, 3, 3.12, None])
+    @pytest.mark.parametrize("value", [True, 3, 3.12, None])
     def test_string_binary_invalid(
         self, validator_class, format_checker, value
     ):
@@ -274,7 +285,6 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
     @pytest.mark.parametrize(
         "value",
         [
-            b64encode(b"string"),
             b64encode(b"string").decode(),
         ],
     )
@@ -288,7 +298,7 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
 
         assert result is None
 
-    @pytest.mark.parametrize("value", ["string", b"string"])
+    @pytest.mark.parametrize("value", ["string"])
     def test_string_format_byte_invalid(self, validator_class, value):
         schema = {"type": "string", "format": "byte"}
         validator = validator_class(
@@ -354,6 +364,96 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
         assert result is None
 
     @pytest.mark.parametrize(
+        "mapping_ref",
+        [
+            "#/components/schemas/Missing",
+            "#missing-anchor",
+            "#bad/frag",
+        ],
+    )
+    def test_discriminator_handles_unresolvable_reference_kinds(
+        self, mapping_ref
+    ):
+        schema = {
+            "oneOf": [{"$ref": "#/components/schemas/MountainHiking"}],
+            "discriminator": {
+                "propertyName": "discipline",
+                "mapping": {"mountain_hiking": mapping_ref},
+            },
+            "components": {
+                "schemas": {
+                    "MountainHiking": {
+                        "type": "object",
+                        "properties": {
+                            "discipline": {"type": "string"},
+                            "length": {"type": "integer"},
+                        },
+                        "required": ["discipline", "length"],
+                    },
+                },
+            },
+        }
+
+        validator = OAS30Validator(
+            schema,
+            format_checker=oas30_format_checker,
+        )
+        with pytest.raises(
+            ValidationError,
+            match=f"reference '{mapping_ref}' could not be resolved",
+        ):
+            validator.validate(
+                {
+                    "discipline": "mountain_hiking",
+                    "length": 10,
+                }
+            )
+
+    @pytest.mark.parametrize(
+        "mapping_ref, expected_cause",
+        [
+            ("#/components/schemas/Missing", PointerToNowhere),
+            ("#missing-anchor", NoSuchAnchor),
+            ("#bad/frag", InvalidAnchor),
+        ],
+    )
+    def test_discriminator_unresolvable_reference_causes(
+        self, mapping_ref, expected_cause
+    ):
+        schema = {
+            "oneOf": [{"$ref": "#/components/schemas/MountainHiking"}],
+            "discriminator": {
+                "propertyName": "discipline",
+                "mapping": {"mountain_hiking": mapping_ref},
+            },
+            "components": {
+                "schemas": {
+                    "MountainHiking": {
+                        "type": "object",
+                        "properties": {
+                            "discipline": {"type": "string"},
+                            "length": {"type": "integer"},
+                        },
+                        "required": ["discipline", "length"],
+                    },
+                },
+            },
+        }
+
+        validator = OAS30Validator(
+            schema,
+            format_checker=oas30_format_checker,
+        )
+
+        with pytest.raises(WrappedReferencingError) as exc_info:
+            cast(Any, validator)._validate_reference(
+                ref=mapping_ref,
+                instance={"discipline": "mountain_hiking", "length": 10},
+            )
+
+        assert isinstance(exc_info.value.__cause__, expected_cause)
+
+    @pytest.mark.parametrize(
         "schema_type",
         [
             "oneOf",
@@ -369,8 +469,8 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
                 "properties": {
                     "discipline": {
                         "type": "string",
-                        # we allow both the explicitely matched mountain_hiking discipline
-                        # and the implicitely matched MoutainHiking discipline
+                        # we allow both the explicitly matched mountain_hiking discipline
+                        # and the implicitly matched MoutainHiking discipline
                         "enum": ["mountain_hiking", "MountainHiking"],
                     },
                     "length": {
@@ -401,7 +501,7 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
             {"$ref": "#/components/schemas/AlpineClimbing"},
         ]
 
-        # Add the compoments in a minimalis schema
+        # Add the components in a minimalis schema
         schema = {
             "$ref": "#/components/schemas/Route",
             "components": {"schemas": components},
@@ -450,6 +550,13 @@ class TestOAS30ValidatorValidate(BaseTestOASValidatorValidate):
         validator = validator_class(
             schema, format_checker=oas30_format_checker
         )
+
+        with pytest.raises(
+            ValidationError,
+            match="is not of type 'object'",
+        ):
+            validator.validate("not-an-object")
+
         with pytest.raises(
             ValidationError, match="does not contain discriminating property"
         ):
@@ -670,6 +777,32 @@ class TestOAS30ReadWriteValidatorValidate:
         )
         assert validator.validate({"another_prop": "hello"}) is None
 
+    def test_read_only_false(self):
+        schema = {
+            "type": "object",
+            "properties": {"some_prop": {"type": "string", "readOnly": False}},
+        }
+
+        validator = OAS30WriteValidator(
+            schema,
+            format_checker=oas30_format_checker,
+        )
+        assert validator.validate({"some_prop": "hello"}) is None
+
+    def test_write_only_false(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "some_prop": {"type": "string", "writeOnly": False}
+            },
+        }
+
+        validator = OAS30ReadValidator(
+            schema,
+            format_checker=oas30_format_checker,
+        )
+        assert validator.validate({"some_prop": "hello"}) is None
+
 
 class TestOAS31ValidatorFormatChecker:
     @pytest.fixture
@@ -870,3 +1003,113 @@ class TestOAS31ValidatorValidate(BaseTestOASValidatorValidate):
             "Expected at most 4 items but found 1 extra",
         ]
         assert any(error in str(excinfo.value) for error in errors)
+
+
+class TestOAS32ValidatorValidate(TestOAS31ValidatorValidate):
+    """OAS 3.2 uses the same JSON Schema dialect as 3.1."""
+
+    @pytest.fixture
+    def validator_class(self):
+        return OAS32Validator
+
+    @pytest.fixture
+    def format_checker(self):
+        return oas32_format_checker
+
+    def test_validator_is_distinct_from_oas31(self):
+        assert OAS32Validator is not OAS31Validator
+
+    def test_format_checker_is_distinct_from_oas31(self):
+        assert oas32_format_checker is not oas31_format_checker
+
+    def test_validator_shares_oas31_behavior(self):
+        assert OAS32Validator.VALIDATORS == OAS31Validator.VALIDATORS
+
+    def test_format_validation_int32(self, validator_class):
+        schema = {"type": "integer", "format": "int32"}
+        validator = validator_class(
+            schema, format_checker=oas32_format_checker
+        )
+
+        result = validator.validate(42)
+        assert result is None
+
+        with pytest.raises(ValidationError):
+            validator.validate(9999999999)
+
+    def test_format_validation_date(self, validator_class):
+        schema = {"type": "string", "format": "date"}
+        validator = validator_class(
+            schema, format_checker=oas32_format_checker
+        )
+
+        result = validator.validate("2024-01-15")
+        assert result is None
+
+        with pytest.raises(ValidationError):
+            validator.validate("not-a-date")
+
+    def test_schema_with_allof(self, validator_class):
+        schema = {
+            "allOf": [
+                {"type": "object", "properties": {"id": {"type": "integer"}}},
+                {"type": "object", "properties": {"name": {"type": "string"}}},
+            ]
+        }
+        validator = validator_class(schema)
+
+        result = validator.validate({"id": 1, "name": "test"})
+        assert result is None
+
+        with pytest.raises(ValidationError):
+            validator.validate({"id": "not-an-integer"})
+
+
+class TestOAS30StrictValidator:
+    """
+    Tests for OAS30StrictValidator which follows OAS spec strictly:
+    - type: string only accepts str (not bytes)
+    - format: binary also only accepts str (no special bytes handling)
+    """
+
+    def test_strict_string_rejects_bytes(self):
+        """Strict validator rejects bytes for plain string type."""
+        schema = {"type": "string"}
+        validator = OAS30StrictValidator(schema)
+
+        with pytest.raises(ValidationError):
+            validator.validate(b"test")
+
+    def test_strict_string_accepts_str(self):
+        """Strict validator accepts str for string type."""
+        schema = {"type": "string"}
+        validator = OAS30StrictValidator(schema)
+
+        result = validator.validate("test")
+        assert result is None
+
+    def test_strict_binary_format_rejects_bytes(self):
+        """Strict validator rejects bytes even with binary format."""
+        schema = {"type": "string", "format": "binary"}
+        validator = OAS30StrictValidator(
+            schema, format_checker=oas30_format_checker
+        )
+
+        with pytest.raises(ValidationError):
+            validator.validate(b"test")
+
+    def test_strict_binary_format_rejects_str(self):
+        """
+        Strict validator with binary format rejects strings.
+        Binary format is for bytes in OAS, not plain strings.
+        """
+        schema = {"type": "string", "format": "binary"}
+        validator = OAS30StrictValidator(
+            schema, format_checker=oas30_strict_format_checker
+        )
+
+        # Binary format expects actual binary data (bytes in Python)
+        # Plain strings fail format validation because they are not valid base64
+        # Note: "test" is actually valid base64, so use "not base64" which is not
+        with pytest.raises(ValidationError, match="is not a 'binary'"):
+            validator.validate("not base64")
