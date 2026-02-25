@@ -1,4 +1,4 @@
-from typing import Union, Literal, TypedDict, Any, Required, Dict, List
+from typing import TypedDict, Dict, Literal, Required, List, Any, Union
 
 
 class SpanEvent(TypedDict, total=False):
@@ -80,6 +80,7 @@ class SpanEvent(TypedDict, total=False):
     Required property
     """
 
+    accepted_outcome_emitted: bool
     name: Required[Union[str, None]]
     """ Required property """
 

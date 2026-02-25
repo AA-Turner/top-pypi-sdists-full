@@ -83,26 +83,26 @@ def test_alert(module, array):
     response = list(
         array.get_alert_watchers_test(names=[module.params["address"]]).items
     )
-    for component in range(0, len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": response[component].component_address,
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_address": component.component_address,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
-                "result_details": getattr(response[component], "result_details", ""),
+                "result_details": getattr(component, "result_details", ""),
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=True, test_response=test_response)
@@ -191,16 +191,16 @@ def main():
     res = array.get_alert_watchers()
     if res.status_code != 200:
         module.fail_json(
-            msg="Failed to get exisitng email list. Error: {0}".format(
+            msg="Failed to get existing email list. Error: {0}".format(
                 res.errors[0].message
             )
         )
     else:
         watchers = list(res.items)
-    for watcher in range(0, len(watchers)):
-        if watchers[watcher].name == module.params["address"]:
+    for watcher in watchers:
+        if watcher.name == module.params["address"]:
             exists = True
-            enabled = watchers[watcher].enabled
+            enabled = watcher.enabled
             break
     if module.params["state"] == "present" and not exists:
         create_alert(module, array)

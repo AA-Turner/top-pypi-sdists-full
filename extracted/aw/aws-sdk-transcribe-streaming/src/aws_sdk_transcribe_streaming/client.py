@@ -47,26 +47,41 @@ logger = logging.getLogger(__name__)
 
 class TranscribeStreamingClient:
     """
-    Amazon Transcribe streaming offers four main types of real-time transcription: **Standard**, **Medical**, **Call Analytics**, and **Health Scribe**.
+    Amazon Transcribe streaming offers four main types of real-time
+    transcription: **Standard**, **Medical**, **Call Analytics**, and
+    **Health Scribe**.
 
-    * **Standard transcriptions** are the most common option. Refer to for details.
+    - **Standard transcriptions** are the most common option. Refer to for
+      details.
 
-    * **Medical transcriptions** are tailored to medical professionals and incorporate medical terms. A common use case for this service is transcribing doctor-patient dialogue in real time, so doctors can focus on their patient instead of taking notes. Refer to for details.
+    - **Medical transcriptions** are tailored to medical professionals and
+      incorporate medical terms. A common use case for this service is
+      transcribing doctor-patient dialogue in real time, so doctors can
+      focus on their patient instead of taking notes. Refer to for details.
 
-    * **Call Analytics transcriptions** are designed for use with call center audio on two different channels; if you're looking for insight into customer service calls, use this option. Refer to for details.
+    - **Call Analytics transcriptions** are designed for use with call
+      center audio on two different channels; if you're looking for insight
+      into customer service calls, use this option. Refer to for details.
 
-    * **HealthScribe transcriptions** are designed to automatically create clinical notes from patient-clinician conversations using generative AI. Refer to [here] for details.
-
-    :param config: Optional configuration for the client. Here you can set things like the
-        endpoint for HTTP services or auth credentials.
-
-    :param plugins: A list of callables that modify the configuration dynamically. These
-        can be used to set defaults, for example.
+    - **HealthScribe transcriptions** are designed to automatically create
+      clinical notes from patient-clinician conversations using generative
+      AI. Refer to [here] for details.
     """
 
     def __init__(
         self, config: Config | None = None, plugins: list[Plugin] | None = None
     ):
+        """
+        Constructor for `TranscribeStreamingClient`.
+
+        Args:
+            config:
+                Optional configuration for the client. Here you can set things like
+                the endpoint for HTTP services or auth credentials.
+            plugins:
+                A list of callables that modify the configuration dynamically. These
+                can be used to set defaults, for example.
+        """
         self._config = config or Config()
 
         client_plugins: list[Plugin] = [aws_user_agent_plugin, user_agent_plugin]
@@ -82,16 +97,23 @@ class TranscribeStreamingClient:
         self, input: GetMedicalScribeStreamInput, plugins: list[Plugin] | None = None
     ) -> GetMedicalScribeStreamOutput:
         """
-        Provides details about the specified Amazon Web Services HealthScribe streaming
-        session. To view the status of the streaming session, check the ``StreamStatus``
-        field in the response. To get the details of post-stream analytics, including
-        its status, check the ``PostStreamAnalyticsResult`` field in the response.
+        Provides details about the specified Amazon Web Services HealthScribe
+        streaming session. To view the status of the streaming session, check
+        the `StreamStatus` field in the response. To get the details of
+        post-stream analytics, including its status, check the
+        `PostStreamAnalyticsResult` field in the response.
 
-        :param input: The operation's input.
+        Args:
+            input:
+                An instance of `GetMedicalScribeStreamInput`.
+            plugins:
+                A list of callables that modify the configuration dynamically.
+                Changes made by these plugins only apply for the duration of the
+                operation execution and will not affect any other operation
+                invocations.
 
-        :param plugins: A list of callables that modify the configuration dynamically.
-            Changes made by these plugins only apply for the duration of the operation
-            execution and will not affect any other operation invocations.
+        Returns:
+            An instance of `GetMedicalScribeStreamOutput`.
         """
         operation_plugins: list[Plugin] = []
         if plugins:
@@ -132,27 +154,35 @@ class TranscribeStreamingClient:
         StartCallAnalyticsStreamTranscriptionOutput,
     ]:
         """
-        Starts a bidirectional HTTP/2 or WebSocket stream where audio is streamed to
-        Amazon Transcribe and the transcription results are streamed to your
-        application. Use this operation for `Call Analytics <https://docs.aws.amazon.com/transcribe/latest/dg/call-analytics.html>`_
+        Starts a bidirectional HTTP/2 or WebSocket stream where audio is
+        streamed to Amazon Transcribe and the transcription results are streamed
+        to your application. Use this operation for [Call
+        Analytics](https://docs.aws.amazon.com/transcribe/latest/dg/call-analytics.html)
         transcriptions.
 
         The following parameters are required:
 
-        * ``language-code`` or ``identify-language``
+        - `language-code` or `identify-language`
 
-        * ``media-encoding``
+        - `media-encoding`
 
-        * ``sample-rate``
+        - `sample-rate`
 
-        For more information on streaming with Amazon Transcribe, see `Transcribing streaming audio <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html>`_
-        .
+        For more information on streaming with Amazon Transcribe, see
+        [Transcribing streaming
+        audio](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html).
 
-        :param input: The operation's input.
+        Args:
+            input:
+                An instance of `StartCallAnalyticsStreamTranscriptionInput`.
+            plugins:
+                A list of callables that modify the configuration dynamically.
+                Changes made by these plugins only apply for the duration of the
+                operation execution and will not affect any other operation
+                invocations.
 
-        :param plugins: A list of callables that modify the configuration dynamically.
-            Changes made by these plugins only apply for the duration of the operation
-            execution and will not affect any other operation invocations.
+        Returns:
+            A `DuplexEventStream` for bidirectional streaming.
         """
         operation_plugins: list[Plugin] = []
         if plugins:
@@ -196,48 +226,55 @@ class TranscribeStreamingClient:
         StartMedicalScribeStreamOutput,
     ]:
         """
-        Starts a bidirectional HTTP/2 stream, where audio is streamed to Amazon Web
-        Services HealthScribe and the transcription results are streamed to your
-        application.
+        Starts a bidirectional HTTP/2 stream, where audio is streamed to Amazon
+        Web Services HealthScribe and the transcription results are streamed to
+        your application.
 
         When you start a stream, you first specify the stream configuration in a
-        ``MedicalScribeConfigurationEvent``. This event includes channel definitions,
-        encryption settings, medical scribe context, and post-stream analytics settings,
-        such as the output configuration for aggregated transcript and clinical note
-        generation. These are additional streaming session configurations beyond those
-        provided in your initial start request headers. Whether you are starting a new
-        session or resuming an existing session, your first event must be a
-        ``MedicalScribeConfigurationEvent``.
+        `MedicalScribeConfigurationEvent`. This event includes channel
+        definitions, encryption settings, medical scribe context, and
+        post-stream analytics settings, such as the output configuration for
+        aggregated transcript and clinical note generation. These are additional
+        streaming session configurations beyond those provided in your initial
+        start request headers. Whether you are starting a new session or
+        resuming an existing session, your first event must be a
+        `MedicalScribeConfigurationEvent`.
 
-         After you send a ``MedicalScribeConfigurationEvent``, you start ``AudioEvents``
-         and Amazon Web Services HealthScribe responds with real-time transcription
-         results. When you are finished, to start processing the results with the
-         post-stream analytics, send a ``MedicalScribeSessionControlEvent`` with a
-         ``Type`` of ``END_OF_SESSION`` and Amazon Web Services HealthScribe starts the
-         analytics.
+        After you send a `MedicalScribeConfigurationEvent`, you start
+        `AudioEvents` and Amazon Web Services HealthScribe responds with
+        real-time transcription results. When you are finished, to start
+        processing the results with the post-stream analytics, send a
+        `MedicalScribeSessionControlEvent` with a `Type` of `END_OF_SESSION` and
+        Amazon Web Services HealthScribe starts the analytics.
 
-        You can pause or resume streaming. To pause streaming, complete the input stream
-        without sending the ``MedicalScribeSessionControlEvent``. To resume streaming,
-        call the ``StartMedicalScribeStream`` and specify the same SessionId you used to
-        start the stream.
+        You can pause or resume streaming. To pause streaming, complete the
+        input stream without sending the `MedicalScribeSessionControlEvent`. To
+        resume streaming, call the `StartMedicalScribeStream` and specify the
+        same SessionId you used to start the stream.
 
         The following parameters are required:
 
-        * ``language-code``
+        - `language-code`
 
-        * ``media-encoding``
+        - `media-encoding`
 
-        * ``media-sample-rate-hertz``
+        - `media-sample-rate-hertz`
 
-        For more information on streaming with Amazon Web Services HealthScribe, see
-        `Amazon Web Services HealthScribe <https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html>`_
-        .
+        For more information on streaming with Amazon Web Services HealthScribe,
+        see [Amazon Web Services
+        HealthScribe](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html).
 
-        :param input: The operation's input.
+        Args:
+            input:
+                An instance of `StartMedicalScribeStreamInput`.
+            plugins:
+                A list of callables that modify the configuration dynamically.
+                Changes made by these plugins only apply for the duration of the
+                operation execution and will not affect any other operation
+                invocations.
 
-        :param plugins: A list of callables that modify the configuration dynamically.
-            Changes made by these plugins only apply for the duration of the operation
-            execution and will not affect any other operation invocations.
+        Returns:
+            A `DuplexEventStream` for bidirectional streaming.
         """
         operation_plugins: list[Plugin] = []
         if plugins:
@@ -283,27 +320,33 @@ class TranscribeStreamingClient:
         StartMedicalStreamTranscriptionOutput,
     ]:
         """
-        Starts a bidirectional HTTP/2 or WebSocket stream where audio is streamed to
-        Amazon Transcribe Medical and the transcription results are streamed to your
-        application.
+        Starts a bidirectional HTTP/2 or WebSocket stream where audio is
+        streamed to Amazon Transcribe Medical and the transcription results are
+        streamed to your application.
 
         The following parameters are required:
 
-        * ``language-code``
+        - `language-code`
 
-        * ``media-encoding``
+        - `media-encoding`
 
-        * ``sample-rate``
+        - `sample-rate`
 
         For more information on streaming with Amazon Transcribe Medical, see
-        `Transcribing streaming audio <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html>`_
-        .
+        [Transcribing streaming
+        audio](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html).
 
-        :param input: The operation's input.
+        Args:
+            input:
+                An instance of `StartMedicalStreamTranscriptionInput`.
+            plugins:
+                A list of callables that modify the configuration dynamically.
+                Changes made by these plugins only apply for the duration of the
+                operation execution and will not affect any other operation
+                invocations.
 
-        :param plugins: A list of callables that modify the configuration dynamically.
-            Changes made by these plugins only apply for the duration of the operation
-            execution and will not affect any other operation invocations.
+        Returns:
+            A `DuplexEventStream` for bidirectional streaming.
         """
         operation_plugins: list[Plugin] = []
         if plugins:
@@ -345,26 +388,33 @@ class TranscribeStreamingClient:
         AudioStream, TranscriptResultStream, StartStreamTranscriptionOutput
     ]:
         """
-        Starts a bidirectional HTTP/2 or WebSocket stream where audio is streamed to
-        Amazon Transcribe and the transcription results are streamed to your
-        application.
+        Starts a bidirectional HTTP/2 or WebSocket stream where audio is
+        streamed to Amazon Transcribe and the transcription results are streamed
+        to your application.
 
         The following parameters are required:
 
-        * ``language-code`` or ``identify-language`` or ``identify-multiple-language``
+        - `language-code` or `identify-language` or `identify-multiple-language`
 
-        * ``media-encoding``
+        - `media-encoding`
 
-        * ``sample-rate``
+        - `sample-rate`
 
-        For more information on streaming with Amazon Transcribe, see `Transcribing streaming audio <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html>`_
-        .
+        For more information on streaming with Amazon Transcribe, see
+        [Transcribing streaming
+        audio](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html).
 
-        :param input: The operation's input.
+        Args:
+            input:
+                An instance of `StartStreamTranscriptionInput`.
+            plugins:
+                A list of callables that modify the configuration dynamically.
+                Changes made by these plugins only apply for the duration of the
+                operation execution and will not affect any other operation
+                invocations.
 
-        :param plugins: A list of callables that modify the configuration dynamically.
-            Changes made by these plugins only apply for the duration of the operation
-            execution and will not affect any other operation invocations.
+        Returns:
+            A `DuplexEventStream` for bidirectional streaming.
         """
         operation_plugins: list[Plugin] = []
         if plugins:

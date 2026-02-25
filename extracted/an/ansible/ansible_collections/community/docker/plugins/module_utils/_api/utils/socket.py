@@ -127,7 +127,7 @@ def frames_iter_no_tty(socket: SocketLike) -> t.Generator[tuple[int, bytes]]:
     not enabled.
     """
     while True:
-        (stream, n) = next_frame_header(socket)
+        stream, n = next_frame_header(socket)
         if n < 0:
             break
         while n > 0:

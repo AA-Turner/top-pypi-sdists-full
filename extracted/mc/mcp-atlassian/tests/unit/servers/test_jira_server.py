@@ -250,6 +250,46 @@ def mock_jira_fetcher():
 
     mock_get_user_profile.side_effect = side_effect_func
     mock_fetcher.get_user_profile_by_identifier = mock_get_user_profile
+
+    mock_service_desk = MagicMock()
+    mock_service_desk.to_simplified_dict.return_value = {
+        "id": "4",
+        "project_id": "10400",
+        "project_key": "SUP",
+        "project_name": "support",
+        "links": {"self": "https://test.atlassian.net/rest/servicedeskapi/4"},
+    }
+    mock_fetcher.get_service_desk_for_project.return_value = mock_service_desk
+
+    mock_service_desk_queues = MagicMock()
+    mock_service_desk_queues.to_simplified_dict.return_value = {
+        "service_desk_id": "4",
+        "start": 0,
+        "limit": 50,
+        "size": 2,
+        "is_last_page": True,
+        "queues": [
+            {"id": "47", "name": "Support Team", "issue_count": 11},
+            {"id": "48", "name": "Waiting for customer", "issue_count": 33},
+        ],
+    }
+    mock_fetcher.get_service_desk_queues.return_value = mock_service_desk_queues
+
+    mock_queue_issues = MagicMock()
+    mock_queue_issues.to_simplified_dict.return_value = {
+        "service_desk_id": "4",
+        "queue_id": "47",
+        "start": 0,
+        "limit": 2,
+        "size": 2,
+        "is_last_page": True,
+        "queue": {"id": "47", "name": "Support Team", "issue_count": 11},
+        "issues": [
+            {"id": "1", "key": "SUP-1"},
+            {"id": "2", "key": "SUP-2"},
+        ],
+    }
+    mock_fetcher.get_queue_issues.return_value = mock_queue_issues
     return mock_fetcher
 
 
@@ -301,8 +341,12 @@ def test_jira_mcp(mock_jira_fetcher, mock_base_jira_config):
         get_board_issues,
         get_issue,
         get_link_types,
+        get_project_components,
         get_project_issues,
         get_project_versions,
+        get_queue_issues,
+        get_service_desk_for_project,
+        get_service_desk_queues,
         get_sprint_issues,
         get_sprints_from_board,
         get_transitions,
@@ -323,7 +367,11 @@ def test_jira_mcp(mock_jira_fetcher, mock_base_jira_config):
     jira_sub_mcp.add_tool(search_fields)
     jira_sub_mcp.add_tool(get_project_issues)
     jira_sub_mcp.add_tool(get_project_versions)
+    jira_sub_mcp.add_tool(get_project_components)
     jira_sub_mcp.add_tool(get_all_projects)
+    jira_sub_mcp.add_tool(get_service_desk_for_project)
+    jira_sub_mcp.add_tool(get_service_desk_queues)
+    jira_sub_mcp.add_tool(get_queue_issues)
     jira_sub_mcp.add_tool(get_transitions)
     jira_sub_mcp.add_tool(get_worklog)
     jira_sub_mcp.add_tool(download_attachments)
@@ -473,6 +521,83 @@ async def test_search(jira_client, mock_jira_fetcher):
         start=0,
         projects_filter=None,
         expand=None,
+    )
+
+
+@pytest.mark.anyio
+async def test_get_service_desk_for_project(jira_client, mock_jira_fetcher):
+    """Test service desk lookup by project key."""
+    response = await jira_client.call_tool(
+        "jira_get_service_desk_for_project", {"project_key": "SUP"}
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) > 0
+
+    content = json.loads(response.content[0].text)
+    assert content["project_key"] == "SUP"
+    assert content["service_desk"]["id"] == "4"
+    assert content["service_desk"]["project_key"] == "SUP"
+    mock_jira_fetcher.get_service_desk_for_project.assert_called_once_with(
+        project_key="SUP"
+    )
+
+
+@pytest.mark.anyio
+async def test_get_service_desk_for_project_not_found(jira_client, mock_jira_fetcher):
+    """Test service desk lookup returns null payload when not found."""
+    mock_jira_fetcher.get_service_desk_for_project.return_value = None
+
+    response = await jira_client.call_tool(
+        "jira_get_service_desk_for_project", {"project_key": "SUP"}
+    )
+    content = json.loads(response.content[0].text)
+
+    assert content["project_key"] == "SUP"
+    assert content["service_desk"] is None
+
+
+@pytest.mark.anyio
+async def test_get_service_desk_queues(jira_client, mock_jira_fetcher):
+    """Test queue listing for a service desk."""
+    response = await jira_client.call_tool(
+        "jira_get_service_desk_queues",
+        {"service_desk_id": "4", "start_at": 0, "limit": 50},
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) > 0
+
+    content = json.loads(response.content[0].text)
+    assert content["service_desk_id"] == "4"
+    assert content["size"] == 2
+    assert content["queues"][0]["id"] == "47"
+    mock_jira_fetcher.get_service_desk_queues.assert_called_once_with(
+        service_desk_id="4",
+        start_at=0,
+        limit=50,
+        include_count=True,
+    )
+
+
+@pytest.mark.anyio
+async def test_get_queue_issues(jira_client, mock_jira_fetcher):
+    """Test queue issue retrieval."""
+    response = await jira_client.call_tool(
+        "jira_get_queue_issues",
+        {"service_desk_id": "4", "queue_id": "47", "start_at": 0, "limit": 2},
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) > 0
+
+    content = json.loads(response.content[0].text)
+    assert content["service_desk_id"] == "4"
+    assert content["queue_id"] == "47"
+    assert content["size"] == 2
+    assert content["issues"][0]["key"] == "SUP-1"
+    mock_jira_fetcher.get_queue_issues.assert_called_once_with(
+        service_desk_id="4",
+        queue_id="47",
+        start_at=0,
+        limit=2,
     )
 
 
@@ -799,6 +924,32 @@ async def test_get_project_versions_tool(jira_client, mock_jira_fetcher):
     assert data[0]["id"] == "100"
     assert data[0]["name"] == "v1.0"
     assert data[0]["description"] == "First"
+
+
+@pytest.mark.anyio
+async def test_get_project_components_tool(jira_client, mock_jira_fetcher):
+    """Test the jira_get_project_components tool returns component list."""
+    mock_components = [
+        {"id": "10000", "name": "Backend", "description": "Backend services"},
+        {"id": "10001", "name": "Frontend", "description": "UI components"},
+    ]
+    mock_jira_fetcher.get_project_components.return_value = mock_components
+
+    response = await jira_client.call_tool(
+        "jira_get_project_components",
+        {"project_key": "TEST"},
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) == 1
+    msg = response.content[0]
+    assert msg.type == "text"
+    import json
+
+    data = json.loads(msg.text)
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0]["id"] == "10000"
+    assert data[0]["name"] == "Backend"
 
 
 @pytest.mark.anyio
@@ -1378,6 +1529,27 @@ def test_issue_and_project_key_patterns_reject_invalid_keys():
 
 
 @pytest.mark.anyio
+async def test_update_issue_accepts_json_string_fields(jira_client, mock_jira_fetcher):
+    """Regression: fields must accept a JSON string (not just a dict).
+
+    d57b7fd narrowed all dict-typed tool params to str for AI platform
+    schema compatibility but missed the fields param in update_issue,
+    causing a Pydantic validation error when an LLM passed a JSON string.
+    """
+    response = await jira_client.call_tool(
+        "jira_update_issue",
+        {
+            "issue_key": "TEST-123",
+            "fields": '{"summary": "Updated via JSON string"}',
+        },
+    )
+    content = json.loads(response.content[0].text)
+    assert content["message"] == "Issue updated successfully"
+    call_kwargs = mock_jira_fetcher.update_issue.call_args[1]
+    assert call_kwargs["summary"] == "Updated via JSON string"
+
+
+@pytest.mark.anyio
 async def test_update_issue_accepts_json_string_additional_fields(
     jira_client, mock_jira_fetcher
 ):
@@ -1386,7 +1558,7 @@ async def test_update_issue_accepts_json_string_additional_fields(
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
             "additional_fields": '{"labels": ["ai"]}',
         },
     )
@@ -1407,7 +1579,7 @@ async def test_update_issue_additional_fields_invalid_json(jira_client):
             "jira_update_issue",
             {
                 "issue_key": "TEST-123",
-                "fields": {"summary": "Updated"},
+                "fields": '{"summary": "Updated"}',
                 "additional_fields": "{invalid",
             },
         )
@@ -1422,7 +1594,7 @@ async def test_update_issue_additional_fields_non_dict_json(jira_client):
             "jira_update_issue",
             {
                 "issue_key": "TEST-123",
-                "fields": {"summary": "Updated"},
+                "fields": '{"summary": "Updated"}',
                 "additional_fields": '["a","b"]',
             },
         )
@@ -1437,7 +1609,7 @@ async def test_update_issue_additional_fields_empty_string(jira_client):
             "jira_update_issue",
             {
                 "issue_key": "TEST-123",
-                "fields": {"summary": "Updated"},
+                "fields": '{"summary": "Updated"}',
                 "additional_fields": "",
             },
         )
@@ -1451,7 +1623,7 @@ async def test_update_issue_with_components(jira_client, mock_jira_fetcher):
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
             "components": "Frontend,API",
         },
     )
@@ -1471,7 +1643,7 @@ async def test_update_issue_with_components_single(jira_client, mock_jira_fetche
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
             "components": "Frontend",
         },
     )
@@ -1486,7 +1658,7 @@ async def test_update_issue_with_components_empty(jira_client, mock_jira_fetcher
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
             "components": "",
         },
     )
@@ -1501,7 +1673,7 @@ async def test_update_issue_with_components_none(jira_client, mock_jira_fetcher)
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
         },
     )
     call_kwargs = mock_jira_fetcher.update_issue.call_args[1]
@@ -1517,7 +1689,7 @@ async def test_update_issue_components_with_additional_fields(
         "jira_update_issue",
         {
             "issue_key": "TEST-123",
-            "fields": {"summary": "Updated"},
+            "fields": '{"summary": "Updated"}',
             "components": "Frontend,API",
             "additional_fields": '{"labels": ["urgent"], "components": ["Backend"]}',
         },

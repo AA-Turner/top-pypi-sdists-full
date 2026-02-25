@@ -14,13 +14,15 @@ License for the specific language governing permissions and limitations
 under the License.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading
-import time
-from typing import Optional, List, Mapping, Callable, Dict, Set
+from typing import Optional, List, Mapping, Callable, Dict, Set, Iterator, Protocol, TypeVar
 
 import grpc
+from grpc import StatusCode
 
 from spiffe.bundle.jwt_bundle.jwt_bundle import JwtBundle
 from spiffe.bundle.jwt_bundle.jwt_bundle_set import JwtBundleSet
@@ -28,10 +30,10 @@ from spiffe.bundle.x509_bundle.x509_bundle import X509Bundle
 from spiffe.bundle.x509_bundle.x509_bundle_set import X509BundleSet
 from spiffe.config import ConfigSetter
 from spiffe.errors import ArgumentError
-from spiffe.proto import (
+from spiffe._proto import (
     workload_pb2,
 )
-from spiffe.proto import workload_pb2_grpc
+from spiffe._proto import workload_pb2_grpc
 from spiffe.spiffe_id.spiffe_id import SpiffeId
 from spiffe.spiffe_id.spiffe_id import TrustDomain
 from spiffe.svid.jwt_svid import JwtSvid
@@ -64,6 +66,34 @@ _NON_RETRYABLE_CODES = {grpc.StatusCode.CANCELLED, grpc.StatusCode.INVALID_ARGUM
 
 __all__ = ['WorkloadApiClient', 'RetryPolicy']
 
+_T_co = TypeVar("_T_co", covariant=True)
+
+
+class _CancelableIterator(Protocol[_T_co]):
+    def __iter__(self) -> Iterator[_T_co]: ...
+
+    def __next__(self) -> _T_co: ...
+
+    def cancel(self) -> bool: ...
+
+
+class _WorkloadApiStub(Protocol):
+    FetchX509SVID: grpc.UnaryStreamMultiCallable[
+        workload_pb2.X509SVIDRequest, workload_pb2.X509SVIDResponse
+    ]
+    FetchX509Bundles: grpc.UnaryStreamMultiCallable[
+        workload_pb2.X509BundlesRequest, workload_pb2.X509BundlesResponse
+    ]
+    FetchJWTSVID: grpc.UnaryUnaryMultiCallable[
+        workload_pb2.JWTSVIDRequest, workload_pb2.JWTSVIDResponse
+    ]
+    FetchJWTBundles: grpc.UnaryStreamMultiCallable[
+        workload_pb2.JWTBundlesRequest, workload_pb2.JWTBundlesResponse
+    ]
+    ValidateJWTSVID: grpc.UnaryUnaryMultiCallable[
+        workload_pb2.ValidateJWTSVIDRequest, workload_pb2.ValidateJWTSVIDResponse
+    ]
+
 
 class RetryPolicy:
     """Defines the retry policy using an exponential backoff strategy."""
@@ -76,7 +106,7 @@ class RetryPolicy:
         base_backoff_in_seconds: float = 0.1,
         backoff_factor: int = 2,
         max_backoff: float = 5,
-    ):
+    ) -> None:
         self.max_retries = max_retries
         self.base_backoff = base_backoff_in_seconds
         self.backoff_factor = backoff_factor
@@ -84,11 +114,13 @@ class RetryPolicy:
 
 
 class RetryHandler:
-    def __init__(self, retry_policy: Optional[RetryPolicy] = None):
-        self.retry_policy = retry_policy if retry_policy is not None else RetryPolicy()
-        self.attempt = 0
+    def __init__(self, retry_policy: Optional[RetryPolicy] = None) -> None:
+        self.retry_policy: RetryPolicy = (
+            retry_policy if retry_policy is not None else RetryPolicy()
+        )
+        self.attempt: int = 0
 
-    def should_retry(self, error_code) -> bool:
+    def should_retry(self, error_code: StatusCode) -> bool:
         """Determines whether the operation should be retried based on the error code and attempt count."""
         if error_code in _NON_RETRYABLE_CODES:
             return False
@@ -102,28 +134,50 @@ class RetryHandler:
 
     def get_backoff(self) -> float:
         """Calculates the backoff time for the current attempt, then increments the attempt counter."""
+        # int.__pow__ is annotated as returning Any to avoid false positives
+        # (positive int -> int, negative int -> float) so coerce to int since we
+        # know it's a positive integer.
+        growth: int = self.retry_policy.backoff_factor**self.attempt
         backoff_time = min(
-            self.retry_policy.base_backoff * (self.retry_policy.backoff_factor**self.attempt),
+            self.retry_policy.base_backoff * growth,
             self.retry_policy.max_backoff,
         )
         self.attempt += 1
         return backoff_time
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the attempt counter to zero."""
         self.attempt = 0
 
 
 class StreamCancelHandler:
-    def __init__(self):
-        self.response_iterator = None
+    def __init__(self) -> None:
+        self.response_iterator: Optional[_CancelableIterator[object]] = None
+        self._cancel_event = threading.Event()
+        self._lock = threading.Lock()
 
-    def set_iterator(self, iterator):
-        self.response_iterator = iterator
+    def set_iterator(self, iterator: _CancelableIterator[object]) -> None:
+        with self._lock:
+            self.response_iterator = iterator
+            # If already cancelled, cancel the iterator immediately to avoid race
+            if self._cancel_event.is_set():
+                try:
+                    iterator.cancel()
+                except Exception:
+                    pass
 
-    def cancel(self):
-        if self.response_iterator:
-            self.response_iterator.cancel()
+    def cancel(self) -> None:
+        self._cancel_event.set()
+        with self._lock:
+            if self.response_iterator:
+                self.response_iterator.cancel()
+
+    def is_cancelled(self) -> bool:
+        return self._cancel_event.is_set()
+
+    def wait_cancelled(self, timeout: float) -> bool:
+        """Waits until the handler is cancelled or timeout is reached."""
+        return self._cancel_event.wait(timeout)
 
 
 class WorkloadApiClient:
@@ -151,7 +205,10 @@ class WorkloadApiClient:
             raise ArgumentError('Invalid WorkloadApiClient configuration: {}'.format(str(e)))
 
         self._channel = self._get_spiffe_grpc_channel()
-        self._spiffe_workload_api_stub = workload_pb2_grpc.SpiffeWorkloadAPIStub(self._channel)
+        self._spiffe_workload_api_stub: _WorkloadApiStub = (
+            # grpc doesn't generate types, see https://github.com/grpc/grpc/pull/37877.
+            workload_pb2_grpc.SpiffeWorkloadAPIStub(self._channel)  # type: ignore[no-untyped-call]
+        )
 
     @handle_error(error_cls=FetchX509SvidError)
     def fetch_x509_svid(self) -> X509Svid:
@@ -241,7 +298,7 @@ class WorkloadApiClient:
 
         subject_str = str(subject) if subject is not None else ''
         response = self._spiffe_workload_api_stub.FetchJWTSVID(
-            request=workload_pb2.JWTSVIDRequest(
+            workload_pb2.JWTSVIDRequest(
                 audience=audience,
                 spiffe_id=subject_str,
             )
@@ -272,7 +329,7 @@ class WorkloadApiClient:
 
         subject_str = str(subject) if subject is not None else ''
         response = self._spiffe_workload_api_stub.FetchJWTSVID(
-            request=workload_pb2.JWTSVIDRequest(
+            workload_pb2.JWTSVIDRequest(
                 audience=audience,
                 spiffe_id=subject_str,
             )
@@ -298,15 +355,8 @@ class WorkloadApiClient:
             FetchJwtBundleError: In case there is an error in fetching the JWT-Bundle from the Workload API or
                                 in case the set of jwt_authorities cannot be parsed from the Workload API Response.
         """
-
-        responses = self._spiffe_workload_api_stub.FetchJWTBundles(
-            workload_pb2.JWTBundlesRequest(), timeout=10
-        )
-        res = next(responses)
-        jwt_bundles: Dict[TrustDomain, JwtBundle] = self._create_td_jwt_bundle_dict(res)
-        if not jwt_bundles:
-            raise FetchJwtBundleError('JWT Bundles response is empty')
-
+        response = self._call_fetch_jwt_bundles()
+        jwt_bundles: Dict[TrustDomain, JwtBundle] = self._create_td_jwt_bundle_dict(response)
         return JwtBundleSet(jwt_bundles)
 
     @handle_error(error_cls=ValidateJwtSvidError)
@@ -331,7 +381,7 @@ class WorkloadApiClient:
             raise ArgumentError('Audience cannot be empty')
 
         self._spiffe_workload_api_stub.ValidateJWTSVID(
-            request=workload_pb2.ValidateJWTSVIDRequest(
+            workload_pb2.ValidateJWTSVIDRequest(
                 audience=audience,
                 svid=token,
             )
@@ -369,7 +419,7 @@ class WorkloadApiClient:
         cancel_handler = StreamCancelHandler()
         retry_handler = RetryHandler(retry_policy) if retry_connect else None
 
-        def watch_target():
+        def watch_target() -> None:
             self._watch_x509_context_updates(
                 cancel_handler, retry_handler, on_success, on_error
             )
@@ -410,7 +460,7 @@ class WorkloadApiClient:
         cancel_handler = StreamCancelHandler()
         retry_handler = RetryHandler(retry_policy) if retry_connect else None
 
-        def watch_target():
+        def watch_target() -> None:
             self._watch_jwt_bundles_updates(
                 cancel_handler, retry_handler, on_success, on_error
             )
@@ -440,8 +490,10 @@ class WorkloadApiClient:
         retry_handler: Optional[RetryHandler],
         on_success: Callable[[X509Context], None],
         on_error: Callable[[Exception], None],
-    ):
+    ) -> None:
         while True:
+            if cancel_handler.is_cancelled():
+                break
             try:
                 response_iterator = self._spiffe_workload_api_stub.FetchX509SVID(
                     workload_pb2.X509SVIDRequest()
@@ -449,6 +501,8 @@ class WorkloadApiClient:
                 cancel_handler.set_iterator(response_iterator)
 
                 for item in response_iterator:
+                    if cancel_handler.is_cancelled():
+                        break
                     x509_context = self._process_x509_context(item)
                     on_success(x509_context)
 
@@ -461,7 +515,9 @@ class WorkloadApiClient:
                     on_error(WorkloadApiError(f"gRPC error: {str(grpc_err.code())}"))
                     break
 
-                time.sleep(retry_handler.get_backoff())
+                backoff = retry_handler.get_backoff()
+                if cancel_handler.wait_cancelled(backoff):
+                    break
 
             except Exception as err:
                 on_error(WorkloadApiError(str(err)))
@@ -473,8 +529,10 @@ class WorkloadApiClient:
         retry_handler: Optional[RetryHandler],
         on_success: Callable[[JwtBundleSet], None],
         on_error: Callable[[Exception], None],
-    ):
+    ) -> None:
         while True:
+            if cancel_handler.is_cancelled():
+                break
             try:
                 response_iterator = self._spiffe_workload_api_stub.FetchJWTBundles(
                     workload_pb2.JWTBundlesRequest()
@@ -482,6 +540,8 @@ class WorkloadApiClient:
                 cancel_handler.set_iterator(response_iterator)
 
                 for item in response_iterator:
+                    if cancel_handler.is_cancelled():
+                        break
                     jwt_bundles = self._process_jwt_bundles(item)
                     on_success(jwt_bundles)
 
@@ -494,7 +554,9 @@ class WorkloadApiClient:
                     on_error(WorkloadApiError(f"gRPC error: {str(grpc_err.code())}"))
                     break
 
-                time.sleep(retry_handler.get_backoff())
+                backoff = retry_handler.get_backoff()
+                if cancel_handler.wait_cancelled(backoff):
+                    break
 
             except Exception as err:
                 on_error(WorkloadApiError(str(err)))
@@ -520,7 +582,8 @@ class WorkloadApiClient:
         return self._create_jwt_bundle_set(jwt_bundles_response.bundles)
 
     def _get_spiffe_grpc_channel(self) -> grpc.Channel:
-        grpc_insecure_channel = grpc.insecure_channel(self._config.spiffe_endpoint_socket)
+        target = self._grpc_target(self._config.spiffe_endpoint_socket)
+        grpc_insecure_channel = grpc.insecure_channel(target)
         spiffe_client_interceptor = (
             header_manipulator_client_interceptor.header_adder_interceptor(
                 WORKLOAD_API_HEADER_KEY, WORKLOAD_API_HEADER_VALUE
@@ -549,6 +612,18 @@ class WorkloadApiClient:
             raise FetchX509BundleError('X.509 Bundles response is invalid')
         if len(item.bundles) == 0:
             raise FetchX509BundleError('X.509 Bundles response is empty')
+        return item
+
+    def _call_fetch_jwt_bundles(self) -> workload_pb2.JWTBundlesResponse:
+        response = self._spiffe_workload_api_stub.FetchJWTBundles(
+            workload_pb2.JWTBundlesRequest()
+        )
+        try:
+            item = next(response)
+        except StopIteration:
+            raise FetchJwtBundleError('JWT Bundles response is invalid')
+        if len(item.bundles) == 0:
+            raise FetchJwtBundleError('JWT Bundles response is empty')
         return item
 
     @staticmethod
@@ -583,12 +658,35 @@ class WorkloadApiClient:
     def __enter__(self) -> 'WorkloadApiClient':
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         self.close()
 
     @staticmethod
     def _check_spiffe_socket_exists(spiffe_socket: str) -> None:
-        if spiffe_socket.startswith('unix:'):
-            spiffe_socket = spiffe_socket[5:]
-        if not os.path.exists(spiffe_socket):
-            raise ArgumentError(f'SPIFFE socket file "{spiffe_socket}" does not exist.')
+        path_to_check = WorkloadApiClient._strip_unix_scheme(spiffe_socket)
+        if not path_to_check:
+            raise ArgumentError('SPIFFE endpoint socket is empty')
+        if not os.path.exists(path_to_check):
+            raise ArgumentError(f'SPIFFE socket file "{path_to_check}" does not exist.')
+
+    @staticmethod
+    def _grpc_target(value: str) -> str:
+        """Returns the gRPC target for UDS, normalizing unix:/// to unix:/."""
+        if value.startswith('unix:'):
+            path = value[5:]
+            if path.startswith('/'):
+                path = '/' + path.lstrip('/')
+            return f'unix:{path}'
+        if value.startswith('/'):
+            return f'unix:{value}'
+        raise ArgumentError(
+            f'Invalid SPIFFE endpoint socket "{value}": only unix domain sockets are supported'
+        )
+
+    @staticmethod
+    def _strip_unix_scheme(value: str) -> str:
+        """Strips unix: scheme and normalizes leading slashes for filesystem checks."""
+        path = value[5:] if value.startswith('unix:') else value
+        if path.startswith('/'):
+            path = '/' + path.lstrip('/')
+        return path

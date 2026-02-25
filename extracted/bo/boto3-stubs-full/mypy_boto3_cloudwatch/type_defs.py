@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     ActionsSuppressedByType,
+    AlarmMuteRuleStatusType,
     AlarmTypeType,
     AnomalyDetectorStateValueType,
     AnomalyDetectorTypeType,
@@ -46,6 +47,7 @@ else:
 __all__ = (
     "AlarmContributorTypeDef",
     "AlarmHistoryItemTypeDef",
+    "AlarmMuteRuleSummaryTypeDef",
     "AnomalyDetectorConfigurationOutputTypeDef",
     "AnomalyDetectorConfigurationTypeDef",
     "AnomalyDetectorConfigurationUnionTypeDef",
@@ -61,6 +63,7 @@ __all__ = (
     "DashboardEntryTypeDef",
     "DashboardValidationMessageTypeDef",
     "DatapointTypeDef",
+    "DeleteAlarmMuteRuleInputTypeDef",
     "DeleteAlarmsInputTypeDef",
     "DeleteAnomalyDetectorInputTypeDef",
     "DeleteDashboardsInputTypeDef",
@@ -96,6 +99,9 @@ __all__ = (
     "EnableInsightRulesOutputTypeDef",
     "EntityMetricDataTypeDef",
     "EntityTypeDef",
+    "GetAlarmMuteRuleInputTypeDef",
+    "GetAlarmMuteRuleInputWaitTypeDef",
+    "GetAlarmMuteRuleOutputTypeDef",
     "GetDashboardInputTypeDef",
     "GetDashboardOutputTypeDef",
     "GetInsightRuleReportInputTypeDef",
@@ -115,6 +121,9 @@ __all__ = (
     "InsightRuleMetricDatapointTypeDef",
     "InsightRuleTypeDef",
     "LabelOptionsTypeDef",
+    "ListAlarmMuteRulesInputPaginateTypeDef",
+    "ListAlarmMuteRulesInputTypeDef",
+    "ListAlarmMuteRulesOutputTypeDef",
     "ListDashboardsInputPaginateTypeDef",
     "ListDashboardsInputTypeDef",
     "ListDashboardsOutputTypeDef",
@@ -157,8 +166,12 @@ __all__ = (
     "MetricStreamStatisticsMetricTypeDef",
     "MetricTypeDef",
     "MetricUnionTypeDef",
+    "MuteTargetsOutputTypeDef",
+    "MuteTargetsTypeDef",
+    "MuteTargetsUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PartialFailureTypeDef",
+    "PutAlarmMuteRuleInputTypeDef",
     "PutAnomalyDetectorInputTypeDef",
     "PutCompositeAlarmInputTypeDef",
     "PutDashboardInputTypeDef",
@@ -175,6 +188,8 @@ __all__ = (
     "RangeOutputTypeDef",
     "RangeTypeDef",
     "ResponseMetadataTypeDef",
+    "RuleTypeDef",
+    "ScheduleTypeDef",
     "SetAlarmStateInputAlarmSetStateTypeDef",
     "SetAlarmStateInputTypeDef",
     "SingleMetricAnomalyDetectorOutputTypeDef",
@@ -207,6 +222,14 @@ class AlarmHistoryItemTypeDef(TypedDict):
     HistorySummary: NotRequired[str]
     HistoryData: NotRequired[str]
     AlarmContributorAttributes: NotRequired[dict[str, str]]
+
+
+class AlarmMuteRuleSummaryTypeDef(TypedDict):
+    AlarmMuteRuleArn: NotRequired[str]
+    ExpireDate: NotRequired[datetime]
+    Status: NotRequired[AlarmMuteRuleStatusType]
+    MuteType: NotRequired[str]
+    LastUpdatedTimestamp: NotRequired[datetime]
 
 
 class RangeOutputTypeDef(TypedDict):
@@ -281,6 +304,10 @@ class DatapointTypeDef(TypedDict):
     Maximum: NotRequired[float]
     Unit: NotRequired[StandardUnitType]
     ExtendedStatistics: NotRequired[dict[str, float]]
+
+
+class DeleteAlarmMuteRuleInputTypeDef(TypedDict):
+    AlarmMuteRuleName: str
 
 
 class DeleteAlarmsInputTypeDef(TypedDict):
@@ -385,6 +412,14 @@ class EntityTypeDef(TypedDict):
     Attributes: NotRequired[Mapping[str, str]]
 
 
+class GetAlarmMuteRuleInputTypeDef(TypedDict):
+    AlarmMuteRuleName: str
+
+
+class MuteTargetsOutputTypeDef(TypedDict):
+    AlarmNames: list[str]
+
+
 class GetDashboardInputTypeDef(TypedDict):
     DashboardName: str
 
@@ -426,6 +461,13 @@ class GetMetricWidgetImageInputTypeDef(TypedDict):
 class InsightRuleContributorDatapointTypeDef(TypedDict):
     Timestamp: datetime
     ApproximateValue: float
+
+
+class ListAlarmMuteRulesInputTypeDef(TypedDict):
+    AlarmName: NotRequired[str]
+    Statuses: NotRequired[Sequence[AlarmMuteRuleStatusType]]
+    MaxRecords: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListDashboardsInputTypeDef(TypedDict):
@@ -485,9 +527,19 @@ class MetricStreamStatisticsMetricTypeDef(TypedDict):
     MetricName: str
 
 
+class MuteTargetsTypeDef(TypedDict):
+    AlarmNames: Sequence[str]
+
+
 class PutDashboardInputTypeDef(TypedDict):
     DashboardName: str
     DashboardBody: str
+
+
+class ScheduleTypeDef(TypedDict):
+    Expression: str
+    Duration: str
+    Timezone: NotRequired[str]
 
 
 class SetAlarmStateInputAlarmSetStateTypeDef(TypedDict):
@@ -623,6 +675,12 @@ class GetMetricWidgetImageOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAlarmMuteRulesOutputTypeDef(TypedDict):
+    AlarmMuteRuleSummaries: list[AlarmMuteRuleSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListDashboardsOutputTypeDef(TypedDict):
     DashboardEntries: list[DashboardEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -734,6 +792,12 @@ class DescribeAnomalyDetectorsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListAlarmMuteRulesInputPaginateTypeDef(TypedDict):
+    AlarmName: NotRequired[str]
+    Statuses: NotRequired[Sequence[AlarmMuteRuleStatusType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListDashboardsInputPaginateTypeDef(TypedDict):
     DashboardNamePrefix: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -762,6 +826,11 @@ class DescribeAlarmsInputWaitTypeDef(TypedDict):
     ActionPrefix: NotRequired[str]
     MaxRecords: NotRequired[int]
     NextToken: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetAlarmMuteRuleInputWaitTypeDef(TypedDict):
+    AlarmMuteRuleName: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
@@ -881,6 +950,13 @@ class MetricStreamStatisticsConfigurationTypeDef(TypedDict):
     AdditionalStatistics: Sequence[str]
 
 
+MuteTargetsUnionTypeDef = Union[MuteTargetsTypeDef, MuteTargetsOutputTypeDef]
+
+
+class RuleTypeDef(TypedDict):
+    Schedule: ScheduleTypeDef
+
+
 class ListMetricsOutputTypeDef(TypedDict):
     Metrics: list[MetricOutputTypeDef]
     OwningAccounts: list[str]
@@ -968,6 +1044,30 @@ class GetMetricStreamOutputTypeDef(TypedDict):
 MetricStreamStatisticsConfigurationUnionTypeDef = Union[
     MetricStreamStatisticsConfigurationTypeDef, MetricStreamStatisticsConfigurationOutputTypeDef
 ]
+
+
+class GetAlarmMuteRuleOutputTypeDef(TypedDict):
+    Name: str
+    AlarmMuteRuleArn: str
+    Description: str
+    Rule: RuleTypeDef
+    MuteTargets: MuteTargetsOutputTypeDef
+    StartDate: datetime
+    ExpireDate: datetime
+    Status: AlarmMuteRuleStatusType
+    LastUpdatedTimestamp: datetime
+    MuteType: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutAlarmMuteRuleInputTypeDef(TypedDict):
+    Name: str
+    Rule: RuleTypeDef
+    Description: NotRequired[str]
+    MuteTargets: NotRequired[MuteTargetsUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    StartDate: NotRequired[TimestampTypeDef]
+    ExpireDate: NotRequired[TimestampTypeDef]
 
 
 class MetricDataQueryOutputTypeDef(TypedDict):

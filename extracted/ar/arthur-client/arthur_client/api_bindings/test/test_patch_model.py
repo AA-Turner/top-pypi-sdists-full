@@ -52,7 +52,8 @@ class TestPatchModel(unittest.TestCase):
                 sub_agents = [
                     arthur_client.api_bindings.models.sub_agent.SubAgent(
                         name = '', )
-                    ]
+                    ],
+                agent_id = ''
             )
         else:
             return PatchModel(

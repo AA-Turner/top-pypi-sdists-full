@@ -11,9 +11,9 @@ __metaclass__ = type
 DOCUMENTATION = """
 ---
 module: hv_paritygroup
-short_description: Create, delete parity group from Hitachi VSP storage systems.
+short_description: Create, delete parity group from VSP block storage systems.
 description:
-  - This module creates, delete parity group from Hitachi VSP storage systems.
+  - This module creates, delete parity group from VSP block storage systems.
   - For examples go to URL
     U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/vsp_direct/paritygroup.yml)
 version_added: '3.2.0'
@@ -28,6 +28,7 @@ attributes:
 extends_documentation_fragment:
 - hitachivantara.vspone_block.common.gateway_note
 - hitachivantara.vspone_block.common.connection_with_type
+- hitachivantara.vspone_block.common.bhe_higher_models
 options:
   state:
     description: The level of the HUR pairs task. Choices are C(present), C(absent), C(update), (assign_clpr_id).

@@ -1453,6 +1453,7 @@ def list_environments(ctx, organisation, org_id, filter, **kwargs):
 @click.option(
     "--search-direction", type=click.Choice(search_direction_values), default=None
 )
+@click.option("--search-params", type=str, multiple=True, default=None)
 @click.option("--limit", default=None, type=int)
 @click.pass_context
 def list_application_services(ctx, protocol_type_list, **kwargs):
@@ -7916,6 +7917,15 @@ def list_audit_destinations(ctx, name=None, **kwargs):
 @click.option("--username", default=None, type=str)
 @click.option("--password", default=None, type=str)
 @click.option("--bearer-token", default=None, type=str)
+@click.option("--oauth2-token-url", default=None, type=str)
+@click.option("--oauth2-client-id", default=None, type=str)
+@click.option("--oauth2-client-secret", default=None, type=str)
+@click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option(
+    "--webhook_format",
+    default=None,
+    type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
+)
 @click.pass_context
 def add_audit_destination(ctx, **kwargs):
     result = audit_destinations.add_audit_destination(ctx, **kwargs)
@@ -7942,6 +7952,15 @@ def add_audit_destination(ctx, **kwargs):
 @click.option("--username", default=None, type=str)
 @click.option("--password", default=None, type=str)
 @click.option("--token", default=None, type=str)
+@click.option("--oauth2-token-url", default=None, type=str)
+@click.option("--oauth2-client-id", default=None, type=str)
+@click.option("--oauth2-client-secret", default=None, type=str)
+@click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option(
+    "--webhook_format",
+    default=None,
+    type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
+)
 @click.pass_context
 def update_audit_destination(ctx, destination_id, **kwargs):
     result = audit_destinations.update_audit_destination(ctx, destination_id, **kwargs)

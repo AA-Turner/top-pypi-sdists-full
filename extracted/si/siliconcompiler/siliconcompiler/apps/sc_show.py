@@ -75,6 +75,11 @@ def main():
                 manifest = file
             elif not filename:
                 filename = file
+    if manifest and show.get("cmdarg", "cfg"):
+        show.logger.error("Cannot specify both a manifest file and configuration file.")
+        return 1
+    if show.get("cmdarg", "cfg"):
+        manifest = show.get("cmdarg", "cfg")
 
     # Attempt to load a manifest
     if not manifest:
@@ -93,14 +98,14 @@ def main():
 
     if not project.find_files('option', 'builddir', missing_ok=True):
         project.logger.warning("Unable to access original build directory "
-                               f"\"{project.get('option', 'builddir')}\", using \"build\" instead")
-        project.set('option', 'builddir', 'build')
+                               f"\"{project.option.get_builddir()}\", using \"build\" instead")
+        project.option.set_builddir('build')
 
     success = project.show(filename,
                            extension=show.get("cmdarg", "extension"),
                            screenshot=show.get("cmdarg", "screenshot"))
 
-    if os.path.isfile(success) and show.get("cmdarg", "screenshot"):
+    if success and os.path.isfile(success) and show.get("cmdarg", "screenshot"):
         project.logger.info(f'Screenshot file: {success}')
 
     return 0

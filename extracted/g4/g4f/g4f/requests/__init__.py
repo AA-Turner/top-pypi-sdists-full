@@ -91,15 +91,15 @@ def get_cookie_params_from_dict(cookies: Cookies, url: str = None, domain: str =
 
 
 async def get_args_from_nodriver(
-        url: str,
-        proxy: str = None,
-        timeout: int = 120,
-        wait_for: str = None,
-        callback: callable = None,
-        cookies: Cookies = None,
-        browser: Browser = None,
-        user_data_dir: str = "nodriver",
-        browser_args: list = None
+    url: str,
+    proxy: str = None,
+    timeout: int = 120,
+    wait_for: str = None,
+    callback: callable = None,
+    cookies: Cookies = None,
+    browser: Browser = None,
+    user_data_dir: str = "nodriver",
+    browser_args: list = None
 ) -> dict:
     if browser is None:
         browser, stop_browser = await get_nodriver(proxy=proxy, timeout=timeout, user_data_dir=user_data_dir, browser_args=browser_args)
@@ -156,18 +156,18 @@ def set_browser_executable_path(browser_executable_path: str):
 
 
 async def get_nodriver(
-        proxy: str = None,
-        user_data_dir="nodriver",
-        timeout: int = 300,
-        browser_executable_path: str = None,
-        **kwargs
+    proxy: str = None,
+    user_data_dir="nodriver",
+    timeout: int = 300,
+    browser_executable_path: str = None,
+    **kwargs
 ) -> tuple[Browser, callable]:
     if not has_nodriver:
         raise MissingRequirementsError(
             'Install "zendriver" and "platformdirs" package | pip install -U zendriver platformdirs')
     user_data_dir = user_config_dir(f"g4f-{user_data_dir}") if user_data_dir and has_platformdirs else None
     if browser_executable_path is None:
-        browser_executable_path = BrowserConfig.browser_executable_path
+        browser_executable_path = BrowserConfig.executable_path
     if browser_executable_path is None:
         try:
             browser_executable_path = find_executable()
@@ -216,6 +216,7 @@ async def get_nodriver(
             browser_executable_path=browser_executable_path,
             port=BrowserConfig.port,
             host=BrowserConfig.host,
+            connection_timeout=BrowserConfig.connection_timeout,
             **kwargs
         )
     except FileNotFoundError as e:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql
-Version: 0.306.0
+Version: 0.307.1
 Summary: A library for creating GraphQL APIs
 License: MIT
 License-File: LICENSE

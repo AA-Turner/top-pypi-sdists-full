@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pan-os-python
-Version: 1.12.3
+Version: 1.12.4
 Summary: Framework for interacting with Palo Alto Networks devices via API
 Home-page: https://github.com/PaloAltoNetworks/pan-os-python
 License: ISC

@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.file_resource_type_to_file_ext_map_response_200 import FileResourceTypeToFileExtMapResponse200
 from ...types import Response
 
 
@@ -21,16 +22,22 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[FileResourceTypeToFileExtMapResponse200]:
     if response.status_code == HTTPStatus.OK:
-        return None
+        response_200 = FileResourceTypeToFileExtMapResponse200.from_dict(response.json())
+
+        return response_200
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[FileResourceTypeToFileExtMapResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -43,7 +50,7 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Any]:
+) -> Response[FileResourceTypeToFileExtMapResponse200]:
     """get map from resource type to format extension
 
     Args:
@@ -54,7 +61,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        Response[FileResourceTypeToFileExtMapResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -68,11 +75,11 @@ def sync_detailed(
     return _build_response(client=client, response=response)
 
 
-async def asyncio_detailed(
+def sync(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
-) -> Response[Any]:
+) -> Optional[FileResourceTypeToFileExtMapResponse200]:
     """get map from resource type to format extension
 
     Args:
@@ -83,7 +90,31 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        FileResourceTypeToFileExtMapResponse200
+    """
+
+    return sync_detailed(
+        workspace=workspace,
+        client=client,
+    ).parsed
+
+
+async def asyncio_detailed(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+) -> Response[FileResourceTypeToFileExtMapResponse200]:
+    """get map from resource type to format extension
+
+    Args:
+        workspace (str):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[FileResourceTypeToFileExtMapResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -93,3 +124,29 @@ async def asyncio_detailed(
     response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+) -> Optional[FileResourceTypeToFileExtMapResponse200]:
+    """get map from resource type to format extension
+
+    Args:
+        workspace (str):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        FileResourceTypeToFileExtMapResponse200
+    """
+
+    return (
+        await asyncio_detailed(
+            workspace=workspace,
+            client=client,
+        )
+    ).parsed

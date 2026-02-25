@@ -115,9 +115,18 @@ status:
       returned: always
       description: The Date of last update
     values:
-      type: str
+      type: dict
       returned: always
-      description: Dict of Values used to deploy
+      description:
+        - Dict of Values used to deploy
+        - This return value has been deprecated and will be removed in a release after
+          2027-01-08. Use RV(status.release_values) instead.
+    release_values:
+      type: dict
+      returned: always
+      description:
+        - Dict of Values used to deploy.
+      version_added: 6.3.0
     hooks:
       type: list
       elements: dict
@@ -202,7 +211,8 @@ def get_release_status(module, release_name, release_state, get_all_values=False
     if release is None:  # not install
         return None
 
-    release["values"] = module.get_values(release_name, get_all_values)
+    release["release_values"] = module.get_values(release_name, get_all_values)
+    release["values"] = release["release_values"]
     release["manifest"] = module.get_manifest(release_name)
     release["notes"] = module.get_notes(release_name)
     release["hooks"] = module.get_hooks(release_name)
@@ -234,6 +244,9 @@ def main():
 
     if not IMP_YAML:
         module.fail_json(msg=missing_required_lib("yaml"), exception=IMP_YAML_ERR)
+
+    # Validate Helm version >=3.0.0,<4.0.0
+    module.validate_helm_version()
 
     release_name = module.params.get("release_name")
     release_state = module.params.get("release_state")

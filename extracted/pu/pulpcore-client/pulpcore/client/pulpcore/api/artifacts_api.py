@@ -722,7 +722,7 @@ class ArtifactsApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         sha1: Annotated[Optional[StrictStr], Field(description="Filter results where sha1 matches value")] = None,
         sha224: Annotated[Optional[StrictStr], Field(description="Filter results where sha224 matches value")] = None,
         sha256: Annotated[Optional[StrictStr], Field(description="Filter results where sha256 matches value")] = None,
@@ -767,7 +767,7 @@ class ArtifactsApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param sha1: Filter results where sha1 matches value
         :type sha1: str
@@ -857,7 +857,7 @@ class ArtifactsApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         sha1: Annotated[Optional[StrictStr], Field(description="Filter results where sha1 matches value")] = None,
         sha224: Annotated[Optional[StrictStr], Field(description="Filter results where sha224 matches value")] = None,
         sha256: Annotated[Optional[StrictStr], Field(description="Filter results where sha256 matches value")] = None,
@@ -902,7 +902,7 @@ class ArtifactsApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param sha1: Filter results where sha1 matches value
         :type sha1: str
@@ -992,7 +992,7 @@ class ArtifactsApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         sha1: Annotated[Optional[StrictStr], Field(description="Filter results where sha1 matches value")] = None,
         sha224: Annotated[Optional[StrictStr], Field(description="Filter results where sha224 matches value")] = None,
         sha256: Annotated[Optional[StrictStr], Field(description="Filter results where sha256 matches value")] = None,
@@ -1037,7 +1037,7 @@ class ArtifactsApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param sha1: Filter results where sha1 matches value
         :type sha1: str

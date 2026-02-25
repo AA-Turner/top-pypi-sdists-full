@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 from collections.abc import Callable
 from typing import Any, Literal, cast
@@ -50,6 +51,15 @@ def test_initialization() -> None:
         assert cast("SecretStr", model.anthropic_api_key).get_secret_value() == "xyz"
         assert model.default_request_timeout == 2.0
         assert model.anthropic_api_url == "https://api.anthropic.com"
+
+
+def test_user_agent_header_in_client_params() -> None:
+    """Test that _client_params includes a User-Agent header."""
+    llm = ChatAnthropic(model=MODEL_NAME, api_key="test-key")  # type: ignore[arg-type]
+    params = llm._client_params
+    assert "default_headers" in params
+    assert "User-Agent" in params["default_headers"]
+    assert params["default_headers"]["User-Agent"].startswith("langchain-anthropic/")
 
 
 @pytest.mark.parametrize("async_api", [True, False])
@@ -410,6 +420,91 @@ def test__merge_messages_mutation() -> None:
     actual = _merge_messages(messages)
     assert expected == actual
     assert messages == original_messages
+
+
+def test__merge_messages_tool_message_cache_control() -> None:
+    """Test that cache_control is hoisted from content blocks to tool_result level."""
+    # Test with cache_control in content block
+    messages = [
+        ToolMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "tool output",
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            tool_call_id="1",
+        )
+    ]
+    original_messages = [copy.deepcopy(m) for m in messages]
+    expected = [
+        HumanMessage(
+            [
+                {
+                    "type": "tool_result",
+                    "content": [{"type": "text", "text": "tool output"}],
+                    "tool_use_id": "1",
+                    "is_error": False,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        )
+    ]
+    actual = _merge_messages(messages)
+    assert expected == actual
+    # Verify no mutation
+    assert messages == original_messages
+
+    # Test with multiple content blocks, cache_control on last one
+    messages = [
+        ToolMessage(
+            content=[
+                {"type": "text", "text": "first output"},
+                {
+                    "type": "text",
+                    "text": "second output",
+                    "cache_control": {"type": "ephemeral"},
+                },
+            ],
+            tool_call_id="2",
+        )
+    ]
+    expected = [
+        HumanMessage(
+            [
+                {
+                    "type": "tool_result",
+                    "content": [
+                        {"type": "text", "text": "first output"},
+                        {"type": "text", "text": "second output"},
+                    ],
+                    "tool_use_id": "2",
+                    "is_error": False,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        )
+    ]
+    actual = _merge_messages(messages)
+    assert expected == actual
+
+    # Test without cache_control
+    messages = [ToolMessage(content="simple output", tool_call_id="3")]
+    expected = [
+        HumanMessage(
+            [
+                {
+                    "type": "tool_result",
+                    "content": "simple output",
+                    "tool_use_id": "3",
+                    "is_error": False,
+                }
+            ]
+        )
+    ]
+    actual = _merge_messages(messages)
+    assert expected == actual
 
 
 def test__format_image() -> None:
@@ -2076,6 +2171,23 @@ def test_profile() -> None:
     assert model.profile == {"tool_calling": False}
 
 
+def test_profile_1m_context_beta() -> None:
+    model = ChatAnthropic(model="claude-sonnet-4-5")
+    assert model.profile
+    assert model.profile["max_input_tokens"] == 200000
+
+    model = ChatAnthropic(model="claude-sonnet-4-5", betas=["context-1m-2025-08-07"])
+    assert model.profile
+    assert model.profile["max_input_tokens"] == 1000000
+
+    model = ChatAnthropic(
+        model="claude-sonnet-4-5",
+        betas=["token-efficient-tools-2025-02-19"],
+    )
+    assert model.profile
+    assert model.profile["max_input_tokens"] == 200000
+
+
 async def test_model_profile_not_blocking() -> None:
     with blockbuster_ctx():
         model = ChatAnthropic(model="claude-sonnet-4-5")
@@ -2281,6 +2393,26 @@ def test_extras_with_multiple_fields() -> None:
     assert tool_def.get("defer_loading") is True
     assert tool_def.get("cache_control") == {"type": "ephemeral"}
     assert "input_examples" in tool_def
+
+
+@pytest.mark.parametrize("block_type", ["reasoning", "function_call"])
+def test__format_messages_filters_non_anthropic_blocks(block_type: str) -> None:
+    """Test that reasoning/function_call blocks are filtered for non-anthropic."""
+    block = {"type": block_type, "other": "foo"}
+    human = HumanMessage("hi")  # type: ignore[misc]
+    ai = AIMessage(  # type: ignore[misc]
+        content=[block, {"type": "text", "text": "hello"}],
+        response_metadata={"model_provider": "openai"},
+    )
+    _, msgs = _format_messages([human, ai])
+    assert msgs[1]["content"] == [{"type": "text", "text": "hello"}]
+
+    ai_anthropic = AIMessage(  # type: ignore[misc]
+        content=[block, {"type": "text", "text": "hello"}],
+        response_metadata={"model_provider": "anthropic"},
+    )
+    _, msgs = _format_messages([human, ai_anthropic])
+    assert any(b["type"] == block_type for b in msgs[1]["content"])
 
 
 def test__format_messages_trailing_whitespace() -> None:

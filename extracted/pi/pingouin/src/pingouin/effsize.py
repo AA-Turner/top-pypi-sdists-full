@@ -1,8 +1,10 @@
 # Author: Raphael Vallat <raphaelvallat9@gmail.com>
 # Date: April 2018
 import warnings
+
 import numpy as np
 from scipy.stats import pearsonr
+
 from pingouin.utils import _check_eftype, remove_na
 
 # from pingouin.distribution import homoscedasticity
@@ -124,15 +126,15 @@ def compute_esci(
     >>> x = [3, 4, 6, 7, 5, 6, 7, 3, 5, 4, 2]
     >>> y = [4, 6, 6, 7, 6, 5, 5, 2, 3, 4, 1]
     >>> nx, ny = len(x), len(y)
-    >>> stat = pg.compute_effsize(x, y, eftype='r')
-    >>> ci = pg.compute_esci(stat=stat, nx=nx, ny=ny, eftype='r')
+    >>> stat = pg.compute_effsize(x, y, eftype="r")
+    >>> ci = pg.compute_esci(stat=stat, nx=nx, ny=ny, eftype="r")
     >>> print(round(stat, 4), ci)
     0.7468 [0.27 0.93]
 
     2. Confidence interval of a Cohen d
 
-    >>> stat = pg.compute_effsize(x, y, eftype='cohen')
-    >>> ci = pg.compute_esci(stat, nx=nx, ny=ny, eftype='cohen', decimals=3)
+    >>> stat = pg.compute_effsize(x, y, eftype="cohen")
+    >>> ci = pg.compute_esci(stat, nx=nx, ny=ny, eftype="cohen", decimals=3)
     >>> print(round(stat, 4), ci)
     0.1538 [-0.737  1.045]
     """
@@ -288,7 +290,7 @@ def compute_bootci(
     >>> x = rng.normal(loc=4, scale=2, size=100)
     >>> y = rng.normal(loc=3, scale=1, size=100)
     >>> stat = np.corrcoef(x, y)[0][1]
-    >>> ci = pg.compute_bootci(x, y, func='pearson', paired=True, seed=42, decimals=4)
+    >>> ci = pg.compute_bootci(x, y, func="pearson", paired=True, seed=42, decimals=4)
     >>> print(round(stat, 4), ci)
     0.0945 [-0.098   0.2738]
 
@@ -296,15 +298,21 @@ def compute_bootci(
 
     >>> from scipy.stats import bootstrap
     >>> bt_scipy = bootstrap(
-    ...       data=(x, y), statistic=lambda x, y: np.corrcoef(x, y)[0][1],
-    ...       method="basic", vectorized=False, n_resamples=2000, paired=True, random_state=42)
+    ...     data=(x, y),
+    ...     statistic=lambda x, y: np.corrcoef(x, y)[0][1],
+    ...     method="basic",
+    ...     vectorized=False,
+    ...     n_resamples=2000,
+    ...     paired=True,
+    ...     random_state=42,
+    ... )
     >>> np.round(bt_scipy.confidence_interval, 4)
     array([-0.0952,  0.2883])
 
     2. Bootstrapped 95% confidence interval of a Cohen d
 
-    >>> stat = pg.compute_effsize(x, y, eftype='cohen')
-    >>> ci = pg.compute_bootci(x, y, func='cohen', seed=42, decimals=3)
+    >>> stat = pg.compute_effsize(x, y, eftype="cohen")
+    >>> ci = pg.compute_bootci(x, y, func="cohen", seed=42, decimals=3)
     >>> print(round(stat, 4), ci)
     0.7009 [0.403 1.009]
 
@@ -312,7 +320,7 @@ def compute_bootci(
 
     >>> import numpy as np
     >>> stat = np.std(x, ddof=1)
-    >>> ci = pg.compute_bootci(x, func='std', seed=123)
+    >>> ci = pg.compute_bootci(x, func="std", seed=123)
     >>> print(round(stat, 4), ci)
     1.5534 [1.38 1.8 ]
 
@@ -321,16 +329,16 @@ def compute_bootci(
 
     >>> def std(x, axis):
     ...     return np.std(x, ddof=1, axis=axis)
-    >>> bt_scipy = bootstrap(data=(x, ), statistic=std, n_resamples=2000, random_state=123)
+    >>> bt_scipy = bootstrap(data=(x,), statistic=std, n_resamples=2000, random_state=123)
     >>> np.round(bt_scipy.confidence_interval, 2)
     array([1.39, 1.81])
 
     Changing the confidence intervals type in Pingouin
 
-    >>> pg.compute_bootci(x, func='std', seed=123, method="norm")
+    >>> pg.compute_bootci(x, func="std", seed=123, method="norm")
     array([1.37, 1.76])
 
-    >>> pg.compute_bootci(x, func='std', seed=123, method="percentile")
+    >>> pg.compute_bootci(x, func="std", seed=123, method="percentile")
     array([1.35, 1.75])
 
     4. Bootstrapped confidence interval using a custom univariate function
@@ -352,11 +360,14 @@ def compute_bootci(
     We can also get the bootstrapped distribution
 
     >>> ci, bt = pg.compute_bootci(x, y2, func=mean_diff, n_boot=10000, return_dist=True, seed=9)
-    >>> print(f"The bootstrap distribution has {bt.size} samples. The mean and standard "
-    ...       f"{bt.mean():.4f} ± {bt.std():.4f}")
+    >>> print(
+    ...     f"The bootstrap distribution has {bt.size} samples. The mean and standard "
+    ...     f"{bt.mean():.4f} ± {bt.std():.4f}"
+    ... )
     The bootstrap distribution has 10000 samples. The mean and standard 0.8807 ± 0.1704
     """
     from inspect import isfunction, isroutine
+
     from scipy.stats import norm
 
     # Check other arguments
@@ -501,8 +512,8 @@ def convert_effsize(ef, input_type, output_type, nx=None, ny=None):
         * ``'cohen'``: Unbiased Cohen d
         * ``'hedges'``: Hedges g
         * ``'pointbiserialr'``: Point-biserial correlation
-        * ``'eta-square'``: Eta-square
-        * ``'odds-ratio'``: Odds ratio
+        * ``'eta_square'``: Eta-square
+        * ``'odds_ratio'``: Odds ratio
         * ``'AUC'``: Area Under the Curve
         * ``'none'``: pass-through (return ``ef``)
 
@@ -569,27 +580,27 @@ def convert_effsize(ef, input_type, output_type, nx=None, ny=None):
     1. Convert from Cohen d to eta-square
 
     >>> import pingouin as pg
-    >>> d = .45
-    >>> eta = pg.convert_effsize(d, 'cohen', 'eta-square')
+    >>> d = 0.45
+    >>> eta = pg.convert_effsize(d, "cohen", "eta_square")
     >>> print(eta)
     0.048185603807257595
 
     2. Convert from Cohen d to Hegdes g (requires the sample sizes of each
        group)
 
-    >>> pg.convert_effsize(.45, 'cohen', 'hedges', nx=10, ny=10)
+    >>> pg.convert_effsize(0.45, "cohen", "hedges", nx=10, ny=10)
     0.4309859154929578
 
     3. Convert a point-biserial correlation to Cohen d
 
     >>> rpb = 0.40
-    >>> d = pg.convert_effsize(rpb, 'pointbiserialr', 'cohen')
+    >>> d = pg.convert_effsize(rpb, "pointbiserialr", "cohen")
     >>> print(d)
     0.8728715609439696
 
     4. Reverse operation: convert Cohen d to a point-biserial correlation
 
-    >>> pg.convert_effsize(d, 'cohen', 'pointbiserialr')
+    >>> pg.convert_effsize(d, "cohen", "pointbiserialr")
     0.4000000000000001
     """
     it = input_type.lower()
@@ -630,10 +641,10 @@ def convert_effsize(ef, input_type, output_type, nx=None, ny=None):
         else:
             a = 4
         return d / np.sqrt(d**2 + a)
-    elif ot == "eta-square":
+    elif ot == "eta_square":
         # Cohen 1988
         return (d / 2) ** 2 / (1 + (d / 2) ** 2)
-    elif ot == "odds-ratio":
+    elif ot == "odds_ratio":
         # Borenstein et al. 2009
         return np.exp(d * np.pi / np.sqrt(3))
     elif ot == "r":
@@ -670,8 +681,8 @@ def compute_effsize(x, y, paired=False, eftype="cohen"):
         * ``'hedges'``: Hedges g
         * ``'r'``: Pearson correlation coefficient
         * ``'pointbiserialr'``: Point-biserial correlation
-        * ``'eta-square'``: Eta-square
-        * ``'odds-ratio'``: Odds ratio
+        * ``'eta_square'``: Eta-square
+        * ``'odds_ratio'``: Odds ratio
         * ``'AUC'``: Area Under the Curve
         * ``'CLES'``: Common Language Effect Size
 
@@ -738,32 +749,32 @@ def compute_effsize(x, y, paired=False, eftype="cohen"):
     >>> import pingouin as pg
     >>> x = [1, 2, 3, 4]
     >>> y = [3, 4, 5, 6, 7]
-    >>> pg.compute_effsize(x, y, paired=False, eftype='cohen')
+    >>> pg.compute_effsize(x, y, paired=False, eftype="cohen")
     -1.707825127659933
 
     The sign of the Cohen d will be opposite if we reverse the order of
     ``x`` and ``y``:
 
-    >>> pg.compute_effsize(y, x, paired=False, eftype='cohen')
+    >>> pg.compute_effsize(y, x, paired=False, eftype="cohen")
     1.707825127659933
 
     2. Hedges g from two paired samples.
 
     >>> x = [1, 2, 3, 4, 5, 6, 7]
     >>> y = [1, 3, 5, 7, 9, 11, 13]
-    >>> pg.compute_effsize(x, y, paired=True, eftype='hedges')
+    >>> pg.compute_effsize(x, y, paired=True, eftype="hedges")
     -0.8222477210374874
 
     3. Common Language Effect Size.
 
-    >>> pg.compute_effsize(x, y, eftype='cles')
+    >>> pg.compute_effsize(x, y, eftype="cles")
     0.2857142857142857
 
     In other words, there are ~29% of pairs where ``x`` is higher than ``y``,
     which means that there are ~71% of pairs where ``x`` is *lower* than ``y``.
     This can be easily verified by changing the order of ``x`` and ``y``:
 
-    >>> pg.compute_effsize(y, x, eftype='cles')
+    >>> pg.compute_effsize(y, x, eftype="cles")
     0.7142857142857143
     """
     # Check arguments
@@ -775,7 +786,7 @@ def compute_effsize(x, y, paired=False, eftype="cohen"):
     y = np.asarray(y)
 
     if x.size != y.size and paired:
-        warnings.warn("x and y have unequal sizes. Switching to " "paired == False.")
+        warnings.warn("x and y have unequal sizes. Switching to paired == False.")
         paired = False
 
     # Remove rows with missing values
@@ -850,14 +861,14 @@ def compute_effsize_from_t(tval, nx=None, ny=None, N=None, eftype="cohen"):
 
     >>> from pingouin import compute_effsize_from_t
     >>> tval, nx, ny = 2.90, 35, 25
-    >>> d = compute_effsize_from_t(tval, nx=nx, ny=ny, eftype='cohen')
+    >>> d = compute_effsize_from_t(tval, nx=nx, ny=ny, eftype="cohen")
     >>> print(d)
     0.7593982580212534
 
     2. Compute effect size when only total sample size is known (nx+ny)
 
     >>> tval, N = 2.90, 60
-    >>> d = compute_effsize_from_t(tval, N=N, eftype='cohen')
+    >>> d = compute_effsize_from_t(tval, N=N, eftype="cohen")
     >>> print(d)
     0.7487767802667672
     """

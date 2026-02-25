@@ -627,7 +627,7 @@ class GroupsRolesApi:
         group_href: StrictStr,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
-        domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        domain: Optional[StrictStr] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `role` - Role * `-role` - Role (descending) * `description` - Description * `-description` - Description (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -665,7 +665,7 @@ class GroupsRolesApi:
         :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
-        :param domain: Foreign Key referenced by HREF
+        :param domain:
         :type domain: str
         :param limit: Number of results to return per page.
         :type limit: int
@@ -762,7 +762,7 @@ class GroupsRolesApi:
         group_href: StrictStr,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
-        domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        domain: Optional[StrictStr] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `role` - Role * `-role` - Role (descending) * `description` - Description * `-description` - Description (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -800,7 +800,7 @@ class GroupsRolesApi:
         :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
-        :param domain: Foreign Key referenced by HREF
+        :param domain:
         :type domain: str
         :param limit: Number of results to return per page.
         :type limit: int
@@ -897,7 +897,7 @@ class GroupsRolesApi:
         group_href: StrictStr,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content_object: Annotated[Optional[StrictStr], Field(description="content_object")] = None,
-        domain: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        domain: Optional[StrictStr] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `role` - Role * `-role` - Role (descending) * `description` - Description * `-description` - Description (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -935,7 +935,7 @@ class GroupsRolesApi:
         :type x_task_diagnostics: List[str]
         :param content_object: content_object
         :type content_object: str
-        :param domain: Foreign Key referenced by HREF
+        :param domain:
         :type domain: str
         :param limit: Number of results to return per page.
         :type limit: int

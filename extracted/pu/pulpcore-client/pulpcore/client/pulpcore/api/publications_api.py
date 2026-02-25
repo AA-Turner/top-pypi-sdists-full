@@ -65,7 +65,7 @@ class PublicationsApi:
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="Repository referenced by HREF/PRN")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -127,7 +127,7 @@ class PublicationsApi:
         :type q: str
         :param repository: Repository referenced by HREF/PRN
         :type repository: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -224,7 +224,7 @@ class PublicationsApi:
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="Repository referenced by HREF/PRN")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -286,7 +286,7 @@ class PublicationsApi:
         :type q: str
         :param repository: Repository referenced by HREF/PRN
         :type repository: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -383,7 +383,7 @@ class PublicationsApi:
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         repository: Annotated[Optional[StrictStr], Field(description="Repository referenced by HREF/PRN")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -445,7 +445,7 @@ class PublicationsApi:
         :type q: str
         :param repository: Repository referenced by HREF/PRN
         :type repository: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]

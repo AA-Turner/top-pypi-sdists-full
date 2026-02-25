@@ -55,6 +55,8 @@ notes:
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: full
 
 seealso:
 - module: community.mysql.mysql_variables

@@ -17,6 +17,9 @@ def _get_kwargs(
     resource_type: Union[Unset, None, str] = UNSET,
     resource_type_exclude: Union[Unset, None, str] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -30,6 +33,12 @@ def _get_kwargs(
     params["resource_type_exclude"] = resource_type_exclude
 
     params["path_start"] = path_start
+
+    params["path"] = path
+
+    params["description"] = description
+
+    params["value"] = value
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -80,6 +89,9 @@ def sync_detailed(
     resource_type: Union[Unset, None, str] = UNSET,
     resource_type_exclude: Union[Unset, None, str] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListResourceResponse200Item"]]:
     """list resources
 
@@ -90,6 +102,9 @@ def sync_detailed(
         resource_type (Union[Unset, None, str]):
         resource_type_exclude (Union[Unset, None, str]):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -106,6 +121,9 @@ def sync_detailed(
         resource_type=resource_type,
         resource_type_exclude=resource_type_exclude,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
     )
 
     response = client.get_httpx_client().request(
@@ -124,6 +142,9 @@ def sync(
     resource_type: Union[Unset, None, str] = UNSET,
     resource_type_exclude: Union[Unset, None, str] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListResourceResponse200Item"]]:
     """list resources
 
@@ -134,6 +155,9 @@ def sync(
         resource_type (Union[Unset, None, str]):
         resource_type_exclude (Union[Unset, None, str]):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,6 +175,9 @@ def sync(
         resource_type=resource_type,
         resource_type_exclude=resource_type_exclude,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
     ).parsed
 
 
@@ -163,6 +190,9 @@ async def asyncio_detailed(
     resource_type: Union[Unset, None, str] = UNSET,
     resource_type_exclude: Union[Unset, None, str] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListResourceResponse200Item"]]:
     """list resources
 
@@ -173,6 +203,9 @@ async def asyncio_detailed(
         resource_type (Union[Unset, None, str]):
         resource_type_exclude (Union[Unset, None, str]):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -189,6 +222,9 @@ async def asyncio_detailed(
         resource_type=resource_type,
         resource_type_exclude=resource_type_exclude,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -205,6 +241,9 @@ async def asyncio(
     resource_type: Union[Unset, None, str] = UNSET,
     resource_type_exclude: Union[Unset, None, str] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListResourceResponse200Item"]]:
     """list resources
 
@@ -215,6 +254,9 @@ async def asyncio(
         resource_type (Union[Unset, None, str]):
         resource_type_exclude (Union[Unset, None, str]):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -233,5 +275,8 @@ async def asyncio(
             resource_type=resource_type,
             resource_type_exclude=resource_type_exclude,
             path_start=path_start,
+            path=path,
+            description=description,
+            value=value,
         )
     ).parsed

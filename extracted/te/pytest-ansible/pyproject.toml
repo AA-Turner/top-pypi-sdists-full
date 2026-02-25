@@ -68,8 +68,6 @@ dependencies = [
   "cffi>=1.15.1",
   "packaging>=23.2",
   "pytest>=6",
-  "pytest-plus>=0.8.1",
-  "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8.0",
   "typing-extensions>=4.15.0"
 ]
@@ -383,7 +381,8 @@ filterwarnings = [
   "ignore:AnsibleCollectionFinder has already been configured:UserWarning",
   "ignore:Host management is deprecated and will be removed in a future release:DeprecationWarning",
   "ignore:ansible_host fixture is deprecated and will be removed in a future release.:DeprecationWarning",
-  "ignore:ansible_group fixture is deprecated and will be removed in a future release.:DeprecationWarning"
+  "ignore:ansible_group fixture is deprecated and will be removed in a future release.:DeprecationWarning",
+  "ignore:pytest-ansible no longer supports the '--connection' option:DeprecationWarning"
 ]
 junit_family = "xunit2"
 markers = ["old", "unit", "requires_ansible_v2"]

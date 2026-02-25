@@ -96,7 +96,7 @@ options:
                     60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
                     80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
             sid:
-                description: SAP system ID (SID), consisting of 3 uppercase letters.
+                description: SAP system ID (SID), consisting of 3 uppercase alphanumeric characters (A-Z, 0-9).
                 version_added: '1.0.0'
                 required: false
                 type: str
@@ -423,10 +423,9 @@ def main():
         module.params['rfc_connection'] = {}
 
     try:
-        import re
         rfc_sid = module.params.get('rfc_connection', {}).get('sid') if module.params.get('rfc_connection') else None
-        if rfc_sid and not re.fullmatch(r'^[A-Z]{3}$', rfc_sid):
-            module.fail_json(msg="Invalid value for 'sid'. Must be exactly 3 uppercase letters (A-Z).")
+        if rfc_sid and not re.fullmatch(r'^[A-Z0-9]{3}$', rfc_sid):
+            module.fail_json(msg="Invalid value for 'sid'. Must be exactly 3 uppercase alphanumeric characters (A-Z, 0-9).")
     except ImportError:
         if module:
             module.fail_json(msg="Python module 're' could not be found")

@@ -301,7 +301,7 @@ EXAMPLES = r"""
     fa_url: 10.10.10.2
     api_token: e31060a7-21fc-e277-6240-25983c6c4592
 
-- name: Delete exisitng WWNs from host foo (does not delete host object)
+- name: Delete existing WWNs from host foo (does not delete host object)
   purestorage.flasharray.purefa_host:
     name: foo
     wwns: ""
@@ -585,12 +585,12 @@ def _update_host_initiators(module, array, answer=False):
                     res = array.patch_hosts(
                         names=[module.params["name"]],
                         context_names=[module.params["context"]],
-                        host=HostPatch(remove_wwns=current_connectors.wwn),
+                        host=HostPatch(remove_wwns=current_connectors.wwns),
                     )
                 else:
                     res = array.patch_hosts(
                         names=[module.params["name"]],
-                        host=HostPatch(remove_wwns=current_connectors.wwn),
+                        host=HostPatch(remove_wwns=current_connectors.wwns),
                     )
                 if res.status_code != 200:
                     module.fail_json(
@@ -707,10 +707,8 @@ def _set_preferred_array(module, array):
     api_version = array.get_rest_version()
     if module.params["preferred_array"] != ["delete"]:
         preferred_array_list = []
-        for preferred_array in range(0, len(module.params["preferred_array"])):
-            preferred_array_list.append(
-                Reference(name=module.params["preferred_array"][preferred_array])
-            )
+        for preferred_array in module.params["preferred_array"]:
+            preferred_array_list.append(Reference(name=preferred_array))
         if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
             res = array.patch_hosts(
                 names=[module.params["name"]],
@@ -1035,10 +1033,8 @@ def _update_preferred_array(module, array, answer=False):
     if preferred_array == [] and module.params["preferred_array"] != ["delete"]:
         answer = True
         preferred_array_list = []
-        for preferred_array in range(0, len(module.params["preferred_array"])):
-            preferred_array_list.append(
-                Reference(name=module.params["preferred_array"][preferred_array])
-            )
+        for preferred_array in module.params["preferred_array"]:
+            preferred_array_list.append(Reference(name=preferred_array))
         if not module.check_mode:
             if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
                 res = array.patch_hosts(
@@ -1080,18 +1076,16 @@ def _update_preferred_array(module, array, answer=False):
                     )
         else:
             current_preferred_array_list = []
-            for array_name in range(0, len(preferred_array)):
-                current_preferred_array_list.append(preferred_array[array_name].name)
+            for array_name in preferred_array:
+                current_preferred_array_list.append(array_name.name)
             if sorted(current_preferred_array_list) != sorted(
                 module.params["preferred_array"]
             ):
                 answer = True
                 if not module.check_mode:
                     preferred_array_list = []
-                    for array_name in range(0, len(module.params["preferred_array"])):
-                        preferred_array_list.append(
-                            Reference(name=module.params["preferred_array"][array_name])
-                        )
+                    for array_name in module.params["preferred_array"]:
+                        preferred_array_list.append(Reference(name=array_name))
                     if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
                         res = array.patch_hosts(
                             names=[module.params["name"]],
@@ -1833,14 +1827,11 @@ def main():
                     ]
                 else:
                     current_arrays = [list(array.get_arrays().items)[0].name]
-                for current_array in range(0, len(all_connected_arrays)):
-                    if all_connected_arrays[current_array].type == "sync-replication":
-                        current_arrays.append(all_connected_arrays[current_array].name)
-            for array_to_connect in range(0, len(module.params["preferred_array"])):
-                if (
-                    module.params["preferred_array"][array_to_connect]
-                    not in current_arrays
-                ):
+                for current_array in all_connected_arrays:
+                    if current_array.type == "sync-replication":
+                        current_arrays.append(current_array.name)
+            for array_to_connect in module.params["preferred_array"]:
+                if array_to_connect not in current_arrays:
                     module.fail_json(
                         msg="Array {0} is not a synchronously connected array.".format(
                             module.params["preferred_array"][array_to_connect]

@@ -189,7 +189,7 @@ class DockerFileStore:
         if not server_creds:
             raise CredentialsNotFound("No matching credentials")
 
-        (username, password) = decode_auth(server_creds["auth"])
+        username, password = decode_auth(server_creds["auth"])
 
         return {"Username": username, "Secret": password}
 

@@ -3,9 +3,8 @@ from __future__ import annotations
 import bisect
 import dataclasses
 import functools
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
-import pyarrow as pa
 import pyarrow.parquet as pq
 from fsspec.implementations.http import HTTPFileSystem
 from pyarrow.fs import FSSpecHandler, PyFileSystem
@@ -55,13 +54,14 @@ class ParquetFileCollection:
             self._materialize_row_group
         )
 
-    def _materialize_row_group(self, dataset_row_group_idx: int) -> pa.Table:
+    def _materialize_row_group(self, dataset_row_group_idx: int) -> List[Any]:
         """
         Prefer to use materialize_row_group(), which has an LRU cache on top of it
         """
         parquet_file_idx = self.row_groups[dataset_row_group_idx].file_idx
         parquet_file = parquet_file_from_uri(self.parquet_files[parquet_file_idx])
-        return parquet_file.read_row_group(self.row_groups[dataset_row_group_idx].row_group_idx)
+        as_pyarrow = parquet_file.read_row_group(self.row_groups[dataset_row_group_idx].row_group_idx)
+        return as_pyarrow.to_pylist()
 
     def num_files(self):
         return len(self.parquet_files)
@@ -79,8 +79,7 @@ class ParquetFileCollection:
         if idx < 0 or idx >= len(self):
             raise ValueError(f"Cannot get dataset row with out of bounds index {idx}")
         row_group_idx, tbl_idx = self.get_row_group_and_row_index_from_row(idx)
-        tbl = self.materialize_row_group(row_group_idx)
-        return tbl.to_pylist()[tbl_idx]
+        return self.materialize_row_group(row_group_idx)[tbl_idx]
 
     def get_row_group_and_row_index_from_row(self, row: int) -> Tuple[int, int]:
         if row < 0 or row >= len(self):

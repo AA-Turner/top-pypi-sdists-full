@@ -631,7 +631,7 @@ class DistributionsOpenpgpApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Filter results where repository_version matches value")] = None,
+        repository_version: Optional[StrictStr] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -670,7 +670,7 @@ class DistributionsOpenpgpApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Filter results where repository_version matches value
+        :param repository_version:
         :type repository_version: str
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str
@@ -746,7 +746,7 @@ class DistributionsOpenpgpApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Filter results where repository_version matches value")] = None,
+        repository_version: Optional[StrictStr] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -785,7 +785,7 @@ class DistributionsOpenpgpApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Filter results where repository_version matches value
+        :param repository_version:
         :type repository_version: str
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str
@@ -861,7 +861,7 @@ class DistributionsOpenpgpApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Filter results where repository_version matches value")] = None,
+        repository_version: Optional[StrictStr] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -900,7 +900,7 @@ class DistributionsOpenpgpApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Filter results where repository_version matches value
+        :param repository_version:
         :type repository_version: str
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str

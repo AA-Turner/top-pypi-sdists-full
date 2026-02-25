@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from packaging.version import Version
 
 from scikit_build_core.builder.builder import Builder, archs_to_tags, get_archs
 from scikit_build_core.builder.macos import get_macosx_deployment_target
@@ -17,9 +18,11 @@ from scikit_build_core.builder.sysconfig import (
     get_python_library,
 )
 from scikit_build_core.builder.wheel_tag import WheelTag
-from scikit_build_core.cmake import CMaker
+from scikit_build_core.cmake import CMake, CMaker
 from scikit_build_core.settings.skbuild_model import (
     BuildSettings,
+    CMakeSettings,
+    CMakeSettingsDefine,
     ScikitBuildSettings,
     WheelSettings,
 )
@@ -264,3 +267,60 @@ def test_wheel_tag_with_abi_darwin(monkeypatch):
 
     tags = WheelTag.compute_best(["x86_64"], py_api="py2.py3")
     assert str(tags) == "py2.py3-none-macosx_10_10_x86_64"
+
+
+def test_wheel_tag_host_platform_override(monkeypatch):
+    """Test that _PYTHON_HOST_PLATFORM environment variable overrides platform detection."""
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: None if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    monkeypatch.setenv("_PYTHON_HOST_PLATFORM", "macosx-11.0-arm64")
+    tags = WheelTag.compute_best(["x86_64"], py_api="py3")
+    assert str(tags) == "py3-none-macosx_11_0_arm64"
+
+    monkeypatch.setenv("_PYTHON_HOST_PLATFORM", "emscripten-4.0.9-wasm32")
+    tags = WheelTag.compute_best(["x86_64"], py_api="py3")
+    assert str(tags) == "py3-none-emscripten_4_0_9_wasm32"
+
+
+def test_generator_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.chdir(tmp_path)
+    builder = Builder(
+        settings=ScikitBuildSettings(cmake=CMakeSettings(args=["-GAnything"])),
+        config=CMaker(
+            CMake(Version("4.0"), Path("no-cmake")), Path(), Path(), "Release"
+        ),
+    )
+    assert builder.get_generator() == "Anything"
+
+
+def test_generator_define(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.chdir(tmp_path)
+    builder = Builder(
+        settings=ScikitBuildSettings(
+            cmake=CMakeSettings(
+                define={"CMAKE_GENERATOR": CMakeSettingsDefine("Anything")}
+            )
+        ),
+        config=CMaker(
+            CMake(Version("4.0"), Path("no-cmake")), Path(), Path(), "Release"
+        ),
+    )
+    assert builder.get_generator() == "Anything"
+
+
+def test_generator_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CMAKE_GENERATOR", "Anything")
+    builder = Builder(
+        settings=ScikitBuildSettings(),
+        config=CMaker(
+            CMake(Version("4.0"), Path("no-cmake")), Path(), Path(), "Release"
+        ),
+    )
+    assert builder.get_generator() == "Anything"

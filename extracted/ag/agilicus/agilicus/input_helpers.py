@@ -54,6 +54,12 @@ def build_updated_model(klass, model, new_values, check_type=True):
     return klass._from_openapi_data(**model_dict, _check_type=check_type)
 
 
+def build_updated_model_from_dict(klass, model, new_values, check_type=True):
+    model_dict = model.to_dict()
+    update_if_not_none(model_dict, new_values)
+    return model_from_dict(klass, model_dict, check_type)
+
+
 def model_from_dict(klass, model_dict, check_type=True):
     return agilicus.agilicus_api.api_client.validate_and_convert_types(
         input_value=model_dict,

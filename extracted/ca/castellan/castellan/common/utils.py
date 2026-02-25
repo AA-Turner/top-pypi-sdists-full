@@ -30,11 +30,13 @@ LOG = logging.getLogger(__name__)
 
 credential_opts = [
     # auth_type opt
-    cfg.StrOpt('auth_type',
-               help="The type of authentication credential to create. "
-               "Possible values are 'token', 'password', 'keystone_token', "
-               "and 'keystone_password'. Required if no context is passed to "
-               "the credential factory."),
+    cfg.StrOpt(
+        'auth_type',
+        choices=(
+            'token', 'password', 'keystone_token', 'keystone_password'
+        ),
+        help="The type of authentication credential to create. "
+             "Required if no context is passed to the credential factory."),
 
     # token opt
     cfg.StrOpt('token', secret=True,
@@ -51,7 +53,7 @@ credential_opts = [
                "'keystone_password' auth_type."),
 
     # keystone credential opts
-    cfg.StrOpt('auth_url',
+    cfg.URIOpt('auth_url',
                help="Use this endpoint to connect to Keystone."),
     cfg.StrOpt('user_id',
                help="User ID for authentication. Optional for "

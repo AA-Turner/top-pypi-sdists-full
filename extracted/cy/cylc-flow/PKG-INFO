@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cylc-flow
-Version: 8.6.2
+Version: 8.6.3
 Summary: A workflow engine for cycling systems
 Home-page: https://cylc.org/
 Author: Hilary Oliver
@@ -148,7 +148,7 @@ domains.
 conda install cylc-flow
 
 # extract an example to run
-cylc get-resources examples/2-integer-cycling ~/cylc-src/integer-cycling
+cylc get-resources examples/2-integer-cycling
 
 # install and run it
 cylc vip integer-cycling  # vip = validate, install and play

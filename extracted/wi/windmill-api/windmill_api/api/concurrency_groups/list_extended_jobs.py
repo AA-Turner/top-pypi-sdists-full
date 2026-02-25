@@ -7,7 +7,6 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_extended_jobs_response_200 import ListExtendedJobsResponse200
-from ...models.list_extended_jobs_trigger_kind import ListExtendedJobsTriggerKind
 from ...types import UNSET, Response, Unset
 
 
@@ -38,7 +37,7 @@ def _get_kwargs(
     allow_wildcards: Union[Unset, None, bool] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
-    trigger_kind: Union[Unset, None, ListExtendedJobsTriggerKind] = UNSET,
+    trigger_kind: Union[Unset, None, str] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -121,11 +120,7 @@ def _get_kwargs(
 
     params["per_page"] = per_page
 
-    json_trigger_kind: Union[Unset, None, str] = UNSET
-    if not isinstance(trigger_kind, Unset):
-        json_trigger_kind = trigger_kind.value if trigger_kind else None
-
-    params["trigger_kind"] = json_trigger_kind
+    params["trigger_kind"] = trigger_kind
 
     params["is_skipped"] = is_skipped
 
@@ -202,7 +197,7 @@ def sync_detailed(
     allow_wildcards: Union[Unset, None, bool] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
-    trigger_kind: Union[Unset, None, ListExtendedJobsTriggerKind] = UNSET,
+    trigger_kind: Union[Unset, None, str] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -238,8 +233,7 @@ def sync_detailed(
         allow_wildcards (Union[Unset, None, bool]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
-        trigger_kind (Union[Unset, None, ListExtendedJobsTriggerKind]): job trigger kind
-            (schedule, http, websocket...)
+        trigger_kind (Union[Unset, None, str]):
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -325,7 +319,7 @@ def sync(
     allow_wildcards: Union[Unset, None, bool] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
-    trigger_kind: Union[Unset, None, ListExtendedJobsTriggerKind] = UNSET,
+    trigger_kind: Union[Unset, None, str] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -361,8 +355,7 @@ def sync(
         allow_wildcards (Union[Unset, None, bool]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
-        trigger_kind (Union[Unset, None, ListExtendedJobsTriggerKind]): job trigger kind
-            (schedule, http, websocket...)
+        trigger_kind (Union[Unset, None, str]):
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -443,7 +436,7 @@ async def asyncio_detailed(
     allow_wildcards: Union[Unset, None, bool] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
-    trigger_kind: Union[Unset, None, ListExtendedJobsTriggerKind] = UNSET,
+    trigger_kind: Union[Unset, None, str] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -479,8 +472,7 @@ async def asyncio_detailed(
         allow_wildcards (Union[Unset, None, bool]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
-        trigger_kind (Union[Unset, None, ListExtendedJobsTriggerKind]): job trigger kind
-            (schedule, http, websocket...)
+        trigger_kind (Union[Unset, None, str]):
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
@@ -564,7 +556,7 @@ async def asyncio(
     allow_wildcards: Union[Unset, None, bool] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
-    trigger_kind: Union[Unset, None, ListExtendedJobsTriggerKind] = UNSET,
+    trigger_kind: Union[Unset, None, str] = UNSET,
     is_skipped: Union[Unset, None, bool] = UNSET,
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
@@ -600,8 +592,7 @@ async def asyncio(
         allow_wildcards (Union[Unset, None, bool]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
-        trigger_kind (Union[Unset, None, ListExtendedJobsTriggerKind]): job trigger kind
-            (schedule, http, websocket...)
+        trigger_kind (Union[Unset, None, str]):
         is_skipped (Union[Unset, None, bool]):
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):

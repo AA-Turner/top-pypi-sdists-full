@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import asyncio
 import functools
 import importlib
 import inspect
@@ -195,19 +194,21 @@ def ensure_coroutine(coro_or_fn: Any) -> Callable[..., Awaitable[Any]]:
     :param fct: the function
     :returns: the coroutine
     """
-    if asyncio.iscoroutinefunction(coro_or_fn):
+    if inspect.iscoroutinefunction(coro_or_fn):
         return coro_or_fn
 
-    if asyncio.iscoroutinefunction(coro_or_fn.__call__):
+    if inspect.iscoroutinefunction(coro_or_fn.__call__):
         return coro_or_fn
 
     if callable(coro_or_fn):
         if inspect.isclass(coro_or_fn):
             coro_or_fn = coro_or_fn.__call__
 
+        from .greenback_bridge import run_with_portal
+
         @functools.wraps(coro_or_fn)
         async def wrap(*args: Any, **kwargs: Any) -> Callable[..., Any]:
-            return coro_or_fn(*args, **kwargs)
+            return await run_with_portal(coro_or_fn, *args, **kwargs)
 
         return wrap
 

@@ -64,7 +64,7 @@ class RepositoriesApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        remote: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        remote: Optional[StrictStr] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -135,7 +135,7 @@ class RepositoriesApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param remote: Foreign Key referenced by HREF
+        :param remote:
         :type remote: str
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int
@@ -259,7 +259,7 @@ class RepositoriesApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        remote: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        remote: Optional[StrictStr] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -330,7 +330,7 @@ class RepositoriesApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param remote: Foreign Key referenced by HREF
+        :param remote:
         :type remote: str
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int
@@ -454,7 +454,7 @@ class RepositoriesApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        remote: Annotated[Optional[StrictStr], Field(description="Foreign Key referenced by HREF")] = None,
+        remote: Optional[StrictStr] = None,
         retain_repo_versions: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions matches value")] = None,
         retain_repo_versions__gt: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than value")] = None,
         retain_repo_versions__gte: Annotated[Optional[StrictInt], Field(description="Filter results where retain_repo_versions is greater than or equal to value")] = None,
@@ -525,7 +525,7 @@ class RepositoriesApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param remote: Foreign Key referenced by HREF
+        :param remote:
         :type remote: str
         :param retain_repo_versions: Filter results where retain_repo_versions matches value
         :type retain_repo_versions: int

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SciencePlots
-Version: 2.2.0
+Version: 2.2.1
 Summary: Format Matplotlib for scientific plotting
 Author-email: John Garrett <garrettj403@gmail.com>
 Maintainer-email: Echedey Luis <echelual@gmail.com>
@@ -210,6 +210,8 @@ SciencePlots in Academic Papers
 -------------------------------
 
 The following papers use ``SciencePlots``:
+
+- C.-S. Li, S.-P. Ma, and T.-H. Lin, ["FMSA: A Universal Microservice Architecture Based on FHIR Medical Informatics Standard,"](https://ieeexplore.ieee.org/document/11326732) 2025 Second International Conference on Artificial Intelligence for Medicine, Health and Care (AIxMHC), pp. 42–49, Oct. 2025.
 
 - Keçeci, Mehmet. "Scalable Complexity: Mathematical Analysis and Potential for Physical Applications of the Keçeci Circle Fractal", 13 May 2025. https://doi.org/10.5281/zenodo.15396198. (Reference has been made to the module "SciencePlots".)
 

@@ -104,6 +104,7 @@ from agilicus_api.model.audit_destination import AuditDestination
 from agilicus_api.model.audit_destination_authentication import AuditDestinationAuthentication
 from agilicus_api.model.audit_destination_filter import AuditDestinationFilter
 from agilicus_api.model.audit_destination_spec import AuditDestinationSpec
+from agilicus_api.model.audit_destination_webhook_settings import AuditDestinationWebhookSettings
 from agilicus_api.model.audit_event import AuditEvent
 from agilicus_api.model.audit_event_response import AuditEventResponse
 from agilicus_api.model.audit_webhook_bulk_event import AuditWebhookBulkEvent
@@ -634,6 +635,7 @@ from agilicus_api.model.oidc_proxy_upstream_config import OIDCProxyUpstreamConfi
 from agilicus_api.model.oidc_proxy_upstream_ntlm import OIDCProxyUpstreamNTLM
 from agilicus_api.model.oidc_upstream_identity_provider import OIDCUpstreamIdentityProvider
 from agilicus_api.model.os_info import OSInfo
+from agilicus_api.model.oauth2_auth import Oauth2Auth
 from agilicus_api.model.object_credential import ObjectCredential
 from agilicus_api.model.object_credential_existence_info import ObjectCredentialExistenceInfo
 from agilicus_api.model.object_credential_secrets import ObjectCredentialSecrets

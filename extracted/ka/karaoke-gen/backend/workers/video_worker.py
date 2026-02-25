@@ -237,15 +237,17 @@ async def generate_video_orchestrated(job_id: str) -> bool:
         if rclone_service.setup_rclone_config():
             job_log.info("Rclone config loaded for Dropbox upload")
 
-    # Load YouTube credentials if needed
+    # Load YouTube credentials if needed (skip for private/non-published tracks)
     youtube_credentials = None
-    if getattr(job, 'enable_youtube_upload', False):
+    if getattr(job, 'enable_youtube_upload', False) and not getattr(job, 'is_private', False):
         youtube_service = get_youtube_service()
         if youtube_service.is_configured:
             youtube_credentials = youtube_service.get_credentials_dict()
             job_log.info("YouTube credentials loaded for video upload")
         else:
             job_log.warning("YouTube credentials not available - upload will be skipped")
+    elif getattr(job, 'is_private', False):
+        job_log.info("Private track - skipping YouTube upload")
 
     try:
         # Wrap entire worker in a tracing span
@@ -467,16 +469,18 @@ async def generate_video_legacy(job_id: str) -> bool:
         else:
             job_log.warning("Rclone config not available - Dropbox upload will be skipped")
     
-    # Load YouTube credentials if needed
+    # Load YouTube credentials if needed (skip for private/non-published tracks)
     youtube_credentials = None
-    if getattr(job, 'enable_youtube_upload', False):
+    if getattr(job, 'enable_youtube_upload', False) and not getattr(job, 'is_private', False):
         youtube_service = get_youtube_service()
         if youtube_service.is_configured:
             youtube_credentials = youtube_service.get_credentials_dict()
             job_log.info("YouTube credentials loaded for video upload")
         else:
             job_log.warning("YouTube credentials not available - upload will be skipped")
-    
+    elif getattr(job, 'is_private', False):
+        job_log.info("Private track - skipping YouTube upload")
+
     try:
         # Wrap entire worker in a tracing span
         with job_span("video-worker", job_id, {"artist": job.artist, "title": job.title}) as root_span:
@@ -776,10 +780,14 @@ async def _handle_native_distribution(
         brand_code = keep_brand_code
         result['brand_code'] = brand_code
         job_log.info(f"Using preserved brand code: {brand_code}")
-    
+
+    # Get effective distribution settings (applies private track overrides if is_private=True)
+    from backend.services.job_defaults_service import get_effective_distribution_for_job
+    dist = get_effective_distribution_for_job(job)
+
     # Upload to Dropbox using native SDK
-    dropbox_path = getattr(job, 'dropbox_path', None)
-    brand_prefix = getattr(job, 'brand_prefix', None)
+    dropbox_path = dist.dropbox_path
+    brand_prefix = dist.brand_prefix
     
     if dropbox_path and brand_prefix:
         try:
@@ -836,7 +844,7 @@ async def _handle_native_distribution(
     # Upload to Google Drive using native API
     # Skip if orchestrator already uploaded (gdrive_files already populated)
     # This prevents duplicate uploads when using the orchestrator path
-    gdrive_folder_id = getattr(job, 'gdrive_folder_id', None)
+    gdrive_folder_id = dist.gdrive_folder_id
     existing_gdrive_files = result.get('gdrive_files')
 
     if gdrive_folder_id and not existing_gdrive_files:
@@ -925,11 +933,12 @@ def _validate_prerequisites(job) -> bool:
         logger.error(f"Job {job.job_id}: Missing lyrics video")
         return False
     
-    # Check instrumental exists - for 'custom', check existing_instrumental_gcs_path instead of stems
+    # Check instrumental exists - for 'custom', check uploaded file or mute-region stem
     if instrumental_selection == 'custom':
         existing_instrumental_path = getattr(job, 'existing_instrumental_gcs_path', None)
-        if not existing_instrumental_path:
-            logger.error(f"Job {job.job_id}: Custom instrumental selected but no existing_instrumental_gcs_path")
+        stems = job.file_urls.get('stems', {})
+        if not existing_instrumental_path and not stems.get('custom_instrumental'):
+            logger.error(f"Job {job.job_id}: Custom instrumental selected but no existing_instrumental_gcs_path or custom_instrumental stem")
             return False
         return True  # Other stem checks not needed for custom instrumental
     
@@ -1000,6 +1009,13 @@ async def _setup_working_directory(
         log_progress(f"Downloading user-provided existing instrumental...")
         storage.download_file(existing_instrumental_path, instrumental_path)
         log_progress("Downloaded user-provided instrumental")
+    elif instrumental_selection == 'custom':
+        # Custom instrumental from mute-region editing
+        custom_url = job.file_urls['stems']['custom_instrumental']
+        instrumental_path = os.path.join(temp_dir, f"{base_name} (Instrumental Custom).flac")
+        log_progress("Downloading custom (mute-region) instrumental...")
+        storage.download_file(custom_url, instrumental_path)
+        log_progress("Downloaded custom instrumental")
     else:
         # Use AI-separated instrumental based on selection
         instrumental_key = 'instrumental_clean' if instrumental_selection == 'clean' else 'instrumental_with_backing'

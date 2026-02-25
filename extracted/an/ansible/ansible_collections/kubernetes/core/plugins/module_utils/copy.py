@@ -23,7 +23,7 @@ from abc import ABCMeta, abstractmethod
 from select import select
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 
 # from ansible_collections.kubernetes.core.plugins.module_utils.ansiblemodule import AnsibleModule
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.exceptions import (
@@ -278,11 +278,15 @@ class K8SCopyFromPod(K8SCopy):
     def run(self):
         self.files_to_copy = self.list_remote_files()
         if self.files_to_copy == []:
+            # Using warn method instead of passing warnings to exit_json as it is
+            # deprecated in ansible-core>=2.19.0
+            self._module.warn(
+                "No file found from directory '{0}' into remote Pod.".format(
+                    self.remote_path
+                )
+            )
             self.module.exit_json(
                 changed=False,
-                warning="No file found from directory '{0}' into remote Pod.".format(
-                    self.remote_path
-                ),
             )
         self.copy()
 

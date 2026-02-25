@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode-cli
-Version: 5.65.0
+Version: 5.65.1
 Summary: The official command-line interface for interacting with the Linode API.
 Author-email: "Akamai Technologies Inc." <developers@linode.com>
 License-Expression: BSD-3-Clause
@@ -54,7 +54,7 @@ Visit the [Wiki](../../wiki/Installation) for more information.
 
 ## Contributing
 
-This CLI is generated from the [OpenAPI specification for Linode's API](https://github.com/linode/linode-api-docs).  As
+This CLI is generated from the [OpenAPI specification for Linode's API](https://github.com/linode/linode-api-openapi).  As
 such, many changes are made directly to the spec.
 
 Please follow the [Contributing Guidelines](https://github.com/linode/linode-cli/blob/main/CONTRIBUTING.md) when making a contribution.

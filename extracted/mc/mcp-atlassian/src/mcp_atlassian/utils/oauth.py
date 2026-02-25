@@ -11,7 +11,6 @@ import hashlib
 import json
 import logging
 import os
-import pprint
 import time
 import urllib.parse
 from dataclasses import dataclass, field
@@ -173,16 +172,12 @@ class OAuthConfig:
 
             token_endpoint = self.token_url
             logger.info(f"Exchanging authorization code for tokens at {token_endpoint}")
-            logger.debug(f"Token exchange payload: {pprint.pformat(payload)}")
+            logger.debug("Sending token exchange request")
 
             response = requests.post(token_endpoint, data=payload, timeout=HTTP_TIMEOUT)
 
             # Log more details about the response
             logger.debug(f"Token exchange response status: {response.status_code}")
-            logger.debug(
-                f"Token exchange response headers: {pprint.pformat(response.headers)}"
-            )
-            logger.debug(f"Token exchange response body: {response.text[:500]}...")
 
             if not response.ok:
                 logger.error(
@@ -233,16 +228,8 @@ class OAuthConfig:
                 f"OAuth token exchange successful! "
                 f"Access token expires in {token_data.get('expires_in', 3600)}s."
             )
-            if self.access_token:
-                logger.info(
-                    f"Access Token (partial): {self.access_token[:10]}..."
-                    f"{self.access_token[-5:]}"
-                )
-            if self.refresh_token:
-                logger.info(
-                    f"Refresh Token (partial): {self.refresh_token[:5]}..."
-                    f"{self.refresh_token[-3:]}"
-                )
+            logger.info("Access token obtained successfully.")
+            logger.info("Refresh token obtained successfully.")
             if self.cloud_id:
                 logger.info(f"Cloud ID successfully retrieved: {self.cloud_id}")
             elif not self.is_data_center:
@@ -369,6 +356,7 @@ class OAuthConfig:
         """
         try:
             username = self._get_keyring_username()
+            base_username = f"oauth-{self.client_id}"
 
             # Store token data as JSON string in keyring
             token_data = {
@@ -379,10 +367,19 @@ class OAuthConfig:
                 "base_url": self.base_url,
             }
 
-            # Store the token data in the system keyring
-            keyring.set_password(KEYRING_SERVICE_NAME, username, json.dumps(token_data))
+            token_json = json.dumps(token_data)
 
+            # Store the token data in the system keyring using context-specific key
+            keyring.set_password(KEYRING_SERVICE_NAME, username, token_json)
             logger.debug(f"Saved OAuth tokens to keyring for {username}")
+
+            # Also save to base username for compatibility with load_tokens()
+            # which uses the simpler oauth-{client_id} pattern.
+            # Note: If the same client_id is used for both Cloud and DC (rare),
+            # the base key will be overwritten by whichever saves last.
+            if username != base_username:
+                keyring.set_password(KEYRING_SERVICE_NAME, base_username, token_json)
+                logger.debug(f"Saved OAuth tokens to keyring for {base_username}")
 
             # Also maintain backwards compatibility with file storage
             # for environments where keyring might not work

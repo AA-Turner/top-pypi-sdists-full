@@ -117,7 +117,8 @@ class TestResourceListModel(unittest.TestCase):
                             arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
                                 id = '', 
                                 name = '', )
-                            ], )
+                            ], 
+                        agent_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -209,7 +210,8 @@ class TestResourceListModel(unittest.TestCase):
                             arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
                                 id = '', 
                                 name = '', )
-                            ], )
+                            ], 
+                        agent_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

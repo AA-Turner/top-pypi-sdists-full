@@ -26,6 +26,14 @@ class IwaraExtractor(Extractor):
     def _init(self):
         self.api = IwaraAPI(self)
 
+        if fmts := self.config("format"):
+            if isinstance(fmts, str):
+                fmts = fmts.replace(" ", "").lower().split(",")
+            elif not isinstance(fmts, (list, tuple)):
+                fmts = (str(fmts),)
+            self.formats = fmts
+            self.extract_video_source = self.extract_video_source_custom
+
     def items_image(self, images, user=None):
         for image in images:
             try:
@@ -63,17 +71,18 @@ class IwaraExtractor(Extractor):
                 if "fileUrl" not in video:
                     video = self.api.video(video["id"])
                 file_url = video["fileUrl"]
-                sources = self.api.source(file_url)
-                source = next((s for s in sources
-                              if s.get("name") == "Source"), None)
-                download_url = source.get('src', {}).get('download')
+
+                source = self.extract_video_source(self.api.source(file_url))
+                download_url = source["src"].get("download")
 
                 info = self.extract_media_info(video, "file")
+                info["format"] = source.get("name")
                 info["count"] = info["num"] = 1
                 info["user"] = (self.extract_user_info(video)
                                 if user is None else user)
             except Exception as exc:
                 self.status |= 1
+                self.log.traceback(exc)
                 self.log.error("Failed to process video %s (%s: %s)",
                                video["id"], exc.__class__.__name__, exc)
                 continue
@@ -148,12 +157,33 @@ class IwaraExtractor(Extractor):
             "description": profile.get("body"),
         }
 
+    def extract_video_source(self, sources):
+        sources.sort(key=self._sort_formats, reverse=True)
+        return sources[0]
+
+    def extract_video_source_custom(self, sources):
+        fmts = {
+            name.lower(): source
+            for source in sources
+            if source.get("src") and (name := source.get("name"))
+        }
+
+        for fmt in self.formats:
+            if fmt in fmts:
+                return fmts[fmt]
+        self.log.warning("Requested format(s) not available")
+
     def _user_params(self):
         user, qs = self.groups
         params = text.parse_query(qs)
         profile = self.api.profile(user)
         params["user"] = profile["user"]["id"]
         return self.extract_user_info(profile), params
+
+    def _sort_formats(self, fmt):
+        return (0 if not fmt.get("src") else
+                99999 if (name := fmt.get("name")) == "Source" else
+                text.parse_int(name))
 
 
 class IwaraUserExtractor(Dispatch, IwaraExtractor):
@@ -273,9 +303,11 @@ class IwaraSearchExtractor(IwaraExtractor):
 
     def items(self):
         params = text.parse_query(self.groups[0])
-        type = params.get("type")
+        type = params.get("type") or "videos"
+        if type[-1] != "s":
+            type += "s"
         self.kwdict["search_tags"] = query = params.get("query")
-        return self.items_by_type(type, self.api.search(type, query))
+        return self.items_by_type(type[:-1], self.api.search(type, query))
 
 
 class IwaraTagExtractor(IwaraExtractor):
@@ -293,7 +325,7 @@ class IwaraTagExtractor(IwaraExtractor):
 
 class IwaraAPI():
     """Interface for the Iwara API"""
-    root = "https://api.iwara.tv"
+    root = "https://apiq.iwara.tv"
 
     def __init__(self, extractor):
         self.extractor = extractor
@@ -372,7 +404,7 @@ class IwaraAPI():
         if not (expires := text.extr(query, "expires=", "&")):
             return ()
         file_id = base.rpartition("/")[2]
-        sha_postfix = "5nFp9kmbNnHdAFhaqMvt"
+        sha_postfix = "mSvL05GfEmeEmsEYfGCnVpEjYgTJraJN"
         sha_key = f"{file_id}_{expires}_{sha_postfix}"
         hash = hashlib.sha1(sha_key.encode()).hexdigest()
         headers = {"X-Version": hash, **self.headers}

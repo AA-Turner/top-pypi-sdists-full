@@ -228,9 +228,15 @@ class TestGuardResult:
         assert r.to_langsmith()["score"] == 0.8
 
     def test_to_langfuse_passing(self):
-        """to_langfuse returns pass value."""
+        """to_langfuse returns pass value with Python SDK keys."""
         r = GuardResult(passed=True, trace_id="t1")
-        assert r.to_langfuse()["value"] == "pass"
+        lf = r.to_langfuse()
+        assert lf["value"] == "pass"
+        assert lf["trace_id"] == "t1"
+        assert lf["data_type"] == "CATEGORICAL"
+        # backward compat camelCase keys also present
+        assert lf["traceId"] == "t1"
+        assert lf["dataType"] == "CATEGORICAL"
 
     def test_to_datadog_passing(self):
         """to_datadog returns pass value."""
@@ -379,8 +385,9 @@ class TestPolicyGuardObservability:
         assert "score" in ls
         assert ls["score"] < 1.0
 
-        # Langfuse
+        # Langfuse (Python SDK keys + backward compat)
         lf = result.to_langfuse()
+        assert "trace_id" in lf
         assert "traceId" in lf
         assert "name" in lf
 

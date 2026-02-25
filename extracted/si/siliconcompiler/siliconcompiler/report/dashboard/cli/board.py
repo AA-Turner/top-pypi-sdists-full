@@ -26,6 +26,7 @@ from siliconcompiler import NodeStatus
 from siliconcompiler.utils.logging import SCColorLoggerFormatter
 from siliconcompiler.utils.paths import workdir
 from siliconcompiler.flowgraph import RuntimeFlowgraph
+from siliconcompiler.utils.units import format_time
 
 
 class LogBuffer:
@@ -335,8 +336,7 @@ class Layout:
         if self.log_height < 0:
             self.log_height = 0
 
-        if self.width < self.job_board_v_limit:
-            self.job_board_show_log = False
+        self.job_board_show_log = self.width >= self.job_board_v_limit
 
 
 class Board:
@@ -398,6 +398,7 @@ class Board:
     }
 
     __USE_ICONS = False
+    __USE_LINK = False
 
     __JOB_BOARD_HEADER = True
 
@@ -670,6 +671,8 @@ class Board:
         table_data_select = []
         for projectid, job in job_data.items():
             for n, node in enumerate(job.nodes):
+                if node["print"]["hide"]:
+                    continue
                 table_data_select.append(
                     (projectid, n, node["print"]["priority"], node["print"]["order"])
                 )
@@ -691,19 +694,22 @@ class Board:
 
             log_file = None
             if layout.job_board_show_log:
-                for log in node["log"]:
+                for log, full_path in node["log"]:
                     try:
-                        if os.path.getsize(log) > 0:
-                            log_file = "[bright_black]{}[/]".format(log)
+                        if os.path.getsize(full_path) > 0:
+                            if Board.__USE_LINK:
+                                log_file = f"[link=file://{full_path}][bright_black]{log}[/][/link]"
+                            else:
+                                log_file = f"[bright_black]{log}[/]"
                             break
                     except OSError:
                         # File doesn't exist or inaccessible
                         continue
 
             if node["time"]["duration"] is not None:
-                duration = f'{node["time"]["duration"]:.1f}s'
+                duration = format_time(node["time"]["duration"], milliseconds_digits=1)
             elif node["time"]["start"] is not None:
-                duration = f'{time.time() - node["time"]["start"]:.1f}s'
+                duration = format_time(time.time() - node["time"]["start"], milliseconds_digits=1)
             else:
                 duration = ""
 
@@ -749,7 +755,7 @@ class Board:
         runtimes = {}
         for name, job in job_data.items():
             if job.complete:
-                runtimes[name] = job.runtime
+                runtimes[name] = format_time(job.runtime, milliseconds_digits=1)
             else:
                 runtime = 0.0
                 for node in job.nodes:
@@ -757,9 +763,9 @@ class Board:
                         runtime += node["time"]["duration"]
                     elif node["time"]["start"] is not None:
                         runtime += ref_time - node["time"]["start"]
-                runtimes[name] = runtime
+                runtimes[name] = format_time(runtime, milliseconds_digits=1)
 
-        runtime_width = len(f"{max([0, *runtimes.values()]):.1f}")
+        runtime_width = max([*[len(r) for r in runtimes.values()], 0])
 
         job_info = []
         for name, job in job_data.items():
@@ -784,7 +790,7 @@ class Board:
             MofNCompleteColumn(),
             BarColumn(bar_width=60),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TextColumn(f" {{task.fields[runtime]:>{runtime_width}.1f}}s")
+            TextColumn(f" {{task.fields[runtime]:>{runtime_width}}}")
         )
         for _, name, total, success, runtime in job_info:
             progress.add_task(
@@ -992,14 +998,19 @@ class Board:
         try:
             node_inputs = {}
             node_outputs = {}
-            flow = project.get("option", "flow")
+            flow = project.option.get_flow()
             if not flow:
                 raise RuntimeError("dummy error")
 
+            check_flow = RuntimeFlowgraph(
+                project.get_flow(flow),
+                from_steps=project.option.get_from(),
+                to_steps=project.option.get_to(),
+                prune_nodes=project.option.get_prune())
             runtime_flow = RuntimeFlowgraph(
-                project.get("flowgraph", flow, field='schema'),
-                to_steps=project.get('option', 'to'),
-                prune_nodes=project.get('option', 'prune'))
+                project.get_flow(flow),
+                to_steps=project.option.get_to(),
+                prune_nodes=project.option.get_prune())
             record = project.get("record", field='schema')
 
             execnodes = runtime_flow.get_nodes()
@@ -1019,11 +1030,12 @@ class Board:
                     nodeorder[node] = (n, m)
 
                     node_inputs[node] = runtime_flow.get_node_inputs(*node, record=record)
-                    for in_node in project.get('flowgraph', flow, node[0], node[1], 'input'):
+                    for in_node in project.get_flow(flow).get_graph_node(node[0],
+                                                                         node[1]).get_input():
                         node_outputs.setdefault(in_node, set()).add(node)
 
             flow_entry_nodes = set(
-                project.get("flowgraph", flow, field="schema").get_entry_nodes())
+                project.get_flow(flow).get_entry_nodes())
             flow_exit_nodes = set(runtime_flow.get_exit_nodes())
 
             running_nodes = set([node for node in nodes if NodeStatus.is_running(nodestatus[node])])
@@ -1075,8 +1087,8 @@ class Board:
         except RuntimeError:
             pass
 
-        design = project.get("option", "design")
-        jobname = project.get("option", "jobname")
+        design = project.option.get_design()
+        jobname = project.option.get_jobname()
 
         job_data = JobData()
         job_data.jobname = jobname
@@ -1135,15 +1147,21 @@ class Board:
                         "duration": duration
                     },
                     "metrics": node_metrics,
-                    "log": [os.path.join(
-                        workdir(project, step=step, index=index, relpath=True),
-                        f"{step}.log"),
-                        os.path.join(
-                            workdir(project, step=step, index=index, relpath=True),
-                            f"sc_{step}_{index}.log")],
+                    "log": [(
+                        os.path.join(workdir(project, step=step, index=index, relpath=True),
+                                     f"{step}.log"),
+                        os.path.join(workdir(project, step=step, index=index),
+                                     f"{step}.log")
+                    ), (
+                        os.path.join(workdir(project, step=step, index=index, relpath=True),
+                                     f"sc_{step}_{index}.log"),
+                        os.path.join(workdir(project, step=step, index=index),
+                                     f"sc_{step}_{index}.log")
+                    )],
                     "print": {
                         "order": nodeorder[(step, index)],
-                        "priority": node_priority[(step, index)]
+                        "priority": node_priority[(step, index)],
+                        "hide": (step, index) not in check_flow.get_nodes()
                     },
                     "type": node_type
                 }

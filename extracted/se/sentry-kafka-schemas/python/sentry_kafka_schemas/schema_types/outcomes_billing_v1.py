@@ -1,4 +1,4 @@
-from typing import Union, TypedDict, Required
+from typing import Required, TypedDict, Union
 
 
 class Outcome(TypedDict, total=False):

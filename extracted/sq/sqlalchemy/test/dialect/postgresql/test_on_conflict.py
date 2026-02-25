@@ -1,3 +1,4 @@
+from sqlalchemy import bindparam
 from sqlalchemy import Column
 from sqlalchemy import exc
 from sqlalchemy import Integer
@@ -7,14 +8,17 @@ from sqlalchemy import String
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import types as sqltypes
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.testing import config
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.assertions import assert_raises
+from sqlalchemy.testing.assertions import AssertsExecutionResults
 from sqlalchemy.testing.assertions import eq_
+from sqlalchemy.testing.assertsql import CursorSQL
 
 
-class OnConflictTest(fixtures.TablesTest):
+class OnConflictTest(fixtures.TablesTest, AssertsExecutionResults):
     __only_on__ = ("postgresql >= 9.5",)
     __backend__ = True
     run_define_tables = "each"
@@ -773,4 +777,275 @@ class OnConflictTest(fixtures.TablesTest):
         eq_(
             connection.scalar(sql.select(bind_targets.c.data)),
             "new updated data processed",
+        )
+
+    def test_on_conflict_do_update_multirow_returning_ordered(
+        self, connection
+    ):
+        """Test that ON CONFLICT works with multiple rows,
+        RETURNING, and sort_by_parameter_order=True.
+
+        This is a regression test for issue #13107 where the
+        insertmanyvalues sentinel counter was not being added
+        to the VALUES clause when on_conflict_do_update was
+        present with sort_by_parameter_order=True and the
+        primary key was autoincrement (not provided in data).
+        """
+        users_xtra = self.tables.users_xtra
+
+        stmt = insert(users_xtra)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["login_email"],
+            set_={
+                "name": stmt.excluded.name,
+            },
+        )
+
+        result = connection.execute(
+            stmt.returning(
+                users_xtra.c.id,
+                users_xtra.c.name,
+                sort_by_parameter_order=True,
+            ),
+            [
+                {
+                    "name": "name1",
+                    "login_email": "user1@example.com",
+                    "lets_index_this": "a",
+                },
+                {
+                    "name": "name2",
+                    "login_email": "user2@example.com",
+                    "lets_index_this": "b",
+                },
+                {
+                    "name": "name3",
+                    "login_email": "user3@example.com",
+                    "lets_index_this": "c",
+                },
+            ],
+        )
+
+        # Verify rows are returned in parameter order (names match)
+        rows = result.all()
+        eq_([row[1] for row in rows], ["name1", "name2", "name3"])
+        # Store IDs for later verification
+        id1, id2, id3 = [row[0] for row in rows]
+
+        # Verify data was inserted
+        all_rows = connection.execute(
+            sql.select(users_xtra.c.id, users_xtra.c.name).order_by(
+                users_xtra.c.id
+            )
+        ).all()
+        eq_(all_rows, [(id1, "name1"), (id2, "name2"), (id3, "name3")])
+
+        # Now update one and insert a new one
+
+        with self.sql_execution_asserter() as asserter:
+            result = connection.execute(
+                stmt.returning(
+                    users_xtra.c.id,
+                    users_xtra.c.name,
+                    sort_by_parameter_order=True,
+                ),
+                [
+                    {
+                        "name": "name2_updated",
+                        "login_email": "user2@example.com",
+                        "lets_index_this": "b",
+                    },
+                    {
+                        "name": "name4",
+                        "login_email": "user4@example.com",
+                        "lets_index_this": "d",
+                    },
+                ],
+            )
+
+        if testing.against("+psycopg"):
+            asserter.assert_(
+                CursorSQL(
+                    "INSERT INTO users_xtra (name, login_email,"
+                    " lets_index_this) SELECT p0::VARCHAR, p1::VARCHAR,"
+                    " p2::VARCHAR FROM (VALUES (%(name__0)s::VARCHAR,"
+                    " %(login_email__0)s::VARCHAR,"
+                    " %(lets_index_this__0)s::VARCHAR, 0),"
+                    " (%(name__1)s::VARCHAR, %(login_email__1)s::VARCHAR,"
+                    " %(lets_index_this__1)s::VARCHAR, 1)) AS imp_sen(p0, p1,"
+                    " p2, sen_counter) ORDER BY sen_counter ON CONFLICT"
+                    " (login_email) DO UPDATE SET name = excluded.name"
+                    " RETURNING users_xtra.id, users_xtra.name, users_xtra.id"
+                    " AS id__1",
+                    {
+                        "name__0": "name2_updated",
+                        "login_email__0": "user2@example.com",
+                        "lets_index_this__0": "b",
+                        "name__1": "name4",
+                        "login_email__1": "user4@example.com",
+                        "lets_index_this__1": "d",
+                    },
+                )
+            )
+        # Verify rows are returned in parameter order
+        rows = result.all()
+        eq_([row[1] for row in rows], ["name2_updated", "name4"])
+        # First should be update (same ID), second is insert (new ID)
+        eq_(rows[0][0], id2)
+        id4 = rows[1][0]
+
+        # Verify final state
+        eq_(
+            connection.execute(
+                sql.select(users_xtra.c.id, users_xtra.c.name).order_by(
+                    users_xtra.c.id
+                )
+            ).all(),
+            [
+                (id1, "name1"),
+                (id2, "name2_updated"),
+                (id3, "name3"),
+                (id4, "name4"),
+            ],
+        )
+
+    @testing.variation("use_returning", [True, False])
+    @testing.variation("bindtype", ["samename", "differentname", "fixed"])
+    def test_on_conflict_do_update_bindparam(
+        self, connection, metadata, use_returning, bindtype
+    ):
+        """Test issue #13130 - ON CONFLICT DO UPDATE with various bindparam
+        patterns.
+
+        Tests insertmanyvalues batching behavior with ON CONFLICT DO UPDATE:
+
+        - samename: bindparam with same name in VALUES and SET
+        - differentname: bindparam with different names in VALUES vs SET
+        - fixed: bindparam with fixed internal value in SET - should batch
+          normally
+
+        Expected insertmanyvalues behavior:
+
+        - samename/differentname + use_returning: row-at-a-time (batch_size=1)
+        - samename/differentname + !use_returning: insertmanyvalues disabled
+        - fixed + use_returning: normal batching
+        - fixed + !use_returning: insertmanyvalues disabled
+        """
+        t = Table(
+            "test_upsert_params",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("name", String(50)),
+            Column("data", String(50)),
+            UniqueConstraint("name", name="uq_test_upsert_params"),
+        )
+        t.create(connection)
+
+        # Build the statement based on bindtype
+        stmt = insert(t).values({"name": bindparam("name")})
+
+        if bindtype.samename:
+            stmt = stmt.on_conflict_do_update(
+                set_={"name": bindparam("name")},
+                constraint="uq_test_upsert_params",
+            )
+            params_insert = [{"name": "Foo"}, {"name": "Bar"}]
+            params_update = [{"name": "Foo"}, {"name": "Bar"}]
+            expected_initial = [("Bar", None), ("Foo", None)]
+            expected_updated = [("Bar", None), ("Foo", None)]
+        elif bindtype.differentname:
+            stmt = insert(t).values({"name": bindparam("name1")})
+            stmt = stmt.on_conflict_do_update(
+                set_={"name": bindparam("name2")},
+                constraint="uq_test_upsert_params",
+            )
+            params_insert = [
+                {"name1": "Foo", "name2": "Foo"},
+                {"name1": "Bar", "name2": "Bar"},
+            ]
+            params_update = [
+                {"name1": "Foo", "name2": "Foo_updated"},
+                {"name1": "Bar", "name2": "Bar_updated"},
+            ]
+            expected_initial = [("Bar", None), ("Foo", None)]
+            expected_updated = [("Bar_updated", None), ("Foo_updated", None)]
+        else:  # bindtype.fixed
+            stmt = stmt.on_conflict_do_update(
+                set_={"data": "newdata"},
+                constraint="uq_test_upsert_params",
+            )
+            params_insert = [{"name": "Foo"}, {"name": "Bar"}]
+            params_update = [{"name": "Foo"}, {"name": "Bar"}]
+            expected_initial = [("Bar", None), ("Foo", None)]
+            expected_updated = [("Bar", "newdata"), ("Foo", "newdata")]
+
+        if use_returning:
+            stmt = stmt.returning(t.c.id, t.c.name, t.c.data)
+
+        # Initial insert
+        result = connection.execute(stmt, params_insert)
+
+        # Verify _insertmanyvalues state
+        compiled = result.context.compiled
+        if use_returning:
+            # With RETURNING, insertmanyvalues should be enabled
+            assert compiled._insertmanyvalues is not None
+            if bindtype.samename or bindtype.differentname:
+                # Parametrized bindparams - flag should be True
+                eq_(
+                    compiled._insertmanyvalues.has_upsert_bound_parameters,
+                    True,
+                )
+            else:  # bindtype.fixed
+                # Fixed value bindparam - flag should be False
+                eq_(
+                    compiled._insertmanyvalues.has_upsert_bound_parameters,
+                    False,
+                )
+        else:
+            # Without RETURNING, insertmanyvalues is disabled for ON CONFLICT
+            eq_(compiled._insertmanyvalues, None)
+
+        if use_returning:
+            rows = result.all()
+            eq_(len(rows), 2)
+            eq_(sorted([(r[1], r[2]) for r in rows]), expected_initial)
+
+        eq_(
+            connection.execute(
+                sql.select(t.c.name, t.c.data).order_by(t.c.name)
+            ).fetchall(),
+            expected_initial,
+        )
+
+        # Test the conflict scenario - update existing rows
+        result = connection.execute(stmt, params_update)
+
+        # Verify _insertmanyvalues state for update scenario
+        compiled = result.context.compiled
+        if use_returning:
+            assert compiled._insertmanyvalues is not None
+            if bindtype.samename or bindtype.differentname:
+                eq_(
+                    compiled._insertmanyvalues.has_upsert_bound_parameters,
+                    True,
+                )
+            else:  # bindtype.fixed
+                eq_(
+                    compiled._insertmanyvalues.has_upsert_bound_parameters,
+                    False,
+                )
+        else:
+            eq_(compiled._insertmanyvalues, None)
+
+        if use_returning:
+            rows = result.all()
+            eq_(len(rows), 2)
+            eq_(sorted([(r[1], r[2]) for r in rows]), expected_updated)
+
+        eq_(
+            connection.execute(
+                sql.select(t.c.name, t.c.data).order_by(t.c.name)
+            ).fetchall(),
+            expected_updated,
         )

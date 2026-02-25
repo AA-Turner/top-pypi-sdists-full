@@ -57,8 +57,7 @@ def set_byte(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
             bytearray(b"\\xFF")
     """
     _int = int(_int)
-    _bytes = struct.pack("B", _int)
-    bytearray_[byte_index : byte_index + 1] = _bytes
+    bytearray_[byte_index : byte_index + 1] = struct.pack("B", _int)
     return bytearray_
 
 
@@ -77,8 +76,7 @@ def set_word(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
         buffer with the written value
     """
     _int = int(_int)
-    _bytes = struct.unpack("2B", struct.pack(">H", _int))
-    bytearray_[byte_index : byte_index + 2] = _bytes
+    bytearray_[byte_index : byte_index + 2] = struct.pack(">H", _int)
     return bytearray_
 
 
@@ -103,8 +101,7 @@ def set_int(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     """
     # make sure were dealing with an int
     _int = int(_int)
-    _bytes = struct.unpack("2B", struct.pack(">h", _int))
-    bytearray_[byte_index : byte_index + 2] = _bytes
+    bytearray_[byte_index : byte_index + 2] = struct.pack(">h", _int)
     return bytearray_
 
 
@@ -130,8 +127,7 @@ def set_uint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
     """
     # make sure were dealing with an int
     _int = int(_int)
-    _bytes = struct.unpack("2B", struct.pack(">H", _int))
-    bytearray_[byte_index : byte_index + 2] = _bytes
+    bytearray_[byte_index : byte_index + 2] = struct.pack(">H", _int)
     return bytearray_
 
 
@@ -155,10 +151,7 @@ def set_real(bytearray_: bytearray, byte_index: int, real: Union[bool, str, floa
         >>> set_real(data, 0, 123.321)
             bytearray(b'B\\xf6\\xa4Z')
     """
-    real_packed = struct.pack(">f", float(real))
-    _bytes = struct.unpack("4B", real_packed)
-    for i, b in enumerate(_bytes):
-        bytearray_[byte_index + i] = b
+    bytearray_[byte_index : byte_index + 4] = struct.pack(">f", float(real))
     return bytearray_
 
 
@@ -212,7 +205,7 @@ def set_string(bytearray_: bytearray, byte_index: int, value: str, max_size: int
     Raises:
         :obj:`TypeError`: if the `value` is not a :obj:`str`.
         :obj:`ValueError`: if the length of the `value` is larger than the `max_size`
-        or 'max_size' is greater than 254 or 'value' contains non-ascii characters.
+        or 'max_size' is greater than 254 or 'value' contains ascii characters > 255.
 
     Examples:
         >>> from snap7.util import set_string
@@ -226,11 +219,13 @@ def set_string(bytearray_: bytearray, byte_index: int, value: str, max_size: int
 
     if max_size > 254:
         raise ValueError(f"max_size: {max_size} > max. allowed 254 chars")
-    if not value.isascii():
+
+    if any(ord(char) < 0 or ord(char) > 255 for char in value):
         raise ValueError(
-            "Value contains non-ascii values, which is not compatible with PLC Type STRING."
-            "Check encoding of value or try set_wstring() (utf-16 encoding needed)."
+            "Value contains ascii values > 255, which is not compatible with PLC Type STRING. "
+            "Check encoding of value or try set_wstring()."
         )
+
     size = len(value)
     # FAIL HARD WHEN trying to write too much data into PLC
     if size > max_size:
@@ -272,9 +267,7 @@ def set_dword(bytearray_: bytearray, byte_index: int, dword: int) -> None:
             bytearray(b'\\xff\\xff\\xff\\xff')
     """
     dword = int(dword)
-    _bytes = struct.unpack("4B", struct.pack(">I", dword))
-    for i, b in enumerate(_bytes):
-        bytearray_[byte_index + i] = b
+    bytearray_[byte_index : byte_index + 4] = struct.pack(">I", dword)
 
 
 def set_dint(bytearray_: bytearray, byte_index: int, dint: int) -> None:
@@ -297,9 +290,7 @@ def set_dint(bytearray_: bytearray, byte_index: int, dint: int) -> None:
             bytearray(b'\\x7f\\xff\\xff\\xff')
     """
     dint = int(dint)
-    _bytes = struct.unpack("4B", struct.pack(">i", dint))
-    for i, b in enumerate(_bytes):
-        bytearray_[byte_index + i] = b
+    bytearray_[byte_index : byte_index + 4] = struct.pack(">i", dint)
 
 
 def set_udint(bytearray_: bytearray, byte_index: int, udint: int) -> None:
@@ -322,9 +313,7 @@ def set_udint(bytearray_: bytearray, byte_index: int, udint: int) -> None:
             bytearray(b'\\xff\\xff\\xff\\xff')
     """
     udint = int(udint)
-    _bytes = struct.unpack("4B", struct.pack(">I", udint))
-    for i, b in enumerate(_bytes):
-        bytearray_[byte_index + i] = b
+    bytearray_[byte_index : byte_index + 4] = struct.pack(">I", udint)
 
 
 def set_time(bytearray_: bytearray, byte_index: int, time_string: str) -> bytearray:
@@ -396,8 +385,7 @@ def set_usint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
             bytearray(b'\\xff')
     """
     _int = int(_int)
-    _bytes = struct.unpack("B", struct.pack(">B", _int))
-    bytearray_[byte_index] = _bytes[0]
+    bytearray_[byte_index] = struct.pack(">B", _int)[0]
     return bytearray_
 
 
@@ -423,8 +411,7 @@ def set_sint(bytearray_: bytearray, byte_index: int, _int: int) -> bytearray:
             bytearray(b'\\x7f')
     """
     _int = int(_int)
-    _bytes = struct.unpack("B", struct.pack(">b", _int))
-    bytearray_[byte_index] = _bytes[0]
+    bytearray_[byte_index] = struct.pack(">b", _int)[0]
     return bytearray_
 
 
@@ -488,31 +475,40 @@ def set_lword(bytearray_: bytearray, byte_index: int, lword: bytearray) -> bytea
     raise NotImplementedError
 
 
-def set_char(bytearray_: bytearray, byte_index: int, chr_: str) -> Union[ValueError, bytearray]:
+def set_char(bytearray_: bytearray, byte_index: int, chr_: str) -> bytearray:
     """Set char value in a bytearray.
 
     Notes:
         Datatype `char` in the PLC is represented in 1 byte. It has to be in ASCII-format
 
     Args:
-        bytearray_: buffer to read from.
-        byte_index: byte index to start reading from.
-        chr_: Char to be set
+        bytearray_: buffer to write to.
+        byte_index: byte index from where to start writing.
+        chr_: `char` to write.
 
     Returns:
-        Value read.
+        Buffer with the written value.
 
     Examples:
-        Read 1 Byte raw from DB1.10, where a char value is stored. Return Python compatible value.
-        >>> data = set_char(data, 0, 'C')
-        >>> from snap7 import Client
-        >>> Client().db_write(db_number=1, start=10, data=data)
-            'bytearray('0x43')
+        write `char` (here as example 'C') to DB1.10 of a PLC
+        >>> data = bytearray(1)
+        >>> set_char(data, 0, 'C')
+        >>> data
+        bytearray('0x43')
     """
-    if chr_.isascii():
+    if not isinstance(chr_, str):
+        raise TypeError(f"Value value:{chr_} is not from Type string")
+
+    if len(chr_) > 1:
+        raise ValueError(f"size chr_ : {chr_} > 1")
+    elif len(chr_) < 1:
+        raise ValueError(f"size chr_ : {chr_} < 1")
+
+    if 0 <= ord(chr_) <= 255:
         bytearray_[byte_index] = ord(chr_)
         return bytearray_
-    raise ValueError(f"chr_ : {chr_} contains a None-Ascii value, but ASCII-only is allowed.")
+    else:
+        raise ValueError(f"chr_ : {chr_} contains ascii value > 255, which is not compatible with PLC Type CHAR.")
 
 
 def set_date(bytearray_: bytearray, byte_index: int, date_: date) -> bytearray:
@@ -535,6 +531,5 @@ def set_date(bytearray_: bytearray, byte_index: int, date_: date) -> bytearray:
     elif date_ > date(2168, 12, 31):
         raise ValueError("date is higher than specification allows.")
     _days = (date_ - date(1990, 1, 1)).days
-    _bytes = struct.unpack("2B", struct.pack(">h", _days))
-    bytearray_[byte_index : byte_index + 2] = _bytes
+    bytearray_[byte_index : byte_index + 2] = struct.pack(">h", _days)
     return bytearray_

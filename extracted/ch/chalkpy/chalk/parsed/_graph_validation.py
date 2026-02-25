@@ -107,6 +107,26 @@ def _validate_etl_to_online(
         )
 
 
+def _validate_materialized_agg_max_staleness(
+    feature: UpsertFeatureGQL,
+    builder: ClientLogBuilder,
+    lsp_builder: FeatureClassErrorBuilder,
+):
+    if (
+        feature.windowMaterialization is not None
+        and feature.maxStaleness is not None
+        and parse_chalk_duration(feature.maxStaleness).total_seconds() > 0
+    ):
+        builder.add_warning(
+            header=f'Materialized aggregation with max_staleness on "{feature.id.fqn}"',
+            subheader=(
+                f'The feature "{feature.id.fqn}" has both a materialized aggregation and max_staleness set. '
+                f"max_staleness will cause the cached aggregate value to be served from the online store "
+                f"instead of computing the aggregation from materialized buckets, which may result in stale data."
+            ),
+        )
+
+
 def _validate_no_feature_times_as_input(
     fqn_to_feature: Mapping[str, UpsertFeatureGQL],
     resolver: UpsertResolverGQL,
@@ -507,6 +527,7 @@ def validate_graph(request: UpsertGraphGQL) -> List[UpdateGraphError]:
         _validate_joins(feature, builder, lsp_builder)
         _validate_etl_to_online(feature, builder, lsp_builder)
         _validate_feature_names(feature, builder, lsp_builder)
+        _validate_materialized_agg_max_staleness(feature, builder, lsp_builder)
 
     # Validate the resolvers
     fqn_to_feature = {f.id.fqn: f for f in request.features or []}

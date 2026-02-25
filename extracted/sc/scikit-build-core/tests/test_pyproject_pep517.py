@@ -61,6 +61,7 @@ def test_pep517_sdist(tmp_path: Path):
     out = build_sdist(str(dist))
 
     (sdist,) = dist.iterdir()
+    sdist = sdist.resolve()  # Windows mingw64 and UCRT now requires this
     assert sdist.name == "cmake_example-0.0.1.tar.gz"
     assert sdist == dist / out
 
@@ -89,8 +90,8 @@ def test_pep517_sdist_hash(monkeypatch, package_simple_pyproject_ext, tmp_path: 
     dist = tmp_path / "dist"
     out = build_sdist(str(dist))
     sdist = dist / out
-    hash = compute_uncompressed_hash(sdist)
-    assert hash == package_simple_pyproject_ext.sdist_hash
+    sdist_hash = compute_uncompressed_hash(sdist)
+    assert sdist_hash == package_simple_pyproject_ext.sdist_hash
     mode = sdist.stat().st_mode
     assert mode == 33188
     with gzip.open(sdist, "rb") as f:
@@ -160,13 +161,16 @@ def test_pep517_sdist_time_hash_set_epoch(
 
     out = build_sdist(str(dist), {"sdist.reproducible": "true"})
     sdist = dist / out
-    hash = compute_uncompressed_hash(sdist)
-    assert hash == package_simple_pyproject_ext.sdist_dated_hash
+    sdist_hash = compute_uncompressed_hash(sdist)
+    assert sdist_hash == package_simple_pyproject_ext.sdist_dated_hash
 
 
 @pytest.mark.compile
 @pytest.mark.configure
-@pytest.mark.usefixtures("package_simple_pyproject_script_with_flags")
+@pytest.mark.parametrize(
+    "package", ["simple_pyproject_script_with_flags"], indirect=True
+)
+@pytest.mark.usefixtures("package")
 @pytest.mark.parametrize(
     ("env_var", "setting"),
     [
@@ -180,6 +184,8 @@ def test_passing_cxx_flags(monkeypatch, env_var, setting, tmp_path: Path):
     dist = tmp_path / "dist"
     build_wheel(str(dist), {"cmake.targets": ["cmake_example"]})  # Could leave empty
     (wheel,) = dist.glob("cmake_example-0.0.1-py3-none-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     with zipfile.ZipFile(wheel) as f:
         file_names = set(f.namelist())
 
@@ -196,13 +202,14 @@ def test_passing_cxx_flags(monkeypatch, env_var, setting, tmp_path: Path):
 
 @pytest.mark.compile
 @pytest.mark.configure
-@pytest.mark.usefixtures("package_simple_pyproject_ext")
+@pytest.mark.usefixtures("package_simple_pyproject_ext", "pybind11")
 def test_pep517_wheel(virtualenv, tmp_path: Path):
     dist = tmp_path / "dist"
     out = build_wheel(
         str(dist), {"cmake.targets": ["cmake_example"]}
     )  # Could leave empty
     (wheel,) = dist.glob("cmake_example-0.0.1-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     assert wheel == dist / out
 
     with zipfile.ZipFile(wheel) as zf:
@@ -248,11 +255,13 @@ def test_pep517_wheel(virtualenv, tmp_path: Path):
 
 @pytest.mark.compile
 @pytest.mark.configure
-@pytest.mark.usefixtures("package_simple_pyproject_source_dir")
+@pytest.mark.parametrize("package", ["simple_pyproject_source_dir"], indirect=True)
+@pytest.mark.usefixtures("package", "pybind11")
 def test_pep517_wheel_source_dir(virtualenv, tmp_path: Path):
     dist = tmp_path / "dist"
     out = build_wheel(str(dist), config_settings={"skbuild.wheel.build-tag": "1foo"})
     (wheel,) = dist.glob("cmake_example-0.0.1-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     assert wheel == dist / out
 
     with zipfile.ZipFile(wheel) as zf:
@@ -328,7 +337,7 @@ def test_pep517_wheel_time_hash(monkeypatch, tmp_path: Path):
 
 
 @pytest.mark.usefixtures("package_simple_pyproject_ext")
-def test_prepare_metdata_for_build_wheel():
+def test_prepare_metadata_for_build_wheel():
     metadata = build.util.project_wheel_metadata(str(Path.cwd()), isolated=False)
     answer = {
         "Metadata-Version": "2.2",
@@ -346,7 +355,7 @@ def test_prepare_metdata_for_build_wheel():
 
 
 @pytest.mark.usefixtures("package_simple_pyproject_ext")
-def test_prepare_metdata_for_build_wheel_by_hand(tmp_path):
+def test_prepare_metadata_for_build_wheel_by_hand(tmp_path):
     mddir = tmp_path / "dist"
     mddir.mkdir()
     out = prepare_metadata_for_build_wheel(str(mddir), {})
@@ -367,7 +376,8 @@ def test_prepare_metdata_for_build_wheel_by_hand(tmp_path):
     assert len(metadata) == len(answer)
 
 
-@pytest.mark.usefixtures("package_pep639_pure")
+@pytest.mark.parametrize("package", ["pep639_pure"], indirect=True)
+@pytest.mark.usefixtures("package")
 def test_pep639_license_files_metadata():
     metadata = build.util.project_wheel_metadata(str(Path.cwd()), isolated=False)
     answer = {
@@ -384,7 +394,8 @@ def test_pep639_license_files_metadata():
     assert len(metadata) == sum(len(v) for v in answer.values())
 
 
-@pytest.mark.usefixtures("package_pep639_pure")
+@pytest.mark.parametrize("package", ["pep639_pure"], indirect=True)
+@pytest.mark.usefixtures("package")
 def test_pep639_license_files_sdist(tmp_path: Path):
     expected_metadata = (
         inspect.cleandoc(
@@ -404,6 +415,7 @@ def test_pep639_license_files_sdist(tmp_path: Path):
     out = build_sdist(str(dist))
 
     (sdist,) = dist.iterdir()
+    sdist = sdist.resolve()  # Windows mingw64 and UCRT now requires this
     assert sdist.name == "pep639_pure-0.1.0.tar.gz"
     assert sdist == dist / out
 
@@ -424,11 +436,13 @@ def test_pep639_license_files_sdist(tmp_path: Path):
         assert pkg_info_contents == expected_metadata
 
 
-@pytest.mark.usefixtures("package_pep639_pure")
+@pytest.mark.parametrize("package", ["pep639_pure"], indirect=True)
+@pytest.mark.usefixtures("package")
 def test_pep639_license_files_wheel(tmp_path: Path):
     dist = tmp_path / "dist"
     out = build_wheel(str(dist), {})
     (wheel,) = dist.glob("pep639_pure-0.1.0-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     assert wheel == dist / out
 
     with zipfile.ZipFile(wheel) as zf:

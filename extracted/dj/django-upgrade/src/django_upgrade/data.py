@@ -4,9 +4,9 @@ import ast
 import pkgutil
 import re
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from tokenize_rt import Offset, Token
 
@@ -92,7 +92,7 @@ ASTFunc = Callable[
     [State, AST_T, tuple[ast.AST, ...]], Iterable[tuple[Offset, TokenFunc]]
 ]
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from typing import Protocol
 else:
     Protocol = object

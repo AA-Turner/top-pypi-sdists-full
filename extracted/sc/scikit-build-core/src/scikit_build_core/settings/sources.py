@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import sys
 import typing
 from typing import Any, Literal, Protocol, TypeVar, Union
 
@@ -57,6 +58,18 @@ from .._compat.typing import Annotated, get_args, get_origin
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator, Iterator, Mapping, Sequence
+
+# Runtime check for PEP 604 union syntax (A | B) support
+# types.UnionType only exists in Python 3.10+
+if sys.version_info >= (3, 10):
+    from types import NoneType
+    from types import UnionType as _UnionType
+else:
+    NoneType = type(None)
+
+    class _UnionType:
+        pass
+
 
 T = TypeVar("T")
 
@@ -94,15 +107,15 @@ def _dig_fields(opt: Any, /, *names: str) -> Any:
     return opt
 
 
-def _process_union(target: type[Any], /) -> Any:
+def _process_union(target: Any, /) -> Any:
     """
     Filters None out of Unions. If a Union only has one item, return that item.
     """
 
     origin = get_origin(target)
 
-    if origin is Union:
-        non_none_args = [a for a in get_args(target) if a is not type(None)]
+    if _is_union_type(origin):
+        non_none_args = [a for a in get_args(target) if a is not NoneType]
         if len(non_none_args) == 1:
             return non_none_args[0]
         return Union[tuple(non_none_args)]
@@ -133,6 +146,14 @@ def _get_target_raw_type(target: type[Any] | Any, /) -> Any:
     target = _process_union(target)
     origin = get_origin(target)
     return origin or target
+
+
+def _is_union_type(raw_target: Any) -> bool:
+    """
+    Check if raw_target is a Union type (either ``typing.Union`` or ``types.UnionType``).
+    Handles both ``typing.Union[A, B]`` and PEP 604 syntax (``A | B``).
+    """
+    return raw_target is Union or raw_target is _UnionType
 
 
 def _get_inner_type(_target: type[Any], /) -> type[Any]:
@@ -268,10 +289,10 @@ class EnvSource:
         if raw_target is bool:
             return _process_bool(item)
 
-        if raw_target is Union and str in get_args(target):
+        if _is_union_type(raw_target) and str in get_args(target):
             return item
 
-        if raw_target is Union:
+        if _is_union_type(raw_target):
             args = {_get_target_raw_type(t): t for t in get_args(target)}
             if str in args:
                 return item
@@ -407,7 +428,7 @@ class ConfSource:
         if raw_target is dict:
             assert not isinstance(item, (str, list, bool))
             return {k: cls.convert(v, _get_inner_type(target)) for k, v in item.items()}
-        if raw_target is Union:
+        if _is_union_type(raw_target):
             args = {_get_target_raw_type(t): t for t in get_args(target)}
             if str in args:
                 return item
@@ -519,7 +540,7 @@ class TOMLSource:
             return {k: cls.convert(v, _get_inner_type(target)) for k, v in item.items()}
         if raw_target is Any:
             return item
-        if raw_target is Union:
+        if _is_union_type(raw_target):
             args = {_get_target_raw_type(t): t for t in get_args(target)}
             if type(item) in args:
                 if isinstance(item, dict):
@@ -586,7 +607,7 @@ class SourceChain:
                     prep[field.name] = self.convert_target(
                         field.type, *prefixes, field.name
                     )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     name = ".".join([*self.prefixes, *prefixes, field.name])
                     e.__notes__ = [*getattr(e, "__notes__", []), f"Field: {name}"]  # type: ignore[attr-defined]
                     errors.append(e)
@@ -599,7 +620,7 @@ class SourceChain:
                     simple = source.get_item(*prefixes, field.name, is_dict=is_dict)
                     try:
                         tmp = source.convert(simple, field.type)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         name = ".".join([*self.prefixes, *prefixes, field.name])
                         e.__notes__ = [*getattr(e, "__notes__", []), f"Field {name}"]  # type: ignore[attr-defined]
                         errors.append(e)

@@ -19,3 +19,10 @@ class MemoryCache:
     def delete(self, key: str) -> None:
         if key in self._cache:
             del self._cache[key]
+
+    def put_marker(self, key: str, ttl_seconds: int) -> bool:
+        del ttl_seconds
+        if key in self._cache:
+            return False
+        self._cache[key] = ""
+        return True

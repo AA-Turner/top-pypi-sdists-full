@@ -633,7 +633,7 @@ class TasksApi:
     def list(
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
-        child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
+        child_tasks: Optional[StrictStr] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
         exclusive_resources__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -653,7 +653,7 @@ class TasksApi:
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
-        parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
+        parent_task: Optional[StrictStr] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -679,7 +679,7 @@ class TasksApi:
         state: Annotated[Optional[StrictStr], Field(description="Filter results where state matches value  * `waiting` - Waiting * `skipped` - Skipped * `running` - Running * `completed` - Completed * `failed` - Failed * `canceled` - Canceled * `canceling` - Canceling")] = None,
         state__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where state is in a comma-separated list of values")] = None,
         state__ne: Annotated[Optional[StrictStr], Field(description="Filter results where state not equal to value")] = None,
-        task_group: Annotated[Optional[StrictStr], Field(description="Filter results where task_group matches value")] = None,
+        task_group: Optional[StrictStr] = None,
         unblocked_at: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at matches value")] = None,
         unblocked_at__gt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than value")] = None,
         unblocked_at__gte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than or equal to value")] = None,
@@ -709,7 +709,7 @@ class TasksApi:
 
         :param x_task_diagnostics: List of profilers to use on tasks.
         :type x_task_diagnostics: List[str]
-        :param child_tasks: Filter results where child_tasks matches value
+        :param child_tasks:
         :type child_tasks: str
         :param created_resources:
         :type created_resources: str
@@ -749,7 +749,7 @@ class TasksApi:
         :type offset: int
         :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
-        :param parent_task: Filter results where parent_task matches value
+        :param parent_task:
         :type parent_task: str
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -801,7 +801,7 @@ class TasksApi:
         :type state__in: List[str]
         :param state__ne: Filter results where state not equal to value
         :type state__ne: str
-        :param task_group: Filter results where task_group matches value
+        :param task_group:
         :type task_group: str
         :param unblocked_at: Filter results where unblocked_at matches value
         :type unblocked_at: datetime
@@ -928,7 +928,7 @@ class TasksApi:
     def list_with_http_info(
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
-        child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
+        child_tasks: Optional[StrictStr] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
         exclusive_resources__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -948,7 +948,7 @@ class TasksApi:
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
-        parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
+        parent_task: Optional[StrictStr] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -974,7 +974,7 @@ class TasksApi:
         state: Annotated[Optional[StrictStr], Field(description="Filter results where state matches value  * `waiting` - Waiting * `skipped` - Skipped * `running` - Running * `completed` - Completed * `failed` - Failed * `canceled` - Canceled * `canceling` - Canceling")] = None,
         state__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where state is in a comma-separated list of values")] = None,
         state__ne: Annotated[Optional[StrictStr], Field(description="Filter results where state not equal to value")] = None,
-        task_group: Annotated[Optional[StrictStr], Field(description="Filter results where task_group matches value")] = None,
+        task_group: Optional[StrictStr] = None,
         unblocked_at: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at matches value")] = None,
         unblocked_at__gt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than value")] = None,
         unblocked_at__gte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than or equal to value")] = None,
@@ -1004,7 +1004,7 @@ class TasksApi:
 
         :param x_task_diagnostics: List of profilers to use on tasks.
         :type x_task_diagnostics: List[str]
-        :param child_tasks: Filter results where child_tasks matches value
+        :param child_tasks:
         :type child_tasks: str
         :param created_resources:
         :type created_resources: str
@@ -1044,7 +1044,7 @@ class TasksApi:
         :type offset: int
         :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
-        :param parent_task: Filter results where parent_task matches value
+        :param parent_task:
         :type parent_task: str
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -1096,7 +1096,7 @@ class TasksApi:
         :type state__in: List[str]
         :param state__ne: Filter results where state not equal to value
         :type state__ne: str
-        :param task_group: Filter results where task_group matches value
+        :param task_group:
         :type task_group: str
         :param unblocked_at: Filter results where unblocked_at matches value
         :type unblocked_at: datetime
@@ -1223,7 +1223,7 @@ class TasksApi:
     def list_without_preload_content(
         self,
         x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
-        child_tasks: Annotated[Optional[StrictStr], Field(description="Filter results where child_tasks matches value")] = None,
+        child_tasks: Optional[StrictStr] = None,
         created_resources: Optional[StrictStr] = None,
         exclusive_resources: Optional[StrictStr] = None,
         exclusive_resources__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
@@ -1243,7 +1243,7 @@ class TasksApi:
         name__ne: Annotated[Optional[StrictStr], Field(description="Filter results where name not equal to value")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
-        parent_task: Annotated[Optional[StrictStr], Field(description="Filter results where parent_task matches value")] = None,
+        parent_task: Optional[StrictStr] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -1269,7 +1269,7 @@ class TasksApi:
         state: Annotated[Optional[StrictStr], Field(description="Filter results where state matches value  * `waiting` - Waiting * `skipped` - Skipped * `running` - Running * `completed` - Completed * `failed` - Failed * `canceled` - Canceled * `canceling` - Canceling")] = None,
         state__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where state is in a comma-separated list of values")] = None,
         state__ne: Annotated[Optional[StrictStr], Field(description="Filter results where state not equal to value")] = None,
-        task_group: Annotated[Optional[StrictStr], Field(description="Filter results where task_group matches value")] = None,
+        task_group: Optional[StrictStr] = None,
         unblocked_at: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at matches value")] = None,
         unblocked_at__gt: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than value")] = None,
         unblocked_at__gte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is greater than or equal to value")] = None,
@@ -1299,7 +1299,7 @@ class TasksApi:
 
         :param x_task_diagnostics: List of profilers to use on tasks.
         :type x_task_diagnostics: List[str]
-        :param child_tasks: Filter results where child_tasks matches value
+        :param child_tasks:
         :type child_tasks: str
         :param created_resources:
         :type created_resources: str
@@ -1339,7 +1339,7 @@ class TasksApi:
         :type offset: int
         :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `state` - State * `-state` - State (descending) * `name` - Name * `-name` - Name (descending) * `logging_cid` - Logging cid * `-logging_cid` - Logging cid (descending) * `unblocked_at` - Unblocked at * `-unblocked_at` - Unblocked at (descending) * `started_at` - Started at * `-started_at` - Started at (descending) * `finished_at` - Finished at * `-finished_at` - Finished at (descending) * `error` - Error * `-error` - Error (descending) * `enc_args` - Enc args * `-enc_args` - Enc args (descending) * `enc_kwargs` - Enc kwargs * `-enc_kwargs` - Enc kwargs (descending) * `reserved_resources_record` - Reserved resources record * `-reserved_resources_record` - Reserved resources record (descending) * `versions` - Versions * `-versions` - Versions (descending) * `profile_options` - Profile options * `-profile_options` - Profile options (descending) * `immediate` - Immediate * `-immediate` - Immediate (descending) * `deferred` - Deferred * `-deferred` - Deferred (descending) * `result` - Result * `-result` - Result (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
-        :param parent_task: Filter results where parent_task matches value
+        :param parent_task:
         :type parent_task: str
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -1391,7 +1391,7 @@ class TasksApi:
         :type state__in: List[str]
         :param state__ne: Filter results where state not equal to value
         :type state__ne: str
-        :param task_group: Filter results where task_group matches value
+        :param task_group:
         :type task_group: str
         :param unblocked_at: Filter results where unblocked_at matches value
         :type unblocked_at: datetime

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # mypy: disable-error-code=name-defined
-__version__ = '0.25.1'
+__version__ = '0.26.0'
 
 import logging
 
@@ -8,6 +8,7 @@ from .communications import *
 from .events import *
 from .exceptions import *
 from .futures import *
+from .greenback_bridge import *
 from .loaders import *
 from .mixins import *
 from .persistence import *
@@ -34,6 +35,7 @@ __all__ = (
     + loaders.__all__
     + ports.__all__
     + process_states.__all__
+    + greenback_bridge.__all__
 )
 
 

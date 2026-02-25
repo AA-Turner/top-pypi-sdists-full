@@ -15,7 +15,7 @@ under the License.
 """
 
 from typing import List, Iterable, Union
-
+from pathlib import Path
 import os
 import pem
 from cryptography import x509
@@ -38,7 +38,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509 import Certificate
 from pyasn1.codec.der.decoder import decode
 from pyasn1.codec.der.encoder import encode
-from pyasn1_modules.rfc5280 import Certificate as Pyasn1Certificate
+from pyasn1_modules.rfc5280 import Certificate as Pyasn1Certificate  # type: ignore[import-untyped]
 from spiffe.utils.errors import (
     X509CertificateError,
     ParseCertificateError,
@@ -115,7 +115,7 @@ def parse_der_certificates(der_bytes: bytes) -> List[Certificate]:
         raise ParseCertificateError('Unable to parse DER X.509 certificate') from err
 
 
-def load_certificates_bytes_from_file(certificates_file_path: str) -> bytes:
+def load_certificates_bytes_from_file(certificates_file_path: Path | str) -> bytes:
     """Loads bytes from file path.
 
     Args:
@@ -137,7 +137,7 @@ def load_certificates_bytes_from_file(certificates_file_path: str) -> bytes:
 
 
 def write_certificates_to_file(
-    certs_file_path: str,
+    certs_file_path: Path | str,
     encoding: serialization.Encoding,
     certificates: Iterable[Certificate],
 ) -> None:
@@ -159,7 +159,7 @@ def write_certificates_to_file(
                 cert_bytes = serialize_certificate(cert, encoding)
                 certs_file.write(cert_bytes)
     except Exception as err:
-        raise StoreCertificateError(format(str(err))) from err
+        raise StoreCertificateError(str(err)) from err
 
 
 def serialize_certificate(certificate: Certificate, encoding: serialization.Encoding) -> bytes:
@@ -182,7 +182,7 @@ def serialize_certificate(certificate: Certificate, encoding: serialization.Enco
     return cert_bytes
 
 
-def load_private_key_from_file(private_key_path: str) -> bytes:
+def load_private_key_from_file(private_key_path: Path | str) -> bytes:
     """Loads bytes from file path.
 
     Args:
@@ -204,7 +204,7 @@ def load_private_key_from_file(private_key_path: str) -> bytes:
 
 
 def write_private_key_to_file(
-    private_key_path: str,
+    private_key_path: Path | str,
     encoding: serialization.Encoding,
     private_key: PRIVATE_KEY_TYPES,
 ) -> None:
@@ -264,7 +264,7 @@ def parse_pem_private_key(pem_bytes: bytes) -> PRIVATE_KEY_TYPES:
         raise ParsePrivateKeyError(str(err)) from err
 
 
-def _load_bytes_from_file(file_path: str) -> bytes:
+def _load_bytes_from_file(file_path: Path | str) -> bytes:
     with open(file_path, 'rb') as file:
         return file.read()
 

@@ -65,6 +65,9 @@ files:
   $callbacks/log_plays.py: {}
   $callbacks/loganalytics.py:
     maintainers: zhcli
+  $callbacks/loganalytics_ingestion.py:
+    ignore: zhcli
+    maintainers: pboushy vsh47 wtcline-intc
   $callbacks/logdna.py: {}
   $callbacks/logentries.py: {}
   $callbacks/logstash.py:
@@ -133,6 +136,8 @@ files:
   $doc_fragments/hwc.py:
     labels: hwc
     maintainers: $team_huawei
+  $doc_fragments/_icinga2_api.py:
+    maintainers: cfiehe
   $doc_fragments/nomad.py:
     maintainers: chris93111 apecnascimento
   $doc_fragments/pipx.py:
@@ -362,6 +367,8 @@ files:
     keywords: cloud huawei hwc
     labels: huawei hwc_utils networking
     maintainers: $team_huawei
+  $module_utils/_icinga2.py:
+    maintainers: cfiehe
   $module_utils/identity/keycloak/keycloak.py:
     maintainers: $team_keycloak
   $module_utils/identity/keycloak/keycloak_clientsecret.py:
@@ -713,6 +720,8 @@ files:
     maintainers: $team_huawei huaweicloud
   $modules/ibm_sa_:
     maintainers: tzure
+  $modules/icinga2_downtime.py:
+    maintainers: cfiehe
   $modules/icinga2_feature.py:
     maintainers: nerzhul
   $modules/icinga2_host.py:
@@ -857,6 +866,8 @@ files:
     maintainers: fynncfchen
   $modules/keycloak_realm_key.py:
     maintainers: mattock
+  $modules/keycloak_realm_localization.py:
+    maintainers: danekja
   $modules/keycloak_role.py:
     maintainers: laurpaum
   $modules/keycloak_user.py:

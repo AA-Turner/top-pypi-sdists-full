@@ -18,6 +18,9 @@ def _get_kwargs(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    schedule_path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    summary: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -33,6 +36,12 @@ def _get_kwargs(
     params["is_flow"] = is_flow
 
     params["path_start"] = path_start
+
+    params["schedule_path"] = schedule_path
+
+    params["description"] = description
+
+    params["summary"] = summary
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -84,6 +93,9 @@ def sync_detailed(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    schedule_path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    summary: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -95,6 +107,9 @@ def sync_detailed(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        schedule_path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        summary (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,6 +127,9 @@ def sync_detailed(
         path=path,
         is_flow=is_flow,
         path_start=path_start,
+        schedule_path=schedule_path,
+        description=description,
+        summary=summary,
     )
 
     response = client.get_httpx_client().request(
@@ -131,6 +149,9 @@ def sync(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    schedule_path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    summary: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -142,6 +163,9 @@ def sync(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        schedule_path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        summary (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,6 +184,9 @@ def sync(
         path=path,
         is_flow=is_flow,
         path_start=path_start,
+        schedule_path=schedule_path,
+        description=description,
+        summary=summary,
     ).parsed
 
 
@@ -173,6 +200,9 @@ async def asyncio_detailed(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    schedule_path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    summary: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -184,6 +214,9 @@ async def asyncio_detailed(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        schedule_path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        summary (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -201,6 +234,9 @@ async def asyncio_detailed(
         path=path,
         is_flow=is_flow,
         path_start=path_start,
+        schedule_path=schedule_path,
+        description=description,
+        summary=summary,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -218,6 +254,9 @@ async def asyncio(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
+    schedule_path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    summary: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -229,6 +268,9 @@ async def asyncio(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
+        schedule_path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        summary (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -248,5 +290,8 @@ async def asyncio(
             path=path,
             is_flow=is_flow,
             path_start=path_start,
+            schedule_path=schedule_path,
+            description=description,
+            summary=summary,
         )
     ).parsed

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lti-consumer-xblock
-Version: 9.14.3
+Version: 9.14.4
 Summary: This XBlock implements the consumer side of the LTI specification.
 Home-page: https://github.com/openedx/xblock-lti-consumer
 Author: Open edX project
@@ -34,7 +34,6 @@ Requires-Dist: lazy
 Requires-Dist: lxml
 Requires-Dist: mako
 Requires-Dist: oauthlib
-Requires-Dist: openedx-django-pyfs
 Requires-Dist: openedx-filters
 Requires-Dist: pycryptodomex
 Requires-Dist: pyjwt

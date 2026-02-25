@@ -692,3 +692,17 @@ releases:
     - fix_user_perms_revoke_grant_option.yml
     - mysql_info_fix_slave_status_for_source_terminology.yaml
     release_date: '2025-10-16'
+  4.1.0:
+    changes:
+      minor_changes:
+      - mysql_role - add ``sql_log_bin`` option to disable binary logging for the
+        connection (https://github.com/ansible-collections/community.mysql/issues/742).
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all breaking changes to the modules in this collection
+
+        that have been added after the previous release.'
+    fragments:
+    - 4.1.0.yml
+    - 742-mysql_role-sql_log_bin.yml
+    release_date: '2026-02-16'

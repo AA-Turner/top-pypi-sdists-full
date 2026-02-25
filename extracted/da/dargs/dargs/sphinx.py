@@ -48,7 +48,7 @@ class DargsDirective(Directive):
         "func": unchanged,
     }
 
-    def run(self):
+    def run(self) -> list:
         if "module" in self.options and "func" in self.options:
             module_name = self.options["module"]
             attr_name = self.options["func"]
@@ -95,11 +95,11 @@ class DargsObject(ObjectDescription):
         "path": unchanged,
     }
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: Any) -> str:
         signode += addnodes.desc_name(sig, sig)
         return sig
 
-    def add_target_and_index(self, name, sig, signode):
+    def add_target_and_index(self, name: str, sig: str, signode: Any) -> None:
         path = self.options["path"]
         targetid = f"{self.objtype}:{path}"
         if targetid not in self.state.document.ids:
@@ -137,21 +137,30 @@ class DargsDomain(Domain):
 
     name: ClassVar[str] = "dargs"
     label: ClassVar[str] = "dargs"
-    object_types: ClassVar[dict[str, ObjType]] = {  # type: ignore
+    object_types: ClassVar[dict[str, ObjType]] = {
         "argument": ObjType("argument", "argument"),
     }
-    directives: ClassVar[dict[str, type[Directive]]] = {  # type: ignore
+    directives: ClassVar[dict[str, type[Directive]]] = {
         "argument": DargsObject,
     }
-    roles: ClassVar[dict[str, RoleFunction | XRefRole]] = {  # type: ignore
+    roles: ClassVar[dict[str, RoleFunction | XRefRole]] = {
         "argument": XRefRole(),
     }
 
-    initial_data: ClassVar[dict] = {  # type: ignore
+    initial_data: ClassVar[dict] = {
         "arguments": {},  # fullname -> docname, objtype
     }
 
-    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+    def resolve_xref(
+        self,
+        env: Any,
+        fromdocname: str,
+        builder: Any,
+        typ: str,
+        target: str,
+        node: Any,
+        contnode: Any,
+    ) -> Any:
         """Resolve cross-references."""
         targetid = f"{typ}:{target}"
         obj = self.data["arguments"].get(targetid)
@@ -160,7 +169,7 @@ class DargsDomain(Domain):
         return make_refnode(builder, fromdocname, obj[0], targetid, contnode, target)
 
 
-def setup(app):
+def setup(app: Any) -> dict[str, bool]:
     """Setup sphinx app."""
     app.add_directive("dargs", DargsDirective)
     app.add_domain(DargsDomain)

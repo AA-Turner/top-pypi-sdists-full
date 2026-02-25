@@ -89,7 +89,8 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceError(ModeledError):
-    """Base error for all errors in the service.
+    """
+    Base error for all errors in the service.
 
     Some exceptions do not extend from this class, including
     synthetic, implicit, and shared exception types.
@@ -99,46 +100,44 @@ class ServiceError(ModeledError):
 @dataclass(kw_only=True)
 class Entity:
     """
-    Contains entities identified as personally identifiable information (PII) in
-    your transcription output, along with various associated attributes. Examples
-    include category, confidence score, type, stability score, and start and end
-    times.
+    Contains entities identified as personally identifiable information
+    (PII) in your transcription output, along with various associated
+    attributes. Examples include category, confidence score, type, stability
+    score, and start and end times.
     """
 
     start_time: float = 0
     """
-    The start time of the utterance that was identified as PII in seconds, with
-    millisecond precision (e.g., 1.056)
+    The start time of the utterance that was identified as PII in seconds,
+    with millisecond precision (e.g., 1.056)
     """
 
     end_time: float = 0
     """
-    The end time of the utterance that was identified as PII in seconds, with
-    millisecond precision (e.g., 1.056)
+    The end time of the utterance that was identified as PII in seconds,
+    with millisecond precision (e.g., 1.056)
     """
 
     category: str | None = None
-    """
-    The category of information identified. The only category is ``PII``.
-    """
+    """The category of information identified. The only category is `PII`."""
 
     type: str | None = None
     """
-    The type of PII identified. For example, ``NAME`` or ``CREDIT_DEBIT_NUMBER``.
+    The type of PII identified. For example, `NAME` or
+    `CREDIT_DEBIT_NUMBER`.
     """
 
     content: str | None = None
-    """
-    The word or words identified as PII.
-    """
+    """The word or words identified as PII."""
 
     confidence: float | None = None
     """
-    The confidence score associated with the identified PII entity in your audio.
+    The confidence score associated with the identified PII entity in your
+    audio.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified entity correctly matches the entity spoken in
-    your media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified entity correctly matches the
+    entity spoken in your media.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -239,60 +238,60 @@ class ItemType(StrEnum):
 @dataclass(kw_only=True)
 class Item:
     """
-    A word, phrase, or punctuation mark in your transcription output, along with
-    various associated attributes, such as confidence score, type, and start and end
-    times.
+    A word, phrase, or punctuation mark in your transcription output, along
+    with various associated attributes, such as confidence score, type, and
+    start and end times.
     """
 
     start_time: float = 0
     """
-    The start time of the transcribed item in seconds, with millisecond precision
-    (e.g., 1.056)
+    The start time of the transcribed item in seconds, with millisecond
+    precision (e.g., 1.056)
     """
 
     end_time: float = 0
     """
-    The end time of the transcribed item in seconds, with millisecond precision
-    (e.g., 1.056)
+    The end time of the transcribed item in seconds, with millisecond
+    precision (e.g., 1.056)
     """
 
     type: str | None = None
     """
-    The type of item identified. Options are: ``PRONUNCIATION`` (spoken words) and
-    ``PUNCTUATION``.
+    The type of item identified. Options are: `PRONUNCIATION` (spoken words)
+    and `PUNCTUATION`.
     """
 
     content: str | None = None
-    """
-    The word or punctuation that was transcribed.
-    """
+    """The word or punctuation that was transcribed."""
 
     vocabulary_filter_match: bool = False
     """
-    Indicates whether the specified item matches a word in the vocabulary filter
-    included in your request. If ``true``, there is a vocabulary filter match.
+    Indicates whether the specified item matches a word in the vocabulary
+    filter included in your request. If `true`, there is a vocabulary filter
+    match.
     """
 
     speaker: str | None = None
     """
-    If speaker partitioning is enabled, ``Speaker`` labels the speaker of the
+    If speaker partitioning is enabled, `Speaker` labels the speaker of the
     specified item.
     """
 
     confidence: float | None = None
     """
-    The confidence score associated with a word or phrase in your transcript.
+    The confidence score associated with a word or phrase in your
+    transcript.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified item correctly matches the item spoken in your
-    media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified item correctly matches the item
+    spoken in your media.
     """
 
     stable: bool | None = None
     """
-    If partial result stabilization is enabled, ``Stable`` indicates whether the
-    specified item is stable (``true``) or if it may change when the segment is
-    complete (``false``).
+    If partial result stabilization is enabled, `Stable` indicates whether
+    the specified item is stable (`true`) or if it may change when the
+    segment is complete (`false`).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -395,24 +394,23 @@ def _deserialize_item_list(
 class Alternative:
     """
     A list of possible alternative transcriptions for the input audio. Each
-    alternative may contain one or more of ``Items``, ``Entities``, or
-    ``Transcript``.
+    alternative may contain one or more of `Items`, `Entities`, or
+    `Transcript`.
     """
 
     transcript: str | None = None
-    """
-    Contains transcribed text.
-    """
+    """Contains transcribed text."""
 
     items: list[Item] | None = None
     """
-    Contains words, phrases, or punctuation marks in your transcription output.
+    Contains words, phrases, or punctuation marks in your transcription
+    output.
     """
 
     entities: list[Entity] | None = None
     """
-    Contains entities identified as personally identifiable information (PII) in
-    your transcription output.
+    Contains entities identified as personally identifiable information
+    (PII) in your transcription output.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -494,30 +492,30 @@ def _deserialize_alternative_list(
 @dataclass(kw_only=True)
 class AudioEvent:
     """
-    A wrapper for your audio chunks. Your audio stream consists of one or more audio
-    events, which consist of one or more audio chunks.
+    A wrapper for your audio chunks. Your audio stream consists of one or
+    more audio events, which consist of one or more audio chunks.
 
-    For more information, see ``Event stream encoding <https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html>``_
-    .
+    For more information, see [Event stream
+    encoding](https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html).
     """
 
     audio_chunk: bytes | None = None
     """
-     An audio blob containing the next segment of audio from your application, with a
-     maximum duration of 1 second. The maximum size in bytes varies based on audio
-     properties.
+    An audio blob containing the next segment of audio from your
+    application, with a maximum duration of 1 second. The maximum size in
+    bytes varies based on audio properties.
 
-    Find recommended size in `Transcribing streaming best practices <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#best-practices>`_
-    .
+    Find recommended size in [Transcribing streaming best
+    practices](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#best-practices).
 
-     Size calculation: ``Duration (s) * Sample Rate (Hz) * Number of Channels * 2
-     (Bytes per Sample)``
+    Size calculation:
+    `Duration (s) * Sample Rate (Hz) * Number of Channels * 2 (Bytes per Sample)`
 
-     For example, a 1-second chunk of 16 kHz, 2-channel, 16-bit audio would be ``1 *
-     16000 * 2 * 2 = 64000 bytes``.
+    For example, a 1-second chunk of 16 kHz, 2-channel, 16-bit audio would
+    be `1 * 16000 * 2 * 2 = 64000 bytes`.
 
-     For 8 kHz, 1-channel, 16-bit audio, a 1-second chunk would be ``1 * 8000 * 1 * 2
-     = 16000 bytes``.
+    For 8 kHz, 1-channel, 16-bit audio, a 1-second chunk would be
+    `1 * 8000 * 1 * 2 = 16000 bytes`.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -559,22 +557,21 @@ class ParticipantRole(StrEnum):
 @dataclass(kw_only=True)
 class ChannelDefinition:
     """
-    Makes it possible to specify which speaker is on which audio channel. For
-    example, if your agent is the first participant to speak, you would set
-    ``ChannelId`` to ``0`` (to indicate the first channel) and ``ParticipantRole``
-    to ``AGENT`` (to indicate that it's the agent speaking).
+    Makes it possible to specify which speaker is on which audio channel.
+    For example, if your agent is the first participant to speak, you would
+    set `ChannelId` to `0` (to indicate the first channel) and
+    `ParticipantRole` to `AGENT` (to indicate that it's the agent
+    speaking).
     """
 
     participant_role: str
     """
-    Specify the speaker you want to define. Omitting this parameter is equivalent to
-    specifying both participants.
+    Specify the speaker you want to define. Omitting this parameter is
+    equivalent to specifying both participants.
     """
 
     channel_id: int = 0
-    """
-    Specify the audio channel you want to define.
-    """
+    """Specify the audio channel you want to define."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_CHANNEL_DEFINITION, self)
@@ -647,81 +644,86 @@ class ContentRedactionOutput(StrEnum):
 @dataclass(kw_only=True)
 class PostCallAnalyticsSettings:
     """
-    Allows you to specify additional settings for your Call Analytics post-call
-    request, including output locations for your redacted transcript, which IAM role
-    to use, and which encryption key to use.
+    Allows you to specify additional settings for your Call Analytics
+    post-call request, including output locations for your redacted
+    transcript, which IAM role to use, and which encryption key to use.
 
-    ``DataAccessRoleArn`` and ``OutputLocation`` are required fields.
+    `DataAccessRoleArn` and `OutputLocation` are required fields.
 
-    ``PostCallAnalyticsSettings`` provides you with the same insights as a Call Analytics post-call transcription. Refer to ``Post-call analytics <https://docs.aws.amazon.com/transcribe/latest/dg/tca-post-call.html>``_
+    `PostCallAnalyticsSettings` provides you with the same insights as a
+    Call Analytics post-call transcription. Refer to [Post-call
+    analytics](https://docs.aws.amazon.com/transcribe/latest/dg/tca-post-call.html)
     for more information on this feature.
     """
 
     output_location: str
     """
     The Amazon S3 location where you want your Call Analytics post-call
-    transcription output stored. You can use any of the following formats to specify
-    the output location:
+    transcription output stored. You can use any of the following formats to
+    specify the output location:
 
-    * s3://DOC-EXAMPLE-BUCKET
+    1.  s3://DOC-EXAMPLE-BUCKET
 
-    * s3://DOC-EXAMPLE-BUCKET/my-output-folder/
+    2.  s3://DOC-EXAMPLE-BUCKET/my-output-folder/
 
-    * s3://DOC-EXAMPLE-BUCKET/my-output-folder/my-call-analytics-job.json
+    3.  s3://DOC-EXAMPLE-BUCKET/my-output-folder/my-call-analytics-job.json
     """
 
     data_access_role_arn: str
     """
-    The Amazon Resource Name (ARN) of an IAM role that has permissions to access the
-    Amazon S3 bucket that contains your input files. If the role that you specify
-    doesn’t have the appropriate permissions to access the specified Amazon S3
-    location, your request fails.
+    The Amazon Resource Name (ARN) of an IAM role that has permissions to
+    access the Amazon S3 bucket that contains your input files. If the role
+    that you specify doesn't have the appropriate permissions to access the
+    specified Amazon S3 location, your request fails.
 
     IAM role ARNs have the format
-    ``arn:partition:iam::account:role/role-name-with-path``. For example: ``arn:aws:iam::111122223333:role/Admin``. For more information, see `IAM ARNs <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns>`_
-    .
+    `arn:partition:iam::account:role/role-name-with-path`. For example:
+    `arn:aws:iam::111122223333:role/Admin`. For more information, see [IAM
+    ARNs](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns).
     """
 
     content_redaction_output: str | None = None
     """
-    Specify whether you want only a redacted transcript or both a redacted and an
-    unredacted transcript. If you choose redacted and unredacted, two JSON files are
-    generated and stored in the Amazon S3 output location you specify.
+    Specify whether you want only a redacted transcript or both a redacted
+    and an unredacted transcript. If you choose redacted and unredacted, two
+    JSON files are generated and stored in the Amazon S3 output location you
+    specify.
 
-    Note that to include ``ContentRedactionOutput`` in your request, you must enable
-    content redaction (``ContentRedactionType``).
+    Note that to include `ContentRedactionOutput` in your request, you must
+    enable content redaction (`ContentRedactionType`).
     """
 
     output_encryption_kms_key_id: str | None = None
     """
-    The KMS key you want to use to encrypt your Call Analytics post-call output.
+    The KMS key you want to use to encrypt your Call Analytics post-call
+    output.
 
-    If using a key located in the **current** Amazon Web Services account, you can
-    specify your KMS key in one of four ways:
+    If using a key located in the **current** Amazon Web Services account,
+    you can specify your KMS key in one of four ways:
 
-    * Use the KMS key ID itself. For example,
-      ``1234abcd-12ab-34cd-56ef-1234567890ab``.
+    1.  Use the KMS key ID itself. For example,
+        `1234abcd-12ab-34cd-56ef-1234567890ab`.
 
-    * Use an alias for the KMS key ID. For example, ``alias/ExampleAlias``.
+    2.  Use an alias for the KMS key ID. For example, `alias/ExampleAlias`.
 
-    * Use the Amazon Resource Name (ARN) for the KMS key ID. For example,
-      ``arn:aws:kms:region:account-ID:key/1234abcd-12ab-34cd-56ef-1234567890ab``.
+    3.  Use the Amazon Resource Name (ARN) for the KMS key ID. For example,
+        `arn:aws:kms:region:account-ID:key/1234abcd-12ab-34cd-56ef-1234567890ab`.
 
-    * Use the ARN for the KMS key alias. For example,
-      ``arn:aws:kms:region:account-ID:alias/ExampleAlias``.
+    4.  Use the ARN for the KMS key alias. For example,
+        `arn:aws:kms:region:account-ID:alias/ExampleAlias`.
 
-    If using a key located in a **different** Amazon Web Services account than the
-    current Amazon Web Services account, you can specify your KMS key in one of two
-    ways:
+    If using a key located in a **different** Amazon Web Services account
+    than the current Amazon Web Services account, you can specify your KMS
+    key in one of two ways:
 
-    * Use the ARN for the KMS key ID. For example,
-      ``arn:aws:kms:region:account-ID:key/1234abcd-12ab-34cd-56ef-1234567890ab``.
+    1.  Use the ARN for the KMS key ID. For example,
+        `arn:aws:kms:region:account-ID:key/1234abcd-12ab-34cd-56ef-1234567890ab`.
 
-    * Use the ARN for the KMS key alias. For example,
-      ``arn:aws:kms:region:account-ID:alias/ExampleAlias``.
+    2.  Use the ARN for the KMS key alias. For example,
+        `arn:aws:kms:region:account-ID:alias/ExampleAlias`.
 
-    Note that the role making the request must have permission to use the specified
-    KMS key.
+    Note that the role making the request must have permission to use the
+    specified KMS key.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -798,20 +800,22 @@ class PostCallAnalyticsSettings:
 @dataclass(kw_only=True)
 class ConfigurationEvent:
     """
-    Allows you to set audio channel definitions and post-call analytics settings.
+    Allows you to set audio channel definitions and post-call analytics
+    settings.
     """
 
     channel_definitions: list[ChannelDefinition] | None = None
-    """
-    Indicates which speaker is on which audio channel.
-    """
+    """Indicates which speaker is on which audio channel."""
 
     post_call_analytics_settings: PostCallAnalyticsSettings | None = None
     """
-    Provides additional optional settings for your Call Analytics post-call request,
-    including encryption and output locations for your redacted transcript.
+    Provides additional optional settings for your Call Analytics post-call
+    request, including encryption and output locations for your redacted
+    transcript.
 
-    ``PostCallAnalyticsSettings`` provides you with the same insights as a Call Analytics post-call transcription. Refer to `Post-call analytics <https://docs.aws.amazon.com/transcribe/latest/dg/tca-post-call.html>`_
+    `PostCallAnalyticsSettings` provides you with the same insights as a
+    Call Analytics post-call transcription. Refer to [Post-call
+    analytics](https://docs.aws.amazon.com/transcribe/latest/dg/tca-post-call.html)
     for more information on this feature.
     """
 
@@ -862,11 +866,11 @@ class ConfigurationEvent:
 @dataclass
 class AudioStreamAudioEvent:
     """
-    A blob of audio from your application. Your audio stream consists of one or more
-    audio events.
+    A blob of audio from your application. Your audio stream consists of one
+    or more audio events.
 
-    For more information, see `Event stream encoding <https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html>`_
-    .
+    For more information, see [Event stream
+    encoding](https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html).
     """
 
     value: AudioEvent
@@ -884,9 +888,7 @@ class AudioStreamAudioEvent:
 
 @dataclass
 class AudioStreamConfigurationEvent:
-    """
-    Contains audio channel definitions and post-call analytics settings.
-    """
+    """Contains audio channel definitions and post-call analytics settings."""
 
     value: ConfigurationEvent
 
@@ -905,7 +907,8 @@ class AudioStreamConfigurationEvent:
 
 @dataclass
 class AudioStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -929,13 +932,12 @@ class AudioStreamUnknown:
 AudioStream = Union[
     AudioStreamAudioEvent | AudioStreamConfigurationEvent | AudioStreamUnknown
 ]
-
 """
-An encoded stream of audio blobs. Audio streams are encoded as either HTTP/2 or
-WebSocket data frames.
+An encoded stream of audio blobs. Audio streams are encoded as either
+HTTP/2 or WebSocket data frames.
 
-For more information, see `Transcribing streaming audio <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html>`_
-.
+For more information, see [Transcribing streaming
+audio](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html).
 """
 
 
@@ -975,11 +977,11 @@ class _AudioStreamDeserializer:
 @dataclass(kw_only=True)
 class BadRequestException(ServiceError):
     """
-    One or more arguments to the ``StartStreamTranscription``,
-    ``StartMedicalStreamTranscription``, or
-    ``StartCallAnalyticsStreamTranscription`` operation was not valid. For example,
-    ``MediaEncoding`` or ``LanguageCode`` used unsupported values. Check the
-    specified parameters and try your request again.
+    One or more arguments to the `StartStreamTranscription`,
+    `StartMedicalStreamTranscription`, or
+    `StartCallAnalyticsStreamTranscription` operation was not valid. For
+    example, `MediaEncoding` or `LanguageCode` used unsupported values.
+    Check the specified parameters and try your request again.
     """
 
     fault: Literal["client", "server"] | None = "client"
@@ -1018,46 +1020,44 @@ class BadRequestException(ServiceError):
 @dataclass(kw_only=True)
 class CallAnalyticsEntity:
     """
-    Contains entities identified as personally identifiable information (PII) in
-    your transcription output, along with various associated attributes. Examples
-    include category, confidence score, content, type, and start and end times.
+    Contains entities identified as personally identifiable information
+    (PII) in your transcription output, along with various associated
+    attributes. Examples include category, confidence score, content, type,
+    and start and end times.
     """
 
     begin_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the start
-    of the identified entity.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    start of the identified entity.
     """
 
     end_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the end of
-    the identified entity.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    end of the identified entity.
     """
 
     category: str | None = None
-    """
-    The category of information identified. For example, ``PII``.
-    """
+    """The category of information identified. For example, `PII`."""
 
     type: str | None = None
     """
-    The type of PII identified. For example, ``NAME`` or ``CREDIT_DEBIT_NUMBER``.
+    The type of PII identified. For example, `NAME` or
+    `CREDIT_DEBIT_NUMBER`.
     """
 
     content: str | None = None
-    """
-    The word or words that represent the identified entity.
-    """
+    """The word or words that represent the identified entity."""
 
     confidence: float | None = None
     """
-    The confidence score associated with the identification of an entity in your
-    transcript.
+    The confidence score associated with the identification of an entity in
+    your transcript.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified entity correctly matches the entity spoken in
-    your media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified entity correctly matches the
+    entity spoken in your media.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1171,55 +1171,54 @@ def _deserialize_call_analytics_entity_list(
 @dataclass(kw_only=True)
 class CallAnalyticsItem:
     """
-    A word, phrase, or punctuation mark in your Call Analytics transcription output,
-    along with various associated attributes, such as confidence score, type, and
-    start and end times.
+    A word, phrase, or punctuation mark in your Call Analytics transcription
+    output, along with various associated attributes, such as confidence
+    score, type, and start and end times.
     """
 
     begin_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the start
-    of the identified item.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    start of the identified item.
     """
 
     end_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the end of
-    the identified item.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    end of the identified item.
     """
 
     type: str | None = None
     """
-    The type of item identified. Options are: ``PRONUNCIATION`` (spoken words) and
-    ``PUNCTUATION``.
+    The type of item identified. Options are: `PRONUNCIATION` (spoken words)
+    and `PUNCTUATION`.
     """
 
     content: str | None = None
-    """
-    The word or punctuation that was transcribed.
-    """
+    """The word or punctuation that was transcribed."""
 
     confidence: float | None = None
     """
-    The confidence score associated with a word or phrase in your transcript.
+    The confidence score associated with a word or phrase in your
+    transcript.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified item correctly matches the item spoken in your
-    media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified item correctly matches the item
+    spoken in your media.
     """
 
     vocabulary_filter_match: bool = False
     """
-    Indicates whether the specified item matches a word in the vocabulary filter
-    included in your Call Analytics request. If ``true``, there is a vocabulary
-    filter match.
+    Indicates whether the specified item matches a word in the vocabulary
+    filter included in your Call Analytics request. If `true`, there is a
+    vocabulary filter match.
     """
 
     stable: bool | None = None
     """
-    If partial result stabilization is enabled, ``Stable`` indicates whether the
-    specified item is stable (``true``) or if it may change when the segment is
-    complete (``false``).
+    If partial result stabilization is enabled, `Stable` indicates whether
+    the specified item is stable (`true`) or if it may change when the
+    segment is complete (`false`).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1359,15 +1358,13 @@ class CallAnalyticsLanguageWithScore:
     """
 
     language_code: str | None = None
-    """
-    The language code of the identified language.
-    """
+    """The language code of the identified language."""
 
     score: float = 0
     """
-    The confidence score associated with the identified language code. Confidence
-    scores are values between zero and one; larger values indicate a higher
-    confidence in the identified language.
+    The confidence score associated with the identified language code.
+    Confidence scores are values between zero and one; larger values
+    indicate a higher confidence in the identified language.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1477,14 +1474,14 @@ class TimestampRange:
 
     begin_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the start
-    of the category match.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    start of the category match.
     """
 
     end_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the end of
-    the category match.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    end of the category match.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1557,9 +1554,7 @@ def _deserialize_timestamp_ranges(
 
 @dataclass(kw_only=True)
 class PointsOfInterest:
-    """
-    Contains the timestamps of matched categories.
-    """
+    """Contains the timestamps of matched categories."""
 
     timestamp_ranges: list[TimestampRange] | None = None
     """
@@ -1629,20 +1624,18 @@ def _deserialize_matched_category_details(
 @dataclass(kw_only=True)
 class CategoryEvent:
     """
-    Provides information on any ``TranscriptFilterType`` categories that matched
-    your transcription output. Matches are identified for each segment upon
-    completion of that segment.
+    Provides information on any `TranscriptFilterType` categories that
+    matched your transcription output. Matches are identified for each
+    segment upon completion of that segment.
     """
 
     matched_categories: list[str] | None = None
-    """
-    Lists the categories that were matched in your audio segment.
-    """
+    """Lists the categories that were matched in your audio segment."""
 
     matched_details: dict[str, PointsOfInterest] | None = None
     """
-    Contains information about the matched categories, including category names and
-    timestamps.
+    Contains information about the matched categories, including category
+    names and timestamps.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1693,8 +1686,8 @@ class CategoryEvent:
 @dataclass(kw_only=True)
 class ConflictException(ServiceError):
     """
-    A new stream started with the same session ID. The current stream has been
-    terminated.
+    A new stream started with the same session ID. The current stream has
+    been terminated.
     """
 
     fault: Literal["client", "server"] | None = "client"
@@ -1733,8 +1726,8 @@ class ConflictException(ServiceError):
 @dataclass(kw_only=True)
 class InternalFailureException(ServiceError):
     """
-    A problem occurred while processing the audio. Amazon Transcribe terminated
-    processing.
+    A problem occurred while processing the audio. Amazon Transcribe
+    terminated processing.
     """
 
     fault: Literal["client", "server"] | None = "server"
@@ -1773,9 +1766,9 @@ class InternalFailureException(ServiceError):
 @dataclass(kw_only=True)
 class LimitExceededException(ServiceError):
     """
-    Your client has exceeded one of the Amazon Transcribe limits. This is typically
-    the audio length limit. Break your audio stream into smaller chunks and try your
-    request again.
+    Your client has exceeded one of the Amazon Transcribe limits. This is
+    typically the audio length limit. Break your audio stream into smaller
+    chunks and try your request again.
     """
 
     fault: Literal["client", "server"] | None = "client"
@@ -1813,9 +1806,7 @@ class LimitExceededException(ServiceError):
 
 @dataclass(kw_only=True)
 class ServiceUnavailableException(ServiceError):
-    """
-    The service is currently unavailable. Try your request later.
-    """
+    """The service is currently unavailable. Try your request later."""
 
     fault: Literal["client", "server"] | None = "server"
 
@@ -1855,23 +1846,23 @@ class ServiceUnavailableException(ServiceError):
 @dataclass(kw_only=True)
 class CharacterOffsets:
     """
-    Provides the location, using character count, in your transcript where a match
-    is identified. For example, the location of an issue or a category match within
-    a segment.
+    Provides the location, using character count, in your transcript where a
+    match is identified. For example, the location of an issue or a category
+    match within a segment.
     """
 
     begin: int | None = None
     """
-    Provides the character count of the first character where a match is identified.
-    For example, the first character associated with an issue or a category match in
-    a segment transcript.
+    Provides the character count of the first character where a match is
+    identified. For example, the first character associated with an issue or
+    a category match in a segment transcript.
     """
 
     end: int | None = None
     """
-    Provides the character count of the last character where a match is identified.
-    For example, the last character associated with an issue or a category match in
-    a segment transcript.
+    Provides the character count of the last character where a match is
+    identified. For example, the last character associated with an issue or
+    a category match in a segment transcript.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1915,14 +1906,12 @@ class CharacterOffsets:
 
 @dataclass(kw_only=True)
 class IssueDetected:
-    """
-    Lists the issues that were identified in your audio segment.
-    """
+    """Lists the issues that were identified in your audio segment."""
 
     character_offsets: CharacterOffsets | None = None
     """
-    Provides the timestamps that identify when in an audio segment the specified
-    issue occurs.
+    Provides the timestamps that identify when in an audio segment the
+    specified issue occurs.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -1990,77 +1979,71 @@ class Sentiment(StrEnum):
 @dataclass(kw_only=True)
 class UtteranceEvent:
     """
-    Contains set of transcription results from one or more audio segments, along
-    with additional information about the parameters included in your request. For
-    example, channel definitions, partial result stabilization, sentiment, and issue
-    detection.
+    Contains set of transcription results from one or more audio segments,
+    along with additional information about the parameters included in your
+    request. For example, channel definitions, partial result stabilization,
+    sentiment, and issue detection.
     """
 
     utterance_id: str | None = None
     """
-    The unique identifier that is associated with the specified ``UtteranceEvent``.
+    The unique identifier that is associated with the specified
+    `UtteranceEvent`.
     """
 
     is_partial: bool = False
     """
-    Indicates whether the segment in the ``UtteranceEvent`` is complete (``FALSE``)
-    or partial (``TRUE``).
+    Indicates whether the segment in the `UtteranceEvent` is complete
+    (`FALSE`) or partial (`TRUE`).
     """
 
     participant_role: str | None = None
     """
-    Provides the role of the speaker for each audio channel, either ``CUSTOMER`` or
-    ``AGENT``.
+    Provides the role of the speaker for each audio channel, either
+    `CUSTOMER` or `AGENT`.
     """
 
     begin_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the start
-    of the ``UtteranceEvent``.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    start of the `UtteranceEvent`.
     """
 
     end_offset_millis: int | None = None
     """
-    The time, in milliseconds, from the beginning of the audio stream to the start
-    of the ``UtteranceEvent``.
+    The time, in milliseconds, from the beginning of the audio stream to the
+    start of the `UtteranceEvent`.
     """
 
     transcript: str | None = None
-    """
-    Contains transcribed text.
-    """
+    """Contains transcribed text."""
 
     items: list[CallAnalyticsItem] | None = None
     """
-    Contains words, phrases, or punctuation marks that are associated with the
-    specified ``UtteranceEvent``.
+    Contains words, phrases, or punctuation marks that are associated with
+    the specified `UtteranceEvent`.
     """
 
     entities: list[CallAnalyticsEntity] | None = None
     """
-    Contains entities identified as personally identifiable information (PII) in
-    your transcription output.
+    Contains entities identified as personally identifiable information
+    (PII) in your transcription output.
     """
 
     sentiment: str | None = None
-    """
-    Provides the sentiment that was detected in the specified segment.
-    """
+    """Provides the sentiment that was detected in the specified segment."""
 
     issues_detected: list[IssueDetected] | None = None
-    """
-    Provides the issue that was detected in the specified segment.
-    """
+    """Provides the issue that was detected in the specified segment."""
 
     language_code: str | None = None
     """
-    The language code that represents the language spoken in your audio stream.
+    The language code that represents the language spoken in your audio
+    stream.
     """
 
     language_identification: list[CallAnalyticsLanguageWithScore] | None = None
-    """
-    The language code of the dominant language identified in your stream.
-    """
+    """The language code of the dominant language identified in your stream."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_UTTERANCE_EVENT, self)
@@ -2214,10 +2197,11 @@ class UtteranceEvent:
 @dataclass
 class CallAnalyticsTranscriptResultStreamUtteranceEvent:
     """
-    Contains set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to channel definitions, partial result stabilization,
-    sentiment, issue detection, and other transcription-related data.
+    Contains set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to channel definitions, partial result
+    stabilization, sentiment, issue detection, and other
+    transcription-related data.
     """
 
     value: UtteranceEvent
@@ -2239,8 +2223,8 @@ class CallAnalyticsTranscriptResultStreamUtteranceEvent:
 @dataclass
 class CallAnalyticsTranscriptResultStreamCategoryEvent:
     """
-    Provides information on matched categories that were used to generate real-time
-    supervisor alerts.
+    Provides information on matched categories that were used to generate
+    real-time supervisor alerts.
     """
 
     value: CategoryEvent
@@ -2262,11 +2246,11 @@ class CallAnalyticsTranscriptResultStreamCategoryEvent:
 @dataclass
 class CallAnalyticsTranscriptResultStreamBadRequestException:
     """
-    One or more arguments to the ``StartStreamTranscription``,
-    ``StartMedicalStreamTranscription``, or
-    ``StartCallAnalyticsStreamTranscription`` operation was not valid. For example,
-    ``MediaEncoding`` or ``LanguageCode`` used unsupported values. Check the
-    specified parameters and try your request again.
+    One or more arguments to the `StartStreamTranscription`,
+    `StartMedicalStreamTranscription`, or
+    `StartCallAnalyticsStreamTranscription` operation was not valid. For
+    example, `MediaEncoding` or `LanguageCode` used unsupported values.
+    Check the specified parameters and try your request again.
     """
 
     value: BadRequestException
@@ -2290,9 +2274,9 @@ class CallAnalyticsTranscriptResultStreamBadRequestException:
 @dataclass
 class CallAnalyticsTranscriptResultStreamLimitExceededException:
     """
-    Your client has exceeded one of the Amazon Transcribe limits. This is typically
-    the audio length limit. Break your audio stream into smaller chunks and try your
-    request again.
+    Your client has exceeded one of the Amazon Transcribe limits. This is
+    typically the audio length limit. Break your audio stream into smaller
+    chunks and try your request again.
     """
 
     value: LimitExceededException
@@ -2316,8 +2300,8 @@ class CallAnalyticsTranscriptResultStreamLimitExceededException:
 @dataclass
 class CallAnalyticsTranscriptResultStreamInternalFailureException:
     """
-    A problem occurred while processing the audio. Amazon Transcribe terminated
-    processing.
+    A problem occurred while processing the audio. Amazon Transcribe
+    terminated processing.
     """
 
     value: InternalFailureException
@@ -2341,8 +2325,8 @@ class CallAnalyticsTranscriptResultStreamInternalFailureException:
 @dataclass
 class CallAnalyticsTranscriptResultStreamConflictException:
     """
-    A new stream started with the same session ID. The current stream has been
-    terminated.
+    A new stream started with the same session ID. The current stream has
+    been terminated.
     """
 
     value: ConflictException
@@ -2365,9 +2349,7 @@ class CallAnalyticsTranscriptResultStreamConflictException:
 
 @dataclass
 class CallAnalyticsTranscriptResultStreamServiceUnavailableException:
-    """
-    The service is currently unavailable. Try your request later.
-    """
+    """The service is currently unavailable. Try your request later."""
 
     value: ServiceUnavailableException
 
@@ -2389,7 +2371,8 @@ class CallAnalyticsTranscriptResultStreamServiceUnavailableException:
 
 @dataclass
 class CallAnalyticsTranscriptResultStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -2420,10 +2403,10 @@ CallAnalyticsTranscriptResultStream = Union[
     | CallAnalyticsTranscriptResultStreamServiceUnavailableException
     | CallAnalyticsTranscriptResultStreamUnknown
 ]
-
 """
-Contains detailed information about your real-time Call Analytics session. These
-details are provided in the ``UtteranceEvent`` and ``CategoryEvent`` objects.
+Contains detailed information about your real-time Call Analytics
+session. These details are provided in the `UtteranceEvent` and
+`CategoryEvent` objects.
 """
 
 
@@ -2510,20 +2493,16 @@ class ClinicalNoteGenerationStatus(StrEnum):
 @dataclass(kw_only=True)
 class ClinicalNoteGenerationResult:
     """
-    The details for clinical note generation, including status, and output locations
-    for clinical note and aggregated transcript if the analytics completed, or
-    failure reason if the analytics failed.
+    The details for clinical note generation, including status, and output
+    locations for clinical note and aggregated transcript if the analytics
+    completed, or failure reason if the analytics failed.
     """
 
     clinical_note_output_location: str | None = None
-    """
-    Holds the Amazon S3 URI for the output Clinical Note.
-    """
+    """Holds the Amazon S3 URI for the output Clinical Note."""
 
     transcript_output_location: str | None = None
-    """
-    Holds the Amazon S3 URI for the output Transcript.
-    """
+    """Holds the Amazon S3 URI for the output Transcript."""
 
     status: str | None = None
     """
@@ -2531,23 +2510,24 @@ class ClinicalNoteGenerationResult:
 
     Possible Values:
 
-    * ``IN_PROGRESS``
+    - `IN_PROGRESS`
 
-    * ``FAILED``
+    - `FAILED`
 
-    * ``COMPLETED``
+    - `COMPLETED`
 
-     After audio streaming finishes, and you send a
-     ``MedicalScribeSessionControlEvent`` event (with END_OF_SESSION as the Type),
-     the status is set to ``IN_PROGRESS``. If the status is ``COMPLETED``, the
-     analytics completed successfully, and you can find the results at the locations
-     specified in ``ClinicalNoteOutputLocation`` and ``TranscriptOutputLocation``. If
-     the status is ``FAILED``, ``FailureReason`` provides details about the failure.
+    After audio streaming finishes, and you send a
+    `MedicalScribeSessionControlEvent` event (with END_OF_SESSION as the
+    Type), the status is set to `IN_PROGRESS`. If the status is `COMPLETED`,
+    the analytics completed successfully, and you can find the results at
+    the locations specified in `ClinicalNoteOutputLocation` and
+    `TranscriptOutputLocation`. If the status is `FAILED`, `FailureReason`
+    provides details about the failure.
     """
 
     failure_reason: str | None = None
     """
-    If ``ClinicalNoteGenerationResult`` is ``FAILED``, information about why it
+    If `ClinicalNoteGenerationResult` is `FAILED`, information about why it
     failed.
     """
 
@@ -2638,49 +2618,60 @@ class MedicalScribeNoteTemplate(StrEnum):
 @dataclass(kw_only=True)
 class ClinicalNoteGenerationSettings:
     """
-    The output configuration for aggregated transcript and clinical note generation.
+    The output configuration for aggregated transcript and clinical note
+    generation.
     """
 
     output_bucket_name: str
     """
     The name of the Amazon S3 bucket where you want the output of Amazon Web
-    Services HealthScribe post-stream analytics stored. Don't include the ``S3://``
-    prefix of the specified bucket.
+    Services HealthScribe post-stream analytics stored. Don't include the
+    `S3://` prefix of the specified bucket.
 
-    HealthScribe outputs transcript and clinical note files under the prefix:
-    ``S3://$$output-bucket-name/healthscribe-streaming/session-id/post-stream-analytics/clinical-notes``
+    HealthScribe outputs transcript and clinical note files under the
+    prefix:
+    `S3://$output-bucket-name/healthscribe-streaming/session-id/post-stream-analytics/clinical-notes`
 
-    The role ``ResourceAccessRoleArn`` specified in the ``MedicalScribeConfigurationEvent`` must have permission to use the specified location. You can change Amazon S3 permissions using the ` Amazon Web Services Management Console  <https://console.aws.amazon.com/s3>`_.
-    See also `Permissions Required for IAM User Roles  <https://docs.aws.amazon.com/transcribe/latest/dg/security_iam_id-based-policy-examples.html#auth-role-iam-user>`_
+    The role `ResourceAccessRoleArn` specified in the
+    `MedicalScribeConfigurationEvent` must have permission to use the
+    specified location. You can change Amazon S3 permissions using the
+    [Amazon Web Services Management
+    Console](https://console.aws.amazon.com/s3) . See also [Permissions
+    Required for IAM User
+    Roles](https://docs.aws.amazon.com/transcribe/latest/dg/security_iam_id-based-policy-examples.html#auth-role-iam-user)
     .
     """
 
     note_template: str | None = None
     """
-    Specify one of the following templates to use for the clinical note summary. The
-    default is ``HISTORY_AND_PHYSICAL``.
+    Specify one of the following templates to use for the clinical note
+    summary. The default is `HISTORY_AND_PHYSICAL`.
 
-    * HISTORY_AND_PHYSICAL: Provides summaries for key sections of the clinical
-      documentation. Examples of sections include Chief Complaint, History of Present
-      Illness, Review of Systems, Past Medical History, Assessment, and Plan.
+    - HISTORY_AND_PHYSICAL: Provides summaries for key sections of the
+      clinical documentation. Examples of sections include Chief Complaint,
+      History of Present Illness, Review of Systems, Past Medical History,
+      Assessment, and Plan.
 
-    * GIRPP: Provides summaries based on the patients progress toward goals.
-      Examples of sections include Goal, Intervention, Response, Progress, and Plan.
+    - GIRPP: Provides summaries based on the patients progress toward goals.
+      Examples of sections include Goal, Intervention, Response, Progress,
+      and Plan.
 
-    * BIRP: Focuses on the patient's behavioral patterns and responses. Examples of
-      sections include Behavior, Intervention, Response, and Plan.
+    - BIRP: Focuses on the patient's behavioral patterns and responses.
+      Examples of sections include Behavior, Intervention, Response, and
+      Plan.
 
-    * SIRP: Emphasizes the situational context of therapy. Examples of sections
-      include Situation, Intervention, Response, and Plan.
+    - SIRP: Emphasizes the situational context of therapy. Examples of
+      sections include Situation, Intervention, Response, and Plan.
 
-    * DAP: Provides a simplified format for clinical documentation. Examples of
-      sections include Data, Assessment, and Plan.
+    - DAP: Provides a simplified format for clinical documentation. Examples
+      of sections include Data, Assessment, and Plan.
 
-    * BEHAVIORAL_SOAP: Behavioral health focused documentation format. Examples of
-      sections include Subjective, Objective, Assessment, and Plan.
+    - BEHAVIORAL_SOAP: Behavioral health focused documentation format.
+      Examples of sections include Subjective, Objective, Assessment, and
+      Plan.
 
-    * PHYSICAL_SOAP: Physical health focused documentation format. Examples of
-      sections include Subjective, Objective, Assessment, and Plan.
+    - PHYSICAL_SOAP: Physical health focused documentation format. Examples
+      of sections include Subjective, Objective, Assessment, and Plan.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -2740,9 +2731,12 @@ class ContentRedactionType(StrEnum):
 
 @dataclass(kw_only=True)
 class GetMedicalScribeStreamInput:
+    """Dataclass for GetMedicalScribeStreamInput structure."""
+
     session_id: str | None = None
     """
-    The identifier of the HealthScribe streaming session you want information about.
+    The identifier of the HealthScribe streaming session you want
+    information about.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -2787,28 +2781,27 @@ class MedicalScribeParticipantRole(StrEnum):
 @dataclass(kw_only=True)
 class MedicalScribeChannelDefinition:
     """
-    Makes it possible to specify which speaker is on which channel. For example, if
-    the clinician is the first participant to speak, you would set the ``ChannelId``
-    of the first ``ChannelDefinition`` in the list to ``0`` (to indicate the first
-    channel) and ``ParticipantRole`` to ``CLINICIAN`` (to indicate that it's the
-    clinician speaking). Then you would set the ``ChannelId`` of the second
-    ``ChannelDefinition`` in the list to ``1`` (to indicate the second channel) and
-    ``ParticipantRole`` to ``PATIENT`` (to indicate that it's the patient speaking).
+    Makes it possible to specify which speaker is on which channel. For
+    example, if the clinician is the first participant to speak, you would
+    set the `ChannelId` of the first `ChannelDefinition` in the list to `0`
+    (to indicate the first channel) and `ParticipantRole` to `CLINICIAN` (to
+    indicate that it's the clinician speaking). Then you would set the
+    `ChannelId` of the second `ChannelDefinition` in the list to `1` (to
+    indicate the second channel) and `ParticipantRole` to `PATIENT` (to
+    indicate that it's the patient speaking).
 
-    If you don't specify a channel definition, HealthScribe will diarize the
-    transcription and identify speaker roles for each speaker.
+    If you don't specify a channel definition, HealthScribe will diarize
+    the transcription and identify speaker roles for each speaker.
     """
 
     participant_role: str
     """
     Specify the participant that you want to flag. The allowed options are
-    ``CLINICIAN`` and ``PATIENT``.
+    `CLINICIAN` and `PATIENT`.
     """
 
     channel_id: int = 0
-    """
-    Specify the audio channel you want to define.
-    """
+    """Specify the audio channel you want to define."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_MEDICAL_SCRIBE_CHANNEL_DEFINITION, self)
@@ -2910,50 +2903,57 @@ def _deserialize_kms_encryption_context_map(
 @dataclass(kw_only=True)
 class MedicalScribeEncryptionSettings:
     """
-    Contains encryption related settings to be used for data encryption with Key
-    Management Service, including KmsEncryptionContext and KmsKeyId. The KmsKeyId is
-    required, while KmsEncryptionContext is optional for additional layer of
-    security.
+    Contains encryption related settings to be used for data encryption with
+    Key Management Service, including KmsEncryptionContext and KmsKeyId. The
+    KmsKeyId is required, while KmsEncryptionContext is optional for
+    additional layer of security.
 
-    By default, Amazon Web Services HealthScribe provides encryption at rest to
-    protect sensitive customer data using Amazon S3-managed keys. HealthScribe uses
-    the KMS key you specify as a second layer of encryption.
+    By default, Amazon Web Services HealthScribe provides encryption at rest
+    to protect sensitive customer data using Amazon S3-managed keys.
+    HealthScribe uses the KMS key you specify as a second layer of
+    encryption.
 
-    Your ``ResourceAccessRoleArn`` must permission to use your KMS key. For more information, see ``Data Encryption at rest for Amazon Web Services HealthScribe <https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-encryption.html>``_
-    .
+    Your `ResourceAccessRoleArn` must permission to use your KMS key. For
+    more information, see [Data Encryption at rest for Amazon Web Services
+    HealthScribe](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-encryption.html).
     """
 
     kms_key_id: str
     """
-    The ID of the KMS key you want to use for your streaming session. You can
-    specify its KMS key ID, key Amazon Resource Name (ARN), alias name, or alias
-    ARN. When using an alias name, prefix it with ``"alias/"``. To specify a KMS key
-    in a different Amazon Web Services account, you must use the key ARN or alias
-    ARN.
+    The ID of the KMS key you want to use for your streaming session. You
+    can specify its KMS key ID, key Amazon Resource Name (ARN), alias name,
+    or alias ARN. When using an alias name, prefix it with `"alias/"`. To
+    specify a KMS key in a different Amazon Web Services account, you must
+    use the key ARN or alias ARN.
 
     For example:
 
-    * Key ID: 1234abcd-12ab-34cd-56ef-1234567890ab
+    - Key ID: 1234abcd-12ab-34cd-56ef-1234567890ab
 
-    * Key ARN:
+    - Key ARN:
       arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab
 
-    *  Alias name: alias/ExampleAlias
+    - Alias name: alias/ExampleAlias
 
-    *  Alias ARN: arn:aws:kms:us-east-2:111122223333:alias/ExampleAlias
+    - Alias ARN: arn:aws:kms:us-east-2:111122223333:alias/ExampleAlias
 
-     To get the key ID and key ARN for a KMS key, use the `ListKeys <https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeys.html>`_
-     or `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_
-     KMS API operations. To get the alias name and alias ARN, use `ListKeys <https://docs.aws.amazon.com/kms/latest/APIReference/API_ListAliases.html>`_
-     API operation.
+    To get the key ID and key ARN for a KMS key, use the
+    [ListKeys](https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeys.html)
+    or
+    [DescribeKey](https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html)
+    KMS API operations. To get the alias name and alias ARN, use
+    [ListKeys](https://docs.aws.amazon.com/kms/latest/APIReference/API_ListAliases.html)
+    API operation.
     """
 
     kms_encryption_context: dict[str, str] | None = None
     """
-    A map of plain text, non-secret key:value pairs, known as encryption context
-    pairs, that provide an added layer of security for your data. For more
-    information, see `KMSencryption context  <https://docs.aws.amazon.com/transcribe/latest/dg/key-management.html#kms-context>`_
-    and `Asymmetric keys in KMS  <https://docs.aws.amazon.com/transcribe/latest/dg/symmetric-asymmetric.html>`_
+    A map of plain text, non-secret key:value pairs, known as encryption
+    context pairs, that provide an added layer of security for your data.
+    For more information, see [KMSencryption
+    context](https://docs.aws.amazon.com/transcribe/latest/dg/key-management.html#kms-context)
+    and [Asymmetric keys in
+    KMS](https://docs.aws.amazon.com/transcribe/latest/dg/symmetric-asymmetric.html)
     .
     """
 
@@ -3021,14 +3021,10 @@ class MedicalScribeMediaEncoding(StrEnum):
 
 @dataclass(kw_only=True)
 class MedicalScribePostStreamAnalyticsResult:
-    """
-    Contains details for the result of post-stream analytics.
-    """
+    """Contains details for the result of post-stream analytics."""
 
     clinical_note_generation_result: ClinicalNoteGenerationResult | None = None
-    """
-    Provides the Clinical Note Generation result for post-stream analytics.
-    """
+    """Provides the Clinical Note Generation result for post-stream analytics."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(
@@ -3070,14 +3066,10 @@ class MedicalScribePostStreamAnalyticsResult:
 
 @dataclass(kw_only=True)
 class MedicalScribePostStreamAnalyticsSettings:
-    """
-    The settings for post-stream analytics.
-    """
+    """The settings for post-stream analytics."""
 
     clinical_note_generation_settings: ClinicalNoteGenerationSettings
-    """
-    Specify settings for the post-stream clinical note generation.
-    """
+    """Specify settings for the post-stream clinical note generation."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(
@@ -3132,69 +3124,54 @@ class MedicalScribeVocabularyFilterMethod(StrEnum):
 @dataclass(kw_only=True)
 class MedicalScribeStreamDetails:
     """
-    Contains details about a Amazon Web Services HealthScribe streaming session.
+    Contains details about a Amazon Web Services HealthScribe streaming
+    session.
     """
 
     session_id: str | None = None
-    """
-    The identifier of the HealthScribe streaming session.
-    """
+    """The identifier of the HealthScribe streaming session."""
 
     stream_created_at: datetime | None = None
-    """
-    The date and time when the HealthScribe streaming session was created.
-    """
+    """The date and time when the HealthScribe streaming session was created."""
 
     stream_ended_at: datetime | None = None
-    """
-    The date and time when the HealthScribe streaming session was ended.
-    """
+    """The date and time when the HealthScribe streaming session was ended."""
 
     language_code: str | None = None
-    """
-    The Language Code of the HealthScribe streaming session.
-    """
+    """The Language Code of the HealthScribe streaming session."""
 
     media_sample_rate_hertz: int | None = None
-    """
-    The sample rate (in hertz) of the HealthScribe streaming session.
-    """
+    """The sample rate (in hertz) of the HealthScribe streaming session."""
 
     media_encoding: str | None = None
-    """
-    The Media Encoding of the HealthScribe streaming session.
-    """
+    """The Media Encoding of the HealthScribe streaming session."""
 
     vocabulary_name: str | None = None
-    """
-    The vocabulary name of the HealthScribe streaming session.
-    """
+    """The vocabulary name of the HealthScribe streaming session."""
 
     vocabulary_filter_name: str | None = None
     """
-    The name of the vocabulary filter used for the HealthScribe streaming session .
+    The name of the vocabulary filter used for the HealthScribe streaming
+    session .
     """
 
     vocabulary_filter_method: str | None = None
     """
-    The method of the vocabulary filter for the HealthScribe streaming session.
+    The method of the vocabulary filter for the HealthScribe streaming
+    session.
     """
 
     resource_access_role_arn: str | None = None
     """
-    The Amazon Resource Name (ARN) of the role used in the HealthScribe streaming
-    session.
+    The Amazon Resource Name (ARN) of the role used in the HealthScribe
+    streaming session.
     """
 
     channel_definitions: list[MedicalScribeChannelDefinition] | None = None
-    """
-    The Channel Definitions of the HealthScribe streaming session.
-    """
+    """The Channel Definitions of the HealthScribe streaming session."""
 
     encryption_settings: MedicalScribeEncryptionSettings | None = None
-    """
-    The Encryption Settings of the HealthScribe streaming session.
-    """
+    """The Encryption Settings of the HealthScribe streaming session."""
 
     stream_status: str | None = None
     """
@@ -3202,38 +3179,40 @@ class MedicalScribeStreamDetails:
 
     Possible Values:
 
-    * ``IN_PROGRESS``
+    - `IN_PROGRESS`
 
-    * ``PAUSED``
+    - `PAUSED`
 
-    * ``FAILED``
+    - `FAILED`
 
-    * ``COMPLETED``
+    - `COMPLETED`
 
-    .. note::
-        This status is specific to real-time streaming. A ``COMPLETED`` status doesn't
-        mean that the post-stream analytics is complete. To get status of an analytics
-        result, check the ``Status`` field for the analytics result within the
-        ``MedicalScribePostStreamAnalyticsResult``. For example, you can view the status
-        of the ``ClinicalNoteGenerationResult``.
+    Note:
+        This status is specific to real-time streaming. A `COMPLETED` status
+        doesn't mean that the post-stream analytics is complete. To get status
+        of an analytics result, check the `Status` field for the analytics
+        result within the `MedicalScribePostStreamAnalyticsResult`. For example,
+        you can view the status of the `ClinicalNoteGenerationResult`.
     """
 
     post_stream_analytics_settings: MedicalScribePostStreamAnalyticsSettings | None = (
         None
     )
     """
-    The post-stream analytics settings of the HealthScribe streaming session.
+    The post-stream analytics settings of the HealthScribe streaming
+    session.
     """
 
     post_stream_analytics_result: MedicalScribePostStreamAnalyticsResult | None = None
     """
-    The result of post-stream analytics for the HealthScribe streaming session.
+    The result of post-stream analytics for the HealthScribe streaming
+    session.
     """
 
     medical_scribe_context_provided: bool | None = None
     """
-    Indicates whether the ``MedicalScribeContext`` object was provided when the
-    stream was started.
+    Indicates whether the `MedicalScribeContext` object was provided when
+    the stream was started.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -3459,10 +3438,10 @@ class MedicalScribeStreamDetails:
 
 @dataclass(kw_only=True)
 class GetMedicalScribeStreamOutput:
+    """Dataclass for GetMedicalScribeStreamOutput structure."""
+
     medical_scribe_stream_details: MedicalScribeStreamDetails | None = None
-    """
-    Provides details about a HealthScribe streaming session.
-    """
+    """Provides details about a HealthScribe streaming session."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_GET_MEDICAL_SCRIBE_STREAM_OUTPUT, self)
@@ -3502,9 +3481,7 @@ class GetMedicalScribeStreamOutput:
 
 @dataclass(kw_only=True)
 class ResourceNotFoundException(ServiceError):
-    """
-    The request references a resource which doesn't exist.
-    """
+    """The request references a resource which doesn't exist."""
 
     fault: Literal["client", "server"] | None = "client"
 
@@ -3673,21 +3650,19 @@ class LanguageCode(StrEnum):
 class LanguageWithScore:
     """
     The language code that represents the language identified in your audio,
-    including the associated confidence score. If you enabled channel identification
-    in your request and each channel contained a different language, you will have
-    more than one ``LanguageWithScore`` result.
+    including the associated confidence score. If you enabled channel
+    identification in your request and each channel contained a different
+    language, you will have more than one `LanguageWithScore` result.
     """
 
     language_code: str | None = None
-    """
-    The language code of the identified language.
-    """
+    """The language code of the identified language."""
 
     score: float = 0
     """
-    The confidence score associated with the identified language code. Confidence
-    scores are values between zero and one; larger values indicate a higher
-    confidence in the identified language.
+    The confidence score associated with the identified language code.
+    Confidence scores are values between zero and one; larger values
+    indicate a higher confidence in the identified language.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -3764,38 +3739,32 @@ class MediaEncoding(StrEnum):
 @dataclass(kw_only=True)
 class MedicalEntity:
     """
-    Contains entities identified as personal health information (PHI) in your
-    transcription output, along with various associated attributes. Examples include
-    category, confidence score, type, stability score, and start and end times.
+    Contains entities identified as personal health information (PHI) in
+    your transcription output, along with various associated attributes.
+    Examples include category, confidence score, type, stability score, and
+    start and end times.
     """
 
     start_time: float = 0
-    """
-    The start time, in seconds, of the utterance that was identified as PHI.
-    """
+    """The start time, in seconds, of the utterance that was identified as PHI."""
 
     end_time: float = 0
-    """
-    The end time, in seconds, of the utterance that was identified as PHI.
-    """
+    """The end time, in seconds, of the utterance that was identified as PHI."""
 
     category: str | None = None
-    """
-    The category of information identified. The only category is ``PHI``.
-    """
+    """The category of information identified. The only category is `PHI`."""
 
     content: str | None = None
-    """
-    The word or words identified as PHI.
-    """
+    """The word or words identified as PHI."""
 
     confidence: float | None = None
     """
-    The confidence score associated with the identified PHI entity in your audio.
+    The confidence score associated with the identified PHI entity in your
+    audio.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified entity correctly matches the entity spoken in
-    your media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified entity correctly matches the
+    entity spoken in your media.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -3893,44 +3862,39 @@ def _deserialize_medical_entity_list(
 @dataclass(kw_only=True)
 class MedicalItem:
     """
-    A word, phrase, or punctuation mark in your transcription output, along with
-    various associated attributes, such as confidence score, type, and start and end
-    times.
+    A word, phrase, or punctuation mark in your transcription output, along
+    with various associated attributes, such as confidence score, type, and
+    start and end times.
     """
 
     start_time: float = 0
-    """
-    The start time, in seconds, of the transcribed item.
-    """
+    """The start time, in seconds, of the transcribed item."""
 
     end_time: float = 0
-    """
-    The end time, in seconds, of the transcribed item.
-    """
+    """The end time, in seconds, of the transcribed item."""
 
     type: str | None = None
     """
-    The type of item identified. Options are: ``PRONUNCIATION`` (spoken words) and
-    ``PUNCTUATION``.
+    The type of item identified. Options are: `PRONUNCIATION` (spoken words)
+    and `PUNCTUATION`.
     """
 
     content: str | None = None
-    """
-    The word or punctuation that was transcribed.
-    """
+    """The word or punctuation that was transcribed."""
 
     confidence: float | None = None
     """
-    The confidence score associated with a word or phrase in your transcript.
+    The confidence score associated with a word or phrase in your
+    transcript.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified item correctly matches the item spoken in your
-    media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified item correctly matches the item
+    spoken in your media.
     """
 
     speaker: str | None = None
     """
-    If speaker partitioning is enabled, ``Speaker`` labels the speaker of the
+    If speaker partitioning is enabled, `Speaker` labels the speaker of the
     specified item.
     """
 
@@ -4036,24 +4000,23 @@ def _deserialize_medical_item_list(
 class MedicalAlternative:
     """
     A list of possible alternative transcriptions for the input audio. Each
-    alternative may contain one or more of ``Items``, ``Entities``, or
-    ``Transcript``.
+    alternative may contain one or more of `Items`, `Entities`, or
+    `Transcript`.
     """
 
     transcript: str | None = None
-    """
-    Contains transcribed text.
-    """
+    """Contains transcribed text."""
 
     items: list[MedicalItem] | None = None
     """
-    Contains words, phrases, or punctuation marks in your transcription output.
+    Contains words, phrases, or punctuation marks in your transcription
+    output.
     """
 
     entities: list[MedicalEntity] | None = None
     """
-    Contains entities identified as personal health information (PHI) in your
-    transcription output.
+    Contains entities identified as personal health information (PHI) in
+    your transcription output.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4141,49 +4104,41 @@ class MedicalContentIdentificationType(StrEnum):
 @dataclass(kw_only=True)
 class MedicalResult:
     """
-    The ``Result`` associated with a ````.
+    The `Result` associated with a .
 
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to alternative transcriptions, channel identification,
-    partial result stabilization, language identification, and other
-    transcription-related data.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to alternative transcriptions, channel
+    identification, partial result stabilization, language identification,
+    and other transcription-related data.
     """
 
     result_id: str | None = None
-    """
-    Provides a unique identifier for the ``Result``.
-    """
+    """Provides a unique identifier for the `Result`."""
 
     start_time: float = 0
-    """
-    The start time, in seconds, of the ``Result``.
-    """
+    """The start time, in seconds, of the `Result`."""
 
     end_time: float = 0
-    """
-    The end time, in seconds, of the ``Result``.
-    """
+    """The end time, in seconds, of the `Result`."""
 
     is_partial: bool = False
     """
     Indicates if the segment is complete.
 
-    If ``IsPartial`` is ``true``, the segment is not complete. If ``IsPartial`` is
-    ``false``, the segment is complete.
+    If `IsPartial` is `true`, the segment is not complete. If `IsPartial` is
+    `false`, the segment is complete.
     """
 
     alternatives: list[MedicalAlternative] | None = None
     """
     A list of possible alternative transcriptions for the input audio. Each
-    alternative may contain one or more of ``Items``, ``Entities``, or
-    ``Transcript``.
+    alternative may contain one or more of `Items`, `Entities`, or
+    `Transcript`.
     """
 
     channel_id: str | None = None
-    """
-    Indicates the channel identified for the ``Result``.
-    """
+    """Indicates the channel identified for the `Result`."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_MEDICAL_RESULT, self)
@@ -4292,27 +4247,27 @@ class MedicalScribeAudioEvent:
     """
     A wrapper for your audio chunks
 
-    For more information, see ``Event stream encoding <https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html>``_
-    .
+    For more information, see [Event stream
+    encoding](https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html).
     """
 
     audio_chunk: bytes
     """
-     An audio blob containing the next segment of audio from your application, with a
-     maximum duration of 1 second. The maximum size in bytes varies based on audio
-     properties.
+    An audio blob containing the next segment of audio from your
+    application, with a maximum duration of 1 second. The maximum size in
+    bytes varies based on audio properties.
 
-    Find recommended size in `Transcribing streaming best practices <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#best-practices>`_
-    .
+    Find recommended size in [Transcribing streaming best
+    practices](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#best-practices).
 
-     Size calculation: ``Duration (s) * Sample Rate (Hz) * Number of Channels * 2
-     (Bytes per Sample)``
+    Size calculation:
+    `Duration (s) * Sample Rate (Hz) * Number of Channels * 2 (Bytes per Sample)`
 
-     For example, a 1-second chunk of 16 kHz, 2-channel, 16-bit audio would be ``1 *
-     16000 * 2 * 2 = 64000 bytes``.
+    For example, a 1-second chunk of 16 kHz, 2-channel, 16-bit audio would
+    be `1 * 16000 * 2 * 2 = 64000 bytes`.
 
-     For 8 kHz, 1-channel, 16-bit audio, a 1-second chunk would be ``1 * 8000 * 1 * 2
-     = 16000 bytes``.
+    For 8 kHz, 1-channel, 16-bit audio, a 1-second chunk would be
+    `1 * 8000 * 1 * 2 = 16000 bytes`.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4353,14 +4308,12 @@ class Pronouns(StrEnum):
 
 @dataclass(kw_only=True)
 class MedicalScribePatientContext:
-    """
-    Contains patient-specific information.
-    """
+    """Contains patient-specific information."""
 
     pronouns: str | None = field(repr=False, default=None)
     """
-    The patient's preferred pronouns that the user wants to provide as a context for
-    clinical note generation .
+    The patient's preferred pronouns that the user wants to provide as a
+    context for clinical note generation .
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4400,14 +4353,15 @@ class MedicalScribePatientContext:
 @dataclass(kw_only=True)
 class MedicalScribeContext:
     """
-    The ``MedicalScribeContext`` object that contains contextual information which
-    is used during clinical note generation to add relevant context to the note.
+    The `MedicalScribeContext` object that contains contextual information
+    which is used during clinical note generation to add relevant context to
+    the note.
     """
 
     patient_context: MedicalScribePatientContext | None = None
     """
-    Contains patient-specific information used to customize the clinical note
-    generation.
+    Contains patient-specific information used to customize the clinical
+    note generation.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4446,77 +4400,72 @@ class MedicalScribeContext:
 class MedicalScribeConfigurationEvent:
     """
     Specify details to configure the streaming session, including channel
-    definitions, encryption settings, post-stream analytics settings, resource
-    access role ARN and vocabulary settings.
+    definitions, encryption settings, post-stream analytics settings,
+    resource access role ARN and vocabulary settings.
 
-    Whether you are starting a new session or resuming an existing session, your
-    first event must be a ``MedicalScribeConfigurationEvent``. If you are resuming a
-    session, then this event must have the same configurations that you provided to
-    start the session.
+    Whether you are starting a new session or resuming an existing session,
+    your first event must be a `MedicalScribeConfigurationEvent`. If you are
+    resuming a session, then this event must have the same configurations
+    that you provided to start the session.
     """
 
     resource_access_role_arn: str
     """
-    The Amazon Resource Name (ARN) of an IAM role that has permissions to access the
-    Amazon S3 output bucket you specified, and use your KMS key if supplied. If the
-    role that you specify doesn’t have the appropriate permissions, your request
-    fails.
+    The Amazon Resource Name (ARN) of an IAM role that has permissions to
+    access the Amazon S3 output bucket you specified, and use your KMS key
+    if supplied. If the role that you specify doesn't have the appropriate
+    permissions, your request fails.
 
-     IAM role ARNs have the format
-     ``arn:partition:iam::account:role/role-name-with-path``. For example:
-     ``arn:aws:iam::111122223333:role/Admin``.
+    IAM role ARNs have the format
+    `arn:partition:iam::account:role/role-name-with-path`. For example:
+    `arn:aws:iam::111122223333:role/Admin`.
 
-    For more information, see `Amazon Web Services HealthScribe <https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html>`_
-    .
+    For more information, see [Amazon Web Services
+    HealthScribe](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html).
     """
 
     post_stream_analytics_settings: MedicalScribePostStreamAnalyticsSettings
-    """
-    Specify settings for post-stream analytics.
-    """
+    """Specify settings for post-stream analytics."""
 
     vocabulary_name: str | None = None
     """
-    Specify the name of the custom vocabulary you want to use for your streaming
-    session. Custom vocabulary names are case-sensitive.
+    Specify the name of the custom vocabulary you want to use for your
+    streaming session. Custom vocabulary names are case-sensitive.
     """
 
     vocabulary_filter_name: str | None = None
     """
-    Specify the name of the custom vocabulary filter you want to include in your
-    streaming session. Custom vocabulary filter names are case-sensitive.
+    Specify the name of the custom vocabulary filter you want to include in
+    your streaming session. Custom vocabulary filter names are
+    case-sensitive.
 
-    If you include ``VocabularyFilterName`` in the
-    ``MedicalScribeConfigurationEvent``, you must also include
-    ``VocabularyFilterMethod``.
+    If you include `VocabularyFilterName` in the
+    `MedicalScribeConfigurationEvent`, you must also include
+    `VocabularyFilterMethod`.
     """
 
     vocabulary_filter_method: str | None = None
     """
-    Specify how you want your custom vocabulary filter applied to the streaming
-    session.
+    Specify how you want your custom vocabulary filter applied to the
+    streaming session.
 
-    To replace words with ``***``, specify ``mask``.
+    To replace words with `***`, specify `mask`.
 
-    To delete words, specify ``remove``.
+    To delete words, specify `remove`.
 
-    To flag words without changing them, specify ``tag``.
+    To flag words without changing them, specify `tag`.
     """
 
     channel_definitions: list[MedicalScribeChannelDefinition] | None = None
-    """
-    Specify which speaker is on which audio channel.
-    """
+    """Specify which speaker is on which audio channel."""
 
     encryption_settings: MedicalScribeEncryptionSettings | None = None
-    """
-    Specify the encryption settings for your streaming session.
-    """
+    """Specify the encryption settings for your streaming session."""
 
     medical_scribe_context: MedicalScribeContext | None = None
     """
-    The ``MedicalScribeContext`` object that contains contextual information used to
-    generate customized clinical notes.
+    The `MedicalScribeContext` object that contains contextual information
+    used to generate customized clinical notes.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4658,20 +4607,24 @@ class MedicalScribeSessionControlEventType(StrEnum):
 
 @dataclass(kw_only=True)
 class MedicalScribeSessionControlEvent:
-    """
-    Specify the lifecycle of your streaming session.
-    """
+    """Specify the lifecycle of your streaming session."""
 
     type: str
     """
-    The type of ``MedicalScribeSessionControlEvent``.
+    The type of `MedicalScribeSessionControlEvent`.
 
     Possible Values:
 
-    * ``END_OF_SESSION`` - Indicates the audio streaming is complete. After you send an END_OF_SESSION event, Amazon Web Services HealthScribe starts the post-stream analytics. The session can't be resumed after this event is sent. After Amazon Web Services HealthScribe processes the event, the real-time ``StreamStatus`` is ``COMPLETED``. You get the ``StreamStatus`` and other stream details with the `GetMedicalScribeStream <https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_GetMedicalScribeStream.html>`_
-      API operation. For more information about different streaming statuses, see the
-      ``StreamStatus`` description in the `MedicalScribeStreamDetails <https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_MedicalScribeStreamDetails.html>`_
-      .
+    - `END_OF_SESSION` - Indicates the audio streaming is complete. After
+      you send an END_OF_SESSION event, Amazon Web Services HealthScribe
+      starts the post-stream analytics. The session can't be resumed after
+      this event is sent. After Amazon Web Services HealthScribe processes
+      the event, the real-time `StreamStatus` is `COMPLETED`. You get the
+      `StreamStatus` and other stream details with the
+      [GetMedicalScribeStream](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_GetMedicalScribeStream.html)
+      API operation. For more information about different streaming
+      statuses, see the `StreamStatus` description in the
+      [MedicalScribeStreamDetails](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_MedicalScribeStreamDetails.html).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -4711,8 +4664,8 @@ class MedicalScribeInputStreamAudioEvent:
     """
     A wrapper for your audio chunks
 
-    For more information, see `Event stream encoding <https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html>`_
-    .
+    For more information, see [Event stream
+    encoding](https://docs.aws.amazon.com/transcribe/latest/dg/event-stream.html).
     """
 
     value: MedicalScribeAudioEvent
@@ -4733,7 +4686,8 @@ class MedicalScribeInputStreamAudioEvent:
 @dataclass
 class MedicalScribeInputStreamSessionControlEvent:
     """
-    Specify the lifecycle of your streaming session, such as ending the session.
+    Specify the lifecycle of your streaming session, such as ending the
+    session.
     """
 
     value: MedicalScribeSessionControlEvent
@@ -4755,12 +4709,13 @@ class MedicalScribeInputStreamSessionControlEvent:
 @dataclass
 class MedicalScribeInputStreamConfigurationEvent:
     """
-    Specify additional streaming session configurations beyond those provided in
-    your initial start request headers. For example, specify channel definitions,
-    encryption settings, and post-stream analytics settings.
+    Specify additional streaming session configurations beyond those
+    provided in your initial start request headers. For example, specify
+    channel definitions, encryption settings, and post-stream analytics
+    settings.
 
-    Whether you are starting a new session or resuming an existing session, your
-    first event must be a ``MedicalScribeConfigurationEvent``.
+    Whether you are starting a new session or resuming an existing session,
+    your first event must be a `MedicalScribeConfigurationEvent`.
     """
 
     value: MedicalScribeConfigurationEvent
@@ -4781,7 +4736,8 @@ class MedicalScribeInputStreamConfigurationEvent:
 
 @dataclass
 class MedicalScribeInputStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -4808,18 +4764,19 @@ MedicalScribeInputStream = Union[
     | MedicalScribeInputStreamConfigurationEvent
     | MedicalScribeInputStreamUnknown
 ]
-
 """
-An encoded stream of events. The stream is encoded as HTTP/2 data frames.
+An encoded stream of events. The stream is encoded as HTTP/2 data
+frames.
 
-An input stream consists of the following types of events. The first element of
-the input stream must be the ``MedicalScribeConfigurationEvent`` event type.
+An input stream consists of the following types of events. The first
+element of the input stream must be the
+`MedicalScribeConfigurationEvent` event type.
 
-* ``MedicalScribeConfigurationEvent``
+- `MedicalScribeConfigurationEvent`
 
-* ``MedicalScribeAudioEvent``
+- `MedicalScribeAudioEvent`
 
-* ``MedicalScribeSessionControlEvent``
+- `MedicalScribeSessionControlEvent`
 """
 
 
@@ -4871,46 +4828,41 @@ class MedicalScribeTranscriptItemType(StrEnum):
 @dataclass(kw_only=True)
 class MedicalScribeTranscriptItem:
     """
-    A word, phrase, or punctuation mark in your transcription output, along with
-    various associated attributes, such as confidence score, type, and start and end
-    times.
+    A word, phrase, or punctuation mark in your transcription output, along
+    with various associated attributes, such as confidence score, type, and
+    start and end times.
     """
 
     begin_audio_time: float = 0
-    """
-    The start time, in milliseconds, of the transcribed item.
-    """
+    """The start time, in milliseconds, of the transcribed item."""
 
     end_audio_time: float = 0
-    """
-    The end time, in milliseconds, of the transcribed item.
-    """
+    """The end time, in milliseconds, of the transcribed item."""
 
     type: str | None = None
     """
-    The type of item identified. Options are: ``PRONUNCIATION`` (spoken words) and
-    ``PUNCTUATION``.
+    The type of item identified. Options are: `PRONUNCIATION` (spoken words)
+    and `PUNCTUATION`.
     """
 
     confidence: float | None = None
     """
-    The confidence score associated with a word or phrase in your transcript.
+    The confidence score associated with a word or phrase in your
+    transcript.
 
-    Confidence scores are values between 0 and 1. A larger value indicates a higher
-    probability that the identified item correctly matches the item spoken in your
-    media.
+    Confidence scores are values between 0 and 1. A larger value indicates a
+    higher probability that the identified item correctly matches the item
+    spoken in your media.
     """
 
     content: str | None = None
-    """
-    The word, phrase or punctuation mark that was transcribed.
-    """
+    """The word, phrase or punctuation mark that was transcribed."""
 
     vocabulary_filter_match: bool | None = None
     """
-    Indicates whether the specified item matches a word in the vocabulary filter
-    included in your configuration event. If ``true``, there is a vocabulary filter
-    match.
+    Indicates whether the specified item matches a word in the vocabulary
+    filter included in your configuration event. If `true`, there is a
+    vocabulary filter match.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -5028,50 +4980,40 @@ def _deserialize_medical_scribe_transcript_item_list(
 @dataclass(kw_only=True)
 class MedicalScribeTranscriptSegment:
     """
-    Contains a set of transcription results, along with additional information of
-    the segment.
+    Contains a set of transcription results, along with additional
+    information of the segment.
     """
 
     segment_id: str | None = None
-    """
-    The identifier of the segment.
-    """
+    """The identifier of the segment."""
 
     begin_audio_time: float = 0
-    """
-    The start time, in milliseconds, of the segment.
-    """
+    """The start time, in milliseconds, of the segment."""
 
     end_audio_time: float = 0
-    """
-    The end time, in milliseconds, of the segment.
-    """
+    """The end time, in milliseconds, of the segment."""
 
     content: str | None = None
-    """
-    Contains transcribed text of the segment.
-    """
+    """Contains transcribed text of the segment."""
 
     items: list[MedicalScribeTranscriptItem] | None = None
-    """
-    Contains words, phrases, or punctuation marks in your segment.
-    """
+    """Contains words, phrases, or punctuation marks in your segment."""
 
     is_partial: bool = False
     """
     Indicates if the segment is complete.
 
-    If ``IsPartial`` is ``true``, the segment is not complete. If ``IsPartial`` is
-    ``false``, the segment is complete.
+    If `IsPartial` is `true`, the segment is not complete. If `IsPartial` is
+    `false`, the segment is complete.
     """
 
     channel_id: str | None = None
     """
     Indicates which audio channel is associated with the
-    ``MedicalScribeTranscriptSegment``.
+    `MedicalScribeTranscriptSegment`.
 
-    If ``MedicalScribeChannelDefinition`` is not provided in the
-    ``MedicalScribeConfigurationEvent``, then this field will not be included.
+    If `MedicalScribeChannelDefinition` is not provided in the
+    `MedicalScribeConfigurationEvent`, then this field will not be included.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -5176,15 +5118,16 @@ class MedicalScribeTranscriptSegment:
 @dataclass(kw_only=True)
 class MedicalScribeTranscriptEvent:
     """
-    The event associated with ``MedicalScribeResultStream``.
+    The event associated with `MedicalScribeResultStream`.
 
-    Contains ``MedicalScribeTranscriptSegment``, which contains segment related
-    information.
+    Contains `MedicalScribeTranscriptSegment`, which contains segment
+    related information.
     """
 
     transcript_segment: MedicalScribeTranscriptSegment | None = None
     """
-    The ``TranscriptSegment`` associated with a ``MedicalScribeTranscriptEvent``.
+    The `TranscriptSegment` associated with a
+    `MedicalScribeTranscriptEvent`.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -5223,9 +5166,7 @@ class MedicalScribeTranscriptEvent:
 
 @dataclass
 class MedicalScribeResultStreamTranscriptEvent:
-    """
-    The transcript event that contains real-time transcription results.
-    """
+    """The transcript event that contains real-time transcription results."""
 
     value: MedicalScribeTranscriptEvent
 
@@ -5245,11 +5186,11 @@ class MedicalScribeResultStreamTranscriptEvent:
 @dataclass
 class MedicalScribeResultStreamBadRequestException:
     """
-    One or more arguments to the ``StartStreamTranscription``,
-    ``StartMedicalStreamTranscription``, or
-    ``StartCallAnalyticsStreamTranscription`` operation was not valid. For example,
-    ``MediaEncoding`` or ``LanguageCode`` used unsupported values. Check the
-    specified parameters and try your request again.
+    One or more arguments to the `StartStreamTranscription`,
+    `StartMedicalStreamTranscription`, or
+    `StartCallAnalyticsStreamTranscription` operation was not valid. For
+    example, `MediaEncoding` or `LanguageCode` used unsupported values.
+    Check the specified parameters and try your request again.
     """
 
     value: BadRequestException
@@ -5271,9 +5212,9 @@ class MedicalScribeResultStreamBadRequestException:
 @dataclass
 class MedicalScribeResultStreamLimitExceededException:
     """
-    Your client has exceeded one of the Amazon Transcribe limits. This is typically
-    the audio length limit. Break your audio stream into smaller chunks and try your
-    request again.
+    Your client has exceeded one of the Amazon Transcribe limits. This is
+    typically the audio length limit. Break your audio stream into smaller
+    chunks and try your request again.
     """
 
     value: LimitExceededException
@@ -5295,8 +5236,8 @@ class MedicalScribeResultStreamLimitExceededException:
 @dataclass
 class MedicalScribeResultStreamInternalFailureException:
     """
-    A problem occurred while processing the audio. Amazon Transcribe terminated
-    processing.
+    A problem occurred while processing the audio. Amazon Transcribe
+    terminated processing.
     """
 
     value: InternalFailureException
@@ -5318,8 +5259,8 @@ class MedicalScribeResultStreamInternalFailureException:
 @dataclass
 class MedicalScribeResultStreamConflictException:
     """
-    A new stream started with the same session ID. The current stream has been
-    terminated.
+    A new stream started with the same session ID. The current stream has
+    been terminated.
     """
 
     value: ConflictException
@@ -5340,9 +5281,7 @@ class MedicalScribeResultStreamConflictException:
 
 @dataclass
 class MedicalScribeResultStreamServiceUnavailableException:
-    """
-    The service is currently unavailable. Try your request later.
-    """
+    """The service is currently unavailable. Try your request later."""
 
     value: ServiceUnavailableException
 
@@ -5362,7 +5301,8 @@ class MedicalScribeResultStreamServiceUnavailableException:
 
 @dataclass
 class MedicalScribeResultStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -5392,10 +5332,9 @@ MedicalScribeResultStream = Union[
     | MedicalScribeResultStreamServiceUnavailableException
     | MedicalScribeResultStreamUnknown
 ]
-
 """
-Result stream where you will receive the output events. The details are provided
-in the ``MedicalScribeTranscriptEvent`` object.
+Result stream where you will receive the output events. The details are
+provided in the `MedicalScribeTranscriptEvent` object.
 """
 
 
@@ -5459,20 +5398,20 @@ class _MedicalScribeResultStreamDeserializer:
 @dataclass(kw_only=True)
 class MedicalTranscript:
     """
-    The ``MedicalTranscript`` associated with a ````.
+    The `MedicalTranscript` associated with a .
 
-    ``MedicalTranscript`` contains ``Results``, which contains a set of
-    transcription results from one or more audio segments, along with additional
-    information per your request parameters.
+    `MedicalTranscript` contains `Results`, which contains a set of
+    transcription results from one or more audio segments, along with
+    additional information per your request parameters.
     """
 
     results: list[MedicalResult] | None = None
     """
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to alternative transcriptions, channel identification,
-    partial result stabilization, language identification, and other
-    transcription-related data.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to alternative transcriptions, channel
+    identification, partial result stabilization, language identification,
+    and other transcription-related data.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -5509,20 +5448,20 @@ class MedicalTranscript:
 @dataclass(kw_only=True)
 class MedicalTranscriptEvent:
     """
-    The ``MedicalTranscriptEvent`` associated with a
-    ``MedicalTranscriptResultStream``.
+    The `MedicalTranscriptEvent` associated with a
+    `MedicalTranscriptResultStream`.
 
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters.
     """
 
     transcript: MedicalTranscript | None = None
     """
-    Contains ``Results``, which contains a set of transcription results from one or
-    more audio segments, along with additional information per your request
-    parameters. This can include information relating to alternative transcriptions,
-    channel identification, partial result stabilization, language identification,
-    and other transcription-related data.
+    Contains `Results`, which contains a set of transcription results from
+    one or more audio segments, along with additional information per your
+    request parameters. This can include information relating to alternative
+    transcriptions, channel identification, partial result stabilization,
+    language identification, and other transcription-related data.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -5557,14 +5496,14 @@ class MedicalTranscriptEvent:
 @dataclass
 class MedicalTranscriptResultStreamTranscriptEvent:
     """
-    The ``MedicalTranscriptEvent`` associated with a
-    ``MedicalTranscriptResultStream``.
+    The `MedicalTranscriptEvent` associated with a
+    `MedicalTranscriptResultStream`.
 
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to alternative transcriptions, channel identification,
-    partial result stabilization, language identification, and other
-    transcription-related data.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to alternative transcriptions, channel
+    identification, partial result stabilization, language identification,
+    and other transcription-related data.
     """
 
     value: MedicalTranscriptEvent
@@ -5586,11 +5525,11 @@ class MedicalTranscriptResultStreamTranscriptEvent:
 @dataclass
 class MedicalTranscriptResultStreamBadRequestException:
     """
-    One or more arguments to the ``StartStreamTranscription``,
-    ``StartMedicalStreamTranscription``, or
-    ``StartCallAnalyticsStreamTranscription`` operation was not valid. For example,
-    ``MediaEncoding`` or ``LanguageCode`` used unsupported values. Check the
-    specified parameters and try your request again.
+    One or more arguments to the `StartStreamTranscription`,
+    `StartMedicalStreamTranscription`, or
+    `StartCallAnalyticsStreamTranscription` operation was not valid. For
+    example, `MediaEncoding` or `LanguageCode` used unsupported values.
+    Check the specified parameters and try your request again.
     """
 
     value: BadRequestException
@@ -5612,9 +5551,9 @@ class MedicalTranscriptResultStreamBadRequestException:
 @dataclass
 class MedicalTranscriptResultStreamLimitExceededException:
     """
-    Your client has exceeded one of the Amazon Transcribe limits. This is typically
-    the audio length limit. Break your audio stream into smaller chunks and try your
-    request again.
+    Your client has exceeded one of the Amazon Transcribe limits. This is
+    typically the audio length limit. Break your audio stream into smaller
+    chunks and try your request again.
     """
 
     value: LimitExceededException
@@ -5636,8 +5575,8 @@ class MedicalTranscriptResultStreamLimitExceededException:
 @dataclass
 class MedicalTranscriptResultStreamInternalFailureException:
     """
-    A problem occurred while processing the audio. Amazon Transcribe terminated
-    processing.
+    A problem occurred while processing the audio. Amazon Transcribe
+    terminated processing.
     """
 
     value: InternalFailureException
@@ -5661,8 +5600,8 @@ class MedicalTranscriptResultStreamInternalFailureException:
 @dataclass
 class MedicalTranscriptResultStreamConflictException:
     """
-    A new stream started with the same session ID. The current stream has been
-    terminated.
+    A new stream started with the same session ID. The current stream has
+    been terminated.
     """
 
     value: ConflictException
@@ -5683,9 +5622,7 @@ class MedicalTranscriptResultStreamConflictException:
 
 @dataclass
 class MedicalTranscriptResultStreamServiceUnavailableException:
-    """
-    The service is currently unavailable. Try your request later.
-    """
+    """The service is currently unavailable. Try your request later."""
 
     value: ServiceUnavailableException
 
@@ -5707,7 +5644,8 @@ class MedicalTranscriptResultStreamServiceUnavailableException:
 
 @dataclass
 class MedicalTranscriptResultStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -5737,10 +5675,7 @@ MedicalTranscriptResultStream = Union[
     | MedicalTranscriptResultStreamServiceUnavailableException
     | MedicalTranscriptResultStreamUnknown
 ]
-
-"""
-Contains detailed information about your streaming session.
-"""
+"""Contains detailed information about your streaming session."""
 
 
 class _MedicalTranscriptResultStreamDeserializer:
@@ -5817,63 +5752,60 @@ class PartialResultsStability(StrEnum):
 @dataclass(kw_only=True)
 class Result:
     """
-    The ``Result`` associated with a ````.
+    The `Result` associated with a .
 
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to alternative transcriptions, channel identification,
-    partial result stabilization, language identification, and other
-    transcription-related data.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to alternative transcriptions, channel
+    identification, partial result stabilization, language identification,
+    and other transcription-related data.
     """
 
     result_id: str | None = None
-    """
-    Provides a unique identifier for the ``Result``.
-    """
+    """Provides a unique identifier for the `Result`."""
 
     start_time: float = 0
     """
-    The start time of the ``Result`` in seconds, with millisecond precision (e.g.,
-    1.056).
+    The start time of the `Result` in seconds, with millisecond precision
+    (e.g., 1.056).
     """
 
     end_time: float = 0
     """
-    The end time of the ``Result`` in seconds, with millisecond precision (e.g.,
-    1.056).
+    The end time of the `Result` in seconds, with millisecond precision
+    (e.g., 1.056).
     """
 
     is_partial: bool = False
     """
     Indicates if the segment is complete.
 
-    If ``IsPartial`` is ``true``, the segment is not complete. If ``IsPartial`` is
-    ``false``, the segment is complete.
+    If `IsPartial` is `true`, the segment is not complete. If `IsPartial` is
+    `false`, the segment is complete.
     """
 
     alternatives: list[Alternative] | None = None
     """
     A list of possible alternative transcriptions for the input audio. Each
-    alternative may contain one or more of ``Items``, ``Entities``, or
-    ``Transcript``.
+    alternative may contain one or more of `Items`, `Entities`, or
+    `Transcript`.
     """
 
     channel_id: str | None = None
-    """
-    Indicates which audio channel is associated with the ``Result``.
-    """
+    """Indicates which audio channel is associated with the `Result`."""
 
     language_code: str | None = None
     """
-    The language code that represents the language spoken in your audio stream.
+    The language code that represents the language spoken in your audio
+    stream.
     """
 
     language_identification: list[LanguageWithScore] | None = None
     """
     The language code of the dominant language identified in your stream.
 
-    If you enabled channel identification and each channel of your audio contains a
-    different language, you may have more than one result.
+    If you enabled channel identification and each channel of your audio
+    contains a different language, you may have more than one result.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -6009,81 +5941,86 @@ class VocabularyFilterMethod(StrEnum):
 
 @dataclass(kw_only=True)
 class StartCallAnalyticsStreamTranscriptionInput:
+    """Dataclass for StartCallAnalyticsStreamTranscriptionInput structure."""
+
     language_code: str | None = None
     """
-    Specify the language code that represents the language spoken in your audio.
+    Specify the language code that represents the language spoken in your
+    audio.
 
-    For a list of languages supported with real-time Call Analytics, refer to the
-    `Supported languages <https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html>`_
+    For a list of languages supported with real-time Call Analytics, refer
+    to the [Supported
+    languages](https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html)
     table.
     """
 
     media_sample_rate_hertz: int | None = None
     """
-    The sample rate of the input audio (in hertz). Low-quality audio, such as
-    telephone audio, is typically around 8,000 Hz. High-quality audio typically
-    ranges from 16,000 Hz to 48,000 Hz. Note that the sample rate you specify must
-    match that of your audio.
+    The sample rate of the input audio (in hertz). Low-quality audio, such
+    as telephone audio, is typically around 8,000 Hz. High-quality audio
+    typically ranges from 16,000 Hz to 48,000 Hz. Note that the sample rate
+    you specify must match that of your audio.
     """
 
     media_encoding: str | None = None
     """
     Specify the encoding of your input audio. Supported formats are:
 
-    * FLAC
+    - FLAC
 
-    * OPUS-encoded audio in an Ogg container
+    - OPUS-encoded audio in an Ogg container
 
-    * PCM (only signed 16-bit little-endian audio formats, which does not include
-      WAV)
+    - PCM (only signed 16-bit little-endian audio formats, which does not
+      include WAV)
 
-    For more information, see `Media formats <https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio>`_
-    .
+    For more information, see [Media
+    formats](https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio).
     """
 
     vocabulary_name: str | None = None
     """
-    Specify the name of the custom vocabulary that you want to use when processing
-    your transcription. Note that vocabulary names are case sensitive.
+    Specify the name of the custom vocabulary that you want to use when
+    processing your transcription. Note that vocabulary names are case
+    sensitive.
 
-    If the language of the specified custom vocabulary doesn't match the language
-    identified in your media, the custom vocabulary is not applied to your
-    transcription.
+    If the language of the specified custom vocabulary doesn't match the
+    language identified in your media, the custom vocabulary is not applied
+    to your transcription.
 
-    For more information, see `Custom vocabularies <https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html>`_
-    .
+    For more information, see [Custom
+    vocabularies](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html).
     """
 
     session_id: str | None = None
     """
-    Specify a name for your Call Analytics transcription session. If you don't
-    include this parameter in your request, Amazon Transcribe generates an ID and
-    returns it in the response.
+    Specify a name for your Call Analytics transcription session. If you
+    don't include this parameter in your request, Amazon Transcribe
+    generates an ID and returns it in the response.
     """
 
     vocabulary_filter_name: str | None = None
     """
-    Specify the name of the custom vocabulary filter that you want to use when
-    processing your transcription. Note that vocabulary filter names are case
-    sensitive.
+    Specify the name of the custom vocabulary filter that you want to use
+    when processing your transcription. Note that vocabulary filter names
+    are case sensitive.
 
-    If the language of the specified custom vocabulary filter doesn't match the
-    language identified in your media, the vocabulary filter is not applied to your
-    transcription.
+    If the language of the specified custom vocabulary filter doesn't match
+    the language identified in your media, the vocabulary filter is not
+    applied to your transcription.
 
-    For more information, see `Using vocabulary filtering with unwanted words <https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html>`_
-    .
+    For more information, see [Using vocabulary filtering with unwanted
+    words](https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html).
     """
 
     vocabulary_filter_method: str | None = None
     """
     Specify how you want your vocabulary filter applied to your transcript.
 
-    To replace words with ``***``, choose ``mask``.
+    To replace words with `***`, choose `mask`.
 
-    To delete words, choose ``remove``.
+    To delete words, choose `remove`.
 
-    To flag words without changing them, choose ``tag``.
+    To flag words without changing them, choose `tag`.
     """
 
     language_model_name: str | None = None
@@ -6092,114 +6029,118 @@ class StartCallAnalyticsStreamTranscriptionInput:
     processing your transcription. Note that language model names are case
     sensitive.
 
-    The language of the specified language model must match the language code you
-    specify in your transcription request. If the languages don't match, the custom
-    language model isn't applied. There are no errors or warnings associated with a
-    language mismatch.
+    The language of the specified language model must match the language
+    code you specify in your transcription request. If the languages don't
+    match, the custom language model isn't applied. There are no errors or
+    warnings associated with a language mismatch.
 
-    For more information, see `Custom language models <https://docs.aws.amazon.com/transcribe/latest/dg/custom-language-models.html>`_
-    .
+    For more information, see [Custom language
+    models](https://docs.aws.amazon.com/transcribe/latest/dg/custom-language-models.html).
     """
 
     identify_language: bool = False
     """
-    Enables automatic language identification for your Call Analytics transcription.
+    Enables automatic language identification for your Call Analytics
+    transcription.
 
-    If you include ``IdentifyLanguage``, you must include a list of language codes,
-    using ``LanguageOptions``, that you think may be present in your audio stream.
-    You must provide a minimum of two language selections.
+    If you include `IdentifyLanguage`, you must include a list of language
+    codes, using `LanguageOptions`, that you think may be present in your
+    audio stream. You must provide a minimum of two language selections.
 
-    You can also include a preferred language using ``PreferredLanguage``. Adding a
-    preferred language can help Amazon Transcribe identify the language faster than
-    if you omit this parameter.
+    You can also include a preferred language using `PreferredLanguage`.
+    Adding a preferred language can help Amazon Transcribe identify the
+    language faster than if you omit this parameter.
 
-    Note that you must include either ``LanguageCode`` or ``IdentifyLanguage`` in
-    your request. If you include both parameters, your transcription job fails.
+    Note that you must include either `LanguageCode` or `IdentifyLanguage`
+    in your request. If you include both parameters, your transcription job
+    fails.
     """
 
     language_options: str | None = None
     """
-    Specify two or more language codes that represent the languages you think may be
-    present in your media.
+    Specify two or more language codes that represent the languages you
+    think may be present in your media.
 
-    Including language options can improve the accuracy of language identification.
+    Including language options can improve the accuracy of language
+    identification.
 
-    If you include ``LanguageOptions`` in your request, you must also include
-    ``IdentifyLanguage``.
+    If you include `LanguageOptions` in your request, you must also include
+    `IdentifyLanguage`.
 
-    For a list of languages supported with Call Analytics streaming, refer to the
-    `Supported languages <https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html>`_
+    For a list of languages supported with Call Analytics streaming, refer
+    to the [Supported
+    languages](https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html)
     table.
 
-    .. important::
-        You can only include one language dialect per language per stream. For example,
-        you cannot include ``en-US`` and ``en-AU`` in the same request.
+    Warning:
+        You can only include one language dialect per language per stream. For
+        example, you cannot include `en-US` and `en-AU` in the same request.
     """
 
     preferred_language: str | None = None
     """
-    Specify a preferred language from the subset of languages codes you specified in
-    ``LanguageOptions``.
+    Specify a preferred language from the subset of languages codes you
+    specified in `LanguageOptions`.
 
-    You can only use this parameter if you've included ``IdentifyLanguage`` and
-    ``LanguageOptions`` in your request.
+    You can only use this parameter if you've included `IdentifyLanguage`
+    and `LanguageOptions` in your request.
     """
 
     vocabulary_names: str | None = None
     """
     Specify the names of the custom vocabularies that you want to use when
-    processing your Call Analytics transcription. Note that vocabulary names are
-    case sensitive.
+    processing your Call Analytics transcription. Note that vocabulary names
+    are case sensitive.
 
-    If the custom vocabulary's language doesn't match the identified media language,
-    it won't be applied to the transcription.
+    If the custom vocabulary's language doesn't match the identified media
+    language, it won't be applied to the transcription.
 
-    .. important::
-        This parameter is only intended for use **with** the ``IdentifyLanguage``
-        parameter. If you're **not** including ``IdentifyLanguage`` in your request and
-        want to use a custom vocabulary with your transcription, use the
-        ``VocabularyName`` parameter instead.
+    Warning:
+        This parameter is only intended for use **with** the `IdentifyLanguage`
+        parameter. If you're **not** including `IdentifyLanguage` in your
+        request and want to use a custom vocabulary with your transcription, use
+        the `VocabularyName` parameter instead.
 
-    For more information, see `Custom vocabularies <https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html>`_
-    .
+    For more information, see [Custom
+    vocabularies](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html).
     """
 
     vocabulary_filter_names: str | None = None
     """
-    Specify the names of the custom vocabulary filters that you want to use when
-    processing your Call Analytics transcription. Note that vocabulary filter names
-    are case sensitive.
+    Specify the names of the custom vocabulary filters that you want to use
+    when processing your Call Analytics transcription. Note that vocabulary
+    filter names are case sensitive.
 
     These filters serve to customize the transcript output.
 
-    .. important::
-        This parameter is only intended for use **with** the ``IdentifyLanguage``
-        parameter. If you're **not** including ``IdentifyLanguage`` in your request and
-        want to use a custom vocabulary filter with your transcription, use the
-        ``VocabularyFilterName`` parameter instead.
+    Warning:
+        This parameter is only intended for use **with** the `IdentifyLanguage`
+        parameter. If you're **not** including `IdentifyLanguage` in your
+        request and want to use a custom vocabulary filter with your
+        transcription, use the `VocabularyFilterName` parameter instead.
 
-    For more information, see `Using vocabulary filtering with unwanted words <https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html>`_
-    .
+    For more information, see [Using vocabulary filtering with unwanted
+    words](https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html).
     """
 
     enable_partial_results_stabilization: bool = False
     """
-    Enables partial result stabilization for your transcription. Partial result
-    stabilization can reduce latency in your output, but may impact accuracy. For
-    more information, see `Partial-result stabilization <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization>`_
-    .
+    Enables partial result stabilization for your transcription. Partial
+    result stabilization can reduce latency in your output, but may impact
+    accuracy. For more information, see [Partial-result
+    stabilization](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization).
     """
 
     partial_results_stability: str | None = None
     """
     Specify the level of stability to use when you enable partial results
-    stabilization (``EnablePartialResultsStabilization``).
+    stabilization (`EnablePartialResultsStabilization`).
 
-    Low stability provides the highest accuracy. High stability transcribes faster,
-    but with slightly lower accuracy.
+    Low stability provides the highest accuracy. High stability transcribes
+    faster, but with slightly lower accuracy.
 
-    For more information, see `Partial-result stabilization <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization>`_
-    .
+    For more information, see [Partial-result
+    stabilization](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization).
     """
 
     content_identification_type: str | None = None
@@ -6207,15 +6148,18 @@ class StartCallAnalyticsStreamTranscriptionInput:
     Labels all personally identifiable information (PII) identified in your
     transcript.
 
-    Content identification is performed at the segment level; PII specified in
-    ``PiiEntityTypes`` is flagged upon complete transcription of an audio segment.
-    If you don't include ``PiiEntityTypes`` in your request, all PII is identified.
+    Content identification is performed at the segment level; PII specified
+    in `PiiEntityTypes` is flagged upon complete transcription of an audio
+    segment. If you don't include `PiiEntityTypes` in your request, all PII
+    is identified.
 
-    You can’t set ``ContentIdentificationType`` and ``ContentRedactionType`` in the
-    same request. If you set both, your request returns a ``BadRequestException``.
+    You can't set `ContentIdentificationType` and `ContentRedactionType` in
+    the same request. If you set both, your request returns a
+    `BadRequestException`.
 
-    For more information, see `Redacting or identifying personally identifiable information <https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html>`_
-    .
+    For more information, see [Redacting or identifying personally
+    identifiable
+    information](https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html).
     """
 
     content_redaction_type: str | None = None
@@ -6224,33 +6168,36 @@ class StartCallAnalyticsStreamTranscriptionInput:
     transcript.
 
     Content redaction is performed at the segment level; PII specified in
-    ``PiiEntityTypes`` is redacted upon complete transcription of an audio segment.
-    If you don't include ``PiiEntityTypes`` in your request, all PII is redacted.
+    `PiiEntityTypes` is redacted upon complete transcription of an audio
+    segment. If you don't include `PiiEntityTypes` in your request, all PII
+    is redacted.
 
-    You can’t set ``ContentRedactionType`` and ``ContentIdentificationType`` in the
-    same request. If you set both, your request returns a ``BadRequestException``.
+    You can't set `ContentRedactionType` and `ContentIdentificationType` in
+    the same request. If you set both, your request returns a
+    `BadRequestException`.
 
-    For more information, see `Redacting or identifying personally identifiable information <https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html>`_
-    .
+    For more information, see [Redacting or identifying personally
+    identifiable
+    information](https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html).
     """
 
     pii_entity_types: str | None = None
     """
-    Specify which types of personally identifiable information (PII) you want to
-    redact in your transcript. You can include as many types as you'd like, or you
-    can select ``ALL``.
+    Specify which types of personally identifiable information (PII) you
+    want to redact in your transcript. You can include as many types as
+    you'd like, or you can select `ALL`.
 
-    Values must be comma-separated and can include: ``ADDRESS``,
-    ``BANK_ACCOUNT_NUMBER``, ``BANK_ROUTING``, ``CREDIT_DEBIT_CVV``,
-    ``CREDIT_DEBIT_EXPIRY``, ``CREDIT_DEBIT_NUMBER``, ``EMAIL``, ``NAME``,
-    ``PHONE``, ``PIN``, ``SSN``, or ``ALL``.
+    Values must be comma-separated and can include: `ADDRESS`,
+    `BANK_ACCOUNT_NUMBER`, `BANK_ROUTING`, `CREDIT_DEBIT_CVV`,
+    `CREDIT_DEBIT_EXPIRY`, `CREDIT_DEBIT_NUMBER`, `EMAIL`, `NAME`, `PHONE`,
+    `PIN`, `SSN`, or `ALL`.
 
-    Note that if you include ``PiiEntityTypes`` in your request, you must also
-    include ``ContentIdentificationType`` or ``ContentRedactionType``.
+    Note that if you include `PiiEntityTypes` in your request, you must also
+    include `ContentIdentificationType` or `ContentRedactionType`.
 
-    If you include ``ContentRedactionType`` or ``ContentIdentificationType`` in your
-    request, but do not include ``PiiEntityTypes``, all PII is redacted or
-    identified.
+    If you include `ContentRedactionType` or `ContentIdentificationType` in
+    your request, but do not include `PiiEntityTypes`, all PII is redacted
+    or identified.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -6550,41 +6497,42 @@ class StartCallAnalyticsStreamTranscriptionInput:
 
 @dataclass(kw_only=True)
 class StartCallAnalyticsStreamTranscriptionOutput:
+    """Dataclass for StartCallAnalyticsStreamTranscriptionOutput structure."""
+
     request_id: str | None = None
-    """
-    Provides the identifier for your real-time Call Analytics request.
-    """
+    """Provides the identifier for your real-time Call Analytics request."""
 
     language_code: str | None = None
     """
-    Provides the language code that you specified in your Call Analytics request.
+    Provides the language code that you specified in your Call Analytics
+    request.
     """
 
     media_sample_rate_hertz: int | None = None
     """
-    Provides the sample rate that you specified in your Call Analytics request.
+    Provides the sample rate that you specified in your Call Analytics
+    request.
     """
 
     media_encoding: str | None = None
     """
-    Provides the media encoding you specified in your Call Analytics request.
+    Provides the media encoding you specified in your Call Analytics
+    request.
     """
 
     vocabulary_name: str | None = None
     """
-    Provides the name of the custom vocabulary that you specified in your Call
-    Analytics request.
+    Provides the name of the custom vocabulary that you specified in your
+    Call Analytics request.
     """
 
     session_id: str | None = None
-    """
-    Provides the identifier for your Call Analytics transcription session.
-    """
+    """Provides the identifier for your Call Analytics transcription session."""
 
     vocabulary_filter_name: str | None = None
     """
-    Provides the name of the custom vocabulary filter that you specified in your
-    Call Analytics request.
+    Provides the name of the custom vocabulary filter that you specified in
+    your Call Analytics request.
     """
 
     vocabulary_filter_method: str | None = None
@@ -6595,49 +6543,48 @@ class StartCallAnalyticsStreamTranscriptionOutput:
 
     language_model_name: str | None = None
     """
-    Provides the name of the custom language model that you specified in your Call
-    Analytics request.
+    Provides the name of the custom language model that you specified in
+    your Call Analytics request.
     """
 
     identify_language: bool = False
     """
-    Shows whether automatic language identification was enabled for your Call
-    Analytics transcription.
+    Shows whether automatic language identification was enabled for your
+    Call Analytics transcription.
     """
 
     language_options: str | None = None
     """
-    Provides the language codes that you specified in your Call Analytics request.
+    Provides the language codes that you specified in your Call Analytics
+    request.
     """
 
     preferred_language: str | None = None
     """
-    Provides the preferred language that you specified in your Call Analytics
-    request.
+    Provides the preferred language that you specified in your Call
+    Analytics request.
     """
 
     vocabulary_names: str | None = None
     """
-    Provides the names of the custom vocabularies that you specified in your Call
-    Analytics request.
+    Provides the names of the custom vocabularies that you specified in your
+    Call Analytics request.
     """
 
     vocabulary_filter_names: str | None = None
     """
-    Provides the names of the custom vocabulary filters that you specified in your
-    Call Analytics request.
+    Provides the names of the custom vocabulary filters that you specified
+    in your Call Analytics request.
     """
 
     enable_partial_results_stabilization: bool = False
     """
-    Shows whether partial results stabilization was enabled for your Call Analytics
-    transcription.
+    Shows whether partial results stabilization was enabled for your Call
+    Analytics transcription.
     """
 
     partial_results_stability: str | None = None
-    """
-    Provides the stabilization level used for your transcription.
-    """
+    """Provides the stabilization level used for your transcription."""
 
     content_identification_type: str | None = None
     """
@@ -6652,9 +6599,7 @@ class StartCallAnalyticsStreamTranscriptionOutput:
     """
 
     pii_entity_types: str | None = None
-    """
-    Lists the PII entity types you specified in your Call Analytics request.
-    """
+    """Lists the PII entity types you specified in your Call Analytics request."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(
@@ -6993,23 +6938,23 @@ START_CALL_ANALYTICS_STREAM_TRANSCRIPTION = APIOperation(
 
 @dataclass(kw_only=True)
 class StartMedicalScribeStreamInput:
+    """Dataclass for StartMedicalScribeStreamInput structure."""
+
     session_id: str | None = None
     """
-    Specify an identifier for your streaming session (in UUID format). If you don't
-    include a SessionId in your request, Amazon Web Services HealthScribe generates
-    an ID and returns it in the response.
+    Specify an identifier for your streaming session (in UUID format). If
+    you don't include a SessionId in your request, Amazon Web Services
+    HealthScribe generates an ID and returns it in the response.
     """
 
     language_code: str | None = None
-    """
-    Specify the language code for your HealthScribe streaming session.
-    """
+    """Specify the language code for your HealthScribe streaming session."""
 
     media_sample_rate_hertz: int | None = None
     """
-    Specify the sample rate of the input audio (in hertz). Amazon Web Services
-    HealthScribe supports a range from 16,000 Hz to 48,000 Hz. The sample rate you
-    specify must match that of your audio.
+    Specify the sample rate of the input audio (in hertz). Amazon Web
+    Services HealthScribe supports a range from 16,000 Hz to 48,000 Hz. The
+    sample rate you specify must match that of your audio.
     """
 
     media_encoding: str | None = None
@@ -7018,15 +6963,15 @@ class StartMedicalScribeStreamInput:
 
     Supported formats are:
 
-    * FLAC
+    - FLAC
 
-    * OPUS-encoded audio in an Ogg container
+    - OPUS-encoded audio in an Ogg container
 
-    * PCM (only signed 16-bit little-endian audio formats, which does not include
-      WAV)
+    - PCM (only signed 16-bit little-endian audio formats, which does not
+      include WAV)
 
-    For more information, see `Media formats <https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio>`_
-    .
+    For more information, see [Media
+    formats](https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -7106,35 +7051,35 @@ class StartMedicalScribeStreamInput:
 
 @dataclass(kw_only=True)
 class StartMedicalScribeStreamOutput:
+    """Dataclass for StartMedicalScribeStreamOutput structure."""
+
     session_id: str | None = None
     """
     The identifier (in UUID format) for your streaming session.
 
-    If you already started streaming, this is same ID as the one you specified in
-    your initial ``StartMedicalScribeStreamRequest``.
+    If you already started streaming, this is same ID as the one you
+    specified in your initial `StartMedicalScribeStreamRequest`.
     """
 
     request_id: str | None = None
-    """
-    The unique identifier for your streaming request.
-    """
+    """The unique identifier for your streaming request."""
 
     language_code: str | None = None
     """
-    The Language Code that you specified in your request. Same as provided in the
-    ``StartMedicalScribeStreamRequest``.
+    The Language Code that you specified in your request. Same as provided
+    in the `StartMedicalScribeStreamRequest`.
     """
 
     media_sample_rate_hertz: int | None = None
     """
-    The sample rate (in hertz) that you specified in your request. Same as provided
-    in the ``StartMedicalScribeStreamRequest``
+    The sample rate (in hertz) that you specified in your request. Same as
+    provided in the `StartMedicalScribeStreamRequest`
     """
 
     media_encoding: str | None = None
     """
-    The Media Encoding you specified in your request. Same as provided in the
-    ``StartMedicalScribeStreamRequest``
+    The Media Encoding you specified in your request. Same as provided in
+    the `StartMedicalScribeStreamRequest`
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -7259,107 +7204,113 @@ class Type(StrEnum):
 
 @dataclass(kw_only=True)
 class StartMedicalStreamTranscriptionInput:
+    """Dataclass for StartMedicalStreamTranscriptionInput structure."""
+
     language_code: str | None = None
     """
-    Specify the language code that represents the language spoken in your audio.
+    Specify the language code that represents the language spoken in your
+    audio.
 
-    .. important::
-        Amazon Transcribe Medical only supports US English (``en-US``).
+    Warning:
+        Amazon Transcribe Medical only supports US English (`en-US`).
     """
 
     media_sample_rate_hertz: int | None = None
     """
     The sample rate of the input audio (in hertz). Amazon Transcribe Medical
-    supports a range from 16,000 Hz to 48,000 Hz. Note that the sample rate you
-    specify must match that of your audio.
+    supports a range from 16,000 Hz to 48,000 Hz. Note that the sample rate
+    you specify must match that of your audio.
     """
 
     media_encoding: str | None = None
     """
     Specify the encoding used for the input audio. Supported formats are:
 
-    * FLAC
+    - FLAC
 
-    * OPUS-encoded audio in an Ogg container
+    - OPUS-encoded audio in an Ogg container
 
-    * PCM (only signed 16-bit little-endian audio formats, which does not include
-      WAV)
+    - PCM (only signed 16-bit little-endian audio formats, which does not
+      include WAV)
 
-    For more information, see `Media formats <https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio>`_
-    .
+    For more information, see [Media
+    formats](https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio).
     """
 
     vocabulary_name: str | None = None
     """
-    Specify the name of the custom vocabulary that you want to use when processing
-    your transcription. Note that vocabulary names are case sensitive.
+    Specify the name of the custom vocabulary that you want to use when
+    processing your transcription. Note that vocabulary names are case
+    sensitive.
     """
 
     specialty: str | None = None
-    """
-    Specify the medical specialty contained in your audio.
-    """
+    """Specify the medical specialty contained in your audio."""
 
     type: str | None = None
     """
-    Specify the type of input audio. For example, choose ``DICTATION`` for a
-    provider dictating patient notes and ``CONVERSATION`` for a dialogue between a
-    patient and a medical professional.
+    Specify the type of input audio. For example, choose `DICTATION` for a
+    provider dictating patient notes and `CONVERSATION` for a dialogue
+    between a patient and a medical professional.
     """
 
     show_speaker_label: bool = False
     """
-    Enables speaker partitioning (diarization) in your transcription output. Speaker
-    partitioning labels the speech from individual speakers in your media file.
+    Enables speaker partitioning (diarization) in your transcription output.
+    Speaker partitioning labels the speech from individual speakers in your
+    media file.
 
-    For more information, see `Partitioning speakers (diarization) <https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html>`_
-    .
+    For more information, see [Partitioning speakers
+    (diarization)](https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html).
     """
 
     session_id: str | None = None
     """
-    Specify a name for your transcription session. If you don't include this
-    parameter in your request, Amazon Transcribe Medical generates an ID and returns
-    it in the response.
+    Specify a name for your transcription session. If you don't include
+    this parameter in your request, Amazon Transcribe Medical generates an
+    ID and returns it in the response.
     """
 
     enable_channel_identification: bool = False
     """
     Enables channel identification in multi-channel audio.
 
-    Channel identification transcribes the audio on each channel independently, then
-    appends the output for each channel into one transcript.
+    Channel identification transcribes the audio on each channel
+    independently, then appends the output for each channel into one
+    transcript.
 
-    If you have multi-channel audio and do not enable channel identification, your
-    audio is transcribed in a continuous manner and your transcript is not separated
-    by channel.
+    If you have multi-channel audio and do not enable channel
+    identification, your audio is transcribed in a continuous manner and
+    your transcript is not separated by channel.
 
-    If you include ``EnableChannelIdentification`` in your request, you must also
-    include ``NumberOfChannels``.
+    If you include `EnableChannelIdentification` in your request, you must
+    also include `NumberOfChannels`.
 
-    For more information, see `Transcribing multi-channel audio <https://docs.aws.amazon.com/transcribe/latest/dg/channel-id.html>`_
-    .
+    For more information, see [Transcribing multi-channel
+    audio](https://docs.aws.amazon.com/transcribe/latest/dg/channel-id.html).
     """
 
     number_of_channels: int | None = None
     """
-    Specify the number of channels in your audio stream. This value must be ``2``,
-    as only two channels are supported. If your audio doesn't contain multiple
-    channels, do not include this parameter in your request.
+    Specify the number of channels in your audio stream. This value must be
+    `2`, as only two channels are supported. If your audio doesn't contain
+    multiple channels, do not include this parameter in your request.
 
-    If you include ``NumberOfChannels`` in your request, you must also include
-    ``EnableChannelIdentification``.
+    If you include `NumberOfChannels` in your request, you must also include
+    `EnableChannelIdentification`.
     """
 
     content_identification_type: str | None = None
     """
-    Labels all personal health information (PHI) identified in your transcript.
+    Labels all personal health information (PHI) identified in your
+    transcript.
 
-    Content identification is performed at the segment level; PHI is flagged upon
-    complete transcription of an audio segment.
+    Content identification is performed at the segment level; PHI is flagged
+    upon complete transcription of an audio segment.
 
-    For more information, see `Identifying personal health information (PHI) in a transcription <https://docs.aws.amazon.com/transcribe/latest/dg/phi-id.html>`_
-    .
+    For more information, see [Identifying personal health information (PHI)
+    in a
+    transcription](https://docs.aws.amazon.com/transcribe/latest/dg/phi-id.html).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -7544,66 +7495,49 @@ class StartMedicalStreamTranscriptionInput:
 
 @dataclass(kw_only=True)
 class StartMedicalStreamTranscriptionOutput:
+    """Dataclass for StartMedicalStreamTranscriptionOutput structure."""
+
     request_id: str | None = None
-    """
-    Provides the identifier for your streaming request.
-    """
+    """Provides the identifier for your streaming request."""
 
     language_code: str | None = None
     """
-    Provides the language code that you specified in your request. This must be
-    ``en-US``.
+    Provides the language code that you specified in your request. This must
+    be `en-US`.
     """
 
     media_sample_rate_hertz: int | None = None
-    """
-    Provides the sample rate that you specified in your request.
-    """
+    """Provides the sample rate that you specified in your request."""
 
     media_encoding: str | None = None
-    """
-    Provides the media encoding you specified in your request.
-    """
+    """Provides the media encoding you specified in your request."""
 
     vocabulary_name: str | None = None
     """
-    Provides the name of the custom vocabulary that you specified in your request.
+    Provides the name of the custom vocabulary that you specified in your
+    request.
     """
 
     specialty: str | None = None
-    """
-    Provides the medical specialty that you specified in your request.
-    """
+    """Provides the medical specialty that you specified in your request."""
 
     type: str | None = None
-    """
-    Provides the type of audio you specified in your request.
-    """
+    """Provides the type of audio you specified in your request."""
 
     show_speaker_label: bool = False
-    """
-    Shows whether speaker partitioning was enabled for your transcription.
-    """
+    """Shows whether speaker partitioning was enabled for your transcription."""
 
     session_id: str | None = None
-    """
-    Provides the identifier for your transcription session.
-    """
+    """Provides the identifier for your transcription session."""
 
     enable_channel_identification: bool = False
-    """
-    Shows whether channel identification was enabled for your transcription.
-    """
+    """Shows whether channel identification was enabled for your transcription."""
 
     number_of_channels: int | None = None
-    """
-    Provides the number of channels that you specified in your request.
-    """
+    """Provides the number of channels that you specified in your request."""
 
     content_identification_type: str | None = None
-    """
-    Shows whether content identification was enabled for your transcription.
-    """
+    """Shows whether content identification was enabled for your transcription."""
 
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_START_MEDICAL_STREAM_TRANSCRIPTION_OUTPUT, self)
@@ -7827,153 +7761,160 @@ START_MEDICAL_STREAM_TRANSCRIPTION = APIOperation(
 
 @dataclass(kw_only=True)
 class StartStreamTranscriptionInput:
+    """Dataclass for StartStreamTranscriptionInput structure."""
+
     language_code: str | None = None
     """
-    Specify the language code that represents the language spoken in your audio.
+    Specify the language code that represents the language spoken in your
+    audio.
 
     If you're unsure of the language spoken in your audio, consider using
-    ``IdentifyLanguage`` to enable automatic language identification.
+    `IdentifyLanguage` to enable automatic language identification.
 
-    For a list of languages supported with Amazon Transcribe streaming, refer to the
-    `Supported languages <https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html>`_
+    For a list of languages supported with Amazon Transcribe streaming,
+    refer to the [Supported
+    languages](https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html)
     table.
     """
 
     media_sample_rate_hertz: int | None = None
     """
-    The sample rate of the input audio (in hertz). Low-quality audio, such as
-    telephone audio, is typically around 8,000 Hz. High-quality audio typically
-    ranges from 16,000 Hz to 48,000 Hz. Note that the sample rate you specify must
-    match that of your audio.
+    The sample rate of the input audio (in hertz). Low-quality audio, such
+    as telephone audio, is typically around 8,000 Hz. High-quality audio
+    typically ranges from 16,000 Hz to 48,000 Hz. Note that the sample rate
+    you specify must match that of your audio.
     """
 
     media_encoding: str | None = None
     """
     Specify the encoding of your input audio. Supported formats are:
 
-    * FLAC
+    - FLAC
 
-    * OPUS-encoded audio in an Ogg container
+    - OPUS-encoded audio in an Ogg container
 
-    * PCM (only signed 16-bit little-endian audio formats, which does not include
-      WAV)
+    - PCM (only signed 16-bit little-endian audio formats, which does not
+      include WAV)
 
-    For more information, see `Media formats <https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio>`_
-    .
+    For more information, see [Media
+    formats](https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html#how-input-audio).
     """
 
     vocabulary_name: str | None = None
     """
-    Specify the name of the custom vocabulary that you want to use when processing
-    your transcription. Note that vocabulary names are case sensitive.
+    Specify the name of the custom vocabulary that you want to use when
+    processing your transcription. Note that vocabulary names are case
+    sensitive.
 
-    If the language of the specified custom vocabulary doesn't match the language
-    identified in your media, the custom vocabulary is not applied to your
-    transcription.
+    If the language of the specified custom vocabulary doesn't match the
+    language identified in your media, the custom vocabulary is not applied
+    to your transcription.
 
-    .. important::
-        This parameter is **not** intended for use with the ``IdentifyLanguage``
-        parameter. If you're including ``IdentifyLanguage`` in your request and want to
-        use one or more custom vocabularies with your transcription, use the
-        ``VocabularyNames`` parameter instead.
+    Warning:
+        This parameter is **not** intended for use with the `IdentifyLanguage`
+        parameter. If you're including `IdentifyLanguage` in your request and
+        want to use one or more custom vocabularies with your transcription, use
+        the `VocabularyNames` parameter instead.
 
-    For more information, see `Custom vocabularies <https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html>`_
-    .
+    For more information, see [Custom
+    vocabularies](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html).
     """
 
     session_id: str | None = None
     """
-    Specify a name for your transcription session. If you don't include this
-    parameter in your request, Amazon Transcribe generates an ID and returns it in
-    the response.
+    Specify a name for your transcription session. If you don't include
+    this parameter in your request, Amazon Transcribe generates an ID and
+    returns it in the response.
     """
 
     vocabulary_filter_name: str | None = None
     """
-    Specify the name of the custom vocabulary filter that you want to use when
-    processing your transcription. Note that vocabulary filter names are case
-    sensitive.
+    Specify the name of the custom vocabulary filter that you want to use
+    when processing your transcription. Note that vocabulary filter names
+    are case sensitive.
 
-    If the language of the specified custom vocabulary filter doesn't match the
-    language identified in your media, the vocabulary filter is not applied to your
-    transcription.
+    If the language of the specified custom vocabulary filter doesn't match
+    the language identified in your media, the vocabulary filter is not
+    applied to your transcription.
 
-    .. important::
-        This parameter is **not** intended for use with the ``IdentifyLanguage``
-        parameter. If you're including ``IdentifyLanguage`` in your request and want to
-        use one or more vocabulary filters with your transcription, use the
-        ``VocabularyFilterNames`` parameter instead.
+    Warning:
+        This parameter is **not** intended for use with the `IdentifyLanguage`
+        parameter. If you're including `IdentifyLanguage` in your request and
+        want to use one or more vocabulary filters with your transcription, use
+        the `VocabularyFilterNames` parameter instead.
 
-    For more information, see `Using vocabulary filtering with unwanted words <https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html>`_
-    .
+    For more information, see [Using vocabulary filtering with unwanted
+    words](https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html).
     """
 
     vocabulary_filter_method: str | None = None
     """
     Specify how you want your vocabulary filter applied to your transcript.
 
-    To replace words with ``***``, choose ``mask``.
+    To replace words with `***`, choose `mask`.
 
-    To delete words, choose ``remove``.
+    To delete words, choose `remove`.
 
-    To flag words without changing them, choose ``tag``.
+    To flag words without changing them, choose `tag`.
     """
 
     show_speaker_label: bool = False
     """
-    Enables speaker partitioning (diarization) in your transcription output. Speaker
-    partitioning labels the speech from individual speakers in your media file.
+    Enables speaker partitioning (diarization) in your transcription output.
+    Speaker partitioning labels the speech from individual speakers in your
+    media file.
 
-    For more information, see `Partitioning speakers (diarization) <https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html>`_
-    .
+    For more information, see [Partitioning speakers
+    (diarization)](https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html).
     """
 
     enable_channel_identification: bool = False
     """
     Enables channel identification in multi-channel audio.
 
-    Channel identification transcribes the audio on each channel independently, then
-    appends the output for each channel into one transcript.
+    Channel identification transcribes the audio on each channel
+    independently, then appends the output for each channel into one
+    transcript.
 
-    If you have multi-channel audio and do not enable channel identification, your
-    audio is transcribed in a continuous manner and your transcript is not separated
-    by channel.
+    If you have multi-channel audio and do not enable channel
+    identification, your audio is transcribed in a continuous manner and
+    your transcript is not separated by channel.
 
-    If you include ``EnableChannelIdentification`` in your request, you must also
-    include ``NumberOfChannels``.
+    If you include `EnableChannelIdentification` in your request, you must
+    also include `NumberOfChannels`.
 
-    For more information, see `Transcribing multi-channel audio <https://docs.aws.amazon.com/transcribe/latest/dg/channel-id.html>`_
-    .
+    For more information, see [Transcribing multi-channel
+    audio](https://docs.aws.amazon.com/transcribe/latest/dg/channel-id.html).
     """
 
     number_of_channels: int | None = None
     """
-    Specify the number of channels in your audio stream. This value must be ``2``,
-    as only two channels are supported. If your audio doesn't contain multiple
-    channels, do not include this parameter in your request.
+    Specify the number of channels in your audio stream. This value must be
+    `2`, as only two channels are supported. If your audio doesn't contain
+    multiple channels, do not include this parameter in your request.
 
-    If you include ``NumberOfChannels`` in your request, you must also include
-    ``EnableChannelIdentification``.
+    If you include `NumberOfChannels` in your request, you must also include
+    `EnableChannelIdentification`.
     """
 
     enable_partial_results_stabilization: bool = False
     """
-    Enables partial result stabilization for your transcription. Partial result
-    stabilization can reduce latency in your output, but may impact accuracy. For
-    more information, see `Partial-result stabilization <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization>`_
-    .
+    Enables partial result stabilization for your transcription. Partial
+    result stabilization can reduce latency in your output, but may impact
+    accuracy. For more information, see [Partial-result
+    stabilization](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization).
     """
 
     partial_results_stability: str | None = None
     """
     Specify the level of stability to use when you enable partial results
-    stabilization (``EnablePartialResultsStabilization``).
+    stabilization (`EnablePartialResultsStabilization`).
 
-    Low stability provides the highest accuracy. High stability transcribes faster,
-    but with slightly lower accuracy.
+    Low stability provides the highest accuracy. High stability transcribes
+    faster, but with slightly lower accuracy.
 
-    For more information, see `Partial-result stabilization <https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization>`_
-    .
+    For more information, see [Partial-result
+    stabilization](https://docs.aws.amazon.com/transcribe/latest/dg/streaming.html#streaming-partial-result-stabilization).
     """
 
     content_identification_type: str | None = None
@@ -7981,15 +7922,18 @@ class StartStreamTranscriptionInput:
     Labels all personally identifiable information (PII) identified in your
     transcript.
 
-    Content identification is performed at the segment level; PII specified in
-    ``PiiEntityTypes`` is flagged upon complete transcription of an audio segment.
-    If you don't include ``PiiEntityTypes`` in your request, all PII is identified.
+    Content identification is performed at the segment level; PII specified
+    in `PiiEntityTypes` is flagged upon complete transcription of an audio
+    segment. If you don't include `PiiEntityTypes` in your request, all PII
+    is identified.
 
-    You can’t set ``ContentIdentificationType`` and ``ContentRedactionType`` in the
-    same request. If you set both, your request returns a ``BadRequestException``.
+    You can't set `ContentIdentificationType` and `ContentRedactionType` in
+    the same request. If you set both, your request returns a
+    `BadRequestException`.
 
-    For more information, see `Redacting or identifying personally identifiable information <https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html>`_
-    .
+    For more information, see [Redacting or identifying personally
+    identifiable
+    information](https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html).
     """
 
     content_redaction_type: str | None = None
@@ -7998,33 +7942,36 @@ class StartStreamTranscriptionInput:
     transcript.
 
     Content redaction is performed at the segment level; PII specified in
-    ``PiiEntityTypes`` is redacted upon complete transcription of an audio segment.
-    If you don't include ``PiiEntityTypes`` in your request, all PII is redacted.
+    `PiiEntityTypes` is redacted upon complete transcription of an audio
+    segment. If you don't include `PiiEntityTypes` in your request, all PII
+    is redacted.
 
-    You can’t set ``ContentRedactionType`` and ``ContentIdentificationType`` in the
-    same request. If you set both, your request returns a ``BadRequestException``.
+    You can't set `ContentRedactionType` and `ContentIdentificationType` in
+    the same request. If you set both, your request returns a
+    `BadRequestException`.
 
-    For more information, see `Redacting or identifying personally identifiable information <https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html>`_
-    .
+    For more information, see [Redacting or identifying personally
+    identifiable
+    information](https://docs.aws.amazon.com/transcribe/latest/dg/pii-redaction.html).
     """
 
     pii_entity_types: str | None = None
     """
-    Specify which types of personally identifiable information (PII) you want to
-    redact in your transcript. You can include as many types as you'd like, or you
-    can select ``ALL``.
+    Specify which types of personally identifiable information (PII) you
+    want to redact in your transcript. You can include as many types as
+    you'd like, or you can select `ALL`.
 
-    Values must be comma-separated and can include: ``ADDRESS``,
-    ``BANK_ACCOUNT_NUMBER``, ``BANK_ROUTING``, ``CREDIT_DEBIT_CVV``,
-    ``CREDIT_DEBIT_EXPIRY``, ``CREDIT_DEBIT_NUMBER``, ``EMAIL``, ``NAME``,
-    ``PHONE``, ``PIN``, ``SSN``, or ``ALL``.
+    Values must be comma-separated and can include: `ADDRESS`,
+    `BANK_ACCOUNT_NUMBER`, `BANK_ROUTING`, `CREDIT_DEBIT_CVV`,
+    `CREDIT_DEBIT_EXPIRY`, `CREDIT_DEBIT_NUMBER`, `EMAIL`, `NAME`, `PHONE`,
+    `PIN`, `SSN`, or `ALL`.
 
-    Note that if you include ``PiiEntityTypes`` in your request, you must also
-    include ``ContentIdentificationType`` or ``ContentRedactionType``.
+    Note that if you include `PiiEntityTypes` in your request, you must also
+    include `ContentIdentificationType` or `ContentRedactionType`.
 
-    If you include ``ContentRedactionType`` or ``ContentIdentificationType`` in your
-    request, but do not include ``PiiEntityTypes``, all PII is redacted or
-    identified.
+    If you include `ContentRedactionType` or `ContentIdentificationType` in
+    your request, but do not include `PiiEntityTypes`, all PII is redacted
+    or identified.
     """
 
     language_model_name: str | None = None
@@ -8033,120 +7980,127 @@ class StartStreamTranscriptionInput:
     processing your transcription. Note that language model names are case
     sensitive.
 
-    The language of the specified language model must match the language code you
-    specify in your transcription request. If the languages don't match, the custom
-    language model isn't applied. There are no errors or warnings associated with a
-    language mismatch.
+    The language of the specified language model must match the language
+    code you specify in your transcription request. If the languages don't
+    match, the custom language model isn't applied. There are no errors or
+    warnings associated with a language mismatch.
 
-    For more information, see `Custom language models <https://docs.aws.amazon.com/transcribe/latest/dg/custom-language-models.html>`_
-    .
+    For more information, see [Custom language
+    models](https://docs.aws.amazon.com/transcribe/latest/dg/custom-language-models.html).
     """
 
     identify_language: bool = False
     """
     Enables automatic language identification for your transcription.
 
-    If you include ``IdentifyLanguage``, you must include a list of language codes,
-    using ``LanguageOptions``, that you think may be present in your audio stream.
+    If you include `IdentifyLanguage`, you must include a list of language
+    codes, using `LanguageOptions`, that you think may be present in your
+    audio stream.
 
-    You can also include a preferred language using ``PreferredLanguage``. Adding a
-    preferred language can help Amazon Transcribe identify the language faster than
-    if you omit this parameter.
+    You can also include a preferred language using `PreferredLanguage`.
+    Adding a preferred language can help Amazon Transcribe identify the
+    language faster than if you omit this parameter.
 
-    If you have multi-channel audio that contains different languages on each
-    channel, and you've enabled channel identification, automatic language
-    identification identifies the dominant language on each audio channel.
+    If you have multi-channel audio that contains different languages on
+    each channel, and you've enabled channel identification, automatic
+    language identification identifies the dominant language on each audio
+    channel.
 
-    Note that you must include either ``LanguageCode`` or ``IdentifyLanguage`` or
-    ``IdentifyMultipleLanguages`` in your request. If you include more than one of
-    these parameters, your transcription job fails.
+    Note that you must include either `LanguageCode` or `IdentifyLanguage`
+    or `IdentifyMultipleLanguages` in your request. If you include more than
+    one of these parameters, your transcription job fails.
 
-    Streaming language identification can't be combined with custom language models
-    or redaction.
+    Streaming language identification can't be combined with custom
+    language models or redaction.
     """
 
     language_options: str | None = None
     """
-    Specify two or more language codes that represent the languages you think may be
-    present in your media; including more than five is not recommended.
+    Specify two or more language codes that represent the languages you
+    think may be present in your media; including more than five is not
+    recommended.
 
-    Including language options can improve the accuracy of language identification.
+    Including language options can improve the accuracy of language
+    identification.
 
-    If you include ``LanguageOptions`` in your request, you must also include
-    ``IdentifyLanguage`` or ``IdentifyMultipleLanguages``.
+    If you include `LanguageOptions` in your request, you must also include
+    `IdentifyLanguage` or `IdentifyMultipleLanguages`.
 
-    For a list of languages supported with Amazon Transcribe streaming, refer to the
-    `Supported languages <https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html>`_
+    For a list of languages supported with Amazon Transcribe streaming,
+    refer to the [Supported
+    languages](https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html)
     table.
 
-    .. important::
-        You can only include one language dialect per language per stream. For example,
-        you cannot include ``en-US`` and ``en-AU`` in the same request.
+    Warning:
+        You can only include one language dialect per language per stream. For
+        example, you cannot include `en-US` and `en-AU` in the same request.
     """
 
     preferred_language: str | None = None
     """
-    Specify a preferred language from the subset of languages codes you specified in
-    ``LanguageOptions``.
+    Specify a preferred language from the subset of languages codes you
+    specified in `LanguageOptions`.
 
-    You can only use this parameter if you've included ``IdentifyLanguage`` and
-    ``LanguageOptions`` in your request.
+    You can only use this parameter if you've included `IdentifyLanguage`
+    and `LanguageOptions` in your request.
     """
 
     identify_multiple_languages: bool = False
     """
-    Enables automatic multi-language identification in your transcription job
-    request. Use this parameter if your stream contains more than one language. If
-    your stream contains only one language, use IdentifyLanguage instead.
+    Enables automatic multi-language identification in your transcription
+    job request. Use this parameter if your stream contains more than one
+    language. If your stream contains only one language, use
+    IdentifyLanguage instead.
 
-    If you include ``IdentifyMultipleLanguages``, you must include a list of
-    language codes, using ``LanguageOptions``, that you think may be present in your
-    stream.
+    If you include `IdentifyMultipleLanguages`, you must include a list of
+    language codes, using `LanguageOptions`, that you think may be present
+    in your stream.
 
-    If you want to apply a custom vocabulary or a custom vocabulary filter to your
-    automatic multiple language identification request, include ``VocabularyNames``
-    or ``VocabularyFilterNames``.
+    If you want to apply a custom vocabulary or a custom vocabulary filter
+    to your automatic multiple language identification request, include
+    `VocabularyNames` or `VocabularyFilterNames`.
 
-    Note that you must include one of ``LanguageCode``, ``IdentifyLanguage``, or
-    ``IdentifyMultipleLanguages`` in your request. If you include more than one of
-    these parameters, your transcription job fails.
+    Note that you must include one of `LanguageCode`, `IdentifyLanguage`, or
+    `IdentifyMultipleLanguages` in your request. If you include more than
+    one of these parameters, your transcription job fails.
     """
 
     vocabulary_names: str | None = None
     """
     Specify the names of the custom vocabularies that you want to use when
-    processing your transcription. Note that vocabulary names are case sensitive.
+    processing your transcription. Note that vocabulary names are case
+    sensitive.
 
-    If none of the languages of the specified custom vocabularies match the language
-    identified in your media, your job fails.
+    If none of the languages of the specified custom vocabularies match the
+    language identified in your media, your job fails.
 
-    .. important::
-        This parameter is only intended for use **with** the ``IdentifyLanguage``
-        parameter. If you're **not** including ``IdentifyLanguage`` in your request and
-        want to use a custom vocabulary with your transcription, use the
-        ``VocabularyName`` parameter instead.
+    Warning:
+        This parameter is only intended for use **with** the `IdentifyLanguage`
+        parameter. If you're **not** including `IdentifyLanguage` in your
+        request and want to use a custom vocabulary with your transcription, use
+        the `VocabularyName` parameter instead.
 
-    For more information, see `Custom vocabularies <https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html>`_
-    .
+    For more information, see [Custom
+    vocabularies](https://docs.aws.amazon.com/transcribe/latest/dg/custom-vocabulary.html).
     """
 
     vocabulary_filter_names: str | None = None
     """
-    Specify the names of the custom vocabulary filters that you want to use when
-    processing your transcription. Note that vocabulary filter names are case
-    sensitive.
+    Specify the names of the custom vocabulary filters that you want to use
+    when processing your transcription. Note that vocabulary filter names
+    are case sensitive.
 
-    If none of the languages of the specified custom vocabulary filters match the
-    language identified in your media, your job fails.
+    If none of the languages of the specified custom vocabulary filters
+    match the language identified in your media, your job fails.
 
-    .. important::
-        This parameter is only intended for use **with** the ``IdentifyLanguage``
-        parameter. If you're **not** including ``IdentifyLanguage`` in your request and
-        want to use a custom vocabulary filter with your transcription, use the
-        ``VocabularyFilterName`` parameter instead.
+    Warning:
+        This parameter is only intended for use **with** the `IdentifyLanguage`
+        parameter. If you're **not** including `IdentifyLanguage` in your
+        request and want to use a custom vocabulary filter with your
+        transcription, use the `VocabularyFilterName` parameter instead.
 
-    For more information, see `Using vocabulary filtering with unwanted words <https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html>`_
-    .
+    For more information, see [Using vocabulary filtering with unwanted
+    words](https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html).
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -8477,20 +8431,20 @@ class StartStreamTranscriptionInput:
 @dataclass(kw_only=True)
 class Transcript:
     """
-    The ``Transcript`` associated with a ````.
+    The `Transcript` associated with a .
 
-    ``Transcript`` contains ``Results``, which contains a set of transcription
-    results from one or more audio segments, along with additional information per
-    your request parameters.
+    `Transcript` contains `Results`, which contains a set of transcription
+    results from one or more audio segments, along with additional
+    information per your request parameters.
     """
 
     results: list[Result] | None = None
     """
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters. This can include
-    information relating to alternative transcriptions, channel identification,
-    partial result stabilization, language identification, and other
-    transcription-related data.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters. This can
+    include information relating to alternative transcriptions, channel
+    identification, partial result stabilization, language identification,
+    and other transcription-related data.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -8527,19 +8481,19 @@ class Transcript:
 @dataclass(kw_only=True)
 class TranscriptEvent:
     """
-    The ``TranscriptEvent`` associated with a ``TranscriptResultStream``.
+    The `TranscriptEvent` associated with a `TranscriptResultStream`.
 
-    Contains a set of transcription results from one or more audio segments, along
-    with additional information per your request parameters.
+    Contains a set of transcription results from one or more audio segments,
+    along with additional information per your request parameters.
     """
 
     transcript: Transcript | None = None
     """
-    Contains ``Results``, which contains a set of transcription results from one or
-    more audio segments, along with additional information per your request
-    parameters. This can include information relating to alternative transcriptions,
-    channel identification, partial result stabilization, language identification,
-    and other transcription-related data.
+    Contains `Results`, which contains a set of transcription results from
+    one or more audio segments, along with additional information per your
+    request parameters. This can include information relating to alternative
+    transcriptions, channel identification, partial result stabilization,
+    language identification, and other transcription-related data.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -8574,7 +8528,7 @@ class TranscriptEvent:
 @dataclass
 class TranscriptResultStreamTranscriptEvent:
     """
-    Contains ``Transcript``, which contains ``Results``. The ```` object contains a
+    Contains `Transcript`, which contains `Results`. The object contains a
     set of transcription results from one or more audio segments, along with
     additional information per your request parameters.
     """
@@ -8597,8 +8551,8 @@ class TranscriptResultStreamTranscriptEvent:
 @dataclass
 class TranscriptResultStreamBadRequestException:
     """
-    A client error occurred when the stream was created. Check the parameters of the
-    request and try your request again.
+    A client error occurred when the stream was created. Check the
+    parameters of the request and try your request again.
     """
 
     value: BadRequestException
@@ -8619,9 +8573,9 @@ class TranscriptResultStreamBadRequestException:
 @dataclass
 class TranscriptResultStreamLimitExceededException:
     """
-    Your client has exceeded one of the Amazon Transcribe limits. This is typically
-    the audio length limit. Break your audio stream into smaller chunks and try your
-    request again.
+    Your client has exceeded one of the Amazon Transcribe limits. This is
+    typically the audio length limit. Break your audio stream into smaller
+    chunks and try your request again.
     """
 
     value: LimitExceededException
@@ -8643,8 +8597,8 @@ class TranscriptResultStreamLimitExceededException:
 @dataclass
 class TranscriptResultStreamInternalFailureException:
     """
-    A problem occurred while processing the audio. Amazon Transcribe terminated
-    processing.
+    A problem occurred while processing the audio. Amazon Transcribe
+    terminated processing.
     """
 
     value: InternalFailureException
@@ -8666,8 +8620,8 @@ class TranscriptResultStreamInternalFailureException:
 @dataclass
 class TranscriptResultStreamConflictException:
     """
-    A new stream started with the same session ID. The current stream has been
-    terminated.
+    A new stream started with the same session ID. The current stream has
+    been terminated.
     """
 
     value: ConflictException
@@ -8687,9 +8641,7 @@ class TranscriptResultStreamConflictException:
 
 @dataclass
 class TranscriptResultStreamServiceUnavailableException:
-    """
-    The service is currently unavailable. Try your request later.
-    """
+    """The service is currently unavailable. Try your request later."""
 
     value: ServiceUnavailableException
 
@@ -8709,7 +8661,8 @@ class TranscriptResultStreamServiceUnavailableException:
 
 @dataclass
 class TranscriptResultStreamUnknown:
-    """Represents an unknown variant.
+    """
+    Represents an unknown variant.
 
     If you receive this value, you will need to update your library to receive the
     parsed value.
@@ -8739,10 +8692,7 @@ TranscriptResultStream = Union[
     | TranscriptResultStreamServiceUnavailableException
     | TranscriptResultStreamUnknown
 ]
-
-"""
-Contains detailed information about your streaming session.
-"""
+"""Contains detailed information about your streaming session."""
 
 
 class _TranscriptResultStreamDeserializer:
@@ -8802,91 +8752,69 @@ class _TranscriptResultStreamDeserializer:
 
 @dataclass(kw_only=True)
 class StartStreamTranscriptionOutput:
+    """Dataclass for StartStreamTranscriptionOutput structure."""
+
     request_id: str | None = None
-    """
-    Provides the identifier for your streaming request.
-    """
+    """Provides the identifier for your streaming request."""
 
     language_code: str | None = None
-    """
-    Provides the language code that you specified in your request.
-    """
+    """Provides the language code that you specified in your request."""
 
     media_sample_rate_hertz: int | None = None
-    """
-    Provides the sample rate that you specified in your request.
-    """
+    """Provides the sample rate that you specified in your request."""
 
     media_encoding: str | None = None
-    """
-    Provides the media encoding you specified in your request.
-    """
+    """Provides the media encoding you specified in your request."""
 
     vocabulary_name: str | None = None
     """
-    Provides the name of the custom vocabulary that you specified in your request.
+    Provides the name of the custom vocabulary that you specified in your
+    request.
     """
 
     session_id: str | None = None
-    """
-    Provides the identifier for your transcription session.
-    """
+    """Provides the identifier for your transcription session."""
 
     vocabulary_filter_name: str | None = None
     """
-    Provides the name of the custom vocabulary filter that you specified in your
-    request.
+    Provides the name of the custom vocabulary filter that you specified in
+    your request.
     """
 
     vocabulary_filter_method: str | None = None
-    """
-    Provides the vocabulary filtering method used in your transcription.
-    """
+    """Provides the vocabulary filtering method used in your transcription."""
 
     show_speaker_label: bool = False
-    """
-    Shows whether speaker partitioning was enabled for your transcription.
-    """
+    """Shows whether speaker partitioning was enabled for your transcription."""
 
     enable_channel_identification: bool = False
-    """
-    Shows whether channel identification was enabled for your transcription.
-    """
+    """Shows whether channel identification was enabled for your transcription."""
 
     number_of_channels: int | None = None
-    """
-    Provides the number of channels that you specified in your request.
-    """
+    """Provides the number of channels that you specified in your request."""
 
     enable_partial_results_stabilization: bool = False
     """
-    Shows whether partial results stabilization was enabled for your transcription.
+    Shows whether partial results stabilization was enabled for your
+    transcription.
     """
 
     partial_results_stability: str | None = None
-    """
-    Provides the stabilization level used for your transcription.
-    """
+    """Provides the stabilization level used for your transcription."""
 
     content_identification_type: str | None = None
-    """
-    Shows whether content identification was enabled for your transcription.
-    """
+    """Shows whether content identification was enabled for your transcription."""
 
     content_redaction_type: str | None = None
-    """
-    Shows whether content redaction was enabled for your transcription.
-    """
+    """Shows whether content redaction was enabled for your transcription."""
 
     pii_entity_types: str | None = None
-    """
-    Lists the PII entity types you specified in your request.
-    """
+    """Lists the PII entity types you specified in your request."""
 
     language_model_name: str | None = None
     """
-    Provides the name of the custom language model that you specified in your
-    request.
+    Provides the name of the custom language model that you specified in
+    your request.
     """
 
     identify_language: bool = False
@@ -8896,19 +8824,15 @@ class StartStreamTranscriptionOutput:
     """
 
     language_options: str | None = None
-    """
-    Provides the language codes that you specified in your request.
-    """
+    """Provides the language codes that you specified in your request."""
 
     preferred_language: str | None = None
-    """
-    Provides the preferred language that you specified in your request.
-    """
+    """Provides the preferred language that you specified in your request."""
 
     identify_multiple_languages: bool = False
     """
-    Shows whether automatic multi-language identification was enabled for your
-    transcription.
+    Shows whether automatic multi-language identification was enabled for
+    your transcription.
     """
 
     vocabulary_names: str | None = None
@@ -8919,8 +8843,8 @@ class StartStreamTranscriptionOutput:
 
     vocabulary_filter_names: str | None = None
     """
-    Provides the names of the custom vocabulary filters that you specified in your
-    request.
+    Provides the names of the custom vocabulary filters that you specified
+    in your request.
     """
 
     def serialize(self, serializer: ShapeSerializer):

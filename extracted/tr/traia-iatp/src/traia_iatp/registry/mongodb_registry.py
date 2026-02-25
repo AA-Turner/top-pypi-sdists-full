@@ -12,6 +12,7 @@ For search and query operations, use iatp_search_api.py instead.
 import logging
 import time
 import asyncio
+import subprocess
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pymongo import MongoClient, ASCENDING, TEXT
@@ -36,19 +37,61 @@ else:
 logger = logging.getLogger(__name__)
 
 CLUSTER_URI = "traia-iatp-cluster.yzwjvgd.mongodb.net/?retryWrites=true&w=majority&appName=Traia-IATP-Cluster"
-DATABASE_NAME = "iatp"
+DEFAULT_REGISTRY_ENV = "develop"
+
+
+def _get_git_branch() -> Optional[str]:
+    """Best-effort current git branch lookup for local fallback routing."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=2,
+        )
+        branch = result.stdout.strip().lower()
+        return branch if branch else None
+    except Exception:
+        return None
+
+
+def resolve_registry_env() -> str:
+    """
+    Resolve normalized registry environment.
+
+    Priority:
+    1) STAGE (lambda + local .env flow)
+    2) IATP_ENV
+    3) ENV (backward compatibility)
+    4) git branch
+    5) default: develop
+    """
+    raw_env = (
+        os.getenv("STAGE")
+        or os.getenv("IATP_ENV")
+        or os.getenv("ENV")
+        or _get_git_branch()
+        or DEFAULT_REGISTRY_ENV
+    ).strip().lower()
+
+    if raw_env in {"main", "prod", "production"}:
+        return "prod"
+    if raw_env in {"develop", "dev", "development", "staging", "stage", "test"}:
+        return "develop"
+
+    logger.warning(f"Unknown registry env '{raw_env}', defaulting to '{DEFAULT_REGISTRY_ENV}'")
+    return DEFAULT_REGISTRY_ENV
+
+
+def get_database_name() -> str:
+    """Get environment-routed MongoDB database name."""
+    return f"iatp-{resolve_registry_env()}"
 
 
 def get_collection_names():
     """Get environment-specific collection names."""
-    env = os.getenv("ENV", "test").lower()
-    
-    # Validate environment
-    valid_envs = ["test", "staging", "prod"]
-    if env not in valid_envs:
-        logger.warning(f"Invalid ENV '{env}', defaulting to 'test'. Valid values: {valid_envs}")
-        env = "test"
-    
+    env = resolve_registry_env()
     return {
         "utility_agent": f"iatp-utility-agent-registry-{env}",
         "mcp_server": f"iatp-mcp-server-registry-{env}"
@@ -57,13 +100,7 @@ def get_collection_names():
 
 def get_search_index_names():
     """Get environment-specific search index names."""
-    env = os.getenv("ENV", "test").lower()
-    
-    # Validate environment
-    valid_envs = ["test", "staging", "prod"]
-    if env not in valid_envs:
-        env = "test"
-    
+    env = resolve_registry_env()
     return {
         "utility_agent_atlas_search": f"utility_agent_atlas_search_{env}",
         "utility_agent_vector_search": f"utility_agent_vector_search_{env}",
@@ -115,7 +152,7 @@ class UtilityAgentRegistry:
     For search and query operations, use iatp_search_api.py instead.
     """
     
-    def __init__(self, connection_string: Optional[str] = None, database_name: str = DATABASE_NAME):
+    def __init__(self, connection_string: Optional[str] = None, database_name: Optional[str] = None):
         """Initialize MongoDB registry for cloud usage.
         
         Args:
@@ -171,7 +208,7 @@ class UtilityAgentRegistry:
                     self.connection_string = f"mongodb+srv://{cluster_host}?{auth_params}"
                 logger.info("Using IAM role authentication for cloud execution")
         
-        self.database_name = database_name
+        self.database_name = database_name or get_database_name()
         self.client = _create_mongodb_client_with_retry(self.connection_string)
         self.db: Database = self.client[self.database_name]
         
@@ -610,7 +647,7 @@ class MCPServerRegistry:
     For search and query operations, use iatp_search_api.py instead.
     """
     
-    def __init__(self, connection_string: Optional[str] = None, database_name: str = "iatp"):
+    def __init__(self, connection_string: Optional[str] = None, database_name: Optional[str] = None):
         """Initialize MCP Server registry."""
         if connection_string:
             self.connection_string = connection_string
@@ -661,8 +698,9 @@ class MCPServerRegistry:
                     self.connection_string = f"mongodb+srv://{cluster_host}?{auth_params}"
                 logger.info("Using IAM role authentication for cloud execution")
         
+        self.database_name = database_name or get_database_name()
         self.client = _create_mongodb_client_with_retry(self.connection_string)
-        self.db: Database = self.client[database_name]
+        self.db: Database = self.client[self.database_name]
         
         # Get environment-specific collection name
         collection_names = get_collection_names()

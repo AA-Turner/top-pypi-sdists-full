@@ -41,8 +41,8 @@ def test_schema_config(
 
 
 @pytest.mark.fixture_file(
-    "schema/fixtures/extra_links.yml",
-    "schema/fixtures/extra_options.yml",
+    "schema/fixtures/links.yml",
+    "schema/fixtures/fields.yml",
     "schema/fixtures/network.yml",
     "schema/fixtures/reporting.yml",
     "schema/fixtures/unevaluated.yml",
@@ -144,12 +144,12 @@ def test_schema_example(test_app: SphinxTestApp, snapshot) -> None:
                 (
                     "conf.py",
                     """
-                 
+
 extensions = ["sphinx_needs"]
 needs_schema_validation_enabled = False
-needs_extra_options = [
-    {"name": "extra", "schema": {"type": "string", "enum": ["a", "b"]}}
-]
+needs_fields = {
+    "extra": {"schema": {"type": "string", "enum": ["a", "b"]}}
+        }
                 """,
                 ),
                 (

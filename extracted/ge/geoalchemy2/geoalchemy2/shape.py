@@ -7,18 +7,22 @@
 """
 
 from contextlib import contextmanager
-from typing import List
-from typing import Optional
-from typing import Union
+from typing import TYPE_CHECKING
 
 try:
     import shapely.wkb
     import shapely.wkt
+    from shapely import Geometry as ShapelyGeometry
     from shapely.wkb import dumps
 
     HAS_SHAPELY = True
     _shapely_exc = None
 except ImportError as exc:
+    if not TYPE_CHECKING:
+
+        class ShapelyGeometry:
+            """Requires shapely. Install with: pip install geoalchemy2[shapely]."""
+
     HAS_SHAPELY = False
     _shapely_exc = exc
 
@@ -37,7 +41,7 @@ def check_shapely():
 
 
 @check_shapely()
-def to_shape(element: Union[WKBElement, WKTElement]):
+def to_shape(element: WKBElement | WKTElement) -> ShapelyGeometry:
     """Function to convert a :class:`geoalchemy2.types.SpatialElement` to a Shapely geometry.
 
     Args:
@@ -63,7 +67,7 @@ def to_shape(element: Union[WKBElement, WKTElement]):
 
 
 @check_shapely()
-def from_shape(shape, srid: int = -1, extended: Optional[bool] = False) -> WKBElement:
+def from_shape(shape: ShapelyGeometry, srid: int = -1, extended: bool | None = False) -> WKBElement:
     """Function to convert a Shapely geometry to a :class:`geoalchemy2.types.WKBElement`.
 
     Args:
@@ -86,11 +90,11 @@ def from_shape(shape, srid: int = -1, extended: Optional[bool] = False) -> WKBEl
     )
 
 
-__all__: List[str] = [
+__all__: list[str] = [
     "from_shape",
     "to_shape",
 ]
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return __all__

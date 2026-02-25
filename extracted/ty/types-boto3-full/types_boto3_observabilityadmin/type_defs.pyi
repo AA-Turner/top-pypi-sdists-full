@@ -128,6 +128,7 @@ __all__ = (
     "ListTelemetryRulesOutputTypeDef",
     "LogDeliveryParametersOutputTypeDef",
     "LogDeliveryParametersTypeDef",
+    "LogGroupNameConfigurationTypeDef",
     "LoggingFilterOutputTypeDef",
     "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
@@ -255,6 +256,9 @@ class DeleteTelemetryRuleForOrganizationInputTypeDef(TypedDict):
 class DeleteTelemetryRuleInputTypeDef(TypedDict):
     RuleIdentifier: str
 
+class LogGroupNameConfigurationTypeDef(TypedDict):
+    LogGroupNamePattern: str
+
 class LogsBackupConfigurationTypeDef(TypedDict):
     Region: str
     KmsKeyArn: NotRequired[str]
@@ -317,6 +321,7 @@ class TelemetryConfigurationTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
     ResourceTags: NotRequired[dict[str, str]]
     LastUpdateTimeStamp: NotRequired[int]
+    TelemetrySourceType: NotRequired[TelemetrySourceTypeType]
 
 class ListResourceTelemetryInputTypeDef(TypedDict):
     ResourceIdentifierPrefix: NotRequired[str]
@@ -522,6 +527,7 @@ class ValidateTelemetryPipelineConfigurationInputTypeDef(TypedDict):
 class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
+    LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
 
 class FieldToMatchTypeDef(TypedDict):
     SingleHeader: NotRequired[SingleHeaderTypeDef]

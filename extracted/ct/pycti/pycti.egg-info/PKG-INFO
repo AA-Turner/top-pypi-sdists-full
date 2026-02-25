@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycti
-Version: 6.9.22
+Version: 7.260224.0
 Summary: Python API client for OpenCTI.
 Home-page: https://github.com/OpenCTI-Platform/opencti/client-python
 Author: Filigran
@@ -36,7 +36,8 @@ Requires-Dist: opentelemetry-api~=1.35.0
 Requires-Dist: opentelemetry-sdk~=1.35.0
 Requires-Dist: deprecation~=2.1.0
 Requires-Dist: fastapi<0.125.0,>=0.124.0
-Requires-Dist: uvicorn[standard]<0.36.0,>=0.34.0
+Requires-Dist: uvicorn[standard]<0.42.0,>=0.41.0
+Requires-Dist: pyjwt[crypto]~=2.11.0
 Requires-Dist: filigran-sseclient>=1.0.2
 Requires-Dist: stix2~=3.0.1
 Provides-Extra: dev

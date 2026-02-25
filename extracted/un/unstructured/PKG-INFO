@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured
-Version: 0.21.2
+Version: 0.21.5
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -50,7 +50,7 @@ Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'all-docs'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'all-docs'
 Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'all-docs'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'all-docs'
-Requires-Dist: pdfminer-six<20270000,>=20260107; extra == 'all-docs'
+Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'all-docs'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'all-docs'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'all-docs'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system != 'Windows') and extra == 'all-docs'
@@ -81,7 +81,7 @@ Requires-Dist: transformers<5.0.0,>=4.55.4; extra == 'huggingface'
 Provides-Extra: image
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'image'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'image'
-Requires-Dist: pdfminer-six<20270000,>=20260107; extra == 'image'
+Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'image'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'image'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'image'
 Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'image'
@@ -99,7 +99,7 @@ Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'local-inference'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'local-inference'
 Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'local-inference'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'local-inference'
-Requires-Dist: pdfminer-six<20270000,>=20260107; extra == 'local-inference'
+Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'local-inference'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'local-inference'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'local-inference'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system != 'Windows') and extra == 'local-inference'
@@ -127,7 +127,7 @@ Requires-Dist: unstructured-paddleocr==2.10.0; extra == 'paddleocr'
 Provides-Extra: pdf
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'pdf'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'pdf'
-Requires-Dist: pdfminer-six<20270000,>=20260107; extra == 'pdf'
+Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'pdf'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'pdf'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'pdf'
 Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'pdf'

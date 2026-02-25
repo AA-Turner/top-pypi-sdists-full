@@ -14,15 +14,18 @@ class UpdateResourceTypeJsonBody:
     Attributes:
         schema (Union[Unset, Any]):
         description (Union[Unset, str]):
+        is_fileset (Union[Unset, bool]):
     """
 
     schema: Union[Unset, Any] = UNSET
     description: Union[Unset, str] = UNSET
+    is_fileset: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         schema = self.schema
         description = self.description
+        is_fileset = self.is_fileset
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -31,6 +34,8 @@ class UpdateResourceTypeJsonBody:
             field_dict["schema"] = schema
         if description is not UNSET:
             field_dict["description"] = description
+        if is_fileset is not UNSET:
+            field_dict["is_fileset"] = is_fileset
 
         return field_dict
 
@@ -41,9 +46,12 @@ class UpdateResourceTypeJsonBody:
 
         description = d.pop("description", UNSET)
 
+        is_fileset = d.pop("is_fileset", UNSET)
+
         update_resource_type_json_body = cls(
             schema=schema,
             description=description,
+            is_fileset=is_fileset,
         )
 
         update_resource_type_json_body.additional_properties = d

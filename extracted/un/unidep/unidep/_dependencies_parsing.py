@@ -230,7 +230,7 @@ def _normalize_local_dependency_use(use_value: str | None) -> LocalDependencyUse
         options = ", ".join(sorted(valid))
         msg = f"Invalid `use` value `{use_value}`. Supported values: {options}."
         raise ValueError(msg)
-    return cast(LocalDependencyUse, normalized)
+    return cast("LocalDependencyUse", normalized)
 
 
 def get_local_dependencies(data: dict[str, Any]) -> list[LocalDependency]:
@@ -288,6 +288,7 @@ def _update_data_structures(
     yaml: YAML,
     is_nested: bool,
     local_dependency_overrides: dict[Path, LocalDependency],
+    include_local_dependencies: bool = True,
     verbose: bool = False,
 ) -> None:
     if verbose:
@@ -316,21 +317,11 @@ def _update_data_structures(
     seen.add(path_with_extras.resolved())
 
     # Handle "local_dependencies" (or old name "includes", changed in 0.42.0)
-    local_dependencies = get_local_dependencies(data)
-    for local_dep_obj in local_dependencies:
-        if local_dep_obj.use != "local":
-            _apply_local_dependency_override(
-                local_dependency=local_dep_obj,
-                base_dir=path_with_extras.path.parent,
-                overrides=local_dependency_overrides,
-            )
-
-    for local_dep_obj in local_dependencies:
-        effective_local_dep = _apply_local_dependency_override(
-            local_dependency=local_dep_obj,
-            base_dir=path_with_extras.path.parent,
-            overrides=local_dependency_overrides,
-        )
+    for effective_local_dep in _effective_local_dependencies(
+        data=data,
+        base_dir=path_with_extras.path.parent,
+        overrides=local_dependency_overrides,
+    ):
         if effective_local_dep.use == "skip":
             continue
         if effective_local_dep.use == "pypi":
@@ -338,6 +329,8 @@ def _update_data_structures(
                 data=data,
                 local_dependency=effective_local_dep,
             )
+            continue
+        if not include_local_dependencies:
             continue
         # NOTE: The current function calls _add_local_dependencies,
         # which calls the current function recursively
@@ -349,6 +342,7 @@ def _update_data_structures(
             seen=seen,  # modified in place
             yaml=yaml,
             local_dependency_overrides=local_dependency_overrides,
+            include_local_dependencies=include_local_dependencies,
             verbose=verbose,
         )
 
@@ -422,6 +416,21 @@ def _resolve_local_dependency_path(base_dir: Path, local: str) -> Path:
     return (base_dir / local_path).resolve()
 
 
+def _try_parse_local_dependency_requirement_file(
+    *,
+    base_dir: Path,
+    local_dependency: str,
+) -> PathWithExtras | None:
+    """Return managed requirements file for a local dependency, if present."""
+    try:
+        requirements_dep_file = parse_folder_or_filename(base_dir / local_dependency)
+    except FileNotFoundError:
+        return None
+    if requirements_dep_file.path.suffix in (".whl", ".zip"):
+        return None
+    return requirements_dep_file
+
+
 def _apply_local_dependency_override(
     *,
     local_dependency: LocalDependency,
@@ -449,6 +458,31 @@ def _apply_local_dependency_override(
     return local_dependency
 
 
+def _effective_local_dependencies(
+    *,
+    data: dict[str, Any],
+    base_dir: Path,
+    overrides: dict[Path, LocalDependency],
+) -> list[LocalDependency]:
+    """Return local dependencies after applying global ``use`` overrides."""
+    local_dependencies = get_local_dependencies(data)
+    for local_dep_obj in local_dependencies:
+        if local_dep_obj.use != "local":
+            _apply_local_dependency_override(
+                local_dependency=local_dep_obj,
+                base_dir=base_dir,
+                overrides=overrides,
+            )
+    return [
+        _apply_local_dependency_override(
+            local_dependency=local_dep_obj,
+            base_dir=base_dir,
+            overrides=overrides,
+        )
+        for local_dep_obj in local_dependencies
+    ]
+
+
 def _append_pip_dependency_from_local(
     *,
     data: dict[str, Any],
@@ -469,18 +503,17 @@ def _add_local_dependencies(
     seen: set[PathWithExtras],
     yaml: YAML,
     local_dependency_overrides: dict[Path, LocalDependency],
+    include_local_dependencies: bool = True,
     verbose: bool = False,
 ) -> None:
-    try:
-        requirements_dep_file = parse_folder_or_filename(
-            path_with_extras.path.parent / local_dependency,
-        )
-    except FileNotFoundError:
-        # Means that this is a local package that is not managed by unidep.
-        # We do not need to do anything here, just in `unidep install`.
-        return
-    if requirements_dep_file.path.suffix in (".whl", ".zip"):
-        if verbose:
+    requirements_dep_file = _try_parse_local_dependency_requirement_file(
+        base_dir=path_with_extras.path.parent,
+        local_dependency=local_dependency,
+    )
+    if requirements_dep_file is None:
+        local_path, _ = split_path_and_extras(local_dependency)
+        abs_local = (path_with_extras.path.parent / local_path).resolve()
+        if verbose and abs_local.suffix in (".whl", ".zip") and abs_local.exists():
             print(
                 f"⚠️  Local dependency `{local_dependency}` is a wheel or zip file. "
                 "Skipping parsing, but it will be installed by pip if "
@@ -501,6 +534,7 @@ def _add_local_dependencies(
         verbose=verbose,
         is_nested=True,
         local_dependency_overrides=local_dependency_overrides,
+        include_local_dependencies=include_local_dependencies,
     )
 
 
@@ -511,6 +545,7 @@ def parse_requirements(
     skip_dependencies: list[str] | None = None,
     verbose: bool = False,
     extras: list[list[str]] | Literal["*"] | None = None,
+    include_local_dependencies: bool = True,
 ) -> ParsedRequirements:
     """Parse a list of `requirements.yaml` or `pyproject.toml` files.
 
@@ -531,6 +566,11 @@ def parse_requirements(
         `requirements.yaml` or `pyproject.toml` files, the inner list to the
         extras to include for that file. If "*", all extras are included,
         if None, no extras are included.
+    include_local_dependencies
+        Whether local dependencies should be recursively parsed and merged into
+        the result. When False, local dependencies with `use: pypi` are still
+        translated to pip dependencies, but `use: local` entries are not
+        traversed.
 
     """
     paths_with_extras = _to_path_with_extras(paths, extras)  # type: ignore[arg-type]
@@ -554,6 +594,7 @@ def parse_requirements(
             verbose=verbose,
             is_nested=False,
             local_dependency_overrides=local_dependency_overrides,
+            include_local_dependencies=include_local_dependencies,
         )
 
     assert len(datas) == len(all_extras)
@@ -666,7 +707,7 @@ def _add_dependencies(
 parse_yaml_requirements = parse_requirements
 
 
-def _extract_local_dependencies(  # noqa: PLR0912, PLR0915
+def _extract_local_dependencies(  # noqa: PLR0912
     path: Path,
     base_path: Path,
     processed: set[Path],
@@ -689,22 +730,11 @@ def _extract_local_dependencies(  # noqa: PLR0912, PLR0915
         path_with_extras=PathWithExtras(path, extras),
         verbose=verbose,
     )
-    # Handle "local_dependencies" (or old name "includes", changed in 0.42.0)
-    local_dependencies = get_local_dependencies(data)
-    for local_dep_obj in local_dependencies:
-        if local_dep_obj.use != "local":
-            _apply_local_dependency_override(
-                local_dependency=local_dep_obj,
-                base_dir=path.parent,
-                overrides=local_dependency_overrides,
-            )
-
-    for local_dep_obj in local_dependencies:
-        effective_local_dep = _apply_local_dependency_override(
-            local_dependency=local_dep_obj,
-            base_dir=path.parent,
-            overrides=local_dependency_overrides,
-        )
+    for effective_local_dep in _effective_local_dependencies(
+        data=data,
+        base_dir=path.parent,
+        overrides=local_dependency_overrides,
+    ):
         if effective_local_dep.use != "local":
             continue
         local_dependency = effective_local_dep.local

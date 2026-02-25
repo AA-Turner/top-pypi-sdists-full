@@ -1,6 +1,7 @@
 # flake8: noqa
 
 # import apis into api package
+from arthur_client.api_bindings.api.agents_v1_api import AgentsV1Api
 from arthur_client.api_bindings.api.alert_rules_v1_api import AlertRulesV1Api
 from arthur_client.api_bindings.api.alerts_v1_api import AlertsV1Api
 from arthur_client.api_bindings.api.authorization_v1_api import AuthorizationV1Api

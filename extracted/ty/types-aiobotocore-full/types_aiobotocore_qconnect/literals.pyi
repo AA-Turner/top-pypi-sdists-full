@@ -254,7 +254,7 @@ MessageFilterTypeType = Literal["ALL", "TEXT_ONLY"]
 MessageTemplateAttributeTypeType = Literal["AGENT", "CUSTOM", "CUSTOMER_PROFILE", "SYSTEM"]
 MessageTemplateFilterOperatorType = Literal["EQUALS", "PREFIX"]
 MessageTemplateQueryOperatorType = Literal["CONTAINS", "CONTAINS_AND_PREFIX"]
-MessageTypeType = Literal["TEXT"]
+MessageTypeType = Literal["TEXT", "TOOL_USE_RESULT"]
 OrderType = Literal["ASC", "DESC"]
 OriginType = Literal["CUSTOMER", "SYSTEM"]
 ParsingStrategyType = Literal["BEDROCK_FOUNDATION_MODEL"]
@@ -500,7 +500,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -540,7 +539,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -715,6 +713,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

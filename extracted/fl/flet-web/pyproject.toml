@@ -1,6 +1,6 @@
 [project]
 name = "flet-web"
-version = "0.80.5"
+version = "0.81.0"
 description = "Flet web client in Flutter."
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.squashfs
-Version: 1.11
+Version: 1.12
 Summary: A Dissect module implementing a parser for the SquashFS file system, commonly used in appliance or device firmware
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: AGPL-3.0-or-later
@@ -24,7 +24,7 @@ License-File: COPYRIGHT
 Requires-Dist: dissect.cstruct<5,>=4
 Requires-Dist: dissect.util<4,>=3
 Provides-Extra: full
-Requires-Dist: zstandard; extra == "full"
+Requires-Dist: backports.zstd; python_version < "3.14" and extra == "full"
 Provides-Extra: dev
 Requires-Dist: dissect.squashfs[full]; extra == "dev"
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"

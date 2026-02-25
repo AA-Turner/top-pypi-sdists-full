@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.6.18
+Version: 3.6.19
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -31,7 +31,7 @@ Requires-Dist: asyncpg<1.0.0,>=0.23
 Requires-Dist: cachetools<8.0,>=5.3
 Requires-Dist: click<9,>=8.0
 Requires-Dist: cloudpickle<4.0,>=2.0
-Requires-Dist: coolname<4.0.0,>=1.0.4
+Requires-Dist: coolname<5.0.0,>=1.0.4
 Requires-Dist: cryptography>=36.0.1
 Requires-Dist: dateparser<2.0.0,>=1.1.1
 Requires-Dist: docker<8.0,>=4.0

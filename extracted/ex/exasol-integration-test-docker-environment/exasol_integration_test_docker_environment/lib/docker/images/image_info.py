@@ -5,10 +5,26 @@ from enum import (
 )
 from typing import (
     Any,
-    Optional,
 )
 
 from exasol_integration_test_docker_environment.lib.base.info import Info
+
+
+class Platform(Enum):
+    X64 = "x64"
+    ARM_64 = "arm64"
+
+
+def current_platform() -> Platform:
+    import platform
+
+    supported_platforms = {
+        "x86_64": Platform.X64,
+        "amd64": Platform.X64,
+        "aarch64": Platform.ARM_64,
+        "arm64": Platform.ARM_64,
+    }
+    return supported_platforms[platform.machine()]
 
 
 class ImageState(Enum):
@@ -58,11 +74,12 @@ class ImageInfo(Info):
         target_tag: str,
         hash_value: str,
         commit: str,
-        image_description: Optional[ImageDescription],
+        image_description: ImageDescription | None,
         build_name: str = "",
         build_date_time: datetime = datetime.utcnow(),
-        image_state: Optional[ImageState] = ImageState.NOT_EXISTING,
-        depends_on_images: Optional[dict[str, "ImageInfo"]] = None,
+        image_state: ImageState | None = ImageState.NOT_EXISTING,
+        depends_on_images: dict[str, "ImageInfo"] | None = None,
+        platform: Platform | None = None,
     ) -> None:
         self.build_name = build_name
         self.date_time = str(build_date_time)
@@ -70,7 +87,7 @@ class ImageInfo(Info):
         self.target_repository_name = target_repository_name
         self.source_repository_name = source_repository_name
         self.image_description = image_description
-        self.image_state: Optional[str] = None
+        self.image_state: str | None = None
         if isinstance(image_state, ImageState):
             self.image_state = image_state.name
         elif isinstance(image_state, str):
@@ -81,6 +98,13 @@ class ImageInfo(Info):
         self.source_tag = source_tag
         self.target_tag = target_tag
         self.hash = hash_value
+        self.platform: str | None = None
+        if isinstance(platform, Platform):
+            self.platform = platform.value
+        elif isinstance(platform, str):
+            self.platform = Platform[platform].value
+        elif platform is not None:
+            raise TypeError(f"{type(platform)} for platform not supported")
         self.check_complete_tag_length(self.source_tag)
         self.check_complete_tag_length(self.target_tag)
 
@@ -112,7 +136,9 @@ class ImageInfo(Info):
         return truncated_tag
 
     def _create_complete_tag(self, tag):
-        if self.hash == "":
-            return f"{tag}"
-        else:
-            return f"{tag}_{self.hash}"
+        tag_elements = [tag]
+        if self.platform:
+            tag_elements.append(self.platform)
+        if self.hash:
+            tag_elements.append(self.hash)
+        return "_".join(tag_elements)

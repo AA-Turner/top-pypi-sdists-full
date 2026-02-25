@@ -19,14 +19,13 @@ from siliconcompiler.schema_support.metric import MetricSchema
 from siliconcompiler import Task
 from siliconcompiler import ShowTask, ScreenshotTask
 from siliconcompiler.schema_support.option import OptionSchema
-from siliconcompiler.library import LibrarySchema
 
 from siliconcompiler.schema_support.cmdlineschema import CommandLineSchema
 from siliconcompiler.schema_support.dependencyschema import DependencySchema
 from siliconcompiler.schema_support.pathschema import PathSchemaBase
 
 from siliconcompiler.report.dashboard.cli import CliDashboard
-from siliconcompiler.scheduler import Scheduler, SCRuntimeError
+from siliconcompiler.scheduler import Scheduler, SCRuntimeError, SchedulerNode
 from siliconcompiler.utils.logging import get_stream_handler
 from siliconcompiler.utils import get_file_ext
 from siliconcompiler.utils.multiprocessing import MPManager
@@ -131,7 +130,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         if design:
             if isinstance(design, str):
-                self.set("option", "design", design)
+                self.option.set_design(design)
             else:
                 self.set_design(design)
 
@@ -155,7 +154,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         instance is stopped and set to None. Otherwise, a new `CliDashboard`
         instance is created and assigned to the project.
         """
-        if self.get("option", "nodashboard"):
+        if self.option.get_nodashboard():
             try:
                 if self.__dashboard:
                     self.__dashboard.stop()
@@ -319,7 +318,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
     def add_dep(self, obj):
         """
-        Adds a dependency object (e.g., a Design, Flowgraph, LibrarySchema,
+        Adds a dependency object (e.g., a Design, Flowgraph,
         or Checklist) to the project.
 
         This method intelligently adds various types of schema objects to the
@@ -327,7 +326,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         dependencies if the added object itself is a `DependencySchema`.
 
         Args:
-            obj (Union[Design, Flowgraph, LibrarySchema, Checklist, List, Set, Tuple]):
+            obj (Union[Design, Flowgraph, Checklist, List, Set, Tuple]):
                 The dependency object(s) to add. Can be a single schema object
                 or a collection (list, set, tuple) of schema objects.
 
@@ -344,9 +343,6 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 EditableSchema(self).insert("library", obj.name, obj)
         elif isinstance(obj, Flowgraph):
             self.__import_flow(obj)
-        elif isinstance(obj, LibrarySchema):
-            if not self._has_library(obj.name):
-                EditableSchema(self).insert("library", obj.name, obj)
         elif isinstance(obj, Checklist):
             if obj.name not in self.getkeys("checklist"):
                 EditableSchema(self).insert("checklist", obj.name, obj)
@@ -369,7 +365,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         """
         if isinstance(obj, DependencySchema):
             for dep in obj.get_dep():
-                if isinstance(dep, (Design, LibrarySchema)):
+                if isinstance(dep, Design):
                     if self._has_library(dep.name):
                         continue
                 self.add_dep(dep)
@@ -428,7 +424,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         error = False
 
         # Assert design is set
-        design = self.get("option", "design")
+        design = self.option.get_design()
         if not design:
             self.logger.error("[option,design] has not been set")
             error = True
@@ -439,7 +435,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 error = True
 
         # Assert fileset is set
-        filesets = self.get("option", "fileset")
+        filesets = self.option.get_fileset()
         if not filesets:
             self.logger.error("[option,fileset] has not been set")
             error = True
@@ -458,7 +454,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                     error = True
 
         # Assert flow is set
-        flow = self.get("option", "flow")
+        flow = self.option.get_flow()
         if not flow:
             self.logger.error("[option,flow] has not been set")
             error = True
@@ -468,7 +464,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 error = True
 
         # Check that alias libraries exist
-        aliases = self.get("option", "alias") or []
+        aliases = self.option.get_alias()
         for src_lib, src_fileset, dst_lib, dst_fileset in aliases:
             if not src_lib:
                 self.logger.error("source library in [option,alias] must be set")
@@ -507,21 +503,26 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         setup the project correctly for a run.
         """
         # Automatically select fileset if only one is available in the design
-        if not self.get("option", "fileset") and self.get("option", "design") and \
-                self._has_library(self.get("option", "design")):
+        if not self.option.get_fileset() and self.option.get_design() and \
+                self._has_library(self.option.get_design()):
             filesets = self.design.getkeys("fileset")
             if len(filesets) == 1:
                 fileset = filesets[0]
                 self.logger.warning(f"Setting design fileset to: {fileset}")
-                self.set("option", "fileset", fileset)
+                self.option.add_fileset(fileset, clobber=True)
 
         # Disable dashboard if breakpoints are set
-        if self.__dashboard and self.get("option", "flow"):
+        if self.__dashboard and self.option.get_flow():
             breakpoints = set()
-            flow = self.get("flowgraph", self.get("option", "flow"), field="schema")
-            for step, index in flow.get_nodes():
-                if self.get("option", "breakpoint", step=step, index=index):
-                    breakpoints.add((step, index))
+            for step, index in self.get_flow().get_nodes():
+                try:
+                    node = SchedulerNode(self, step, index)
+                    with node.runtime():
+                        if node.task.has_breakpoint():
+                            breakpoints.add((step, index))
+                except:  # noqa: E722
+                    if self.option.get_breakpoint(step=step, index=index):
+                        breakpoints.add((step, index))
             if breakpoints and self.__dashboard.is_running():
                 breakpoints = sorted(breakpoints)
                 self.logger.info("Disabling dashboard due to breakpoints at: "
@@ -561,7 +562,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         scheduler = None
         try:
-            if self.get('option', 'remote'):
+            if self.option.get_remote():
                 scheduler = ClientScheduler(self)
             else:
                 scheduler = Scheduler(self)
@@ -579,7 +580,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         self.__reset_job_params()
 
-        return self.history(self.get("option", "jobname"))
+        return self.history(self.option.get_jobname())
 
     def __reset_job_params(self):
         """
@@ -618,7 +619,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         '''
         Copies the current project state into the history record.
         '''
-        job = self.get("option", "jobname")
+        job = self.option.get_jobname()
         proj = self.copy()
 
         # Preserve logger instance
@@ -707,7 +708,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         """
         # Build alias mapping
         alias = {}
-        for src_lib, src_fileset, dst_lib, dst_fileset in self.get("option", "alias"):
+        for src_lib, src_fileset, dst_lib, dst_fileset in self.option.get_alias():
             if dst_lib:
                 if not self._has_library(dst_lib):
                     raise KeyError(f"{dst_lib} is not a loaded library")
@@ -718,7 +719,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 dst_fileset = None
             alias[(src_lib, src_fileset)] = (dst_obj, dst_fileset)
 
-        return self.design.get_fileset(self.get("option", "fileset"), alias=alias)
+        return self.design.get_fileset(self.option.get_fileset(), alias=alias)
 
     def set_design(self, design: Union[Design, str]):
         """
@@ -741,7 +742,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         elif not isinstance(design, str):
             raise TypeError("design must be a string or a Design object")
 
-        return self.set("option", "design", design)
+        return self.option.set_design(design)
 
     def set_flow(self, flow: Union[Flowgraph, str]):
         """
@@ -764,7 +765,31 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         elif not isinstance(flow, str):
             raise TypeError("flow must be a string or a Flowgraph object")
 
-        return self.set("option", "flow", flow)
+        return self.option.set_flow(flow)
+
+    def get_flow(self, name: Optional[str] = None) -> Flowgraph:
+        """
+        Retrieves a flowgraph by name.
+
+        Args:
+            name (str, optional): The name of the flowgraph to retrieve. If None,
+                                  retrieves the currently selected flowgraph.
+
+        Returns:
+            Flowgraph: The `Flowgraph` object corresponding to the specified name.
+
+        Raises:
+            KeyError: If the specified flowgraph is not found in the project.
+        """
+        if name is None:
+            name = self.option.get_flow()
+            if not name:
+                raise KeyError("no flow is currently selected")
+
+        if not self.valid("flowgraph", name):
+            raise KeyError(f"{name} flowgraph has not been loaded")
+
+        return self.get("flowgraph", name, field="schema")
 
     def add_fileset(self, fileset: Union[List[str], str], clobber: bool = False):
         """
@@ -799,10 +824,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             if not self.design.has_fileset(fs):
                 raise ValueError(f"{fs} is not a valid fileset in {self.design.name}")
 
-        if clobber:
-            return self.set("option", "fileset", fs_list)
-        else:
-            return self.add("option", "fileset", fs_list)
+        return self.option.add_fileset(fs_list, clobber=clobber)
 
     def add_alias(self,
                   src_dep: Union[Design, str],
@@ -885,10 +907,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 raise ValueError(f"{alias_dep_name} does not have {alias_fileset} as a fileset")
 
         alias = (src_dep_name, src_fileset, alias_dep_name, alias_fileset)
-        if clobber:
-            return self.set("option", "alias", alias)
-        else:
-            return self.add("option", "alias", alias)
+        return self.option.add_alias(alias, clobber=clobber)
 
     def get_library(self, library: str) -> NamedSchema:
         """
@@ -942,7 +961,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         """
 
         alias = []
-        for src, src_fs, dst, dst_fs in self.get("option", "alias"):
+        for src, src_fs, dst, dst_fs in self.option.get_alias():
             if not self._has_library(src):
                 continue
             if dst and not self._has_library(dst):
@@ -957,10 +976,10 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 aliased += f"{dst} ({dst_fs})"
             alias.append(aliased)
 
-        filesets = self.get("option", "fileset")
+        filesets = self.option.get_fileset()
 
         headers = [
-            ("design", self.get("option", "design"))
+            ("design", self.option.get_design())
         ]
         if filesets:
             headers.append(("filesets", ", ".join(filesets)))
@@ -981,7 +1000,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             List[Tuple[str, str]]: A list of tuples, where each tuple contains
                                    an information label (str) and its corresponding value (str).
         """
-        return [("Design", self.get("option", "design"))]
+        return [("Design", self.option.get_design())]
 
     def summary(self, jobname: str = None, fd: TextIO = None) -> None:
         '''
@@ -1008,7 +1027,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             raise ValueError("no history to summarize")
 
         if jobname is None:
-            jobname = self.get("option", "jobname")
+            jobname = self.option.get_jobname()
         if jobname not in histories:
             org_job = jobname
             jobname = histories[0]
@@ -1068,7 +1087,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         workingdir = workdir(self, step, index)
 
         if not filename:
-            fileset = self.get("option", "fileset")
+            fileset = self.option.get_fileset()
             if not fileset:
                 raise ValueError("[option,fileset] is not set")
             design_name = self.design.get_topmodule(fileset[0])
@@ -1118,7 +1137,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             raise ValueError("no history to snapshot")
 
         if jobname is None:
-            jobname = self.get("option", "jobname")
+            jobname = self.option.get_jobname()
         if jobname not in histories:
             org_job = jobname
             jobname = histories[0]
@@ -1134,7 +1153,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         generate_summary_image(history, path, history._snapshot_info())
 
-        if os.path.isfile(path) and not self.get('option', 'nodisplay') and display:
+        if os.path.isfile(path) and not self.option.get_nodisplay() and display:
             _open_summary_image(path)
 
     def show(self, filename: str = None, screenshot: bool = False, extension: str = None) -> str:
@@ -1176,7 +1195,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         tool_cls = ScreenshotTask if screenshot else ShowTask
 
         sc_jobname = self.option.get_jobname()
-        sc_step, sc_index = None, None
+        sc_step, sc_index = self.get("arg", "step"), self.get("arg", "index")
 
         has_filename = filename is not None
         # Finding last layout if no argument specified
@@ -1189,11 +1208,17 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             self.logger.info('Searching build directory for layout to show.')
 
             search_nodes = []
-            flow = search_obj.get("option", "flow")
+            flow = search_obj.option.get_flow()
             if flow:
-                flow_obj = search_obj.get("flowgraph", flow, field="schema")
+                flow_obj = search_obj.get_flow(flow)
                 for nodes in flow_obj.get_execution_order(reverse=True):
                     search_nodes.extend(nodes)
+
+            # Filter based on arg step/index if provided
+            if sc_step:
+                search_nodes = [node for node in search_nodes if node[0] == sc_step]
+                if sc_index:
+                    search_nodes = [node for node in search_nodes if node[1] == sc_index]
 
             exts = set()
             for cls in tool_cls.get_task(None):
@@ -1201,11 +1226,17 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                     exts.update(cls().get_supported_show_extentions())
                 except NotImplementedError:
                     pass
+            # Sort extensions for consistent search order
+            exts = sorted(exts)
+
+            if extension:
+                if extension not in exts:
+                    self.logger.error(f"Extension '{extension}' not supported by "
+                                      f"registered showtools: {', '.join(exts)}")
+                    return None
+                exts = [extension]
 
             for ext in exts:
-                if extension and extension != ext:
-                    continue
-
                 for step, index in search_nodes:
                     filename = search_obj.find_result(ext,
                                                       step=step,
@@ -1252,15 +1283,17 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 ("continue", True),
                 ("quiet", False),
                 ("clean", True)]:
-            proj.set("option", option, value)
+            proj.option.set(option, value)
         proj.unset("arg", "step")
         proj.unset("arg", "index")
-        proj.unset("option", "to")
-        proj.unset("option", "prune")
-        proj.unset("option", "from")
+        proj.option.unset("to")
+        proj.option.unset("prune")
+        proj.option.unset("from")
+        if not proj.option.get_nodashboard():
+            proj.option.set_nodashboard(not screenshot)
 
         jobname = f"_{task.task()}_{sc_jobname}_{sc_step}_{sc_index}_{task.tool()}"
-        proj.set("option", "jobname", jobname)
+        proj.option.set_jobname(jobname)
 
         # Setup in task variables
         task: ShowTask = task.find_task(proj)

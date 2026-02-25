@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from types_boto3_cloudwatch import (
         AlarmExistsWaiter,
+        AlarmMuteRuleExistsWaiter,
         Client,
         CloudWatchClient,
         CloudWatchServiceResource,
@@ -19,6 +20,7 @@ Usage::
         DescribeAlarmsPaginator,
         DescribeAnomalyDetectorsPaginator,
         GetMetricDataPaginator,
+        ListAlarmMuteRulesPaginator,
         ListDashboardsPaginator,
         ListMetricsPaginator,
         ServiceResource,
@@ -30,12 +32,14 @@ Usage::
     resource: CloudWatchServiceResource = session.resource("cloudwatch")
 
     alarm_exists_waiter: AlarmExistsWaiter = client.get_waiter("alarm_exists")
+    alarm_mute_rule_exists_waiter: AlarmMuteRuleExistsWaiter = client.get_waiter("alarm_mute_rule_exists")
     composite_alarm_exists_waiter: CompositeAlarmExistsWaiter = client.get_waiter("composite_alarm_exists")
 
     describe_alarm_history_paginator: DescribeAlarmHistoryPaginator = client.get_paginator("describe_alarm_history")
     describe_alarms_paginator: DescribeAlarmsPaginator = client.get_paginator("describe_alarms")
     describe_anomaly_detectors_paginator: DescribeAnomalyDetectorsPaginator = client.get_paginator("describe_anomaly_detectors")
     get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
+    list_alarm_mute_rules_paginator: ListAlarmMuteRulesPaginator = client.get_paginator("list_alarm_mute_rules")
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
     list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
     ```
@@ -47,10 +51,11 @@ from .paginator import (
     DescribeAlarmsPaginator,
     DescribeAnomalyDetectorsPaginator,
     GetMetricDataPaginator,
+    ListAlarmMuteRulesPaginator,
     ListDashboardsPaginator,
     ListMetricsPaginator,
 )
-from .waiter import AlarmExistsWaiter, CompositeAlarmExistsWaiter
+from .waiter import AlarmExistsWaiter, AlarmMuteRuleExistsWaiter, CompositeAlarmExistsWaiter
 
 try:
     from .service_resource import CloudWatchServiceResource
@@ -66,6 +71,7 @@ ServiceResource = CloudWatchServiceResource
 
 __all__ = (
     "AlarmExistsWaiter",
+    "AlarmMuteRuleExistsWaiter",
     "Client",
     "CloudWatchClient",
     "CloudWatchServiceResource",
@@ -74,6 +80,7 @@ __all__ = (
     "DescribeAlarmsPaginator",
     "DescribeAnomalyDetectorsPaginator",
     "GetMetricDataPaginator",
+    "ListAlarmMuteRulesPaginator",
     "ListDashboardsPaginator",
     "ListMetricsPaginator",
     "ServiceResource",

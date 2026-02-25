@@ -1,10 +1,7 @@
 """
 Prefect CLI powered by cyclopts.
 
-This is the new CLI implementation being migrated from typer to cyclopts.
 Enable with PREFECT_CLI_FAST=1 during the migration period.
-
-Commands not yet migrated will delegate to the existing typer implementation.
 """
 
 import asyncio
@@ -65,14 +62,8 @@ def _setup_and_run(
     *,
     profile: Optional[str] = None,
     prompt: Optional[bool] = None,
-    delegate: bool = False,
 ) -> None:
-    """Shared environment setup and command dispatch.
-
-    Called from both the cyclopts meta callback (for native commands and
-    ``--help``) and from ``_dispatch`` (for delegated commands that must
-    bypass cyclopts argument parsing).
-    """
+    """Environment setup and command dispatch."""
     global console
     import prefect.context
     from prefect.logging.configuration import setup_logging
@@ -98,10 +89,7 @@ def _setup_and_run(
         if sys.platform == "win32":
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-        if delegate:
-            _delegate(tokens[0], tokens[1:])
-        else:
-            _app(tokens)
+        _app(tokens)
 
     if profile and prefect.context.get_settings_context().profile.name != profile:
         try:
@@ -123,6 +111,14 @@ def _setup_and_run(
 # long form before cyclopts sees them; subcommand flags pass through.
 _TOP_LEVEL_SHORT_FLAGS = {"-p": "--profile"}
 
+# Multi-character short flags (e.g. -jv, -cl) that typer/click accept
+# but cyclopts splits into stacked single-char flags (-j -v).  These
+# are rewritten to their long forms before cyclopts parses them.
+_MULTICHAR_SHORT_FLAGS = {
+    "-jv": "--job-variable",
+    "-cl": "--concurrency-limit",
+}
+
 
 def _normalize_top_level_flags(args: list[str]) -> list[str]:
     """Rewrite short flags to long form when they appear before the command.
@@ -136,7 +132,7 @@ def _normalize_top_level_flags(args: list[str]) -> list[str]:
     it = iter(args)
     for token in it:
         if seen_command:
-            result.append(token)
+            result.append(_MULTICHAR_SHORT_FLAGS.get(token, token))
         elif token in _TOP_LEVEL_SHORT_FLAGS:
             result.append(_TOP_LEVEL_SHORT_FLAGS[token])
         elif not token.startswith("-"):
@@ -147,123 +143,22 @@ def _normalize_top_level_flags(args: list[str]) -> list[str]:
     return result
 
 
-def _parse_global_options(
-    args: list[str],
-) -> tuple[Optional[str], Optional[bool], list[str]]:
-    """Extract ``--profile`` and ``--prompt``/``--no-prompt`` from *args*.
-
-    Returns ``(profile, prompt, remaining)`` where *remaining* has the
-    global flags removed but subcommand tokens left untouched.
-    """
-    profile: Optional[str] = None
-    prompt: Optional[bool] = None
-    remaining: list[str] = []
-    i = 0
-    while i < len(args):
-        if args[i] == "--profile" and i + 1 < len(args):
-            profile = args[i + 1]
-            i += 2
-        elif args[i] == "--prompt":
-            prompt = True
-            i += 1
-        elif args[i] == "--no-prompt":
-            prompt = False
-            i += 1
-        else:
-            remaining.append(args[i])
-            i += 1
-    return profile, prompt, remaining
-
-
-def _dispatch(args: list[str]) -> None:
-    """Route *args* to either a delegated Typer command or cyclopts.
-
-    Delegated commands are dispatched **before** cyclopts processes the
-    tokens, avoiding cyclopts splitting combined short flags like ``-jv``
-    into ``-j``, ``-v``.  Native commands go through ``_app.meta()`` as
-    usual.
-    """
-    profile, prompt, remaining = _parse_global_options(args)
-    if remaining and remaining[0] in _DELEGATED_COMMANDS:
-        _setup_and_run(tuple(remaining), profile=profile, prompt=prompt, delegate=True)
-    else:
-        _app.meta(args)
-
-
 def app():
     """Entry point that invokes the meta app for global option handling."""
-    _dispatch(_normalize_top_level_flags(sys.argv[1:]))
-
-
-# Commands that delegate to the Typer CLI.  Dispatched from _root_callback
-# *before* cyclopts parses subcommand args (cyclopts would otherwise mangle
-# combined short flags like "-jv" into "-j", "-v").
-_DELEGATED_COMMANDS: set[str] = {
-    "cloud",
-    "deploy",
-    "transfer",
-    "work-pool",
-}
-
-
-def _delegate(command: str, tokens: tuple[str, ...]) -> None:
-    """Delegate execution to the Typer CLI for commands not yet migrated.
-
-    With standalone_mode=False, Click/Typer returns the exit code instead
-    of calling sys.exit, and raises exceptions for usage errors (missing
-    args, unknown options) instead of printing and exiting.  We catch those
-    and convert them to SystemExit with the correct code so the caller
-    (and our test runner) sees the right exit behavior.
-    """
-    import click
-
-    from prefect.cli._typer_loader import load_typer_commands
-    from prefect.cli.root import app as typer_app
-
-    load_typer_commands()
-    try:
-        exit_code = typer_app([command, *tokens], standalone_mode=False)
-    except click.exceptions.Exit as exc:
-        raise SystemExit(exc.code)
-    except click.ClickException as exc:
-        exc.show()
-        raise SystemExit(exc.exit_code)
-    except click.Abort:
-        raise SystemExit(1)
-    if exit_code:
-        raise SystemExit(exit_code)
+    _app.meta(_normalize_top_level_flags(sys.argv[1:]))
 
 
 # =============================================================================
-# Delegated command stubs
-#
-# Each stub forwards to the existing typer implementation. As commands are
-# migrated, their stub here is replaced with an import of the native cyclopts
-# implementation.
+# Command registrations
 # =============================================================================
-
-
-def _delegated_app(name: str, help: str) -> cyclopts.App:
-    """Create a cyclopts App for a delegated command.
-
-    Uses help_flags=["--help"] (not ["-h", "--help"]) so that short flags
-    like ``-h`` pass through to the typer implementation instead of being
-    intercepted as help requests.  version_flags=[] prevents cyclopts from
-    intercepting ``--version`` which some subcommands use as a value flag.
-    """
-    return cyclopts.App(name=name, help=help, help_flags=["--help"], version_flags=[])
-
 
 # --- deploy ---
-deploy_app = _delegated_app("deploy", "Create and manage deployments.")
+from prefect.cli._cyclopts.deploy import deploy_app, init
+
 _app.command(deploy_app)
 
-
-@deploy_app.default
-def deploy_default(
-    *tokens: Annotated[str, cyclopts.Parameter(show=False, allow_leading_hyphen=True)],
-):
-    _delegate("deploy", tokens)
+# --- init (root-level command, mirrors typer's @app.command() in deploy/_commands.py) ---
+_app.command(init, name="init")
 
 
 # --- flow ---
@@ -311,27 +206,15 @@ _app.command(profile_app)
 
 
 # --- cloud ---
-cloud_app = _delegated_app("cloud", "Interact with Prefect Cloud.")
+from prefect.cli._cyclopts.cloud import cloud_app
+
 _app.command(cloud_app)
 
 
-@cloud_app.default
-def cloud_default(
-    *tokens: Annotated[str, cyclopts.Parameter(show=False, allow_leading_hyphen=True)],
-):
-    _delegate("cloud", tokens)
-
-
 # --- work-pool ---
-work_pool_app = _delegated_app("work-pool", "Manage work pools.")
+from prefect.cli._cyclopts.work_pool import work_pool_app
+
 _app.command(work_pool_app)
-
-
-@work_pool_app.default
-def work_pool_default(
-    *tokens: Annotated[str, cyclopts.Parameter(show=False, allow_leading_hyphen=True)],
-):
-    _delegate("work-pool", tokens)
 
 
 # --- work-queue ---
@@ -376,6 +259,12 @@ from prefect.cli._cyclopts.experimental import experimental_app
 _app.command(experimental_app)
 
 
+# --- automation ---
+from prefect.cli._cyclopts.automation import automation_app
+
+_app.command(automation_app)
+
+
 # --- events ---
 from prefect.cli._cyclopts.events import events_app
 
@@ -418,12 +307,10 @@ from prefect.cli._cyclopts.sdk import sdk_app
 _app.command(sdk_app)
 
 
-@_app.command(name="transfer")
-def transfer_cmd(
-    *tokens: Annotated[str, cyclopts.Parameter(show=False, allow_leading_hyphen=True)],
-):
-    """Transfer resources between workspaces."""
-    _delegate("transfer", tokens)
+# --- transfer ---
+from prefect.cli._cyclopts.transfer import transfer_app
+
+_app.command(transfer_app)
 
 
 # --- version ---

@@ -62,8 +62,6 @@ class ThreadsResource(SyncAPIResource):
         authentication
 
         Args:
-          thread_id: The unique identifier of the thread
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -259,8 +257,6 @@ class AsyncThreadsResource(AsyncAPIResource):
         authentication
 
         Args:
-          thread_id: The unique identifier of the thread
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

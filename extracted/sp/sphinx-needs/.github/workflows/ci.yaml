@@ -16,18 +16,18 @@ jobs:
           python-version: '3.10'
       - uses: pre-commit/action@v3.0.1
 
-  ubc:
-    name: ubc
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: useblocks/ubc-action@main
-        with:
-          version: 0.19.1
-      - name: Run 'ubc check docs'
-        run: ubc check docs
-      - name: Run 'ubc build index docs'
-        run: ubc build index docs --show-warnings
+  # ubc:
+  #   name: ubc
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: useblocks/ubc-action@main
+  #       with:
+  #         version: 0.19.1
+  #     - name: Run 'ubc check docs'
+  #       run: ubc check docs
+  #     - name: Run 'ubc build index docs'
+  #       run: ubc build index docs --show-warnings
 
   tests-core:
     name: "Core py${{ matrix.python-version }} sphinx~=${{ matrix.sphinx-version }} ${{ matrix.os }}"
@@ -37,7 +37,7 @@ jobs:
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.10", "3.12", "3.13", "3.14"]
-        sphinx-version: ["7.4", "8.2"]
+        sphinx-version: ["7.4", "8.2", "9.1"]
         include:
           # corner cases for Windows
           - os: "windows-latest"
@@ -48,12 +48,15 @@ jobs:
             sphinx-version: "8.2"
           - os: "windows-latest"
             python-version: "3.14"
-            sphinx-version: "8.2"
+            sphinx-version: "9.1"
         exclude:
           # Sphinx 8.2 only supports py3.11+
           - os: "ubuntu-latest"
             python-version: "3.10"
             sphinx-version: "8.2"
+          - os: "ubuntu-latest"
+            python-version: "3.10"
+            sphinx-version: "9.1"
 
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +81,7 @@ jobs:
       - name: Create coverage
         run: coverage xml
       - name: Upload to Codecov
-        if: github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'useblocks/sphinx-needs' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.repository == 'useblocks/sphinx-needs' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -98,7 +101,7 @@ jobs:
             sphinx-version: "7.4"
           - os: "ubuntu-latest"
             python-version: "3.13"
-            sphinx-version: "8.2"
+            sphinx-version: "9.1"
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js

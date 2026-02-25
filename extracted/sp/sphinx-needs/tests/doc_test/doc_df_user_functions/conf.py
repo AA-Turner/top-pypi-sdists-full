@@ -31,7 +31,7 @@ needs_types = [
     },
 ]
 
-needs_extra_options = ["test_func", "hours"]
+needs_fields = {"test_func": {"nullable": True}, "hours": {"nullable": True}}
 
 
 def my_own_function(app, need, needs):

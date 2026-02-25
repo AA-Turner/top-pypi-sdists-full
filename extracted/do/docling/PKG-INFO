@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.74.0
+Version: 2.75.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -75,6 +75,8 @@ Provides-Extra: asr
 Requires-Dist: mlx-whisper>=0.4.3; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "asr"
 Requires-Dist: openai-whisper>=20250625; extra == "asr"
 Requires-Dist: numba>=0.63.0; extra == "asr"
+Provides-Extra: xbrl
+Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == "xbrl"
 Dynamic: license-file
 
 <p align="center">

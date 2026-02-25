@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sift_stack_py
-Version: 0.10.1
+Version: 0.11.0
 Summary: Python client library for the Sift API
 Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
 License: Copyright (c) 2024 Azimuth Industries Inc.

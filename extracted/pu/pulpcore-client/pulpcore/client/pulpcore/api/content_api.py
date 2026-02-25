@@ -55,9 +55,9 @@ class ContentApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -101,11 +101,11 @@ class ContentApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -186,9 +186,9 @@ class ContentApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -232,11 +232,11 @@ class ContentApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -317,9 +317,9 @@ class ContentApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.publishedmetadata` - core.publishedmetadata * `core.openpgp_publickey` - core.openpgp_publickey * `core.openpgp_publicsubkey` - core.openpgp_publicsubkey * `core.openpgp_userid` - core.openpgp_userid * `core.openpgp_userattribute` - core.openpgp_userattribute * `core.openpgp_signature` - core.openpgp_signature * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -363,11 +363,11 @@ class ContentApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]

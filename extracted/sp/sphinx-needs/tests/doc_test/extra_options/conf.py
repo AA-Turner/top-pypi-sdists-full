@@ -1,12 +1,13 @@
 extensions = ["sphinx_needs"]
 
-needs_extra_options = [
-    "introduced",
-    "updated",
-    {"name": "impacts", "description": "What is the impact of this need?"},
-    {},
-    1,
-]
+needs_extra_options = ["updated"]
+
+needs_fields = {
+    "introduced": {"description": "When was this need introduced?", "nullable": True},
+    "impacts": {"description": "What is the impact of this need?", "nullable": True},
+    1: {},
+    "a": 1,
+}
 
 needs_build_json = True
 needs_reproducible_json = True
@@ -14,10 +15,12 @@ needs_json_remove_defaults = True
 
 
 def setup(app):
-    from sphinx_needs.api.configuration import add_extra_option
+    from sphinx_needs.api.configuration import add_field
 
-    add_extra_option(app, "introduced")
-    add_extra_option(app, "modified", description="When was this need last modified?")
+    add_field("introduced", description="When was this need introduced?", nullable=True)
+    add_field(
+        "modified", description="When was this need last modified?", nullable=True
+    )
 
 
 needs_template_collapse = """

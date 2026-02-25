@@ -33,7 +33,8 @@ class PatchModel(BaseModel):
     dataset_ids: Optional[List[StrictStr]] = None
     tools: Optional[List[Tool]] = None
     sub_agents: Optional[List[SubAgent]] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "dataset_ids", "tools", "sub_agents"]
+    agent_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["name", "description", "dataset_ids", "tools", "sub_agents", "agent_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -113,6 +114,11 @@ class PatchModel(BaseModel):
         if self.sub_agents is None and "sub_agents" in self.model_fields_set:
             _dict['sub_agents'] = None
 
+        # set to None if agent_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_id is None and "agent_id" in self.model_fields_set:
+            _dict['agent_id'] = None
+
         return _dict
 
     @classmethod
@@ -129,7 +135,8 @@ class PatchModel(BaseModel):
             "description": obj.get("description"),
             "dataset_ids": obj.get("dataset_ids"),
             "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None
+            "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
+            "agent_id": obj.get("agent_id")
         })
         return _obj
 

@@ -168,7 +168,7 @@ def recover_fs(module, array):
             res = array.patch_file_systems(
                 names=[module.params["name"]], file_system=file_system
             )
-        if res.staus_code != 200:
+        if res.status_code != 200:
             module.fail_json(
                 msg="Failed to recover file system {0}. Error: {1}".format(
                     module.params["name"], res.errors[0].message
@@ -409,7 +409,7 @@ def main():
             msg="Filesystem Replication is only supported in Purity//FA 6.3.0 or higher"
         )
     state = module.params["state"]
-    esists = False
+    exists = False
     if LooseVersion(CONTEXT_VERSION) <= LooseVersion(api_version):
         res = array.get_file_systems(
             names=[module.params["name"]], context_names=[module.params["context"]]

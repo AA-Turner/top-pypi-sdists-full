@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import tokenize
 from collections.abc import Sequence
 from importlib import metadata
 from typing import Any, cast
@@ -161,8 +160,10 @@ def get_target_version(string: str) -> tuple[int, int]:
             \s*
             (
                 (?P<major>[0-9]+)
-                \.
-                (?P<minor>[0-9]+)
+                (
+                    \.
+                    (?P<minor>[0-9]+)
+                )?
                 (
                     (?:a|b|rc)
                     [0-9]+
@@ -192,7 +193,7 @@ def get_target_version(string: str) -> tuple[int, int]:
         )
         if match:
             major = int(match["major"])
-            minor = int(match["minor"])
+            minor = int(match["minor"] or 0)
             if (major, minor) in SUPPORTED_TARGET_VERSIONS:
                 print(
                     f"Detected Django version from pyproject.toml: {major}.{minor}",
@@ -256,10 +257,7 @@ def apply_fixers(contents_text: str, settings: Settings, filename: str) -> str:
     if not callbacks:
         return contents_text
 
-    try:
-        tokens = src_to_tokens(contents_text)
-    except tokenize.TokenError:  # pragma: no cover (bpo-2180)
-        return contents_text
+    tokens = src_to_tokens(contents_text)
 
     fixup_dedent_tokens(tokens)
 

@@ -666,6 +666,7 @@ def format_user_application_access_info_as_text(ctx, info):
         status_column("parent_org_name"),
         status_column("parent_org_id"),
         status_column("roles"),
+        status_column("connector_id"),
     ]
 
     return format_table(ctx, info, columns)
@@ -682,6 +683,7 @@ def format_user_fileshare_access_info_as_text(ctx, info):
         status_column("parent_org_name"),
         status_column("parent_org_id"),
         status_column("roles"),
+        status_column("connector_id"),
     ]
 
     return format_table(ctx, info, columns)
@@ -718,6 +720,7 @@ def format_user_resource_access_info_as_text(ctx, info):
         status_column("parent_org_name"),
         status_column("parent_org_id"),
         status_column("roles"),
+        status_column("connector_id"),
     ]
 
     return format_table(ctx, info, columns)
@@ -751,6 +754,7 @@ def format_user_desktop_access_info_as_text(ctx, info):
         status_column("roles"),
         status_column("resource_uri"),
         status_column("remote_app.is_remote_app", out_name="is_remote_app"),
+        status_column("connector_id"),
     ]
 
     return format_table(ctx, info, columns)

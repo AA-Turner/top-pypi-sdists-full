@@ -3,71 +3,32 @@
 
 import asyncio
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence
 
-__all__ = [
-    'PlumpyEventLoopPolicy',
-    'get_event_loop',
-    'new_event_loop',
-    'reset_event_loop_policy',
-    'run_until_complete',
-    'set_event_loop',
-    'set_event_loop_policy',
-]
+__all__: list[str] = ['get_or_create_event_loop']
 
 if TYPE_CHECKING:
     from .processes import Process
 
-get_event_loop = asyncio.get_event_loop
 
-
-def set_event_loop(*args: Any, **kwargs: Any) -> None:
-    raise NotImplementedError('this method is not implemented because `plumpy` uses a single reentrant loop')
-
-
-def new_event_loop(*args: Any, **kwargs: Any) -> asyncio.AbstractEventLoop:
-    raise NotImplementedError('this method is not implemented because `plumpy` uses a single reentrant loop')
-
-
-class PlumpyEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
-    """Custom event policy that always returns the same event loop that is made reentrant by ``nest_asyncio``."""
-
-    _loop: Optional[asyncio.AbstractEventLoop] = None
-
-    def get_event_loop(self) -> asyncio.AbstractEventLoop:
-        """Return the patched event loop."""
-        import nest_asyncio
-
-        if self._loop is None:
-            self._loop = super().get_event_loop()
-            nest_asyncio.apply(self._loop)
-
-        return self._loop
-
-
-def set_event_loop_policy() -> None:
-    """Enable plumpy's event loop policy that will make event loop's reentrant."""
-    asyncio.set_event_loop_policy(PlumpyEventLoopPolicy())
-    # Need to call the following explicitly for `asyncio.get_event_loop` to start calling the method of the new policy
-    # in case an loop is already active.
-    asyncio.get_event_loop_policy().get_event_loop()
-
-
-def reset_event_loop_policy() -> None:
-    """Reset the event loop policy to the default."""
-    loop = get_event_loop()
-
-    cls = loop.__class__
-
-    del cls._check_running  # type: ignore
-    del cls._nest_patched  # type: ignore
-
-    asyncio.set_event_loop_policy(None)
-
-
-def run_until_complete(future: asyncio.Future, loop: Optional[asyncio.AbstractEventLoop] = None) -> Any:
-    loop = loop or get_event_loop()
-    return loop.run_until_complete(future)
+def get_or_create_event_loop() -> asyncio.AbstractEventLoop:
+    """Get the running event loop, or the current set loop, or create and set a new one.
+    Note: aiida should never call on asyncio.get_event_loop() directly.
+    """
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    try:
+        # See issue https://github.com/aiidateam/plumpy/issues/336
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            return loop
+    except RuntimeError:
+        pass
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop
 
 
 class ProcessCallback:

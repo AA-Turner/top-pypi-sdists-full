@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: radish_bdd
-Version: 0.18.3
+Version: 0.18.4
 Summary: Behaviour-Driven-Development tool for Python
 Home-page: https://radish-bdd.github.io
 Download-URL: https://github.com/radish-bdd/radish
@@ -43,7 +43,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: docopt
-Requires-Dist: pysingleton
 Requires-Dist: colorful>=0.3.11
 Requires-Dist: tag-expressions>=2.0.0
 Requires-Dist: parse_type>0.4.0

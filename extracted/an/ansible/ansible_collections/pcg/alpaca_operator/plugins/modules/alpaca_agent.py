@@ -316,8 +316,24 @@ def main():
             module.exit_json(changed=False, msg="Agent already absent")
 
         if module.check_mode:
-            module.exit_json(changed=True, msg="Agent would be deleted", agent_config=current_agent_config)
+            module.exit_json(changed=True, msg="Agent would be unassigned from all systems and deleted", agent_config=current_agent_config)
 
+        # Get all systems
+        systems = api_call(method="GET", url="{0}/systems".format(api_url), headers=headers, verify=module.params['api_connection']['tls_verify'], module=module, fail_msg="Failed to retrieve systems").json()
+
+        # Iterate through all systems and check for agent assignments and commands
+        for system in systems:
+            # List agents
+            # module.warn("Retrieve agents for system {0}...".format(system['id']))
+            agents = api_call(method="GET", url="{0}/systems/{1}/agents".format(api_url, system['id']), headers=headers, verify=module.params['api_connection']['tls_verify'], module=module, fail_msg="Failed to retrieve agents").json()
+
+            # Check if the agent ID we are looking for is assigned to this system
+            if any(agent['id'] == current_agent['id'] for agent in agents):
+                # Unassign agent from system
+                # module.warn("Unassign agent {0} from system {1}".format(current_agent['id'], system['id']))
+                api_call(method="DELETE", url="{0}/systems/{1}/agents/{2}".format(api_url, system['id'], current_agent['id']), headers=headers, verify=module.params['api_connection']['tls_verify'], module=module, fail_msg="Failed to unassign agent")
+
+        # Delete agent with retries
         api_call("DELETE", "{0}/agents/{1}".format(api_url, current_agent['id']), headers=headers, verify=module.params['api_connection']['tls_verify'], module=module, fail_msg="Failed to delete agent")
         module.exit_json(changed=True, msg="Agent deleted", agent_config=current_agent_config)
 

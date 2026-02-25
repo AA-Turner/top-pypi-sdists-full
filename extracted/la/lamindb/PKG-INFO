@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lamindb
-Version: 2.2.0
+Version: 2.2.1
 Summary: A data framework for biology.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -10,8 +10,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: lamin_utils==0.16.3
-Requires-Dist: lamin_cli==1.14.0
-Requires-Dist: lamindb_setup[aws]==1.21.0
+Requires-Dist: lamin_cli==1.14.1
+Requires-Dist: lamindb_setup[aws]==1.22.0
 Requires-Dist: bionty==2.2.1
 Requires-Dist: pertdb==2.1.1
 Requires-Dist: wetlab>=2.0.0,<2.1.0
@@ -200,6 +200,23 @@ lamin load --key examples/myfile.txt
 ```
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+
+### Change management
+
+To create a contribution branch and switch to it, run:
+
+```shell
+lamin switch -c my_branch
+```
+
+To merge a contribution branch into `main`, run:
+
+```shell
+lamin switch main  # switch to the main branch
+lamin merge my_branch  # merge contribution branch into main
+```
+
+Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
 
 ### Lineage: scripts & notebooks
 

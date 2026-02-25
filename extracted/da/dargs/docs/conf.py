@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import sys
 from datetime import date
+from typing import Any
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -23,7 +24,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 
 project = "dargs"
-copyright = "2020-%d, DeepModeling " % date.today().year
+copyright = f"2020-{date.today().year}, DeepModeling "
 author = "DeepModeling"
 
 # The short X.Y version
@@ -166,7 +167,7 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
-def run_apidoc(_):
+def run_apidoc(_: object) -> None:
     from sphinx.ext.apidoc import main
 
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -187,7 +188,7 @@ def run_apidoc(_):
     )
 
 
-def setup(app):
+def setup(app: Any) -> None:
     app.connect("builder-inited", run_apidoc)
 
 

@@ -19,6 +19,7 @@ from taktile_auth.utils.cache import Cache
 
 ALGORITHM = "RS256"
 PUBLIC_KEY_CACHE_KEY = "_jwks"
+REFRESH_MARKER_PREFIX = "_refresh:"
 
 
 def _get_auth_server_url(env: str) -> str:
@@ -180,6 +181,25 @@ class AuthClient:
                 should_refresh = not cache_response.is_in_speedup_window
             else:
                 should_refresh = False
+
+            # Avoid multiple concurrent workers refreshing the same token
+            # simultaneously (stampede). We use a cache marker as a simple
+            # lock: the first worker to set it wins and performs the refresh,
+            # while others skip the refresh and keep using the current
+            # (still valid) token a little past its speedup window.
+            if should_refresh and self._cache and session_state.api_key:
+                cache_key = self._get_cache_key(str(session_state.api_key))
+                marker_key = f"{REFRESH_MARKER_PREFIX}{cache_key}"
+                try:
+                    won_marker = self._cache.put_marker(
+                        marker_key,
+                        ttl_seconds=settings.AUTH_SERVER_TIMEOUT_SECONDS,
+                    )
+                except Exception:
+                    # Fall through if the cache doesn't support put_marker
+                    won_marker = True
+                if not won_marker:
+                    should_refresh = False
 
             if not session_state.jwt or should_refresh:
                 tapi_response = self._refresh_jwt(session_state=session_state)

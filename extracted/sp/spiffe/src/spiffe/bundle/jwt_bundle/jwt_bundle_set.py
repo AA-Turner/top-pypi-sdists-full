@@ -35,7 +35,7 @@ class JwtBundleSet(object):
         Args:
             bundles: A dictionary of JwtBundle objects keyed by TrustDomain to initialize the JwtBundleSet.
         """
-        self.lock = threading.Lock()
+        self._lock = threading.Lock()
         self._bundles: Dict[str, JwtBundle] = {}
 
         if bundles:
@@ -57,10 +57,10 @@ class JwtBundleSet(object):
             A JwtBundle object for the given TrustDomain.
             None if the TrustDomain is not found in the set.
         """
-        with self.lock:
+        with self._lock:
             return self._bundles.get(trust_domain.name)
 
-    def put(self, jwt_bundle: JwtBundle):
+    def put(self, jwt_bundle: JwtBundle) -> None:
         """Adds a new bundle into the set.
 
         If a bundle already exists for the trust domain, the existing bundle is
@@ -69,7 +69,7 @@ class JwtBundleSet(object):
         Args:
             jwt_bundle: The new JwtBundle to add.
         """
-        with self.lock:
+        with self._lock:
             self._bundles[jwt_bundle.trust_domain.name] = jwt_bundle
 
     @classmethod

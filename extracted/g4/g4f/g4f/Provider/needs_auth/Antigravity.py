@@ -1121,14 +1121,13 @@ class AntigravityProvider:
             },
         }
 
-        # Add tool config if specified
+        # Add tool config if specified, only include allowedFunctionNames if mode is ANY
         if tool_choice and gemini_tools:
-            req_body["request"]["toolConfig"] = {
-                "functionCallingConfig": {
-                    "mode": tool_choice.upper(),
-                    "allowedFunctionNames": [fd["name"] for fd in function_declarations]
-                }
-            }
+            mode = tool_choice.upper()
+            function_calling_config = {"mode": mode}
+            if mode == "ANY":
+                function_calling_config["allowedFunctionNames"] = [fd["name"] for fd in function_declarations]
+            req_body["request"]["toolConfig"] = {"functionCallingConfig": function_calling_config}
 
         # Remove None values recursively
         def clean_none(d):
@@ -1190,14 +1189,15 @@ class AntigravityProvider:
                 if not resp.ok:
                     if resp.status == 503:
                         try:
-                            max_retry_delay = int(max([d.get("retryDelay", 0) for d in (await resp.json(content_type=None)).get("error", {}).get("details", [])]))
+                            retry_delay = int(max([float(d.get("retryDelay", 0)) for d in (await resp.json(content_type=None)).get("error", {}).get("details", [])]))
                         except ValueError:
-                            max_retry_delay = 30  # Default retry delay if not specified
-                        debug.log(f"Received 503 error, retrying after {max_retry_delay}")
-                        await asyncio.sleep(max_retry_delay)
-                        resp = await session.post(url, json=req_body)
-                        if not resp.ok:
-                            debug.error(f"Retry after 503 failed with status {resp.status}")
+                            retry_delay = 30  # Default retry delay if not specified
+                        debug.log(f"Received 503 error, retrying after {retry_delay}")
+                        if retry_delay <= 120:
+                            await asyncio.sleep(retry_delay)
+                            resp = await session.post(url, json=req_body)
+                            if not resp.ok:
+                                debug.error(f"Retry after 503 failed with status {resp.status}")
                 if not resp.ok:
                     if resp.status == 401:
                         raise MissingAuthError("Unauthorized (401) from Antigravity API")

@@ -1,4 +1,4 @@
-from typing import TypedDict, Required, List
+from typing import Required, TypedDict, List
 
 
 class PreprodArtifactEvents(TypedDict, total=False):

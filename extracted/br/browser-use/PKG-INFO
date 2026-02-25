@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.11.12
+Version: 0.11.13
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -20,7 +20,7 @@ Requires-Dist: anyio>=4.9.0
 Requires-Dist: authlib>=1.6.0
 Requires-Dist: browser-use-sdk>=2.0.12
 Requires-Dist: bubus>=1.5.6
-Requires-Dist: cdp-use>=1.4.4
+Requires-Dist: cdp-use>=1.4.5
 Requires-Dist: click>=8.1.8
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: google-api-core>=2.25.0
@@ -74,7 +74,7 @@ Requires-Dist: tabulate>=0.9.0; extra == 'code'
 Provides-Extra: eval
 Requires-Dist: anyio>=4.9.0; extra == 'eval'
 Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
-Requires-Dist: lmnr[all]==0.7.17; extra == 'eval'
+Requires-Dist: lmnr[all]==0.7.42; extra == 'eval'
 Requires-Dist: psutil>=7.0.0; extra == 'eval'
 Provides-Extra: examples
 Requires-Dist: agentmail==0.0.59; extra == 'examples'

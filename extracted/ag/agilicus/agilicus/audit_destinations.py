@@ -5,12 +5,14 @@ from agilicus.agilicus_api import (
     AuditDestinationSpec,
     AuditDestinationFilter,
     AuditDestinationAuthentication,
+    AuditDestinationWebhookSettings,
     HTTPBasicAuth,
     HTTPBearerAuth,
+    Oauth2Auth,
 )
 
 from . import context
-from .input_helpers import build_updated_model
+from .input_helpers import build_updated_model_from_dict
 from .input_helpers import update_org_from_input_or_ctx
 from .input_helpers import strip_none
 from .output.table import (
@@ -23,7 +25,8 @@ from .output.table import (
 
 DESTINATION_TYPES = ["file", "webhook", "graylog", "connector", "syslog"]
 FILTER_TYPES = ["subsystem", "audit_agent_type", "audit_agent_id", "hostname"]
-AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer"]
+AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer", "oauth2"]
+WEBHOOK_FORMATS = ["agilicus", "unified"]
 
 
 def _get_properties(property_names, properties) -> dict:
@@ -56,6 +59,21 @@ def _get_basic_auth(properties):
     )
 
 
+def _get_oauth2_auth(properties):
+    existing = properties.get("oauth2", {})
+    # Find all oauth2_-prefixed items
+    for key, value in properties.items():
+        parts = key.split("oauth2_", 2)
+        if len(parts) != 2 or value is None:
+            continue
+        existing[parts[1]] = value
+
+    if not existing:
+        return None
+
+    return Oauth2Auth(**existing)
+
+
 def _get_bearer_auth(properties):
     existing = properties.get("http_bearer", {})
     props = _get_properties(["token"], properties)
@@ -67,6 +85,18 @@ def _get_bearer_auth(properties):
     return HTTPBearerAuth(**existing)
 
 
+def _build_webhook_settings(existing, properties):
+    for key, value in properties.items():
+        parts = key.split("webhook_", 2)
+        if len(parts) != 2 or value is None:
+            continue
+        existing[parts[1]] = value
+    if not existing:
+        return None
+
+    return AuditDestinationWebhookSettings(**existing)
+
+
 def _build_authentication(properties):
     auth_type = properties.get("authentication_type", None)
     if not auth_type:
@@ -76,12 +106,16 @@ def _build_authentication(properties):
 
     basic_auth = _get_basic_auth(properties)
     bearer_auth = _get_bearer_auth(properties)
+    oauth2_auth = _get_oauth2_auth(properties)
 
     if basic_auth is not None:
         auth.http_basic = basic_auth
 
     if bearer_auth is not None:
         auth.http_bearer = bearer_auth
+
+    if oauth2_auth is not None:
+        auth.oauth2 = oauth2_auth
 
     return auth
 
@@ -99,6 +133,18 @@ def _update_authentication(
     return _build_authentication(as_dict)
 
 
+def _update_webhook_settings(
+    settings: AuditDestinationWebhookSettings | None, properties: dict
+):
+    if settings is None:
+        as_dict = {}
+    else:
+        as_dict = settings.to_dict()
+
+    result = _build_webhook_settings(as_dict, properties)
+    return result
+
+
 def list_audit_destinations(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
@@ -114,6 +160,9 @@ def add_audit_destination(ctx, **kwargs):
     audit_properties = _get_audit_destination_properties(kwargs)
     spec = AuditDestinationSpec(filters=[], **audit_properties)
     spec.authentication = _build_authentication(kwargs)
+    webhook_settings = _build_webhook_settings({}, kwargs)
+    if webhook_settings:
+        spec.webhook_settings = webhook_settings
 
     model = AuditDestination(spec=spec)
     return apiclient.audits_api.create_audit_destination(model).to_dict()
@@ -144,13 +193,18 @@ def update_audit_destination(ctx, destination_id, **kwargs):
     kwargs = strip_none(kwargs)
     audit_properties = _get_audit_destination_properties(kwargs)
     auth = mapping.spec.authentication
+    webhook_settings = mapping.spec.webhook_settings
 
     # Clear out the old auth which failds with build_updated_model
     del mapping.spec["authentication"]
-    mapping.spec = build_updated_model(
+    del mapping.spec["webhook_settings"]
+    mapping.spec = build_updated_model_from_dict(
         AuditDestinationSpec, mapping.spec, audit_properties
     )
     auth = _update_authentication(auth, kwargs)
+    webhook_settings = _update_webhook_settings(webhook_settings, kwargs)
+    if webhook_settings is not None:
+        mapping.spec.webhook_settings = webhook_settings
     if auth is not None:
         mapping.spec.authentication = auth
     return apiclient.audits_api.replace_audit_destination(

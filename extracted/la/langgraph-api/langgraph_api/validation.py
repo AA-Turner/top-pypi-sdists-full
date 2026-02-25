@@ -2,6 +2,7 @@ import copy
 import pathlib
 import re
 import typing
+from functools import lru_cache
 
 import jsonschema_rs
 import orjson
@@ -293,19 +294,35 @@ StoreListNamespacesRequest = jsonschema_rs.validator_for(
 DOCS_HTML = """<!doctype html>
 <html>
   <head>
-    <title>Scalar API Reference</title>
+    <title>Agent Server API Reference</title>
     <meta charset="utf-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1" />
   </head>
   <body>
-    <script id="api-reference" data-url="{mount_prefix}/openapi.json"></script>
+    <script id="api-reference"></script>
     <script>
-      var configuration = {{}}
+      var configuration = __SCALAR_CONFIGURATION_JSON__
       document.getElementById('api-reference').dataset.configuration =
         JSON.stringify(configuration)
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </body>
 </html>"""
+
+
+@lru_cache(maxsize=1)
+def render_docs_html(openapi_spec: bytes) -> str:
+    # Inline the OpenAPI JSON to avoid an extra fetch and support environments
+    # where the docs page cannot reach the mounted /openapi.json URL directly.
+    configuration = {"content": openapi_spec.decode("utf-8")}
+
+    # If the OpenAPI spec contains a string like </script> (or even just < that starts an HTML-like sequence),
+    # the browser's HTML parser can treat it as markup and prematurely end the script tag. That can break the
+    # page and can create an injection/XSS risk. Replacing < with \u003c keeps the JSON semantically identical
+    # for JavaScript, but prevents the HTML parser from seeing real tag delimiters.
+    configuration_json = (
+        orjson.dumps(configuration).decode("utf-8").replace("<", "\\u003c")
+    )
+    return DOCS_HTML.replace("__SCALAR_CONFIGURATION_JSON__", configuration_json)

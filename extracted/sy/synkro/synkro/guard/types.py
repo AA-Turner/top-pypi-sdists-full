@@ -111,14 +111,16 @@ class GuardResult:
         }
 
     def to_langfuse(self) -> dict[str, Any]:
-        """Convert to Langfuse score format."""
+        """Convert to Langfuse score format (matches Python SDK create_score)."""
         if self.violation:
             return self.violation.to_langfuse()
         return {
-            "traceId": self.trace_id,
+            "trace_id": self.trace_id,
+            "traceId": self.trace_id,  # backward compat
             "name": "policy_compliance",
             "value": "pass" if self.passed else "violation",
-            "dataType": "CATEGORICAL",
+            "data_type": "CATEGORICAL",
+            "dataType": "CATEGORICAL",  # backward compat
             "comment": "; ".join(self.issues) if self.issues else "Passed all checks",
         }
 

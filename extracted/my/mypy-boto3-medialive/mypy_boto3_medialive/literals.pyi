@@ -1123,7 +1123,7 @@ TtmlDestinationStyleControlType = Literal["PASSTHROUGH", "USE_CONFIGURED"]
 UdpTimedMetadataId3FrameType = Literal["NONE", "PRIV", "TDRL"]
 UpdateNodeStateType = Literal["ACTIVE", "DRAINING"]
 VideoDescriptionRespondToAfdType = Literal["NONE", "PASSTHROUGH", "RESPOND"]
-VideoDescriptionScalingBehaviorType = Literal["DEFAULT", "STRETCH_TO_OUTPUT"]
+VideoDescriptionScalingBehaviorType = Literal["DEFAULT", "SMART_CROP", "STRETCH_TO_OUTPUT"]
 VideoSelectorColorSpaceType = Literal["FOLLOW", "HDR10", "HLG_2020", "REC_601", "REC_709"]
 VideoSelectorColorSpaceUsageType = Literal["FALLBACK", "FORCE"]
 WavCodingModeType = Literal[
@@ -1274,13 +1274,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -1320,7 +1320,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -1495,6 +1494,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -1608,6 +1608,7 @@ RegionName = Literal[
     "ap-southeast-1",
     "ap-southeast-2",
     "ap-southeast-4",
+    "ap-southeast-5",
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",

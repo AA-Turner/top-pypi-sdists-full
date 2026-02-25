@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eccodes
-Version: 2.45.0
+Version: 2.46.0
 Summary: Python interface to the ecCodes GRIB and BUFR decoder/encoder
 Home-page: https://github.com/ecmwf/eccodes-python
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
@@ -164,8 +165,8 @@ the following environment variable before importing eccodes::
 Usage
 -----
 
-See examples of how to use the high-level BUFR interface: `BUFR_Tour.md <eccodes/highlevel/_bufr/BUFR_Tour.md>`_
-and `BUFR_Snippets.md <eccodes/highlevel/_bufr/BUFR_Snippets.md>`_.
+See examples of how to use the high-level BUFR interface: `BUFR_Tour.md <highlevel/_bufr/BUFR_Tour.md>`_
+and `BUFR_Snippets.md <highlevel/_bufr/BUFR_Snippets.md>`_.
 
 Refer to the *ecCodes* `documentation pages <https://confluence.ecmwf.int/display/ECC/Documentation>`_
 for usage.
@@ -241,6 +242,14 @@ does it submit to any jurisdiction.
 
 Changelog for eccodes-python
 ============================
+
+2.46.0 (2026-02-24)
+--------------------
+
+- ECC-2219: High-level BUFR interface: set method not working for data keys
+- ECC-2220: Fix inadvertent string truncation in uncompressed BUFR messages
+- Fix path to BUFR md files
+- Add support for Python version 3.14
 
 2.45.0 (2025-01-16)
 --------------------

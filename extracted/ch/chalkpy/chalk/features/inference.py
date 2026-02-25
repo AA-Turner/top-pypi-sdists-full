@@ -12,7 +12,11 @@ from chalk.utils.collections import ensure_tuple
 
 
 def build_inference_function(
-    model_version: ModelVersion, pkey: Feature, output_features: Optional[Feature | list[Feature]] = None
+    model_version: ModelVersion,
+    pkey: Feature,
+    output_features: Optional[Feature | list[Feature]] = None,
+    input_name_map: Optional[dict[str, str]] = None,
+    output_name_map: Optional[dict[str, str]] = None,
 ) -> Callable[[DataFrame], DataFrame]:
     """Build the core inference function that takes a DataFrame and returns predictions.
 
@@ -27,6 +31,10 @@ def build_inference_function(
     output_features
         Optional output feature(s) to add predictions to the DataFrame.
         Can be a single Feature or a list of Features for multi-output models.
+    input_name_map
+        Optional mapping from chalk column names to ONNX input names
+    output_name_map
+        Optional mapping from ONNX output names to chalk column names
 
     Returns
     -------
@@ -40,8 +48,13 @@ def build_inference_function(
         # Get features (excluding primary key) as PyArrow table
         feature_table = inp[[c for c in inp.columns if c != pkey_string]].to_pyarrow()
 
+        predictor = model_version.predictor
+
+        # Set name mappings on the predictor
+        predictor.set_name_mappings(input_name_map, output_name_map)
+
         # Use model-specific input preparation (default: __array__(), ONNX: struct array)
-        model_input = model_version.predictor.prepare_input(feature_table)
+        model_input = predictor.prepare_input(feature_table)
 
         # Run prediction
         result = model_version.predict(model_input)
@@ -55,7 +68,7 @@ def build_inference_function(
             for output_feature in features_list:
                 # Use model-specific output extraction (default: identity, ONNX: extract field)
                 output_feature_name = str(output_feature).split(".")[-1]
-                result_data = model_version.predictor.extract_output(result, output_feature_name)
+                result_data = predictor.extract_output(result, output_feature_name)
                 columns_dict[output_feature] = result_data
 
             return inp[pkey_string].with_columns(columns_dict)

@@ -4,7 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "primp"
-description = "HTTP client that can impersonate web browsers, mimicking their headers and `TLS/JA3/JA4/HTTP2` fingerprints"
+description = "HTTP client that can impersonate web browsers"
+readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT License"}
 keywords = ["python", "request", "impersonate"]
@@ -29,6 +30,9 @@ dynamic = ["version"]
 
 dependencies = []
 
+[project.urls]
+repository = "https://github.com/deedy5/primp"
+
 [project.optional-dependencies]
 dev = [
     "certifi",
@@ -41,6 +45,7 @@ dev = [
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
+manifest-path = "crates/primp-python/Cargo.toml"
 
 [tool.ruff]
 line-length = 120

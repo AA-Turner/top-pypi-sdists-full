@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-needs
-Version: 6.3.0
+Version: 7.0.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
 Requires-Python: >=3.10,<4
@@ -20,7 +20,7 @@ Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Framework :: Sphinx :: Extension
 License-File: LICENSE
-Requires-Dist: sphinx>=7.4,<9
+Requires-Dist: sphinx>=7.4,<10
 Requires-Dist: requests-file~=2.1
 Requires-Dist: requests~=2.32
 Requires-Dist: jsonschema-rs~=0.37.1
@@ -28,6 +28,7 @@ Requires-Dist: sphinx-data-viewer~=0.1.5
 Requires-Dist: sphinxcontrib-jquery~=4.0
 Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.14.0
+Requires-Dist: minijinja~=2.15
 Requires-Dist: pytest-benchmark~=5.0 ; extra == "benchmark" and ( sys_platform != 'win32')
 Requires-Dist: memray>=1.3.1,<2.0.0 ; extra == "benchmark" and ( sys_platform != 'win32')
 Requires-Dist: matplotlib>=3.3.0 ; extra == "docs"

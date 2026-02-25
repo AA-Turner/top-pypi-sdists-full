@@ -28,9 +28,10 @@ conda-lock = ["conda-lock", "conda-package-handling"]
 pip-compile = ["pip-tools"]
 pytest = ["pytest", "GitPython"] # The pytest plugin
 rich = ["rich-argparse"]
+pixi = ["pixi-to-conda-lock; python_version >= '3.9'", "tomli_w"]
 # Everything except 'test' and 'docs'
 all = [
-    "unidep[toml,conda-lock,pip-compile,pytest,rich]",
+    "unidep[toml,conda-lock,pip-compile,pytest,rich,pixi]",
 ]
 docs = [
     "myst-parser",
@@ -134,7 +135,7 @@ python_version = "3.8"  # 3.7 is no longer supported by mypy
 
 # Use bump-my-version, e.g., call `bump-my-version bump minor`
 [tool.bumpversion]
-current_version = "2.0.1"
+current_version = "2.1.0"
 commit = true
 commit_args = "--no-verify"
 tag = true

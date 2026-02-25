@@ -1396,8 +1396,8 @@ try:
     with spinner("Importing Generators from ax.generation_strategy.registry..."):
         from ax.adapter.registry import Generators
 
-    with spinner("Importing get_pending_observation_features..."):
-        from ax.core.utils import get_pending_observation_features
+    #with spinner("Importing get_pending_observation_features..."):
+    #    from ax.core.utils import get_pending_observation_features
 
     with spinner("Importing load_experiment..."):
         from ax.storage.json_store.load import load_experiment
@@ -8765,10 +8765,10 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
         #print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting 1 more arm")
 
-        pending_observations = get_pending_observation_features(
-            experiment=ax_client.experiment,
-            include_out_of_design_points=True
-        )
+        #pending_observations = get_pending_observation_features(
+        #    experiment=ax_client.experiment,
+        #    include_out_of_design_points=True
+        #)
 
         try:
             #print_debug("getting global_gs.gen() with n=1")
@@ -8776,7 +8776,7 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
             batched_generator_run: Any = global_gs.gen(
                 experiment=ax_client.experiment,
                 n=1,
-                pending_observations=pending_observations,
+                #pending_observations=pending_observations
             )
             print_debug(f"got global_gs.gen(): {batched_generator_run}")
         except Exception as e:
@@ -9593,7 +9593,7 @@ def get_optimizer_kwargs() -> dict:
         "sequential": False
     }
 
-def create_step(model_name: str, _num_trials: int, index: int) -> GenerationStep:
+def create_step(model_name: str, _num_trials: int, index: int) -> Any:
     model_enum = get_model_from_name(model_name)
 
     return GenerationStep(

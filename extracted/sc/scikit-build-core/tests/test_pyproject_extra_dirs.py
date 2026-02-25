@@ -11,7 +11,8 @@ from pathutils import contained
 
 @pytest.mark.compile
 @pytest.mark.configure
-@pytest.mark.usefixtures("package_filepath_pure")
+@pytest.mark.parametrize("package", ["filepath_pure"], indirect=True)
+@pytest.mark.usefixtures("package")
 def test_pep517_wheel_extra_dirs(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("SKBUILD_CMAKE_DEFINE", "SOME_DEFINE3=baz;SOME_DEFINE4=baz")
     monkeypatch.setenv("SKBUILD_CMAKE_ARGS", "-DSOME_ARGS1=baz")
@@ -22,6 +23,7 @@ def test_pep517_wheel_extra_dirs(monkeypatch, tmp_path: Path):
         {"cmake.define.SOME_DEFINE2": "bar", "cmake.define.SOME_DEFINE3": "bar"},
     )
     (wheel,) = dist.glob("cmake_dirs-0.0.1-*.whl")
+    wheel = wheel.resolve()  # Windows mingw64 and UCRT now requires this
     assert wheel == dist / out
 
     with zipfile.ZipFile(wheel) as zf:
@@ -50,7 +52,8 @@ def test_pep517_wheel_extra_dirs(monkeypatch, tmp_path: Path):
     assert scripts == {"in_scripts.py"}
 
 
-@pytest.mark.usefixtures("package_filepath_pure")
+@pytest.mark.parametrize("package", ["filepath_pure"], indirect=True)
+@pytest.mark.usefixtures("package")
 def test_pep517_wheel_too_old_core(monkeypatch):
     monkeypatch.setenv("SKBUILD_CMAKE_DEFINE", "SOME_DEFINE3=baz;SOME_DEFINE4=baz")
     monkeypatch.setenv("SKBUILD_CMAKE_ARGS", "-DSOME_ARGS1=baz")

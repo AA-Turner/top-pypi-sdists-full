@@ -115,7 +115,8 @@ class TestModel(unittest.TestCase):
                     arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
                         id = '', 
                         name = '', )
-                    ]
+                    ],
+                agent_id = ''
             )
         else:
             return Model(

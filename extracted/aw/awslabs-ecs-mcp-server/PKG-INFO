@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.ecs-mcp-server
-Version: 0.1.25
+Version: 0.1.26
 Summary: AWS ECS MCP Server for automating containerization and deployment of web applications to AWS ECS
 Project-URL: Homepage, https://github.com/awslabs/mcp
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/ecs-mcp-server/
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.10
 Requires-Dist: boto3>=1.41.1
 Requires-Dist: docker>=6.1.0
-Requires-Dist: fastmcp>=2.14.0
+Requires-Dist: fastmcp>=3.0.0
 Requires-Dist: gevent>=25.5.1
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: pydantic>=2.0.0

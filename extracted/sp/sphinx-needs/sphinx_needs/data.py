@@ -67,8 +67,7 @@ class CoreFieldParameters(TypedDict):
     add_to_field_schema: NotRequired[bool]
     """Whether to add the field to the field schema (False if not present)."""
     allow_default: NotRequired[bool]
-    """Whether the field allows custom default values to be set,
-    via needs_global_options (False if not present).
+    """Whether the field allows custom default values to be set (False if not present).
     """
     allow_extend: NotRequired[bool]
     """Whether field can be modified by needextend (False if not present)."""
@@ -842,6 +841,14 @@ class SphinxNeedsData:
         docs = self.get_or_create_docs()
         for key, value in docs.items():
             docs[key] = [doc for doc in value if doc != docname]
+        extends = self.get_or_create_extends()
+        for extend_id in list(extends):
+            if extends[extend_id]["docname"] == docname:
+                del extends[extend_id]
+        umls = self.get_or_create_umls()
+        for uml_id in list(umls):
+            if umls[uml_id]["docname"] == docname:
+                del umls[uml_id]
 
     def get_needs_mutable(self) -> NeedsMutable:
         """Get all needs, mapped by ID.

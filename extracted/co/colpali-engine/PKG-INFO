@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colpali_engine
-Version: 0.3.13
+Version: 0.3.14
 Summary: The code used to train and run inference with the ColPali architecture.
 Project-URL: homepage, https://github.com/illuin-tech/colpali
 Author-email: Manuel Faysse <manuel.faysse@illuin.tech>, Hugues Sibille <hugues.sibille@illuin.tech>, Tony Wu <tony.wu@illuin.tech>
@@ -12,24 +12,24 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9
+Requires-Python: <3.15,>=3.10
 Requires-Dist: numpy
-Requires-Dist: peft<0.18.0,>=0.14.0
+Requires-Dist: peft<0.19.0,>=0.18.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: requests
 Requires-Dist: scipy
-Requires-Dist: torch<2.9.0,>=2.2.0
+Requires-Dist: torch<2.11.0,>=2.2.0
 Requires-Dist: torchvision
-Requires-Dist: transformers<4.58.0,>=4.53.1
+Requires-Dist: transformers<6.0.0,>=5.0.0
 Provides-Extra: all
-Requires-Dist: accelerate<1.9.0,>=0.34.0; extra == 'all'
+Requires-Dist: accelerate<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: bitsandbytes; extra == 'all'
 Requires-Dist: configue>=5.0.0; extra == 'all'
 Requires-Dist: datasets>=2.19.1; extra == 'all'
 Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'all'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'all'
-Requires-Dist: mteb<2,>=1.16.3; extra == 'all'
-Requires-Dist: pillow<11.4.0,>=10.0.0; extra == 'all'
+Requires-Dist: mteb<3,>=1.16.3; extra == 'all'
+Requires-Dist: pillow<12.2.0,>=10.0.0; extra == 'all'
 Requires-Dist: pytest>=8.0.0; extra == 'all'
 Requires-Dist: ruff>=0.4.0; extra == 'all'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'all'
@@ -42,12 +42,12 @@ Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'interpretability'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'interpretability'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'interpretability'
 Provides-Extra: train
-Requires-Dist: accelerate<1.9.0,>=0.34.0; extra == 'train'
+Requires-Dist: accelerate<2.0.0,>=1.1.0; extra == 'train'
 Requires-Dist: bitsandbytes; extra == 'train'
 Requires-Dist: configue>=5.0.0; extra == 'train'
 Requires-Dist: datasets>=2.19.1; extra == 'train'
-Requires-Dist: mteb<2,>=1.16.3; extra == 'train'
-Requires-Dist: pillow<11.4.0,>=10.0.0; extra == 'train'
+Requires-Dist: mteb<3,>=1.16.3; extra == 'train'
+Requires-Dist: pillow<12.2.0,>=10.0.0; extra == 'train'
 Requires-Dist: typer>=0.15.1; extra == 'train'
 Description-Content-Type: text/markdown
 
@@ -93,12 +93,15 @@ Using ColPali removes the need for potentially complex and brittle layout recogn
 | [vidore/colqwen2-v1.0](https://huggingface.co/vidore/colqwen2-v1.0) | 89.3                                                                          | Apache 2.0 | • Similar to `vidore/colqwen2-v0.1`, but trained with more powerful GPUs and with a larger effective batch size (256).                                         | ✅                   |
 | [vidore/colqwen2.5-v0.1](https://huggingface.co/vidore/colqwen2.5-v0.1) | 88.8                                                                          | Apache 2.0 | • Based on `Qwen/Qwen2 5-VL-3B-Instruct`<br />• Supports dynamic resolution.<br />• Trained using 768 image patches per page and an effective batch size of 32.                                         | ✅                   |
 | [vidore/colqwen2.5-v0.2](https://huggingface.co/vidore/colqwen2.5-v0.2) | 89.4                                                                          | Apache 2.0 | • Similar to `vidore/colqwen2.5-v0.1`, but trained with slightly different hyper parameters                                        | ✅                   |
+| [TomoroAI/tomoro-colqwen3-embed-4b](https://huggingface.co/TomoroAI/tomoro-colqwen3-embed-4b) | 90.6                                                                           | Apache 2.0 | • Based on the Qwen3-VL backbone.<br />• 320-dim ColBERT-style embeddings with dynamic resolution.<br />• Trained for multi-vector document retrieval.          | ✅                   |
 | [vidore/colSmol-256M](https://huggingface.co/vidore/colSmol-256M)   | 80.1                                                                          | Apache 2.0 | • Based on `HuggingFaceTB/SmolVLM-256M-Instruct`.                                                                                                              | ✅                   |
 | [vidore/colSmol-500M](https://huggingface.co/vidore/colSmol-500M)   | 82.3                                                                          | Apache 2.0 | • Based on `HuggingFaceTB/SmolVLM-500M-Instruct`.                                                                                                              | ✅                   |
+| [Cognitive-Lab/ColNetraEmbed](https://huggingface.co/Cognitive-Lab/ColNetraEmbed) | 86.4                                                                          | Gemma      | • Based on `google/gemma-3-4b-it`.<br />• Multi-vector late interaction retrieval model.<br />• Multilingual support across 22 languages.      | ✅                   |
+| [Cognitive-Lab/NetraEmbed](https://huggingface.co/Cognitive-Lab/NetraEmbed)       | 81.0                                                                          | Gemma      | • Based on `google/gemma-3-4b-it`.<br />• Bi-encoder retrieval model.<br />• Supports Matryoshka embeddings (768, 1536, 2560).<br />• Multilingual support across 22 languages. | ✅                   |
 
 ## Setup
 
-We used Python 3.11.6 and PyTorch 2.4 to train and test our models, but the codebase is compatible with Python >=3.9 and recent PyTorch versions. To install the package, run:
+We used Python 3.11.6 and PyTorch 2.4 to train and test our models, but the codebase is compatible with Python >=3.10 and recent PyTorch versions. To install the package, run:
 
 ```bash
 pip install colpali-engine # from PyPi

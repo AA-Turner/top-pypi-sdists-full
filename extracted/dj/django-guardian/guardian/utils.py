@@ -134,16 +134,19 @@ def get_identity(identity: Model) -> tuple[Union[Any, None], Union[Any, None]]:
     # get identity from queryset model type
     if isinstance(identity, QuerySet):
         identity_model_type = identity.model
-        if identity_model_type == get_user_model():
+        if issubclass(identity_model_type, get_user_model()):
             return identity, None
-        elif identity_model_type == group_model:
+        elif issubclass(identity_model_type, group_model):
             return None, identity
 
     # get identity from the first element in the list
-    if isinstance(identity, list) and isinstance(identity[0], get_user_model()):
-        return identity, None
-    if isinstance(identity, list) and isinstance(identity[0], group_model):
-        return None, identity
+    if isinstance(identity, list):
+        if not identity:
+            return None, None
+        if isinstance(identity[0], get_user_model()):
+            return identity, None
+        if isinstance(identity[0], group_model):
+            return None, identity
 
     if isinstance(identity, get_user_model()):
         return identity, None

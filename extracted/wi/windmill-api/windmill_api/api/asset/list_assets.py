@@ -19,6 +19,8 @@ def _get_kwargs(
     asset_path: Union[Unset, None, str] = UNSET,
     usage_path: Union[Unset, None, str] = UNSET,
     asset_kinds: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    columns: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -38,6 +40,10 @@ def _get_kwargs(
     params["usage_path"] = usage_path
 
     params["asset_kinds"] = asset_kinds
+
+    params["path"] = path
+
+    params["columns"] = columns
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -84,6 +90,8 @@ def sync_detailed(
     asset_path: Union[Unset, None, str] = UNSET,
     usage_path: Union[Unset, None, str] = UNSET,
     asset_kinds: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    columns: Union[Unset, None, str] = UNSET,
 ) -> Response[ListAssetsResponse200]:
     """List all assets in the workspace with cursor pagination
 
@@ -95,6 +103,8 @@ def sync_detailed(
         asset_path (Union[Unset, None, str]):
         usage_path (Union[Unset, None, str]):
         asset_kinds (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        columns (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,6 +122,8 @@ def sync_detailed(
         asset_path=asset_path,
         usage_path=usage_path,
         asset_kinds=asset_kinds,
+        path=path,
+        columns=columns,
     )
 
     response = client.get_httpx_client().request(
@@ -131,6 +143,8 @@ def sync(
     asset_path: Union[Unset, None, str] = UNSET,
     usage_path: Union[Unset, None, str] = UNSET,
     asset_kinds: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    columns: Union[Unset, None, str] = UNSET,
 ) -> Optional[ListAssetsResponse200]:
     """List all assets in the workspace with cursor pagination
 
@@ -142,6 +156,8 @@ def sync(
         asset_path (Union[Unset, None, str]):
         usage_path (Union[Unset, None, str]):
         asset_kinds (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        columns (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,6 +176,8 @@ def sync(
         asset_path=asset_path,
         usage_path=usage_path,
         asset_kinds=asset_kinds,
+        path=path,
+        columns=columns,
     ).parsed
 
 
@@ -173,6 +191,8 @@ async def asyncio_detailed(
     asset_path: Union[Unset, None, str] = UNSET,
     usage_path: Union[Unset, None, str] = UNSET,
     asset_kinds: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    columns: Union[Unset, None, str] = UNSET,
 ) -> Response[ListAssetsResponse200]:
     """List all assets in the workspace with cursor pagination
 
@@ -184,6 +204,8 @@ async def asyncio_detailed(
         asset_path (Union[Unset, None, str]):
         usage_path (Union[Unset, None, str]):
         asset_kinds (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        columns (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -201,6 +223,8 @@ async def asyncio_detailed(
         asset_path=asset_path,
         usage_path=usage_path,
         asset_kinds=asset_kinds,
+        path=path,
+        columns=columns,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -218,6 +242,8 @@ async def asyncio(
     asset_path: Union[Unset, None, str] = UNSET,
     usage_path: Union[Unset, None, str] = UNSET,
     asset_kinds: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    columns: Union[Unset, None, str] = UNSET,
 ) -> Optional[ListAssetsResponse200]:
     """List all assets in the workspace with cursor pagination
 
@@ -229,6 +255,8 @@ async def asyncio(
         asset_path (Union[Unset, None, str]):
         usage_path (Union[Unset, None, str]):
         asset_kinds (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        columns (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -248,5 +276,7 @@ async def asyncio(
             asset_path=asset_path,
             usage_path=usage_path,
             asset_kinds=asset_kinds,
+            path=path,
+            columns=columns,
         )
     ).parsed

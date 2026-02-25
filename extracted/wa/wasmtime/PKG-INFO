@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wasmtime
-Version: 41.0.0
+Version: 42.0.0
 Summary: A WebAssembly runtime powered by Wasmtime
 Author-email: The Wasmtime Project Developers <hello@bytecodealliance.org>
 License-Expression: Apache-2.0 WITH LLVM-exception
@@ -109,20 +109,6 @@ as well as the [full API documentation][apidoc] of the `wasmtime-py` package.
 
 [`examples` directory]: https://github.com/bytecodealliance/wasmtime-py/tree/main/examples
 [apidoc]: https://bytecodealliance.github.io/wasmtime-py/
-
-If your WebAssembly module works this way, then you can also import the WebAssembly module
-directly into Python without explicitly compiling and instantiating it yourself:
-
-```python
-# Import the custom loader for `*.wasm` files
-import wasmtime.loader
-
-# Assuming `your_wasm_file.wasm` is in the python load path...
-import your_wasm_file
-
-# Now you're compiled and instantiated and ready to go!
-print(your_wasm_file.run())
-```
 
 ## Components
 

@@ -13,6 +13,9 @@ def _get_kwargs(
     workspace: str,
     *,
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Dict[str, Any]:
@@ -20,6 +23,12 @@ def _get_kwargs(
 
     params: Dict[str, Any] = {}
     params["path_start"] = path_start
+
+    params["path"] = path
+
+    params["description"] = description
+
+    params["value"] = value
 
     params["page"] = page
 
@@ -70,6 +79,9 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListVariableResponse200Item"]]:
@@ -78,6 +90,9 @@ def sync_detailed(
     Args:
         workspace (str):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -92,6 +107,9 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
         page=page,
         per_page=per_page,
     )
@@ -108,6 +126,9 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListVariableResponse200Item"]]:
@@ -116,6 +137,9 @@ def sync(
     Args:
         workspace (str):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -131,6 +155,9 @@ def sync(
         workspace=workspace,
         client=client,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
         page=page,
         per_page=per_page,
     ).parsed
@@ -141,6 +168,9 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListVariableResponse200Item"]]:
@@ -149,6 +179,9 @@ async def asyncio_detailed(
     Args:
         workspace (str):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -163,6 +196,9 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path_start=path_start,
+        path=path,
+        description=description,
+        value=value,
         page=page,
         per_page=per_page,
     )
@@ -177,6 +213,9 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     path_start: Union[Unset, None, str] = UNSET,
+    path: Union[Unset, None, str] = UNSET,
+    description: Union[Unset, None, str] = UNSET,
+    value: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListVariableResponse200Item"]]:
@@ -185,6 +224,9 @@ async def asyncio(
     Args:
         workspace (str):
         path_start (Union[Unset, None, str]):
+        path (Union[Unset, None, str]):
+        description (Union[Unset, None, str]):
+        value (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -201,6 +243,9 @@ async def asyncio(
             workspace=workspace,
             client=client,
             path_start=path_start,
+            path=path,
+            description=description,
+            value=value,
             page=page,
             per_page=per_page,
         )

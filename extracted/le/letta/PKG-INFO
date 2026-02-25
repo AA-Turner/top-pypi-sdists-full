@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: letta
-Version: 0.16.4
+Version: 0.16.5
 Summary: Create LLM agents with long-term memory and custom tools
 Author-email: Letta Team <contact@letta.com>
 License: Apache License
@@ -61,7 +61,7 @@ Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: questionary>=2.0.1
 Requires-Dist: readability-lxml
 Requires-Dist: rich>=13.9.4
-Requires-Dist: ruff[dev]>=0.12.10
+Requires-Dist: ruff>=0.12.10
 Requires-Dist: sentry-sdk[fastapi]==2.19.1
 Requires-Dist: setuptools>=70
 Requires-Dist: sqlalchemy-json>=0.7.0
@@ -73,6 +73,7 @@ Requires-Dist: tavily-python>=0.7.2
 Requires-Dist: temporalio>=1.8.0
 Requires-Dist: tqdm>=4.66.1
 Requires-Dist: trafilatura
+Requires-Dist: ty>=0.0.17
 Requires-Dist: typer>=0.15.2
 Provides-Extra: bedrock
 Requires-Dist: aioboto3>=14.3.0; extra == 'bedrock'

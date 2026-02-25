@@ -20,7 +20,7 @@ from elftools.elf.constants import SH_FLAGS
 
 
 __author__ = 'Erik Moqvist'
-__version__ = '20.1.0'
+__version__ = '20.1.1'
 
 
 DEFAULT_WORD_SIZE_BITS = 8
@@ -354,7 +354,7 @@ class Segment:
     def __init__(self, minimum_address, maximum_address, data, word_size_bytes):
         self.minimum_address = minimum_address
         self.maximum_address = maximum_address
-        self.data = data
+        self.data = bytearray(data)
         self.word_size_bytes = word_size_bytes
 
     @property

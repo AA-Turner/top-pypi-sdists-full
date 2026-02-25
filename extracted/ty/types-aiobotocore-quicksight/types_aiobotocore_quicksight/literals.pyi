@@ -866,7 +866,7 @@ IngestionStatusType = Literal[
 ]
 IngestionTypeType = Literal["FULL_REFRESH", "INCREMENTAL_REFRESH"]
 InputColumnDataTypeType = Literal[
-    "BIT", "BOOLEAN", "DATETIME", "DECIMAL", "INTEGER", "JSON", "STRING"
+    "BIT", "BOOLEAN", "DATETIME", "DECIMAL", "INTEGER", "JSON", "SEMISTRUCT", "STRING"
 ]
 JoinOperationTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 JoinTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
@@ -1358,7 +1358,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -1398,7 +1397,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -1573,6 +1571,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.hypervisor
-Version: 3.20
+Version: 3.21
 Summary: A Dissect module implementing parsers for various hypervisor disk, backup and configuration files
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: AGPL-3.0-or-later
@@ -26,6 +26,7 @@ Requires-Dist: dissect.cstruct<5,>=4
 Requires-Dist: dissect.util<4,>=3
 Provides-Extra: full
 Requires-Dist: pycryptodome; extra == "full"
+Requires-Dist: backports.zstd; python_version < "3.14" and extra == "full"
 Provides-Extra: dev
 Requires-Dist: dissect.hypervisor[full]; extra == "dev"
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"

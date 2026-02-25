@@ -84,6 +84,45 @@ def _find_uv() -> str:
     raise FileNotFoundError("uv binary not found")
 
 
+def _make_tee_log(log_callback: Callable[[str], None], log_path: Path) -> Callable[[str], None]:
+    """Create a log callback that writes to both the original callback and a file.
+
+    The returned callable has a ``.file`` attribute for writing verbose output
+    (e.g. subprocess stdout/stderr) that shouldn't go to the console.
+    Call ``.close()`` when done.
+    """
+    import datetime
+    fh = open(log_path, "w", encoding="utf-8")
+    fh.write(f"# comfy-env install log - {datetime.datetime.now().isoformat()}\n")
+    fh.write(f"# Python: {sys.executable} ({sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro})\n")
+    fh.write(f"# Platform: {sys.platform}\n\n")
+    fh.flush()
+
+    def tee(msg):
+        log_callback(msg)
+        fh.write(msg + "\n")
+        fh.flush()
+
+    tee.file = fh
+    tee.close = fh.close
+    tee.path = log_path
+    return tee
+
+
+def _log_subprocess(log: Callable, result, label: str = "") -> None:
+    """Write subprocess stdout/stderr to the log file (verbose, file-only)."""
+    fh = getattr(log, "file", None)
+    if fh is None:
+        return
+    if label:
+        fh.write(f"\n--- {label} (exit {result.returncode}) ---\n")
+    if result.stdout and result.stdout.strip():
+        fh.write(f"[stdout]\n{result.stdout}\n")
+    if result.stderr and result.stderr.strip():
+        fh.write(f"[stderr]\n{result.stderr}\n")
+    fh.flush()
+
+
 def install(
     config: Optional[Union[str, Path]] = None,
     node_dir: Optional[Path] = None,
@@ -267,7 +306,7 @@ def _install_cuda_to_host(cfg: ComfyEnvConfig, log: Callable[[str], None], dry_r
             wheel_url = get_wheel_url(package, torch_short, cuda_version, py_version)
             if wheel_url:
                 log(f"  {package}: found in cuda-wheels index")
-                cmd = [uv_path, "pip", "install", "--python", python_path, "--no-deps", wheel_url]
+                cmd = [uv_path, "pip", "install", "--python", python_path, "--no-deps", "--no-cache", wheel_url]
             else:
                 log(f"  {package}: not found in cuda-wheels index")
 
@@ -282,6 +321,7 @@ def _install_cuda_to_host(cfg: ComfyEnvConfig, log: Callable[[str], None], dry_r
 
         log(f"  {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
+        _log_subprocess(log, result, f"cuda install {package}")
         if result.returncode != 0:
             stderr_last = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "unknown error"
             log(f"  {package}: install failed (non-fatal, will use fallback)")
@@ -294,22 +334,89 @@ def _save_env_metadata(build_dir: Path, node_dir: Path, config_path: Path) -> No
     import json
     try:
         main_dir = _find_main_node_dir(node_dir)
-        # e.g. "ComfyUI-GeometryPack/nodes/gpu" or just "ComfyUI-GeometryPack"
         try:
             subpath = str(node_dir.relative_to(main_dir))
         except ValueError:
             subpath = ""
         node_label = main_dir.name if subpath == "." else f"{main_dir.name}/{subpath}"
+
+        # Parse config for a compact summary instead of dumping raw toml
+        summary = {}
+        try:
+            import tomli
+            with open(config_path, "rb") as f:
+                toml_data = tomli.load(f)
+            if "cuda" in toml_data and "packages" in toml_data["cuda"]:
+                summary["cuda"] = toml_data["cuda"]["packages"]
+            pypi = toml_data.get("pypi-dependencies", {})
+            if pypi:
+                summary["pypi_count"] = len(pypi)
+            py_ver = toml_data.get("python")
+            if py_ver:
+                summary["python"] = py_ver
+        except Exception:
+            pass
+
         meta = {
             "node_name": node_label,
             "config_file": config_path.name,
             "config_content": config_path.read_text(encoding="utf-8"),
+            **summary,
         }
         (build_dir / ".comfy-env-meta.json").write_text(
             json.dumps(meta, indent=2), encoding="utf-8"
         )
     except Exception:
         pass  # Non-fatal — metadata is optional
+
+
+_DETECT_SH = r'''#!/usr/bin/env bash
+# List all comfy-env environments and their metadata
+BASE="$(cd "$(dirname "$0")" && pwd)"
+for d in "$BASE"/_env_*/; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    meta="$d/.comfy-env-meta.json"
+    done_marker="$d/.done"
+    log="$d/install.log"
+    status="incomplete"; [ -f "$done_marker" ] && status="ok"
+    printf "=== %s [%s] ===\n" "$name" "$status"
+    [ -f "$meta" ] && cat "$meta"
+    [ -f "$log" ] && printf "  install.log: %s\n" "$log"
+    echo
+done
+'''
+
+_DETECT_BAT = r'''@echo off
+setlocal enabledelayedexpansion
+REM List all comfy-env environments and their metadata
+for /d %%d in (%~dp0\_env_*) do (
+    set "STATUS=incomplete"
+    if exist "%%d\.done" set "STATUS=ok"
+    echo === %%~nxd [!STATUS!] ===
+    if exist "%%d\.comfy-env-meta.json" type "%%d\.comfy-env-meta.json"
+    if exist "%%d\install.log" echo   install.log: %%d\install.log
+    echo.
+)
+'''
+
+
+def _ensure_detect_scripts(build_base: Path) -> None:
+    """Write detect.sh / detect.bat to the build cache directory.
+
+    Always overwrites so scripts stay up-to-date with comfy-env.
+    """
+    try:
+        sh = build_base / "detect.sh"
+        sh.write_text(_DETECT_SH, encoding="utf-8")
+        sh.chmod(0o755)
+    except Exception:
+        pass
+    try:
+        bat = build_base / "detect.bat"
+        bat.write_text(_DETECT_BAT, encoding="utf-8")
+    except Exception:
+        pass
 
 
 def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], None], dry_run: bool, is_root: bool = True) -> None:
@@ -348,6 +455,7 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
     else:
         build_base = Path.home() / ".ce"
     build_base.mkdir(parents=True, exist_ok=True)
+    _ensure_detect_scripts(build_base)
     build_dir = build_base / env_path.name
     log(f"[comfy-env] build_dir={build_dir}")
     log(f"[comfy-env] env_path={env_path}")
@@ -420,7 +528,13 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
         lock_dir.mkdir(exist_ok=True)
 
     # We own the build
+    tee_log = None
     try:
+        # Tee all output to build_dir/install.log
+        build_dir.mkdir(parents=True, exist_ok=True)
+        tee_log = _make_tee_log(log, build_dir / "install.log")
+        log = tee_log
+
         pixi_path = ensure_pixi(log=log)
         log(f"[comfy-env] pixi={pixi_path}")
 
@@ -440,6 +554,7 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
         pixi_env["UV_PYTHON_INSTALL_DIR"] = str(build_dir / "_no_python")
         pixi_env["UV_PYTHON_PREFERENCE"] = "only-system"
         result = subprocess.run([str(pixi_path), "install"], cwd=build_dir, capture_output=True, text=True, env=pixi_env)
+        _log_subprocess(log, result, "pixi install")
         if result.returncode != 0:
             raise RuntimeError(f"pixi install failed:\nstderr: {result.stderr}\nstdout: {result.stdout}")
 
@@ -482,6 +597,7 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
                               "--extra-index-url", pytorch_index, "--index-strategy", "unsafe-best-match", pkg_spec]
                     log(f"  {' '.join(pip_cmd)}")
                     result = subprocess.run(pip_cmd, capture_output=True, text=True)
+                    _log_subprocess(log, result, f"pip install {package}")
                     if result.returncode != 0:
                         raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
                 elif cuda_version:
@@ -489,8 +605,9 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
                     if not wheel_url:
                         raise RuntimeError(f"No wheel for {package}")
                     log(f"  {package} from {wheel_url}")
-                    cmd = [uv_path, "pip", "install", "--python", str(python_path), "--no-deps", wheel_url]
+                    cmd = [uv_path, "pip", "install", "--python", str(python_path), "--no-deps", "--no-cache", wheel_url]
                     result = subprocess.run(cmd, capture_output=True, text=True)
+                    _log_subprocess(log, result, f"pip install {package}")
                     if result.returncode != 0:
                         raise RuntimeError(f"Failed to install {package}:\nstderr: {result.stderr}\nstdout: {result.stdout}")
                 else:
@@ -518,7 +635,10 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
 
         done_marker.touch()
         _save_env_metadata(build_dir, node_dir, config_path)
+        log(f"[comfy-env] Install log: {build_dir / 'install.log'}")
     finally:
+        if tee_log:
+            tee_log.close()
         try: lock_dir.rmdir()
         except OSError: pass
 
@@ -560,7 +680,7 @@ def _install_to_host_python(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[
         for package in cfg.cuda_packages:
             wheel_url = get_wheel_url(package, torch_version, cuda_version, py_version)
             if wheel_url:
-                cmd = [uv_path, "pip", "install", "--python", sys.executable, "--no-deps", wheel_url]
+                cmd = [uv_path, "pip", "install", "--python", sys.executable, "--no-deps", "--no-cache", wheel_url]
                 subprocess.run(cmd, capture_output=True)
 
 

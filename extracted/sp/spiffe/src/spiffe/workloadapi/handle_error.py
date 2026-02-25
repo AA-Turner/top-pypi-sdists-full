@@ -14,21 +14,25 @@ License for the specific language governing permissions and limitations
 under the License.
 """
 
-from typing import Type
+from typing import Callable, Type, TypeVar, ParamSpec
 import grpc
 import functools
 
 from spiffe.errors import PySpiffeError, ArgumentError
 from spiffe.workloadapi.errors import WorkloadApiError
 
-
 DEFAULT_WL_API_ERROR_MESSAGE = 'Could not process response from the Workload API'
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
-def handle_error(error_cls: Type[PySpiffeError]):
-    def handler(func):
+
+def handle_error(
+    error_cls: Type[PySpiffeError],
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    def handler(func: Callable[_P, _R]) -> Callable[_P, _R]:
         @functools.wraps(func)
-        def wrapper(*args, **kw):
+        def wrapper(*args: _P.args, **kw: _P.kwargs) -> _R:
             try:
                 return func(*args, **kw)
             except WorkloadApiError as we:
@@ -36,13 +40,20 @@ def handle_error(error_cls: Type[PySpiffeError]):
             except ArgumentError as ae:
                 raise ae
             except PySpiffeError as pe:
-                raise error_cls(str(pe))
+                # Avoid double-wrapping if it's already the expected error type
+                if isinstance(pe, error_cls):
+                    raise pe
+                raise error_cls(str(pe)) from pe
             except grpc.RpcError as rpc_error:
                 if isinstance(rpc_error, grpc.Call):
-                    raise error_cls(str(rpc_error.details()))
-                raise error_cls(DEFAULT_WL_API_ERROR_MESSAGE)
+                    details = rpc_error.details()
+                    code = rpc_error.code()
+                    raise error_cls(
+                        f'{DEFAULT_WL_API_ERROR_MESSAGE}: {details} ({code})'
+                    ) from rpc_error
+                raise error_cls(DEFAULT_WL_API_ERROR_MESSAGE) from rpc_error
             except Exception as e:
-                raise error_cls(str(e))
+                raise error_cls(str(e)) from e
 
         return wrapper
 

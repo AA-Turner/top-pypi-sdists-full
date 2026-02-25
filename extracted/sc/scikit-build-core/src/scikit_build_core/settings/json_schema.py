@@ -12,6 +12,11 @@ from .._compat.builtins import ExceptionGroup
 from .._compat.typing import Annotated, get_args, get_origin
 from .documentation import pull_docs
 
+if sys.version_info >= (3, 10):
+    from types import NoneType
+else:
+    NoneType = type(None)
+
 __all__ = ["FailedConversionError", "convert_type", "to_json_schema"]
 
 
@@ -97,6 +102,8 @@ def to_json_schema(dclass: type[Any], *, normalize_keys: bool) -> dict[str, Any]
         props[field.name]["description"] = docs[field.name].split("\n", maxsplit=1)[0]
         if field.metadata.get("deprecated"):
             props[field.name]["deprecated"] = True
+        if field.metadata.get("override_only"):
+            props[field.name]["scikit-build:override-only"] = True
 
     if normalize_keys:
         props = {k.replace("_", "-"): v for k, v in props.items()}
@@ -140,16 +147,16 @@ def convert_type(t: Any, *, normalize_keys: bool) -> dict[str, Any]:
         }
     if origin is Union:
         # Ignore optional
-        if len(args) == 2 and any(a is type(None) for a in args):
+        if len(args) == 2 and any(a is NoneType for a in args):
             return convert_type(
-                next(iter(a for a in args if a is not type(None))),
+                next(iter(a for a in args if a is not NoneType)),
                 normalize_keys=normalize_keys,
             )
         return {
             "oneOf": [
                 convert_type(a, normalize_keys=normalize_keys)
                 for a in args
-                if a is not type(None)
+                if a is not NoneType
             ]
         }
     if origin is Literal:

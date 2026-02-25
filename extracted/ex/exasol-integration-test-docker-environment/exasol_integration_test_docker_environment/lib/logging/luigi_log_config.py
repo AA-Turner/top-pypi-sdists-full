@@ -2,13 +2,14 @@ import contextlib
 import logging
 import os
 import tempfile
-from collections.abc import Generator
+from collections.abc import (
+    Callable,
+    Generator,
+)
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Optional,
 )
 
 import jinja2
@@ -79,7 +80,7 @@ def restore_logger(logger_creator: Callable[[], logging.Logger]):
 def get_luigi_log_config(
     log_file_target: Path,
     use_job_specific_log_file: bool,
-    log_level: Optional[str] = None,
+    log_level: str | None = None,
 ) -> Generator[Path, None, None]:
     """
     Yields a context manager containing the path of the log-config file.
@@ -100,9 +101,13 @@ def get_luigi_log_config(
         temp_luigi_conf_path = Path(temp_dir) / "luigi_log.conf"
         with open(temp_luigi_conf_path, "w") as f:
             f.write(rendered_template)
-        with restore_logger(logger_creator=lambda: logging.root), restore_logger(
-            logger_creator=lambda: logging.getLogger(LUIGI_INTERFACE_LOGGER)
-        ), restore_logger(logger_creator=lambda: logging.getLogger(LUIGI_LOGGER)):
+        with (
+            restore_logger(logger_creator=lambda: logging.root),
+            restore_logger(
+                logger_creator=lambda: logging.getLogger(LUIGI_INTERFACE_LOGGER)
+            ),
+            restore_logger(logger_creator=lambda: logging.getLogger(LUIGI_LOGGER)),
+        ):
             if log_level is not None and not use_job_specific_log_file:
                 logging.getLogger(LUIGI_INTERFACE_LOGGER).level = logging.getLevelName(
                     log_level

@@ -17,10 +17,14 @@ Implementation Notes
 **Software and Dependencies:**
 
 * Linux and Python 3.7 or Higher
+* or MicroPython
 
 """
 
-import glob
+try:
+    import glob
+except ImportError:
+    pass
 import os
 import re
 
@@ -31,7 +35,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import boards, chips
 
-__version__ = "3.87.0"
+__version__ = "3.88.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -101,8 +105,8 @@ class Board:
             board_id = boards.FEATHER_M0_EXPRESS
         elif chip_id == chips.STM32F405:
             board_id = boards.PYBOARD
-        elif chip_id == chips.RP2040:
-            board_id = boards.RASPBERRY_PI_PICO
+        elif chip_id in (chips.RP2040, chips.RP2350):
+            board_id = self._raspberry_pi_pico_id()
         elif chip_id == chips.S805:
             board_id = boards.ODROID_C1
         elif chip_id == chips.S905:
@@ -515,6 +519,20 @@ class Board:
         elif board_value == "milkv_duo":
             board = boards.MILKV_DUO
         return board
+
+    @staticmethod
+    def _raspberry_pi_pico_id() -> Optional[str]:
+        """Try to detect id of a Raspberry Pi Pico."""
+        board_id = os.uname().machine
+        if "Raspberry Pi Pico 2 W" in board_id:
+            return boards.RASPBERRY_PI_PICO_2_W
+        if "Raspberry Pi Pico 2" in board_id:
+            return boards.RASPBERRY_PI_PICO_2
+        if "Raspberry Pi Pico W" in board_id:
+            return boards.RASPBERRY_PI_PICO_W
+        if "Raspberry Pi Pico" in board_id:
+            return boards.RASPBERRY_PI_PICO
+        return None
 
     # pylint: enable=too-many-return-statements
 
@@ -1227,6 +1245,11 @@ class Board:
     def any_particle_board(self):
         """Check whether the current board is any Particle device."""
         return self.id in boards._PARTICLE_IDS
+
+    @property
+    def any_raspberry_pi_pico_id(self):
+        """Check whether the current board is any Raspberry Pi Pico."""
+        return self.id in boards._RASPBERRY_PI_PICO_IDS
 
     @property
     def os_environ_board(self) -> bool:

@@ -110,7 +110,7 @@ AdsInteractionExcludeEventTypeType = Literal[
     "WARNING_URL_VARIABLE_SUBSTITUTION_FAILED",
     "WARNING_VPAID_AD_DROPPED",
 ]
-AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_RESPONSE"]
+AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_REQUEST", "RAW_ADS_RESPONSE"]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
@@ -324,7 +324,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -364,7 +363,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -539,6 +537,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

@@ -64,9 +64,18 @@ type WarningPosition = (usize, usize, String); // (line, column, found_name)
 /// When fixing issues, this rule replaces incorrect capitalization with the correct form
 /// as defined in the configuration.
 ///
-/// Check if a trimmed line is an inline config comment (rumdl or markdownlint directives).
+/// Check if a trimmed line is an inline config comment from a linting tool.
+/// Recognized tools: rumdl, markdownlint, Vale, and remark-lint.
 fn is_inline_config_comment(trimmed: &str) -> bool {
-    trimmed.starts_with("<!-- rumdl-") || trimmed.starts_with("<!-- markdownlint-")
+    trimmed.starts_with("<!-- rumdl-")
+        || trimmed.starts_with("<!-- markdownlint-")
+        || trimmed.starts_with("<!-- vale off")
+        || trimmed.starts_with("<!-- vale on")
+        || (trimmed.starts_with("<!-- vale ") && trimmed.contains(" = "))
+        || trimmed.starts_with("<!-- vale style")
+        || trimmed.starts_with("<!-- lint disable ")
+        || trimmed.starts_with("<!-- lint enable ")
+        || trimmed.starts_with("<!-- lint ignore ")
 }
 
 #[derive(Clone)]
@@ -271,12 +280,18 @@ impl MD044ProperNames {
                 continue;
             }
 
-            // Skip frontmatter entirely
-            if line_info.in_front_matter {
+            // For frontmatter lines, determine offset where checkable value content starts.
+            // YAML keys should not be checked against proper names - only values.
+            let fm_value_offset = if line_info.in_front_matter {
+                Self::frontmatter_value_offset(line)
+            } else {
+                0
+            };
+            if fm_value_offset == usize::MAX {
                 continue;
             }
 
-            // Skip inline config comments (rumdl-disable, markdownlint-enable, etc.)
+            // Skip inline config comments (rumdl, markdownlint, Vale, remark-lint directives)
             if is_inline_config_comment(trimmed) {
                 continue;
             }
@@ -299,6 +314,11 @@ impl MD044ProperNames {
                         let start_pos = cap.start();
                         let end_pos = cap.end();
 
+                        // Skip matches in the key portion of frontmatter lines
+                        if start_pos < fm_value_offset {
+                            continue;
+                        }
+
                         // Skip matches inside HTML tag attributes (handles multi-line tags)
                         let byte_pos = line_info.byte_offset + start_pos;
                         if ctx.is_in_html_tag(byte_pos) {
@@ -318,6 +338,13 @@ impl MD044ProperNames {
 
                         // Skip if in link URL or reference definition
                         if Self::is_in_link(ctx, byte_pos) {
+                            continue;
+                        }
+
+                        // Skip if inside an angle-bracket URL (e.g., <https://...>)
+                        // The link parser skips autolinks inside HTML comments,
+                        // so we detect them directly in the line text.
+                        if Self::is_in_angle_bracket_url(line, start_pos) {
                             continue;
                         }
 
@@ -403,6 +430,61 @@ impl MD044ProperNames {
         lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("www.")
     }
 
+    /// Check if a position within a line falls inside an angle-bracket URL (`<scheme://...>`).
+    ///
+    /// The link parser skips autolinks inside HTML comments, so `ctx.links` won't
+    /// contain them. This function detects angle-bracket URLs directly in the line
+    /// text, covering both HTML comments and regular text as a safety net.
+    fn is_in_angle_bracket_url(line: &str, pos: usize) -> bool {
+        let bytes = line.as_bytes();
+        let len = bytes.len();
+        let mut i = 0;
+        while i < len {
+            if bytes[i] == b'<' {
+                let after_open = i + 1;
+                // Check for a valid URI scheme per CommonMark autolink spec:
+                // scheme = [a-zA-Z][a-zA-Z0-9+.-]{0,31}
+                // followed by ':'
+                if after_open < len && bytes[after_open].is_ascii_alphabetic() {
+                    let mut s = after_open + 1;
+                    let scheme_max = (after_open + 32).min(len);
+                    while s < scheme_max
+                        && (bytes[s].is_ascii_alphanumeric()
+                            || bytes[s] == b'+'
+                            || bytes[s] == b'-'
+                            || bytes[s] == b'.')
+                    {
+                        s += 1;
+                    }
+                    if s < len && bytes[s] == b':' {
+                        // Valid scheme found; scan for closing '>' with no spaces or '<'
+                        let mut j = s + 1;
+                        let mut found_close = false;
+                        while j < len {
+                            match bytes[j] {
+                                b'>' => {
+                                    found_close = true;
+                                    break;
+                                }
+                                b' ' | b'<' => break,
+                                _ => j += 1,
+                            }
+                        }
+                        if found_close && pos >= i && pos <= j {
+                            return true;
+                        }
+                        if found_close {
+                            i = j + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+        false
+    }
+
     // Check if a character is a word boundary (handles Unicode)
     fn is_word_boundary_char(c: char) -> bool {
         !c.is_alphanumeric()
@@ -427,6 +509,100 @@ impl MD044ProperNames {
                 Some(c) => Self::is_word_boundary_char(c),
             }
         }
+    }
+
+    /// For a frontmatter line, return the byte offset where the checkable
+    /// value portion starts. Returns `usize::MAX` if the entire line should be
+    /// skipped (frontmatter delimiters, key-only lines, YAML comments, flow constructs).
+    fn frontmatter_value_offset(line: &str) -> usize {
+        let trimmed = line.trim();
+
+        // Skip frontmatter delimiters and empty lines
+        if trimmed == "---" || trimmed == "+++" || trimmed.is_empty() {
+            return usize::MAX;
+        }
+
+        // Skip YAML comments
+        if trimmed.starts_with('#') {
+            return usize::MAX;
+        }
+
+        // YAML list item: "  - item" or "  - key: value"
+        let stripped = line.trim_start();
+        if let Some(after_dash) = stripped.strip_prefix("- ") {
+            let leading = line.len() - stripped.len();
+            // Check if the list item contains a mapping (e.g., "- key: value")
+            if let Some(result) = Self::kv_value_offset(line, after_dash, leading + 2) {
+                return result;
+            }
+            // Bare list item value (no colon) - check content after "- "
+            return leading + 2;
+        }
+        if stripped == "-" {
+            return usize::MAX;
+        }
+
+        // Key-value pair with colon separator (YAML): "key: value"
+        if let Some(result) = Self::kv_value_offset(line, stripped, line.len() - stripped.len()) {
+            return result;
+        }
+
+        // Key-value pair with equals separator (TOML): "key = value"
+        if let Some(eq_pos) = line.find('=') {
+            let after_eq = eq_pos + 1;
+            if after_eq < line.len() && line.as_bytes()[after_eq] == b' ' {
+                let value_start = after_eq + 1;
+                let value_slice = &line[value_start..];
+                let value_trimmed = value_slice.trim();
+                if value_trimmed.is_empty() {
+                    return usize::MAX;
+                }
+                // For quoted values, skip the opening quote character
+                if (value_trimmed.starts_with('"') && value_trimmed.ends_with('"'))
+                    || (value_trimmed.starts_with('\'') && value_trimmed.ends_with('\''))
+                {
+                    let quote_offset = value_slice.find(['"', '\'']).unwrap_or(0);
+                    return value_start + quote_offset + 1;
+                }
+                return value_start;
+            }
+            // Equals with no space after or at end of line -> no value to check
+            return usize::MAX;
+        }
+
+        // No separator found - continuation line or bare value, check the whole line
+        0
+    }
+
+    /// Parse a key-value pair using colon separator within `content` that starts
+    /// at `base_offset` in the original line. Returns `Some(offset)` if a colon
+    /// separator is found, `None` if no colon is present.
+    fn kv_value_offset(line: &str, content: &str, base_offset: usize) -> Option<usize> {
+        let colon_pos = content.find(':')?;
+        let abs_colon = base_offset + colon_pos;
+        let after_colon = abs_colon + 1;
+        if after_colon < line.len() && line.as_bytes()[after_colon] == b' ' {
+            let value_start = after_colon + 1;
+            let value_slice = &line[value_start..];
+            let value_trimmed = value_slice.trim();
+            if value_trimmed.is_empty() {
+                return Some(usize::MAX);
+            }
+            // Skip flow mappings and flow sequences - too complex for heuristic parsing
+            if value_trimmed.starts_with('{') || value_trimmed.starts_with('[') {
+                return Some(usize::MAX);
+            }
+            // For quoted values, skip the opening quote character
+            if (value_trimmed.starts_with('"') && value_trimmed.ends_with('"'))
+                || (value_trimmed.starts_with('\'') && value_trimmed.ends_with('\''))
+            {
+                let quote_offset = value_slice.find(['"', '\'']).unwrap_or(0);
+                return Some(value_start + quote_offset + 1);
+            }
+            return Some(value_start);
+        }
+        // Colon with no space after or at end of line -> no value to check
+        Some(usize::MAX)
     }
 
     // Get the proper name that should be used for a found name
@@ -1554,16 +1730,18 @@ Visit [github documentation](https://github.com/docs) for details.
     }
 
     #[test]
-    fn test_frontmatter_yaml_values_not_flagged() {
-        // Frontmatter is skipped entirely, matching markdownlint behavior.
+    fn test_frontmatter_yaml_values_flagged() {
+        // Incorrectly capitalized names in YAML values should be flagged.
         let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
 
         let content = "---\ntitle: Heading\nkey: a test value\n---\n\nTest\n";
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        // "test" in the YAML value (line 3) should NOT be flagged — frontmatter is skipped
-        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
+        // "test" in the YAML value (line 3) SHOULD be flagged
+        assert_eq!(result.len(), 1, "Should flag 'test' in YAML value: {result:?}");
+        assert_eq!(result[0].line, 3);
+        assert_eq!(result[0].column, 8); // "key: a " = 7 chars, then "test" at column 8
     }
 
     #[test]
@@ -1610,30 +1788,37 @@ Visit [github documentation](https://github.com/docs) for details.
     }
 
     #[test]
-    fn test_frontmatter_list_items_not_checked() {
-        // Frontmatter is skipped entirely, including list items.
+    fn test_frontmatter_list_items_checked() {
+        // YAML list items are values and should be checked for proper names.
         let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
 
         let content = "---\ntags:\n  - test\n  - other\n---\n\nBody text\n";
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        assert!(
-            result.is_empty(),
-            "Should not flag names in frontmatter list items: {result:?}"
-        );
+        // "test" as a list item value SHOULD be flagged
+        assert_eq!(result.len(), 1, "Should flag 'test' in YAML list item: {result:?}");
+        assert_eq!(result[0].line, 3);
     }
 
     #[test]
-    fn test_frontmatter_value_with_multiple_colons_not_checked() {
-        // Frontmatter is skipped entirely, matching markdownlint behavior.
+    fn test_frontmatter_value_with_multiple_colons() {
+        // For "key: value: more", key is before first colon.
         let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
 
         let content = "---\ntest: description: a test thing\n---\n\nBody text\n";
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
+        // "test" as key should NOT be flagged
+        // "test" in value portion ("description: a test thing") SHOULD be flagged
+        assert_eq!(
+            result.len(),
+            1,
+            "Should flag 'test' in value after first colon: {result:?}"
+        );
+        assert_eq!(result[0].line, 2);
+        assert!(result[0].column > 6, "Violation column should be in value portion");
     }
 
     #[test]
@@ -1650,27 +1835,681 @@ Visit [github documentation](https://github.com/docs) for details.
     }
 
     #[test]
-    fn test_frontmatter_fix_skips_entirely() {
-        // Fix should not modify any frontmatter content, only body text.
+    fn test_frontmatter_fix_corrects_values_preserves_keys() {
+        // Fix should correct YAML values but preserve keys.
         let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
 
         let content = "---\ntest: a test value\n---\n\ntest here\n";
         let ctx = create_context(content);
         let fixed = rule.fix(&ctx).unwrap();
 
-        // Frontmatter should be entirely preserved; body "test" should become "Test"
-        assert_eq!(fixed, "---\ntest: a test value\n---\n\nTest here\n");
+        // Key "test" should remain lowercase; value "test" should become "Test"
+        assert_eq!(fixed, "---\ntest: a Test value\n---\n\nTest here\n");
     }
 
     #[test]
-    fn test_frontmatter_multiword_value_not_flagged() {
-        // Frontmatter is skipped entirely, matching markdownlint behavior.
+    fn test_frontmatter_multiword_value_flagged() {
+        // Multiple proper names in a single YAML value should all be flagged.
         let rule = MD044ProperNames::new(vec!["JavaScript".to_string(), "TypeScript".to_string()], true);
 
         let content = "---\ndescription: Learn javascript and typescript\n---\n\nBody\n";
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        assert!(result.is_empty(), "Should not flag names in frontmatter: {result:?}");
+        assert_eq!(result.len(), 2, "Should flag both names in YAML value: {result:?}");
+        assert!(result.iter().all(|w| w.line == 2));
+    }
+
+    #[test]
+    fn test_frontmatter_yaml_comments_not_checked() {
+        // YAML comments inside frontmatter should be skipped entirely.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\n# test comment\ntitle: Heading\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(result.is_empty(), "Should not flag names in YAML comments: {result:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_delimiters_not_checked() {
+        // Frontmatter delimiter lines (--- or +++) should never be checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: Heading\n---\n\ntest here\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the body "test" on line 5 should be flagged
+        assert_eq!(result.len(), 1, "Should only flag body text: {result:?}");
+        assert_eq!(result[0].line, 5);
+    }
+
+    #[test]
+    fn test_frontmatter_continuation_lines_checked() {
+        // Continuation lines (indented, no colon) are value content and should be checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ndescription: >\n  a test value\n  continued here\n---\n\nBody\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "test" on the continuation line should be flagged
+        assert_eq!(result.len(), 1, "Should flag 'test' in continuation line: {result:?}");
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_frontmatter_quoted_values_checked() {
+        // Quoted YAML values should have their content checked (inside the quotes).
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: \"a test title\"\n---\n\nBody\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 1, "Should flag 'test' in quoted YAML value: {result:?}");
+        assert_eq!(result[0].line, 2);
+    }
+
+    #[test]
+    fn test_frontmatter_single_quoted_values_checked() {
+        // Single-quoted YAML values should have their content checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntitle: 'a test title'\n---\n\nBody\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            1,
+            "Should flag 'test' in single-quoted YAML value: {result:?}"
+        );
+        assert_eq!(result[0].line, 2);
+    }
+
+    #[test]
+    fn test_frontmatter_fix_multiword_values() {
+        // Fix should correct all proper names in frontmatter values.
+        let rule = MD044ProperNames::new(vec!["JavaScript".to_string(), "TypeScript".to_string()], true);
+
+        let content = "---\ndescription: Learn javascript and typescript\n---\n\nBody\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(
+            fixed,
+            "---\ndescription: Learn JavaScript and TypeScript\n---\n\nBody\n"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_fix_preserves_yaml_structure() {
+        // Fix should preserve YAML structure while correcting values.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntags:\n  - test\n  - other\ntitle: a test doc\n---\n\ntest body\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(
+            fixed,
+            "---\ntags:\n  - Test\n  - other\ntitle: a Test doc\n---\n\nTest body\n"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_toml_delimiters_not_checked() {
+        // TOML frontmatter with +++ delimiters should also be handled.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "+++\ntitle = \"a test title\"\n+++\n\ntest body\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "title" as TOML key should NOT be flagged
+        // "test" in TOML quoted value SHOULD be flagged (line 2)
+        // "test" in body SHOULD be flagged (line 5)
+        assert_eq!(result.len(), 2, "Should flag TOML value and body: {result:?}");
+        let fm_violations: Vec<_> = result.iter().filter(|w| w.line == 2).collect();
+        assert_eq!(fm_violations.len(), 1, "Should flag 'test' in TOML value: {result:?}");
+        let body_violations: Vec<_> = result.iter().filter(|w| w.line == 5).collect();
+        assert_eq!(body_violations.len(), 1, "Should flag body 'test': {result:?}");
+    }
+
+    #[test]
+    fn test_frontmatter_toml_key_not_flagged() {
+        // TOML keys should NOT be flagged, only values.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "+++\ntest = \"other value\"\n+++\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag TOML key that matches configured name: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_toml_fix_preserves_keys() {
+        // Fix should correct TOML values but preserve keys.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "+++\ntest = \"a test value\"\n+++\n\ntest here\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Key "test" should remain lowercase; value "test" should become "Test"
+        assert_eq!(fixed, "+++\ntest = \"a Test value\"\n+++\n\nTest here\n");
+    }
+
+    #[test]
+    fn test_frontmatter_list_item_mapping_key_not_flagged() {
+        // In "- test: nested value", "test" is a YAML key within a list-item mapping.
+        // The key should NOT be flagged; only the value should be checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nitems:\n  - test: nested value\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag YAML key in list-item mapping: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_list_item_mapping_value_flagged() {
+        // In "- key: test value", the value portion should be checked.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nitems:\n  - key: a test value\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            1,
+            "Should flag 'test' in list-item mapping value: {result:?}"
+        );
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_frontmatter_bare_list_item_still_flagged() {
+        // Bare list items without a colon (e.g., "- test") are values and should be flagged.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\ntags:\n  - test\n  - other\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 1, "Should flag 'test' in bare list item: {result:?}");
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_frontmatter_flow_mapping_not_flagged() {
+        // Flow mappings like {test: value} contain YAML keys that should not be flagged.
+        // The entire flow construct should be skipped.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nflow_map: {test: value, other: test}\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside flow mappings: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_flow_sequence_not_flagged() {
+        // Flow sequences like [test, other] should also be skipped.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nitems: [test, other, test]\n---\n\nBody text\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside flow sequences: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_frontmatter_list_item_mapping_fix_preserves_key() {
+        // Fix should correct values in list-item mappings but preserve keys.
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "---\nitems:\n  - test: a test value\n---\n\ntest here\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // "test" as list-item key should remain lowercase;
+        // "test" in value portion should become "Test"
+        assert_eq!(fixed, "---\nitems:\n  - test: a Test value\n---\n\nTest here\n");
+    }
+
+    // --- Angle-bracket URL tests (issue #457) ---
+
+    #[test]
+    fn test_angle_bracket_url_in_html_comment_not_flagged() {
+        // Angle-bracket URLs inside HTML comments should be skipped
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "---\ntitle: Level 1 heading\n---\n\n<https://www.example.test>\n\n<!-- This is a Test https://www.example.test -->\n<!-- This is a Test <https://www.example.test> -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Line 7: "Test" in comment prose before bare URL -- already correct capitalization
+        // Line 7: "test" in bare URL (not in angle brackets) -- but "test" is in URL domain, not prose.
+        //   However, .example.test has "test" at a word boundary (after '.'), so it IS flagged.
+        // Line 8: "Test" in comment prose -- correct capitalization, not flagged
+        // Line 8: "test" in <https://www.example.test> -- inside angle-bracket URL, NOT flagged
+
+        // The key assertion: line 8's angle-bracket URL should NOT produce a warning
+        let line8_warnings: Vec<_> = result.iter().filter(|w| w.line == 8).collect();
+        assert!(
+            line8_warnings.is_empty(),
+            "Should not flag names inside angle-bracket URLs in HTML comments: {line8_warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_bare_url_in_html_comment_still_flagged() {
+        // Bare URLs (not in angle brackets) inside HTML comments should still be checked
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- This is a test https://www.example.test -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // "test" appears as prose text before URL and also in the bare URL domain
+        // At minimum, the prose "test" should be flagged
+        assert!(
+            !result.is_empty(),
+            "Should flag 'test' in prose text of HTML comment with bare URL"
+        );
+    }
+
+    #[test]
+    fn test_angle_bracket_url_in_regular_markdown_not_flagged() {
+        // Angle-bracket URLs in regular markdown are already handled by the link parser,
+        // but the angle-bracket check provides a safety net
+        let rule = MD044ProperNames::new(vec!["Test".to_string()], true);
+
+        let content = "<https://www.example.test>\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside angle-bracket URLs in regular markdown: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_multiple_angle_bracket_urls_in_one_comment() {
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- See <https://test.example.com> and <https://www.example.test> for details -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Both URLs are inside angle brackets, so "test" inside them should NOT be flagged
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside multiple angle-bracket URLs: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_angle_bracket_non_url_still_flagged() {
+        // <Test> is NOT a URL (no scheme), so is_in_angle_bracket_url does NOT protect it.
+        // Whether it gets flagged depends on HTML tag detection, not on our URL check.
+        assert!(
+            !MD044ProperNames::is_in_angle_bracket_url("<test> which is not a URL.", 1),
+            "is_in_angle_bracket_url should return false for non-URL angle brackets"
+        );
+    }
+
+    #[test]
+    fn test_angle_bracket_mailto_url_not_flagged() {
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- Contact <mailto:test@example.com> for help -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside angle-bracket mailto URLs: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_angle_bracket_ftp_url_not_flagged() {
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- Download from <ftp://test.example.com/file> -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Should not flag names inside angle-bracket FTP URLs: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_angle_bracket_url_fix_preserves_url() {
+        // Fix should not modify text inside angle-bracket URLs
+        let config = MD044Config {
+            names: vec!["Test".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "<!-- test text <https://www.example.test> -->\n";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // "test" in prose should be fixed, URL should be preserved
+        assert!(
+            fixed.contains("<https://www.example.test>"),
+            "Fix should preserve angle-bracket URLs: {fixed}"
+        );
+        assert!(
+            fixed.contains("Test text"),
+            "Fix should correct prose 'test' to 'Test': {fixed}"
+        );
+    }
+
+    #[test]
+    fn test_is_in_angle_bracket_url_helper() {
+        // Direct tests of the helper function
+        let line = "text <https://example.test> more text";
+
+        // Inside the URL
+        assert!(MD044ProperNames::is_in_angle_bracket_url(line, 5)); // '<'
+        assert!(MD044ProperNames::is_in_angle_bracket_url(line, 6)); // 'h'
+        assert!(MD044ProperNames::is_in_angle_bracket_url(line, 15)); // middle of URL
+        assert!(MD044ProperNames::is_in_angle_bracket_url(line, 26)); // '>'
+
+        // Outside the URL
+        assert!(!MD044ProperNames::is_in_angle_bracket_url(line, 0)); // 't' at start
+        assert!(!MD044ProperNames::is_in_angle_bracket_url(line, 4)); // space before '<'
+        assert!(!MD044ProperNames::is_in_angle_bracket_url(line, 27)); // space after '>'
+
+        // Non-URL angle brackets
+        assert!(!MD044ProperNames::is_in_angle_bracket_url("<notaurl>", 1));
+
+        // mailto scheme
+        assert!(MD044ProperNames::is_in_angle_bracket_url(
+            "<mailto:test@example.com>",
+            10
+        ));
+
+        // ftp scheme
+        assert!(MD044ProperNames::is_in_angle_bracket_url(
+            "<ftp://test.example.com>",
+            10
+        ));
+    }
+
+    #[test]
+    fn test_is_in_angle_bracket_url_uppercase_scheme() {
+        // RFC 3986: URI schemes are case-insensitive
+        assert!(MD044ProperNames::is_in_angle_bracket_url(
+            "<HTTPS://test.example.com>",
+            10
+        ));
+        assert!(MD044ProperNames::is_in_angle_bracket_url(
+            "<Http://test.example.com>",
+            10
+        ));
+    }
+
+    #[test]
+    fn test_is_in_angle_bracket_url_uncommon_schemes() {
+        // ssh scheme
+        assert!(MD044ProperNames::is_in_angle_bracket_url(
+            "<ssh://test@example.com>",
+            10
+        ));
+        // file scheme
+        assert!(MD044ProperNames::is_in_angle_bracket_url("<file:///test/path>", 10));
+        // data scheme (no authority, just colon)
+        assert!(MD044ProperNames::is_in_angle_bracket_url("<data:text/plain;test>", 10));
+    }
+
+    #[test]
+    fn test_is_in_angle_bracket_url_unclosed() {
+        // Unclosed angle bracket should NOT match
+        assert!(!MD044ProperNames::is_in_angle_bracket_url(
+            "<https://test.example.com",
+            10
+        ));
+    }
+
+    #[test]
+    fn test_vale_inline_config_comments_not_flagged() {
+        let config = MD044Config {
+            names: vec!["Vale".to_string(), "JavaScript".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "\
+<!-- vale off -->
+Some javascript text here.
+<!-- vale on -->
+<!-- vale Style.Rule = NO -->
+More javascript text.
+<!-- vale Style.Rule = YES -->
+<!-- vale JavaScript.Grammar = NO -->
+";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the body text lines (2, 5) should be flagged for "javascript"
+        assert_eq!(result.len(), 2, "Should only flag body lines, not Vale config comments");
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[1].line, 5);
+    }
+
+    #[test]
+    fn test_remark_lint_inline_config_comments_not_flagged() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "\
+<!-- lint disable remark-lint-some-rule -->
+Some javascript text here.
+<!-- lint enable remark-lint-some-rule -->
+<!-- lint ignore remark-lint-some-rule -->
+More javascript text.
+";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            2,
+            "Should only flag body lines, not remark-lint config comments"
+        );
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[1].line, 5);
+    }
+
+    #[test]
+    fn test_fix_does_not_modify_vale_remark_lint_comments() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string(), "Vale".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "\
+<!-- vale off -->
+Some javascript text.
+<!-- vale on -->
+<!-- lint disable remark-lint-some-rule -->
+More javascript text.
+<!-- lint enable remark-lint-some-rule -->
+";
+        let ctx = create_context(content);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Config directive lines must be preserved unchanged
+        assert!(fixed.contains("<!-- vale off -->"));
+        assert!(fixed.contains("<!-- vale on -->"));
+        assert!(fixed.contains("<!-- lint disable remark-lint-some-rule -->"));
+        assert!(fixed.contains("<!-- lint enable remark-lint-some-rule -->"));
+        // Body text should be fixed
+        assert!(fixed.contains("Some JavaScript text."));
+        assert!(fixed.contains("More JavaScript text."));
+    }
+
+    #[test]
+    fn test_mixed_tool_directives_all_skipped() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string(), "Vale".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        let content = "\
+<!-- rumdl-disable MD044 -->
+Some javascript text.
+<!-- markdownlint-disable -->
+More javascript text.
+<!-- vale off -->
+Even more javascript text.
+<!-- lint disable some-rule -->
+Final javascript text.
+<!-- rumdl-enable MD044 -->
+<!-- markdownlint-enable -->
+<!-- vale on -->
+<!-- lint enable some-rule -->
+";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only body text lines should be flagged (lines 2, 4, 6, 8)
+        assert_eq!(
+            result.len(),
+            4,
+            "Should only flag body lines, not any tool directive comments"
+        );
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[1].line, 4);
+        assert_eq!(result[2].line, 6);
+        assert_eq!(result[3].line, 8);
+    }
+
+    #[test]
+    fn test_vale_remark_lint_edge_cases_not_matched() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string(), "Vale".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        // These are regular HTML comments, NOT tool directives:
+        // - "<!-- vale -->" is not a valid Vale directive (no action keyword)
+        // - "<!-- vale is a tool -->" starts with "vale" but is prose, not a directive
+        // - "<!-- valedictorian javascript -->" does not start with "<!-- vale "
+        // - "<!-- linting javascript tips -->" does not start with "<!-- lint "
+        // - "<!-- vale javascript -->" starts with "vale" but has no action keyword
+        // - "<!-- lint your javascript code -->" starts with "lint" but has no action keyword
+        let content = "\
+<!-- vale -->
+<!-- vale is a tool for writing -->
+<!-- valedictorian javascript -->
+<!-- linting javascript tips -->
+<!-- vale javascript -->
+<!-- lint your javascript code -->
+";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Line 1: "<!-- vale -->" contains "vale" (wrong case for "Vale") -> flagged
+        // Line 2: "<!-- vale is a tool for writing -->" contains "vale" -> flagged
+        // Line 3: "<!-- valedictorian javascript -->" contains "javascript" -> flagged
+        // Line 4: "<!-- linting javascript tips -->" contains "javascript" -> flagged
+        // Line 5: "<!-- vale javascript -->" contains "vale" and "javascript" -> flagged for both
+        // Line 6: "<!-- lint your javascript code -->" contains "javascript" -> flagged
+        assert_eq!(
+            result.len(),
+            7,
+            "Should flag proper names in non-directive HTML comments: got {result:?}"
+        );
+        assert_eq!(result[0].line, 1); // "vale" in <!-- vale -->
+        assert_eq!(result[1].line, 2); // "vale" in <!-- vale is a tool -->
+        assert_eq!(result[2].line, 3); // "javascript" in <!-- valedictorian javascript -->
+        assert_eq!(result[3].line, 4); // "javascript" in <!-- linting javascript tips -->
+        assert_eq!(result[4].line, 5); // "vale" in <!-- vale javascript -->
+        assert_eq!(result[5].line, 5); // "javascript" in <!-- vale javascript -->
+        assert_eq!(result[6].line, 6); // "javascript" in <!-- lint your javascript code -->
+    }
+
+    #[test]
+    fn test_vale_style_directives_skipped() {
+        let config = MD044Config {
+            names: vec!["JavaScript".to_string(), "Vale".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        // These ARE valid Vale directives and should be skipped:
+        let content = "\
+<!-- vale style = MyStyle -->
+<!-- vale styles = Style1, Style2 -->
+<!-- vale MyRule.Name = YES -->
+<!-- vale MyRule.Name = NO -->
+Some javascript text.
+";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only line 5 (body text) should be flagged
+        assert_eq!(
+            result.len(),
+            1,
+            "Should only flag body lines, not Vale style/rule directives: got {result:?}"
+        );
+        assert_eq!(result[0].line, 5);
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.103.4
+Version: 3.104.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -37,7 +37,7 @@ Requires-Dist: drf-access-policy<1.5.1,>=1.1.2
 Requires-Dist: drf-nested-routers<=0.95.0,>=0.93.4
 Requires-Dist: drf-spectacular==0.27.2
 Requires-Dist: dynaconf<3.3.0,>=3.2.5
-Requires-Dist: gunicorn<25.1.0,>=22.0
+Requires-Dist: gunicorn<25.2.0,>=22.0
 Requires-Dist: jinja2<=3.1.6,>=3.1
 Requires-Dist: json_stream<2.5,>=2.3.2
 Requires-Dist: jq<1.12.0,>=1.6.0

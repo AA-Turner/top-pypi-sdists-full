@@ -13,12 +13,11 @@ except ImportError:
     has_nodriver = False
 
 from .base_provider import AsyncAuthedProvider, ProviderModelMixin
-from .openai.har_file import get_headers, get_har_files
 from ..typing import AsyncResult, Messages, MediaListType
-from ..errors import NoValidHarFileError, MissingAuthError
+from ..errors import MissingAuthError
 from ..providers.response import *
 from ..requests import get_nodriver_session
-from ..image import to_bytes, is_accepted_format
+from ..image import is_accepted_format
 from .helper import get_last_user_message
 from .. import debug
 
@@ -62,7 +61,7 @@ class CopilotSession(AsyncAuthedProvider, ProviderModelMixin):
     lock = asyncio.Lock()
 
     @classmethod
-    async def on_auth_async(cls, cookies: dict = None, proxy: str = None, **kwargs) -> AsyncIterator:
+    async def on_auth_async(cls, *args, **kwargs) -> AsyncIterator:
         yield AuthResult()
 
     @classmethod
@@ -70,7 +69,6 @@ class CopilotSession(AsyncAuthedProvider, ProviderModelMixin):
         cls,
         model: str,
         messages: Messages,
-        auth_result: AuthResult,
         proxy: str = None,
         timeout: int = 30,
         prompt: str = None,
@@ -97,10 +95,16 @@ class CopilotSession(AsyncAuthedProvider, ProviderModelMixin):
             if textarea is not None:
                 await textarea.send_keys(prompt)
                 await asyncio.sleep(1)
-                button = await page.select("[data-testid=\"submit-button\"]")
+                try:
+                    button = await page.select("[data-testid=\"submit-button\"]")
+                except TimeoutError:
+                    button = None
                 if button:
                     await button.click()
-                    turnstile = await page.select('#cf-turnstile')
+                    try:
+                        turnstile = await page.select('#cf-turnstile')
+                    except TimeoutError:
+                        turnstile = None
                     if turnstile:
                         debug.log("Found Element: 'cf-turnstile'")
                         await asyncio.sleep(3)
@@ -201,3 +205,19 @@ class CopilotSession(AsyncAuthedProvider, ProviderModelMixin):
             raise MissingAuthError(f"Invalid response: {last_msg}")
         if sources:
             yield Sources(sources.values())
+
+if has_nodriver:
+    async def click_trunstile(page: nodriver.Tab, element='document.getElementById("cf-turnstile")'):
+        for _ in range(3):
+            size = None
+            for idx in range(15):
+                size = await page.js_dumps(f'{element}?.getBoundingClientRect()||{{}}')
+                debug.log(f"Found size: {size.get('x'), size.get('y')}")
+                if "x" not in size:
+                    break
+                await page.flash_point(size.get("x") + idx * 3, size.get("y") + idx * 3)
+                await page.mouse_click(size.get("x") + idx * 3, size.get("y") + idx * 3)
+                await asyncio.sleep(2)
+            if "x" not in size:
+                break
+        debug.log("Finished clicking trunstile.")

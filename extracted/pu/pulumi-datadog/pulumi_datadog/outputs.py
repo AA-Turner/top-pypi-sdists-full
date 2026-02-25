@@ -589,29 +589,62 @@ __all__ = [
     'ObservabilityPipelineConfigDestination',
     'ObservabilityPipelineConfigDestinationAmazonOpensearch',
     'ObservabilityPipelineConfigDestinationAmazonOpensearchAuth',
+    'ObservabilityPipelineConfigDestinationAmazonOpensearchBuffer',
+    'ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk',
+    'ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory',
     'ObservabilityPipelineConfigDestinationAmazonS3',
     'ObservabilityPipelineConfigDestinationAmazonS3Auth',
+    'ObservabilityPipelineConfigDestinationAmazonS3Buffer',
+    'ObservabilityPipelineConfigDestinationAmazonS3BufferDisk',
+    'ObservabilityPipelineConfigDestinationAmazonS3BufferMemory',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLake',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBuffer',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk',
+    'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls',
     'ObservabilityPipelineConfigDestinationAzureStorage',
+    'ObservabilityPipelineConfigDestinationAzureStorageBuffer',
+    'ObservabilityPipelineConfigDestinationAzureStorageBufferDisk',
+    'ObservabilityPipelineConfigDestinationAzureStorageBufferMemory',
     'ObservabilityPipelineConfigDestinationCloudPrem',
     'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBuffer',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk',
+    'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory',
     'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression',
     'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls',
     'ObservabilityPipelineConfigDestinationDatadogLog',
+    'ObservabilityPipelineConfigDestinationDatadogLogBuffer',
+    'ObservabilityPipelineConfigDestinationDatadogLogBufferDisk',
+    'ObservabilityPipelineConfigDestinationDatadogLogBufferMemory',
     'ObservabilityPipelineConfigDestinationDatadogLogRoute',
+    'ObservabilityPipelineConfigDestinationDatadogLogRouteBuffer',
+    'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk',
+    'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory',
     'ObservabilityPipelineConfigDestinationDatadogMetric',
     'ObservabilityPipelineConfigDestinationElasticsearch',
+    'ObservabilityPipelineConfigDestinationElasticsearchBuffer',
+    'ObservabilityPipelineConfigDestinationElasticsearchBufferDisk',
+    'ObservabilityPipelineConfigDestinationElasticsearchBufferMemory',
     'ObservabilityPipelineConfigDestinationElasticsearchDataStream',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorage',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorageBuffer',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk',
+    'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory',
     'ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata',
     'ObservabilityPipelineConfigDestinationGooglePubsub',
     'ObservabilityPipelineConfigDestinationGooglePubsubAuth',
+    'ObservabilityPipelineConfigDestinationGooglePubsubBuffer',
+    'ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk',
+    'ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory',
     'ObservabilityPipelineConfigDestinationGooglePubsubTls',
     'ObservabilityPipelineConfigDestinationGoogleSecop',
     'ObservabilityPipelineConfigDestinationGoogleSecopAuth',
+    'ObservabilityPipelineConfigDestinationGoogleSecopBuffer',
+    'ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk',
+    'ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory',
     'ObservabilityPipelineConfigDestinationHttpClient',
     'ObservabilityPipelineConfigDestinationHttpClientCompression',
     'ObservabilityPipelineConfigDestinationHttpClientTls',
@@ -620,20 +653,47 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationKafkaSasl',
     'ObservabilityPipelineConfigDestinationKafkaTls',
     'ObservabilityPipelineConfigDestinationMicrosoftSentinel',
+    'ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer',
+    'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk',
+    'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory',
     'ObservabilityPipelineConfigDestinationNewRelic',
+    'ObservabilityPipelineConfigDestinationNewRelicBuffer',
+    'ObservabilityPipelineConfigDestinationNewRelicBufferDisk',
+    'ObservabilityPipelineConfigDestinationNewRelicBufferMemory',
     'ObservabilityPipelineConfigDestinationOpensearch',
+    'ObservabilityPipelineConfigDestinationOpensearchBuffer',
+    'ObservabilityPipelineConfigDestinationOpensearchBufferDisk',
+    'ObservabilityPipelineConfigDestinationOpensearchBufferMemory',
     'ObservabilityPipelineConfigDestinationOpensearchDataStream',
     'ObservabilityPipelineConfigDestinationRsyslog',
+    'ObservabilityPipelineConfigDestinationRsyslogBuffer',
+    'ObservabilityPipelineConfigDestinationRsyslogBufferDisk',
+    'ObservabilityPipelineConfigDestinationRsyslogBufferMemory',
     'ObservabilityPipelineConfigDestinationRsyslogTls',
     'ObservabilityPipelineConfigDestinationSentinelOne',
+    'ObservabilityPipelineConfigDestinationSentinelOneBuffer',
+    'ObservabilityPipelineConfigDestinationSentinelOneBufferDisk',
+    'ObservabilityPipelineConfigDestinationSentinelOneBufferMemory',
     'ObservabilityPipelineConfigDestinationSocket',
+    'ObservabilityPipelineConfigDestinationSocketBuffer',
+    'ObservabilityPipelineConfigDestinationSocketBufferDisk',
+    'ObservabilityPipelineConfigDestinationSocketBufferMemory',
     'ObservabilityPipelineConfigDestinationSocketFraming',
     'ObservabilityPipelineConfigDestinationSocketFramingCharacterDelimited',
     'ObservabilityPipelineConfigDestinationSocketTls',
     'ObservabilityPipelineConfigDestinationSplunkHec',
+    'ObservabilityPipelineConfigDestinationSplunkHecBuffer',
+    'ObservabilityPipelineConfigDestinationSplunkHecBufferDisk',
+    'ObservabilityPipelineConfigDestinationSplunkHecBufferMemory',
     'ObservabilityPipelineConfigDestinationSumoLogic',
+    'ObservabilityPipelineConfigDestinationSumoLogicBuffer',
+    'ObservabilityPipelineConfigDestinationSumoLogicBufferDisk',
+    'ObservabilityPipelineConfigDestinationSumoLogicBufferMemory',
     'ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField',
     'ObservabilityPipelineConfigDestinationSyslogNg',
+    'ObservabilityPipelineConfigDestinationSyslogNgBuffer',
+    'ObservabilityPipelineConfigDestinationSyslogNgBufferDisk',
+    'ObservabilityPipelineConfigDestinationSyslogNgBufferMemory',
     'ObservabilityPipelineConfigDestinationSyslogNgTls',
     'ObservabilityPipelineConfigProcessorGroup',
     'ObservabilityPipelineConfigProcessorGroupProcessor',
@@ -44340,11 +44400,15 @@ class ObservabilityPipelineConfigDestinationAmazonOpensearch(dict):
 
     def __init__(__self__, *,
                  auth: 'outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth',
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBuffer'] = None,
                  bulk_index: Optional[_builtins.str] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationAmazonOpensearchBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str bulk_index: The index or datastream to write logs to.
         """
         pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
 
@@ -44352,6 +44416,14 @@ class ObservabilityPipelineConfigDestinationAmazonOpensearch(dict):
     @pulumi.getter
     def auth(self) -> 'outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchAuth':
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter(name="bulkIndex")
@@ -44452,6 +44524,151 @@ class ObservabilityPipelineConfigDestinationAmazonOpensearchAuth(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonOpensearchBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearchBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonOpensearchBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationAmazonS3(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -44477,13 +44694,15 @@ class ObservabilityPipelineConfigDestinationAmazonS3(dict):
                  key_prefix: _builtins.str,
                  region: _builtins.str,
                  storage_class: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Auth'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Auth'] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Buffer'] = None):
         """
         :param _builtins.str bucket: S3 bucket name.
         :param _builtins.str key_prefix: Prefix for object keys.
         :param _builtins.str region: AWS region of the S3 bucket.
         :param _builtins.str storage_class: S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
         :param 'ObservabilityPipelineConfigDestinationAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3BufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "bucket", bucket)
         pulumi.set(__self__, "key_prefix", key_prefix)
@@ -44491,6 +44710,8 @@ class ObservabilityPipelineConfigDestinationAmazonS3(dict):
         pulumi.set(__self__, "storage_class", storage_class)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter
@@ -44531,6 +44752,14 @@ class ObservabilityPipelineConfigDestinationAmazonS3(dict):
         AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Buffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
 
 @pulumi.output_type
@@ -44598,6 +44827,151 @@ class ObservabilityPipelineConfigDestinationAmazonS3Auth(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3Buffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3BufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3BufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3BufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3BufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3BufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3BufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3BufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3BufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3BufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3BufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3BufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3BufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3BufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3BufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -44621,12 +44995,14 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
                  custom_source_name: _builtins.str,
                  region: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth'] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBuffer'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls'] = None):
         """
         :param _builtins.str bucket: Name of the Amazon S3 bucket in Security Lake (3-63 characters).
         :param _builtins.str custom_source_name: Custom source name for the logs in Security Lake.
         :param _builtins.str region: AWS region of the Security Lake bucket.
         :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "bucket", bucket)
@@ -44634,6 +45010,8 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
         pulumi.set(__self__, "region", region)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -44668,6 +45046,14 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
         AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -44740,6 +45126,151 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth(dict):
         A session identifier used for logging and tracing the assumed role session.
         """
         return pulumi.get(self, "session_name")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonSecurityLakeBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonSecurityLakeBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -44828,14 +45359,18 @@ class ObservabilityPipelineConfigDestinationAzureStorage(dict):
 
     def __init__(__self__, *,
                  container_name: _builtins.str,
-                 blob_prefix: Optional[_builtins.str] = None):
+                 blob_prefix: Optional[_builtins.str] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBuffer'] = None):
         """
         :param _builtins.str container_name: The name of the Azure Blob Storage container to store logs in.
         :param _builtins.str blob_prefix: Optional prefix for blobs written to the container.
+        :param 'ObservabilityPipelineConfigDestinationAzureStorageBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "container_name", container_name)
         if blob_prefix is not None:
             pulumi.set(__self__, "blob_prefix", blob_prefix)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter(name="containerName")
@@ -44853,6 +45388,159 @@ class ObservabilityPipelineConfigDestinationAzureStorage(dict):
         """
         return pulumi.get(self, "blob_prefix")
 
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAzureStorageBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationAzureStorageBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationAzureStorageBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAzureStorageBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAzureStorageBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAzureStorageBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAzureStorageBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAzureStorageBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAzureStorageBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAzureStorageBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAzureStorageBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAzureStorageBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationCloudPrem(dict):
@@ -44864,14 +45552,18 @@ class ObservabilityPipelineConfigDestinationCloudPrem(dict):
 class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBuffer'] = None,
                  compression: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
+        :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompressionArgs' compression: Compression configuration for log events.
         :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if compression is not None:
             pulumi.set(__self__, "compression", compression)
         if tls is not None:
@@ -44884,6 +45576,14 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
         Encoding format for log events. Valid values are `json`, `raw_message`.
         """
         return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -44900,6 +45600,151 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -44998,12 +45843,24 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationDatadogLog(dict):
     def __init__(__self__, *,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBuffer'] = None,
                  routes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationDatadogLogRoute']] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param Sequence['ObservabilityPipelineConfigDestinationDatadogLogRouteArgs'] routes: A list of routing rules that forward matching logs to Datadog using dedicated API keys.
         """
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if routes is not None:
             pulumi.set(__self__, "routes", routes)
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -45012,6 +45869,151 @@ class ObservabilityPipelineConfigDestinationDatadogLog(dict):
         A list of routing rules that forward matching logs to Datadog using dedicated API keys.
         """
         return pulumi.get(self, "routes")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationDatadogLogBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationDatadogLogBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -45039,17 +46041,21 @@ class ObservabilityPipelineConfigDestinationDatadogLogRoute(dict):
                  api_key_key: _builtins.str,
                  include: _builtins.str,
                  route_id: _builtins.str,
-                 site: _builtins.str):
+                 site: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBuffer'] = None):
         """
         :param _builtins.str api_key_key: Name of the environment variable or secret that stores the Datadog API key used by this route.
         :param _builtins.str include: A Datadog search query that determines which logs are forwarded using this route.
         :param _builtins.str route_id: Unique identifier for this route within the destination.
         :param _builtins.str site: Datadog site where matching logs are sent (for example, `us1`).
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "api_key_key", api_key_key)
         pulumi.set(__self__, "include", include)
         pulumi.set(__self__, "route_id", route_id)
         pulumi.set(__self__, "site", site)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter(name="apiKeyKey")
@@ -45083,6 +46089,159 @@ class ObservabilityPipelineConfigDestinationDatadogLogRoute(dict):
         """
         return pulumi.get(self, "site")
 
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogRouteBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRouteBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationDatadogMetric(dict):
@@ -45115,15 +46274,19 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
 
     def __init__(__self__, *,
                  api_version: Optional[_builtins.str] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBuffer'] = None,
                  bulk_index: Optional[_builtins.str] = None,
                  data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchDataStream'] = None):
         """
         :param _builtins.str api_version: The Elasticsearch API version to use. Set to `auto` to auto-detect.
+        :param 'ObservabilityPipelineConfigDestinationElasticsearchBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str bulk_index: The index or datastream to write logs to in Elasticsearch.
         :param 'ObservabilityPipelineConfigDestinationElasticsearchDataStreamArgs' data_stream: Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
         """
         if api_version is not None:
             pulumi.set(__self__, "api_version", api_version)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
         if data_stream is not None:
@@ -45136,6 +46299,14 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
         The Elasticsearch API version to use. Set to `auto` to auto-detect.
         """
         return pulumi.get(self, "api_version")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter(name="bulkIndex")
@@ -45152,6 +46323,151 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
         Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
         """
         return pulumi.get(self, "data_stream")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationElasticsearchBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationElasticsearchBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationElasticsearchBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationElasticsearchBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationElasticsearchBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationElasticsearchBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationElasticsearchBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -45223,6 +46539,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
                  storage_class: _builtins.str,
                  acl: Optional[_builtins.str] = None,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth'] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBuffer'] = None,
                  key_prefix: Optional[_builtins.str] = None,
                  metadatas: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata']] = None):
         """
@@ -45230,6 +46547,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
         :param _builtins.str storage_class: Storage class used for objects stored in GCS.
         :param _builtins.str acl: Access control list setting for objects written to the bucket.
         :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str key_prefix: Optional prefix for object keys within the GCS bucket.
         :param Sequence['ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadataArgs'] metadatas: Custom metadata key-value pairs added to each object.
         """
@@ -45239,6 +46557,8 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
             pulumi.set(__self__, "acl", acl)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if key_prefix is not None:
             pulumi.set(__self__, "key_prefix", key_prefix)
         if metadatas is not None:
@@ -45275,6 +46595,14 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
         GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter(name="keyPrefix")
@@ -45329,6 +46657,151 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleCloudStorageBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata(dict):
     def __init__(__self__, *,
                  name: _builtins.str,
@@ -45364,12 +46837,14 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
                  project: _builtins.str,
                  topic: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth'] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBuffer'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
         :param _builtins.str project: The GCP project ID that owns the Pub/Sub topic.
         :param _builtins.str topic: The Pub/Sub topic name to publish logs to.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
@@ -45377,6 +46852,8 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
         pulumi.set(__self__, "topic", topic)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -45411,6 +46888,14 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
         GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -45454,6 +46939,151 @@ class ObservabilityPipelineConfigDestinationGooglePubsubAuth(dict):
         Path to the GCP service account key file.
         """
         return pulumi.get(self, "credentials_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGooglePubsubBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsubBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -45544,18 +47174,22 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
                  customer_id: _builtins.str,
                  encoding: _builtins.str,
                  log_type: _builtins.str,
-                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth'] = None):
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth'] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBuffer'] = None):
         """
         :param _builtins.str customer_id: The Google SecOps customer ID.
         :param _builtins.str encoding: The encoding format for the logs sent to Google SecOps. Valid values are `json`, `raw_message`.
         :param _builtins.str log_type: The log type metadata associated with the Google SecOps destination.
         :param 'ObservabilityPipelineConfigDestinationGoogleSecopAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGoogleSecopBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "customer_id", customer_id)
         pulumi.set(__self__, "encoding", encoding)
         pulumi.set(__self__, "log_type", log_type)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter(name="customerId")
@@ -45588,6 +47222,14 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
         GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
 
 @pulumi.output_type
@@ -45623,6 +47265,151 @@ class ObservabilityPipelineConfigDestinationGoogleSecopAuth(dict):
         Path to the GCP service account key file.
         """
         return pulumi.get(self, "credentials_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleSecopBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationGoogleSecopBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationGoogleSecopBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGoogleSecopBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46092,17 +47879,21 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
                  client_id: _builtins.str,
                  dcr_immutable_id: _builtins.str,
                  table: _builtins.str,
-                 tenant_id: _builtins.str):
+                 tenant_id: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer'] = None):
         """
         :param _builtins.str client_id: Azure AD client ID used for authentication.
         :param _builtins.str dcr_immutable_id: The immutable ID of the Data Collection Rule (DCR).
         :param _builtins.str table: The name of the Log Analytics table where logs will be sent.
         :param _builtins.str tenant_id: Azure AD tenant ID.
+        :param 'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "client_id", client_id)
         pulumi.set(__self__, "dcr_immutable_id", dcr_immutable_id)
         pulumi.set(__self__, "table", table)
         pulumi.set(__self__, "tenant_id", tenant_id)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter(name="clientId")
@@ -46136,15 +47927,172 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
         """
         return pulumi.get(self, "tenant_id")
 
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationNewRelic(dict):
     def __init__(__self__, *,
-                 region: _builtins.str):
+                 region: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBuffer'] = None):
         """
         :param _builtins.str region: The New Relic region.
+        :param 'ObservabilityPipelineConfigDestinationNewRelicBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "region", region)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter
@@ -46153,6 +48101,159 @@ class ObservabilityPipelineConfigDestinationNewRelic(dict):
         The New Relic region.
         """
         return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationNewRelicBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationNewRelicBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationNewRelicBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationNewRelicBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationNewRelicBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelicBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelicBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationNewRelicBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationNewRelicBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelicBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelicBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46177,16 +48278,28 @@ class ObservabilityPipelineConfigDestinationOpensearch(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBuffer'] = None,
                  bulk_index: Optional[_builtins.str] = None,
                  data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchDataStream'] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationOpensearchBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str bulk_index: The index or datastream to write logs to.
         :param 'ObservabilityPipelineConfigDestinationOpensearchDataStreamArgs' data_stream: Configuration options for writing to OpenSearch Data Streams instead of a fixed index.
         """
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
         if data_stream is not None:
             pulumi.set(__self__, "data_stream", data_stream)
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter(name="bulkIndex")
@@ -46203,6 +48316,151 @@ class ObservabilityPipelineConfigDestinationOpensearch(dict):
         Configuration options for writing to OpenSearch Data Streams instead of a fixed index.
         """
         return pulumi.get(self, "data_stream")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationOpensearchBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationOpensearchBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationOpensearchBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationOpensearchBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationOpensearchBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationOpensearchBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationOpensearchBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationOpensearchBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationOpensearchBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationOpensearchBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationOpensearchBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationOpensearchBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46251,16 +48509,28 @@ class ObservabilityPipelineConfigDestinationOpensearchDataStream(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationRsyslog(dict):
     def __init__(__self__, *,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBuffer'] = None,
                  keepalive: Optional[_builtins.int] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogTls'] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationRsyslogBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
         :param 'ObservabilityPipelineConfigDestinationRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -46277,6 +48547,151 @@ class ObservabilityPipelineConfigDestinationRsyslog(dict):
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationRsyslogBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationRsyslogBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationRsyslogBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationRsyslogBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationRsyslogBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslogBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslogBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationRsyslogBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationRsyslogBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslogBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslogBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46345,11 +48760,15 @@ class ObservabilityPipelineConfigDestinationRsyslogTls(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSentinelOne(dict):
     def __init__(__self__, *,
-                 region: _builtins.str):
+                 region: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBuffer'] = None):
         """
         :param _builtins.str region: The SentinelOne region to send logs to.
+        :param 'ObservabilityPipelineConfigDestinationSentinelOneBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         pulumi.set(__self__, "region", region)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
 
     @_builtins.property
     @pulumi.getter
@@ -46359,6 +48778,159 @@ class ObservabilityPipelineConfigDestinationSentinelOne(dict):
         """
         return pulumi.get(self, "region")
 
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSentinelOneBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationSentinelOneBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationSentinelOneBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSentinelOneBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSentinelOneBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOneBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOneBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSentinelOneBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSentinelOneBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOneBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOneBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSocket(dict):
@@ -46366,16 +48938,20 @@ class ObservabilityPipelineConfigDestinationSocket(dict):
                  encoding: _builtins.str,
                  framing: 'outputs.ObservabilityPipelineConfigDestinationSocketFraming',
                  mode: _builtins.str,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSocketBuffer'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
         :param 'ObservabilityPipelineConfigDestinationSocketFramingArgs' framing: Defines the framing method for outgoing messages.
         :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
+        :param 'ObservabilityPipelineConfigDestinationSocketBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
         pulumi.set(__self__, "framing", framing)
         pulumi.set(__self__, "mode", mode)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -46405,11 +48981,164 @@ class ObservabilityPipelineConfigDestinationSocket(dict):
 
     @_builtins.property
     @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter
     def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSocketBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationSocketBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationSocketBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationSocketBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationSocketBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSocketBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSocketBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocketBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSocketBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSocketBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSocketBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocketBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSocketBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSocketBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46562,17 +49291,21 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
                  auto_extract_timestamp: Optional[_builtins.bool] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBuffer'] = None,
                  index: Optional[_builtins.str] = None,
                  sourcetype: Optional[_builtins.str] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
         :param _builtins.bool auto_extract_timestamp: If `true`, Splunk tries to extract timestamps from incoming log events.
+        :param 'ObservabilityPipelineConfigDestinationSplunkHecBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str index: Optional name of the Splunk index where logs are written.
         :param _builtins.str sourcetype: The Splunk sourcetype to assign to log events.
         """
         pulumi.set(__self__, "encoding", encoding)
         if auto_extract_timestamp is not None:
             pulumi.set(__self__, "auto_extract_timestamp", auto_extract_timestamp)
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if index is not None:
             pulumi.set(__self__, "index", index)
         if sourcetype is not None:
@@ -46596,6 +49329,14 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
 
     @_builtins.property
     @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter
     def index(self) -> Optional[_builtins.str]:
         """
         Optional name of the Splunk index where logs are written.
@@ -46609,6 +49350,151 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
         The Splunk sourcetype to assign to log events.
         """
         return pulumi.get(self, "sourcetype")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSplunkHecBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationSplunkHecBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationSplunkHecBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSplunkHecBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSplunkHecBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSplunkHecBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSplunkHecBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSplunkHecBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSplunkHecBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSplunkHecBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSplunkHecBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -46637,18 +49523,22 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBuffer'] = None,
                  encoding: Optional[_builtins.str] = None,
                  header_custom_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField']] = None,
                  header_host_name: Optional[_builtins.str] = None,
                  header_source_category: Optional[_builtins.str] = None,
                  header_source_name: Optional[_builtins.str] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationSumoLogicBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str encoding: The output encoding format.
         :param Sequence['ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomFieldArgs'] header_custom_fields: A list of custom headers to include in the request to Sumo Logic.
         :param _builtins.str header_host_name: Optional override for the host name header.
         :param _builtins.str header_source_category: Optional override for the source category header.
         :param _builtins.str header_source_name: Optional override for the source name header.
         """
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if encoding is not None:
             pulumi.set(__self__, "encoding", encoding)
         if header_custom_fields is not None:
@@ -46659,6 +49549,14 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
             pulumi.set(__self__, "header_source_category", header_source_category)
         if header_source_name is not None:
             pulumi.set(__self__, "header_source_name", header_source_name)
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -46702,6 +49600,151 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationSumoLogicBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationSumoLogicBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationSumoLogicBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSumoLogicBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSumoLogicBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSumoLogicBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSumoLogicBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSumoLogicBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSumoLogicBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSumoLogicBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSumoLogicBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField(dict):
     def __init__(__self__, *,
                  name: Optional[_builtins.str] = None,
@@ -46735,16 +49778,28 @@ class ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSyslogNg(dict):
     def __init__(__self__, *,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBuffer'] = None,
                  keepalive: Optional[_builtins.int] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgTls'] = None):
         """
+        :param 'ObservabilityPipelineConfigDestinationSyslogNgBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
         :param 'ObservabilityPipelineConfigDestinationSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if buffer is not None:
+            pulumi.set(__self__, "buffer", buffer)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBuffer']:
+        """
+        Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        """
+        return pulumi.get(self, "buffer")
 
     @_builtins.property
     @pulumi.getter
@@ -46761,6 +49816,151 @@ class ObservabilityPipelineConfigDestinationSyslogNg(dict):
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSyslogNgBuffer(dict):
+    def __init__(__self__, *,
+                 disk: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBufferDisk'] = None,
+                 memory: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBufferMemory'] = None):
+        """
+        :param 'ObservabilityPipelineConfigDestinationSyslogNgBufferDiskArgs' disk: Options for configuring a disk buffer. Cannot be used with `memory`.
+        :param 'ObservabilityPipelineConfigDestinationSyslogNgBufferMemoryArgs' memory: Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        if disk is not None:
+            pulumi.set(__self__, "disk", disk)
+        if memory is not None:
+            pulumi.set(__self__, "memory", memory)
+
+    @_builtins.property
+    @pulumi.getter
+    def disk(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBufferDisk']:
+        """
+        Options for configuring a disk buffer. Cannot be used with `memory`.
+        """
+        return pulumi.get(self, "disk")
+
+    @_builtins.property
+    @pulumi.getter
+    def memory(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBufferMemory']:
+        """
+        Options for configuring a memory buffer. Cannot be used with `disk`.
+        """
+        return pulumi.get(self, "memory")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSyslogNgBufferDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSyslogNgBufferDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNgBufferDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNgBufferDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_size: Maximum size of the disk buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the disk buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationSyslogNgBufferMemory(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxEvents":
+            suggest = "max_events"
+        elif key == "maxSize":
+            suggest = "max_size"
+        elif key == "whenFull":
+            suggest = "when_full"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSyslogNgBufferMemory. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNgBufferMemory.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNgBufferMemory.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 max_events: Optional[_builtins.int] = None,
+                 max_size: Optional[_builtins.int] = None,
+                 when_full: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int max_events: Maximum events for the memory buffer.
+        :param _builtins.int max_size: Maximum size of the memory buffer (in bytes).
+        :param _builtins.str when_full: Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        if max_events is not None:
+            pulumi.set(__self__, "max_events", max_events)
+        if max_size is not None:
+            pulumi.set(__self__, "max_size", max_size)
+        if when_full is not None:
+            pulumi.set(__self__, "when_full", when_full)
+
+    @_builtins.property
+    @pulumi.getter(name="maxEvents")
+    def max_events(self) -> Optional[_builtins.int]:
+        """
+        Maximum events for the memory buffer.
+        """
+        return pulumi.get(self, "max_events")
+
+    @_builtins.property
+    @pulumi.getter(name="maxSize")
+    def max_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum size of the memory buffer (in bytes).
+        """
+        return pulumi.get(self, "max_size")
+
+    @_builtins.property
+    @pulumi.getter(name="whenFull")
+    def when_full(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the buffer is full. Valid values are `block` or `drop_newest`. Defaults to `"block"`.
+        """
+        return pulumi.get(self, "when_full")
 
 
 @pulumi.output_type
@@ -96020,51 +99220,48 @@ class ReferenceTableSchema(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 fields: Optional[Sequence['outputs.ReferenceTableSchemaField']] = None,
-                 primary_keys: Optional[Sequence[_builtins.str]] = None):
+                 primary_keys: Sequence[_builtins.str],
+                 fields: Optional[Sequence['outputs.ReferenceTableSchemaField']] = None):
         """
-        :param Sequence['ReferenceTableSchemaFieldArgs'] fields: List of fields in the table schema. Must include at least one field. Schema is only set on create.
         :param Sequence[_builtins.str] primary_keys: List of field names that serve as primary keys for the table. Currently only one primary key is supported.
+        :param Sequence['ReferenceTableSchemaFieldArgs'] fields: List of fields in the table schema. At least one field is required. Schema is only set on create.
         """
+        pulumi.set(__self__, "primary_keys", primary_keys)
         if fields is not None:
             pulumi.set(__self__, "fields", fields)
-        if primary_keys is not None:
-            pulumi.set(__self__, "primary_keys", primary_keys)
-
-    @_builtins.property
-    @pulumi.getter
-    def fields(self) -> Optional[Sequence['outputs.ReferenceTableSchemaField']]:
-        """
-        List of fields in the table schema. Must include at least one field. Schema is only set on create.
-        """
-        return pulumi.get(self, "fields")
 
     @_builtins.property
     @pulumi.getter(name="primaryKeys")
-    def primary_keys(self) -> Optional[Sequence[_builtins.str]]:
+    def primary_keys(self) -> Sequence[_builtins.str]:
         """
         List of field names that serve as primary keys for the table. Currently only one primary key is supported.
         """
         return pulumi.get(self, "primary_keys")
 
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Optional[Sequence['outputs.ReferenceTableSchemaField']]:
+        """
+        List of fields in the table schema. At least one field is required. Schema is only set on create.
+        """
+        return pulumi.get(self, "fields")
+
 
 @pulumi.output_type
 class ReferenceTableSchemaField(dict):
     def __init__(__self__, *,
-                 name: Optional[_builtins.str] = None,
-                 type: Optional[_builtins.str] = None):
+                 name: _builtins.str,
+                 type: _builtins.str):
         """
         :param _builtins.str name: The name of the field.
         :param _builtins.str type: The data type of the field. Must be one of: STRING, INT32. Valid values are `STRING`, `INT32`.
         """
-        if name is not None:
-            pulumi.set(__self__, "name", name)
-        if type is not None:
-            pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "type", type)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[_builtins.str]:
+    def name(self) -> _builtins.str:
         """
         The name of the field.
         """
@@ -96072,7 +99269,7 @@ class ReferenceTableSchemaField(dict):
 
     @_builtins.property
     @pulumi.getter
-    def type(self) -> Optional[_builtins.str]:
+    def type(self) -> _builtins.str:
         """
         The data type of the field. Must be one of: STRING, INT32. Valid values are `STRING`, `INT32`.
         """
@@ -99495,10 +102692,10 @@ class SyntheticsTestApiStepAssertion(dict):
                  targetxpath: Optional['outputs.SyntheticsTestApiStepAssertionTargetxpath'] = None,
                  timings_scope: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `bodyHash`, `javascript`.
+        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         :param _builtins.str code: If assertion type is `javascript`, this is the JavaScript code that performs the assertions.
-        :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
-        :param _builtins.str property: If assertion type is `header`, this is the header name.
+        :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
+        :param _builtins.str property: If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
         :param _builtins.str target: Expected value. **Note:** Depends on the assertion type. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
         :param 'SyntheticsTestApiStepAssertionTargetjsonpathArgs' targetjsonpath: Expected structure if `operator` is `validatesJSONPath`. Exactly one nested block is allowed with the structure below.
         :param 'SyntheticsTestApiStepAssertionTargetjsonschemaArgs' targetjsonschema: Expected structure if `operator` is `validatesJSONSchema`. Exactly one nested block is allowed with the structure below.
@@ -99527,7 +102724,7 @@ class SyntheticsTestApiStepAssertion(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `bodyHash`, `javascript`.
+        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         """
         return pulumi.get(self, "type")
 
@@ -99543,7 +102740,7 @@ class SyntheticsTestApiStepAssertion(dict):
     @pulumi.getter
     def operator(self) -> Optional[_builtins.str]:
         """
-        Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
+        Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
         """
         return pulumi.get(self, "operator")
 
@@ -99551,7 +102748,7 @@ class SyntheticsTestApiStepAssertion(dict):
     @pulumi.getter
     def property(self) -> Optional[_builtins.str]:
         """
-        If assertion type is `header`, this is the header name.
+        If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
         """
         return pulumi.get(self, "property")
 
@@ -100146,18 +103343,24 @@ class SyntheticsTestApiStepRequestDefinition(dict):
             suggest = "certificate_domains"
         elif key == "checkCertificateRevocation":
             suggest = "check_certificate_revocation"
+        elif key == "destinationService":
+            suggest = "destination_service"
         elif key == "disableAiaIntermediateFetching":
             suggest = "disable_aia_intermediate_fetching"
         elif key == "dnsServer":
             suggest = "dns_server"
         elif key == "dnsServerPort":
             suggest = "dns_server_port"
+        elif key == "e2eQueries":
+            suggest = "e2e_queries"
         elif key == "followRedirects":
             suggest = "follow_redirects"
         elif key == "httpVersion":
             suggest = "http_version"
         elif key == "isMessageBase64Encoded":
             suggest = "is_message_base64_encoded"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
         elif key == "noSavingResponseBody":
             suggest = "no_saving_response_body"
         elif key == "numberOfPackets":
@@ -100170,6 +103373,12 @@ class SyntheticsTestApiStepRequestDefinition(dict):
             suggest = "proto_json_descriptor"
         elif key == "shouldTrackHops":
             suggest = "should_track_hops"
+        elif key == "sourceService":
+            suggest = "source_service"
+        elif key == "tcpMethod":
+            suggest = "tcp_method"
+        elif key == "tracerouteQueries":
+            suggest = "traceroute_queries"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SyntheticsTestApiStepRequestDefinition. Access the value via the '{suggest}' property getter instead.")
@@ -100190,14 +103399,17 @@ class SyntheticsTestApiStepRequestDefinition(dict):
                  call_type: Optional[_builtins.str] = None,
                  certificate_domains: Optional[Sequence[_builtins.str]] = None,
                  check_certificate_revocation: Optional[_builtins.bool] = None,
+                 destination_service: Optional[_builtins.str] = None,
                  disable_aia_intermediate_fetching: Optional[_builtins.bool] = None,
                  dns_server: Optional[_builtins.str] = None,
                  dns_server_port: Optional[_builtins.str] = None,
+                 e2e_queries: Optional[_builtins.int] = None,
                  follow_redirects: Optional[_builtins.bool] = None,
                  form: Optional[Mapping[str, _builtins.str]] = None,
                  host: Optional[_builtins.str] = None,
                  http_version: Optional[_builtins.str] = None,
                  is_message_base64_encoded: Optional[_builtins.bool] = None,
+                 max_ttl: Optional[_builtins.int] = None,
                  message: Optional[_builtins.str] = None,
                  method: Optional[_builtins.str] = None,
                  no_saving_response_body: Optional[_builtins.bool] = None,
@@ -100209,7 +103421,10 @@ class SyntheticsTestApiStepRequestDefinition(dict):
                  servername: Optional[_builtins.str] = None,
                  service: Optional[_builtins.str] = None,
                  should_track_hops: Optional[_builtins.bool] = None,
+                 source_service: Optional[_builtins.str] = None,
+                 tcp_method: Optional[_builtins.str] = None,
                  timeout: Optional[_builtins.int] = None,
+                 traceroute_queries: Optional[_builtins.int] = None,
                  url: Optional[_builtins.str] = None):
         """
         :param _builtins.bool accept_self_signed: For SSL tests, whether or not the test should allow self signed certificates.
@@ -100219,15 +103434,18 @@ class SyntheticsTestApiStepRequestDefinition(dict):
         :param _builtins.str call_type: The type of gRPC call to perform. Valid values are `healthcheck`, `unary`.
         :param Sequence[_builtins.str] certificate_domains: By default, the client certificate is applied on the domain of the starting URL for browser tests. If you want your client certificate to be applied on other domains instead, add them in `certificate_domains`.
         :param _builtins.bool check_certificate_revocation: For SSL tests, whether or not the test should fail on revoked certificate in stapled OCSP.
+        :param _builtins.str destination_service: For Network Path tests, an optional label displayed for the destination host in the Network Path visualization.
         :param _builtins.bool disable_aia_intermediate_fetching: For SSL tests, whether or not the test should disable fetching intermediate certificates from AIA
         :param _builtins.str dns_server: DNS server to use for DNS tests (`subtype = "dns"`).
         :param _builtins.str dns_server_port: DNS server port to use for DNS tests.
+        :param _builtins.int e2e_queries: For Network Path tests, the number of packets sent to probe the destination to measure packet loss, latency, and jitter.
         :param _builtins.bool follow_redirects: Determines whether or not the API HTTP test should follow redirects.
         :param Mapping[str, _builtins.str] form: Form data to be sent when `body_type` is `multipart/form-data`.
         :param _builtins.str host: Host name to perform the test with.
         :param _builtins.str http_version: HTTP version to use for an HTTP request in an API test or step. Valid values are `http1`, `http2`, `any`. Defaults to `"any"`.
-        :param _builtins.bool is_message_base64_encoded: Whether the message is base64-encoded.
-        :param _builtins.str message: For gRPC, UDP and websocket tests, message to send with the request.
+        :param _builtins.bool is_message_base64_encoded: For Websocket tests, whether the message is treated as a base64-encoded string in the server.
+        :param _builtins.int max_ttl: For Network Path tests, the maximum time-to-live (max number of hops) used in outgoing probe packets.
+        :param _builtins.str message: For gRPC, UDP, and Websocket tests, message to send with the request.
         :param _builtins.str method: Either the HTTP method/verb to use or a gRPC method available on the service set in the `service` field. Required if `subtype` is `HTTP` or if `subtype` is `grpc` and `callType` is `unary`.
         :param _builtins.bool no_saving_response_body: Determines whether or not to save the response body.
         :param _builtins.int number_of_packets: Number of pings to use per test for ICMP tests (`subtype = "icmp"`) between 0 and 10.
@@ -100238,7 +103456,10 @@ class SyntheticsTestApiStepRequestDefinition(dict):
         :param _builtins.str servername: For SSL tests, it specifies on which server you want to initiate the TLS handshake, allowing the server to present one of multiple possible certificates on the same IP address and TCP port number.
         :param _builtins.str service: The gRPC service on which you want to perform the gRPC call.
         :param _builtins.bool should_track_hops: This will turn on a traceroute probe to discover all gateways along the path to the host destination. For ICMP tests (`subtype = "icmp"`).
+        :param _builtins.str source_service: For Network Path tests, an optional label displayed for the source host in the Network Path visualization
+        :param _builtins.str tcp_method: For TCP Network Path tests, the TCP traceroute strategy.
         :param _builtins.int timeout: Timeout in seconds for the test.
+        :param _builtins.int traceroute_queries: For Network Path tests, the number of traceroute path tracings.
         :param _builtins.str url: The URL to send the request to.
         """
         if accept_self_signed is not None:
@@ -100255,12 +103476,16 @@ class SyntheticsTestApiStepRequestDefinition(dict):
             pulumi.set(__self__, "certificate_domains", certificate_domains)
         if check_certificate_revocation is not None:
             pulumi.set(__self__, "check_certificate_revocation", check_certificate_revocation)
+        if destination_service is not None:
+            pulumi.set(__self__, "destination_service", destination_service)
         if disable_aia_intermediate_fetching is not None:
             pulumi.set(__self__, "disable_aia_intermediate_fetching", disable_aia_intermediate_fetching)
         if dns_server is not None:
             pulumi.set(__self__, "dns_server", dns_server)
         if dns_server_port is not None:
             pulumi.set(__self__, "dns_server_port", dns_server_port)
+        if e2e_queries is not None:
+            pulumi.set(__self__, "e2e_queries", e2e_queries)
         if follow_redirects is not None:
             pulumi.set(__self__, "follow_redirects", follow_redirects)
         if form is not None:
@@ -100271,6 +103496,8 @@ class SyntheticsTestApiStepRequestDefinition(dict):
             pulumi.set(__self__, "http_version", http_version)
         if is_message_base64_encoded is not None:
             pulumi.set(__self__, "is_message_base64_encoded", is_message_base64_encoded)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
         if message is not None:
             pulumi.set(__self__, "message", message)
         if method is not None:
@@ -100293,8 +103520,14 @@ class SyntheticsTestApiStepRequestDefinition(dict):
             pulumi.set(__self__, "service", service)
         if should_track_hops is not None:
             pulumi.set(__self__, "should_track_hops", should_track_hops)
+        if source_service is not None:
+            pulumi.set(__self__, "source_service", source_service)
+        if tcp_method is not None:
+            pulumi.set(__self__, "tcp_method", tcp_method)
         if timeout is not None:
             pulumi.set(__self__, "timeout", timeout)
+        if traceroute_queries is not None:
+            pulumi.set(__self__, "traceroute_queries", traceroute_queries)
         if url is not None:
             pulumi.set(__self__, "url", url)
 
@@ -100355,6 +103588,14 @@ class SyntheticsTestApiStepRequestDefinition(dict):
         return pulumi.get(self, "check_certificate_revocation")
 
     @_builtins.property
+    @pulumi.getter(name="destinationService")
+    def destination_service(self) -> Optional[_builtins.str]:
+        """
+        For Network Path tests, an optional label displayed for the destination host in the Network Path visualization.
+        """
+        return pulumi.get(self, "destination_service")
+
+    @_builtins.property
     @pulumi.getter(name="disableAiaIntermediateFetching")
     def disable_aia_intermediate_fetching(self) -> Optional[_builtins.bool]:
         """
@@ -100377,6 +103618,14 @@ class SyntheticsTestApiStepRequestDefinition(dict):
         DNS server port to use for DNS tests.
         """
         return pulumi.get(self, "dns_server_port")
+
+    @_builtins.property
+    @pulumi.getter(name="e2eQueries")
+    def e2e_queries(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the number of packets sent to probe the destination to measure packet loss, latency, and jitter.
+        """
+        return pulumi.get(self, "e2e_queries")
 
     @_builtins.property
     @pulumi.getter(name="followRedirects")
@@ -100414,15 +103663,23 @@ class SyntheticsTestApiStepRequestDefinition(dict):
     @pulumi.getter(name="isMessageBase64Encoded")
     def is_message_base64_encoded(self) -> Optional[_builtins.bool]:
         """
-        Whether the message is base64-encoded.
+        For Websocket tests, whether the message is treated as a base64-encoded string in the server.
         """
         return pulumi.get(self, "is_message_base64_encoded")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the maximum time-to-live (max number of hops) used in outgoing probe packets.
+        """
+        return pulumi.get(self, "max_ttl")
 
     @_builtins.property
     @pulumi.getter
     def message(self) -> Optional[_builtins.str]:
         """
-        For gRPC, UDP and websocket tests, message to send with the request.
+        For gRPC, UDP, and Websocket tests, message to send with the request.
         """
         return pulumi.get(self, "message")
 
@@ -100508,12 +103765,36 @@ class SyntheticsTestApiStepRequestDefinition(dict):
         return pulumi.get(self, "should_track_hops")
 
     @_builtins.property
+    @pulumi.getter(name="sourceService")
+    def source_service(self) -> Optional[_builtins.str]:
+        """
+        For Network Path tests, an optional label displayed for the source host in the Network Path visualization
+        """
+        return pulumi.get(self, "source_service")
+
+    @_builtins.property
+    @pulumi.getter(name="tcpMethod")
+    def tcp_method(self) -> Optional[_builtins.str]:
+        """
+        For TCP Network Path tests, the TCP traceroute strategy.
+        """
+        return pulumi.get(self, "tcp_method")
+
+    @_builtins.property
     @pulumi.getter
     def timeout(self) -> Optional[_builtins.int]:
         """
         Timeout in seconds for the test.
         """
         return pulumi.get(self, "timeout")
+
+    @_builtins.property
+    @pulumi.getter(name="tracerouteQueries")
+    def traceroute_queries(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the number of traceroute path tracings.
+        """
+        return pulumi.get(self, "traceroute_queries")
 
     @_builtins.property
     @pulumi.getter
@@ -100710,10 +103991,10 @@ class SyntheticsTestAssertion(dict):
                  targetxpath: Optional['outputs.SyntheticsTestAssertionTargetxpath'] = None,
                  timings_scope: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `bodyHash`, `javascript`.
+        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         :param _builtins.str code: If assertion type is `javascript`, this is the JavaScript code that performs the assertions.
-        :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
-        :param _builtins.str property: If assertion type is `header`, this is the header name.
+        :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
+        :param _builtins.str property: If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
         :param _builtins.str target: Expected value. **Note:** Depends on the assertion type. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
         :param 'SyntheticsTestAssertionTargetjsonpathArgs' targetjsonpath: Expected structure if `operator` is `validatesJSONPath`. Exactly one nested block is allowed with the structure below.
         :param 'SyntheticsTestAssertionTargetjsonschemaArgs' targetjsonschema: Expected structure if `operator` is `validatesJSONSchema`. Exactly one nested block is allowed with the structure below.
@@ -100742,7 +104023,7 @@ class SyntheticsTestAssertion(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `bodyHash`, `javascript`.
+        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         """
         return pulumi.get(self, "type")
 
@@ -100758,7 +104039,7 @@ class SyntheticsTestAssertion(dict):
     @pulumi.getter
     def operator(self) -> Optional[_builtins.str]:
         """
-        Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test).
+        Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
         """
         return pulumi.get(self, "operator")
 
@@ -100766,7 +104047,7 @@ class SyntheticsTestAssertion(dict):
     @pulumi.getter
     def property(self) -> Optional[_builtins.str]:
         """
-        If assertion type is `header`, this is the header name.
+        If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
         """
         return pulumi.get(self, "property")
 
@@ -103745,14 +107026,20 @@ class SyntheticsTestRequestDefinition(dict):
             suggest = "call_type"
         elif key == "certificateDomains":
             suggest = "certificate_domains"
+        elif key == "destinationService":
+            suggest = "destination_service"
         elif key == "dnsServer":
             suggest = "dns_server"
         elif key == "dnsServerPort":
             suggest = "dns_server_port"
+        elif key == "e2eQueries":
+            suggest = "e2e_queries"
         elif key == "httpVersion":
             suggest = "http_version"
         elif key == "isMessageBase64Encoded":
             suggest = "is_message_base64_encoded"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
         elif key == "noSavingResponseBody":
             suggest = "no_saving_response_body"
         elif key == "numberOfPackets":
@@ -103765,6 +107052,12 @@ class SyntheticsTestRequestDefinition(dict):
             suggest = "proto_json_descriptor"
         elif key == "shouldTrackHops":
             suggest = "should_track_hops"
+        elif key == "sourceService":
+            suggest = "source_service"
+        elif key == "tcpMethod":
+            suggest = "tcp_method"
+        elif key == "tracerouteQueries":
+            suggest = "traceroute_queries"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SyntheticsTestRequestDefinition. Access the value via the '{suggest}' property getter instead.")
@@ -103782,12 +107075,15 @@ class SyntheticsTestRequestDefinition(dict):
                  body_type: Optional[_builtins.str] = None,
                  call_type: Optional[_builtins.str] = None,
                  certificate_domains: Optional[Sequence[_builtins.str]] = None,
+                 destination_service: Optional[_builtins.str] = None,
                  dns_server: Optional[_builtins.str] = None,
                  dns_server_port: Optional[_builtins.str] = None,
+                 e2e_queries: Optional[_builtins.int] = None,
                  form: Optional[Mapping[str, _builtins.str]] = None,
                  host: Optional[_builtins.str] = None,
                  http_version: Optional[_builtins.str] = None,
                  is_message_base64_encoded: Optional[_builtins.bool] = None,
+                 max_ttl: Optional[_builtins.int] = None,
                  message: Optional[_builtins.str] = None,
                  method: Optional[_builtins.str] = None,
                  no_saving_response_body: Optional[_builtins.bool] = None,
@@ -103799,20 +107095,26 @@ class SyntheticsTestRequestDefinition(dict):
                  servername: Optional[_builtins.str] = None,
                  service: Optional[_builtins.str] = None,
                  should_track_hops: Optional[_builtins.bool] = None,
+                 source_service: Optional[_builtins.str] = None,
+                 tcp_method: Optional[_builtins.str] = None,
                  timeout: Optional[_builtins.int] = None,
+                 traceroute_queries: Optional[_builtins.int] = None,
                  url: Optional[_builtins.str] = None):
         """
         :param _builtins.str body: The request body.
         :param _builtins.str body_type: Type of the request body. Valid values are `text/plain`, `application/json`, `text/xml`, `text/html`, `application/x-www-form-urlencoded`, `graphql`, `application/octet-stream`, `multipart/form-data`.
         :param _builtins.str call_type: The type of gRPC call to perform. Valid values are `healthcheck`, `unary`.
         :param Sequence[_builtins.str] certificate_domains: By default, the client certificate is applied on the domain of the starting URL for browser tests. If you want your client certificate to be applied on other domains instead, add them in `certificate_domains`.
+        :param _builtins.str destination_service: For Network Path tests, an optional label displayed for the destination host in the Network Path visualization.
         :param _builtins.str dns_server: DNS server to use for DNS tests (`subtype = "dns"`).
         :param _builtins.str dns_server_port: DNS server port to use for DNS tests.
+        :param _builtins.int e2e_queries: For Network Path tests, the number of packets sent to probe the destination to measure packet loss, latency, and jitter.
         :param Mapping[str, _builtins.str] form: Form data to be sent when `body_type` is `multipart/form-data`.
         :param _builtins.str host: Host name to perform the test with.
         :param _builtins.str http_version: HTTP version to use for an HTTP request in an API test or step. **Deprecated.** Use `http_version` in the `options_list` field instead.
-        :param _builtins.bool is_message_base64_encoded: Whether the message is base64-encoded.
-        :param _builtins.str message: For gRPC, UDP and websocket tests, message to send with the request.
+        :param _builtins.bool is_message_base64_encoded: For Websocket tests, whether the message is treated as a base64-encoded string in the server.
+        :param _builtins.int max_ttl: For Network Path tests, the maximum time-to-live (max number of hops) used in outgoing probe packets.
+        :param _builtins.str message: For gRPC, UDP, and Websocket tests, message to send with the request.
         :param _builtins.str method: Either the HTTP method/verb to use or a gRPC method available on the service set in the `service` field. Required if `subtype` is `HTTP` or if `subtype` is `grpc` and `callType` is `unary`.
         :param _builtins.bool no_saving_response_body: Determines whether or not to save the response body.
         :param _builtins.int number_of_packets: Number of pings to use per test for ICMP tests (`subtype = "icmp"`) between 0 and 10.
@@ -103823,7 +107125,10 @@ class SyntheticsTestRequestDefinition(dict):
         :param _builtins.str servername: For SSL tests, it specifies on which server you want to initiate the TLS handshake, allowing the server to present one of multiple possible certificates on the same IP address and TCP port number.
         :param _builtins.str service: The gRPC service on which you want to perform the gRPC call.
         :param _builtins.bool should_track_hops: This will turn on a traceroute probe to discover all gateways along the path to the host destination. For ICMP tests (`subtype = "icmp"`).
+        :param _builtins.str source_service: For Network Path tests, an optional label displayed for the source host in the Network Path visualization
+        :param _builtins.str tcp_method: For TCP Network Path tests, the TCP traceroute strategy.
         :param _builtins.int timeout: Timeout in seconds for the test.
+        :param _builtins.int traceroute_queries: For Network Path tests, the number of traceroute path tracings.
         :param _builtins.str url: The URL to send the request to.
         """
         if body is not None:
@@ -103834,10 +107139,14 @@ class SyntheticsTestRequestDefinition(dict):
             pulumi.set(__self__, "call_type", call_type)
         if certificate_domains is not None:
             pulumi.set(__self__, "certificate_domains", certificate_domains)
+        if destination_service is not None:
+            pulumi.set(__self__, "destination_service", destination_service)
         if dns_server is not None:
             pulumi.set(__self__, "dns_server", dns_server)
         if dns_server_port is not None:
             pulumi.set(__self__, "dns_server_port", dns_server_port)
+        if e2e_queries is not None:
+            pulumi.set(__self__, "e2e_queries", e2e_queries)
         if form is not None:
             pulumi.set(__self__, "form", form)
         if host is not None:
@@ -103846,6 +107155,8 @@ class SyntheticsTestRequestDefinition(dict):
             pulumi.set(__self__, "http_version", http_version)
         if is_message_base64_encoded is not None:
             pulumi.set(__self__, "is_message_base64_encoded", is_message_base64_encoded)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
         if message is not None:
             pulumi.set(__self__, "message", message)
         if method is not None:
@@ -103868,8 +107179,14 @@ class SyntheticsTestRequestDefinition(dict):
             pulumi.set(__self__, "service", service)
         if should_track_hops is not None:
             pulumi.set(__self__, "should_track_hops", should_track_hops)
+        if source_service is not None:
+            pulumi.set(__self__, "source_service", source_service)
+        if tcp_method is not None:
+            pulumi.set(__self__, "tcp_method", tcp_method)
         if timeout is not None:
             pulumi.set(__self__, "timeout", timeout)
+        if traceroute_queries is not None:
+            pulumi.set(__self__, "traceroute_queries", traceroute_queries)
         if url is not None:
             pulumi.set(__self__, "url", url)
 
@@ -103906,6 +107223,14 @@ class SyntheticsTestRequestDefinition(dict):
         return pulumi.get(self, "certificate_domains")
 
     @_builtins.property
+    @pulumi.getter(name="destinationService")
+    def destination_service(self) -> Optional[_builtins.str]:
+        """
+        For Network Path tests, an optional label displayed for the destination host in the Network Path visualization.
+        """
+        return pulumi.get(self, "destination_service")
+
+    @_builtins.property
     @pulumi.getter(name="dnsServer")
     def dns_server(self) -> Optional[_builtins.str]:
         """
@@ -103920,6 +107245,14 @@ class SyntheticsTestRequestDefinition(dict):
         DNS server port to use for DNS tests.
         """
         return pulumi.get(self, "dns_server_port")
+
+    @_builtins.property
+    @pulumi.getter(name="e2eQueries")
+    def e2e_queries(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the number of packets sent to probe the destination to measure packet loss, latency, and jitter.
+        """
+        return pulumi.get(self, "e2e_queries")
 
     @_builtins.property
     @pulumi.getter
@@ -103950,15 +107283,23 @@ class SyntheticsTestRequestDefinition(dict):
     @pulumi.getter(name="isMessageBase64Encoded")
     def is_message_base64_encoded(self) -> Optional[_builtins.bool]:
         """
-        Whether the message is base64-encoded.
+        For Websocket tests, whether the message is treated as a base64-encoded string in the server.
         """
         return pulumi.get(self, "is_message_base64_encoded")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the maximum time-to-live (max number of hops) used in outgoing probe packets.
+        """
+        return pulumi.get(self, "max_ttl")
 
     @_builtins.property
     @pulumi.getter
     def message(self) -> Optional[_builtins.str]:
         """
-        For gRPC, UDP and websocket tests, message to send with the request.
+        For gRPC, UDP, and Websocket tests, message to send with the request.
         """
         return pulumi.get(self, "message")
 
@@ -104044,12 +107385,36 @@ class SyntheticsTestRequestDefinition(dict):
         return pulumi.get(self, "should_track_hops")
 
     @_builtins.property
+    @pulumi.getter(name="sourceService")
+    def source_service(self) -> Optional[_builtins.str]:
+        """
+        For Network Path tests, an optional label displayed for the source host in the Network Path visualization
+        """
+        return pulumi.get(self, "source_service")
+
+    @_builtins.property
+    @pulumi.getter(name="tcpMethod")
+    def tcp_method(self) -> Optional[_builtins.str]:
+        """
+        For TCP Network Path tests, the TCP traceroute strategy.
+        """
+        return pulumi.get(self, "tcp_method")
+
+    @_builtins.property
     @pulumi.getter
     def timeout(self) -> Optional[_builtins.int]:
         """
         Timeout in seconds for the test.
         """
         return pulumi.get(self, "timeout")
+
+    @_builtins.property
+    @pulumi.getter(name="tracerouteQueries")
+    def traceroute_queries(self) -> Optional[_builtins.int]:
+        """
+        For Network Path tests, the number of traceroute path tracings.
+        """
+        return pulumi.get(self, "traceroute_queries")
 
     @_builtins.property
     @pulumi.getter
@@ -106195,7 +109560,8 @@ class GetLogsIndexesLogsIndexResult(dict):
                  filters: Sequence['outputs.GetLogsIndexesLogsIndexFilterResult'],
                  flex_retention_days: _builtins.int,
                  name: _builtins.str,
-                 retention_days: _builtins.int):
+                 retention_days: _builtins.int,
+                 tags: Sequence[_builtins.str]):
         """
         :param _builtins.int daily_limit: The number of log events you can send in this index per day before you are rate-limited.
         :param Sequence['GetLogsIndexesLogsIndexDailyLimitResetArgs'] daily_limit_resets: Object containing options to override the default daily limit reset time.
@@ -106205,6 +109571,7 @@ class GetLogsIndexesLogsIndexResult(dict):
         :param _builtins.int flex_retention_days: The total number of days logs are stored in Standard and Flex Tier before being deleted from the index.
         :param _builtins.str name: The name of the index.
         :param _builtins.int retention_days: The number of days logs are stored in Standard Tier before aging into the Flex Tier or being deleted from the index.
+        :param Sequence[_builtins.str] tags: A list of tags for this index. Tags are in `key:value` format.
         """
         pulumi.set(__self__, "daily_limit", daily_limit)
         pulumi.set(__self__, "daily_limit_resets", daily_limit_resets)
@@ -106214,6 +109581,7 @@ class GetLogsIndexesLogsIndexResult(dict):
         pulumi.set(__self__, "flex_retention_days", flex_retention_days)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "retention_days", retention_days)
+        pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="dailyLimit")
@@ -106278,6 +109646,14 @@ class GetLogsIndexesLogsIndexResult(dict):
         The number of days logs are stored in Standard Tier before aging into the Flex Tier or being deleted from the index.
         """
         return pulumi.get(self, "retention_days")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Sequence[_builtins.str]:
+        """
+        A list of tags for this index. Tags are in `key:value` format.
+        """
+        return pulumi.get(self, "tags")
 
 
 @pulumi.output_type

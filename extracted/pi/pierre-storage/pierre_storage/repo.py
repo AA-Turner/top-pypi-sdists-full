@@ -1,7 +1,7 @@
 """Repository implementation for Pierre Git Storage SDK."""
 
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import urlencode
@@ -18,6 +18,7 @@ from pierre_storage.types import (
     BranchInfo,
     CommitBuilder,
     CommitInfo,
+    CommitMetadata,
     CommitResult,
     CommitSignature,
     CreateBranchResult,
@@ -25,6 +26,7 @@ from pierre_storage.types import (
     DiffFileState,
     FileDiff,
     FileSource,
+    FileWithMetadata,
     FilteredFile,
     GetBranchDiffResult,
     GetCommitDiffResult,
@@ -34,6 +36,7 @@ from pierre_storage.types import (
     ListBranchesResult,
     ListCommitsResult,
     ListFilesResult,
+    ListFilesWithMetadataResult,
     NoteReadResult,
     NoteWriteResult,
     RefUpdate,
@@ -42,6 +45,7 @@ from pierre_storage.types import (
 from pierre_storage.version import get_user_agent
 
 DEFAULT_TOKEN_TTL_SECONDS = 3600  # 1 hour
+ZERO_DATETIME_UTC = datetime.min.replace(tzinfo=timezone.utc)
 
 
 class StreamingResponse:
@@ -342,6 +346,74 @@ class RepoImpl:
             response.raise_for_status()
             data = response.json()
             return {"paths": data["paths"], "ref": data["ref"]}
+
+    async def list_files_with_metadata(
+        self,
+        *,
+        ref: Optional[str] = None,
+        ephemeral: Optional[bool] = None,
+        ttl: Optional[int] = None,
+    ) -> ListFilesWithMetadataResult:
+        """List files with metadata in repository.
+
+        Args:
+            ref: Git ref (branch, tag, or commit SHA)
+            ephemeral: Whether to read from the ephemeral namespace
+            ttl: Token TTL in seconds
+
+        Returns:
+            Files with mode/size/last commit metadata and resolved ref
+        """
+        ttl = ttl or DEFAULT_TOKEN_TTL_SECONDS
+        jwt = self.generate_jwt(self._id, {"permissions": ["git:read"], "ttl": ttl})
+
+        params = {}
+        if ref:
+            params["ref"] = ref
+        if ephemeral is not None:
+            params["ephemeral"] = "true" if ephemeral else "false"
+
+        url = f"{self.api_base_url}/api/v{self.api_version}/repos/files/metadata"
+        if params:
+            url += f"?{urlencode(params)}"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {jwt}",
+                    "Code-Storage-Agent": get_user_agent(),
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            files: List[FileWithMetadata] = [
+                {
+                    "path": file["path"],
+                    "mode": file["mode"],
+                    "size": file["size"],
+                    "last_commit_sha": file["last_commit_sha"],
+                }
+                for file in data["files"]
+            ]
+
+            commits: Dict[str, CommitMetadata] = {}
+            for sha, commit in data["commits"].items():
+                raw_date = commit["date"]
+                try:
+                    parsed_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+                except (AttributeError, TypeError, ValueError):
+                    parsed_date = ZERO_DATETIME_UTC
+                commits[sha] = {
+                    "author": commit["author"],
+                    "date": parsed_date,
+                    "raw_date": raw_date,
+                    "message": commit["message"],
+                }
+
+            return {"files": files, "commits": commits, "ref": data["ref"]}
 
     async def list_branches(
         self,

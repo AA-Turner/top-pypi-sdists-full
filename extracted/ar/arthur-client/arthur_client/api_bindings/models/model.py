@@ -51,7 +51,8 @@ class Model(BaseModel):
     data_plane: DataPlane = Field(description="Data plane backing this model.")
     tools: Optional[List[ToolResponse]] = Field(default=None, description="List of tools used by this model.")
     sub_agents: Optional[List[SubAgentResponse]] = Field(default=None, description="List of sub-agents used by this model.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "tools", "sub_agents"]
+    agent_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "tools", "sub_agents", "agent_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -145,6 +146,11 @@ class Model(BaseModel):
         if self.schedule is None and "schedule" in self.model_fields_set:
             _dict['schedule'] = None
 
+        # set to None if agent_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.agent_id is None and "agent_id" in self.model_fields_set:
+            _dict['agent_id'] = None
+
         return _dict
 
     @classmethod
@@ -172,7 +178,8 @@ class Model(BaseModel):
             "data_plane_id": obj.get("data_plane_id"),
             "data_plane": DataPlane.from_dict(obj["data_plane"]) if obj.get("data_plane") is not None else None,
             "tools": [ToolResponse.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgentResponse.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None
+            "sub_agents": [SubAgentResponse.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
+            "agent_id": obj.get("agent_id")
         })
         return _obj
 

@@ -359,6 +359,8 @@ class StixCyberObservable(StixCyberObservableDeprecatedMixin):
             type = "Persona"
         elif type.lower() == "ssh-key":
             type = "SSH-Key"
+        elif type.lower() == "ai-prompt":
+            type = "AI-Prompt"
         elif type.lower() == "hostname" or type.lower() == "x-opencti-hostname":
             type = "Hostname"
         elif type.lower() == "payment-card" or type.lower() == "x-opencti-payment-card":
@@ -496,6 +498,7 @@ class StixCyberObservable(StixCyberObservableDeprecatedMixin):
                         $Persona: PersonaAddInput
                         $MediaContent: MediaContentAddInput
                         $SSHKey: SSHKeyAddInput
+                        $AIPrompt: AIPromptAddInput
                     ) {
                         stixCyberObservableAdd(
                             type: $type,
@@ -543,6 +546,7 @@ class StixCyberObservable(StixCyberObservableDeprecatedMixin):
                             Persona: $Persona
                             MediaContent: $MediaContent
                             SSHKey: $SSHKey
+                            AIPrompt: $AIPrompt
                         ) {
                             id
                             standard_id
@@ -1296,6 +1300,15 @@ class StixCyberObservable(StixCyberObservableDeprecatedMixin):
                     "filesMarkings": files_markings,
                     "noTriggerImport": no_trigger_import,
                     "embedded": embedded,
+                }
+            elif type == "AI-Prompt":
+                input_variables["AIPrompt"] = {
+                    "value": (
+                        observable_data["value"] if "value" in observable_data else None
+                    ),
+                    "files": files,
+                    "filesMarkings": files_markings,
+                    "noTriggerImport": no_trigger_import,
                 }
             elif type == "Text":
                 input_variables["Text"] = {

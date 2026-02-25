@@ -10298,6 +10298,11 @@ class Messages(System.Object):
             """
             ...
 
+        @staticmethod
+        def unsupported_four_leg_combo_leg_limit_orders(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage model does not support four-leg combo leg limit orders"""
+            ...
+
     class TradierBrokerageModel(System.Object):
         """Provides user-facing messages for the Brokerages.TradierBrokerageModel class and its consumers or related classes"""
 

@@ -19,7 +19,7 @@ This module manages the validations of JWT tokens.
 """
 
 import datetime
-from typing import Dict, Any, Set
+from typing import Dict, Set
 
 from spiffe.errors import ArgumentError
 from spiffe.svid.errors import (
@@ -88,7 +88,7 @@ class JwtSvidValidator(object):
         if typ and typ not in self._SUPPORTED_TYPES:
             raise InvalidTypeError(typ)
 
-    def validate_claims(self, payload: Dict[str, Any], expected_audience: Set[str]) -> None:
+    def validate_claims(self, payload: Dict[str, object], expected_audience: Set[str]) -> None:
         """Validates payload for required claims (aud, exp, sub).
 
         Args:
@@ -108,7 +108,17 @@ class JwtSvidValidator(object):
             if not payload.get(claim):
                 raise MissingClaimError(claim)
 
-        self._validate_exp(str(payload.get('exp')))
+        exp_value = payload.get('exp')
+        if exp_value is None:
+            raise MissingClaimError('exp')
+        if not isinstance(exp_value, (int, float, str)):
+            raise InvalidClaimError("exp claim must be a numeric value")
+        try:
+            numeric_exp = float(exp_value)
+        except (TypeError, ValueError):
+            raise InvalidClaimError("exp claim must be a numeric value")
+        self._validate_exp(numeric_exp)
+
         aud_claim = payload.get('aud')
         if aud_claim is None:
             aud_set = set()
@@ -121,13 +131,13 @@ class JwtSvidValidator(object):
         self._validate_aud(aud_set, expected_audience)
 
     @staticmethod
-    def _validate_exp(expiration_date: str) -> None:
+    def _validate_exp(expiration_date: float) -> None:
         """Verifies expiration.
 
         Note: If and when https://github.com/jpadilla/pyjwt/issues/599 is fixed, this can be simplified/removed.
 
         Args:
-            expiration_date: Date to check if it is expired.
+            expiration_date: Date to check if it is expired (numeric timestamp).
 
         Raises:
             TokenExpiredError: In case it is expired.

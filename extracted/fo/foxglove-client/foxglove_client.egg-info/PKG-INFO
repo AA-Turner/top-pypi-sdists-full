@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: foxglove-client
-Version: 0.18.1
+Version: 0.18.2
 Summary: Client library for the Foxglove API.
 Home-page: https://github.com/foxglove/foxglove-python
 Classifier: Programming Language :: Python :: 3
@@ -35,6 +35,8 @@ Examples of various client features can be found in the `examples` directory.
 pipenv install --dev
 pipenv run python -m pytest
 ```
+
+In addition to unit tests, all PRs that change behavior should also be tested against the Foxglove API.
 
 ## Release Process
 

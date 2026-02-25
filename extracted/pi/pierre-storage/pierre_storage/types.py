@@ -119,6 +119,32 @@ class ListFilesResult(TypedDict):
     ref: str
 
 
+class FileWithMetadata(TypedDict):
+    """Per-file metadata entry for list_files_with_metadata."""
+
+    path: str
+    mode: str
+    size: int
+    last_commit_sha: str
+
+
+class CommitMetadata(TypedDict):
+    """Commit metadata entry for list_files_with_metadata."""
+
+    author: str
+    date: datetime
+    raw_date: str
+    message: str
+
+
+class ListFilesWithMetadataResult(TypedDict):
+    """Result from listing files with metadata."""
+
+    files: List[FileWithMetadata]
+    commits: Dict[str, CommitMetadata]
+    ref: str
+
+
 # Removed: ListBranchesOptions - now uses **kwargs
 
 
@@ -463,6 +489,16 @@ class Repo(Protocol):
         ttl: Optional[int] = None,
     ) -> ListFilesResult:
         """List files in the repository."""
+        ...
+
+    async def list_files_with_metadata(
+        self,
+        *,
+        ref: Optional[str] = None,
+        ephemeral: Optional[bool] = None,
+        ttl: Optional[int] = None,
+    ) -> ListFilesWithMetadataResult:
+        """List files with metadata in the repository."""
         ...
 
     async def list_branches(

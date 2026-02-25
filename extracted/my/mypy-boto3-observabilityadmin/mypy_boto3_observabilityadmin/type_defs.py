@@ -3,7 +3,7 @@ Type annotations for observabilityadmin service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -129,6 +129,7 @@ __all__ = (
     "ListTelemetryRulesOutputTypeDef",
     "LogDeliveryParametersOutputTypeDef",
     "LogDeliveryParametersTypeDef",
+    "LogGroupNameConfigurationTypeDef",
     "LoggingFilterOutputTypeDef",
     "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
@@ -272,6 +273,10 @@ class DeleteTelemetryRuleInputTypeDef(TypedDict):
     RuleIdentifier: str
 
 
+class LogGroupNameConfigurationTypeDef(TypedDict):
+    LogGroupNamePattern: str
+
+
 class LogsBackupConfigurationTypeDef(TypedDict):
     Region: str
     KmsKeyArn: NotRequired[str]
@@ -347,6 +352,7 @@ class TelemetryConfigurationTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
     ResourceTags: NotRequired[dict[str, str]]
     LastUpdateTimeStamp: NotRequired[int]
+    TelemetrySourceType: NotRequired[TelemetrySourceTypeType]
 
 
 class ListResourceTelemetryInputTypeDef(TypedDict):
@@ -596,6 +602,7 @@ class ValidateTelemetryPipelineConfigurationInputTypeDef(TypedDict):
 class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
+    LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
 
 
 class FieldToMatchTypeDef(TypedDict):

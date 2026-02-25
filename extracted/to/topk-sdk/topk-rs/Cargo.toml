@@ -1,6 +1,6 @@
 [package]
 name = "topk-rs"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2021"
 description = "TopK Rust SDK"
 license = "MIT"
@@ -23,11 +23,15 @@ serde_json = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
-bytes = { version = "1.8.0" }
+bytes = { version = "1.8.0", features = ["serde"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+async-trait = { version = "0.1", default-features = false }
 tonic-prost = { version = "0.14.2" }
 bytemuck = { version = "1.23.2", features = ["extern_crate_alloc"] }
 half = { version = "2.7.1", features = ["bytemuck"] }
 float8 = { version = "0.5.0", features = ["bytemuck"] }
+infer = "0.16"
+mime_guess = "2.0.5"
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }

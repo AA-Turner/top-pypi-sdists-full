@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.util
-Version: 3.23
+Version: 3.24
 Summary: A Dissect module implementing various utility functions for the other Dissect modules
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: Apache-2.0

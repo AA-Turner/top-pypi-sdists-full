@@ -84,6 +84,8 @@ from .type_defs import (
     GetNetworkSettingsResponseTypeDef,
     GetOidcInfoRequestTypeDef,
     GetOidcInfoResponseTypeDef,
+    GetOpentdfConfigRequestTypeDef,
+    GetOpentdfConfigResponseTypeDef,
     GetSecurityGroupRequestTypeDef,
     GetSecurityGroupResponseTypeDef,
     GetUserRequestTypeDef,
@@ -110,6 +112,8 @@ from .type_defs import (
     RegisterOidcConfigResponseTypeDef,
     RegisterOidcConfigTestRequestTypeDef,
     RegisterOidcConfigTestResponseTypeDef,
+    RegisterOpentdfConfigRequestTypeDef,
+    RegisterOpentdfConfigResponseTypeDef,
     UpdateBotRequestTypeDef,
     UpdateBotResponseTypeDef,
     UpdateDataRetentionRequestTypeDef,
@@ -409,6 +413,16 @@ class WickrAdminAPIClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wickr/client/#get_oidc_info)
         """
 
+    async def get_opentdf_config(
+        self, **kwargs: Unpack[GetOpentdfConfigRequestTypeDef]
+    ) -> GetOpentdfConfigResponseTypeDef:
+        """
+        Retrieves the OpenTDF integration configuration for a Wickr network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/get_opentdf_config.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wickr/client/#get_opentdf_config)
+        """
+
     async def get_security_group(
         self, **kwargs: Unpack[GetSecurityGroupRequestTypeDef]
     ) -> GetSecurityGroupResponseTypeDef:
@@ -544,6 +558,17 @@ class WickrAdminAPIClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/register_oidc_config_test.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wickr/client/#register_oidc_config_test)
+        """
+
+    async def register_opentdf_config(
+        self, **kwargs: Unpack[RegisterOpentdfConfigRequestTypeDef]
+    ) -> RegisterOpentdfConfigResponseTypeDef:
+        """
+        Registers and saves OpenTDF configuration for a Wickr network, enabling
+        attribute-based access control for Wickr through an OpenTDF provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wickr/client/register_opentdf_config.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wickr/client/#register_opentdf_config)
         """
 
     async def update_bot(

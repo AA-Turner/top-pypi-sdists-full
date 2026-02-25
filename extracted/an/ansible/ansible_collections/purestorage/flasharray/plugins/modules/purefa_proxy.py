@@ -50,7 +50,7 @@ extends_documentation_fragment:
 """
 
 EXAMPLES = r"""
-- name: Delete exisitng proxy settings
+- name: Delete existing proxy settings
   purestorage.flasharray.purefa_proxy:
     state: absent
     fa_url: 10.10.10.2
@@ -91,7 +91,7 @@ def delete_proxy(module, array):
             res = array.patch_support(support=SupportPatch(proxy=""))
             if res.status_code != 200:
                 module.fail_json(
-                    msg="Delete proxy settigs failed. Error: {0}".format(
+                    msg="Delete proxy settings failed. Error: {0}".format(
                         res.errors[0].message
                     )
                 )
@@ -102,24 +102,23 @@ def create_proxy(module, array):
     """Set proxy settings"""
     changed = False
     current_proxy = list(array.get_support().items)[0].proxy
-    if current_proxy != "":
-        new_proxy = (
-            module.params["protocol"]
-            + "://"
-            + module.params["host"]
-            + ":"
-            + str(module.params["port"])
-        )
-        if new_proxy != current_proxy:
-            changed = True
-            if not module.check_mode:
-                res = array.patch_support(support=SupportPatch(proxy=new_proxy))
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Set phone home proxy failed. Error: {0}".format(
-                            res.errors[0].message
-                        )
+    new_proxy = (
+        module.params["protocol"]
+        + "://"
+        + module.params["host"]
+        + ":"
+        + str(module.params["port"])
+    )
+    if new_proxy != current_proxy:
+        changed = True
+        if not module.check_mode:
+            res = array.patch_support(support=SupportPatch(proxy=new_proxy))
+            if res.status_code != 200:
+                module.fail_json(
+                    msg="Set phone home proxy failed. Error: {0}".format(
+                        res.errors[0].message
                     )
+                )
 
     module.exit_json(changed=changed)
 

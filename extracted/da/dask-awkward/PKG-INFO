@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-awkward
-Version: 2026.2.0
+Version: 2026.2.1
 Summary: Awkward Array meets Dask
 Project-URL: Homepage, https://github.com/dask-contrib/dask-awkward
 Project-URL: Bug Tracker, https://github.com/dask-contrib/dask-awkward/issues
@@ -25,7 +25,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: awkward>=2.8.12
 Requires-Dist: cachetools
 Requires-Dist: dask<2025.4.0,>=2023.4.0

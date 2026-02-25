@@ -10,11 +10,10 @@ from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import SphinxNeedsData
 from sphinx_needs.logging import log_error, log_warning
 from sphinx_needs.needsfile import generate_needs_schema
-from sphinx_needs.schema.config import NeedFieldsSchemaType, SchemasRootType
+from sphinx_needs.schema.config import SchemasRootType
 from sphinx_needs.schema.core import (
     NeedFieldProperties,
-    validate_extra_options,
-    validate_link_options,
+    validate_field_link_schemas,
     validate_type_schema,
 )
 from sphinx_needs.schema.reporting import (
@@ -38,42 +37,7 @@ def process_schemas(app: Sphinx, builder: Builder) -> None:
     if not config.schema_validation_enabled:
         return
 
-    extra_option_schema: NeedFieldsSchemaType = {
-        "type": "object",
-        "properties": {
-            name: option.schema
-            for name, option in config.extra_options.items()
-            if option.schema is not None
-        },
-    }
-    extra_link_schema: NeedFieldsSchemaType = {
-        "type": "object",
-        "properties": {
-            link["option"]: link["schema"]
-            for link in config.extra_links
-            if "schema" in link and link["schema"] is not None
-        },
-    }
-
-    if not (
-        extra_option_schema["properties"]
-        or extra_link_schema["properties"]
-        or (config.schema_definitions.get("schemas"))
-    ):
-        # nothing to validate but always generate report file
-        generate_json_schema_validation_report(
-            duration=0.00,
-            need_2_warnings={},
-            report_file_path=app.outdir / "schema_violations.json",
-            validated_needs_count=0,
-            validated_rate=0,
-        )
-        return
-
-    schema = SphinxNeedsData(app.env).get_schema()
-    field_properties: Mapping[str, NeedFieldProperties] = generate_needs_schema(schema)[
-        "properties"
-    ]
+    needs_schema = SphinxNeedsData(app.env).get_schema()
 
     if config.schema_debug_active:
         clear_debug_dir(config)
@@ -85,29 +49,29 @@ def process_schemas(app: Sphinx, builder: Builder) -> None:
 
     need_2_warnings: dict[str, list[OntologyWarning]] = {}
 
-    if extra_option_schema["properties"]:
-        extra_warnings = validate_extra_options(
-            config, extra_option_schema, field_properties, needs
-        )
-        for key, warnings in extra_warnings.items():
-            need_2_warnings.setdefault(key, []).extend(warnings)
+    # Validate all needs against combined field + link schemas
+    field_link_warnings = validate_field_link_schemas(config, needs_schema, needs)
+    for key, warnings in field_link_warnings.items():
+        need_2_warnings.setdefault(key, []).extend(warnings)
 
-    if extra_link_schema["properties"]:
-        link_warnings = validate_link_options(
-            config, extra_link_schema, field_properties, needs
-        )
-        for key, warnings in link_warnings.items():
-            need_2_warnings.setdefault(key, []).extend(warnings)
-
+    # Validate needs against user-defined type schemas
     type_schemas: list[SchemasRootType] = []
     if config.schema_definitions and "schemas" in config.schema_definitions:
         type_schemas = config.schema_definitions["schemas"]
-    for type_schema in type_schemas:
-        type_warnings = validate_type_schema(
-            config, type_schema, needs, field_properties
-        )
-        for key, warnings in type_warnings.items():
-            need_2_warnings.setdefault(key, []).extend(warnings)
+    if type_schemas:
+        field_properties: Mapping[str, NeedFieldProperties] = generate_needs_schema(
+            needs_schema
+        )["properties"]
+        for type_schema in type_schemas:
+            type_warnings = validate_type_schema(
+                config,
+                type_schema,
+                needs,
+                field_properties,
+                fields_schema=needs_schema,
+            )
+            for key, warnings in type_warnings.items():
+                need_2_warnings.setdefault(key, []).extend(warnings)
 
     # Stop timer after validation loop
     end_time = time.perf_counter()

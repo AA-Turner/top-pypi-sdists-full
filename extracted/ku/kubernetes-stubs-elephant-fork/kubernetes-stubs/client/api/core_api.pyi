@@ -5,5 +5,14 @@ import kubernetes.client
 class CoreApi:
     def __init__(self, api_client: typing.Optional[kubernetes.client.ApiClient] = ...) -> None:
         ...
-    def get_api_versions(self) -> kubernetes.client.V1APIVersions:
+    def get_api_versions(self, *, 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1APIVersions:
         ...

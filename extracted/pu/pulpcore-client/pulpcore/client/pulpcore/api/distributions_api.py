@@ -68,8 +68,8 @@ class DistributionsApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository: Annotated[Optional[StrictStr], Field(description="Filter results where repository matches value")] = None,
-        repository__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where repository is in a comma-separated list of values")] = None,
+        repository: Optional[StrictStr] = None,
+        repository__in: Optional[List[StrictStr]] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -140,9 +140,9 @@ class DistributionsApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository: Filter results where repository matches value
+        :param repository:
         :type repository: str
-        :param repository__in: Filter results where repository is in a comma-separated list of values
+        :param repository__in:
         :type repository__in: List[str]
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str
@@ -251,8 +251,8 @@ class DistributionsApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository: Annotated[Optional[StrictStr], Field(description="Filter results where repository matches value")] = None,
-        repository__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where repository is in a comma-separated list of values")] = None,
+        repository: Optional[StrictStr] = None,
+        repository__in: Optional[List[StrictStr]] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -323,9 +323,9 @@ class DistributionsApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository: Filter results where repository matches value
+        :param repository:
         :type repository: str
-        :param repository__in: Filter results where repository is in a comma-separated list of values
+        :param repository__in:
         :type repository__in: List[str]
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str
@@ -434,8 +434,8 @@ class DistributionsApi:
         pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `core.artifact` - core.artifact * `core.openpgp` - core.openpgp * `file.file` - file.file")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository: Annotated[Optional[StrictStr], Field(description="Filter results where repository matches value")] = None,
-        repository__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where repository is in a comma-separated list of values")] = None,
+        repository: Optional[StrictStr] = None,
+        repository__in: Optional[List[StrictStr]] = None,
         with_content: Annotated[Optional[StrictStr], Field(description="Filter distributions based on the content served by them")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -506,9 +506,9 @@ class DistributionsApi:
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository: Filter results where repository matches value
+        :param repository:
         :type repository: str
-        :param repository__in: Filter results where repository is in a comma-separated list of values
+        :param repository__in:
         :type repository__in: List[str]
         :param with_content: Filter distributions based on the content served by them
         :type with_content: str

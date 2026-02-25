@@ -8,22 +8,39 @@ servers:
   - url: /
 tags:
   - name: OpenAPI
+    description: API documentation endpoints and OpenAPI schema resources.
   - name: Security
+    description: Authentication, account, and user settings operations.
   - name: Groups
+    description: Group management and memberships APIs.
   - name: Casbin
+    description: Administrative Casbin policy and grouping APIs.
   - name: Items
+    description: Item CRUD operations by category.
   - name: Item ACL
+    description: Item sharing and publish/unpublish access control APIs.
   - name: Item Files
+    description: Download and access item-related file resources.
   - name: Item Schemas
+    description: Administrative item schema versioning and publication APIs.
   - name: Export
+    description: Form export endpoints and generated outputs.
   - name: Stripe
+    description: Billing, balances, subscriptions, and Stripe webhooks.
   - name: GDPR
+    description: GDPR consent and policy file endpoints.
   - name: Contact
+    description: Contact form and mail dispatch endpoint.
   - name: Locales
+    description: Localization dictionaries and language resources.
   - name: Files
+    description: Generic file upload and retrieval endpoints.
   - name: Notifications
+    description: Notification delivery, tokens, watchers, and reads.
   - name: Templates
+    description: Notification template administration and testing APIs.
   - name: Contracts
+    description: Contract template, lifecycle, and event APIs.
 components:
   securitySchemes:
     bearerAuth:
@@ -676,6 +693,7 @@ security:
 paths:
   /docs:
     get:
+      operationId: get_docs
       tags:
         - OpenAPI
       summary: Swagger UI
@@ -723,6 +741,7 @@ paths:
       security: [ ]
   /openapi.json:
     get:
+      operationId: get_openapi_json
       tags:
         - OpenAPI
       summary: OpenAPI JSON
@@ -771,6 +790,7 @@ paths:
       security: [ ]
   /openapi.yaml:
     get:
+      operationId: get_openapi_yaml
       tags:
         - OpenAPI
       summary: OpenAPI YAML
@@ -817,6 +837,7 @@ paths:
       security: [ ]
   /user/login:
     post:
+      operationId: post_user_login
       tags:
         - Security
       summary: Login (Flask-Security)
@@ -832,6 +853,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         required: true
         content:
@@ -851,6 +878,7 @@ paths:
       security: [ ]
   /user/logout:
     post:
+      operationId: post_user_logout
       tags:
         - Security
       summary: Logout (Flask-Security)
@@ -898,6 +926,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /user/register:
     post:
+      operationId: post_user_register
       tags:
         - Security
       summary: Register (Flask-Security)
@@ -953,6 +982,7 @@ paths:
       security: [ ]
   /user/confirm/{token}:
     get:
+      operationId: get_user_confirm_by_token
       tags:
         - Security
       summary: Confirm email (Flask-Security)
@@ -1006,6 +1036,7 @@ paths:
       security: [ ]
   /user/confirm:
     post:
+      operationId: post_user_confirm
       tags:
         - Security
       summary: Re-send confirmation (Flask-Security)
@@ -1061,6 +1092,7 @@ paths:
       security: [ ]
   /user/reset:
     post:
+      operationId: post_user_reset
       tags:
         - Security
       summary: Request password reset (Flask-Security)
@@ -1120,6 +1152,7 @@ paths:
       security: [ ]
   /user/reset/{token}:
     post:
+      operationId: post_user_reset_by_token
       tags:
         - Security
       summary: Perform password reset (Flask-Security)
@@ -1185,6 +1218,7 @@ paths:
       security: [ ]
   /user/change:
     post:
+      operationId: post_user_change
       tags:
         - Security
       summary: Change password (Flask-Security)
@@ -1241,6 +1275,7 @@ paths:
                 - new_password
   /user/verify:
     get:
+      operationId: get_user_verify
       tags:
         - Security
       summary: Verify (Flask-Security, se abilitato)
@@ -1283,6 +1318,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /user/edit:
     post:
+      operationId: post_user_edit
       tags:
         - Security
       summary: Edit current user profile fields
@@ -1331,6 +1367,7 @@ paths:
               type: object
               additionalProperties: true
     patch:
+      operationId: patch_user_edit
       tags:
         - Security
       summary: Patch current user profile fields
@@ -1380,6 +1417,7 @@ paths:
               additionalProperties: true
   /user/settings:
     get:
+      operationId: get_user_settings
       tags:
         - Security
       summary: Get user settings
@@ -1427,6 +1465,7 @@ paths:
             type: string
           description: 'Comma-separated: settings,user'
     post:
+      operationId: post_user_settings
       tags:
         - Security
       summary: Merge settings (POST)
@@ -1479,46 +1518,8 @@ paths:
             schema:
               type: object
               additionalProperties: true
-  /user/notifications/devices:
-    post:
-      tags:
-        - Security
-      summary: Set push device ids
-      description: >
-        Stores push device ids for the current user inside settings.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                device_ids:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '200':
-          description: OK
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     patch:
+      operationId: patch_user_settings
       tags:
         - Security
       summary: Merge settings (PATCH)
@@ -1536,18 +1537,6 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Not Found
           content:
             application/json:
               schema:
@@ -1572,6 +1561,7 @@ paths:
               type: object
               additionalProperties: true
     put:
+      operationId: put_user_settings
       tags:
         - Security
       summary: Replace settings (PUT)
@@ -1625,8 +1615,57 @@ paths:
             schema:
               type: object
               additionalProperties: true
+  /user/me:
+    get:
+      operationId: get_user_me
+      tags:
+        - Security
+      summary: Get current authenticated user profile
+      description: >
+        Returns the current authenticated user payload as exposed by the
+        security subsystem, including profile fields, roles, and auth token
+        when available.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /user/plasmic:
     get:
+      operationId: get_user_plasmic
       tags:
         - Security
       summary: Get Plasmic app-auth user+token (null when anonymous)
@@ -1670,6 +1709,7 @@ paths:
       security: [ ]
   /groups:
     get:
+      operationId: get_groups
       tags:
         - Groups
       summary: List my groups
@@ -1764,6 +1804,7 @@ paths:
           schema:
             type: string
     post:
+      operationId: post_groups
       tags:
         - Groups
       summary: Create group
@@ -1808,6 +1849,7 @@ paths:
                 - name
   /groups/{gid}:
     get:
+      operationId: get_groups_by_gid
       tags:
         - Groups
       summary: Get group
@@ -1855,6 +1897,7 @@ paths:
           schema:
             type: string
     put:
+      operationId: put_groups_by_gid
       tags:
         - Groups
       summary: Update group (PUT)
@@ -1910,6 +1953,7 @@ paths:
               required:
                 - name
     patch:
+      operationId: patch_groups_by_gid
       tags:
         - Groups
       summary: Update group (PATCH)
@@ -1964,6 +2008,7 @@ paths:
                   type: string
   /groups/{gid}/memberships:
     patch:
+      operationId: patch_groups_by_gid_memberships
       tags:
         - Groups
       summary: Edit group memberships (batch)
@@ -2039,6 +2084,7 @@ paths:
                     type: string
   /admin/casbin/policies:
     get:
+      operationId: get_admin_casbin_policies
       tags:
         - Casbin
       summary: List Casbin policies
@@ -2084,6 +2130,7 @@ paths:
         - *id004
         - *id005
     post:
+      operationId: post_admin_casbin_policies
       tags:
         - Casbin
       summary: Add Casbin policy/policies
@@ -2131,6 +2178,7 @@ paths:
               type: object
               additionalProperties: true
     delete:
+      operationId: delete_admin_casbin_policies
       tags:
         - Casbin
       summary: Delete Casbin policy/policies
@@ -2179,6 +2227,7 @@ paths:
               additionalProperties: true
   /admin/casbin/grouping:
     get:
+      operationId: get_admin_casbin_grouping
       tags:
         - Casbin
       summary: List Casbin grouping rules
@@ -2220,6 +2269,7 @@ paths:
                 $ref: '#/components/schemas/Error'
       parameters: *id006
     post:
+      operationId: post_admin_casbin_grouping
       tags:
         - Casbin
       summary: Add grouping rule(s)
@@ -2267,6 +2317,7 @@ paths:
               type: object
               additionalProperties: true
     delete:
+      operationId: delete_admin_casbin_grouping
       tags:
         - Casbin
       summary: Delete grouping rule(s)
@@ -2315,6 +2366,7 @@ paths:
               additionalProperties: true
   /item/{category}:
     get:
+      operationId: get_item_by_category
       tags:
         - Items
       summary: List items (/item)
@@ -2329,6 +2381,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ItemListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - &id008
           name: category
@@ -2369,6 +2427,7 @@ paths:
         - *id005
         - *id007
     post:
+      operationId: post_item_by_category
       tags:
         - Items
       summary: Create item (/item)
@@ -2382,6 +2441,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Item'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id009
@@ -2405,6 +2470,7 @@ paths:
               additionalProperties: true
   /item/{category}/{item_id}:
     get:
+      operationId: get_item_by_category_by_item_id
       tags:
         - Items
       summary: Get item (/item)
@@ -2418,6 +2484,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Item'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - &id010
@@ -2428,6 +2500,7 @@ paths:
             type: string
         - *id009
     put:
+      operationId: put_item_by_category_by_item_id
       tags:
         - Items
       summary: Replace item data (/item)
@@ -2441,6 +2514,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Item'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
@@ -2460,6 +2539,7 @@ paths:
                   description: JSON string
               additionalProperties: true
     patch:
+      operationId: patch_item_by_category_by_item_id
       tags:
         - Items
       summary: Patch item data (/item)
@@ -2473,12 +2553,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Item'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
         - *id009
       requestBody: *id011
     delete:
+      operationId: delete_item_by_category_by_item_id
       tags:
         - Items
       summary: Delete item (/item)
@@ -2492,170 +2579,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Status'
-      parameters:
-        - *id008
-        - *id010
-  /items/{category}:
-    get:
-      tags:
-        - Items
-      summary: List items (/items)
-      description: >
-        Lists items for a given category using the /items alias. Results are
-        filtered by Casbin ACLs and optional mq filters. Supports pagination.
-      responses:
-        '200':
-          description: OK
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ItemListResponse'
-      parameters:
-        - *id008
-        - name: mode
-          in: query
-          required: false
-          schema:
-            type: string
-            enum:
-              - read
-              - write
-        - name: group_id
-          in: query
-          required: false
-          schema:
-            type: string
-        - *id009
-        - *id012
-        - *id002
-        - *id003
-        - *id004
-        - *id005
-        - *id007
-    post:
-      tags:
-        - Items
-      summary: Create item (/items)
-      description: >
-        Creates a new item using the /items alias. Requires create permission
-        in the target domain. Returns the created item.
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
-      parameters:
-        - *id008
-        - *id009
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ItemCreate'
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                acl_dom:
-                  type: string
-                group_id:
-                  type: string
-                data:
-                  type: string
-                  description: JSON string of {data} (optional)
-              additionalProperties: true
-  /items/{category}/{item_id}:
-    get:
-      tags:
-        - Items
-      summary: Get item (/items)
-      description: >
-        Fetches a single item using the /items alias. Requires read permission
-        on the item's ACL domain. Returns the item document.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
-      parameters:
-        - *id008
-        - *id010
-        - *id009
-    put:
-      tags:
-        - Items
-      summary: Replace item data (/items)
-      description: >
-        Replaces item data using the /items alias. Requires write permission and
-        returns the updated item document.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
-      parameters:
-        - *id008
-        - *id010
-        - *id009
-      requestBody: &id013
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ItemUpdate'
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                data:
-                  type: string
-                  description: JSON string
-              additionalProperties: true
-    patch:
-      tags:
-        - Items
-      summary: Patch item data (/items)
-      description: >
-        Applies a partial update to item data using the /items alias. Requires
-        write permission. Returns the updated item.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
-      parameters:
-        - *id008
-        - *id010
-        - *id009
-      requestBody: *id013
-    delete:
-      tags:
-        - Items
-      summary: Delete item (/items)
-      description: >
-        Deletes an item using the /items alias. Requires manage permission and
-        returns a status payload.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Status'
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
   /item/{category}/{item_id}/acl/share:
     put:
+      operationId: put_item_by_category_by_item_id_acl_share
       tags:
         - Item ACL
       summary: Replace share ACL (/item)
@@ -2672,6 +2607,12 @@ paths:
                 properties:
                   ok:
                     type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
@@ -2682,6 +2623,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ShareReplacePayload'
     get:
+      operationId: get_item_by_category_by_item_id_acl_share
       tags:
         - Item ACL
       summary: List share ACL (/item)
@@ -2695,11 +2637,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShareListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
   /item/{category}/{item_id}/acl/publish:
     post:
+      operationId: post_item_by_category_by_item_id_acl_publish
       tags:
         - Item ACL
       summary: Publish item (public read) (/item)
@@ -2718,10 +2667,17 @@ paths:
                     type: boolean
                   public:
                     type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
     get:
+      operationId: get_item_by_category_by_item_id_acl_publish
       tags:
         - Item ACL
       summary: Check publish status (/item)
@@ -2738,11 +2694,18 @@ paths:
                 properties:
                   public:
                     type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
   /item/{category}/{item_id}/acl/unpublish:
     post:
+      operationId: post_item_by_category_by_item_id_acl_unpublish
       tags:
         - Item ACL
       summary: Unpublish item (/item)
@@ -2761,121 +2724,18 @@ paths:
                     type: boolean
                   public:
                     type: boolean
-      parameters:
-        - *id008
-        - *id010
-  /items/{category}/{item_id}/acl/share:
-    put:
-      tags:
-        - Item ACL
-      summary: Replace share ACL (/items)
-      description: >
-        Replaces the share ACL entries using the /items alias. Requires manage
-        permission on the item domain. Returns the updated ACL entries.
-      responses:
-        '200':
-          description: OK
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-      parameters:
-        - *id008
-        - *id010
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ShareReplacePayload'
-    get:
-      tags:
-        - Item ACL
-      summary: List share ACL (/items)
-      description: >
-        Lists the share ACL entries using the /items alias. Requires manage
-        permission on the item domain. Returns the ACL entry list.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ShareListResponse'
-      parameters:
-        - *id008
-        - *id010
-  /items/{category}/{item_id}/acl/publish:
-    post:
-      tags:
-        - Item ACL
-      summary: Publish item (public read) (/items)
-      description: >
-        Grants public read access using the /items alias. Requires manage
-        permission and returns publish status.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  public:
-                    type: boolean
-      parameters:
-        - *id008
-        - *id010
-    get:
-      tags:
-        - Item ACL
-      summary: Check publish status (/items)
-      description: >
-        Returns publish status using the /items alias. Requires manage
-        permission on the item domain. Returns a published flag.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  public:
-                    type: boolean
-      parameters:
-        - *id008
-        - *id010
-  /items/{category}/{item_id}/acl/unpublish:
-    post:
-      tags:
-        - Item ACL
-      summary: Unpublish item (/items)
-      description: >
-        Revokes public read access using the /items alias. Requires manage
-        permission on the item domain. Returns publish status.
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  public:
-                    type: boolean
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id008
         - *id010
   /item-file/{item_id}/{file_name}:
     get:
+      operationId: get_item_file_by_item_id_by_file_name
       tags:
         - Item Files
       summary: Download item file (/item-file)
@@ -2890,6 +2750,12 @@ paths:
               schema:
                 type: string
                 format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       parameters:
         - *id010
         - &id014
@@ -2898,27 +2764,9 @@ paths:
           required: true
           schema:
             type: string
-  /items-file/{item_id}/{file_name}:
+  /admin/item-schema:
     get:
-      tags:
-        - Item Files
-      summary: Download item file (/items-file)
-      description: >
-        Downloads a file using the /items-file alias. Requires read permission
-        on the item and returns the file content.
-      responses:
-        '200':
-          description: File content
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-      parameters:
-        - *id010
-        - *id014
-  /admin/item-schema/:
-    get:
+      operationId: get_admin_item_schema
       tags:
         - Item Schemas
       summary: List categories with schemas (/admin/item-schema)
@@ -2965,6 +2813,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/item-schema/{category}:
     get:
+      operationId: get_admin_item_schema_by_category
       tags:
         - Item Schemas
       summary: Get schema info for category (/admin/item-schema)
@@ -3012,6 +2861,7 @@ paths:
         - *id008
   /admin/item-schema/{category}/drafts:
     post:
+      operationId: post_admin_item_schema_by_category_drafts
       tags:
         - Item Schemas
       summary: Create schema draft (/admin/item-schema)
@@ -3041,6 +2891,7 @@ paths:
               $ref: '#/components/schemas/ItemSchemaDraftCreate'
   /admin/item-schema/{category}/drafts/{version}:
     put:
+      operationId: put_admin_item_schema_by_category_drafts_by_version
       tags:
         - Item Schemas
       summary: Update schema draft (/admin/item-schema)
@@ -3106,6 +2957,7 @@ paths:
               $ref: '#/components/schemas/ItemSchemaDraftUpdate'
   /admin/item-schema/{category}/drafts/{version}/publish:
     post:
+      operationId: post_admin_item_schema_by_category_drafts_by_version_publish
       tags:
         - Item Schemas
       summary: Publish schema draft (/admin/item-schema)
@@ -3160,6 +3012,7 @@ paths:
         - *id015
   /admin/item-schema/{category}/versions/{version}/enable:
     post:
+      operationId: post_admin_item_schema_by_category_versions_by_version_enable
       tags:
         - Item Schemas
       summary: Enable schema version (/admin/item-schema)
@@ -3208,6 +3061,7 @@ paths:
         - *id015
   /admin/item-schema/{category}/versions/{version}/disable:
     post:
+      operationId: post_admin_item_schema_by_category_versions_by_version_disable
       tags:
         - Item Schemas
       summary: Disable schema version (/admin/item-schema)
@@ -3256,6 +3110,7 @@ paths:
         - *id015
   /export-form/{form}:
     get:
+      operationId: get_export_form_by_form
       tags:
         - Export
       summary: Export form (feature-flag)
@@ -3304,6 +3159,7 @@ paths:
           schema:
             type: string
     post:
+      operationId: post_export_form_by_form
       tags:
         - Export
       summary: Export form (feature-flag)
@@ -3354,6 +3210,7 @@ paths:
               additionalProperties: true
   /stripe/balance:
     get:
+      operationId: get_stripe_balance
       tags:
         - Stripe
       summary: Get current balance (feature-flag)
@@ -3400,6 +3257,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /stripe/balance/{wallet_id}:
     get:
+      operationId: get_stripe_balance_by_wallet_id
       tags:
         - Stripe
       summary: Get balance for wallet (feature-flag)
@@ -3453,6 +3311,7 @@ paths:
             type: integer
   /stripe/create-checkout-session:
     post:
+      operationId: post_stripe_create_checkout_session
       tags:
         - Stripe
       summary: create-checkout-session
@@ -3506,6 +3365,7 @@ paths:
               additionalProperties: true
   /stripe/create-customer-portal-session:
     post:
+      operationId: post_stripe_create_customer_portal_session
       tags:
         - Stripe
       summary: create-customer-portal-session
@@ -3559,6 +3419,7 @@ paths:
               additionalProperties: true
   /stripe/create-customer-pricing-table-session:
     post:
+      operationId: post_stripe_create_customer_pricing_table_session
       tags:
         - Stripe
       summary: create-customer-pricing-table-session
@@ -3612,6 +3473,7 @@ paths:
               additionalProperties: true
   /stripe/session-status/{session_id}:
     get:
+      operationId: get_stripe_session_status_by_session_id
       tags:
         - Stripe
       summary: Get checkout session status
@@ -3663,6 +3525,7 @@ paths:
             type: string
   /stripe/subscription:
     get:
+      operationId: get_stripe_subscription
       tags:
         - Stripe
       summary: Get subscription
@@ -3709,6 +3572,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /stripe/subscription/{wallet_id}:
     get:
+      operationId: get_stripe_subscription_by_wallet_id
       tags:
         - Stripe
       summary: Get subscription for wallet
@@ -3757,6 +3621,7 @@ paths:
         - *id017
   /stripe/webhooks:
     post:
+      operationId: post_stripe_webhooks
       tags:
         - Stripe
       summary: Stripe webhooks (no auth)
@@ -3815,6 +3680,7 @@ paths:
       security: [ ]
   /notification:
     get:
+      operationId: get_notification
       tags:
         - Notifications
       summary: List notifications for the current user
@@ -3858,8 +3724,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /notification/read/{nid}:
+  /notification/read/{notification_id}:
     post:
+      operationId: post_notification_read_by_notification_id
       tags:
         - Notifications
       summary: Mark a notification as read
@@ -3869,7 +3736,7 @@ paths:
         a simple status payload.
       parameters:
         - in: path
-          name: nid
+          name: notification_id
           required: true
           schema:
             type: string
@@ -3890,6 +3757,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /notification/unread-count:
     get:
+      operationId: get_notification_unread_count
       tags:
         - Notifications
       summary: Get unread notifications count
@@ -3916,8 +3784,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /notification/tokens:
+    put:
+      operationId: put_notification_tokens
+      tags:
+        - Notifications
+      summary: Upsert push token
+      description: >
+        Registers or replaces the current user's push token used by notification
+        delivery channels.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                prev_token:
+                  type: string
+                app_version:
+                  type: string
+              required:
+                - token
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /notification/watchers:
     get:
+      operationId: get_notification_watchers
       tags:
         - Notifications
       summary: List notification watchers
@@ -3962,6 +3883,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      operationId: post_notification_watchers
       tags:
         - Notifications
       summary: Create a watcher
@@ -3996,6 +3918,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /notification/watchers/{watcher_id}:
     patch:
+      operationId: patch_notification_watchers_by_watcher_id
       tags:
         - Notifications
       summary: Update watcher
@@ -4043,6 +3966,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      operationId: delete_notification_watchers_by_watcher_id
       tags:
         - Notifications
       summary: Delete watcher
@@ -4085,6 +4009,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/notification/settings/rules:
     get:
+      operationId: get_admin_notification_settings_rules
       tags:
         - Notifications
       summary: List notification rules (admin only)
@@ -4129,6 +4054,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      operationId: post_admin_notification_settings_rules
       tags:
         - Notifications
       summary: Create notification rule (admin only)
@@ -4164,6 +4090,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/notification/settings/rules/{rule_id}:
     patch:
+      operationId: patch_admin_notification_settings_rules_by_rule_id
       tags:
         - Notifications
       summary: Update notification rule (admin only)
@@ -4210,6 +4137,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      operationId: delete_admin_notification_settings_rules_by_rule_id
       tags:
         - Notifications
       summary: Delete notification rule (admin only)
@@ -4252,6 +4180,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/notification/notify:
     post:
+      operationId: post_admin_notification_notify
       tags:
         - Notifications
       summary: Send notification (admin only)
@@ -4288,48 +4217,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    delete:
-      tags:
-        - Notifications
-      summary: Delete notification rule (admin only)
-      description: >
-        Deletes a notification rule. Returns a status payload.
-      parameters:
-        - in: path
-          name: rule_id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   /admin/notification/templates:
     get:
+      operationId: get_admin_notification_templates
       tags:
         - Templates
       summary: List notification templates (admin only)
@@ -4362,6 +4252,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     post:
+      operationId: post_admin_notification_templates
       tags:
         - Templates
       summary: Create template (admin only)
@@ -4406,6 +4297,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /admin/notification/templates/test:
     post:
+      operationId: post_admin_notification_templates_test
       tags:
         - Templates
       summary: Test notification templates (admin only)
@@ -4443,8 +4335,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /admin/notification/templates/{templateId}:
+  /admin/notification/templates/{template_id}:
     get:
+      operationId: get_admin_notification_templates_by_template_id
       tags:
         - Templates
       summary: Get template by id (admin only)
@@ -4453,7 +4346,7 @@ paths:
         privileges. Returns 404 when the template does not exist.
       parameters:
         - in: path
-          name: templateId
+          name: template_id
           required: true
           schema:
             type: string
@@ -4484,6 +4377,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      operationId: put_admin_notification_templates_by_template_id
       tags:
         - Templates
       summary: Upsert template by id (admin only)
@@ -4492,7 +4386,7 @@ paths:
         privileges. Returns the upserted template document.
       parameters:
         - in: path
-          name: templateId
+          name: template_id
           required: true
           schema:
             type: string
@@ -4533,6 +4427,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      operationId: delete_admin_notification_templates_by_template_id
       tags:
         - Templates
       summary: Delete template (admin only)
@@ -4541,7 +4436,7 @@ paths:
         status payload indicating success.
       parameters:
         - in: path
-          name: templateId
+          name: template_id
           required: true
           schema:
             type: string
@@ -4569,6 +4464,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /gdpr/consent:
     post:
+      operationId: post_gdpr_consent
       tags:
         - GDPR
       summary: Create/update consent (feature-flag)
@@ -4626,6 +4522,7 @@ paths:
       security: [ ]
   /gdpr/consent/{consent_id}:
     get:
+      operationId: get_gdpr_consent_by_consent_id
       tags:
         - GDPR
       summary: Get consent
@@ -4674,6 +4571,7 @@ paths:
       security: [ ]
   /gdpr/files/cookies-policy:
     get:
+      operationId: get_gdpr_files_cookies_policy
       tags:
         - GDPR
       summary: Get cookies-policy PDF
@@ -4688,9 +4586,16 @@ paths:
               schema:
                 type: string
                 format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       security: [ ]
   /gdpr/files/terms-conditions:
     get:
+      operationId: get_gdpr_files_terms_conditions
       tags:
         - GDPR
       summary: Get terms-conditions PDF
@@ -4706,9 +4611,16 @@ paths:
               schema:
                 type: string
                 format: binary
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       security: [ ]
   /mail/contact:
     post:
+      operationId: post_mail_contact
       tags:
         - Contact
       summary: Send contact email (feature-flag)
@@ -4759,6 +4671,7 @@ paths:
       security: [ ]
   /locales/languages.json:
     get:
+      operationId: get_locales_languages_json
       tags:
         - Locales
       summary: List languages
@@ -4801,6 +4714,7 @@ paths:
       security: [ ]
   /locales/{lang}:
     get:
+      operationId: get_locales_by_lang
       tags:
         - Locales
       summary: Get locales for lang
@@ -4849,6 +4763,7 @@ paths:
             type: string
       security: [ ]
     post:
+      operationId: post_locales_by_lang
       tags:
         - Locales
       summary: Update locales for lang
@@ -4903,6 +4818,7 @@ paths:
               additionalProperties: true
   /locales/{language}/{namespace}:
     get:
+      operationId: get_locales_by_language_by_namespace
       tags:
         - Locales
       summary: Get namespace locales
@@ -4957,6 +4873,7 @@ paths:
       security: [ ]
   /file/{category}:
     get:
+      operationId: get_file_by_category
       tags:
         - Files
       summary: List files in category (feature-flag)
@@ -5008,6 +4925,7 @@ paths:
         - *id004
         - *id005
     post:
+      operationId: post_file_by_category
       tags:
         - Files
       summary: Create file in category (feature-flag)
@@ -5063,6 +4981,7 @@ paths:
               additionalProperties: true
   /file/{category}/{id_item}:
     get:
+      operationId: get_file_by_category_by_id_item
       tags:
         - Files
       summary: Get file metadata/content (feature-flag)
@@ -5112,6 +5031,7 @@ paths:
           schema:
             type: integer
     put:
+      operationId: put_file_by_category_by_id_item
       tags:
         - Files
       summary: Replace file metadata/content (feature-flag)
@@ -5166,6 +5086,7 @@ paths:
               type: object
               additionalProperties: true
     patch:
+      operationId: patch_file_by_category_by_id_item
       tags:
         - Files
       summary: Patch file metadata (feature-flag)
@@ -5216,6 +5137,7 @@ paths:
               type: object
               additionalProperties: true
     delete:
+      operationId: delete_file_by_category_by_id_item
       tags:
         - Files
       summary: Delete file (feature-flag)
@@ -5260,6 +5182,7 @@ paths:
         - *id019
   /contracts/templates:
     post:
+      operationId: post_contracts_templates
       tags:
         - Contracts
       summary: Create contract template (admin only)
@@ -5304,6 +5227,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     get:
+      operationId: get_contracts_templates
       tags:
         - Contracts
       summary: List contract templates (admin only)
@@ -5335,6 +5259,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /contracts/templates/{template_id}:
     get:
+      operationId: get_contracts_templates_by_template_id
       tags:
         - Contracts
       summary: Get contract template (admin only)
@@ -5371,6 +5296,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
+      operationId: put_contracts_templates_by_template_id
       tags:
         - Contracts
       summary: Update contract template (admin only)
@@ -5421,6 +5347,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /contracts/{id}:
     post:
+      operationId: post_contracts_by_id
       tags:
         - Contracts
       summary: Create contract from template
@@ -5459,6 +5386,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     get:
+      operationId: get_contracts_by_id
       tags:
         - Contracts
       summary: Get contract by id
@@ -5483,6 +5411,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
+      operationId: delete_contracts_by_id
       tags:
         - Contracts
       summary: Cancel contract
@@ -5508,6 +5437,7 @@ paths:
                 $ref: '#/components/schemas/Error'
   /contracts/{contract_id}/{dyn_path}:
     post:
+      operationId: post_contracts_by_contract_id_by_dyn_path
       tags:
         - Contracts
       summary: Fire contract event
@@ -5575,6 +5505,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     get:
+      operationId: get_contracts_by_contract_id_by_dyn_path
       tags:
         - Contracts
       summary: Fire contract event via GET

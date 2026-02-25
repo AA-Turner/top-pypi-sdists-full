@@ -3022,7 +3022,7 @@ class EC2Client(AioBaseClient):
         self, **kwargs: Unpack[CreateSecondaryNetworkRequestTypeDef]
     ) -> CreateSecondaryNetworkResultTypeDef:
         """
-        Creates an Amazon secondary network.
+        Creates a secondary network.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_secondary_network.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_secondary_network)

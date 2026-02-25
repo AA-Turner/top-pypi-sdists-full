@@ -21,6 +21,7 @@ class ListResourceTypeResponse200Item:
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
         format_extension (Union[Unset, str]):
+        is_fileset (Union[Unset, bool]):
     """
 
     name: str
@@ -30,6 +31,7 @@ class ListResourceTypeResponse200Item:
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     format_extension: Union[Unset, str] = UNSET
+    is_fileset: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +45,7 @@ class ListResourceTypeResponse200Item:
             edited_at = self.edited_at.isoformat()
 
         format_extension = self.format_extension
+        is_fileset = self.is_fileset
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -63,6 +66,8 @@ class ListResourceTypeResponse200Item:
             field_dict["edited_at"] = edited_at
         if format_extension is not UNSET:
             field_dict["format_extension"] = format_extension
+        if is_fileset is not UNSET:
+            field_dict["is_fileset"] = is_fileset
 
         return field_dict
 
@@ -88,6 +93,8 @@ class ListResourceTypeResponse200Item:
 
         format_extension = d.pop("format_extension", UNSET)
 
+        is_fileset = d.pop("is_fileset", UNSET)
+
         list_resource_type_response_200_item = cls(
             name=name,
             workspace_id=workspace_id,
@@ -96,6 +103,7 @@ class ListResourceTypeResponse200Item:
             created_by=created_by,
             edited_at=edited_at,
             format_extension=format_extension,
+            is_fileset=is_fileset,
         )
 
         list_resource_type_response_200_item.additional_properties = d

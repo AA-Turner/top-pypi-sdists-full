@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Literal, TypedDict, Any, Required, Dict, List
+from typing import TypedDict, Literal, Dict, Tuple, Required, List, Any, Union
 
 
 ClientSdkInfo = Union["_ClientSdkInfoAnyof0"]

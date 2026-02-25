@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Self, Union, cast, overload
@@ -28,6 +29,8 @@ from browser_use.browser.events import (
 	BrowserErrorEvent,
 	BrowserLaunchEvent,
 	BrowserLaunchResult,
+	BrowserReconnectedEvent,
+	BrowserReconnectingEvent,
 	BrowserStartEvent,
 	BrowserStateRequestEvent,
 	BrowserStopEvent,
@@ -50,6 +53,7 @@ from browser_use.utils import _log_pretty_url, create_task_with_error_handling, 
 if TYPE_CHECKING:
 	from browser_use.actor.page import Page
 	from browser_use.browser.demo_mode import DemoMode
+	from browser_use.browser.watchdogs.captcha_watchdog import CaptchaWaitResult
 
 DEFAULT_BROWSER_PROFILE = BrowserProfile()
 
@@ -145,6 +149,7 @@ class BrowserSession(BaseModel):
 		minimum_wait_page_load_time: float | None = None,
 		wait_for_network_idle_page_load_time: float | None = None,
 		wait_between_actions: float | None = None,
+		captcha_solver: bool | None = None,
 		auto_download_pdfs: bool | None = None,
 		cookie_whitelist_domains: list[str] | None = None,
 		cross_origin_iframes: bool | None = None,
@@ -211,6 +216,7 @@ class BrowserSession(BaseModel):
 		deterministic_rendering: bool | None = None,
 		proxy: ProxySettings | None = None,
 		enable_default_extensions: bool | None = None,
+		captcha_solver: bool | None = None,
 		window_size: dict | None = None,
 		window_position: dict | None = None,
 		filter_highlight_ids: bool | None = None,
@@ -277,6 +283,7 @@ class BrowserSession(BaseModel):
 		keep_alive: bool | None = None,
 		proxy: ProxySettings | None = None,
 		enable_default_extensions: bool | None = None,
+		captcha_solver: bool | None = None,
 		window_size: dict | None = None,
 		window_position: dict | None = None,
 		minimum_wait_page_load_time: float | None = None,
@@ -458,6 +465,21 @@ class BrowserSession(BaseModel):
 		except Exception:
 			return False
 
+	async def wait_if_captcha_solving(self, timeout: float | None = None) -> 'CaptchaWaitResult | None':
+		"""Wait if a captcha is currently being solved by the browser proxy.
+
+		Returns:
+			A CaptchaWaitResult if we had to wait, or None if no captcha was in progress.
+		"""
+		if self._captcha_watchdog is not None:
+			return await self._captcha_watchdog.wait_if_captcha_solving(timeout=timeout)
+		return None
+
+	@property
+	def is_reconnecting(self) -> bool:
+		"""Whether a WebSocket reconnection attempt is currently in progress."""
+		return self._reconnecting
+
 	@property
 	def cloud_browser(self) -> bool:
 		"""Whether to use cloud browser service from browser profile."""
@@ -504,9 +526,21 @@ class BrowserSession(BaseModel):
 	_screenshot_watchdog: Any | None = PrivateAttr(default=None)
 	_permissions_watchdog: Any | None = PrivateAttr(default=None)
 	_recording_watchdog: Any | None = PrivateAttr(default=None)
+	_captcha_watchdog: Any | None = PrivateAttr(default=None)
+	_watchdogs_attached: bool = PrivateAttr(default=False)
 
 	_cloud_browser_client: CloudBrowserClient = PrivateAttr(default_factory=lambda: CloudBrowserClient())
 	_demo_mode: 'DemoMode | None' = PrivateAttr(default=None)
+
+	# WebSocket reconnection state
+	# Max wait = attempts * timeout_per_attempt + sum(delays) + small buffer
+	# Default: 3 * 15s + (1+2+4)s + 2s = 54s
+	RECONNECT_WAIT_TIMEOUT: float = 54.0
+	_reconnecting: bool = PrivateAttr(default=False)
+	_reconnect_event: asyncio.Event = PrivateAttr(default_factory=asyncio.Event)
+	_reconnect_lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
+	_reconnect_task: asyncio.Task | None = PrivateAttr(default=None)
+	_intentional_stop: bool = PrivateAttr(default=False)
 
 	_logger: Any = PrivateAttr(default=None)
 
@@ -543,6 +577,15 @@ class BrowserSession(BaseModel):
 
 	async def reset(self) -> None:
 		"""Clear all cached CDP sessions with proper cleanup."""
+
+		# Suppress auto-reconnect callback during teardown
+		self._intentional_stop = True
+		# Cancel any in-flight reconnection task
+		if self._reconnect_task and not self._reconnect_task.done():
+			self._reconnect_task.cancel()
+			self._reconnect_task = None
+		self._reconnecting = False
+		self._reconnect_event.set()  # unblock any waiters
 
 		cdp_status = 'connected' if self._cdp_client_root else 'not connected'
 		session_mgr_status = 'exists' if self.session_manager else 'None'
@@ -584,15 +627,21 @@ class BrowserSession(BaseModel):
 		self._screenshot_watchdog = None
 		self._permissions_watchdog = None
 		self._recording_watchdog = None
+		self._captcha_watchdog = None
+		self._watchdogs_attached = False
 		if self._demo_mode:
 			self._demo_mode.reset()
 			self._demo_mode = None
 
+		self._intentional_stop = False
 		self.logger.info('✅ Browser session reset complete')
 
 	def model_post_init(self, __context) -> None:
 		"""Register event handlers after model initialization."""
 		self._connection_lock = asyncio.Lock()
+		# Initialize reconnect event as set (no reconnection pending)
+		self._reconnect_event = asyncio.Event()
+		self._reconnect_event.set()
 
 		# Check if handlers are already registered to prevent duplicates
 		from browser_use.browser.watchdog_base import BaseWatchdog
@@ -627,6 +676,7 @@ class BrowserSession(BaseModel):
 
 	async def kill(self) -> None:
 		"""Kill the browser session and reset all state."""
+		self._intentional_stop = True
 		self.logger.debug('🛑 kill() called - stopping browser with force=True and resetting state')
 
 		# First save storage state while CDP is still connected
@@ -650,6 +700,7 @@ class BrowserSession(BaseModel):
 		This clears event buses and cached state but keeps the browser alive.
 		Useful when you want to clean up resources but plan to reconnect later.
 		"""
+		self._intentional_stop = True
 		self.logger.debug('⏸️  stop() called - stopping browser gracefully (force=False) and resetting state')
 
 		# First save storage state while CDP is still connected
@@ -850,7 +901,7 @@ class BrowserSession(BaseModel):
 			await self.event_bus.dispatch(NavigationStartedEvent(target_id=target_id, url=event.url))
 
 			# Navigate to URL with proper lifecycle waiting
-			await self._navigate_and_wait(event.url, target_id)
+			await self._navigate_and_wait(event.url, target_id, wait_until=event.wait_until)
 
 			# Close any extension options pages that might have opened
 			await self._close_extension_options_pages()
@@ -887,17 +938,17 @@ class BrowserSession(BaseModel):
 				await self.event_bus.dispatch(AgentFocusChangedEvent(target_id=target_id, url=event.url))
 			raise
 
-	async def _navigate_and_wait(self, url: str, target_id: str, timeout: float | None = None) -> None:
+	async def _navigate_and_wait(
+		self,
+		url: str,
+		target_id: str,
+		timeout: float | None = None,
+		wait_until: str = 'load',
+	) -> None:
 		"""Navigate to URL and wait for page readiness using CDP lifecycle events.
 
-		Two-strategy approach optimized for speed with robust fallback:
-		1. networkIdle - Returns ASAP when no network activity (~50-200ms for cached pages)
-		2. load - Fallback when page has ongoing network activity (all resources loaded)
-
-		This gives us instant returns for cached content while being robust for dynamic pages.
-
-		NO handler registration here - handlers are registered ONCE per session in SessionManager.
-		We poll stored events instead to avoid handler accumulation.
+		Polls stored lifecycle events (registered once per session in SessionManager).
+		wait_until controls the minimum acceptable signal: 'commit', 'domcontentloaded', 'load', 'networkidle'.
 		"""
 		cdp_session = await self.get_or_create_cdp_session(target_id, focus=False)
 
@@ -909,28 +960,36 @@ class BrowserSession(BaseModel):
 				if url.startswith('http') and current_url.startswith('http')
 				else False
 			)
-			timeout = 2.0 if same_domain else 4.0
+			timeout = 3.0 if same_domain else 8.0
 
-		# Start performance tracking
 		nav_start_time = asyncio.get_event_loop().time()
 
-		nav_result = await cdp_session.cdp_client.send.Page.navigate(
-			params={'url': url, 'transitionType': 'address_bar'},
-			session_id=cdp_session.session_id,
-		)
+		# Wrap Page.navigate() with timeout — heavy sites can block here for 10s+
+		nav_timeout = 20.0
+		try:
+			nav_result = await asyncio.wait_for(
+				cdp_session.cdp_client.send.Page.navigate(
+					params={'url': url, 'transitionType': 'address_bar'},
+					session_id=cdp_session.session_id,
+				),
+				timeout=nav_timeout,
+			)
+		except TimeoutError:
+			duration_ms = (asyncio.get_event_loop().time() - nav_start_time) * 1000
+			raise RuntimeError(f'Page.navigate() timed out after {nav_timeout}s ({duration_ms:.0f}ms) for {url}')
 
-		# Check for immediate navigation errors
 		if nav_result.get('errorText'):
 			raise RuntimeError(f'Navigation failed: {nav_result["errorText"]}')
 
-		# Track this specific navigation
+		if wait_until == 'commit':
+			duration_ms = (asyncio.get_event_loop().time() - nav_start_time) * 1000
+			self.logger.debug(f'✅ Page ready for {url} (commit, {duration_ms:.0f}ms)')
+			return
+
 		navigation_id = nav_result.get('loaderId')
 		start_time = asyncio.get_event_loop().time()
+		seen_events = []
 
-		# Poll stored lifecycle events
-		seen_events = []  # Track events for timeout diagnostics
-
-		# Check if session has lifecycle monitoring enabled
 		if not hasattr(cdp_session, '_lifecycle_events'):
 			raise RuntimeError(
 				f'❌ Lifecycle monitoring not enabled for {cdp_session.target_id[:8]}! '
@@ -938,42 +997,37 @@ class BrowserSession(BaseModel):
 				f'Session: {cdp_session}'
 			)
 
-		# Poll for lifecycle events until timeout
-		poll_interval = 0.05  # Poll every 50ms
+		# Acceptable events by readiness level (higher is always acceptable)
+		acceptable_events: set[str] = {'networkIdle'}
+		if wait_until in ('load', 'domcontentloaded'):
+			acceptable_events.add('load')
+		if wait_until == 'domcontentloaded':
+			acceptable_events.add('DOMContentLoaded')
+
+		poll_interval = 0.05
 		while (asyncio.get_event_loop().time() - start_time) < timeout:
-			# Check stored events
 			try:
-				# Get recent events matching our navigation
 				for event_data in list(cdp_session._lifecycle_events):
 					event_name = event_data.get('name')
 					event_loader_id = event_data.get('loaderId')
 
-					# Track events
 					event_str = f'{event_name}(loader={event_loader_id[:8] if event_loader_id else "none"})'
 					if event_str not in seen_events:
 						seen_events.append(event_str)
 
-					# Only respond to events from our navigation (or accept all if no loaderId)
 					if event_loader_id and navigation_id and event_loader_id != navigation_id:
 						continue
 
-					if event_name == 'networkIdle':
+					if event_name in acceptable_events:
 						duration_ms = (asyncio.get_event_loop().time() - nav_start_time) * 1000
-						self.logger.debug(f'✅ Page ready for {url} (networkIdle, {duration_ms:.0f}ms)')
-						return
-
-					elif event_name == 'load':
-						duration_ms = (asyncio.get_event_loop().time() - nav_start_time) * 1000
-						self.logger.debug(f'✅ Page ready for {url} (load, {duration_ms:.0f}ms)')
+						self.logger.debug(f'✅ Page ready for {url} ({event_name}, {duration_ms:.0f}ms)')
 						return
 
 			except Exception as e:
 				self.logger.debug(f'Error polling lifecycle events: {e}')
 
-			# Wait before next poll
 			await asyncio.sleep(poll_interval)
 
-		# Timeout - continue anyway with detailed diagnostics
 		duration_ms = (asyncio.get_event_loop().time() - nav_start_time) * 1000
 		if not seen_events:
 			self.logger.error(
@@ -1382,12 +1436,15 @@ class BrowserSession(BaseModel):
 					f'(agent_focus stays on {current_focus}...)'
 				)
 
-		# Resume if waiting for debugger
+		# Resume if waiting for debugger (non-essential, don't let it block connect)
 		if focus:
 			try:
-				await session.cdp_client.send.Runtime.runIfWaitingForDebugger(session_id=session.session_id)
+				await asyncio.wait_for(
+					session.cdp_client.send.Runtime.runIfWaitingForDebugger(session_id=session.session_id),
+					timeout=3.0,
+				)
 			except Exception:
-				pass  # May fail if not waiting
+				pass  # May fail if not waiting, or timeout — either is fine
 
 		return session
 
@@ -1466,11 +1523,12 @@ class BrowserSession(BaseModel):
 	async def attach_all_watchdogs(self) -> None:
 		"""Initialize and attach all watchdogs with explicit handler registration."""
 		# Prevent duplicate watchdog attachment
-		if hasattr(self, '_watchdogs_attached') and self._watchdogs_attached:
+		if self._watchdogs_attached:
 			self.logger.debug('Watchdogs already attached, skipping duplicate attachment')
 			return
 
 		from browser_use.browser.watchdogs.aboutblank_watchdog import AboutBlankWatchdog
+		from browser_use.browser.watchdogs.captcha_watchdog import CaptchaWatchdog
 
 		# from browser_use.browser.crash_watchdog import CrashWatchdog
 		from browser_use.browser.watchdogs.default_action_watchdog import DefaultActionWatchdog
@@ -1604,6 +1662,12 @@ class BrowserSession(BaseModel):
 			self._har_recording_watchdog = HarRecordingWatchdog(event_bus=self.event_bus, browser_session=self)
 			self._har_recording_watchdog.attach_to_session()
 
+		# Initialize CaptchaWatchdog (listens for captcha solver events from the browser proxy)
+		if self.browser_profile.captcha_solver:
+			CaptchaWatchdog.model_rebuild()
+			self._captcha_watchdog = CaptchaWatchdog(event_bus=self.event_bus, browser_session=self)
+			self._captcha_watchdog.attach_to_session()
+
 		# Mark watchdogs as attached to prevent duplicate attachment
 		self._watchdogs_attached = True
 
@@ -1641,7 +1705,9 @@ class BrowserSession(BaseModel):
 			)
 
 			# Run a tiny HTTP client to query for the WebSocket URL from the /json/version endpoint
-			async with httpx.AsyncClient() as client:
+			# Default httpx timeout is 5s which can race the global wait_for(connect(), 15s).
+			# Use 30s as a safety net for direct connect() callers; the wait_for is the real deadline.
+			async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
 				headers = self.browser_profile.headers or {}
 				version_info = await client.get(url, headers=headers)
 				self.logger.debug(f'Raw version info: {str(version_info)}')
@@ -1731,6 +1797,10 @@ class BrowserSession(BaseModel):
 
 			# Enable proxy authentication handling if configured
 			await self._setup_proxy_auth()
+
+			# Attach WS drop detection callback for auto-reconnection
+			self._intentional_stop = False
+			self._attach_ws_drop_callback()
 
 			# Verify the target is working
 			if self.agent_focus_target_id:
@@ -1936,6 +2006,179 @@ class BrowserSession(BaseModel):
 				self.logger.debug(f'Fetch.enable on focused session failed: {type(e).__name__}: {e}')
 		except Exception as e:
 			self.logger.debug(f'Skipping proxy auth setup: {type(e).__name__}: {e}')
+
+	async def reconnect(self) -> None:
+		"""Re-establish the CDP WebSocket connection to an already-running browser.
+
+		This is a lightweight reconnection that:
+		1. Stops the old CDPClient (WS already dead, just clean state)
+		2. Clears SessionManager (all CDP sessions are invalid post-disconnect)
+		3. Creates a new CDPClient with the same cdp_url
+		4. Re-initializes SessionManager and re-enables autoAttach
+		5. Re-discovers page targets and restores agent focus
+		6. Re-enables proxy auth if configured
+		"""
+		assert self.cdp_url, 'Cannot reconnect without a CDP URL'
+
+		old_focus_target_id = self.agent_focus_target_id
+
+		# 1. Stop old CDPClient (WS is already dead, this just cleans internal state)
+		if self._cdp_client_root:
+			try:
+				await self._cdp_client_root.stop()
+			except Exception as e:
+				self.logger.debug(f'Error stopping old CDP client during reconnect: {e}')
+			self._cdp_client_root = None
+
+		# 2. Clear SessionManager (all sessions are stale)
+		if self.session_manager:
+			try:
+				await self.session_manager.clear()
+			except Exception as e:
+				self.logger.debug(f'Error clearing SessionManager during reconnect: {e}')
+			self.session_manager = None
+
+		self.agent_focus_target_id = None
+
+		# 3. Create new CDPClient with the same cdp_url
+		headers = getattr(self.browser_profile, 'headers', None)
+		self._cdp_client_root = CDPClient(
+			self.cdp_url,
+			additional_headers=headers,
+			max_ws_frame_size=200 * 1024 * 1024,
+		)
+		await self._cdp_client_root.start()
+
+		# 4. Re-initialize SessionManager
+		from browser_use.browser.session_manager import SessionManager
+
+		self.session_manager = SessionManager(self)
+		await self.session_manager.start_monitoring()
+
+		# 5. Re-enable autoAttach
+		await self._cdp_client_root.send.Target.setAutoAttach(
+			params={'autoAttach': True, 'waitForDebuggerOnStart': False, 'flatten': True}
+		)
+
+		# 6. Re-discover page targets and restore focus
+		page_targets = self.session_manager.get_all_page_targets()
+
+		# Prefer the old focus target if it still exists
+		restored = False
+		if old_focus_target_id:
+			for target in page_targets:
+				if target.target_id == old_focus_target_id:
+					await self.get_or_create_cdp_session(old_focus_target_id, focus=True)
+					restored = True
+					self.logger.debug(f'🔄 Restored agent focus to previous target {old_focus_target_id[:8]}...')
+					break
+
+		if not restored:
+			if page_targets:
+				fallback_id = page_targets[0].target_id
+				await self.get_or_create_cdp_session(fallback_id, focus=True)
+				self.logger.debug(f'🔄 Agent focus set to fallback target {fallback_id[:8]}...')
+			else:
+				# No pages exist — create one
+				new_target = await self._cdp_client_root.send.Target.createTarget(params={'url': 'about:blank'})
+				target_id = new_target['targetId']
+				await self.get_or_create_cdp_session(target_id, focus=True)
+				self.logger.debug(f'🔄 Created new blank page during reconnect: {target_id[:8]}...')
+
+		# 7. Re-enable proxy auth if configured
+		await self._setup_proxy_auth()
+
+		# 8. Attach the WS drop detection callback to the new client
+		self._attach_ws_drop_callback()
+
+	async def _auto_reconnect(self, max_attempts: int = 3) -> None:
+		"""Attempt to reconnect with exponential backoff.
+
+		Dispatches BrowserReconnectingEvent before each attempt and
+		BrowserReconnectedEvent on success.
+		"""
+		async with self._reconnect_lock:
+			if self._reconnecting:
+				return  # already in progress from another caller
+			self._reconnecting = True
+			self._reconnect_event.clear()
+
+		start_time = time.time()
+		delays = [1.0, 2.0, 4.0]
+
+		try:
+			for attempt in range(1, max_attempts + 1):
+				self.event_bus.dispatch(
+					BrowserReconnectingEvent(
+						cdp_url=self.cdp_url or '',
+						attempt=attempt,
+						max_attempts=max_attempts,
+					)
+				)
+				self.logger.warning(f'🔄 WebSocket reconnection attempt {attempt}/{max_attempts}...')
+
+				try:
+					await asyncio.wait_for(self.reconnect(), timeout=15.0)
+					# Success
+					downtime = time.time() - start_time
+					self.event_bus.dispatch(
+						BrowserReconnectedEvent(
+							cdp_url=self.cdp_url or '',
+							attempt=attempt,
+							downtime_seconds=downtime,
+						)
+					)
+					self.logger.info(f'🔄 WebSocket reconnected after {downtime:.1f}s (attempt {attempt})')
+					return
+				except Exception as e:
+					self.logger.warning(f'🔄 Reconnection attempt {attempt} failed: {type(e).__name__}: {e}')
+					if attempt < max_attempts:
+						delay = delays[attempt - 1] if attempt - 1 < len(delays) else delays[-1]
+						await asyncio.sleep(delay)
+
+			# All attempts exhausted
+			self.logger.error(f'🔄 All {max_attempts} reconnection attempts failed')
+			self.event_bus.dispatch(
+				BrowserErrorEvent(
+					error_type='ReconnectionFailed',
+					message=f'Failed to reconnect after {max_attempts} attempts ({time.time() - start_time:.1f}s)',
+					details={'cdp_url': self.cdp_url or '', 'max_attempts': max_attempts},
+				)
+			)
+		finally:
+			self._reconnecting = False
+			self._reconnect_event.set()  # wake up all waiters regardless of outcome
+
+	def _attach_ws_drop_callback(self) -> None:
+		"""Attach a done callback to the CDPClient's message handler task to detect WS drops."""
+		if not self._cdp_client_root or not hasattr(self._cdp_client_root, '_message_handler_task'):
+			return
+
+		task = self._cdp_client_root._message_handler_task
+		if task is None or task.done():
+			return
+
+		def _on_message_handler_done(fut: asyncio.Future) -> None:
+			# Guard: skip if intentionally stopped, already reconnecting, or no cdp_url
+			if self._intentional_stop or self._reconnecting or not self.cdp_url:
+				return
+
+			# The message handler task exiting means the WS connection dropped
+			exc = fut.exception() if not fut.cancelled() else None
+			self.logger.warning(
+				f'🔌 CDP WebSocket message handler exited unexpectedly'
+				f'{f": {type(exc).__name__}: {exc}" if exc else " (connection closed)"}'
+			)
+
+			# Fire auto-reconnect as an asyncio task
+			try:
+				loop = asyncio.get_running_loop()
+				self._reconnect_task = loop.create_task(self._auto_reconnect())
+			except RuntimeError:
+				# No running event loop — can't reconnect
+				self.logger.error('🔌 No event loop available for auto-reconnect')
+
+		task.add_done_callback(_on_message_handler_done)
 
 	async def get_tabs(self) -> list[TabInfo]:
 		"""Get information about all open tabs using cached target data."""

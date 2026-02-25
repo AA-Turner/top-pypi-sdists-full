@@ -1,5 +1,8 @@
+import pytest
+
 from openapi_spec_validator import OpenAPIV2SpecValidator
 from openapi_spec_validator import OpenAPIV30SpecValidator
+from openapi_spec_validator import OpenAPIV31SpecValidator
 from openapi_spec_validator.validation.exceptions import (
     DuplicateOperationIDError,
 )
@@ -265,6 +268,46 @@ class TestSpecValidatorIterErrors:
             "'/test/{param1}/{param2}' was not resolved"
         )
 
+    def test_extra_path_parameter_not_present_in_path(self):
+        spec = {
+            "openapi": "3.0.0",
+            "info": {
+                "title": "Test Api",
+                "version": "0.0.1",
+            },
+            "paths": {
+                "/test": {
+                    "get": {
+                        "responses": {
+                            "default": {
+                                "description": "default response",
+                            },
+                        },
+                        "parameters": [
+                            {
+                                "name": "param1",
+                                "in": "path",
+                                "required": True,
+                                "schema": {
+                                    "type": "integer",
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        }
+
+        errors = OpenAPIV30SpecValidator(spec).iter_errors()
+
+        errors_list = list(errors)
+        assert len(errors_list) == 1
+        assert errors_list[0].__class__ == UnresolvableParameterError
+        assert errors_list[0].message == (
+            "Path parameter 'param1' for 'get' operation in '/test' "
+            "was not resolved"
+        )
+
     def test_default_value_wrong_type(self):
         spec = {
             "openapi": "3.0.0",
@@ -495,3 +538,64 @@ class TestSpecValidatorIterErrors:
         assert len(errors_list) == 1
         assert errors_list[0].__class__ == OpenAPIValidationError
         assert errors_list[0].message == ("'invalid' is not a 'custom'")
+
+    def test_malformed_property_schema(self):
+        spec = {
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Test Api",
+                "version": "0.0.1",
+            },
+            "components": {
+                "schemas": {
+                    "Component": {
+                        "type": "object",
+                        "properties": {
+                            "name": "string",
+                        },
+                    }
+                },
+            },
+        }
+
+        errors = OpenAPIV31SpecValidator(spec).iter_errors()
+
+        errors_list = list(errors)
+        assert len(errors_list) == 1
+        assert errors_list[0].__class__ == OpenAPIValidationError
+        assert (
+            "'string' is not of type 'object', 'boolean'"
+            in errors_list[0].message
+        )
+
+    @pytest.mark.parametrize(
+        "component_schema",
+        [
+            {"allOf": {"type": "string"}},
+            {"type": "array", "items": [{"type": "string"}]},
+            {"type": 123},
+            {"type": "object", "required": "name"},
+            {"type": "string", "minLength": "1"},
+            {"$ref": 42},
+        ],
+    )
+    def test_malformed_schema_examples(self, component_schema):
+        spec = {
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Test Api",
+                "version": "0.0.1",
+            },
+            "paths": {},
+            "components": {
+                "schemas": {
+                    "Component": component_schema,
+                },
+            },
+        }
+
+        errors = OpenAPIV31SpecValidator(spec).iter_errors()
+
+        errors_list = list(errors)
+        assert len(errors_list) > 0
+        assert errors_list[0].__class__ == OpenAPIValidationError

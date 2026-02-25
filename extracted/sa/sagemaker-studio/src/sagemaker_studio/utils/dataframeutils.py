@@ -13,6 +13,117 @@ logger = logging.getLogger()
 logger.info("Importing dataframeutils")
 
 
+def _detect_format_from_metadata(
+    table_type: str,
+    parameters: dict,
+    input_format: str,
+    serialization_library: str,
+) -> str:
+    """
+    Detect table format from Glue table metadata components.
+
+    Args:
+        table_type: Glue table type
+        parameters: Table parameters (normalized to lowercase keys)
+        input_format: Storage descriptor input format
+        serialization_library: SerDe serialization library
+
+    Returns:
+        str: Detected format ('iceberg', 'hudi', 'deltalake', 'parquet', 'orc',
+             'json', 'csv_or_text', or 'unknown')
+    """
+    # Iceberg
+    if (
+        table_type == "ICEBERG"
+        or parameters.get("table_type", "").lower() == "iceberg"
+        or "iceberg" in serialization_library.lower()
+    ):
+        return "iceberg"
+
+    # Hudi
+    if (
+        "hoodie.table.name" in parameters
+        or "hudi" in input_format.lower()
+        or "hudi" in serialization_library.lower()
+    ):
+        return "hudi"
+
+    # Delta
+    if (
+        "delta.table.path" in parameters
+        or "delta" in input_format.lower()
+        or "delta" in serialization_library.lower()
+        or "delta" in parameters.get("provider", "").lower()
+    ):
+        return "deltalake"
+
+    # Parquet
+    if "parquet" in input_format.lower() or "parquet" in serialization_library.lower():
+        return "parquet"
+
+    # ORC
+    if "orc" in input_format.lower() or "orc" in serialization_library.lower():
+        return "orc"
+
+    # JSON
+    if "json" in serialization_library.lower() or parameters.get("classification") == "json":
+        return "json"
+
+    # CSV / Text
+    if input_format.lower().endswith("textinputformat"):
+        return "csv_or_text"
+
+    return "unknown"
+
+
+def _get_glue_table_format(
+    database: str, table: str, catalog_id: Optional[str] = None, region: Optional[str] = None
+) -> str:
+    """
+    Determine the table format from Glue table metadata.
+
+    Fetches table metadata from AWS Glue using boto3 and examines TableType,
+    Parameters, and StorageDescriptor to identify the format. Checks for modern
+    table formats (Iceberg, Hudi, Delta) as well as traditional formats
+    (Parquet, ORC, JSON, CSV).
+
+    Args:
+        database: Database name
+        table: Table name
+        catalog_id: Optional catalog ID (AWS account ID)
+        region: Optional AWS region for the Glue client
+
+    Returns:
+        str: Detected format ('iceberg', 'hudi', 'delta', 'parquet', 'orc', 'json',
+             'csv_or_text', or 'unknown')
+    """
+    import boto3
+
+    glue_client = boto3.client("glue", region_name=region) if region else boto3.client("glue")
+
+    get_table_args = {"DatabaseName": database, "Name": table}
+    if catalog_id:
+        get_table_args["CatalogId"] = catalog_id
+
+    try:
+        response = glue_client.get_table(**get_table_args)
+        table_metadata = response.get("Table", {})
+    except Exception as e:
+        logger.warning(
+            f"Failed to retrieve table '{table}' from database '{database}': {str(e)}. "
+            f"Returning 'unknown' format."
+        )
+        return "unknown"
+
+    table_type = table_metadata.get("TableType", "")
+    parameters = {k.lower(): v for k, v in table_metadata.get("Parameters", {}).items()}
+    storage_descriptor = table_metadata.get("StorageDescriptor", {})
+    input_format = storage_descriptor.get("InputFormat", "")
+    serialization_library = storage_descriptor.get("SerdeInfo", {}).get("SerializationLibrary", "")
+
+    return _detect_format_from_metadata(table_type, parameters, input_format, serialization_library)
+
+
 def read_catalog_table(
     database: str,
     table: str,
@@ -61,16 +172,62 @@ def read_catalog_table(
     catalog_type = catalog_obj.type
     resource_arn = catalog_obj.resource_arn
 
+    # Get region from connection's physical endpoints if available
+    catalog_region = None
+    if connection.physical_endpoints and len(connection.physical_endpoints) > 0:
+        catalog_region = connection.physical_endpoints[0].aws_region
+    # Fallback to extracting from resource ARN if not available from physical endpoints
+    if not catalog_region and resource_arn:
+        catalog_region = resource_arn.split(":")[3]
+
     if catalog_type == "NATIVE":
+        detected_format = None  # Initialize to None
+        table_info = None  # Initialize to None
+
         if format is None:
+            # Try the original approach first using awswrangler's get_table_parameters
             try:
                 table_info = wr.catalog.get_table_parameters(
                     database=database, table=table, catalog_id=catalog_obj.id
                 )
-                format = table_info.get("classification") if table_info else "parquet"
-            except Exception:
-                # If get_table_parameters fails, set format to parquet
-                format = "parquet"
+                format = table_info.get("classification") if table_info else None
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get table parameters for {database}.{table}: {str(e)}. "
+                    f"Will try alternative format detection."
+                )
+                format = None
+
+            # If the original approach didn't work, fall back to the new detection method
+            if format is None:
+                try:
+                    detected_format = _get_glue_table_format(
+                        database=database,
+                        table=table,
+                        catalog_id=catalog_obj.id,
+                        region=catalog_region,
+                    )
+
+                    # Map detected format to awswrangler reader function names
+                    if detected_format in ["parquet", "orc", "json", "deltalake"]:
+                        format = detected_format
+                    elif detected_format == "csv_or_text":
+                        format = "csv"
+                    elif detected_format in ["iceberg", "hudi", "unknown"]:
+                        format = "parquet"
+                    else:
+                        logger.warning(
+                            f"Detected format '{detected_format}' for table {database}.{table} "
+                            f"requires special handling. Falling back to 'parquet'."
+                        )
+                        format = "parquet"
+                except Exception as e:
+                    # If table metadata retrieval fails, set format to parquet
+                    logger.warning(
+                        f"Failed to detect format for table {database}.{table}: {str(e)}. "
+                        f"Falling back to 'parquet'."
+                    )
+                    format = "parquet"
 
             if format is None:
                 format = "parquet"
@@ -82,6 +239,30 @@ def read_catalog_table(
 
         if not hasattr(wr.s3, reader_func_name):
             raise Exception(f"Unsupported format '{format}' for AwsDataCatalog")
+
+        # For Hudi tables, append wildcard to read parquet files inside the folder
+        if detected_format == "hudi" or format == "hudi":
+            table_location = table_location.rstrip("/") + "/*.parquet"
+        elif detected_format == "iceberg" or format == "iceberg":
+            table_location = table_location + "/data/"
+        # For Delta Lake tables, check if the actual location is in table parameters
+        elif detected_format == "deltalake" or format == "deltalake":
+            try:
+                # If table_info wasn't retrieved earlier, fetch it now
+                if table_info is None:
+                    table_info = wr.catalog.get_table_parameters(
+                        database=database, table=table, catalog_id=catalog_obj.id
+                    )
+                # Delta Lake stores the actual S3 path in the 'location' parameter
+                if table_info and "location" in table_info:
+                    table_location = table_info["location"]
+                    logger.info(f"Using location parameter for table location: {table_location}")
+            except Exception as e:
+                logger.warning(f"Failed to get location parameter for Delta table: {str(e)}")
+
+        # For JSON tables, ensure lines=True is set for JSONL/NDJSON format
+        if (detected_format == "json" or format == "json") and "lines" not in kwargs:
+            kwargs["lines"] = True
 
         reader = getattr(wr.s3, reader_func_name)
         wr_args = {"path": table_location, **kwargs}

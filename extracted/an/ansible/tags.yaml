@@ -7,8 +7,8 @@ amazon.aws:
   version: 10.2.0
 ansible.netcommon:
   repository: https://github.com/ansible-collections/ansible.netcommon
-  tag: v8.2.1
-  version: 8.2.1
+  tag: v8.4.0
+  version: 8.4.0
 ansible.posix:
   repository: https://github.com/ansible-collections/ansible.posix
   tag: 2.1.0
@@ -23,8 +23,8 @@ ansible.windows:
   version: 3.3.0
 arista.eos:
   repository: https://github.com/ansible-collections/arista.eos
-  tag: v12.0.0
-  version: 12.0.0
+  tag: v12.0.1
+  version: 12.0.1
 awx.awx:
   collection_directory: ./awx_collection
   repository: https://github.com/ansible/awx
@@ -49,24 +49,24 @@ cisco.aci:
   version: 2.13.0
 cisco.dnac:
   repository: https://github.com/cisco-en-programmability/dnacenter-ansible
-  tag: v6.44.0
-  version: 6.44.0
+  tag: v6.48.0
+  version: 6.48.0
 cisco.intersight:
   repository: https://github.com/CiscoDevNet/intersight-ansible
   tag: 2.12.0
   version: 2.12.0
 cisco.ios:
   repository: https://github.com/ansible-collections/cisco.ios
-  tag: v11.2.0
-  version: 11.2.0
+  tag: v11.3.0
+  version: 11.3.0
 cisco.iosxr:
   repository: https://github.com/ansible-collections/cisco.iosxr
   tag: v12.1.1
   version: 12.1.1
 cisco.meraki:
   repository: https://github.com/meraki/dashboard-api-ansible
-  tag: v2.22.0
-  version: 2.22.0
+  tag: v2.22.1
+  version: 2.22.1
 cisco.mso:
   repository: https://github.com/CiscoDevNet/ansible-mso
   tag: v2.12.0
@@ -85,8 +85,8 @@ cloudscale_ch.cloud:
   version: 2.5.3
 community.aws:
   repository: https://github.com/ansible-collections/community.aws
-  tag: 10.0.0
-  version: 10.0.0
+  tag: 10.1.0
+  version: 10.1.0
 community.ciscosmb:
   repository: https://github.com/ansible-collections/community.ciscosmb
   tag: 1.0.11
@@ -97,20 +97,20 @@ community.clickhouse:
   version: 2.0.0
 community.crypto:
   repository: https://github.com/ansible-collections/community.crypto
-  tag: 3.1.0
-  version: 3.1.0
+  tag: 3.1.1
+  version: 3.1.1
 community.dns:
   repository: https://github.com/ansible-collections/community.dns
-  tag: 3.5.1
-  version: 3.5.1
+  tag: 3.5.2
+  version: 3.5.2
 community.docker:
   repository: https://github.com/ansible-collections/community.docker
-  tag: 5.0.5
-  version: 5.0.5
+  tag: 5.0.6
+  version: 5.0.6
 community.general:
   repository: https://github.com/ansible-collections/community.general
-  tag: 12.3.0
-  version: 12.3.0
+  tag: 12.4.0
+  version: 12.4.0
 community.grafana:
   repository: https://github.com/ansible-collections/grafana
   tag: 2.3.0
@@ -129,16 +129,16 @@ community.library_inventory_filtering_v1:
   version: 1.1.5
 community.libvirt:
   repository: https://github.com/ansible-collections/community.libvirt
-  tag: 2.0.0
-  version: 2.0.0
+  tag: 2.1.0
+  version: 2.1.0
 community.mongodb:
   repository: https://github.com/ansible-collections/community.mongodb
-  tag: 1.7.11
-  version: 1.7.11
+  tag: 1.7.12
+  version: 1.7.12
 community.mysql:
   repository: https://github.com/ansible-collections/community.mysql
-  tag: 4.0.1
-  version: 4.0.1
+  tag: 4.1.0
+  version: 4.1.0
 community.okd:
   repository: https://github.com/openshift/community.okd
   tag: 5.0.0
@@ -185,8 +185,8 @@ community.zabbix:
   version: 4.1.1
 containers.podman:
   repository: https://github.com/containers/ansible-podman-collections
-  tag: 1.18.1
-  version: 1.18.1
+  tag: 1.19.0
+  version: 1.19.0
 cyberark.conjur:
   repository: https://github.com/cyberark/ansible-conjur-collection
   tag: v1.3.9
@@ -238,8 +238,8 @@ hetzner.hcloud:
   version: 6.7.0
 hitachivantara.vspone_block:
   repository: https://github.com/hitachi-vantara/vspone-block-ansible
-  tag: 4.5.1
-  version: 4.5.1
+  tag: 4.6.1
+  version: 4.6.1
 hitachivantara.vspone_object:
   repository: https://github.com/hitachi-vantara/vspone-object-ansible
   tag: v1.1.1
@@ -274,8 +274,8 @@ kaytus.ksmanage:
   version: 2.0.0
 kubernetes.core:
   repository: https://github.com/ansible-collections/kubernetes.core
-  tag: 6.2.0
-  version: 6.2.0
+  tag: 6.3.0
+  version: 6.3.0
 kubevirt.core:
   repository: https://github.com/kubevirt/kubevirt.core
   tag: 2.2.3
@@ -326,12 +326,12 @@ ovirt.ovirt:
   version: 3.2.2
 pcg.alpaca_operator:
   repository: https://github.com/Public-Cloud-Group/alpaca-operator-ansible
-  tag: v2.1.1
-  version: 2.1.1
+  tag: v2.2.0
+  version: 2.2.0
 purestorage.flasharray:
   repository: https://github.com/Pure-Storage-Ansible/FlashArray-Collection
-  tag: 1.41.0
-  version: 1.41.0
+  tag: 1.42.0
+  version: 1.42.0
 purestorage.flashblade:
   repository: https://github.com/Pure-Storage-Ansible/FlashBlade-Collection
   tag: 1.24.0
@@ -358,8 +358,8 @@ vmware.vmware:
   version: 2.7.0
 vmware.vmware_rest:
   repository: https://github.com/ansible-collections/vmware.vmware_rest
-  tag: 4.9.0
-  version: 4.9.0
+  tag: 4.10.0
+  version: 4.10.0
 vultr.cloud:
   repository: https://github.com/vultr/ansible-collection-vultr
   tag: v1.13.0

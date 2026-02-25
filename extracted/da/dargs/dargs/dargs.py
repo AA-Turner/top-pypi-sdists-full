@@ -21,6 +21,7 @@ from __future__ import annotations
 import difflib
 import fnmatch
 import json
+import os
 import re
 from copy import deepcopy
 from enum import Enum
@@ -43,7 +44,7 @@ HookArgVType = Callable[["Argument", Any, List[str]], None]
 HookVrntType = Callable[["Variant", dict, List[str]], None]
 
 
-def _DUMMYHOOK(a, x, p):
+def _DUMMYHOOK(a: Argument | Variant, x: dict | Any, p: list[str]) -> None:
     # for doing nothing in traversing
     pass
 
@@ -56,7 +57,9 @@ class _Flags(Enum):
 class ArgumentError(Exception):
     """Base error class for invalid argument values in argchecking."""
 
-    def __init__(self, path: None | str | list[str] = None, message: str | None = None):
+    def __init__(
+        self, path: None | str | list[str] = None, message: str | None = None
+    ) -> None:
         super().__init__(message)
         if path is None:
             path = ""
@@ -150,7 +153,7 @@ class Argument:
         doc: str = "",
         fold_subdoc: bool = False,
         extra_check_errmsg: str = "",
-    ):
+    ) -> None:
         self.name = name
         self.sub_fields: dict[str, Argument] = {}
         self.sub_variants: dict[str, Variant] = {}
@@ -174,10 +177,10 @@ class Argument:
 
         # do not compare doc and default
         # since they do not enter to the type checking
-        def fkey(f):
+        def fkey(f: Argument) -> str:
             return f.name
 
-        def vkey(v):
+        def vkey(v: Variant) -> str:
             return v.flag_name
 
         return (
@@ -213,7 +216,7 @@ class Argument:
             return self[skey][rkey]
 
     @property
-    def I(self):  # noqa:E743
+    def I(self) -> Argument:  # noqa:E743
         # return a dummy argument that only has self as a sub field
         # can be used in indexing
         return Argument("_", dict, [self])
@@ -255,16 +258,16 @@ class Argument:
         # and make it compatible with `isinstance`
         return tuple(dtype)
 
-    def set_dtype(self, dtype: None | type | Iterable[type]):
+    def set_dtype(self, dtype: None | type | Iterable[type]) -> None:
         """Change the dtype of the current Argument."""
         self.dtype = self._reorg_dtype(dtype)
 
-    def set_repeat(self, repeat: bool = True):
+    def set_repeat(self, repeat: bool = True) -> None:
         """Change the repeat attribute of the current Argument."""
         self.repeat = repeat
         self.dtype = self._reorg_dtype(self.dtype)
 
-    def extend_subfields(self, sub_fields: Iterable[Argument] | None):
+    def extend_subfields(self, sub_fields: Iterable[Argument] | None) -> None:
         """Add a list of sub fields to the current Argument."""
         if sub_fields is None:
             return
@@ -276,7 +279,7 @@ class Argument:
         )
         self.dtype = self._reorg_dtype(self.dtype)
 
-    def add_subfield(self, name: str | Argument, *args, **kwargs) -> Argument:
+    def add_subfield(self, name: str | Argument, *args: Any, **kwargs: Any) -> Argument:
         """Add a sub field to the current Argument."""
         if isinstance(name, Argument):
             newarg = name
@@ -285,7 +288,7 @@ class Argument:
         self.extend_subfields([newarg])
         return newarg
 
-    def extend_subvariants(self, sub_variants: Iterable[Variant] | None):
+    def extend_subvariants(self, sub_variants: Iterable[Variant] | None) -> None:
         """Add a list of sub variants to the current Argument."""
         if sub_variants is None:
             return
@@ -298,7 +301,9 @@ class Argument:
         )
         self.dtype = self._reorg_dtype(self.dtype)
 
-    def add_subvariant(self, flag_name: str | Variant, *args, **kwargs) -> Variant:
+    def add_subvariant(
+        self, flag_name: str | Variant, *args: Any, **kwargs: Any
+    ) -> Variant:
         """Add a sub variant to the current Argument."""
         if isinstance(flag_name, Variant):
             newvrnt = flag_name
@@ -310,7 +315,9 @@ class Argument:
     # above are creation part
     # below are general traverse part
 
-    def flatten_sub(self, value: dict, path=None) -> dict[str, Argument]:
+    def flatten_sub(
+        self, value: dict, path: list[str] | None = None
+    ) -> dict[str, Argument]:
         sub_dicts = [self.sub_fields]
         sub_dicts.extend(
             vrnt.flatten_sub(value, path) for vrnt in self.sub_variants.values()
@@ -329,7 +336,8 @@ class Argument:
         sub_hook: HookArgKType = _DUMMYHOOK,
         variant_hook: HookVrntType = _DUMMYHOOK,
         path: list[str] | None = None,
-    ):
+        allow_ref: bool = False,
+    ) -> None:
         # first, do something with the key
         # then, take out the vaule and do something with it
         if path is None:
@@ -341,7 +349,7 @@ class Argument:
             newpath = [*path, self.name]
             # this is the key step that we traverse into the tree
             self.traverse_value(
-                value, key_hook, value_hook, sub_hook, variant_hook, newpath
+                value, key_hook, value_hook, sub_hook, variant_hook, newpath, allow_ref
             )
 
     def traverse_value(
@@ -352,14 +360,15 @@ class Argument:
         sub_hook: HookArgKType = _DUMMYHOOK,
         variant_hook: HookVrntType = _DUMMYHOOK,
         path: list[str] | None = None,
-    ):
+        allow_ref: bool = False,
+    ) -> None:
         # this is not private, and can be called directly
         # in the condition where there is no leading key
         if path is None:
             path = []
         if not self.repeat and isinstance(value, dict):
             self._traverse_sub(
-                value, key_hook, value_hook, sub_hook, variant_hook, path
+                value, key_hook, value_hook, sub_hook, variant_hook, path, allow_ref
             )
         elif self.repeat and isinstance(value, list):
             for idx, item in enumerate(value):
@@ -370,6 +379,7 @@ class Argument:
                     sub_hook,
                     variant_hook,
                     [*path, str(idx)],
+                    allow_ref,
                 )
         elif self.repeat and isinstance(value, dict):
             for kk, item in value.items():
@@ -380,6 +390,7 @@ class Argument:
                     sub_hook,
                     variant_hook,
                     [*path, kk],
+                    allow_ref,
                 )
 
     def _traverse_sub(
@@ -390,7 +401,8 @@ class Argument:
         sub_hook: HookArgKType = _DUMMYHOOK,
         variant_hook: HookVrntType = _DUMMYHOOK,
         path: list[str] | None = None,
-    ):
+        allow_ref: bool = False,
+    ) -> None:
         if path is None:
             path = [self.name]
         if not isinstance(value, dict):
@@ -399,16 +411,21 @@ class Argument:
                 f"key `{path[-1]}` gets wrong value type, "
                 f"requires dict but {type(value).__name__} is given",
             )
+        _resolve_ref(value, allow_ref)
         sub_hook(self, value, path)
         for subvrnt in self.sub_variants.values():
             variant_hook(subvrnt, value, path)
         for subarg in self.flatten_sub(value, path).values():
-            subarg.traverse(value, key_hook, value_hook, sub_hook, variant_hook, path)
+            subarg.traverse(
+                value, key_hook, value_hook, sub_hook, variant_hook, path, allow_ref
+            )
 
     # above are general traverse part
     # below are type checking part
 
-    def check(self, argdict: dict, strict: bool = False):
+    def check(
+        self, argdict: dict, strict: bool = False, allow_ref: bool = False
+    ) -> None:
         """Check whether `argdict` meets the structure defined in self.
 
         Will recursively check nested dicts according to
@@ -420,6 +437,10 @@ class Argument:
             The arg dict to be checked
         strict : bool, optional
             If true, only keys defined in `Argument` are allowed.
+        allow_ref : bool, optional
+            If true, allow loading from external files via the ``$ref`` key.
+            A deep copy of ``argdict`` is made internally so the caller's
+            data is not mutated.
         """
         if strict and len(argdict) != 1:
             raise ArgumentKeyError(
@@ -428,14 +449,19 @@ class Argument:
                 "for check in strict mode at top level, "
                 "use check_value if you are checking subfields",
             )
+        if allow_ref:
+            argdict = deepcopy(argdict)
         self.traverse(
             argdict,
             key_hook=Argument._check_exist,
             value_hook=Argument._check_data,
             sub_hook=Argument._check_strict if strict else _DUMMYHOOK,
+            allow_ref=allow_ref,
         )
 
-    def check_value(self, value: Any, strict: bool = False):
+    def check_value(
+        self, value: Any, strict: bool = False, allow_ref: bool = False
+    ) -> None:
         """Check the value without the leading key.
 
         Same as `check({self.name: value})`.
@@ -447,23 +473,30 @@ class Argument:
             The value to be checked
         strict : bool, optional
             If true, only keys defined in `Argument` are allowed.
+        allow_ref : bool, optional
+            If true, allow loading from external files via the ``$ref`` key.
+            A deep copy of ``value`` is made internally so the caller's
+            data is not mutated.
         """
+        if allow_ref:
+            value = deepcopy(value)
         self.traverse_value(
             value,
             key_hook=Argument._check_exist,
             value_hook=Argument._check_data,
             sub_hook=Argument._check_strict if strict else _DUMMYHOOK,
+            allow_ref=allow_ref,
         )
 
-    def _check_exist(self, argdict: dict, path=None):
+    def _check_exist(self, argdict: dict, path: list[str] | None = None) -> None:
         if self.optional is True:
             return
         if self.name not in argdict:
             raise ArgumentKeyError(
-                path, f"key `{self.name}` is required " "in arguments but not found"
+                path, f"key `{self.name}` is required in arguments but not found"
             )
 
-    def _check_data(self, value: Any, path=None):
+    def _check_data(self, value: Any, path: list[str] | None = None) -> None:
         try:
             typeguard.check_type(
                 value,
@@ -484,7 +517,7 @@ class Argument:
                 "that fails to pass its extra checking. " + self.extra_check_errmsg,
             )
 
-    def _check_strict(self, value: dict, path=None):
+    def _check_strict(self, value: dict, path: list[str] | None = None) -> None:
         allowed_keys = set(self.flatten_sub(value, path).keys())
         # curpath = [*path, self.name]
         if not len(allowed_keys):
@@ -512,7 +545,8 @@ class Argument:
         do_default: bool = True,
         do_alias: bool = True,
         trim_pattern: str | None = None,
-    ):
+        allow_ref: bool = False,
+    ) -> dict:
         """Modify `argdict` so that it meets the Argument structure.
 
         Normalization can add default values to optional args,
@@ -531,6 +565,8 @@ class Argument:
             Whether to transform alias names.
         trim_pattern : str, optional
             If given, discard keys that matches the glob pattern.
+        allow_ref : bool, optional
+            If true, allow loading from external files via the ``$ref`` key.
 
         Returns
         -------
@@ -544,10 +580,15 @@ class Argument:
                 argdict,
                 key_hook=Argument._convert_alias,
                 variant_hook=Variant._convert_choice_alias,
+                allow_ref=allow_ref,
             )
         if do_default:
-            self.traverse(argdict, key_hook=Argument._assign_default)
-            self.traverse(argdict, key_hook=Argument._handle_empty_dict)
+            self.traverse(
+                argdict, key_hook=Argument._assign_default, allow_ref=allow_ref
+            )
+            self.traverse(
+                argdict, key_hook=Argument._handle_empty_dict, allow_ref=allow_ref
+            )
         if trim_pattern is not None:
             trim_by_pattern(argdict, trim_pattern, reserved=[self.name])
             self.traverse(
@@ -555,6 +596,7 @@ class Argument:
                 sub_hook=lambda a, d, p: trim_by_pattern(
                     d, trim_pattern, a.flatten_sub(d, p).keys()
                 ),
+                allow_ref=allow_ref,
             )
         return argdict
 
@@ -565,7 +607,8 @@ class Argument:
         do_default: bool = True,
         do_alias: bool = True,
         trim_pattern: str | None = None,
-    ):
+        allow_ref: bool = False,
+    ) -> Any:
         """Modify the value so that it meets the Argument structure.
 
         Same as `normalize({self.name: value})[self.name]`.
@@ -582,6 +625,8 @@ class Argument:
             Whether to transform alias names.
         trim_pattern : str, optional
             If given, discard keys that matches the glob pattern.
+        allow_ref : bool, optional
+            If true, allow loading from external files via the ``$ref`` key.
 
         Returns
         -------
@@ -595,20 +640,26 @@ class Argument:
                 value,
                 key_hook=Argument._convert_alias,
                 variant_hook=Variant._convert_choice_alias,
+                allow_ref=allow_ref,
             )
         if do_default:
-            self.traverse_value(value, key_hook=Argument._assign_default)
-            self.traverse_value(value, key_hook=Argument._handle_empty_dict)
+            self.traverse_value(
+                value, key_hook=Argument._assign_default, allow_ref=allow_ref
+            )
+            self.traverse_value(
+                value, key_hook=Argument._handle_empty_dict, allow_ref=allow_ref
+            )
         if trim_pattern is not None:
             self.traverse_value(
                 value,
                 sub_hook=lambda a, d, p: trim_by_pattern(
                     d, trim_pattern, a.flatten_sub(d, p).keys()
                 ),
+                allow_ref=allow_ref,
             )
         return value
 
-    def _assign_default(self, argdict: dict, path=None):
+    def _assign_default(self, argdict: dict, path: list[str] | None = None) -> None:
         if (
             self.name not in argdict
             and self.optional
@@ -617,11 +668,11 @@ class Argument:
             default = self.default if self.default != {} else _Flags.EMPTY_DICT
             argdict[self.name] = default
 
-    def _handle_empty_dict(self, argdict: dict, path=None):
+    def _handle_empty_dict(self, argdict: dict, path: list[str] | None = None) -> None:
         if argdict.get(self.name, None) is _Flags.EMPTY_DICT:
             argdict[self.name] = {}
 
-    def _convert_alias(self, argdict: dict, path=None):
+    def _convert_alias(self, argdict: dict, path: list[str] | None = None) -> None:
         if self.name not in argdict:
             for alias in self.alias:
                 if alias in argdict:
@@ -631,7 +682,7 @@ class Argument:
     # above are normalizing part
     # below are doc generation part
 
-    def gen_doc(self, path: list[str] | None = None, **kwargs) -> str:
+    def gen_doc(self, path: list[str] | None = None, **kwargs: Any) -> str:
         """Generate doc string for the current Argument."""
         # the actual indentation is done here, and ONLY here
         if path is None:
@@ -644,7 +695,7 @@ class Argument:
         ]
         return "\n".join(filter(None, doc_list))
 
-    def gen_doc_head(self, path: list[str] | None = None, **kwargs) -> str:
+    def gen_doc_head(self, path: list[str] | None = None, **kwargs: Any) -> str:
         typesig = "| type: " + " | ".join(
             [f"``{self._get_type_name(dt)}``" for dt in self.dtype]
         )
@@ -663,16 +714,17 @@ class Argument:
             head = f".. dargs:argument:: {self.name}:\n   :path: {'/'.join(path)}\n"
         head += f"\n{indent(typesig, INDENT)}"
         if kwargs.get("make_anchor"):
-            head = f"{make_rst_refid(path)}\n" + head
+            anchor_path = path if path is not None else [self.name]
+            head = f"{make_rst_refid(anchor_path)}\n" + head
         return head
 
-    def gen_doc_path(self, path: list[str] | None = None, **kwargs) -> str:
+    def gen_doc_path(self, path: list[str] | None = None, **kwargs: Any) -> str:
         if path is None:
             path = [self.name]
         pathdoc = f"| argument path: ``{'/'.join(path)}``\n"
         return pathdoc
 
-    def gen_doc_body(self, path: list[str] | None = None, **kwargs) -> str:
+    def gen_doc_body(self, path: list[str] | None = None, **kwargs: Any) -> str:
         body_list = []
         if self.doc:
             body_list.append(self.doc + "\n")
@@ -707,8 +759,10 @@ class Argument:
         body = "\n".join(body_list)
         return body
 
-    def _get_type_name(self, dd) -> str:
+    def _get_type_name(self, dd: type | Any | None) -> str:
         """Get type name for doc/message generation."""
+        if dd is None:
+            return "None"
         return str(dd) if isinstance(get_origin(dd), type) else dd.__name__
 
 
@@ -747,7 +801,7 @@ class Variant:
         optional: bool = False,
         default_tag: str = "",  # this is indeed necessary in case of optional
         doc: str = "",
-    ):
+    ) -> None:
         self.flag_name = flag_name
         self.choice_dict: dict[str, Argument] = {}
         self.choice_alias: dict[str, str] = {}
@@ -777,7 +831,7 @@ class Variant:
     def __getitem__(self, key: str) -> Argument:
         return self.choice_dict[key]
 
-    def set_default(self, default_tag: bool | str):
+    def set_default(self, default_tag: bool | str) -> None:
         """Change the default tag of the current Variant."""
         if not default_tag:
             self.optional = False
@@ -788,7 +842,7 @@ class Variant:
             self.optional = True
             self.default_tag = default_tag
 
-    def extend_choices(self, choices: Iterable[Argument] | None):
+    def extend_choices(self, choices: Iterable[Argument] | None) -> None:
         """Add a list of choice Arguments to the current Variant."""
         # choices is a list of arguments
         # whose name is treated as the switch tag
@@ -813,8 +867,8 @@ class Variant:
         self,
         tag: str | Argument,
         _dtype: None | type | Iterable[type] = dict,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> Argument:
         """Add a choice Argument to the current Variant."""
         if isinstance(tag, Argument):
@@ -824,7 +878,7 @@ class Variant:
         self.extend_choices([newarg])
         return newarg
 
-    def dummy_argument(self):
+    def dummy_argument(self) -> Argument:
         return Argument(
             name=self.flag_name,
             dtype=str,
@@ -841,7 +895,7 @@ class Variant:
     # above are creation part
     # below are helpers for traversing
 
-    def get_choice(self, argdict: dict, path=None) -> Argument:
+    def get_choice(self, argdict: dict, path: list[str] | None = None) -> Argument:
         if self.flag_name in argdict:
             tag = argdict[self.flag_name]
             if tag in self.choice_dict:
@@ -862,11 +916,12 @@ class Variant:
         else:
             raise ArgumentKeyError(
                 path,
-                f"key `{self.flag_name}` is required "
-                "to choose variant but not found.",
+                f"key `{self.flag_name}` is required to choose variant but not found.",
             )
 
-    def flatten_sub(self, argdict: dict, path=None) -> dict[str, Argument]:
+    def flatten_sub(
+        self, argdict: dict, path: list[str] | None = None
+    ) -> dict[str, Argument]:
         choice = self.get_choice(argdict, path)
         fields = {
             self.flag_name: self.dummy_argument(),  # as a placeholder
@@ -874,7 +929,9 @@ class Variant:
         }
         return fields
 
-    def _convert_choice_alias(self, argdict: dict, path=None):
+    def _convert_choice_alias(
+        self, argdict: dict, path: list[str] | None = None
+    ) -> None:
         if self.flag_name in argdict:
             tag = argdict[self.flag_name]
             if tag not in self.choice_dict and tag in self.choice_alias:
@@ -884,7 +941,7 @@ class Variant:
     # below are doc generation part
 
     def gen_doc(
-        self, path: list[str] | None = None, showflag: bool = False, **kwargs
+        self, path: list[str] | None = None, showflag: bool = False, **kwargs: Any
     ) -> str:
         body_list = [""]
         body_list.append(
@@ -920,7 +977,7 @@ class Variant:
         body = "\n".join(body_list)
         return body
 
-    def gen_doc_flag(self, path: list[str] | None = None, **kwargs) -> str:
+    def gen_doc_flag(self, path: list[str] | None = None, **kwargs: Any) -> str:
         headdoc = f"{self.flag_name}:"
         typedoc = "| type: ``str`` (flag key)"
         if self.optional:
@@ -979,14 +1036,14 @@ class Variant:
 
     def _make_cpath(
         self, cname: str, path: list[str] | None = None, showflag: bool = False
-    ):
+    ) -> list[str]:
         f_str = f"{self.flag_name}=" if showflag else ""
         c_str = f"[{f_str}{cname}]"
         cpath = [*path[:-1], path[-1] + c_str] if path else [c_str]
         return cpath
 
 
-def make_rst_refid(name):
+def make_rst_refid(name: str | list[str]) -> str:
     if not isinstance(name, str):
         name = "/".join(name)
     return (
@@ -996,7 +1053,11 @@ def make_rst_refid(name):
     )
 
 
-def make_ref_pair(path, text=None, prefix=None):
+def make_ref_pair(
+    path: str | list[str],
+    text: str | None = None,
+    prefix: str | None = None,
+) -> tuple[str, str]:
     if not isinstance(path, str):
         path = "/".join(path)
     tgt = f"`{path}`_" if not RAW_ANCHOR else f"#{path}"
@@ -1013,7 +1074,7 @@ def update_nodup(
     *others: dict | Iterable[tuple],
     exclude: Iterable | None = None,
     err_msg: str | None = None,
-):
+) -> dict:
     for pair in others:
         if isinstance(pair, dict):
             pair = pair.items()
@@ -1032,22 +1093,118 @@ def trim_by_pattern(
     pattern: str,
     reserved: Iterable[str] | None = None,
     use_regex: bool = False,
-):
+) -> None:
     rep = fnmatch.translate(pattern) if not use_regex else pattern
     rem = re.compile(rep)
     if reserved:
-        conflict = list(filter(rem.match, reserved))
+        # Use lambda instead of rem.match for ty type checker compatibility
+        conflict = list(filter(lambda x: rem.match(x) is not None, reserved))
         if conflict:
             raise ValueError(
                 f"pattern `{pattern}` conflicts with the "
                 f"following reserved names: {', '.join(conflict)}"
             )
-    unrequired = list(filter(rem.match, argdict.keys()))
+    # Use lambda instead of rem.match for ty type checker compatibility
+    unrequired = list(filter(lambda x: rem.match(x) is not None, argdict.keys()))
     for key in unrequired:
         argdict.pop(key)
 
 
-def isinstance_annotation(value, dtype) -> bool:
+def _load_ref(ref_path: str) -> dict:
+    """Load a dict from an external file referenced by ``$ref``.
+
+    Parameters
+    ----------
+    ref_path : str
+        Path to the external file. Supported extensions: ``.json``, ``.yml``, ``.yaml``.
+
+    Returns
+    -------
+    dict
+        The loaded dict from the external file.
+
+    Raises
+    ------
+    ValueError
+        If the file extension is not supported, or if the file does not contain a
+        top-level mapping/object.
+    ImportError
+        If pyyaml is not installed and a YAML file is requested.
+    """
+    ext = os.path.splitext(ref_path)[1].lower()
+    if ext == ".json":
+        with open(ref_path, encoding="utf-8") as f:
+            loaded = json.load(f)
+    elif ext in (".yml", ".yaml"):
+        try:
+            import yaml
+        except ImportError as e:
+            raise ImportError(
+                "pyyaml is required to load YAML files referenced by $ref. "
+                "Install it with: pip install pyyaml"
+            ) from e
+        with open(ref_path, encoding="utf-8") as f:
+            loaded = yaml.safe_load(f)
+    else:
+        raise ValueError(
+            f"Unsupported file extension `{ext}` for $ref. "
+            "Supported extensions are: .json, .yml, .yaml"
+        )
+    if not isinstance(loaded, dict):
+        raise ValueError(
+            f"Referenced file {ref_path!r} must contain a mapping/object at the top "
+            f"level, but got {type(loaded).__name__!r}."
+        )
+    return loaded
+
+
+def _resolve_ref(d: dict, allow_ref: bool = False) -> None:
+    """Resolve the ``$ref`` key in a dict by loading from an external file.
+
+    If ``$ref`` is present in ``d``, its value is treated as a file path.
+    The file is loaded and its contents are merged into ``d``.  Keys already
+    present in ``d`` (other than ``$ref``) take precedence over keys from the
+    loaded file, allowing local overrides.  Chained ``$ref`` values in the
+    loaded content are resolved in turn.  Cyclic references are detected and
+    raise a ``ValueError``.
+
+    The dict is modified **in place**.
+
+    Parameters
+    ----------
+    d : dict
+        The dict that may contain a ``$ref`` key.
+    allow_ref : bool, optional
+        If False (the default), raise a ``ValueError`` when ``$ref`` is found.
+        Set to True to enable loading from external files.
+
+    Raises
+    ------
+    ValueError
+        If ``$ref`` is found but ``allow_ref`` is False, or if a cyclic
+        reference is detected.
+    """
+    if "$ref" not in d:
+        return
+    if not allow_ref:
+        raise ValueError(
+            "$ref is not allowed by default. "
+            "Pass allow_ref=True to enable loading from external files."
+        )
+    visited_refs: set[str] = set()
+    while "$ref" in d:
+        ref_path = d.pop("$ref")
+        if ref_path in visited_refs:
+            raise ValueError(f"Cyclic $ref detected for path: {ref_path!r}")
+        visited_refs.add(ref_path)
+        loaded = _load_ref(ref_path)
+        # Merge: loaded content as base, local keys take precedence
+        merged = {**loaded, **d}
+        d.clear()
+        d.update(merged)
+
+
+def isinstance_annotation(value: Any, dtype: type | Any) -> bool:
     """Same as isinstance(), but supports arbitrary type annotations."""
     try:
         typeguard.check_type(
@@ -1068,7 +1225,7 @@ class ArgumentEncoder(json.JSONEncoder):
     >>> json.dumps(some_arg, cls=ArgumentEncoder)
     """
 
-    def default(self, o) -> Any:
+    def default(self, o: Any) -> Any:
         """Generate a dict containing argument information, making it ready to be encoded
         to JSON string.
 

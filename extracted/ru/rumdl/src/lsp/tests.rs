@@ -2694,3 +2694,464 @@ async fn test_link_completions_disabled_returns_none() {
     let result = server.completion(params).await.unwrap();
     assert!(result.is_none(), "Link completions should be suppressed when disabled");
 }
+
+/// Test that MD013 semantic-line-breaks config produces no false positives with CRLF line endings.
+/// The LSP receives content from the editor which may use CRLF line endings on Windows.
+/// The reflow comparison must account for line ending differences.
+/// Regression test for issue #459.
+#[tokio::test]
+async fn test_lsp_md013_semantic_line_breaks_crlf() {
+    use tempfile::tempdir;
+
+    let server = create_test_server();
+
+    // Create a temp directory with pyproject.toml
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let pyproject_path = temp_dir.path().join("pyproject.toml");
+    std::fs::write(
+        &pyproject_path,
+        r#"
+[tool.rumdl.MD013]
+line-length = 80
+reflow = true
+reflow-mode = "semantic-line-breaks"
+"#,
+    )
+    .expect("Failed to write pyproject.toml");
+
+    // Create a test markdown file with CRLF line endings
+    let test_md_path = temp_dir.path().join("test.md");
+    // This content is properly formatted for semantic line breaks
+    // but uses CRLF line endings (as sent by editors on Windows)
+    let content_crlf = "# Title\r\n\r\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\r\nNullam vehicula commodo lobortis.\r\nDonec a venenatis lorem.\r\n";
+    std::fs::write(&test_md_path, content_crlf).expect("Failed to write test.md");
+
+    let canonical_test_path = test_md_path.canonicalize().unwrap_or_else(|_| test_md_path.clone());
+
+    // Add workspace root
+    let canonical_temp = temp_dir
+        .path()
+        .canonicalize()
+        .unwrap_or_else(|_| temp_dir.path().to_path_buf());
+    server.workspace_roots.write().await.push(canonical_temp);
+
+    // Lint via LSP path with CRLF content
+    let uri = Url::from_file_path(&canonical_test_path).unwrap();
+    let diagnostics = server.lint_document(&uri, content_crlf).await.unwrap();
+
+    // Filter for MD013 diagnostics
+    let md013_diagnostics: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.code
+                .as_ref()
+                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    assert!(
+        md013_diagnostics.is_empty(),
+        "LSP should produce no MD013 warnings for properly formatted semantic-line-break content \
+         with CRLF line endings, but found {} warnings: {:?}",
+        md013_diagnostics.len(),
+        md013_diagnostics
+            .iter()
+            .map(|d| format!("line {}: {}", d.range.start.line, d.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+/// Test that MD013 still emits warnings for improperly formatted CRLF content.
+/// The fix for issue #459 must not suppress legitimate warnings.
+#[tokio::test]
+async fn test_lsp_md013_semantic_line_breaks_crlf_still_warns_when_needed() {
+    use tempfile::tempdir;
+
+    let server = create_test_server();
+
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let pyproject_path = temp_dir.path().join("pyproject.toml");
+    std::fs::write(
+        &pyproject_path,
+        r#"
+[tool.rumdl.MD013]
+line-length = 80
+reflow = true
+reflow-mode = "semantic-line-breaks"
+"#,
+    )
+    .expect("Failed to write pyproject.toml");
+
+    let test_md_path = temp_dir.path().join("test.md");
+    // Content with multiple sentences on one line (needs reflow) using CRLF
+    let content_crlf =
+        "# Title\r\n\r\nLorem ipsum dolor sit amet. Consectetur adipiscing elit. Nullam vehicula commodo lobortis.\r\n";
+    std::fs::write(&test_md_path, content_crlf).expect("Failed to write test.md");
+
+    let canonical_test_path = test_md_path.canonicalize().unwrap_or_else(|_| test_md_path.clone());
+    let canonical_temp = temp_dir
+        .path()
+        .canonicalize()
+        .unwrap_or_else(|_| temp_dir.path().to_path_buf());
+    server.workspace_roots.write().await.push(canonical_temp);
+
+    let uri = Url::from_file_path(&canonical_test_path).unwrap();
+    let diagnostics = server.lint_document(&uri, content_crlf).await.unwrap();
+
+    let md013_diagnostics: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.code
+                .as_ref()
+                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    assert!(
+        !md013_diagnostics.is_empty(),
+        "LSP should produce MD013 warnings for improperly formatted semantic-line-break CRLF content"
+    );
+}
+
+/// Test that MD013 semantic-line-breaks config from pyproject.toml is respected in LSP
+/// This verifies that the LSP and CLI produce the same results for the same config.
+/// Regression test for issue #459.
+#[tokio::test]
+async fn test_lsp_md013_semantic_line_breaks_config_parity() {
+    use tempfile::tempdir;
+
+    let server = create_test_server();
+
+    // Create a temp directory with pyproject.toml
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let pyproject_path = temp_dir.path().join("pyproject.toml");
+    std::fs::write(
+        &pyproject_path,
+        r#"
+[tool.rumdl.MD013]
+line-length = 80
+reflow = true
+reflow-mode = "semantic-line-breaks"
+"#,
+    )
+    .expect("Failed to write pyproject.toml");
+
+    // Create a test markdown file in the same directory
+    let test_md_path = temp_dir.path().join("test.md");
+    let content = "# Title\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nNullam vehicula commodo lobortis.\nDonec a venenatis lorem.\n";
+    std::fs::write(&test_md_path, content).expect("Failed to write test.md");
+
+    let uri = Url::from_file_path(&test_md_path).unwrap();
+
+    // Simulate what resolve_config_for_file does: load config from the pyproject.toml
+    let config_path_str = pyproject_path.to_str().unwrap();
+    let sourced = RumdlLanguageServer::load_config_for_lsp(Some(config_path_str)).expect("Should load config");
+    let file_config: crate::config::Config = sourced.into_validated_unchecked().into();
+
+    // Verify the config loaded correctly
+    let md013_rule_config = file_config.rules.get("MD013");
+    assert!(
+        md013_rule_config.is_some(),
+        "MD013 config should be present in loaded config"
+    );
+    let md013_values = &md013_rule_config.unwrap().values;
+    assert!(
+        md013_values.get("reflow-mode").is_some() || md013_values.get("reflow_mode").is_some(),
+        "reflow-mode should be in MD013 config values, got: {:?}",
+        md013_values.keys().collect::<Vec<_>>()
+    );
+
+    // Set the config on the server
+    *server.rumdl_config.write().await = file_config;
+
+    // Lint via LSP path
+    let diagnostics = server.lint_document(&uri, content).await.unwrap();
+
+    // Filter for MD013 diagnostics
+    let md013_diagnostics: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.code
+                .as_ref()
+                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    assert!(
+        md013_diagnostics.is_empty(),
+        "LSP should produce no MD013 warnings for properly formatted semantic-line-break content, \
+         but found {} warnings: {:?}",
+        md013_diagnostics.len(),
+        md013_diagnostics
+            .iter()
+            .map(|d| format!("line {}: {}", d.range.start.line, d.message))
+            .collect::<Vec<_>>()
+    );
+
+    // Also verify CLI path produces same result
+    let config_path_str2 = pyproject_path.to_str().unwrap();
+    let sourced2 = crate::config::SourcedConfig::load_with_discovery(Some(config_path_str2), None, false)
+        .expect("Should load config");
+    let cli_config: crate::config::Config = sourced2.into_validated_unchecked().into();
+    let all_rules = crate::rules::all_rules(&cli_config);
+    let filtered_rules = crate::rules::filter_rules(&all_rules, &cli_config.global);
+    let cli_warnings = crate::lint(
+        content,
+        &filtered_rules,
+        false,
+        crate::config::MarkdownFlavor::Standard,
+        Some(&cli_config),
+    )
+    .expect("CLI lint should succeed");
+
+    let cli_md013: Vec<_> = cli_warnings
+        .iter()
+        .filter(|w| w.rule_name.as_deref() == Some("MD013"))
+        .collect();
+    assert!(cli_md013.is_empty(), "CLI should produce no MD013 warnings either");
+}
+
+/// Test that MD013 semantic-line-breaks config works through the full resolve_config_for_file path.
+/// This tests the actual file discovery path the LSP uses, which is different from directly setting config.
+/// Regression test for issue #459.
+#[tokio::test]
+async fn test_lsp_md013_resolve_config_for_file_path() {
+    use tempfile::tempdir;
+
+    let server = create_test_server();
+
+    // Create a temp directory with pyproject.toml
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let pyproject_path = temp_dir.path().join("pyproject.toml");
+    std::fs::write(
+        &pyproject_path,
+        r#"
+[tool.rumdl]
+
+[tool.rumdl.MD013]
+line-length = 80
+reflow = true
+reflow-mode = "semantic-line-breaks"
+"#,
+    )
+    .expect("Failed to write pyproject.toml");
+
+    // Create a test markdown file in the same directory
+    let test_md_path = temp_dir.path().join("test.md");
+    let content = "# Title\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit.\nNullam vehicula commodo lobortis.\nDonec a venenatis lorem.\n";
+    std::fs::write(&test_md_path, content).expect("Failed to write test.md");
+
+    // Add the temp dir as a workspace root (otherwise resolve_config_for_file walks up forever)
+    let canonical_temp = temp_dir
+        .path()
+        .canonicalize()
+        .unwrap_or_else(|_| temp_dir.path().to_path_buf());
+    server.workspace_roots.write().await.push(canonical_temp.clone());
+
+    // Use the real resolve_config_for_file path
+    let canonical_test_path = test_md_path.canonicalize().unwrap_or_else(|_| test_md_path.clone());
+    let resolved_config = server.resolve_config_for_file(&canonical_test_path).await;
+
+    // Verify the config loaded correctly
+    let md013_rule_config = resolved_config.rules.get("MD013");
+    assert!(
+        md013_rule_config.is_some(),
+        "MD013 config should be present after resolve_config_for_file. Rules: {:?}",
+        resolved_config.rules.keys().collect::<Vec<_>>()
+    );
+
+    let md013_values = &md013_rule_config.unwrap().values;
+    let has_reflow_mode = md013_values.get("reflow-mode").is_some() || md013_values.get("reflow_mode").is_some();
+    assert!(
+        has_reflow_mode,
+        "reflow-mode should be in MD013 config values after resolve_config_for_file, got: {:?}",
+        md013_values.keys().collect::<Vec<_>>()
+    );
+
+    let has_reflow = md013_values.get("reflow").is_some();
+    assert!(
+        has_reflow,
+        "reflow should be in MD013 config values after resolve_config_for_file, got: {:?}",
+        md013_values.keys().collect::<Vec<_>>()
+    );
+
+    // Now create rules from this config and check linting result
+    let all_rules = crate::rules::all_rules(&resolved_config);
+    let filtered_rules = crate::rules::filter_rules(&all_rules, &resolved_config.global);
+    let warnings = crate::lint(
+        content,
+        &filtered_rules,
+        false,
+        crate::config::MarkdownFlavor::Standard,
+        Some(&resolved_config),
+    )
+    .expect("Lint should succeed");
+
+    let md013_warnings: Vec<_> = warnings
+        .iter()
+        .filter(|w| w.rule_name.as_deref() == Some("MD013"))
+        .collect();
+
+    assert!(
+        md013_warnings.is_empty(),
+        "Should produce no MD013 warnings for semantic-line-break content via resolve_config_for_file path, \
+         but found {} warnings: {:?}",
+        md013_warnings.len(),
+        md013_warnings
+            .iter()
+            .map(|w| format!("line {}: {} - {}", w.line, w.message, w.message))
+            .collect::<Vec<_>>()
+    );
+
+    // Also test the full lint_document path
+    let uri = Url::from_file_path(&canonical_test_path).unwrap();
+    let diagnostics = server.lint_document(&uri, content).await.unwrap();
+    let md013_diags: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| {
+            d.code
+                .as_ref()
+                .map(|c| matches!(c, NumberOrString::String(s) if s == "MD013"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    assert!(
+        md013_diags.is_empty(),
+        "lint_document should produce no MD013 diagnostics for semantic-line-break content, \
+         but found {} diagnostics: {:?}",
+        md013_diags.len(),
+        md013_diags
+            .iter()
+            .map(|d| format!("line {}: {}", d.range.start.line, d.message))
+            .collect::<Vec<_>>()
+    );
+}
+
+/// Test that MD007 indent=4 config is respected through the full LSP formatting path.
+/// Verifies that [ul-indent] alias, indent=4, and style="fixed" all propagate correctly
+/// from config file through resolve_config_for_file to the formatted output.
+#[tokio::test]
+async fn test_lsp_md007_formatting_respects_indent_config() {
+    use tempfile::tempdir;
+
+    let server = create_test_server();
+
+    // Create a temp directory with .rumdl.toml using [ul-indent] alias
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let config_path = temp_dir.path().join(".rumdl.toml");
+    std::fs::write(
+        &config_path,
+        r#"
+[ul-indent]
+indent = 4
+style = "fixed"
+"#,
+    )
+    .expect("Failed to write .rumdl.toml");
+
+    // Create test markdown with 2-space indentation (should be fixed to 4-space)
+    let test_md_path = temp_dir.path().join("test.md");
+    let content = "# Test\n\n- Bullet item\n  - Nested bullet\n";
+    std::fs::write(&test_md_path, content).expect("Failed to write test.md");
+
+    // Set up workspace root
+    let canonical_temp = temp_dir
+        .path()
+        .canonicalize()
+        .unwrap_or_else(|_| temp_dir.path().to_path_buf());
+    server.workspace_roots.write().await.push(canonical_temp.clone());
+
+    // Step 1: Verify config is loaded correctly
+    let canonical_test_path = test_md_path.canonicalize().unwrap_or_else(|_| test_md_path.clone());
+    let resolved_config = server.resolve_config_for_file(&canonical_test_path).await;
+
+    let md007_config = resolved_config.rules.get("MD007");
+    assert!(
+        md007_config.is_some(),
+        "MD007 config should be present. Rules: {:?}",
+        resolved_config.rules.keys().collect::<Vec<_>>()
+    );
+
+    let md007_values = &md007_config.unwrap().values;
+    let indent_value = md007_values.get("indent").map(|v| v.as_integer().unwrap_or(0));
+    assert_eq!(indent_value, Some(4), "MD007 indent should be 4, got: {md007_values:?}",);
+
+    // Step 2: Verify detection works (should find 2-space indent as violation)
+    let all_rules = crate::rules::all_rules(&resolved_config);
+    let filtered_rules = crate::rules::filter_rules(&all_rules, &resolved_config.global);
+    let warnings = crate::lint(
+        content,
+        &filtered_rules,
+        false,
+        crate::config::MarkdownFlavor::Standard,
+        Some(&resolved_config),
+    )
+    .expect("Lint should succeed");
+
+    let md007_warnings: Vec<_> = warnings
+        .iter()
+        .filter(|w| w.rule_name.as_deref() == Some("MD007"))
+        .collect();
+    assert_eq!(
+        md007_warnings.len(),
+        1,
+        "Should find exactly 1 MD007 warning for 2-space indent, found: {:?}",
+        md007_warnings.iter().map(|w| &w.message).collect::<Vec<_>>()
+    );
+    assert!(
+        md007_warnings[0].message.contains("Expected 4 spaces"),
+        "Warning should mention 4 spaces, got: {}",
+        md007_warnings[0].message
+    );
+
+    // Step 3: Verify the fix produces 4-space indent (not 2-space!)
+    assert!(md007_warnings[0].fix.is_some(), "MD007 warning should have a fix");
+    let fix = md007_warnings[0].fix.as_ref().unwrap();
+    assert_eq!(
+        fix.replacement, "    ",
+        "Fix replacement should be 4 spaces, got: {:?}",
+        fix.replacement
+    );
+
+    // Step 4: Exercise the full LSP formatting path
+    let uri = Url::from_file_path(&canonical_test_path).unwrap();
+    let entry = DocumentEntry {
+        content: content.to_string(),
+        version: Some(1),
+        from_disk: false,
+    };
+    server.documents.write().await.insert(uri.clone(), entry);
+
+    let params = DocumentFormattingParams {
+        text_document: TextDocumentIdentifier { uri: uri.clone() },
+        options: FormattingOptions {
+            tab_size: 4,
+            insert_spaces: true,
+            properties: HashMap::new(),
+            trim_trailing_whitespace: Some(true),
+            insert_final_newline: Some(true),
+            trim_final_newlines: Some(true),
+        },
+        work_done_progress_params: WorkDoneProgressParams::default(),
+    };
+
+    let result = server.formatting(params).await.unwrap();
+    assert!(result.is_some(), "Formatting should return edits");
+
+    let edits = result.unwrap();
+    assert!(!edits.is_empty(), "Should have at least one edit");
+
+    let formatted_text = &edits[0].new_text;
+    assert!(
+        formatted_text.contains("    - Nested bullet"),
+        "Formatted text should have 4-space indent, got:\n{formatted_text}",
+    );
+    assert!(
+        !formatted_text.contains("\n  - Nested"),
+        "Formatted text should NOT have 2-space indent, got:\n{formatted_text}",
+    );
+}

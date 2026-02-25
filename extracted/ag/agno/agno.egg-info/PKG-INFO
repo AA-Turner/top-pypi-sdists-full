@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.3
+Version: 2.5.4
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -662,7 +662,7 @@ Dynamic: license-file
 
 <p align="center">
   The programming language for agentic software.<br/>
-  Build, run, and govern multi-agent systems at scale.
+  Build, run, and manage multi-agent systems at scale.
 </p>
 
 <div align="center">

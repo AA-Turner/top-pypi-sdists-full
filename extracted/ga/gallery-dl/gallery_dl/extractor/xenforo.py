@@ -38,7 +38,7 @@ class XenforoExtractor(BaseExtractor):
             r'|<div class="bb(?:Image|Media)Wrapper[^>]*?'
             r'data-src="([^"]+".*?) />'
             r'|(?:<a [^>]*?href="|<iframe [^>]*?src="|'
-            r'''onclick="loadMedia\(this, ')([^"']+)'''
+            r'''onclick="loadMedia\(this, ')([^"']+[^<]*?<)'''
             r')'
         ).findall
 
@@ -65,12 +65,19 @@ class XenforoExtractor(BaseExtractor):
                         continue
                     if ext[0] == "/":
                         if ext[1] == "/":
+                            if "'" in ext:
+                                ext = ext[:ext.find("'")]
                             ext = "https:" + ext
                         elif ext.startswith("/goto/link-confirmation?"):
                             params = text.parse_query(text.unescape(ext[24:]))
                             ext = binascii.a2b_base64(params["url"]).decode()
+                        elif ext.startswith("/redirect/"):
+                            ext = text.unescape(text.extr(
+                                ext, ">", "<").strip())
                         else:
                             continue
+                    elif '"' in ext:
+                        ext = ext[:ext.find('"')]
                     data["num"] += 1
                     data["num_external"] += 1
                     data["type"] = "external"
@@ -255,12 +262,15 @@ class XenforoExtractor(BaseExtractor):
 
         post = {
             "author": extr('data-author="', '"'),
-            "id": extr('data-content="post-', '"'),
+            "id": (extr('data-content="post-', '"') or
+                   extr('data-content="profile-post-', '"')),
             "author_url": (extr('itemprop="url" content="', '"') or
                            extr('<a href="', '"')),
             "date": self.parse_datetime_iso(extr('datetime="', '"')),
-            "content": extr('class="message-body',
-                            '<div class="js-selectToQuote'),
+            "content": (extr('class="message-body',
+                             '<div class="js-selectToQuote') or
+                        extr('class="message-body',
+                             '</article>')),
             "attachments": extr('<section class="message-attachments">',
                                 '</section>'),
         }
@@ -328,6 +338,29 @@ class XenforoExtractor(BaseExtractor):
 
         return album
 
+    def _parse_profile(self, page):
+        user = self._extract_jsonld(page)
+        main = user["mainEntity"]
+        url = user.get("url") or main.get("@id") or ""
+        slug, _, id = url[url.rfind("/", 0, -1)+1:-1].rpartition(".")
+
+        self.kwdict["profile"] = profile = {
+            "id"    : main.get("identifier") or id,
+            "url"   : url,
+            "slug"  : text.unquote(slug),
+            "name"  : main.get("name"),
+            "avatar": main.get("image"),
+            "description": main.get("description"),
+            "date"  : self.parse_datetime_iso(user.get("dateCreated")),
+        }
+
+        stats = main.get("interactionStatistic")
+        if isinstance(stats, list):
+            profile["follows"] = stats[0]["userInteractionCount"]
+            profile["likes"] = stats[1]["userInteractionCount"]
+
+        return profile
+
     def _parse_author(self, author, data):
         data["author"] = author.get("name") or ""
         if url := author.get("url"):
@@ -341,8 +374,9 @@ class XenforoExtractor(BaseExtractor):
         return data
 
     def _extract_attachments(self, urls, post):
+        find = text.re(r"(?s)\shref=[\"'](.+)").search
         for att in text.extract_iter(post["attachments"], "<li", "</li>"):
-            urls.append((None, att[att.find('href="')+6:], None, None))
+            urls.append((None, find(att)[1], None, None))
 
     def _extract_embeds(self, urls, post):
         for embed in text.extract_iter(
@@ -593,3 +627,34 @@ class XenforoMediaItemExtractor(XenforoExtractor):
                       self._extract_media)(url, self.groups[-1])
         yield Message.Directory, "", media
         yield Message.Url, url, media
+
+
+class XenforoProfileExtractor(XenforoExtractor):
+    subcategory = "profile"
+    directory_fmt = ("{category}", "Profiles", "{profile[name]}")
+    archive_fmt = "{id}"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?"
+               r"members/[^/?#]+)(?:/page-(\d+))?")
+    example = "https://simpcity.cr/members/USER.123/"
+
+    def posts(self):
+        path = self.groups[-2]
+        pnum = self.groups[-1]
+
+        if (order := self.config("order-posts")) and \
+                order[0] in {"d", "r"}:
+            pages = self._pagination_reverse(path, pnum)
+            reverse = True
+        else:
+            pages = self._pagination(path, pnum)
+            reverse = False
+
+        for page in pages:
+            if "profile" not in self.kwdict:
+                self._parse_profile(page)
+            posts = text.extract_iter(page, "<article ", "<footer")
+            if reverse:
+                posts = list(posts)
+                posts.reverse()
+            for html in posts:
+                yield self._parse_post(html)

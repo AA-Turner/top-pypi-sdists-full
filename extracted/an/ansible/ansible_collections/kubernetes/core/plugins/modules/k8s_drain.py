@@ -149,7 +149,7 @@ import time
 import traceback
 from datetime import datetime
 
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.kubernetes.core.plugins.module_utils.ansiblemodule import (
     AnsibleModule,
 )
@@ -441,7 +441,8 @@ class K8sDrainAnsible(object):
                     warnings.append(warn)
             result.append("{0} Pod(s) deleted from node.".format(number_pod))
         if warnings:
-            return dict(result=" ".join(result), warnings=warnings)
+            for warning in warnings:
+                self._module.warn(warning)
         return dict(result=" ".join(result))
 
     def patch_node(self, unschedulable):

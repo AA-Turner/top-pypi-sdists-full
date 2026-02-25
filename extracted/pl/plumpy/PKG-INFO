@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plumpy
-Version: 0.25.1
+Version: 0.26.0
 Summary: A Python workflow library.
 Keywords: workflow,multithreaded,rabbitmq
 Author: Sebastiaan Huber, Jason Yu, Leopold Talirz, Dominik Gresch
@@ -16,9 +16,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE.txt
+Requires-Dist: greenback~=1.0
+Requires-Dist: greenlet>=3.2.4
 Requires-Dist: kiwipy[rmq]~=0.9.0
-Requires-Dist: nest_asyncio~=1.5,>=1.5.1
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: ipython~=7.0 ; extra == "docs"
 Requires-Dist: kiwipy[docs]~=0.9.0 ; extra == "docs"
@@ -26,17 +28,13 @@ Requires-Dist: markupsafe==2.0.1 ; extra == "docs"
 Requires-Dist: myst-nb~=1.2.0 ; extra == "docs"
 Requires-Dist: sphinx~=7.2.0 ; extra == "docs"
 Requires-Dist: sphinx-book-theme~=1.1.4 ; extra == "docs"
-Requires-Dist: importlib-metadata~=4.12.0 ; extra == "docs"
 Requires-Dist: mypy==1.18.2 ; extra == "pre-commit"
 Requires-Dist: pre-commit~=3.6 ; extra == "pre-commit"
 Requires-Dist: types-pyyaml~=6.0 ; extra == "pre-commit"
-Requires-Dist: ipykernel==6.12.1 ; extra == "tests"
 Requires-Dist: pytest~=8.4 ; extra == "tests"
 Requires-Dist: pytest-asyncio~=0.12,<0.17 ; extra == "tests"
-Requires-Dist: pytest-cov~=4.1 ; extra == "tests"
-Requires-Dist: pytest-notebook>=0.8.0 ; extra == "tests"
-Requires-Dist: shortuuid==1.0.8 ; extra == "tests"
-Requires-Dist: importlib-resources~=5.2 ; extra == "tests"
+Requires-Dist: pytest-cov~=7.0 ; extra == "tests"
+Requires-Dist: shortuuid==1.0.13 ; extra == "tests"
 Project-URL: Documentation, https://plumpy.readthedocs.io
 Project-URL: Home, https://github.com/aiidateam/plumpy
 Project-URL: Source, https://github.com/aiidateam/plumpy

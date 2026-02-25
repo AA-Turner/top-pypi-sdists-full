@@ -323,7 +323,7 @@ class VulnReportApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
+        repo_versions: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -359,7 +359,7 @@ class VulnReportApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repo_versions: Filter results where repo_versions matches value
+        :param repo_versions:
         :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -430,7 +430,7 @@ class VulnReportApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
+        repo_versions: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -466,7 +466,7 @@ class VulnReportApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repo_versions: Filter results where repo_versions matches value
+        :param repo_versions:
         :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -537,7 +537,7 @@ class VulnReportApi:
         pulp_href__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repo_versions: Annotated[Optional[StrictStr], Field(description="Filter results where repo_versions matches value")] = None,
+        repo_versions: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -573,7 +573,7 @@ class VulnReportApi:
         :type pulp_id__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repo_versions: Filter results where repo_versions matches value
+        :param repo_versions:
         :type repo_versions: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]

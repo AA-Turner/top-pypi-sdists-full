@@ -1,7 +1,6 @@
 .PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios
 
 # Environment variables
-FF_USE_CORE_API ?= false
 LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
 LANGSERVE_GRAPHS_AUTH = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
 
@@ -13,7 +12,6 @@ build-go-server:
 start-go-server: # NOTE: core server will start with sqlite if no DATABASE_URI is provided
 	@echo "Starting Core API (SQLite) gRPC server on port 50051..."
 	cd ../core && \
-	FF_USE_CORE_API=true \
 	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
 	DATABASE_URI= \
 	REDIS_URI= \
@@ -94,11 +92,7 @@ REVISION ?= $(shell git rev-parse --short HEAD)
 LANGGRAPH_ENCRYPTION ?=
 
 test-license-oss:
-	@if [ "$(FF_USE_CORE_API)" = "true" ]; then \
-		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ FF_USE_CORE_API=true uv run pytest -m sqlite_grpc -v $(XDIST_ARGS) $(TEST); \
-	else \
-		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST); \
-	fi
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST)
 
 test-watch-oss:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run --no-sync ptw . -- -x -vv --ff --capture=no $(TEST)
@@ -163,11 +157,6 @@ LANGGRAPH_DISABLE_FILE_PERSISTENCE ?= true
 LANGSMITH_TRACING ?= false
 
 start:
-	@if [ "$(FF_USE_CORE_API)" = "true" ]; then \
-		$(MAKE) build-go-server && $(MAKE) start-go-server; \
-		trap '$(MAKE) stop-go-server' INT TERM EXIT; \
-	fi; \
-	sleep 3 && \
 	LANGGRAPH_DISABLE_FILE_PERSISTENCE=$(LANGGRAPH_DISABLE_FILE_PERSISTENCE) \
 	LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_RUNTIME_EDITION=inmem \
@@ -179,7 +168,6 @@ start:
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
 	LANGSMITH_LANGGRAPH_API_VARIANT=test \
 	LANGSMITH_TRACING=$(LANGSMITH_TRACING) \
-	FF_USE_CORE_API=$(FF_USE_CORE_API) \
 	BG_JOB_TIMEOUT_SECS=$(BG_JOB_TIMEOUT_SECS) \
 	BG_JOB_ISOLATED_LOOPS=$(BG_JOB_ISOLATED_LOOPS) \
 	CRON_SCHEDULER_SLEEP_TIME=$(CRON_SCHEDULER_SLEEP_TIME) \
@@ -298,7 +286,7 @@ start-js-server:
 	echo "Building JS server..."; \
 	cd ../public-api-server-js && yarn run build; \
 	echo "Starting JS server on port 9123..."; \
-	cd ../public-api-server-js && FF_USE_CORE_API=true \
+	cd ../public-api-server-js && \
 	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
 	LANGGRAPH_CONFIG='{"agent": {"configurable": {"model_name": "openai"}}}' \
 	FF_USE_JS_API=true \

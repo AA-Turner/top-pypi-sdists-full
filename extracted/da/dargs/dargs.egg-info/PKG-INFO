@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dargs
-Version: 0.4.10
+Version: 0.5.0.post0
 Summary: Process arguments for the deep modeling project.
 Author: DeepModeling
 Author-email: Yixiao Chen <yixiaoc@princeton.edu>
@@ -177,9 +177,20 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: typecheck
 License-File: LICENSE
+Requires-Dist: typeguard>=4
+Requires-Dist: typing_extensions; python_version < "3.8"
+Provides-Extra: test
+Requires-Dist: ipython; extra == "test"
+Requires-Dist: jsonschema; extra == "test"
+Requires-Dist: pyyaml; extra == "test"
+Provides-Extra: typecheck
+Requires-Dist: ty==0.0.17; extra == "typecheck"
+Requires-Dist: sphinx; extra == "typecheck"
+Requires-Dist: ipython; extra == "typecheck"
+Provides-Extra: yaml
+Requires-Dist: pyyaml; extra == "yaml"
+Dynamic: license-file
 
 # Argument checking for python programs
 
@@ -188,7 +199,7 @@ License-File: LICENSE
 [![Documentation Status](https://readthedocs.org/projects/dargs/badge/)](https://dargs.readthedocs.io/)
 
 This is a minimum version for checking the input argument dict.
-It would examine argument's type,  as well as keys and types of its sub-arguments.
+It would examine argument's type, as well as keys and types of its sub-arguments.
 
 A special case called *variant* is also handled,
 where you can determine the items of a dict based the value of on one of its `flag_name` key.
@@ -214,3 +225,4 @@ Please refer to test files for detailed usage.
 - Native integration with [Sphinx](https://github.com/sphinx-doc/sphinx), [DP-GUI](https://github.com/deepmodeling/dpgui), and [Jupyter Notebook](https://jupyter.org/)
 - JSON encoder for `Argument` and `Variant` classes
 - Generate [JSON schema](https://json-schema.org/) from an `Argument`, which can be further integrated with JSON editors such as [Visual Studio Code](https://code.visualstudio.com/)
+- Load dict values from external JSON/YAML files via the `$ref` key

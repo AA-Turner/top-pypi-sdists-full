@@ -106,6 +106,7 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "SourceTypeType",
+    "StorageEncryptionTypeType",
     "TargetConnectionNetworkTypeType",
     "TargetHealthReasonType",
     "TargetRoleType",
@@ -251,6 +252,7 @@ SourceTypeType = Literal[
     "db-snapshot",
     "zero-etl",
 ]
+StorageEncryptionTypeType = Literal["none", "sse-kms", "sse-rds"]
 TargetConnectionNetworkTypeType = Literal["IPV4", "IPV6"]
 TargetHealthReasonType = Literal[
     "AUTH_FAILURE",
@@ -417,7 +419,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -457,7 +458,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -632,6 +632,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

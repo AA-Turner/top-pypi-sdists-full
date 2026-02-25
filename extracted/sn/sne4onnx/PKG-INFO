@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sne4onnx
-Version: 2.0.0
+Version: 2.0.1
 Summary: A very simple tool for situations where optimization with onnx-simplifier would exceed the Protocol Buffers upper file size limit of 2GB, or simply to separate onnx files to any size you want. Simple Network Extraction for ONNX.
 Home-page: https://github.com/PINTO0309/sne4onnx
 Author: Katsuya Hyodo

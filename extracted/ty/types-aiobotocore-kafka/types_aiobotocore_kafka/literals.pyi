@@ -45,6 +45,7 @@ __all__ = (
     "ListScramSecretsPaginatorName",
     "ListTopicsPaginatorName",
     "ListVpcConnectionsPaginatorName",
+    "NetworkTypeType",
     "NodeTypeType",
     "PaginatorName",
     "RebalancingStatusType",
@@ -94,6 +95,7 @@ ListReplicatorsPaginatorName = Literal["list_replicators"]
 ListScramSecretsPaginatorName = Literal["list_scram_secrets"]
 ListTopicsPaginatorName = Literal["list_topics"]
 ListVpcConnectionsPaginatorName = Literal["list_vpc_connections"]
+NetworkTypeType = Literal["DUAL", "IPV4"]
 NodeTypeType = Literal["BROKER"]
 RebalancingStatusType = Literal["ACTIVE", "PAUSED"]
 ReplicationStartingPositionTypeType = Literal["EARLIEST", "LATEST"]
@@ -265,7 +267,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -305,7 +306,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -480,6 +480,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

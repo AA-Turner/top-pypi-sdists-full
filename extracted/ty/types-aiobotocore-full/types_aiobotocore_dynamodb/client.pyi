@@ -580,7 +580,8 @@ class DynamoDBClient(AioBaseClient):
         self, **kwargs: Unpack[ListExportsInputTypeDef]
     ) -> ListExportsOutputTypeDef:
         """
-        Lists completed exports within the past 90 days.
+        Lists completed exports within the past 90 days, in reverse alphanumeric order
+        of <code>ExportArn</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/list_exports.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dynamodb/client/#list_exports)

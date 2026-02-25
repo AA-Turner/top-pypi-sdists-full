@@ -9,7 +9,7 @@ from langgraph_api import config
 from langgraph_api.encryption.context import set_encryption_context
 from langgraph_api.encryption.middleware import decrypt_response
 from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY
-from langgraph_api.feature_flags import FF_USE_CORE_API
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.schema import Cron
 from langgraph_api.serde import json_loads
@@ -19,7 +19,7 @@ from langgraph_api.worker import set_auth_ctx_for_run
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
-if FF_USE_CORE_API:
+if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Crons
 else:
     from langgraph_runtime.ops import Crons
@@ -120,12 +120,19 @@ async def cron_scheduler():
                                     cron["cron_id"]
                                 )
                             )
-                        next_run_date = await run_in_executor(
-                            None, next_cron_date, cron["schedule"], cron["now"]
-                        )
-                        await Crons.set_next_run_date(
-                            conn, cron["cron_id"], next_run_date
-                        )
+                        # gRPC/Postgres path: next_run_date is advanced
+                        # atomically in Go's Crons.Next() to prevent
+                        # concurrent schedulers from claiming the same cron.
+                        if not IS_POSTGRES_OR_GRPC_BACKEND:
+                            next_run_date = await run_in_executor(
+                                None,
+                                next_cron_date,
+                                cron["schedule"],
+                                cron["now"],
+                            )
+                            await Crons.set_next_run_date(
+                                conn, cron["cron_id"], next_run_date
+                            )
 
             await asyncio.sleep(SLEEP_TIME)
         except asyncio.CancelledError:

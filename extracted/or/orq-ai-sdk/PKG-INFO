@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.4.0
+Version: 4.4.4
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git

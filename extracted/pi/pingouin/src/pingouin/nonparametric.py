@@ -1,9 +1,10 @@
 # Author: Raphael Vallat <raphaelvallat9@gmail.com>
 # Date: May 2018
-import scipy
 import numpy as np
 import pandas as pd
-from pingouin import remove_na, _check_dataframe, _postprocess_dataframe
+import scipy
+
+from pingouin import _check_dataframe, _postprocess_dataframe, remove_na
 
 __all__ = [
     "mad",
@@ -84,7 +85,7 @@ def mad(a, normalize=True, axis=0):
     Compare with Scipy >= 1.3
 
     >>> from scipy.stats import median_abs_deviation
-    >>> median_abs_deviation(w, scale='normal', axis=None, nan_policy='omit')
+    >>> median_abs_deviation(w, scale="normal", axis=None, nan_policy="omit")
     1.1607762457644006
     """
     a = np.asarray(a)
@@ -142,7 +143,7 @@ def madmedianrule(a):
     Examples
     --------
     >>> import pingouin as pg
-    >>> a = [-1.09, 1., 0.28, -1.51, -0.58, 6.61, -2.43, -0.43]
+    >>> a = [-1.09, 1.0, 0.28, -1.51, -0.58, 6.61, -2.43, -0.43]
     >>> pg.madmedianrule(a)
     array([False, False, False, False, False,  True, False, False])
     """
@@ -172,9 +173,9 @@ def mwu(x, y, alternative="two-sided", **kwargs):
     -------
     stats : :py:class:`pandas.DataFrame`
 
-        * ``'U-val'``: U-value corresponding with sample x
+        * ``'U_val'``: U-value corresponding with sample x
         * ``'alternative'``: tail of the test
-        * ``'p-val'``: p-value
+        * ``'p_val'``: p-value
         * ``'RBC'``   : rank-biserial correlation
         * ``'CLES'``  : common language effect size
 
@@ -238,36 +239,36 @@ def mwu(x, y, alternative="two-sided", **kwargs):
     >>> np.random.seed(123)
     >>> x = np.random.uniform(low=0, high=1, size=20)
     >>> y = np.random.uniform(low=0.2, high=1.2, size=20)
-    >>> pg.mwu(x, y, alternative='two-sided')
-         U-val alternative    p-val     RBC    CLES
+    >>> pg.mwu(x, y, alternative="two-sided")
+         U_val alternative    p_val     RBC    CLES
     MWU   97.0   two-sided  0.00556  -0.515  0.2425
 
     Compare with SciPy
 
     >>> import scipy
-    >>> scipy.stats.mannwhitneyu(x, y, use_continuity=True, alternative='two-sided')
+    >>> scipy.stats.mannwhitneyu(x, y, use_continuity=True, alternative="two-sided")
     MannwhitneyuResult(statistic=97.0, pvalue=0.0055604599321374135)
 
     One-sided test
 
-    >>> pg.mwu(x, y, alternative='greater')
-         U-val alternative     p-val     RBC    CLES
+    >>> pg.mwu(x, y, alternative="greater")
+         U_val alternative     p_val     RBC    CLES
     MWU   97.0     greater  0.997442  -0.515  0.2425
 
-    >>> pg.mwu(x, y, alternative='less')
-         U-val alternative    p-val     RBC    CLES
+    >>> pg.mwu(x, y, alternative="less")
+         U_val alternative    p_val     RBC    CLES
     MWU   97.0        less  0.00278  -0.515  0.7575
 
     Passing keyword arguments to :py:func:`scipy.stats.mannwhitneyu`:
 
-    >>> pg.mwu(x, y, alternative='two-sided', method='exact')
-         U-val alternative     p-val     RBC    CLES
+    >>> pg.mwu(x, y, alternative="two-sided", method="exact")
+         U_val alternative     p_val     RBC    CLES
     MWU   97.0   two-sided  0.004681  -0.515  0.2425
 
     Reversing the order of `x` and `y`.
 
     >>> pg.mwu(y, x)
-         U-val alternative    p-val    RBC    CLES
+         U_val alternative    p_val    RBC    CLES
     MWU  303.0   two-sided  0.00556  0.515  0.7575
     """
     x = np.asarray(x)
@@ -304,7 +305,7 @@ def mwu(x, y, alternative="two-sided", **kwargs):
 
     # Fill output DataFrame
     stats = pd.DataFrame(
-        {"U-val": uval_x, "alternative": alternative, "p-val": pval, "RBC": rbc, "CLES": cles},
+        {"U_val": uval_x, "alternative": alternative, "p_val": pval, "RBC": rbc, "CLES": cles},
         index=["MWU"],
     )
     return _postprocess_dataframe(stats)
@@ -336,9 +337,9 @@ def wilcoxon(x, y=None, alternative="two-sided", **kwargs):
     -------
     stats : :py:class:`pandas.DataFrame`
 
-        * ``'W-val'``: W-value
+        * ``'W_val'``: W-value
         * ``'alternative'``: tail of the test
-        * ``'p-val'``: p-value
+        * ``'p_val'``: p-value
         * ``'RBC'``   : matched pairs rank-biserial correlation (effect size)
         * ``'CLES'``  : common language effect size
 
@@ -408,39 +409,39 @@ def wilcoxon(x, y=None, alternative="two-sided", **kwargs):
     >>> import pingouin as pg
     >>> x = np.array([20, 22, 19, 20, 22, 18, 24, 20, 19, 24, 26, 13])
     >>> y = np.array([38, 37, 33, 29, 14, 12, 20, 22, 17, 25, 26, 16])
-    >>> pg.wilcoxon(x, y, alternative='two-sided')
-              W-val alternative     p-val       RBC      CLES
-    Wilcoxon   20.5   two-sided  0.285765 -0.378788  0.395833
+    >>> pg.wilcoxon(x, y, alternative="two-sided")
+              W_val alternative     p_val       RBC      CLES
+    Wilcoxon   20.5   two-sided  0.288086 -0.378788  0.395833
 
     Same but using pre-computed differences. However, the CLES effect size
     cannot be computed as it requires the raw data.
 
     >>> pg.wilcoxon(x - y)
-              W-val alternative     p-val       RBC  CLES
-    Wilcoxon   20.5   two-sided  0.285765 -0.378788   NaN
+              W_val alternative     p_val       RBC  CLES
+    Wilcoxon   20.5   two-sided  0.288086 -0.378788   NaN
 
     Compare with SciPy
 
     >>> import scipy
     >>> scipy.stats.wilcoxon(x, y)
-    WilcoxonResult(statistic=20.5, pvalue=0.2661660677806492)
+    WilcoxonResult(statistic=20.5, pvalue=0.2880859375)
 
     The p-value is not exactly similar to Pingouin. This is because Pingouin automatically applies
     a continuity correction. Disabling it gives the same p-value as scipy:
 
-    >>> pg.wilcoxon(x, y, alternative='two-sided', correction=False)
-              W-val alternative     p-val       RBC      CLES
-    Wilcoxon   20.5   two-sided  0.266166 -0.378788  0.395833
+    >>> pg.wilcoxon(x, y, alternative="two-sided", correction=False)
+              W_val alternative     p_val       RBC      CLES
+    Wilcoxon   20.5   two-sided  0.288086 -0.378788  0.395833
 
     One-sided test
 
-    >>> pg.wilcoxon(x, y, alternative='greater')
-              W-val alternative     p-val       RBC      CLES
-    Wilcoxon   20.5     greater  0.876244 -0.378788  0.395833
+    >>> pg.wilcoxon(x, y, alternative="greater")
+              W_val alternative     p_val       RBC      CLES
+    Wilcoxon   20.5     greater  0.865723 -0.378788  0.395833
 
-    >>> pg.wilcoxon(x, y, alternative='less')
-              W-val alternative     p-val       RBC      CLES
-    Wilcoxon   20.5        less  0.142883 -0.378788  0.604167
+    >>> pg.wilcoxon(x, y, alternative="less")
+              W_val alternative     p_val       RBC      CLES
+    Wilcoxon   20.5        less  0.144043  0.378788  0.604167
     """
     x = np.asarray(x)
     if y is not None:
@@ -490,11 +491,13 @@ def wilcoxon(x, y=None, alternative="two-sided", **kwargs):
     rsum = r.sum()
     r_plus = np.sum((d > 0) * r)
     r_minus = np.sum((d < 0) * r)
-    rbc = r_plus / rsum - r_minus / rsum
+    rbc = (
+        r_minus / rsum - r_plus / rsum if alternative == "less" else r_plus / rsum - r_minus / rsum
+    )
 
     # Fill output DataFrame
     stats = pd.DataFrame(
-        {"W-val": wval, "alternative": alternative, "p-val": pval, "RBC": rbc, "CLES": cles},
+        {"W_val": wval, "alternative": alternative, "p_val": pval, "RBC": rbc, "CLES": cles},
         index=["Wilcoxon"],
     )
     return _postprocess_dataframe(stats)
@@ -517,7 +520,7 @@ def kruskal(data=None, dv=None, between=None, detailed=False):
     stats : :py:class:`pandas.DataFrame`
 
         * ``'H'``: The Kruskal-Wallis H statistic, corrected for ties
-        * ``'p-unc'``: Uncorrected p-value
+        * ``'p_unc'``: Uncorrected p-value
         * ``'dof'``: degrees of freedom
 
     Notes
@@ -538,9 +541,9 @@ def kruskal(data=None, dv=None, between=None, detailed=False):
     Compute the Kruskal-Wallis H-test for independent samples.
 
     >>> from pingouin import kruskal, read_dataset
-    >>> df = read_dataset('anova')
-    >>> kruskal(data=df, dv='Pain threshold', between='Hair color')
-                 Source  ddof1         H     p-unc
+    >>> df = read_dataset("anova")
+    >>> kruskal(data=df, dv="Pain threshold", between="Hair color")
+                 Source  ddof1         H     p_unc
     Kruskal  Hair color      3  10.58863  0.014172
     """
     # Check data
@@ -580,7 +583,7 @@ def kruskal(data=None, dv=None, between=None, detailed=False):
             "Source": between,
             "ddof1": ddof1,
             "H": H,
-            "p-unc": p_unc,
+            "p_unc": p_unc,
         },
         index=["Kruskal"],
     )
@@ -617,7 +620,7 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
 
         * ``'Q'``: The Friedman chi-square statistic, corrected for ties
         * ``'dof'``: degrees of freedom
-        * ``'p-unc'``: Uncorrected p-value of the chi squared test
+        * ``'p_unc'``: Uncorrected p-value of the chi squared test
 
 
         If ``method='f'``
@@ -625,7 +628,7 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
         * ``'F'``: The Friedman F statistic, corrected for ties
         * ``'dof1'``: degrees of freedom of the numerator
         * ``'dof2'``: degrees of freedom of the denominator
-        * ``'p-unc'``: Uncorrected p-value of the F test
+        * ``'p_unc'``: Uncorrected p-value of the F test
 
     Notes
     -----
@@ -656,12 +659,28 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
 
     >>> import pandas as pd
     >>> import pingouin as pg
-    >>> df = pd.DataFrame({
-    ...    'white': {0: 10, 1: 8, 2: 7, 3: 9, 4: 7, 5: 4, 6: 5, 7: 6, 8: 5, 9: 10, 10: 4, 11: 7},
-    ...    'red': {0: 7, 1: 5, 2: 8, 3: 6, 4: 5, 5: 7, 6: 9, 7: 6, 8: 4, 9: 6, 10: 7, 11: 3},
-    ...    'rose': {0: 8, 1: 5, 2: 6, 3: 4, 4: 7, 5: 5, 6: 3, 7: 7, 8: 6, 9: 4, 10: 4, 11: 3}})
+    >>> df = pd.DataFrame(
+    ...     {
+    ...         "white": {
+    ...             0: 10,
+    ...             1: 8,
+    ...             2: 7,
+    ...             3: 9,
+    ...             4: 7,
+    ...             5: 4,
+    ...             6: 5,
+    ...             7: 6,
+    ...             8: 5,
+    ...             9: 10,
+    ...             10: 4,
+    ...             11: 7,
+    ...         },
+    ...         "red": {0: 7, 1: 5, 2: 8, 3: 6, 4: 5, 5: 7, 6: 9, 7: 6, 8: 4, 9: 6, 10: 7, 11: 3},
+    ...         "rose": {0: 8, 1: 5, 2: 6, 3: 4, 4: 7, 5: 5, 6: 3, 7: 7, 8: 6, 9: 4, 10: 4, 11: 3},
+    ...     }
+    ... )
     >>> pg.friedman(df)
-              Source         W  ddof1    Q     p-unc
+              Source         W  ddof1    Q     p_unc
     Friedman  Within  0.083333      2  2.0  0.367879
 
     Compare with SciPy
@@ -674,13 +693,13 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
 
     >>> df_long = df.melt(ignore_index=False).reset_index()
     >>> pg.friedman(data=df_long, dv="value", within="variable", subject="index")
-                Source         W  ddof1    Q     p-unc
+                Source         W  ddof1    Q     p_unc
     Friedman  variable  0.083333      2  2.0  0.367879
 
     Using the F-test method
 
     >>> pg.friedman(df, method="f")
-              Source         W     ddof1      ddof2    F     p-unc
+              Source         W     ddof1      ddof2    F     p_unc
     Friedman  Within  0.083333  1.833333  20.166667  1.0  0.378959
     """
     # Convert from wide to long-format, if needed
@@ -715,9 +734,8 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
     # Correction for ties
     ties = 0
     for i in range(n):
-        replist, repnum = scipy.stats.find_repeats(X[i])
-        for t in repnum:
-            ties += t * (t * t - 1)
+        _, counts = np.unique(X[i], return_counts=True)
+        ties += np.sum(counts * (counts * counts - 1))
 
     # Compute Kendall's W corrected for ties
     W = (12 * ssbn - 3 * n**2 * k * (k + 1) ** 2) / (n**2 * k * (k - 1) * (k + 1) - n * ties)
@@ -730,7 +748,7 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
         p_unc = scipy.stats.chi2.sf(Q, ddof1)
         # Create output dataframe
         stats = pd.DataFrame(
-            {"Source": within, "W": W, "ddof1": ddof1, "Q": Q, "p-unc": p_unc}, index=["Friedman"]
+            {"Source": within, "W": W, "ddof1": ddof1, "Q": Q, "p_unc": p_unc}, index=["Friedman"]
         )
     elif method == "f":
         # Compute the F statistic
@@ -741,7 +759,7 @@ def friedman(data=None, dv=None, within=None, subject=None, method="chisq"):
         p_unc = scipy.stats.f.sf(F, ddof1, ddof2)
         # Create output dataframe
         stats = pd.DataFrame(
-            {"Source": within, "W": W, "ddof1": ddof1, "ddof2": ddof2, "F": F, "p-unc": p_unc},
+            {"Source": within, "W": W, "ddof1": ddof1, "ddof2": ddof2, "F": F, "p_unc": p_unc},
             index=["Friedman"],
         )
     return _postprocess_dataframe(stats)
@@ -770,7 +788,7 @@ def cochran(data=None, dv=None, within=None, subject=None):
     stats : :py:class:`pandas.DataFrame`
 
         * ``'Q'``: The Cochran Q statistic
-        * ``'p-unc'``: Uncorrected p-value
+        * ``'p_unc'``: Uncorrected p-value
         * ``'dof'``: degrees of freedom
 
     Notes
@@ -807,16 +825,16 @@ def cochran(data=None, dv=None, within=None, subject=None):
     Compute the Cochran Q test for repeated measurements.
 
     >>> from pingouin import cochran, read_dataset
-    >>> df = read_dataset('cochran')
-    >>> cochran(data=df, dv='Energetic', within='Time', subject='Subject')
-            Source  dof         Q     p-unc
+    >>> df = read_dataset("cochran")
+    >>> cochran(data=df, dv="Energetic", within="Time", subject="Subject")
+            Source  dof         Q     p_unc
     cochran   Time    2  6.705882  0.034981
 
     Same but using a wide-format dataframe
 
     >>> df_wide = df.pivot_table(index="Subject", columns="Time", values="Energetic")
     >>> cochran(df_wide)
-             Source  dof         Q     p-unc
+             Source  dof         Q     p_unc
     cochran  Within    2  6.705882  0.034981
     """
     # Convert from wide to long-format, if needed
@@ -857,7 +875,7 @@ def cochran(data=None, dv=None, within=None, subject=None):
     p_unc = scipy.stats.chi2.sf(q, dof)
 
     # Create output dataframe
-    stats = pd.DataFrame({"Source": within, "dof": dof, "Q": q, "p-unc": p_unc}, index=["cochran"])
+    stats = pd.DataFrame({"Source": within, "dof": dof, "Q": q, "p_unc": p_unc}, index=["cochran"])
     return _postprocess_dataframe(stats)
 
 

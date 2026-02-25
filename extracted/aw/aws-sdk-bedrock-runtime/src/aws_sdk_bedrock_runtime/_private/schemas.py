@@ -2365,6 +2365,21 @@ AUDIO_BLOCK = Schema.collection(
     },
 )
 
+CACHE_TTL = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#CacheTTL"),
+    shape_type=ShapeType.ENUM,
+    members={
+        "FIVE_MINUTES": {
+            "target": UNIT,
+            "traits": [Trait.new(id=ShapeID("smithy.api#enumValue"), value="5m")],
+        },
+        "ONE_HOUR": {
+            "target": UNIT,
+            "traits": [Trait.new(id=ShapeID("smithy.api#enumValue"), value="1h")],
+        },
+    },
+)
+
 CACHE_POINT_TYPE = Schema.collection(
     id=ShapeID("com.amazonaws.bedrockruntime#CachePointType"),
     shape_type=ShapeType.ENUM,
@@ -2382,7 +2397,8 @@ CACHE_POINT_BLOCK = Schema.collection(
         "type": {
             "target": CACHE_POINT_TYPE,
             "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
-        }
+        },
+        "ttl": {"target": CACHE_TTL},
     },
 )
 
@@ -3146,6 +3162,57 @@ CONVERSATIONAL_MODEL_ID = Schema(
     ],
 )
 
+JSON_SCHEMA_DEFINITION = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#JsonSchemaDefinition"),
+    members={
+        "schema": {
+            "target": STRING,
+            "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
+        },
+        "name": {"target": STRING},
+        "description": {"target": STRING},
+    },
+)
+
+OUTPUT_FORMAT_STRUCTURE = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#OutputFormatStructure"),
+    shape_type=ShapeType.UNION,
+    traits=[Trait.new(id=ShapeID("smithy.api#sensitive"))],
+    members={"jsonSchema": {"target": JSON_SCHEMA_DEFINITION}},
+)
+
+OUTPUT_FORMAT_TYPE = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#OutputFormatType"),
+    shape_type=ShapeType.ENUM,
+    members={
+        "JSON_SCHEMA": {
+            "target": UNIT,
+            "traits": [
+                Trait.new(id=ShapeID("smithy.api#enumValue"), value="json_schema")
+            ],
+        }
+    },
+)
+
+OUTPUT_FORMAT = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#OutputFormat"),
+    members={
+        "type": {
+            "target": OUTPUT_FORMAT_TYPE,
+            "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
+        },
+        "structure": {
+            "target": OUTPUT_FORMAT_STRUCTURE,
+            "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
+        },
+    },
+)
+
+OUTPUT_CONFIG = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#OutputConfig"),
+    members={"textFormat": {"target": OUTPUT_FORMAT}},
+)
+
 PERFORMANCE_CONFIG_LATENCY = Schema.collection(
     id=ShapeID("com.amazonaws.bedrockruntime#PerformanceConfigLatency"),
     shape_type=ShapeType.ENUM,
@@ -3331,6 +3398,7 @@ TOOL_SPECIFICATION = Schema.collection(
             "target": TOOL_INPUT_SCHEMA,
             "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
         },
+        "strict": {"target": BOOLEAN},
     },
 )
 
@@ -3401,6 +3469,7 @@ CONVERSE_INPUT = Schema.collection(
         "requestMetadata": {"target": REQUEST_METADATA},
         "performanceConfig": {"target": PERFORMANCE_CONFIGURATION},
         "serviceTier": {"target": SERVICE_TIER},
+        "outputConfig": {"target": OUTPUT_CONFIG},
     },
 )
 
@@ -3538,6 +3607,31 @@ CONVERSE_TRACE = Schema.collection(
     },
 )
 
+CACHE_DETAIL = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#CacheDetail"),
+    members={
+        "ttl": {
+            "target": CACHE_TTL,
+            "traits": [Trait.new(id=ShapeID("smithy.api#required"))],
+        },
+        "inputTokens": {
+            "target": INTEGER,
+            "traits": [
+                Trait.new(id=ShapeID("smithy.api#required")),
+                Trait.new(
+                    id=ShapeID("smithy.api#range"), value=MappingProxyType({"min": 0})
+                ),
+            ],
+        },
+    },
+)
+
+CACHE_DETAILS_LIST = Schema.collection(
+    id=ShapeID("com.amazonaws.bedrockruntime#CacheDetailsList"),
+    shape_type=ShapeType.LIST,
+    members={"member": {"target": CACHE_DETAIL}},
+)
+
 TOKEN_USAGE = Schema.collection(
     id=ShapeID("com.amazonaws.bedrockruntime#TokenUsage"),
     members={
@@ -3584,6 +3678,7 @@ TOKEN_USAGE = Schema.collection(
                 )
             ],
         },
+        "cacheDetails": {"target": CACHE_DETAILS_LIST},
     },
 )
 
@@ -3755,6 +3850,7 @@ CONVERSE_STREAM_INPUT = Schema.collection(
         "requestMetadata": {"target": REQUEST_METADATA},
         "performanceConfig": {"target": PERFORMANCE_CONFIGURATION},
         "serviceTier": {"target": SERVICE_TIER},
+        "outputConfig": {"target": OUTPUT_CONFIG},
     },
 )
 

@@ -121,3 +121,95 @@ def matrix_to_labels(matrix, unique_labels):
 
 
 
+
+class DoseMatrix:
+    """
+    Construct a dosage matrix
+    
+    Parameters
+    ----------
+    labels: list
+        cells' perturbation labels
+        
+    label_dose: list
+        cells' perturbation dose values
+        
+    sep_pattern: str
+        pattern for extracting perturbation label
+        
+    Examples
+    --------
+    >>> from DensityFlow.perturb import LabelMatrix
+    >>> lb = DoseMatrix()
+    >>> labels = ['p1','p2','p3','p4','c']
+    >>> doses = [0.1, 0.2, 0.3, 0.4, 0]
+    >>> us = lb.fit_transform(labels, doses)
+    """
+    def __init__(self):
+        self.labels_ = None 
+        
+    def fit_transform(self, labels, label_dose, control_label=None, sep_pattern=r'[;_\s]'):
+        mat, self.labels_ = dose_to_matrix(labels, label_dose, sep_pattern=sep_pattern)
+        
+        if control_label is not None:
+            idx = np.where(self.labels_==control_label)[0]
+            mat = np.delete(mat, idx, axis=1)
+            self.labels_ = np.delete(self.labels_, idx)
+            
+        return mat 
+    
+
+@njit(parallel=True)
+def _numba_fill_matrix(dose_matrix, cell_indices, label_indices, label_doses):
+    """Numba 加速的矩阵填充函数"""
+    for i in range(len(label_indices)):
+        dose_matrix[cell_indices[i], label_indices[i]] = label_doses[i]
+
+def dose_to_matrix(labels, label_dose, sep_pattern=r'[;_\-\s]', all_labels=None):
+    """
+    使用 Numba 的终极加速版本（需预先安装 numba）
+    """
+    labels_unified = [re.sub(sep_pattern, ';', label) for label in labels]
+    if type(label_dose[0]) == str:
+        label_dose_unified = [re.sub(sep_pattern, ';', ld) for ld in label_dose]
+    else:
+        label_dose_unified = label_dose
+    all_unique_labels = sorted(set(chain(*[label.split(';') for label in labels_unified])))
+    
+    if all_labels is None:
+        #all_labels = sorted(set().union(labels))
+        all_labels = all_unique_labels
+    
+    label_to_idx = {label: idx for idx, label in enumerate(all_labels)}
+    n_samples = len(labels)
+    n_labels = len(all_labels)
+    dose_matrix = np.zeros((n_samples, n_labels), dtype=np.float64)
+    
+    # 预处理为 Numba 兼容格式
+    cell_indices = []
+    label_indices = []
+    label_doses = []
+    for i, label_ in enumerate(labels_unified):
+        if ';' in label_:
+            labels_ = label_.split(';')
+            if type(label_dose_unified[i])==str:
+                if ';' in label_dose_unified[i]:
+                    label_dose_ = label_dose_unified[i].split(';')
+                else:
+                    label_dose_ = [label_dose_unified[i]] * len(labels_)
+            else:
+                label_dose_ = [label_dose_unified[i]] * len(labels_)
+                
+            for j, label in enumerate(labels_):
+                cell_indices.append(i)
+                label_indices.append(label_to_idx[label])
+                label_doses.append(float(label_dose_[j]))
+        else:
+            label = label_
+            cell_indices.append(i)
+            label_indices.append(label_to_idx[label])
+            label_doses.append(float(label_dose[i]))
+    
+    # 调用 Numba 加速函数
+    _numba_fill_matrix(dose_matrix, cell_indices, label_indices, label_doses)
+    return dose_matrix,np.array(all_labels)

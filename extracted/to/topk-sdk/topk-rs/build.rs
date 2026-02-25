@@ -1,6 +1,9 @@
 fn main() {
     // Rerun if build.rs changes
     println!("cargo::rerun-if-changed=build.rs");
+    // Rerun if EARTHLY_GIT_HASH changes
+    println!("cargo::rerun-if-env-changed=EARTHLY_GIT_HASH");
+
     build_topk_v1_protos();
 }
 
@@ -9,6 +12,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/control/v1/collection_service.proto",
         "../protos/topk/control/v1/collection.proto",
         "../protos/topk/control/v1/schema.proto",
+        "../protos/topk/control/v1/dataset_service.proto",
+        "../protos/topk/control/v1/dataset.proto",
         "../protos/topk/data/v1/write_service.proto",
         "../protos/topk/data/v1/document.proto",
         "../protos/topk/data/v1/query_service.proto",
@@ -17,6 +22,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/data/v1/expr/function.proto",
         "../protos/topk/data/v1/expr/logical.proto",
         "../protos/topk/data/v1/expr/text.proto",
+        "../protos/topk/ctx/v1/dataset_service.proto",
+        "../protos/topk/ctx/v1/context_service.proto",
     ];
 
     // Rerun if any proto file changes
@@ -28,6 +35,39 @@ fn build_topk_v1_protos() {
 
     // #[derive(serde::Serialize, serde::Deserialize)]
     for message in [
+        // data Value
+        "topk.data.v1.Value",
+        "topk.data.v1.Value.value",
+        "topk.data.v1.List",
+        "topk.data.v1.List.values",
+        "topk.data.v1.List.U8",
+        "topk.data.v1.List.I8",
+        "topk.data.v1.List.U32",
+        "topk.data.v1.List.U64",
+        "topk.data.v1.List.I32",
+        "topk.data.v1.List.I64",
+        "topk.data.v1.List.F8",
+        "topk.data.v1.List.F16",
+        "topk.data.v1.List.F32",
+        "topk.data.v1.List.F64",
+        "topk.data.v1.List.String",
+        "topk.data.v1.Struct",
+        "topk.data.v1.Vector",
+        "topk.data.v1.Vector.vector",
+        "topk.data.v1.Vector.Float",
+        "topk.data.v1.Vector.Byte",
+        "topk.data.v1.SparseVector",
+        "topk.data.v1.SparseVector.values",
+        "topk.data.v1.SparseVector.F32Values",
+        "topk.data.v1.SparseVector.U8Values",
+        "topk.data.v1.Matrix",
+        "topk.data.v1.Matrix.values",
+        "topk.data.v1.Matrix.F32",
+        "topk.data.v1.Matrix.F16",
+        "topk.data.v1.Matrix.F8",
+        "topk.data.v1.Matrix.U8",
+        "topk.data.v1.Matrix.I8",
+        "topk.data.v1.Null",
         // field spec
         "topk.control.v1.FieldSpec",
         // field type
@@ -55,6 +95,19 @@ fn build_topk_v1_protos() {
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
+        // ctx
+        "topk.ctx.v1.AskResponseMessage",
+        "topk.ctx.v1.AskResponseMessage.message",
+        "topk.ctx.v1.AskResponseMessage.Search",
+        "topk.ctx.v1.AskResponseMessage.Reason",
+        "topk.ctx.v1.AskResponseMessage.Answer",
+        "topk.ctx.v1.Fact",
+        "topk.ctx.v1.SearchResult",
+        "topk.ctx.v1.Content",
+        "topk.ctx.v1.Content.data",
+        "topk.ctx.v1.Chunk",
+        "topk.ctx.v1.Page",
+        "topk.ctx.v1.Image",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
@@ -64,6 +117,8 @@ fn build_topk_v1_protos() {
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
+        .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
+        .bytes(".topk.ctx.v1.Image.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }

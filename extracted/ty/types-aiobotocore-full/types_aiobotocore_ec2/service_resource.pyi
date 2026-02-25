@@ -4127,6 +4127,7 @@ class PlacementGroup(AIOBoto3ServiceResource):
     group_arn: Awaitable[str]
     spread_level: Awaitable[SpreadLevelType]
     linked_group_id: Awaitable[str]
+    operator: Awaitable[OperatorResponseTypeDef]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

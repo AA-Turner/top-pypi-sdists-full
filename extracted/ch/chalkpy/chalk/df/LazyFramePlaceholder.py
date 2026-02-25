@@ -409,6 +409,63 @@ class LazyFramePlaceholder:
             query=query,
         )
 
+    @classmethod
+    def from_stream_source(
+        cls,
+        source: typing.Any,
+        n: int,
+        *,
+        timeout_ms: int = 15000,
+        include_metadata: bool = False,
+    ) -> LazyFramePlaceholder:
+        """Create a DataFrame by pulling messages from a streaming source.
+
+        This method connects to a Kafka, Kinesis, or PubSub source and pulls up to `n`
+        messages, returning them as a DataFrame.
+
+        Parameters
+        ----------
+        source
+            A streaming source configuration. Can be one of:
+            - ``KafkaSource``: Kafka topic configuration
+            - ``KinesisSource``: Kinesis stream configuration
+            - ``PubSubSource``: Google PubSub subscription configuration
+        n
+            Maximum number of messages to pull from the stream.
+        timeout_ms
+            Timeout in milliseconds for pulling messages. Default is 15000ms.
+        include_metadata
+            If False (default), returns a DataFrame with a single "value" column
+            containing the raw message bytes.
+            If True, returns a DataFrame with columns for topic, partition, offset,
+            timestamp, key, and value.
+
+        Returns
+        -------
+        DataFrame containing the messages from the stream.
+
+        Examples
+        --------
+        >>> from chalkdf import DataFrame
+        >>> from chalk.streams import KafkaSource
+        >>> source = KafkaSource(
+        ...     name="my_kafka",
+        ...     bootstrap_server="localhost:9092",
+        ...     topic="my_topic",
+        ... )
+        >>> # Pull 100 messages, just the raw bytes
+        >>> df = DataFrame.from_stream_source(source, n=100)
+        >>> # Pull with full metadata
+        >>> df = DataFrame.from_stream_source(source, n=100, include_metadata=True)
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="from_stream_source",
+            n=n,
+            timeout_ms=timeout_ms,
+            include_metadata=include_metadata,
+        )
+
     def with_columns(
         self,
         *columns: typing.Mapping[str, Underscore] | Underscore | tuple[str, Underscore],

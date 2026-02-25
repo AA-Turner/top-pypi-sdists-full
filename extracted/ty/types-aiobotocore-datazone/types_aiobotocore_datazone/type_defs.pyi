@@ -819,6 +819,8 @@ __all__ = (
     "UserProfileDetailsTypeDef",
     "UserProfileSummaryTypeDef",
     "UsernamePasswordTypeDef",
+    "WorkflowsMwaaPropertiesInputTypeDef",
+    "WorkflowsMwaaPropertiesOutputTypeDef",
 )
 
 class AcceptChoiceTypeDef(TypedDict):
@@ -1093,6 +1095,9 @@ class SparkEmrPropertiesInputTypeDef(TypedDict):
     trustedCertificatesS3Uri: NotRequired[str]
     managedEndpointArn: NotRequired[str]
 
+class WorkflowsMwaaPropertiesInputTypeDef(TypedDict):
+    mwaaEnvironmentName: NotRequired[str]
+
 class GluePropertiesOutputTypeDef(TypedDict):
     status: NotRequired[ConnectionStatusType]
     errorMessage: NotRequired[str]
@@ -1114,6 +1119,9 @@ class S3PropertiesOutputTypeDef(TypedDict):
     s3AccessGrantLocationId: NotRequired[str]
     status: NotRequired[ConnectionStatusType]
     errorMessage: NotRequired[str]
+
+class WorkflowsMwaaPropertiesOutputTypeDef(TypedDict):
+    mwaaEnvironmentName: NotRequired[str]
 
 class IamPropertiesPatchTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
@@ -5584,6 +5592,8 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     s3Properties: NotRequired[S3PropertiesOutputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesOutputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesOutputTypeDef]
+    workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesOutputTypeDef]
+    workflowsServerlessProperties: NotRequired[dict[str, Any]]
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationOutputTypeDef]
@@ -6394,6 +6404,8 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     s3Properties: NotRequired[S3PropertiesInputTypeDef]
     amazonQProperties: NotRequired[AmazonQPropertiesInputTypeDef]
     mlflowProperties: NotRequired[MlflowPropertiesInputTypeDef]
+    workflowsMwaaProperties: NotRequired[WorkflowsMwaaPropertiesInputTypeDef]
+    workflowsServerlessProperties: NotRequired[Mapping[str, Any]]
 
 class CreateConnectionInputTypeDef(TypedDict):
     domainIdentifier: str

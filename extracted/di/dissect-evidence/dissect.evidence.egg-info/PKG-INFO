@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.evidence
-Version: 3.12
+Version: 3.13
 Summary: A Dissect module implementing a parsers for various forensic evidence file containers, currently: AD1, ASDF and EWF
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: AGPL-3.0-or-later
@@ -23,6 +23,8 @@ License-File: LICENSE
 License-File: COPYRIGHT
 Requires-Dist: dissect.cstruct<5,>=4
 Requires-Dist: dissect.util<4,>=3
+Provides-Extra: full
+Requires-Dist: pycryptodome; extra == "full"
 Provides-Extra: dev
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
 Requires-Dist: dissect.util<4.0.dev,>=3.0.dev; extra == "dev"
@@ -30,7 +32,7 @@ Dynamic: license-file
 
 # dissect.evidence
 
-A Dissect module implementing a parsers for various forensic evidence file containers, currently: AD1, ASDF and EWF. For
+A Dissect module implementing parsers for various forensic evidence file containers, currently: AD1, ADCRYPT, ASDF and EWF. For
 more information, please see [the documentation](https://docs.dissect.tools/en/latest/projects/dissect.evidence/index.html).
 
 ## Requirements

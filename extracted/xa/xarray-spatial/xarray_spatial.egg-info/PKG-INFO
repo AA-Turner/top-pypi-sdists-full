@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.5.3
+Version: 0.6.0
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -12,7 +12,7 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: datashader>=0.15.0
@@ -183,6 +183,8 @@ In the GIS world, rasters are used for representing continuous phenomena (e.g. e
 
 #### Supported Spatial Functions with Supported Inputs
 
+✅ = native backend &nbsp;&nbsp; 🔄 = accepted (CPU fallback)
+
 -------
 
 ### **Classification**
@@ -226,16 +228,24 @@ In the GIS world, rasters are used for representing continuous phenomena (e.g. e
 | [Normalized Difference Vegetation Index (NDVI)](xrspatial/multispectral.py) | Quantifies vegetation density from red and NIR band difference | ✅️ |✅️ | ✅️ |✅️ |
 | [Soil Adjusted Vegetation Index (SAVI)](xrspatial/multispectral.py) | Vegetation index with soil brightness correction factor | ✅️ |✅️ | ✅️ |✅️ |
 | [Structure Insensitive Pigment Index (SIPI)](xrspatial/multispectral.py) | Estimates carotenoid-to-chlorophyll ratio for plant stress detection | ✅️ |✅️ | ✅️ |✅️ |
-| [True Color](xrspatial/multispectral.py) | Composites red, green, and blue bands into a natural color image | ✅️ | ️ | ✅️ | ️ |
+| [True Color](xrspatial/multispectral.py) | Composites red, green, and blue bands into a natural color image | ✅️ | ✅️ | ✅️ | ✅️ |
 
 -------
 
+
+### **Multivariate**
+
+| Name | Description | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
+|:----------:|:------------|:----------------------:|:--------------------:|:-------------------:|:------:|
+| [Mahalanobis Distance](xrspatial/mahalanobis.py) | Measures statistical distance from a multi-band reference distribution, accounting for band correlations | ✅️ |✅️ | ✅️ |✅️ |
+
+-------
 
 ### **Pathfinding**
 
 | Name | Description | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:----------:|:------------|:----------------------:|:--------------------:|:-------------------:|:------:|
-| [A* Pathfinding](xrspatial/pathfinding.py) | Finds the least-cost path between two cells on a cost surface | ✅️ |  | | |
+| [A* Pathfinding](xrspatial/pathfinding.py) | Finds the least-cost path between two cells on a cost surface | ✅️ | ✅ | 🔄 | 🔄 |
 
 ----------
 
@@ -244,7 +254,7 @@ In the GIS world, rasters are used for representing continuous phenomena (e.g. e
 | Name | Description | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
 |:----------:|:------------|:----------------------:|:--------------------:|:-------------------:|:------:|
 | [Allocation](xrspatial/proximity.py) | Assigns each cell to the identity of the nearest source feature | ✅️ | ✅ | | |
-| [Cost Distance](xrspatial/cost_distance.py) | Computes minimum accumulated cost to the nearest source through a friction surface | ✅️ | ✅ | | |
+| [Cost Distance](xrspatial/cost_distance.py) | Computes minimum accumulated cost to the nearest source through a friction surface | ✅️ | ✅ | 🔄 | 🔄 |
 | [Direction](xrspatial/proximity.py) | Computes the direction from each cell to the nearest source feature | ✅️ | ✅ | | |
 | [Proximity](xrspatial/proximity.py) | Computes the distance from each cell to the nearest source feature | ✅️ | ✅ | | |
 
@@ -264,10 +274,11 @@ In the GIS world, rasters are used for representing continuous phenomena (e.g. e
 |:----------:|:------------|:----------------------:|:--------------------:|:-------------------:|:------:|
 | [Aspect](xrspatial/aspect.py) | Computes downslope direction of each cell in degrees | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Curvature](xrspatial/curvature.py) | Measures rate of slope change (concavity/convexity) at each cell | ✅️ |✅️ |✅️ | ✅️  |
-| [Hillshade](xrspatial/hillshade.py) | Simulates terrain illumination from a given sun angle and azimuth | ✅️ | ✅️  | | |
+| [Hillshade](xrspatial/hillshade.py) | Simulates terrain illumination from a given sun angle and azimuth | ✅️ | ✅️ | ✅️ | ✅️ |
 | [Slope](xrspatial/slope.py) | Computes terrain gradient steepness at each cell in degrees | ✅️  | ✅️  | ✅️ | ✅️  |
 | [Terrain Generation](xrspatial/terrain.py) | Generates synthetic terrain elevation using fractal noise | ✅️ | ✅️ | ✅️ | |
 | [Viewshed](xrspatial/viewshed.py) | Determines visible cells from a given observer point on terrain | ✅️ |  | | |
+| [Min Observable Height](xrspatial/experimental/min_observable_height.py) | Finds the minimum observer height needed to see each cell *(experimental)* | ✅️ | | | |
 | [Perlin Noise](xrspatial/perlin.py) | Generates smooth continuous random noise for procedural textures | ✅️ | ✅️ | ✅️ | |
 | [Bump Mapping](xrspatial/bump.py) | Adds randomized bump features to simulate natural terrain variation | ✅️ | | | |
 
@@ -284,46 +295,65 @@ In the GIS world, rasters are used for representing continuous phenomena (e.g. e
 | [Zonal Statistics](xrspatial/zonal.py) | Computes summary statistics for a value raster within each zone | ✅️ | ✅️| | |
 | [Zonal Cross Tabulate](xrspatial/zonal.py) | Cross-tabulates agreement between two categorical rasters | ✅️ | ✅️| | |
 
------------
-
-### **Local**
-
-| Name | Description | NumPy xr.DataArray | Dask xr.DataArray | CuPy GPU xr.DataArray | Dask GPU xr.DataArray |
-|:----------:|:------------|:----------------------:|:--------------------:|:-------------------:|:------:|
-| [Cell Stats](xrspatial/local.py) | Computes summary statistics across multiple rasters per cell | ✅️ |  | | |
-| [Combine](xrspatial/local.py) | Assigns unique IDs to each distinct combination across rasters | ✅️ | | | |
-| [Lesser Frequency](xrspatial/local.py) | Counts how many rasters have values less than a reference | ✅️ |  | | |
-| [Equal Frequency](xrspatial/local.py) | Counts how many rasters have values equal to a reference | ✅️ |  | | |
-| [Greater Frequency](xrspatial/local.py) | Counts how many rasters have values greater than a reference | ✅️ |  | | |
-| [Lowest Position](xrspatial/local.py) | Identifies which raster has the minimum value at each cell | ✅️ | | | |
-| [Highest Position](xrspatial/local.py) | Identifies which raster has the maximum value at each cell | ✅️ | | | |
-| [Popularity](xrspatial/local.py) | Returns the value from the most common position across rasters | ✅️ | | | |
-| [Rank](xrspatial/local.py) | Ranks cell values across multiple rasters per cell | ✅️ | | | |
-
 #### Usage
 
-##### Basic Pattern
-```python
-import xarray as xr
-from xrspatial import hillshade
+##### Quick Start
 
-my_dataarray = xr.DataArray(...)
-hillshaded_dataarray = hillshade(my_dataarray)
+Importing `xrspatial` registers an `.xrs` accessor on DataArrays and Datasets, giving you tab-completable access to every spatial operation:
+
+```python
+import numpy as np
+import xarray as xr
+import xrspatial
+
+# Create or load a raster
+elevation = xr.DataArray(np.random.rand(100, 100) * 1000, dims=['y', 'x'])
+
+# Surface analysis — call operations directly on the DataArray
+slope = elevation.xrs.slope()
+hillshaded = elevation.xrs.hillshade(azimuth=315, angle_altitude=45)
+aspect = elevation.xrs.aspect()
+
+# Classification
+classes = elevation.xrs.equal_interval(k=5)
+breaks = elevation.xrs.natural_breaks(k=10)
+
+# Proximity
+distance = elevation.xrs.proximity(target_values=[1])
+
+# Multispectral — call on the NIR band, pass other bands as arguments
+nir = xr.DataArray(np.random.rand(100, 100), dims=['y', 'x'])
+red = xr.DataArray(np.random.rand(100, 100), dims=['y', 'x'])
+blue = xr.DataArray(np.random.rand(100, 100), dims=['y', 'x'])
+
+vegetation = nir.xrs.ndvi(red)
+enhanced_vi = nir.xrs.evi(red, blue)
 ```
 
 ##### Dataset Support
 
-Most functions also accept an `xr.Dataset`. Single-input functions (surface, classification, focal, proximity) apply the operation to each data variable and return a Dataset. Multi-input functions (multispectral indices) accept a Dataset with band-name keyword arguments.
+The `.xrs` accessor works on Datasets too. Single-input functions apply the operation to each data variable. Multi-input functions (multispectral indices) accept string kwargs that map band aliases to variable names:
 
 ```python
-# Single-input: returns a Dataset with slope computed for each variable
-slope_ds = slope(my_dataset)
+ds = xr.Dataset({'band_4': red, 'band_5': nir})
 
-# Multi-input: map Dataset variables to band parameters
-ndvi_result = ndvi(my_dataset, nir='band_5', red='band_4')
+# Single-input: slope computed for each variable
+slope_ds = ds.xrs.slope()
 
-# Zonal stats: columns prefixed by variable name
-stats_df = zonal.stats(zones, my_dataset)  # → elevation_mean, temperature_mean, ...
+# Multi-input: map variable names to band parameters
+ndvi_result = ds.xrs.ndvi(nir='band_5', red='band_4')
+```
+
+##### Function Import Style
+
+All operations are also available as standalone functions if you prefer explicit imports:
+
+```python
+from xrspatial import hillshade, slope, ndvi
+
+hillshaded = hillshade(elevation)
+slope_result = slope(elevation)
+vegetation = ndvi(nir, red)
 ```
 
 Check out the user guide [here](/examples/user_guide/).

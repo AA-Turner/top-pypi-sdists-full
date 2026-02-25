@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.12.0
+Version: 1.13.0
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License-Expression: MIT
@@ -30,7 +30,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastapi>=0.115.12
-Requires-Dist: fastmcp>=2.14.4
+Requires-Dist: fastmcp>=3.0.2
 Requires-Dist: google-api-python-client>=2.168.0
 Requires-Dist: google-auth-httplib2>=0.2.0
 Requires-Dist: google-auth-oauthlib>=1.2.2
@@ -107,7 +107,7 @@ Dynamic: license-file
 >
 > As a solo dev building open source tools, comprehensive documentation often wouldn't happen without AI help. Using agentic dev tools like **Roo** & **Claude Code** that understand the entire codebase, AI doesn't just regurgitate generic content - it extracts real implementation details and creates accurate, specific documentation.
 >
-> In this case, Sonnet 4 took a pass & a human (me) verified them 8/16/25.
+> In this case, Sonnet 4 took a pass & a human (me) verified them 2/16/26.
 </details>
 
 ## <span style="color:#adbcbc">Overview</span>
@@ -116,7 +116,6 @@ A production-ready MCP server that integrates all major Google Workspace service
 
 **Simplified Setup**: Now uses Google Desktop OAuth clients - no redirect URIs or port configuration needed!
 
-**Maintainer Docs**: Automated release and registry publishing guide at [`docs/mcp_registry_publishing_guide.md`](docs/mcp_registry_publishing_guide.md).
 
 ## <span style="color:#adbcbc">Features</span>
 

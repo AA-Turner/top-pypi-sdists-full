@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smithy-aws-core
-Version: 0.3.0
+Version: 0.4.0
 Summary: Core Smithy components for AWS services and protocols.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-core/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-core/

@@ -1,12 +1,13 @@
 import contextlib
-from collections.abc import Iterator
-from typing import (
+from collections.abc import (
     Callable,
+    Iterator,
+)
+from typing import TypeAlias  # Needed for Python3.9
+from typing import (
     ContextManager,
     Optional,
 )
-
-from typing_extensions import TypeAlias  # Needed for Python3.9
 
 from exasol_integration_test_docker_environment.testing import utils
 from exasol_integration_test_docker_environment.testing.exaslct_test_environment import (
@@ -22,17 +23,18 @@ CliContextProvider: TypeAlias = Callable[
 
 
 @contextlib.contextmanager
-def build_cli_isolation(request) -> Iterator[ExaslctTestEnvironment]:
+def build_cli_isolation(
+    env_name, executable: str = "itde"
+) -> Iterator[ExaslctTestEnvironment]:
     """
     Builds an ExaslctTestEnvironment instance with a proper name based on the pytest request fixture.
     Cleans up the environment automatically on shutdown.
     """
-    testname = utils.normalize_request_name(request.node.name)
     environment = ExaslctTestEnvironment(
         test_object=None,
-        executable="itde",
+        executable=executable,
         clean_images_at_close=True,
-        name=testname,
+        name=env_name,
     )
     yield environment
     utils.close_environments(environment)
@@ -49,8 +51,8 @@ def build_cli_context_provider(
 
     @contextlib.contextmanager
     def create_context(
-        name: Optional[str] = None,
-        additional_parameters: Optional[list[str]] = None,
+        name: str | None = None,
+        additional_parameters: list[str] | None = None,
     ) -> Iterator[SpawnedTestEnvironments]:
         name = name if name else test_environment.name
         spawned = test_environment.spawn_docker_test_environments(

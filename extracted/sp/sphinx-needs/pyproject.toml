@@ -28,7 +28,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<4"
 dependencies = [
-  "sphinx>=7.4,<9",
+  "sphinx>=7.4,<10",
   "requests-file~=2.1",             # external links
   "requests~=2.32",                 # external links
   "jsonschema-rs~=0.37.1",          # schema validation
@@ -36,6 +36,7 @@ dependencies = [
   "sphinxcontrib-jquery~=4.0",      # needed for datatables in sphinx>=6
   "tomli; python_version < '3.11'", # for needs_from_toml configuration
   "typing-extensions>=4.14.0",      # for dict NotRequired type indication
+  "minijinja~=2.15",                # lightweight jinja2-compatible template engine
 ]
 
 [project.optional-dependencies]
@@ -72,6 +73,15 @@ theme-rtd = ["sphinx_rtd_theme>=3.0.2,<4"]
 
 [dependency-groups]
 dev = ["pre-commit~=3.0", "tox~=4.23", "tox-uv~=1.15"]
+mypy = [
+  "mypy==1.19.1",
+  "sphinx==7.4.7",
+  "docutils==0.20",
+  "jsonschema-rs==0.37.1",
+  "types-docutils==0.20.0.20240201",
+  "types-requests",
+]
+ruff = ["ruff==0.14.11"]
 
 [tool.pytest.ini_options]
 markers = [
@@ -197,4 +207,16 @@ commands =
 basepython = python3.12
 extras = docs
 commands = sphinx-build -E -W -b linkcheck docs/ docs/_build/linkcheck
+
+[testenv:mypy]
+dependency_groups = mypy
+commands = mypy {posargs:sphinx_needs}
+
+[testenv:ruff-check]
+dependency_groups = ruff
+commands = ruff check {posargs:--fix}
+
+[testenv:ruff-fmt]
+dependency_groups = ruff
+commands = ruff format {posargs}
 """

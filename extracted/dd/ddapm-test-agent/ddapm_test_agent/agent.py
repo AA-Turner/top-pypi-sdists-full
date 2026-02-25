@@ -43,6 +43,8 @@ from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsSer
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2_grpc import add_LogsServiceServicer_to_server
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import ExportMetricsServiceResponse
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2_grpc import add_MetricsServiceServicer_to_server
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceResponse
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2_grpc import add_TraceServiceServicer_to_server
 
 from . import _get_version
 from . import trace_snapshot
@@ -63,6 +65,9 @@ from .logs import decode_logs_request
 from .metrics import METRICS_ENDPOINT
 from .metrics import OTLPMetricsGRPCServicer
 from .metrics import decode_metrics_request
+from .traces_otlp import TRACES_ENDPOINT
+from .traces_otlp import OTLPTracesGRPCServicer
+from .traces_otlp import decode_traces_request
 from .remoteconfig import RemoteConfigServer
 from .trace import Span
 from .trace import Trace
@@ -73,6 +78,7 @@ from .trace import decode_v05 as trace_decode_v05
 from .trace import decode_v07 as trace_decode_v07
 from .trace import pprint_trace
 from .trace import v04TracePayload
+from .trace_checks import CheckMetaEventsIsValidJSON
 from .trace_checks import CheckMetaTracerVersionHeader
 from .trace_checks import CheckTraceContentLength
 from .trace_checks import CheckTraceCountHeader
@@ -600,6 +606,20 @@ class Agent:
                 metrics.append(metrics_data)
         return metrics
 
+    async def _traces_otlp_by_session(self, token: Optional[str]) -> List[Dict[str, Any]]:
+        """Return the OTLP traces that belong to the given session token.
+
+        If token is None or if the token was used to manually start a session
+        with /session-start then return all OTLP traces that were sent since the last
+        /session-start request was made.
+        """
+        traces: List[Dict[str, Any]] = []
+        for req in self._requests_by_session(token):
+            if req.match_info.handler == self.handle_v1_traces_otlp:
+                traces_data = self._decode_v1_traces_otlp(req)
+                traces.append(traces_data)
+        return traces
+
     async def _integration_requests_by_session(
         self,
         token: Optional[str],
@@ -692,6 +712,14 @@ class Agent:
         except Exception as e:
             raise web.HTTPBadRequest(text=str(e))
 
+    def _decode_v1_traces_otlp(self, request: Request) -> Dict[str, Any]:
+        raw_data = self._request_data(request)
+        content_type = request.headers.get("Content-Type", "").lower().strip()
+        try:
+            return decode_traces_request(raw_data, content_type)
+        except Exception as e:
+            raise web.HTTPBadRequest(text=str(e))
+
     async def handle_v04_traces(self, request: Request) -> web.Response:
         return await self._handle_traces(request, version="v0.4")
 
@@ -750,6 +778,23 @@ class Agent:
         )
         return web.Response(
             body=ExportMetricsServiceResponse().SerializeToString(), status=200, content_type="application/x-protobuf"
+        )
+
+    async def handle_v1_traces_otlp(self, request: Request) -> web.Response:
+        traces_data = self._decode_v1_traces_otlp(request)
+        num_resource_spans = len(traces_data.get("resource_spans", []))
+        total_spans = sum(
+            len(scope_span.get("spans", []))
+            for resource_span in traces_data.get("resource_spans", [])
+            for scope_span in resource_span.get("scope_spans", [])
+        )
+        log.info(
+            "received /v1/traces payload with %r resource span(s) containing %r span(s)",
+            num_resource_spans,
+            total_spans,
+        )
+        return web.Response(
+            body=ExportTraceServiceResponse().SerializeToString(), status=200, content_type="application/x-protobuf"
         )
 
     async def handle_v07_remoteconfig(self, request: Request) -> web.Response:
@@ -1090,11 +1135,12 @@ class Agent:
                     except ValueError:
                         log.info("Chunk %d could not be displayed (might be incomplete).", i)
 
-                    # perform peer service check on span
+                    # perform per-span checks
                     for span in trace:
                         await checks.check(
                             "trace_peer_service", span=span, dd_config_env=request.get("_dd_trace_env_variables", {})
                         )
+                        await checks.check("meta_events_is_valid_json", span=span)
 
                     await checks.check(
                         "trace_dd_service", trace=trace, dd_config_env=request.get("_dd_trace_env_variables", {})
@@ -1272,6 +1318,11 @@ class Agent:
         metrics = await self._metrics_by_session(token)
         return web.json_response(metrics)
 
+    async def handle_session_traces_otlp(self, request: Request) -> web.Response:
+        token = request["session_token"]
+        traces = await self._traces_otlp_by_session(token)
+        return web.json_response(traces)
+
     async def handle_session_requests(self, request: Request) -> web.Response:
         token = request["session_token"]
         resp = []
@@ -1293,6 +1344,7 @@ class Agent:
                 self.handle_evp_proxy_v4_api_v2_llmobs,
                 self.handle_v1_logs,
                 self.handle_v1_metrics,
+                self.handle_v1_traces_otlp,
             ):
                 continue
             resp.append(
@@ -1702,9 +1754,11 @@ def make_otlp_http_app(agent: Agent) -> web.Application:
         [
             web.post(LOGS_ENDPOINT, agent.handle_v1_logs),
             web.post(METRICS_ENDPOINT, agent.handle_v1_metrics),
+            web.post(TRACES_ENDPOINT, agent.handle_v1_traces_otlp),
             web.get("/test/session/requests", agent.handle_session_requests),
             web.get("/test/session/logs", agent.handle_session_logs),
             web.get("/test/session/metrics", agent.handle_session_metrics),
+            web.get("/test/session/traces", agent.handle_session_traces_otlp),
             web.get("/test/session/clear", agent.handle_session_clear),
             web.get("/test/session/start", agent.handle_session_start),
         ]
@@ -1725,6 +1779,10 @@ async def make_otlp_grpc_server_async(agent: Agent, http_port: int, grpc_port: i
     # Add the OTLP metrics servicer
     metrics_servicer = OTLPMetricsGRPCServicer(http_port)
     add_MetricsServiceServicer_to_server(metrics_servicer, server)
+
+    # Add the OTLP traces servicer
+    traces_servicer = OTLPTracesGRPCServicer(http_port)
+    add_TraceServiceServicer_to_server(traces_servicer, server)
 
     # Setup and start the server
     listen_addr = f"[::]:{grpc_port}"
@@ -1869,6 +1927,7 @@ def make_app(
             CheckTraceStallAsync,
             CheckTracePeerService,
             CheckTraceDDService,
+            CheckMetaEventsIsValidJSON,
         ],
         enabled=enabled_checks,
     )

@@ -30,6 +30,7 @@ __all__ = (
     "DataKeyPairSpecType",
     "DataKeySpecType",
     "DescribeCustomKeyStoresPaginatorName",
+    "DryRunModifierTypeType",
     "EncryptionAlgorithmSpecType",
     "ExpirationModelTypeType",
     "GrantOperationType",
@@ -125,6 +126,7 @@ DataKeyPairSpecType = Literal[
 ]
 DataKeySpecType = Literal["AES_128", "AES_256"]
 DescribeCustomKeyStoresPaginatorName = Literal["describe_custom_key_stores"]
+DryRunModifierTypeType = Literal["IGNORE_CIPHERTEXT"]
 EncryptionAlgorithmSpecType = Literal[
     "RSAES_OAEP_SHA_1", "RSAES_OAEP_SHA_256", "SM2PKE", "SYMMETRIC_DEFAULT"
 ]
@@ -366,7 +368,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -406,7 +407,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -581,6 +581,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

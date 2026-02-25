@@ -37,4 +37,6 @@ for module_name in (
     "metrics",
     "routes",
 ):
-    sys.modules["langgraph_runtime." + module_name] = getattr(backend, module_name)
+    mod = getattr(backend, module_name, None)
+    if mod is not None:
+        sys.modules["langgraph_runtime." + module_name] = mod

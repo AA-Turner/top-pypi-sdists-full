@@ -90,7 +90,8 @@ setup(
         "pyiceberg>=0.7.0",
         "numpy>=1.26.4,<2.3.0",
         "pyarrow>=19.0.0",
-        "aws-embedded-metrics>=3.2.0"
+        "aws-embedded-metrics>=3.2.0",
+        "deltalake>=1.0.0",
     ],
     tests_require=["pytest"],
     test_suite="src.sagemaker_studio._test",

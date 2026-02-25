@@ -36,6 +36,7 @@ __all__ = [
     'GetAccountNetworkAclResult',
     'GetAccountNetworkAclVirtualNetworkRuleResult',
     'GetAccountNetworkInjectionResult',
+    'GetAccountProjectIdentityResult',
     'GetAccountStorageResult',
 ]
 
@@ -930,6 +931,9 @@ class DeploymentSku(dict):
                  size: Optional[_builtins.str] = None,
                  tier: Optional[_builtins.str] = None):
         """
+        :param _builtins.str name: The name of the SKU. Possible values include `Standard`, `DataZoneBatch`, `DataZoneStandard`, `DataZoneProvisionedManaged`, `GlobalBatch`, `GlobalProvisionedManaged`, `GlobalStandard`, and `ProvisionedManaged`. Changing this forces a new resource to be created.
+               
+               > **Note:** `DataZoneProvisionedManaged`, `GlobalProvisionedManaged`, and `ProvisionedManaged` are purchased on-demand at an hourly basis based on the number of deployed PTUs, with substantial term discount available via the purchase of Azure Reservations. Currently, this step cannot be completed using Terraform. For more details, please refer to the [provisioned throughput onboarding documentation](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/provisioned-throughput-onboarding).
         :param _builtins.int capacity: Tokens-per-Minute (TPM). The unit of measure for this field is in the thousands of Tokens-per-Minute. Defaults to `1` which means that the limitation is `1000` tokens per minute. If the resources SKU supports scale in/out then the capacity field should be included in the resources' configuration. If the scale in/out is not supported by the resources SKU then this field can be safely omitted. For more information about TPM please see the [product documentation](https://learn.microsoft.com/azure/ai-services/openai/how-to/quota?tabs=rest).
         :param _builtins.str family: If the service has different generations of hardware, for the same SKU, then that can be captured here. Changing this forces a new resource to be created.
         :param _builtins.str size: The SKU size. When the name field is the combination of tier and some other value, this would be the standalone code. Changing this forces a new resource to be created.
@@ -948,6 +952,11 @@ class DeploymentSku(dict):
     @_builtins.property
     @pulumi.getter
     def name(self) -> _builtins.str:
+        """
+        The name of the SKU. Possible values include `Standard`, `DataZoneBatch`, `DataZoneStandard`, `DataZoneProvisionedManaged`, `GlobalBatch`, `GlobalProvisionedManaged`, `GlobalStandard`, and `ProvisionedManaged`. Changing this forces a new resource to be created.
+
+        > **Note:** `DataZoneProvisionedManaged`, `GlobalProvisionedManaged`, and `ProvisionedManaged` are purchased on-demand at an hourly basis based on the number of deployed PTUs, with substantial term discount available via the purchase of Azure Reservations. Currently, this step cannot be completed using Terraform. For more details, please refer to the [provisioned throughput onboarding documentation](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/provisioned-throughput-onboarding).
+        """
         return pulumi.get(self, "name")
 
     @_builtins.property
@@ -1170,6 +1179,57 @@ class GetAccountNetworkInjectionResult(dict):
         The ID of the subnet which is able to access this Cognitive Services Account.
         """
         return pulumi.get(self, "subnet_id")
+
+
+@pulumi.output_type
+class GetAccountProjectIdentityResult(dict):
+    def __init__(__self__, *,
+                 identity_ids: Sequence[_builtins.str],
+                 principal_id: _builtins.str,
+                 tenant_id: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param Sequence[_builtins.str] identity_ids: The list of User Assigned Managed Identity IDs assigned to this Cognitive Services Account Project.
+        :param _builtins.str principal_id: The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account Project.
+        :param _builtins.str tenant_id: The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account Project.
+        :param _builtins.str type: The type of Managed Service Identity that is configured on this Cognitive Services Account Project.
+        """
+        pulumi.set(__self__, "identity_ids", identity_ids)
+        pulumi.set(__self__, "principal_id", principal_id)
+        pulumi.set(__self__, "tenant_id", tenant_id)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter(name="identityIds")
+    def identity_ids(self) -> Sequence[_builtins.str]:
+        """
+        The list of User Assigned Managed Identity IDs assigned to this Cognitive Services Account Project.
+        """
+        return pulumi.get(self, "identity_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> _builtins.str:
+        """
+        The Principal ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account Project.
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="tenantId")
+    def tenant_id(self) -> _builtins.str:
+        """
+        The Tenant ID of the System Assigned Managed Service Identity that is configured on this Cognitive Services Account Project.
+        """
+        return pulumi.get(self, "tenant_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The type of Managed Service Identity that is configured on this Cognitive Services Account Project.
+        """
+        return pulumi.get(self, "type")
 
 
 @pulumi.output_type

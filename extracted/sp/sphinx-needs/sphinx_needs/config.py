@@ -12,13 +12,13 @@ from sphinx_needs.data import GraphvizStyleType, NeedsCoreFields
 from sphinx_needs.defaults import DEFAULT_DIAGRAM_TEMPLATE
 from sphinx_needs.logging import get_logger, log_warning
 from sphinx_needs.schema.config import (
-    ExtraLinkSchemaType,
-    ExtraOptionBooleanSchemaType,
-    ExtraOptionIntegerSchemaType,
-    ExtraOptionMultiValueSchemaType,
-    ExtraOptionNumberSchemaType,
-    ExtraOptionSchemaTypes,
-    ExtraOptionStringSchemaType,
+    FieldBooleanSchemaType,
+    FieldIntegerSchemaType,
+    FieldMultiValueSchemaType,
+    FieldNumberSchemaType,
+    FieldSchemaTypes,
+    FieldStringSchemaType,
+    LinkSchemaType,
     SchemasFileRootType,
 )
 
@@ -34,33 +34,42 @@ LOGGER = get_logger(__name__)
 
 
 @dataclass(kw_only=True, slots=True)
-class ExtraOptionParams:
-    """Defines a single extra option for needs"""
+class NewFieldParams:
+    """Defines a single new field for needs"""
 
+    source: Literal[
+        "needs_extra_options",
+        "needs_fields",
+        "add_extra_option",
+        "add_field",
+        "service",
+    ]
+    """Where the field was added from."""
     description: str
-    """A description of the option."""
+    """A description of the field."""
+    nullable: bool | None = None
+    """Whether the field allows unset values."""
     schema: (
-        ExtraOptionStringSchemaType
-        | ExtraOptionBooleanSchemaType
-        | ExtraOptionIntegerSchemaType
-        | ExtraOptionNumberSchemaType
-        | ExtraOptionMultiValueSchemaType
+        FieldStringSchemaType
+        | FieldBooleanSchemaType
+        | FieldIntegerSchemaType
+        | FieldNumberSchemaType
+        | FieldMultiValueSchemaType
         | None
     )
     """A JSON schema for the option."""
-
-
-class FieldDefault(TypedDict):
-    """Defines a default value for a field."""
-
-    predicates: NotRequired[list[tuple[str, Any]]]
+    parse_variants: bool | None = None
+    """Whether variants are parsed in this field."""
+    parse_dynamic_functions: bool | None = None
+    """Whether dynamic functions are parsed in this field."""
+    predicates: None | list[tuple[str, Any]] = None
     """List of (need filter, value) pairs for default predicate values.
 
     Used if the field has not been specifically set.
 
     The value from the first matching filter will be used, if any.
     """
-    default: NotRequired[Any]
+    default: None | Any = None
     """Default value for the field.
     
     Used if the field has not been specifically set, and no predicate matches.
@@ -78,70 +87,84 @@ class _Config:
     """
 
     def __init__(self) -> None:
-        self._extra_options: dict[str, ExtraOptionParams] = {}
+        self._fields: dict[str, NewFieldParams] = {}
         self._functions: dict[str, NeedFunctionsType] = {}
         self._warnings: dict[
             str, str | Callable[[NeedItem, SphinxLoggerAdapter], bool]
         ] = {}
 
     def clear(self) -> None:
-        self._extra_options = {}
+        self._fields = {}
         self._functions = {}
         self._warnings = {}
 
     @property
-    def extra_options(self) -> Mapping[str, ExtraOptionParams]:
+    def fields(self) -> Mapping[str, NewFieldParams]:
         """Custom need fields.
 
         These fields can be added via sphinx configuration,
-        and also via the `add_extra_option` API function.
+        and also via the `add_field` API function.
 
         They are added to the each needs data item,
         and as directive options on `NeedDirective` and `NeedserviceDirective`.
         """
-        return self._extra_options
+        return self._fields
 
-    def add_extra_option(
+    def add_field(
         self,
         name: str,
         description: str,
+        source: Literal[
+            "needs_extra_options",
+            "needs_fields",
+            "add_extra_option",
+            "add_field",
+            "service",
+        ],
         *,
-        schema: ExtraOptionStringSchemaType
-        | ExtraOptionBooleanSchemaType
-        | ExtraOptionIntegerSchemaType
-        | ExtraOptionNumberSchemaType
-        | ExtraOptionMultiValueSchemaType
+        schema: FieldStringSchemaType
+        | FieldBooleanSchemaType
+        | FieldIntegerSchemaType
+        | FieldNumberSchemaType
+        | FieldMultiValueSchemaType
         | None = None,
+        nullable: None | bool = None,
+        default: None | Any = None,
+        predicates: None | list[tuple[str, Any]] = None,
+        parse_variants: None | bool = None,
+        parse_dynamic_functions: None | bool = None,
         override: bool = False,
     ) -> None:
-        """Adds an extra option to the configuration."""
+        """Adds a need field to the configuration."""
         if name in NeedsCoreFields:
             from sphinx_needs.exceptions import (
                 NeedsApiConfigWarning,  # avoid circular import
             )
 
             raise NeedsApiConfigWarning(
-                f"Cannot add extra option with name {name!r}"
+                f"Cannot add need field with name {name!r}"
                 + (f" ({description!r})" if description else "")
                 + ", as it is already used as a core field name."
             )
-        if name in self._extra_options:
+        if (existing := self._fields.get(name)) is not None:
+            message = f"Duplicate need field {name!r}, registered via {existing.source}({existing.description!r}) and {source}({description!r})."
             if override:
-                log_warning(
-                    LOGGER,
-                    f'extra_option "{name}" already registered.',
-                    "config",
-                    None,
-                )
+                log_warning(LOGGER, message, "config", None)
             else:
                 from sphinx_needs.exceptions import (
                     NeedsApiConfigWarning,  # avoid circular import
                 )
 
-                raise NeedsApiConfigWarning(f"Option {name} already registered.")
-        self._extra_options[name] = ExtraOptionParams(
+                raise NeedsApiConfigWarning(message)
+        self._fields[name] = NewFieldParams(
+            source=source,
             description=description,
             schema=schema,
+            nullable=nullable,
+            default=default,
+            predicates=predicates,
+            parse_variants=parse_variants,
+            parse_dynamic_functions=parse_dynamic_functions,
         )
 
     @property
@@ -242,15 +265,15 @@ Values can be:
 """
 
 
-class LinkOptionsType(TypedDict, total=False):
-    """Options for links between needs"""
+class NeedLinksConfig(TypedDict, total=False):
+    """Defines a link type for needs (used in needs_links dict)"""
 
-    option: Required[str]
-    """The name of the link option"""
+    description: NotRequired[str]
+    """A description of the link type."""
     incoming: str
-    """The incoming link title"""
+    """The incoming link title. Default: '<name> incoming'"""
     outgoing: str
-    """The outgoing link title"""
+    """The outgoing link title. Default: '<name>'"""
     copy: bool
     """Copy to common links data. Default: False"""
     color: str
@@ -265,7 +288,7 @@ class LinkOptionsType(TypedDict, total=False):
     """Used for needflow. Default: '->'"""
     allow_dead_links: bool
     """If True, add a 'forbidden' class to dead links"""
-    schema: NotRequired[ExtraLinkSchemaType]
+    schema: NotRequired[LinkSchemaType]
     """
     A JSON schema for the link option.
     
@@ -273,6 +296,21 @@ class LinkOptionsType(TypedDict, total=False):
     The schema is applied locally on unresolved links, i.e. on the list of string ids.
     For more granular control and graph traversal, use the `needs_schema_definitions` configuration.
     """
+    default: NotRequired[Any]
+    """Default value for the link option."""
+    predicates: NotRequired[list[tuple[str, Any]]]
+    """List of (need filter, value) pairs for predicate default values."""
+    parse_variants: NotRequired[bool]
+    """Whether variants are parsed in this field."""
+    parse_dynamic_functions: NotRequired[bool]
+    """Whether dynamic functions are parsed in this field."""
+
+
+class LinkOptionsType(NeedLinksConfig):
+    """Options for links between needs (deprecated, use NeedLinksConfig instead)"""
+
+    option: Required[str]
+    """The name of the link"""
 
 
 class NeedType(TypedDict):
@@ -290,19 +328,35 @@ class NeedType(TypedDict):
     """The default node style to use in diagrams (default: "node")."""
 
 
-class NeedExtraOption(TypedDict):
-    """Defines an extra option for needs"""
+class NeedFields(TypedDict):
+    """Defines a field for needs"""
 
-    name: str
     description: NotRequired[str]
-    """A description of the option."""
-    schema: NotRequired[ExtraOptionSchemaTypes]
+    """A description of the field."""
+    schema: NotRequired[FieldSchemaTypes]
     """
-    A JSON schema definition for the option.
+    A JSON schema definition for the field.
     
     If given, the schema will apply to all needs that use this option.
     For more granular control, use the `needs_schema_definitions` configuration.
     """
+    nullable: NotRequired[bool]
+    """Whether the field allows unset values."""
+    default: NotRequired[Any]
+    """Default value for the field."""
+    predicates: NotRequired[list[tuple[str, Any]]]
+    """List of (need filter, value) pairs for predicate default values."""
+    parse_variants: NotRequired[bool]
+    """Whether variants are parsed in this field."""
+    parse_dynamic_functions: NotRequired[bool]
+    """Whether dynamic functions are parsed in this field."""
+
+
+class NeedField(NeedFields):
+    """Defines an extra option for needs"""
+
+    name: str
+    """The name of the option."""
 
 
 class NeedStatusesOption(TypedDict):
@@ -353,31 +407,21 @@ class NeedsSphinxConfig:
     # such that we simply redirect all attribute access to the
     # Sphinx config object, but in a manner where type annotations will work
     # for static type analysis.
-    # Note also that we treat `extra_options`, `functions` and `warnings` as special-cases,
+    # Note also that we treat `functions` and `warnings` as special-cases,
     # since these configurations can also be added to dynamically via the API
 
     def __init__(self, config: _SphinxConfig) -> None:
         super().__setattr__("_config", config)
 
     def __getattribute__(self, name: str) -> Any:
-        if name.startswith("__") or name in (
-            "_config",
-            "extra_options",
-            "functions",
-            "warnings",
-        ):
+        if name.startswith("__") or name in ("_config", "functions", "warnings"):
             return super().__getattribute__(name)
         if name.startswith("_"):
             name = name[1:]
         return getattr(super().__getattribute__("_config"), f"needs_{name}")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name.startswith("__") or name in (
-            "_config",
-            "extra_options",
-            "functions",
-            "warnings",
-        ):
+        if name.startswith("__") or name in ("_config", "functions", "warnings"):
             return super().__setattr__(name, value)
         if name.startswith("_"):
             name = name[1:]
@@ -490,8 +534,8 @@ class NeedsSphinxConfig:
 
     schema_debug_ignore: list[str] = field(
         default_factory=lambda: [
-            "extra_option_success",
-            "extra_link_success",
+            "field_success",
+            "link_success",
             "select_success",
             "select_fail",
             "local_success",
@@ -597,22 +641,13 @@ class NeedsSphinxConfig:
         default=30, metadata={"rebuild": "html", "types": (int,)}
     )
     """Maximum length of the title in the need role output."""
-    _extra_options: list[str | NeedExtraOption] = field(
+    _fields: dict[str, NeedFields] = field(
+        default_factory=dict, metadata={"rebuild": "html", "types": (dict,)}
+    )
+    _extra_options: list[str | NeedField] = field(
         default_factory=list, metadata={"rebuild": "html", "types": (list,)}
     )
     """List of extra options for needs, that get added as directive options and need fields."""
-
-    @property
-    def extra_options(self) -> Mapping[str, ExtraOptionParams]:
-        """Custom need fields.
-
-        These fields can be added via sphinx configuration,
-        but also via the `add_extra_option` API function.
-
-        They are added to the each needs data item,
-        and as directive options on `NeedDirective` and `NeedserviceDirective`.
-        """
-        return _NEEDS_CONFIG.extra_options
 
     title_optional: bool = field(
         default=False, metadata={"rebuild": "html", "types": (bool,)}
@@ -679,10 +714,14 @@ class NeedsSphinxConfig:
         default="→\xa0", metadata={"rebuild": "html", "types": (str,)}
     )
     """Prefix for need_part output in tables"""
-    extra_links: list[LinkOptionsType] = field(
+    _links: dict[str, NeedLinksConfig] = field(
+        default_factory=dict, metadata={"rebuild": "html", "types": (dict,)}
+    )
+    """Dict of additional link types between needs (name -> config)."""
+    _extra_links: list[LinkOptionsType] = field(
         default_factory=list, metadata={"rebuild": "html", "types": ()}
     )
-    """List of additional link types between needs"""
+    """DEPRECATED: List of additional link types between needs. Use needs_links instead."""
     report_dead_links: bool = field(
         default=True, metadata={"rebuild": "html", "types": (bool,)}
     )
@@ -855,10 +894,25 @@ class NeedsSphinxConfig:
         default_factory=dict, metadata={"rebuild": "html", "types": (dict,)}
     )
     """Mapping of variant name to filter string."""
-    variant_options: list[str] = field(
+    _variant_options: list[str] = field(
         default_factory=list, metadata={"rebuild": "html", "types": (list,)}
     )
     """List of need fields that may contain variants."""
+
+    _parse_dynamic_functions: bool = field(
+        default=True, metadata={"rebuild": "html", "types": (bool,)}
+    )
+    """Global default for whether dynamic functions (``[[...]]``) are parsed in extra fields and links.
+
+    When ``True`` (the default), all extra fields and links will have dynamic function
+    parsing enabled unless explicitly set to ``False`` per-field/link.
+
+    .. note::
+
+        This default is ``True`` for backward compatibility.
+        In a future major release, the default will change to ``False``,
+        requiring users to explicitly opt-in to dynamic function parsing per-field/link.
+    """
 
     # add render context option
     render_context: dict[str, Any] = field(

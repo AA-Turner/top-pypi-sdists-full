@@ -419,9 +419,18 @@ status:
       returned: always
       description: The Date of last update
     values:
-      type: str
+      type: dict
       returned: always
-      description: Dict of Values used to deploy
+      description:
+        - Dict of Values used to deploy.
+        - This return value has been deprecated and will be removed in a release after
+          2027-01-08. Use RV(status.release_values) instead.
+    release_values:
+      type: dict
+      returned: always
+      description:
+        - Dict of Values used to deploy.
+      version_added: 6.3.0
 stdout:
   type: str
   description: Full `helm` command stdout, in case you want to display it or examine the event log
@@ -501,7 +510,8 @@ def get_release_status(module, release_name, all_status=False):
     if release is None:  # not install
         return None
 
-    release["values"] = module.get_values(release_name)
+    release["release_values"] = module.get_values(release_name)
+    release["values"] = release["release_values"]
 
     return release
 
@@ -918,6 +928,9 @@ def main():
     if not IMP_YAML:
         module.fail_json(msg=missing_required_lib("yaml"), exception=IMP_YAML_ERR)
 
+    # Validate Helm version >=3.0.0,<4.0.0
+    module.validate_helm_version()
+
     changed = False
 
     chart_ref = module.params.get("chart_ref")
@@ -1153,10 +1166,15 @@ def main():
                 changed = True
 
     if module.check_mode:
-        check_status = {"values": {"current": {}, "declared": {}}}
+        check_status = {
+            "values": {"current": {}, "declared": {}},
+            "release_values": {"current": {}, "declared": {}},
+        }
         if release_status:
-            check_status["values"]["current"] = release_status["values"]
+            check_status["values"]["current"] = release_status["release_values"]
             check_status["values"]["declared"] = release_status
+            check_status["release_values"]["current"] = release_status["release_values"]
+            check_status["release_values"]["declared"] = release_status
 
         module.exit_json(
             changed=changed,

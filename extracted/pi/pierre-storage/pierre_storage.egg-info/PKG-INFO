@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 1.2.0
+Version: 1.3.1
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT
@@ -205,6 +205,14 @@ files = await repo.list_files(
     ephemeral=False,  # optional, set to True to list files from ephemeral namespace
 )
 print(files["paths"])  # List of file paths
+
+# List files with mode/size and last-commit metadata
+metadata = await repo.list_files_with_metadata(
+    ref="main",
+    ephemeral=False,
+)
+print(metadata["files"][0]["last_commit_sha"])
+print(metadata["commits"][metadata["files"][0]["last_commit_sha"]]["author"])
 
 # List branches
 branches = await repo.list_branches(
@@ -644,6 +652,14 @@ class Repo:
         ttl: Optional[int] = None,
     ) -> ListFilesResult: ...
 
+    async def list_files_with_metadata(
+        self,
+        *,
+        ref: Optional[str] = None,
+        ephemeral: Optional[bool] = None,
+        ttl: Optional[int] = None,
+    ) -> ListFilesWithMetadataResult: ...
+
     async def list_branches(
         self,
         *,
@@ -743,6 +759,7 @@ from pierre_storage.types import (
     CommitSignature,
     CreateCommitOptions,
     ListFilesResult,
+    ListFilesWithMetadataResult,
     ListBranchesResult,
     ListCommitsResult,
     GetBranchDiffResult,

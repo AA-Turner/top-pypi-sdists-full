@@ -12,10 +12,8 @@ class LangfuseFormatter:
     """
     Format traces for Langfuse datasets.
 
-    Langfuse format uses input/expectedOutput structure:
-    - input: any JSON object with input data
-    - expectedOutput: any JSON object with expected output
-    - metadata: optional key-value pairs
+    Langfuse format uses input/expected_output structure matching the
+    Python SDK's create_dataset_item() parameter names.
 
     Example output:
         {
@@ -23,7 +21,7 @@ class LangfuseFormatter:
                 "question": "Can I submit a $200 expense without a receipt?",
                 "context": "Expense: $200, No receipt"
             },
-            "expectedOutput": {
+            "expected_output": {
                 "answer": "All expenses require receipts...",
                 "expected_outcome": "Deny - missing receipt"
             },
@@ -52,15 +50,18 @@ class LangfuseFormatter:
             # This handles both full traces and scenario-only generation
             answer = trace.assistant_message or trace.scenario.expected_outcome or ""
 
+            expected = {
+                "answer": answer,
+                "expected_outcome": trace.scenario.expected_outcome or "",
+            }
+
             example = {
                 "input": {
                     "question": trace.user_message,
                     "context": trace.scenario.context or "",
                 },
-                "expectedOutput": {
-                    "answer": answer,
-                    "expected_outcome": trace.scenario.expected_outcome or "",
-                },
+                "expected_output": expected,
+                "expectedOutput": expected,  # backward compat
                 "metadata": {
                     "ground_truth_rules": trace.scenario.target_rule_ids or [],
                     "difficulty": trace.scenario.scenario_type or "unknown",

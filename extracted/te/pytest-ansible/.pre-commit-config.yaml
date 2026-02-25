@@ -5,7 +5,7 @@ ci:
   autoupdate_schedule: quarterly
 repos:
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v9.4.0
+    rev: v9.6.0
     hooks:
       - id: cspell
         entry: bash
@@ -39,7 +39,7 @@ repos:
           )$
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.8.0
+    rev: v3.8.1
     hooks:
       - id: prettier
         always_run: true
@@ -54,14 +54,14 @@ repos:
         alias: toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.13
+    rev: v0.15.2
     hooks:
       - id: ruff-format
         alias: ruff
       - id: ruff-check
         alias: ruff
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v9.4.0
+    rev: v9.6.0
     hooks:
       - id: cspell
         name: Spell check with cspell
@@ -75,7 +75,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/pycqa/pylint.git
-    rev: v4.0.4
+    rev: v4.0.5
     hooks:
       - id: pylint
         args:

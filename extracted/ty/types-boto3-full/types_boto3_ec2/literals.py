@@ -107,6 +107,7 @@ __all__ = (
     "CurrencyCodeValuesType",
     "CustomerGatewayAvailableWaiterName",
     "DatafeedSubscriptionStateType",
+    "DefaultHttpTokensEnforcedStateType",
     "DefaultInstanceMetadataEndpointStateType",
     "DefaultInstanceMetadataTagsStateType",
     "DefaultRouteTableAssociationValueType",
@@ -337,6 +338,7 @@ __all__ = (
     "HostRecoveryType",
     "HostTenancyType",
     "HostnameTypeType",
+    "HttpTokensEnforcedStateType",
     "HttpTokensStateType",
     "HypervisorTypeType",
     "IamInstanceProfileAssociationStateType",
@@ -903,6 +905,7 @@ CpuManufacturerType = Literal["amazon-web-services", "amd", "apple", "intel"]
 CurrencyCodeValuesType = Literal["USD"]
 CustomerGatewayAvailableWaiterName = Literal["customer_gateway_available"]
 DatafeedSubscriptionStateType = Literal["Active", "Inactive"]
+DefaultHttpTokensEnforcedStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultInstanceMetadataEndpointStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultInstanceMetadataTagsStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultRouteTableAssociationValueType = Literal["disable", "enable"]
@@ -1279,6 +1282,7 @@ HostMaintenanceType = Literal["off", "on"]
 HostRecoveryType = Literal["off", "on"]
 HostTenancyType = Literal["dedicated", "default", "host"]
 HostnameTypeType = Literal["ip-name", "resource-name"]
+HttpTokensEnforcedStateType = Literal["disabled", "enabled"]
 HttpTokensStateType = Literal["optional", "required"]
 HypervisorTypeType = Literal["ovm", "xen"]
 IamInstanceProfileAssociationStateType = Literal[
@@ -3565,6 +3569,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

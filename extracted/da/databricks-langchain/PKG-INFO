@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: databricks-langchain
-Version: 0.16.0
+Version: 0.16.1
 Summary: Support for Databricks AI support in LangChain
 Author-email: Databricks <agent-feedback@databricks.com>
 License: Apache-2.0
 Requires-Python: >=3.10
-Requires-Dist: databricks-ai-bridge>=0.13.0
+Requires-Dist: databricks-ai-bridge>=0.15.0
 Requires-Dist: databricks-mcp>=0.5.1
 Requires-Dist: databricks-openai>=0.9.0
 Requires-Dist: databricks-sdk>=0.65.0
@@ -17,7 +17,7 @@ Requires-Dist: openai>=1.99.9
 Requires-Dist: pydantic>2.10.0
 Requires-Dist: unitycatalog-langchain[databricks]>=0.3.0
 Provides-Extra: memory
-Requires-Dist: databricks-ai-bridge[memory]>=0.10.0; extra == 'memory'
+Requires-Dist: databricks-ai-bridge[memory]>=0.14.0; extra == 'memory'
 Requires-Dist: langgraph-checkpoint-postgres>=2.0.5; extra == 'memory'
 Description-Content-Type: text/markdown
 

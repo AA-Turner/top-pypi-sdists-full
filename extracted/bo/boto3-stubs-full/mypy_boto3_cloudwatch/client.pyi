@@ -31,10 +31,12 @@ from .paginator import (
     DescribeAlarmsPaginator,
     DescribeAnomalyDetectorsPaginator,
     GetMetricDataPaginator,
+    ListAlarmMuteRulesPaginator,
     ListDashboardsPaginator,
     ListMetricsPaginator,
 )
 from .type_defs import (
+    DeleteAlarmMuteRuleInputTypeDef,
     DeleteAlarmsInputTypeDef,
     DeleteAnomalyDetectorInputTypeDef,
     DeleteDashboardsInputTypeDef,
@@ -60,6 +62,8 @@ from .type_defs import (
     EnableAlarmActionsInputTypeDef,
     EnableInsightRulesInputTypeDef,
     EnableInsightRulesOutputTypeDef,
+    GetAlarmMuteRuleInputTypeDef,
+    GetAlarmMuteRuleOutputTypeDef,
     GetDashboardInputTypeDef,
     GetDashboardOutputTypeDef,
     GetInsightRuleReportInputTypeDef,
@@ -72,6 +76,8 @@ from .type_defs import (
     GetMetricStreamOutputTypeDef,
     GetMetricWidgetImageInputTypeDef,
     GetMetricWidgetImageOutputTypeDef,
+    ListAlarmMuteRulesInputTypeDef,
+    ListAlarmMuteRulesOutputTypeDef,
     ListDashboardsInputTypeDef,
     ListDashboardsOutputTypeDef,
     ListManagedInsightRulesInputTypeDef,
@@ -82,6 +88,7 @@ from .type_defs import (
     ListMetricStreamsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    PutAlarmMuteRuleInputTypeDef,
     PutAnomalyDetectorInputTypeDef,
     PutCompositeAlarmInputTypeDef,
     PutDashboardInputTypeDef,
@@ -99,7 +106,7 @@ from .type_defs import (
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
 )
-from .waiter import AlarmExistsWaiter, CompositeAlarmExistsWaiter
+from .waiter import AlarmExistsWaiter, AlarmMuteRuleExistsWaiter, CompositeAlarmExistsWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -158,6 +165,16 @@ class CloudWatchClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/generate_presigned_url.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#generate_presigned_url)
+        """
+
+    def delete_alarm_mute_rule(
+        self, **kwargs: Unpack[DeleteAlarmMuteRuleInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a specific alarm mute rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_alarm_mute_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#delete_alarm_mute_rule)
         """
 
     def delete_alarms(
@@ -309,6 +326,16 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#enable_insight_rules)
         """
 
+    def get_alarm_mute_rule(
+        self, **kwargs: Unpack[GetAlarmMuteRuleInputTypeDef]
+    ) -> GetAlarmMuteRuleOutputTypeDef:
+        """
+        Retrieves details for a specific alarm mute rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_alarm_mute_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_alarm_mute_rule)
+        """
+
     def get_dashboard(
         self, **kwargs: Unpack[GetDashboardInputTypeDef]
     ) -> GetDashboardOutputTypeDef:
@@ -372,6 +399,16 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_metric_widget_image)
         """
 
+    def list_alarm_mute_rules(
+        self, **kwargs: Unpack[ListAlarmMuteRulesInputTypeDef]
+    ) -> ListAlarmMuteRulesOutputTypeDef:
+        """
+        Lists alarm mute rules in your Amazon Web Services account and region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/list_alarm_mute_rules.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#list_alarm_mute_rules)
+        """
+
     def list_dashboards(
         self, **kwargs: Unpack[ListDashboardsInputTypeDef]
     ) -> ListDashboardsOutputTypeDef:
@@ -419,6 +456,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#list_tags_for_resource)
+        """
+
+    def put_alarm_mute_rule(
+        self, **kwargs: Unpack[PutAlarmMuteRuleInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates an alarm mute rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_alarm_mute_rule.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#put_alarm_mute_rule)
         """
 
     def put_anomaly_detector(
@@ -594,6 +641,17 @@ class CloudWatchClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_alarm_mute_rules"]
+    ) -> ListAlarmMuteRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_dashboards"]
     ) -> ListDashboardsPaginator:
         """
@@ -618,6 +676,17 @@ class CloudWatchClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["alarm_exists"]
     ) -> AlarmExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["alarm_mute_rule_exists"]
+    ) -> AlarmMuteRuleExistsWaiter:
         """
         Returns an object that can wait for some condition.
 

@@ -16,29 +16,11 @@ from metatomic.torch import (  # noqa: E402
     System,
 )
 
-from vesin.metatomic import NeighborList, compute_requested_neighbors  # noqa: E402
-
-
-def test_errors():
-    positions = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 2.0]], dtype=torch.float64)
-    cell = 4 * torch.eye(3, dtype=torch.float64)
-    system = System(
-        positions=positions,
-        cell=cell,
-        pbc=torch.ones(3, dtype=bool),
-        types=torch.tensor([6, 8]),
-    )
-
-    options = NeighborListOptions(cutoff=3.5, full_list=True, strict=True)
-    calculator = NeighborList(options, length_unit="A")
-
-    system.pbc[0] = False
-    message = (
-        "vesin currently does not support mixed periodic and non-periodic "
-        "boundary conditions"
-    )
-    with pytest.raises(NotImplementedError, match=message):
-        calculator.compute(system)
+from vesin.metatomic import (  # noqa: E402
+    NeighborList,
+    compute_requested_neighbors,
+    compute_requested_neighbors_from_options,
+)
 
 
 def test_backward():
@@ -87,6 +69,28 @@ class OuterModule(torch.nn.Module):
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
         return {}
+
+
+class NLModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.inner = InnerModule()
+
+    def requested_neighbor_lists(self) -> List[NeighborListOptions]:
+        return [NeighborListOptions(cutoff=5.2, full_list=True, strict=False)]
+
+    def forward(
+        self,
+        systems: List[System],
+        outputs: Dict[str, ModelOutput],
+        selected_atoms: Optional[Labels],
+    ) -> None:
+        compute_requested_neighbors_from_options(
+            systems=systems,
+            options=self.requested_neighbor_lists(),
+            system_length_unit="A",
+            check_consistency=True,
+        )
 
 
 def test_model():
@@ -152,3 +156,7 @@ def test_model():
             model=model,
             model_length_unit="nm",
         )
+
+
+def test_torchscriptability():
+    torch.jit.script(NLModule())

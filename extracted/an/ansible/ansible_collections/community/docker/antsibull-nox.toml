@@ -4,6 +4,7 @@
 
 [collection_sources]
 "ansible.posix" = "git+https://github.com/ansible-collections/ansible.posix.git,main"
+"community.crypto" = "git+https://github.com/ansible-collections/community.crypto.git,main"
 "community.general" = "git+https://github.com/ansible-collections/community.general.git,main"
 "community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
 "community.library_inventory_filtering_v1" = "git+https://github.com/ansible-collections/community.library_inventory_filtering.git,stable-1"
@@ -137,7 +138,7 @@ docker = [ "fedora40", "ubuntu2204", "alpine320" ]
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.18"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
-remote = [ "rhel/9.4" ]
+remote = [ "rhel/9.7" ]
 
 # Ansible-core 2.19:
 
@@ -153,7 +154,7 @@ docker = [ "fedora41", "alpine321" ]
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.19"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
-remote = [ "rhel/9.5", "ubuntu/22.04" ]
+remote = [ "ubuntu/22.04" ]
 
 # Ansible-core 2.20:
 
@@ -169,7 +170,7 @@ docker = [ "fedora42", "alpine322" ]
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.20"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
-remote = [ "rhel/9.6" ]
+remote = [ "rhel/9.7" ]
 
 # Ansible-core devel:
 
@@ -180,7 +181,7 @@ description = "Meta session for running all ansible-test-integration-devel-* ses
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/4/", "azp/5/" ]
-docker = [ "fedora42", "ubuntu2204", "ubuntu2404", "alpine322" ]
+docker = [ "fedora43", "ubuntu2204", "ubuntu2404", "alpine323" ]
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
@@ -203,20 +204,20 @@ docker = "quay.io/ansible-community/test-image:debian-13-trixie"
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/4/", "azp/5/" ]
-python_version = "3.13"
+python_version = "3.14"
 docker = "quay.io/ansible-community/test-image:archlinux"
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
-remote = [ "rhel/9.6" ]
+remote = [ "rhel/10.1" ]
 ansible_vars = { force_docker_sdk_for_python_dev = { type = "value", value = true, template_value = "sdk-dev-latest" } }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
 remote = [
-    "rhel/10.0",
+    "rhel/9.7",
     # For some reason, Ubuntu 24.04 is *extremely* slower than RHEL 9.6
     # "ubuntu/24.04",
 ]

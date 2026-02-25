@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-ansible
-Version: 26.1.0
+Version: 26.2.1
 Summary: A radical approach to testing ansible content
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -13,9 +13,6 @@ Keywords: ansible,collections,tox
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Testing
-Classifier: Topic :: Software Development :: Quality Assurance
-Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -23,11 +20,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: chardet<6.0.0
 Requires-Dist: pytest>=8.4.1
 Requires-Dist: pytest-ansible>=3.1.0
 Requires-Dist: pytest-xdist>=3.8.0

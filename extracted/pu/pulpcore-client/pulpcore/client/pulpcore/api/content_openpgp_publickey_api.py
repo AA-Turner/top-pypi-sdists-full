@@ -427,9 +427,9 @@ class ContentOpenpgpPublickeyApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -471,11 +471,11 @@ class ContentOpenpgpPublickeyApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -554,9 +554,9 @@ class ContentOpenpgpPublickeyApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -598,11 +598,11 @@ class ContentOpenpgpPublickeyApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
@@ -681,9 +681,9 @@ class ContentOpenpgpPublickeyApi:
         pulp_id__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_label_select: Annotated[Optional[StrictStr], Field(description="Filter labels by search string")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
-        repository_version: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_added: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
-        repository_version_removed: Annotated[Optional[StrictStr], Field(description="Repository Version referenced by HREF/PRN")] = None,
+        repository_version: Optional[StrictStr] = None,
+        repository_version_added: Optional[StrictStr] = None,
+        repository_version_removed: Optional[StrictStr] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -725,11 +725,11 @@ class ContentOpenpgpPublickeyApi:
         :type pulp_label_select: str
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
-        :param repository_version: Repository Version referenced by HREF/PRN
+        :param repository_version:
         :type repository_version: str
-        :param repository_version_added: Repository Version referenced by HREF/PRN
+        :param repository_version_added:
         :type repository_version_added: str
-        :param repository_version_removed: Repository Version referenced by HREF/PRN
+        :param repository_version_removed:
         :type repository_version_removed: str
         :param fields: A list of fields to include in the response.
         :type fields: List[str]

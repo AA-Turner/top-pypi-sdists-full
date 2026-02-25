@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flet-desktop-light
-Version: 0.80.5
+Version: 0.81.0
 Summary: Flet Desktop client in Flutter (light)
 Author-email: "Appveyor Systems Inc." <hello@flet.dev>
 License-Expression: Apache-2.0
@@ -12,6 +12,9 @@ Description-Content-Type: text/markdown
 Requires-Dist: flet
 
 # Flet Desktop client in Flutter (light)
+
+[![python](https://img.shields.io/badge/python-%3E%3D3.10-%2334D058)](https://pypi.org/project/flet-desktop-light)
+[![docstring coverage](https://docs.flet.dev/assets/badges/docs-coverage/flet-desktop-light.svg)](https://docs.flet.dev/assets/badges/docs-coverage/flet-desktop-light.svg)
 
 This package contains a compiled Flutter Flet desktop client with audio and video
 components removed.

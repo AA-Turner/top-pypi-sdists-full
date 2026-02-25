@@ -11,6 +11,10 @@ DOCUMENTATION = r"""
 module: vcenter_vm_hardware_memory
 short_description: Updates the memory-related settings of a virtual machine.
 description: Updates the memory-related settings of a virtual machine.
+deprecated:
+    removed_in: 5.0.0
+    why: This module has been moved to the L(new vmware.vmware collection,https://forum.ansible.com/t/5880)
+    alternative: Use M(vmware.vmware.vm) instead.
 options:
     hot_add_enabled:
         description:
@@ -224,7 +228,7 @@ async def main():
 
     module_args = prepare_argument_spec()
     module = AnsibleModule(
-        argument_spec=module_args, required_if=required_if, supports_check_mode=True
+        argument_spec=module_args, required_if=required_if, supports_check_mode=False
     )
     if not module.params["vcenter_hostname"]:
         module.fail_json("vcenter_hostname cannot be empty")

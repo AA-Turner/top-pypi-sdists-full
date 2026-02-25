@@ -19,6 +19,7 @@ This module manages X.509 Bundle objects.
 """
 
 import threading
+from pathlib import Path
 from typing import Set, Optional
 
 from cryptography.hazmat.primitives import serialization
@@ -59,7 +60,7 @@ class X509Bundle(object):
             X509BundleError: In case the trust_domain is empty.
         """
 
-        self.lock = threading.Lock()
+        self._lock = threading.Lock()
 
         if not trust_domain:
             raise X509BundleError("Trust domain cannot be empty")
@@ -75,24 +76,24 @@ class X509Bundle(object):
     @property
     def x509_authorities(self) -> Set[Certificate]:
         """Returns a copy of set of X.509 authorities in the bundle."""
-        with self.lock:
+        with self._lock:
             return self._x509_authorities.copy()
 
     def add_authority(self, x509_authority: Certificate) -> None:
         """Adds an X.509 authority to the bundle."""
-        with self.lock:
+        with self._lock:
             self._x509_authorities.add(x509_authority)
 
     def remove_authority(self, x509_authority: Certificate) -> None:
         """Removes an X.509 authority from the bundle."""
-        with self.lock:
+        with self._lock:
             if not self._x509_authorities:
                 return
             self._x509_authorities.remove(x509_authority)
 
     def save(
         self,
-        bundle_path: str,
+        bundle_path: Path | str,
         encoding: serialization.Encoding,
     ) -> None:
         """Saves the X.509 bundle to a file in disk.
@@ -166,7 +167,7 @@ class X509Bundle(object):
     def load(
         cls,
         trust_domain: TrustDomain,
-        bundle_path: str,
+        bundle_path: Path | str,
         encoding: serialization.Encoding,
     ) -> 'X509Bundle':
         """Loads an X.509 bundle from a file in disk containing DER or PEM encoded trusted authorities.
@@ -202,13 +203,13 @@ class X509Bundle(object):
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, X509Bundle):
             return False
-        with self.lock:
+        with self._lock:
             return (
                 self.trust_domain.__eq__(o.trust_domain)
                 and self._x509_authorities == o._x509_authorities
             )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         trust_domain_hash = hash(self.trust_domain)
         authorities_hash = hash(tuple(hash(authority) for authority in self._x509_authorities))
         return hash((trust_domain_hash, authorities_hash))

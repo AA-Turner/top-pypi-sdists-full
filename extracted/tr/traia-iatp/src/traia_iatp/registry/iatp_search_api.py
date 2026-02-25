@@ -11,13 +11,14 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import os
 import logging
+import subprocess
 
 from pymongo import MongoClient
 from pymongo import server_api
 
 # Get environment variables
 CLUSTER_URI = "traia-iatp-cluster.yzwjvgd.mongodb.net/?retryWrites=true&w=majority&appName=Traia-IATP-Cluster"
-DATABASE_NAME = "iatp"
+DEFAULT_REGISTRY_ENV = "develop"
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,55 @@ MCP_PROJECTION_EXCLUDE_EMBEDDINGS = {
 UTILITY_AGENT_PROJECTION_EXCLUDE_EMBEDDINGS = {
     "embeddings": 0  # Excludes embeddings.description, embeddings.agent_card, embeddings.search_text
 }
+
+
+def _get_git_branch() -> Optional[str]:
+    """Best-effort current git branch lookup for local fallback routing."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=2,
+        )
+        branch = result.stdout.strip().lower()
+        return branch if branch else None
+    except Exception:
+        return None
+
+
+def resolve_registry_env() -> str:
+    """
+    Resolve normalized registry environment.
+
+    Priority:
+    1) STAGE (lambda + local .env flow)
+    2) IATP_ENV
+    3) ENV (backward compatibility)
+    4) git branch
+    5) default: develop
+    """
+    raw_env = (
+        os.getenv("STAGE")
+        or os.getenv("IATP_ENV")
+        or os.getenv("ENV")
+        or _get_git_branch()
+        or DEFAULT_REGISTRY_ENV
+    ).strip().lower()
+
+    if raw_env in {"main", "prod", "production"}:
+        return "prod"
+    if raw_env in {"develop", "dev", "development", "staging", "stage", "test"}:
+        return "develop"
+
+    logger.warning(f"Unknown registry env '{raw_env}', defaulting to '{DEFAULT_REGISTRY_ENV}'")
+    return DEFAULT_REGISTRY_ENV
+
+
+def get_database_name() -> str:
+    """Get environment-routed MongoDB database name."""
+    return f"iatp-{resolve_registry_env()}"
 
 
 @dataclass
@@ -200,31 +250,12 @@ def get_readonly_connection_string() -> str:
 
 
 def get_collection_names():
-    """Get environment-specific collection names.
-    
-    Collections:
-    - test: iatp-mcp-server-registry-test, iatp-utility-agent-registry-test
-    - prod: PROD-iatp-mcp-server-registry, PROD-utility-agent-registry
-    """
-    env = os.getenv("ENV", "test").lower()
-    
-    # Validate environment
-    valid_envs = ["test", "prod"]
-    if env not in valid_envs:
-        logger.warning(f"Invalid ENV '{env}', defaulting to 'test'. Valid values: {valid_envs}")
-        env = "test"
-    
-    if env == "prod":
-        return {
-            "utility_agent": "PROD-utility-agent-registry",
-            "mcp_server": "PROD-iatp-mcp-server-registry"
-        }
-    else:
-        # test environment (default)
-        return {
-            "utility_agent": "iatp-utility-agent-registry-test",
-            "mcp_server": "iatp-mcp-server-registry-test"
-        }
+    """Get environment-specific collection names."""
+    env = resolve_registry_env()
+    return {
+        "utility_agent": f"iatp-utility-agent-registry-{env}",
+        "mcp_server": f"iatp-mcp-server-registry-{env}",
+    }
 
 
 class IATPSearchAPI:
@@ -236,14 +267,19 @@ class IATPSearchAPI:
     # Class variable to cache readonly connections
     _client = None
     _db = None
+    _db_name = None
     
     @classmethod
     def _get_connection(cls):
         """Get or create read-only MongoDB connection."""
-        if cls._client is None:
+        db_name = get_database_name()
+        if cls._client is None or cls._db_name != db_name:
+            if cls._client:
+                cls._client.close()
             conn_str = get_readonly_connection_string()
             cls._client = MongoClient(conn_str, server_api=server_api.ServerApi('1'))
-            cls._db = cls._client[DATABASE_NAME]
+            cls._db = cls._client[db_name]
+            cls._db_name = db_name
         return cls._db
     
     @classmethod
@@ -292,7 +328,7 @@ class IATPSearchAPI:
         
         # If query is provided, use Atlas Search
         if query:
-            env = os.getenv("ENV", "test").lower()
+            env = resolve_registry_env()
             atlas_index_name = f"utility_agent_atlas_search_{env}"
             
             pipeline = [
@@ -416,7 +452,7 @@ class IATPSearchAPI:
         collection_names = get_collection_names()
         collection = db[collection_names["utility_agent"]]
         
-        env = os.getenv("ENV", "test").lower()
+        env = resolve_registry_env()
         vector_index_name = f"utility_agent_vector_search_{env}"
         
         # Default to search_text only, or use specified fields
@@ -525,7 +561,7 @@ class IATPSearchAPI:
         collection_names = get_collection_names()
         collection = db[collection_names["utility_agent"]]
         
-        env = os.getenv("ENV", "test").lower()
+        env = resolve_registry_env()
         atlas_index_name = f"utility_agent_atlas_search_{env}"
         
         pipeline = [
@@ -580,7 +616,7 @@ class IATPSearchAPI:
         
         # If query is provided, use Atlas Search
         if query:
-            env = os.getenv("ENV", "test").lower()
+            env = resolve_registry_env()
             atlas_index_name = f"mcp_server_atlas_search_{env}"
             
             pipeline = [
@@ -766,7 +802,7 @@ class IATPSearchAPI:
         collection_names = get_collection_names()
         collection = db[collection_names["mcp_server"]]
         
-        env = os.getenv("ENV", "test").lower()
+        env = resolve_registry_env()
         vector_index_name = f"mcp_server_vector_search_{env}"
         
         # Default to both fields, or use specified fields
@@ -887,7 +923,7 @@ class IATPSearchAPI:
         collection_names = get_collection_names()
         collection = db[collection_names["mcp_server"]]
         
-        env = os.getenv("ENV", "test").lower()
+        env = resolve_registry_env()
         atlas_index_name = f"mcp_server_atlas_search_{env}"
         
         pipeline = [

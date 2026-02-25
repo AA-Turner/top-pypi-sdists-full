@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from packaging.requirements import Requirement
+from packaging.tags import Tag
 from packaging.utils import canonicalize_name
 
 from .._compat import tomllib
@@ -268,6 +269,10 @@ def _build_wheel_impl_impl(
         platform.machine(),
     )
 
+    override_wheel_tags = None
+    if settings.wheel.tags:
+        override_wheel_tags = {Tag(*tag.split("-")) for tag in settings.wheel.tags}
+
     with tempfile.TemporaryDirectory() as tmpdir:
         build_tmp_folder = Path(tmpdir)
         wheel_dir = build_tmp_folder / "wheel"
@@ -349,7 +354,7 @@ def _build_wheel_impl_impl(
         for x in license_paths:
             path = wheel_dirs["metadata"] / "licenses" / x
             path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(x, path)
+            shutil.copy2(x, path)
 
         if (
             settings.wheel.license_files
@@ -372,7 +377,7 @@ def _build_wheel_impl_impl(
             wheel = WheelWriter(
                 metadata,
                 Path(metadata_directory),
-                tags.as_tags_set(),
+                override_wheel_tags or tags.as_tags_set(),
                 WheelMetadata(
                     root_is_purelib=targetlib == "purelib",
                     build_tag=settings.wheel.build_tag,
@@ -469,6 +474,7 @@ def _build_wheel_impl_impl(
             packages=settings.wheel.packages,
             name=normalized_name,
         )
+        assert settings.sdist.inclusion_mode is not None
         mapping = packages_to_file_mapping(
             packages=packages,
             platlib_dir=wheel_dirs[targetlib],
@@ -476,19 +482,20 @@ def _build_wheel_impl_impl(
             src_exclude=settings.sdist.exclude,
             target_exclude=settings.wheel.exclude,
             build_dir=settings.build_dir,
+            mode=settings.sdist.inclusion_mode,
         )
 
         if not editable:
             for filepath, package_dir in mapping.items():
                 Path(package_dir).parent.mkdir(exist_ok=True, parents=True)
-                shutil.copyfile(filepath, package_dir)
+                shutil.copy2(filepath, package_dir)
 
             process_script_dir(wheel_dirs["scripts"])
 
         with WheelWriter(
             metadata,
             Path(wheel_directory),
-            tags.as_tags_set(),
+            override_wheel_tags or tags.as_tags_set(),
             WheelMetadata(
                 root_is_purelib=targetlib == "purelib",
                 build_tag=settings.wheel.build_tag,
@@ -529,10 +536,10 @@ def _build_wheel_impl_impl(
         dist_info = Path(metadata_directory)
         for key, data in dist_info_contents.items():
             path = dist_info / key
-            prevous_data = path.read_bytes()
-            if prevous_data != data:
+            previous_data = path.read_bytes()
+            if previous_data != data:
                 msg = f"Metadata mismatch in {key}"
-                logger.error("{}: {!r} != {!r}", msg, prevous_data, data)
+                logger.error("{}: {!r} != {!r}", msg, previous_data, data)
                 raise AssertionError(msg)
 
     wheel_filename: str = wheel.wheelpath.name

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-cloudwatch
-Version: 1.42.49
-Summary: Type annotations for boto3 CloudWatch 1.42.49 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.56
+Summary: Type annotations for boto3 CloudWatch 1.42.56 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CloudWatch 1.42.49](https://pypi.org/project/boto3/) compatible with
+[boto3 CloudWatch 1.42.56](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -109,7 +109,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.49' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.56' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CloudWatch` service.
 4. Use provided commands to install generated packages.
@@ -347,6 +347,7 @@ from mypy_boto3_cloudwatch.paginator import (
     DescribeAlarmsPaginator,
     DescribeAnomalyDetectorsPaginator,
     GetMetricDataPaginator,
+    ListAlarmMuteRulesPaginator,
     ListDashboardsPaginator,
     ListMetricsPaginator,
 )
@@ -363,6 +364,9 @@ describe_anomaly_detectors_paginator: DescribeAnomalyDetectorsPaginator = client
     "describe_anomaly_detectors"
 )
 get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
+list_alarm_mute_rules_paginator: ListAlarmMuteRulesPaginator = client.get_paginator(
+    "list_alarm_mute_rules"
+)
 list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
 list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
 ```
@@ -378,13 +382,20 @@ waiters.
 from boto3.session import Session
 
 from mypy_boto3_cloudwatch import CloudWatchClient
-from mypy_boto3_cloudwatch.waiter import AlarmExistsWaiter, CompositeAlarmExistsWaiter
+from mypy_boto3_cloudwatch.waiter import (
+    AlarmExistsWaiter,
+    AlarmMuteRuleExistsWaiter,
+    CompositeAlarmExistsWaiter,
+)
 
 client: CloudWatchClient = Session().client("cloudwatch")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
 alarm_exists_waiter: AlarmExistsWaiter = client.get_waiter("alarm_exists")
+alarm_mute_rule_exists_waiter: AlarmMuteRuleExistsWaiter = client.get_waiter(
+    "alarm_mute_rule_exists"
+)
 composite_alarm_exists_waiter: CompositeAlarmExistsWaiter = client.get_waiter(
     "composite_alarm_exists"
 )

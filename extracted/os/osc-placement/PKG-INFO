@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: osc-placement
-Version: 4.7.0
+Version: 4.8.0
 Summary: OpenStackClient plugin for the Placement service
 Home-page: https://docs.openstack.org/osc-placement/latest/
 Author: OpenStack
@@ -18,12 +18,22 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: keystoneauth1>=3.3.0
 Requires-Dist: osc-lib>=1.2.0
 Requires-Dist: oslo.utils>=3.37.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =============
 osc-placement

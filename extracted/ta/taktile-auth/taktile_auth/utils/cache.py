@@ -16,3 +16,6 @@ class Cache(t.Protocol):
 
     def delete(self, key: str) -> None:
         """Delete a values"""
+
+    def put_marker(self, key: str, ttl_seconds: int) -> bool:
+        """Put a marker, return True if first to write"""

@@ -48,10 +48,13 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
         self.ctxt.project_id = str(uuid.uuid4()).replace('-', '')
         self.ctxt.project_domain_name = "foo"
         self.ctxt.project_domain_id = str(uuid.uuid4()).replace('-', '')
+        self.ctxt.domain_id = None
+        self.ctxt.domain_name = None
+        self.ctxt.system_scope = None
 
         # Create a key_id, secret_ref, pre_hex, and hex to use
         self.key_id = "d152fa13-2b41-42ca-a934-6c21566c0f40"
-        self.secret_ref = ("http://host:9311/v1/secrets/" + self.key_id)
+        self.secret_ref = self.key_id
         self.pre_hex = "AIDxQp2++uAbKaTVDMXFYIu8PIugJGqkK0JLqkU0rhY="
         self.hex = ("0080f1429dbefae01b29a4d50cc5c5608bbc3c8ba0246aa42b424baa4"
                     "534ae16")
@@ -156,115 +159,11 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
         auth = self.key_mgr._get_keystone_auth(self.ctxt)
         self.assertIsInstance(auth, service_token.ServiceTokenAuthWrapper)
 
-    def test_base_url_old_version(self):
-        version = "v1"
-        self.key_mgr.conf.barbican.barbican_api_version = version
-        endpoint = "http://localhost:9311"
-        base_url = self.key_mgr._create_base_url(mock.Mock(),
-                                                 mock.Mock(),
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + version, base_url)
-
-    def test_base_url_new_version(self):
-        version = "v1"
-        self.key_mgr.conf.barbican.barbican_api_version = version
-        endpoint = "http://localhost/key_manager"
-        base_url = self.key_mgr._create_base_url(mock.Mock(),
-                                                 mock.Mock(),
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + version, base_url)
-
-    def test_base_url_service_catalog(self):
-        endpoint_data = mock.Mock()
-        endpoint_data.api_version = 'v321'
-
-        auth = mock.Mock(spec=['service_catalog'])
-        auth.service_catalog.endpoint_data_for.return_value = endpoint_data
-
-        endpoint = "http://localhost/key_manager"
-
-        base_url = self.key_mgr._create_base_url(auth,
-                                                 mock.Mock(),
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + endpoint_data.api_version, base_url)
-        auth.service_catalog.endpoint_data_for.assert_called_once_with(
-            service_type='key-manager', interface='public',
-            region_name=None)
-
-    def test_base_url_service_catalog_with_endpoint_type(self):
-        self.key_mgr.conf.barbican.barbican_endpoint_type = 'internal'
-
-        endpoint_data = mock.Mock()
-        endpoint_data.api_version = 'v321'
-
-        auth = mock.Mock(spec=['service_catalog'])
-        auth.service_catalog.endpoint_data_for.return_value = endpoint_data
-
-        endpoint = "http://localhost/key_manager"
-
-        base_url = self.key_mgr._create_base_url(auth,
-                                                 mock.Mock(),
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + endpoint_data.api_version, base_url)
-        auth.service_catalog.endpoint_data_for.assert_called_once_with(
-            service_type='key-manager', interface='internal',
-            region_name=None)
-
-    def test_base_url_service_catalog_with_region_name(self):
-        self.key_mgr.conf.barbican.barbican_region_name = 'regionOne'
-
-        endpoint_data = mock.Mock()
-        endpoint_data.api_version = 'v321'
-        auth = mock.Mock(spec=['service_catalog'])
-        auth.service_catalog.endpoint_data_for.return_value = endpoint_data
-
-        endpoint = "http://localhost/key_manager"
-
-        base_url = self.key_mgr._create_base_url(auth,
-                                                 mock.Mock(),
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + endpoint_data.api_version, base_url)
-        auth.service_catalog.endpoint_data_for.assert_called_once_with(
-            service_type='key-manager', interface='public',
-            region_name='regionOne')
-
-    def test_base_url_raise_exception(self):
-        auth = mock.Mock(spec=['get_discovery'])
-        sess = mock.Mock()
-        discovery = mock.Mock()
-        discovery.raw_version_data = mock.Mock(return_value=[])
-        auth.get_discovery = mock.Mock(return_value=discovery)
-
-        endpoint = "http://localhost/key_manager"
-
-        self.assertRaises(exception.KeyManagerError,
-                          self.key_mgr._create_base_url,
-                          auth, sess, endpoint)
-        auth.get_discovery.assert_called_once_with(sess, url=endpoint)
-        self.assertEqual(1, discovery.raw_version_data.call_count)
-
-    def test_base_url_get_discovery(self):
-        version = 'v100500'
-        auth = mock.Mock(spec=['get_discovery'])
-        sess = mock.Mock()
-        discovery = mock.Mock()
-        auth.get_discovery = mock.Mock(return_value=discovery)
-        discovery.raw_version_data = mock.Mock(return_value=[{'id': version}])
-
-        endpoint = "http://localhost/key_manager"
-
-        base_url = self.key_mgr._create_base_url(auth,
-                                                 sess,
-                                                 endpoint)
-        self.assertEqual(endpoint + "/" + version, base_url)
-        auth.get_discovery.assert_called_once_with(sess, url=endpoint)
-        self.assertEqual(1, discovery.raw_version_data.call_count)
-
     @mock.patch('castellan.key_manager.barbican_key_manager.'
                 'BarbicanKeyManager._get_barbican_client')
     def test_create_key(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         # Create order_ref_url and assign return value
         order_ref_url = ("http://localhost:9311/v1/orders/"
@@ -285,6 +184,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                                                 length=256)
 
         mock_client.orders.get.assert_called_once_with(order_ref_url)
+        mock_client.orders.delete.assert_called_once_with(order_ref_url)
         self.assertEqual(self.key_id, returned_uuid)
 
     def test_create_key_null_context(self):
@@ -295,7 +195,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_create_key_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         key_order = mock.Mock()
         mock_client.orders.create_key.return_value = key_order
@@ -306,9 +206,38 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
 
     @mock.patch('castellan.key_manager.barbican_key_manager.'
                 'BarbicanKeyManager._get_barbican_client')
+    def test_create_key_with_error_delete_order(self, mock_get_client):
+        mock_client = mock.Mock()
+        mock_get_client.return_value = mock_client
+
+        # Create order_ref_url and assign return value
+        order_ref_url = ("http://localhost:9311/v1/orders/"
+                         "4fe939b7-72bc-49aa-bd1e-e979589858af")
+        key_order = mock.Mock()
+        mock_client.orders.create_key.return_value = key_order
+        mock_client.orders.delete.side_effect = Exception("SPAM!")
+        key_order.submit.return_value = order_ref_url
+
+        # Create order and assign return value
+        order = mock.Mock()
+        order.secret_ref = self.secret_ref
+        order.status = 'ACTIVE'
+        mock_client.orders.get.return_value = order
+
+        # Create the key, get the UUID
+        returned_uuid = self.key_mgr.create_key(self.ctxt,
+                                                algorithm='AES',
+                                                length=256)
+
+        mock_client.orders.get.assert_called_once_with(order_ref_url)
+        mock_client.orders.delete.assert_called_once_with(order_ref_url)
+        self.assertEqual(self.key_id, returned_uuid)
+
+    @mock.patch('castellan.key_manager.barbican_key_manager.'
+                'BarbicanKeyManager._get_barbican_client')
     def test_create_key_pair(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         # Create order_ref_url and assign return value
         order_ref_url = ("http://localhost:9311/v1/orders/"
@@ -344,8 +273,8 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
         mock_client.orders.get.assert_called_once_with(order_ref_url)
         mock_client.containers.get.assert_called_once_with(
             container_ref)
-
-        mock_client.orders.get.assert_called_once_with(order_ref_url)
+        mock_client.orders.delete.assert_called_once_with(order_ref_url)
+        mock_client.containers.delete.assert_called_once_with(container_ref)
         self.assertEqual(private_key_id, returned_private_uuid)
         self.assertEqual(public_key_id, returned_public_uuid)
 
@@ -357,7 +286,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_create_key_pair_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         asym_order = mock.Mock()
         mock_client.orders.create_asymmetric.return_value = asym_order
@@ -365,6 +294,56 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
             side_effect=barbican_exceptions.HTTPClientError('test error'))
         self.assertRaises(exception.KeyManagerError,
                           self.key_mgr.create_key_pair, self.ctxt, 'RSA', 2048)
+
+    @mock.patch('castellan.key_manager.barbican_key_manager.'
+                'BarbicanKeyManager._get_barbican_client')
+    def test_create_key_pair_error_in_delete_order_container(self,
+                                                             mock_get_client):
+        mock_client = mock.Mock()
+        mock_get_client.return_value = mock_client
+
+        # Create order_ref_url and assign return value
+        order_ref_url = ("http://localhost:9311/v1/orders/"
+                         "f45bf211-a917-4ead-9aec-1c91e52609df")
+        asym_order = mock.Mock()
+        mock_client.orders.create_asymmetric.return_value = asym_order
+        asym_order.submit.return_value = order_ref_url
+
+        # Create order and assign return value
+        order = mock.Mock()
+        container_id = "16caa8f4-dd34-4fb3-bf67-6c20533a30e4"
+        container_ref = ("http://localhost:9311/v1/containers/" + container_id)
+        order.container_ref = container_ref
+        order.status = 'ACTIVE'
+        mock_client.orders.get.return_value = order
+        mock_client.orders.delete.side_effect = Exception("SPAM!")
+
+        # Create container and assign return value
+        container = mock.Mock()
+        public_key_id = "43ed09c3-e551-4c24-b612-e619abe9b534"
+        pub_key_ref = ("http://localhost:9311/v1/secrets/" + public_key_id)
+        private_key_id = "32a0bc60-4e10-4269-9f17-f49767e99586"
+        priv_key_ref = ("http://localhost:9311/v1/secrets/" + private_key_id)
+        container.secret_refs = {'public_key': pub_key_ref,
+                                 'private_key': priv_key_ref}
+        mock_client.containers.get.return_value = container
+        mock_client.containers.delete.side_effect = Exception("HAM!")
+
+        # Create the keys, get the UUIDs
+        returned_private_uuid, returned_public_uuid = (
+            self.key_mgr.create_key_pair(self.ctxt,
+                                         algorithm='RSA',
+                                         length=2048))
+
+        mock_client.orders.get.assert_called_once_with(order_ref_url)
+        mock_client.containers.get.assert_called_once_with(
+            container_ref)
+        mock_client.orders.delete.assert_called_once_with(order_ref_url)
+        mock_client.containers.delete.assert_called_once_with(
+            container_ref)
+
+        self.assertEqual(private_key_id, returned_private_uuid)
+        self.assertEqual(public_key_id, returned_public_uuid)
 
     def test_delete_null_context(self):
         self.assertRaises(exception.Forbidden,
@@ -374,7 +353,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_delete_key(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         self.key_mgr.delete(self.ctxt, self.key_id)
         mock_client.secrets.delete.assert_called_once_with(
@@ -385,7 +364,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_delete_secret_with_consumers_no_force_parameter(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         mock_client.secrets.delete = mock.Mock(
             side_effect=exception.KeyManagerError(
@@ -400,7 +379,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_delete_secret_with_consumers_force_parameter_false(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         mock_client.secrets.delete.side_effect = \
             barbican_exceptions.HTTPClientError(
@@ -416,7 +395,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_delete_secret_with_consumers_force_parameter_true(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         self.key_mgr.delete(self.ctxt, self.key_id, force=True)
         mock_client.secrets.delete.assert_called_once_with(
@@ -430,7 +409,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_delete_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
         mock_client.secrets.delete = mock.Mock(
             side_effect=barbican_exceptions.HTTPClientError('test error'))
         self.assertRaises(exception.KeyManagerError,
@@ -440,7 +419,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_get_key(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         original_secret_metadata = mock.Mock()
         original_secret_metadata.algorithm = mock.sentinel.alg
@@ -483,7 +462,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_get_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
         mock_client.secrets.get.side_effect = \
             barbican_exceptions.HTTPClientError('test error')
         self.assertRaises(exception.KeyManagerError,
@@ -493,7 +472,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_store_key(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         # Create Key to store
         secret_key = bytes(b'\x01\x02\xA0\xB3')
@@ -522,7 +501,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_store_key_with_name(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         # Create Key to store
         secret_key = bytes(b'\x01\x02\xA0\xB3')
@@ -557,7 +536,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_store_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
         mock_client.secrets.create.side_effect = \
             barbican_exceptions.HTTPClientError('test error')
         secret_key = bytes(b'\x01\x02\xA0\xB3')
@@ -572,7 +551,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_get_active_order(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         order_ref_url = ("http://localhost:9311/v1/orders/"
                          "4fe939b7-72bc-49aa-bd1e-e979589858af")
@@ -599,7 +578,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_get_active_order_timeout(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         order_ref_url = ("http://localhost:9311/v1/orders/"
                          "4fe939b7-72bc-49aa-bd1e-e979589858af")
@@ -624,7 +603,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_get_active_order_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         order_ref_url = ("http://localhost:9311/v1/orders/"
                          "4fe939b7-72bc-49aa-bd1e-e979589858af")
@@ -652,7 +631,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_list(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         original_secret_metadata = mock.Mock()
         original_secret_metadata.algorithm = mock.sentinel.alg
@@ -704,7 +683,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_list_with_error(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
         mock_client.secrets.list = mock.Mock(
             side_effect=barbican_exceptions.HTTPClientError('test error'))
         self.assertRaises(exception.KeyManagerError,
@@ -774,7 +753,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_add_consumer_with_different_project_fails(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Forbidden: SecretConsumer creation attempt not allowed - "
@@ -808,7 +787,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_invalid_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = ValueError("Secret incorrectly specified.")
         self._test_add_consumer_expects_error(
@@ -820,7 +799,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_inexistent_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Not Found: Secret not found.", status_code=404)
@@ -833,7 +812,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_null_service_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -848,7 +827,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_empty_service_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -863,7 +842,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_null_resource_type_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -878,7 +857,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_empty_resource_type_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -893,7 +872,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_null_resource_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -908,7 +887,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_empty_resource_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -923,7 +902,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_add_consumer_with_valid_parameters_doesnt_fail(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         self.key_mgr.add_consumer(
             self.ctxt, self.secret_ref, self._get_custom_consumer_data())
@@ -938,7 +917,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_different_project_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Forbidden: SecretConsumer creation attempt not allowed - "
@@ -952,7 +931,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_null_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = ValueError("secret incorrectly specified.")
         self._test_add_consumer_expects_error(
@@ -964,7 +943,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_empty_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = ValueError("secret incorrectly specified.")
         self._test_add_consumer_expects_error(
@@ -976,7 +955,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_invalid_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = ValueError("Secret incorrectly specified.")
         self._test_add_consumer_expects_error(
@@ -988,7 +967,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_without_registered_managed_object_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Not Found: Secret not found.", status_code=404)
@@ -1000,7 +979,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
                 'BarbicanKeyManager._get_barbican_client')
     def test_remove_consumer_with_null_service_fails(self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1015,7 +994,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_empty_service_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1030,7 +1009,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_null_resource_type_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1045,7 +1024,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_empty_resource_type_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1060,7 +1039,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_null_resource_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1075,7 +1054,7 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_empty_resource_id_fails(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
 
         side_effect = barbican_exceptions.HTTPClientError(
             "Bad Request: Provided object does not match schema "
@@ -1090,6 +1069,6 @@ class BarbicanKeyManagerTestCase(test_key_manager.KeyManagerTestCase):
     def test_remove_consumer_with_valid_parameters_doesnt_fail(
             self, mock_get_client):
         mock_client = mock.Mock()
-        mock_get_client.return_value = (mock_client, self.base_url)
+        mock_get_client.return_value = mock_client
         self.key_mgr.remove_consumer(
             self.ctxt, self.secret_ref, self._get_custom_consumer_data())

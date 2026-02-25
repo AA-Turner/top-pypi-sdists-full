@@ -251,15 +251,15 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             if not self.__step or not self.__index:
                 raise RuntimeError("step or index not specified")
 
-            flow = self.__schema_full.get('option', 'flow')
+            flow = self.__schema_full.option.get_flow()
             if not flow:
                 raise RuntimeError("flow not specified")
-            self.__schema_flow = self.__schema_full.get("flowgraph", flow, field="schema")
+            self.__schema_flow = self.__schema_full.get_flow(flow)
 
             self.__schema_flow_runtime = RuntimeFlowgraph(
                 self.__schema_flow,
                 from_steps=set([step for step, _ in self.__schema_flow.get_entry_nodes()]),
-                prune_nodes=self.__schema_full.get('option', 'prune'))
+                prune_nodes=self.__schema_full.option.get_prune())
 
     @property
     def design_name(self) -> str:
@@ -536,8 +536,8 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
         # Add global environmental vars
         envvars: Dict[str, str] = {}
-        for env in self.__schema_full.getkeys('option', 'env'):
-            envvars[env] = self.__schema_full.get('option', 'env', env)
+        for env in self.__schema_full.option.getkeys('env'):
+            envvars[env] = self.__schema_full.option.get_env(env)
 
         # Add tool-specific license server vars
         for lic_env in self.getkeys('licenseserver'):
@@ -1297,6 +1297,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                        clobber: bool = False):
         """
         Add a required input file from the previous step in the flow.
+
         file and ext are mutually exclusive.
 
         Args:
@@ -1320,6 +1321,7 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                         clobber: bool = False):
         """
         Add an output file that this task will produce
+
         file and ext are mutually exclusive.
 
         Args:
@@ -1905,10 +1907,13 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
     def _find_files_search_paths(self, key: str,
                                  step: Optional[str],
-                                 index: Optional[Union[int, str]]) -> List[str]:
-        search_paths = super()._find_files_search_paths(key, step, index)
+                                 index: Optional[Union[int, str]],
+                                 missing_ok: bool) -> List[str]:
+        search_paths = super()._find_files_search_paths(key, step, index, missing_ok)
         if key == "script":
-            search_paths.extend(self.find_files("refdir", step=step, index=index))
+            for refdir in self.find_files("refdir", step=step, index=index, missing_ok=missing_ok):
+                if refdir is not None:
+                    search_paths.append(refdir)
         elif key == "input":
             search_paths.append(os.path.join(
                 paths.workdir(self._parent(root=True), step=step, index=index), "inputs"))
@@ -2327,6 +2332,10 @@ class ShowTask(Task):
         vars["sc_do_screenshot"] = "false"
         return vars
 
+    def has_breakpoint(self):
+        # Show is like a breakpoint
+        return True
+
 
 class ScreenshotTask(ShowTask):
     """
@@ -2357,6 +2366,10 @@ class ScreenshotTask(ShowTask):
         vars = super().get_tcl_variables(manifest)
         vars["sc_do_screenshot"] = "true"
         return vars
+
+    def has_breakpoint(self):
+        # Use task level breakpoint information
+        return Task.has_breakpoint(self)
 
 
 def schema_task(schema):

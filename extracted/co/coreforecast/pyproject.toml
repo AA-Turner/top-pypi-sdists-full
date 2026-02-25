@@ -1,7 +1,7 @@
 [project]
 name = "coreforecast"
-version = "0.0.16"
-requires-python = ">=3.9"
+version = "0.0.17"
+requires-python = ">=3.10"
 dependencies = ["numpy>=1.20.0"]
 license = { text = "Apache-2.0" }
 classifiers = [
@@ -9,23 +9,31 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 description = "Fast implementations of common forecasting routines"
 authors = [{ name = "Jose Morales", email = "jmoralz92@gmail.com" }]
 readme = "README.md"
 keywords = ["forecasting", "time-series"]
 
-[project.optional-dependencies]
-dev = ["pandas", "pre-commit", "pytest"]
+[dependency-groups]
+dev = [
+    "pandas",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pip-licenses",
+    "mkdocstrings-parser@git+https://github.com/Nixtla/mkdocstrings-parser.git",
+    "pytest-codspeed",
+]
 
 [project.urls]
 homepage = "https://nixtla.github.io/coreforecast"
-documentation = "https://nixtla.github.io/coreforecast"
+documentation = "https://nixtlaverse.nixtla.io/coreforecast"
 repository = "https://github.com/Nixtla/coreforecast"
 
 [build-system]
@@ -46,7 +54,7 @@ wheel.packages = ["python/coreforecast"]
 [tool.cibuildwheel]
 archs = "all"
 build-verbosity = 3
-test-extras = "dev"
+build-frontend = "build[uv]"
 
 [tool.pyright]
 venvPath = "."

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmap
-Version: 0.7.1
+Version: 0.7.2
 Summary: Scientific colormaps for python, without dependencies
 Project-URL: Homepage, https://github.com/pyapp-kit/cmap
 Project-URL: Repository, https://github.com/pyapp-kit/cmap
@@ -8,17 +8,17 @@ Project-URL: Bug Tracker, https://github.com/pyapp-kit/cmap/issues
 Project-URL: Documentation, https://cmap-docs.rtfd.io/
 Author-email: Talley Lambert <talley.lambert@gmail.com>
 License-Expression: BSD-3-Clause
-License-File: LICENSE/LICENSE
-License-File: LICENSE/LICENSE_CMASHER
-License-File: LICENSE/LICENSE_CMOCEAN
-License-File: LICENSE/LICENSE_COLORBREWER
-License-File: LICENSE/LICENSE_COLORCET
-License-File: LICENSE/LICENSE_CRAMERI
-License-File: LICENSE/LICENSE_CVIDIS
-License-File: LICENSE/LICENSE_GLASBEY
-License-File: LICENSE/LICENSE_TOL
-License-File: LICENSE/LICENSE_WISTIA
-License-File: LICENSE/LICENSE_YORICK
+License-File: LICENSES/Apache-2.0.txt
+License-File: LICENSES/BSD-2-Clause.txt
+License-File: LICENSES/BSD-3-Clause.txt
+License-File: LICENSES/CC-BY-4.0.txt
+License-File: LICENSES/CC0-1.0.txt
+License-File: LICENSES/LicenseRef-Battelle.txt
+License-File: LICENSES/LicenseRef-ColorBrewer.txt
+License-File: LICENSES/LicenseRef-Yorick.txt
+License-File: LICENSES/LicenseRef-gnuplot.txt
+License-File: LICENSES/MIT.txt
+License-File: LICENSES/PSF-2.0.txt
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3

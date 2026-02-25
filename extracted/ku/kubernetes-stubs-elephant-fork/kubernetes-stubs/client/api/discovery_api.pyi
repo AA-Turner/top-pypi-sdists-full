@@ -5,5 +5,14 @@ import kubernetes.client
 class DiscoveryApi:
     def __init__(self, api_client: typing.Optional[kubernetes.client.ApiClient] = ...) -> None:
         ...
-    def get_api_group(self) -> kubernetes.client.V1APIGroup:
+    def get_api_group(self, *, 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1APIGroup:
         ...

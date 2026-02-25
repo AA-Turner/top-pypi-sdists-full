@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import sys
-from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Annotated, Literal, Optional, cast
 
 import griffe
 import pytest
@@ -80,6 +79,51 @@ def test_add_if_missing_merges() -> None:
     assert section.value[0].value == "val"
 
 
+def test_inherited_docstring_descriptions() -> None:
+    """Test that child classes inherit field descriptions from parent docstrings.
+
+    https://github.com/pyapp-kit/griffe-fieldz/issues/19
+    """
+    loader = GriffeLoader(
+        extensions=Extensions(FieldzExtension(include_inherited=True)),
+        docstring_parser="google",
+    )
+    fake_mod = loader.load("tests.fake_module")
+
+    # First verify that the parent class itself has the descriptions
+    parent_cls = cast("griffe.Class", fake_mod["ParentWithDocstringDesc"])
+    parent_params = None
+    for section in parent_cls.docstring.parsed:
+        if isinstance(section, griffe.DocstringSectionParameters):
+            parent_params = section
+            break
+    assert parent_params is not None
+    parent_param_dict = {p.name: p for p in parent_params.value}
+    assert parent_param_dict["x"].description == "x described in parent docstring"
+    assert parent_param_dict["y"].description == "y from metadata"
+    assert parent_param_dict["z"].description == "z inline docstring"
+
+    # Now check the child class - inherited fields should have descriptions too
+    child_cls = cast("griffe.Class", fake_mod["ChildInheritsDocstringDesc"])
+    child_params = None
+    for section in child_cls.docstring.parsed:
+        if isinstance(section, griffe.DocstringSectionParameters):
+            child_params = section
+            break
+    assert child_params is not None
+    child_param_dict = {p.name: p for p in child_params.value}
+
+    # y has description via field metadata - this works because fieldz has it
+    assert child_param_dict["y"].description == "y from metadata"
+
+    # x has description only in parent's docstring Parameters section.
+    # z has an inline docstring on the parent class attribute.
+    # Both are lost when inheriting because _merged_kwargs doesn't look at
+    # the parent class's parsed docstring or inherited attributes.
+    assert child_param_dict["x"].description == "x described in parent docstring"
+    assert child_param_dict["z"].description == "z inline docstring"
+
+
 def test_strip_annotated() -> None:
     """Test that strip_annotated option works correctly."""
     # Test with strip_annotated=False (default)
@@ -127,15 +171,8 @@ def test_strip_annotated_union_forms() -> None:
     class SomeConstraint:
         pass
 
-    # Two different ways to express the same thing
-    if sys.version_info >= (3, 10):
-        # Python 3.10+ supports | syntax
-        type1 = Annotated[int, SomeConstraint()] | None
-        type2 = Annotated[int | None, SomeConstraint()]
-    else:
-        # Python 3.9 needs Union syntax
-        type1 = Union[Annotated[int, SomeConstraint()], None]
-        type2 = Annotated[Union[int, None], SomeConstraint()]
+    type1 = Annotated[int, SomeConstraint()] | None
+    type2 = Annotated[int | None, SomeConstraint()]
 
     # Without stripping, they should be different
     result1_no_strip = display_as_type(type1, modern_union=True, strip_annotated=False)
@@ -156,7 +193,7 @@ def test_strip_annotated_union_forms() -> None:
     # Test Literal and Optional types
     lit = Literal["a", "b"]
     assert "Literal" in display_as_type(lit)
-    opt = Optional[int]
+    opt = Optional[int]  # noqa
     assert "Optional" in display_as_type(opt, modern_union=False)
     assert "int | None" in display_as_type(opt, modern_union=True)
 

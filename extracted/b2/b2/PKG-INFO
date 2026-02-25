@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: b2
-Version: 4.5.1
+Version: 4.6.0
 Summary: Command Line Tool for Backblaze B2
 Keywords: backblaze b2 cloud storage
 Author-Email: Backblaze Inc <support@backblaze.com>
@@ -20,7 +20,7 @@ Project-URL: Homepage, https://github.com/Backblaze/B2_Command_Line_Tool
 Requires-Python: >=3.9
 Requires-Dist: argcomplete<4,>=3.5.2
 Requires-Dist: arrow<2.0.0,>=1.0.2
-Requires-Dist: b2sdk<3,>=2.10.2
+Requires-Dist: b2sdk<3,>=2.10.3
 Requires-Dist: docutils<0.22,>=0.18.1
 Requires-Dist: idna~=3.4; platform_system == "Java"
 Requires-Dist: rst2ansi==0.1.5

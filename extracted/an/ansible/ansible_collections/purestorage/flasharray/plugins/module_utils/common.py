@@ -20,10 +20,19 @@ from ansible.module_utils.facts.utils import get_file_content
 
 
 def _findstr(text, match):
+    """Find first line containing match string.
+
+    Args:
+        text: Multi-line string to search
+        match: String to find in lines
+
+    Returns:
+        First line containing match, or None if not found
+    """
     for line in text.splitlines():
         if match in line:
-            found = line
-    return found
+            return line
+    return None
 
 
 def human_to_bytes(size):
@@ -110,7 +119,7 @@ def get_local_tz(module, timezone="UTC"):
     We will attempt to get the local timezone of the server running the module and use that.
     If we can't get the timezone then we will set the default to be UTC
 
-    Linnux has been tested and other opersting systems should be OK.
+    Linux has been tested and other operating systems should be OK.
     Failures cause assumption of UTC
 
     Windows is not supported and will assume UTC

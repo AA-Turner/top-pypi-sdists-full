@@ -8,15 +8,17 @@ from unittest.mock import patch
 
 import pytest
 
-from unidep.platform_definitions import Selector
+from unidep.platform_definitions import Platform, Selector, Spec
 from unidep.utils import (
     PathWithExtras,
     UnsupportedPlatformError,
     build_pep508_environment_marker,
+    collect_selector_platforms,
     escape_unicode,
     extract_matching_platforms,
     identify_current_platform,
     parse_package_str,
+    resolve_platforms,
     split_path_and_extras,
 )
 
@@ -120,6 +122,77 @@ def test_detect_platform() -> None:
         return_value="x86_64",
     ), pytest.raises(UnsupportedPlatformError, match="Unsupported operating system"):
         identify_current_platform()
+
+
+def test_collect_selector_platforms_with_optional_dependencies() -> None:
+    requirements = {
+        "numpy": [
+            Spec(name="numpy", which="conda", pin=">=1.20", identifier="a1"),
+            Spec(
+                name="numpy",
+                which="conda",
+                pin=">=1.20",
+                identifier="a2",
+                selector="linux64",
+            ),
+        ],
+    }
+    optional_dependencies = {
+        "dev": {
+            "pyobjc": [
+                Spec(name="pyobjc", which="pip", identifier="b1", selector="osx"),
+            ],
+            "pytest": [Spec(name="pytest", which="pip", selector="win")],
+        },
+    }
+
+    assert collect_selector_platforms(requirements, optional_dependencies) == [
+        "linux-64",
+        "osx-64",
+        "osx-arm64",
+        "win-64",
+    ]
+
+
+@pytest.mark.parametrize("empty_requested_platforms", [None, []])
+def test_resolve_platforms_precedence_and_fallback(
+    empty_requested_platforms: list[Platform] | None,
+) -> None:
+    assert resolve_platforms(
+        requested_platforms=["osx-64", "osx-64"],
+        declared_platforms=["linux-64"],
+        selector_platforms=["win-64"],
+    ) == ["osx-64"]
+
+    assert resolve_platforms(
+        requested_platforms=empty_requested_platforms,
+        declared_platforms={"linux-64", "linux-aarch64"},
+        selector_platforms=["win-64"],
+    ) == ["linux-64", "linux-aarch64"]
+
+    assert resolve_platforms(
+        requested_platforms=empty_requested_platforms,
+        declared_platforms=None,
+        selector_platforms=["win-64", "win-64"],
+    ) == ["win-64"]
+
+    with patch("unidep.utils.identify_current_platform", return_value="linux-64"):
+        assert resolve_platforms(
+            requested_platforms=empty_requested_platforms,
+            declared_platforms=None,
+            selector_platforms=None,
+            default_current=True,
+        ) == ["linux-64"]
+
+    assert (
+        resolve_platforms(
+            requested_platforms=empty_requested_platforms,
+            declared_platforms=None,
+            selector_platforms=None,
+            default_current=False,
+        )
+        == []
+    )
 
 
 def test_parse_package_str() -> None:

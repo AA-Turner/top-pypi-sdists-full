@@ -3023,6 +3023,38 @@ authenticated user is an admin and HTTP 403 otherwise.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), authorization_OktaRegistrationResponse, self._return_none_for_unknown_union_types)
 
+    def get_user_orgs(self, request: "authorization_GetUserOrgsRequest") -> "authorization_GetUserOrgsResponse":
+        """Provides an OIDC ID token to get the orgs that the user is a member of. Throws NotAuthorized if the ID token
+is invalid or if the OIDC provider is not known.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/authorization/v1/user-orgs'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), authorization_GetUserOrgsResponse, self._return_none_for_unknown_union_types)
+
     def get_access_token(self, request: "authorization_GetAccessTokenRequest") -> "authorization_GetAccessTokenResponse":
         """Provide an OIDC ID token to get a Nominal access token suitable for making API requests.
 Its expiry will match that of the input ID token, capped at 24h. TODO(MGMT-933): reduce this duration.
@@ -3391,21 +3423,24 @@ class authorization_GetAccessTokenRequest(ConjureBeanType):
     """We accept an OIDC ID token issued by a trusted identity provider as proof of authentication.
 The ID token is validated and exchanged for a Nominal access token.
 This ID token should generally be short lived since it is fungible with a Nominal access token
-via this endpoint.
+via this endpoint. An access token, if provider, is used to get user information from the OIDC
+userinfo endpoint. An org rid should be provided if the user is a member of multiple orgs.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'id_token': ConjureFieldDefinition('idToken', str),
-            'access_token': ConjureFieldDefinition('accessToken', OptionalTypeWrapper[str])
+            'access_token': ConjureFieldDefinition('accessToken', OptionalTypeWrapper[str]),
+            'org_rid': ConjureFieldDefinition('orgRid', OptionalTypeWrapper[authentication_api_OrgRid])
         }
 
-    __slots__: List[str] = ['_id_token', '_access_token']
+    __slots__: List[str] = ['_id_token', '_access_token', '_org_rid']
 
-    def __init__(self, id_token: str, access_token: Optional[str] = None) -> None:
+    def __init__(self, id_token: str, access_token: Optional[str] = None, org_rid: Optional[str] = None) -> None:
         self._id_token = id_token
         self._access_token = access_token
+        self._org_rid = org_rid
 
     @builtins.property
     def id_token(self) -> str:
@@ -3414,6 +3449,10 @@ via this endpoint.
     @builtins.property
     def access_token(self) -> Optional[str]:
         return self._access_token
+
+    @builtins.property
+    def org_rid(self) -> Optional[str]:
+        return self._org_rid
 
 
 authorization_GetAccessTokenRequest.__name__ = "GetAccessTokenRequest"
@@ -3460,6 +3499,54 @@ class authorization_GetAccessTokenResponse(ConjureBeanType):
 authorization_GetAccessTokenResponse.__name__ = "GetAccessTokenResponse"
 authorization_GetAccessTokenResponse.__qualname__ = "GetAccessTokenResponse"
 authorization_GetAccessTokenResponse.__module__ = "nominal_api.authorization"
+
+
+class authorization_GetUserOrgsRequest(ConjureBeanType):
+    """We use the claims in the id token to determine which orgs the user belongs to.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'id_token': ConjureFieldDefinition('idToken', str)
+        }
+
+    __slots__: List[str] = ['_id_token']
+
+    def __init__(self, id_token: str) -> None:
+        self._id_token = id_token
+
+    @builtins.property
+    def id_token(self) -> str:
+        return self._id_token
+
+
+authorization_GetUserOrgsRequest.__name__ = "GetUserOrgsRequest"
+authorization_GetUserOrgsRequest.__qualname__ = "GetUserOrgsRequest"
+authorization_GetUserOrgsRequest.__module__ = "nominal_api.authorization"
+
+
+class authorization_GetUserOrgsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'orgs': ConjureFieldDefinition('orgs', Dict[str, str])
+        }
+
+    __slots__: List[str] = ['_orgs']
+
+    def __init__(self, orgs: Dict[str, str]) -> None:
+        self._orgs = orgs
+
+    @builtins.property
+    def orgs(self) -> Dict[str, str]:
+        return self._orgs
+
+
+authorization_GetUserOrgsResponse.__name__ = "GetUserOrgsResponse"
+authorization_GetUserOrgsResponse.__qualname__ = "GetUserOrgsResponse"
+authorization_GetUserOrgsResponse.__module__ = "nominal_api.authorization"
 
 
 class authorization_InternalApiKeyService(Service):
@@ -3798,22 +3885,30 @@ class authorization_RefreshAccessTokenRequest(ConjureBeanType):
     """We accept an OIDC access token issued by a trusted identity provider to refresh a Nominal access token.
 The access token is validated and exchanged for a Nominal access token. To be used in this endpoint,
 the OIDC access token must contain an email claim.
+The org rid from the expiring session should be provided to deconflict if the user is a member of 
+multiple orgs.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'access_token': ConjureFieldDefinition('accessToken', str)
+            'access_token': ConjureFieldDefinition('accessToken', str),
+            'org_rid': ConjureFieldDefinition('orgRid', OptionalTypeWrapper[authentication_api_OrgRid])
         }
 
-    __slots__: List[str] = ['_access_token']
+    __slots__: List[str] = ['_access_token', '_org_rid']
 
-    def __init__(self, access_token: str) -> None:
+    def __init__(self, access_token: str, org_rid: Optional[str] = None) -> None:
         self._access_token = access_token
+        self._org_rid = org_rid
 
     @builtins.property
     def access_token(self) -> str:
         return self._access_token
+
+    @builtins.property
+    def org_rid(self) -> Optional[str]:
+        return self._org_rid
 
 
 authorization_RefreshAccessTokenRequest.__name__ = "RefreshAccessTokenRequest"
@@ -44958,6 +45053,45 @@ scout_compute_api_AllowNegativeValues.__qualname__ = "AllowNegativeValues"
 scout_compute_api_AllowNegativeValues.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_AndSeries(ConjureBeanType):
+    """Combines two boolean series point-wise using logical AND, producing true where both inputs are true and false otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_BooleanSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_BooleanSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_BooleanSeries", right: "scout_compute_api_BooleanSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_BooleanSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_BooleanSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_AndSeries.__name__ = "AndSeries"
+scout_compute_api_AndSeries.__qualname__ = "AndSeries"
+scout_compute_api_AndSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ApproximateThresholdOperator(ConjureEnumType):
 
     EQUAL_TO = 'EQUAL_TO'
@@ -46121,6 +46255,9 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
     _not_equal_to: Optional["scout_compute_api_NotEqualToSeries"] = None
     _greater_than_or_equal_to: Optional["scout_compute_api_GreaterThanOrEqualToSeries"] = None
     _less_than_or_equal_to: Optional["scout_compute_api_LessThanOrEqualToSeries"] = None
+    _not_: Optional["scout_compute_api_NotSeries"] = None
+    _and_: Optional["scout_compute_api_AndSeries"] = None
+    _or_: Optional["scout_compute_api_OrSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -46130,7 +46267,10 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             'equal_to': ConjureFieldDefinition('equalTo', scout_compute_api_EqualToSeries),
             'not_equal_to': ConjureFieldDefinition('notEqualTo', scout_compute_api_NotEqualToSeries),
             'greater_than_or_equal_to': ConjureFieldDefinition('greaterThanOrEqualTo', scout_compute_api_GreaterThanOrEqualToSeries),
-            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_api_LessThanOrEqualToSeries)
+            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_api_LessThanOrEqualToSeries),
+            'not_': ConjureFieldDefinition('not', scout_compute_api_NotSeries),
+            'and_': ConjureFieldDefinition('and', scout_compute_api_AndSeries),
+            'or_': ConjureFieldDefinition('or', scout_compute_api_OrSeries)
         }
 
     def __init__(
@@ -46141,10 +46281,13 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             not_equal_to: Optional["scout_compute_api_NotEqualToSeries"] = None,
             greater_than_or_equal_to: Optional["scout_compute_api_GreaterThanOrEqualToSeries"] = None,
             less_than_or_equal_to: Optional["scout_compute_api_LessThanOrEqualToSeries"] = None,
+            not_: Optional["scout_compute_api_NotSeries"] = None,
+            and_: Optional["scout_compute_api_AndSeries"] = None,
+            or_: Optional["scout_compute_api_OrSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) != 1:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if greater_than is not None:
@@ -46165,6 +46308,15 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             if less_than_or_equal_to is not None:
                 self._less_than_or_equal_to = less_than_or_equal_to
                 self._type = 'lessThanOrEqualTo'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
 
         elif type_of_union == 'greaterThan':
             if greater_than is None:
@@ -46196,6 +46348,21 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._less_than_or_equal_to = less_than_or_equal_to
             self._type = 'lessThanOrEqualTo'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
 
     @builtins.property
     def greater_than(self) -> Optional["scout_compute_api_GreaterThanSeries"]:
@@ -46221,6 +46388,18 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
     def less_than_or_equal_to(self) -> Optional["scout_compute_api_LessThanOrEqualToSeries"]:
         return self._less_than_or_equal_to
 
+    @builtins.property
+    def not_(self) -> Optional["scout_compute_api_NotSeries"]:
+        return self._not_
+
+    @builtins.property
+    def and_(self) -> Optional["scout_compute_api_AndSeries"]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional["scout_compute_api_OrSeries"]:
+        return self._or_
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_BooleanSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_BooleanSeriesVisitor'.format(visitor.__class__.__name__))
@@ -46236,6 +46415,12 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             return visitor._greater_than_or_equal_to(self.greater_than_or_equal_to)
         if self._type == 'lessThanOrEqualTo' and self.less_than_or_equal_to is not None:
             return visitor._less_than_or_equal_to(self.less_than_or_equal_to)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
 
 
 scout_compute_api_BooleanSeries.__name__ = "BooleanSeries"
@@ -46269,10 +46454,61 @@ class scout_compute_api_BooleanSeriesVisitor:
     def _less_than_or_equal_to(self, less_than_or_equal_to: "scout_compute_api_LessThanOrEqualToSeries") -> Any:
         pass
 
+    @abstractmethod
+    def _not(self, not_: "scout_compute_api_NotSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: "scout_compute_api_AndSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: "scout_compute_api_OrSeries") -> Any:
+        pass
+
 
 scout_compute_api_BooleanSeriesVisitor.__name__ = "BooleanSeriesVisitor"
 scout_compute_api_BooleanSeriesVisitor.__qualname__ = "BooleanSeriesVisitor"
 scout_compute_api_BooleanSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_BooleanToRanges(ConjureBeanType):
+    """Converts a boolean series to a range series, where each contiguous run of true values becomes a
+half-open range [start, end). The boolean series is treated as forward-filled: a value holds until the
+next sample. For example, given timestamps [0, 1, 2, 3, 4] and values [true, true, true, false, false],
+the result is a single range [0, 3). When openEnded is false and the series ends with true, the last
+range is closed at the final timestamp, producing a zero-duration range (moment) for isolated true values.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_BooleanSeries),
+            'open_ended': ConjureFieldDefinition('openEnded', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_input', '_open_ended']
+
+    def __init__(self, input: "scout_compute_api_BooleanSeries", open_ended: Optional[bool] = None) -> None:
+        self._input = input
+        self._open_ended = open_ended
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_BooleanSeries":
+        return self._input
+
+    @builtins.property
+    def open_ended(self) -> Optional[bool]:
+        """If true, the last range will be open-ended if the last value is true. Defaults to true.
+Set to false to close trailing ranges at the last timestamp, which produces zero-duration
+ranges (moments) for isolated trailing true values.
+        """
+        return self._open_ended
+
+
+scout_compute_api_BooleanToRanges.__name__ = "BooleanToRanges"
+scout_compute_api_BooleanToRanges.__qualname__ = "BooleanToRanges"
+scout_compute_api_BooleanToRanges.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_BucketedCartesian3dPlot(ConjureBeanType):
@@ -51023,7 +51259,7 @@ scout_compute_api_EnumUnionSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_EqualToSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left == right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left == right and false otherwise.
     """
 
     @builtins.classmethod
@@ -52380,7 +52616,7 @@ scout_compute_api_FunctionVariables.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_GreaterThanOrEqualToSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left >= right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left >= right and false otherwise.
     """
 
     @builtins.classmethod
@@ -52419,7 +52655,7 @@ scout_compute_api_GreaterThanOrEqualToSeries.__module__ = "nominal_api.scout_com
 
 
 class scout_compute_api_GreaterThanSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left > right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left > right and false otherwise.
     """
 
     @builtins.classmethod
@@ -52956,7 +53192,7 @@ scout_compute_api_LatLongPoint.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_LessThanOrEqualToSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left <= right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left <= right and false otherwise.
     """
 
     @builtins.classmethod
@@ -52995,7 +53231,7 @@ scout_compute_api_LessThanOrEqualToSeries.__module__ = "nominal_api.scout_comput
 
 
 class scout_compute_api_LessThanSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left < right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left < right and false otherwise.
     """
 
     @builtins.classmethod
@@ -54019,7 +54255,7 @@ scout_compute_api_NegativeValueConfigurationVisitor.__module__ = "nominal_api.sc
 
 
 class scout_compute_api_NotEqualToSeries(ConjureBeanType):
-    """Compares two numeric series point-wise, producing 1 where left != right and 0 otherwise.
+    """Compares two numeric series point-wise, producing true where left != right and false otherwise.
     """
 
     @builtins.classmethod
@@ -54080,6 +54316,31 @@ class scout_compute_api_NotRanges(ConjureBeanType):
 scout_compute_api_NotRanges.__name__ = "NotRanges"
 scout_compute_api_NotRanges.__qualname__ = "NotRanges"
 scout_compute_api_NotRanges.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NotSeries(ConjureBeanType):
+    """Negates a boolean series point-wise, producing true where the input is false and false where the input is true.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operand': ConjureFieldDefinition('operand', scout_compute_api_BooleanSeries)
+        }
+
+    __slots__: List[str] = ['_operand']
+
+    def __init__(self, operand: "scout_compute_api_BooleanSeries") -> None:
+        self._operand = operand
+
+    @builtins.property
+    def operand(self) -> "scout_compute_api_BooleanSeries":
+        return self._operand
+
+
+scout_compute_api_NotSeries.__name__ = "NotSeries"
+scout_compute_api_NotSeries.__qualname__ = "NotSeries"
+scout_compute_api_NotSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
@@ -55986,6 +56247,45 @@ scout_compute_api_OnChangeRanges.__qualname__ = "OnChangeRanges"
 scout_compute_api_OnChangeRanges.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_OrSeries(ConjureBeanType):
+    """Combines two boolean series point-wise using logical OR, producing true where either input is true and false otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_BooleanSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_BooleanSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_BooleanSeries", right: "scout_compute_api_BooleanSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_BooleanSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_BooleanSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_OrSeries.__name__ = "OrSeries"
+scout_compute_api_OrSeries.__qualname__ = "OrSeries"
+scout_compute_api_OrSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_OutputFormat(ConjureEnumType):
 
     ARROW_V3 = 'ARROW_V3'
@@ -57326,6 +57626,7 @@ scout_compute_api_RangePaddingConfiguration.__module__ = "nominal_api.scout_comp
 
 class scout_compute_api_RangeSeries(ConjureUnionType):
     _approximate_threshold: Optional["scout_compute_api_ApproximateThresholdRanges"] = None
+    _boolean_to_ranges: Optional["scout_compute_api_BooleanToRanges"] = None
     _duration_filter: Optional["scout_compute_api_DurationFilterRanges"] = None
     _enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None
     _enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None
@@ -57351,6 +57652,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'approximate_threshold': ConjureFieldDefinition('approximateThreshold', scout_compute_api_ApproximateThresholdRanges),
+            'boolean_to_ranges': ConjureFieldDefinition('booleanToRanges', scout_compute_api_BooleanToRanges),
             'duration_filter': ConjureFieldDefinition('durationFilter', scout_compute_api_DurationFilterRanges),
             'enum_filter': ConjureFieldDefinition('enumFilter', scout_compute_api_EnumFilterRanges),
             'enum_series_equality_ranges_node': ConjureFieldDefinition('enumSeriesEqualityRangesNode', scout_compute_api_EnumSeriesEqualityRanges),
@@ -57376,6 +57678,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     def __init__(
             self,
             approximate_threshold: Optional["scout_compute_api_ApproximateThresholdRanges"] = None,
+            boolean_to_ranges: Optional["scout_compute_api_BooleanToRanges"] = None,
             duration_filter: Optional["scout_compute_api_DurationFilterRanges"] = None,
             enum_filter: Optional["scout_compute_api_EnumFilterRanges"] = None,
             enum_series_equality_ranges_node: Optional["scout_compute_api_EnumSeriesEqualityRanges"] = None,
@@ -57399,12 +57702,15 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (derived is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) + (padded_ranges is not None) != 1:
+            if (approximate_threshold is not None) + (boolean_to_ranges is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (derived is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) + (padded_ranges is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if approximate_threshold is not None:
                 self._approximate_threshold = approximate_threshold
                 self._type = 'approximateThreshold'
+            if boolean_to_ranges is not None:
+                self._boolean_to_ranges = boolean_to_ranges
+                self._type = 'booleanToRanges'
             if duration_filter is not None:
                 self._duration_filter = duration_filter
                 self._type = 'durationFilter'
@@ -57471,6 +57777,11 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._approximate_threshold = approximate_threshold
             self._type = 'approximateThreshold'
+        elif type_of_union == 'booleanToRanges':
+            if boolean_to_ranges is None:
+                raise ValueError('a union value must not be None')
+            self._boolean_to_ranges = boolean_to_ranges
+            self._type = 'booleanToRanges'
         elif type_of_union == 'durationFilter':
             if duration_filter is None:
                 raise ValueError('a union value must not be None')
@@ -57577,6 +57888,10 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
         return self._approximate_threshold
 
     @builtins.property
+    def boolean_to_ranges(self) -> Optional["scout_compute_api_BooleanToRanges"]:
+        return self._boolean_to_ranges
+
+    @builtins.property
     def duration_filter(self) -> Optional["scout_compute_api_DurationFilterRanges"]:
         return self._duration_filter
 
@@ -57665,6 +57980,8 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_api_RangeSeriesVisitor'.format(visitor.__class__.__name__))
         if self._type == 'approximateThreshold' and self.approximate_threshold is not None:
             return visitor._approximate_threshold(self.approximate_threshold)
+        if self._type == 'booleanToRanges' and self.boolean_to_ranges is not None:
+            return visitor._boolean_to_ranges(self.boolean_to_ranges)
         if self._type == 'durationFilter' and self.duration_filter is not None:
             return visitor._duration_filter(self.duration_filter)
         if self._type == 'enumFilter' and self.enum_filter is not None:
@@ -57716,6 +58033,10 @@ class scout_compute_api_RangeSeriesVisitor:
 
     @abstractmethod
     def _approximate_threshold(self, approximate_threshold: "scout_compute_api_ApproximateThresholdRanges") -> Any:
+        pass
+
+    @abstractmethod
+    def _boolean_to_ranges(self, boolean_to_ranges: "scout_compute_api_BooleanToRanges") -> Any:
         pass
 
     @abstractmethod
@@ -63970,6 +64291,41 @@ scout_compute_resolved_api_AggregateNumericSeriesNode.__qualname__ = "AggregateN
 scout_compute_resolved_api_AggregateNumericSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_AndSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_BooleanSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_BooleanSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_BooleanSeriesNode", right: "scout_compute_resolved_api_BooleanSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_AndSeriesNode.__name__ = "AndSeriesNode"
+scout_compute_resolved_api_AndSeriesNode.__qualname__ = "AndSeriesNode"
+scout_compute_resolved_api_AndSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ArithmeticSeriesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -64270,6 +64626,9 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
     _not_equal_to: Optional["scout_compute_resolved_api_NotEqualToSeriesNode"] = None
     _greater_than_or_equal_to: Optional["scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode"] = None
     _less_than_or_equal_to: Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"] = None
+    _not_: Optional["scout_compute_resolved_api_NotSeriesNode"] = None
+    _and_: Optional["scout_compute_resolved_api_AndSeriesNode"] = None
+    _or_: Optional["scout_compute_resolved_api_OrSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -64279,7 +64638,10 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             'equal_to': ConjureFieldDefinition('equalTo', scout_compute_resolved_api_EqualToSeriesNode),
             'not_equal_to': ConjureFieldDefinition('notEqualTo', scout_compute_resolved_api_NotEqualToSeriesNode),
             'greater_than_or_equal_to': ConjureFieldDefinition('greaterThanOrEqualTo', scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode),
-            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_resolved_api_LessThanOrEqualToSeriesNode)
+            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_resolved_api_LessThanOrEqualToSeriesNode),
+            'not_': ConjureFieldDefinition('not', scout_compute_resolved_api_NotSeriesNode),
+            'and_': ConjureFieldDefinition('and', scout_compute_resolved_api_AndSeriesNode),
+            'or_': ConjureFieldDefinition('or', scout_compute_resolved_api_OrSeriesNode)
         }
 
     def __init__(
@@ -64290,10 +64652,13 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             not_equal_to: Optional["scout_compute_resolved_api_NotEqualToSeriesNode"] = None,
             greater_than_or_equal_to: Optional["scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode"] = None,
             less_than_or_equal_to: Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"] = None,
+            not_: Optional["scout_compute_resolved_api_NotSeriesNode"] = None,
+            and_: Optional["scout_compute_resolved_api_AndSeriesNode"] = None,
+            or_: Optional["scout_compute_resolved_api_OrSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) != 1:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if greater_than is not None:
@@ -64314,6 +64679,15 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             if less_than_or_equal_to is not None:
                 self._less_than_or_equal_to = less_than_or_equal_to
                 self._type = 'lessThanOrEqualTo'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
 
         elif type_of_union == 'greaterThan':
             if greater_than is None:
@@ -64345,6 +64719,21 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._less_than_or_equal_to = less_than_or_equal_to
             self._type = 'lessThanOrEqualTo'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
 
     @builtins.property
     def greater_than(self) -> Optional["scout_compute_resolved_api_GreaterThanSeriesNode"]:
@@ -64370,6 +64759,18 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
     def less_than_or_equal_to(self) -> Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"]:
         return self._less_than_or_equal_to
 
+    @builtins.property
+    def not_(self) -> Optional["scout_compute_resolved_api_NotSeriesNode"]:
+        return self._not_
+
+    @builtins.property
+    def and_(self) -> Optional["scout_compute_resolved_api_AndSeriesNode"]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional["scout_compute_resolved_api_OrSeriesNode"]:
+        return self._or_
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_BooleanSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_BooleanSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -64385,6 +64786,12 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             return visitor._greater_than_or_equal_to(self.greater_than_or_equal_to)
         if self._type == 'lessThanOrEqualTo' and self.less_than_or_equal_to is not None:
             return visitor._less_than_or_equal_to(self.less_than_or_equal_to)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
 
 
 scout_compute_resolved_api_BooleanSeriesNode.__name__ = "BooleanSeriesNode"
@@ -64418,10 +64825,51 @@ class scout_compute_resolved_api_BooleanSeriesNodeVisitor:
     def _less_than_or_equal_to(self, less_than_or_equal_to: "scout_compute_resolved_api_LessThanOrEqualToSeriesNode") -> Any:
         pass
 
+    @abstractmethod
+    def _not(self, not_: "scout_compute_resolved_api_NotSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: "scout_compute_resolved_api_AndSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: "scout_compute_resolved_api_OrSeriesNode") -> Any:
+        pass
+
 
 scout_compute_resolved_api_BooleanSeriesNodeVisitor.__name__ = "BooleanSeriesNodeVisitor"
 scout_compute_resolved_api_BooleanSeriesNodeVisitor.__qualname__ = "BooleanSeriesNodeVisitor"
 scout_compute_resolved_api_BooleanSeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_BooleanToRangesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_BooleanSeriesNode),
+            'open_ended': ConjureFieldDefinition('openEnded', bool)
+        }
+
+    __slots__: List[str] = ['_input', '_open_ended']
+
+    def __init__(self, input: "scout_compute_resolved_api_BooleanSeriesNode", open_ended: bool) -> None:
+        self._input = input
+        self._open_ended = open_ended
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._input
+
+    @builtins.property
+    def open_ended(self) -> bool:
+        return self._open_ended
+
+
+scout_compute_resolved_api_BooleanToRangesNode.__name__ = "BooleanToRangesNode"
+scout_compute_resolved_api_BooleanToRangesNode.__qualname__ = "BooleanToRangesNode"
+scout_compute_resolved_api_BooleanToRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_Cartesian3dBounds(ConjureBeanType):
@@ -67184,6 +67632,29 @@ scout_compute_resolved_api_NotRangesNode.__qualname__ = "NotRangesNode"
 scout_compute_resolved_api_NotRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_NotSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operand': ConjureFieldDefinition('operand', scout_compute_resolved_api_BooleanSeriesNode)
+        }
+
+    __slots__: List[str] = ['_operand']
+
+    def __init__(self, operand: "scout_compute_resolved_api_BooleanSeriesNode") -> None:
+        self._operand = operand
+
+    @builtins.property
+    def operand(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._operand
+
+
+scout_compute_resolved_api_NotSeriesNode.__name__ = "NotSeriesNode"
+scout_compute_resolved_api_NotSeriesNode.__qualname__ = "NotSeriesNode"
+scout_compute_resolved_api_NotSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_NumericArraySeriesNode(ConjureUnionType):
     _raw: Optional["scout_compute_resolved_api_ResolvedSeries"] = None
 
@@ -68465,6 +68936,41 @@ scout_compute_resolved_api_OnChangeRangesNode.__qualname__ = "OnChangeRangesNode
 scout_compute_resolved_api_OnChangeRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_OrSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_BooleanSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_BooleanSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_BooleanSeriesNode", right: "scout_compute_resolved_api_BooleanSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_BooleanSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_OrSeriesNode.__name__ = "OrSeriesNode"
+scout_compute_resolved_api_OrSeriesNode.__qualname__ = "OrSeriesNode"
+scout_compute_resolved_api_OrSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_PaddedRangesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -68709,6 +69215,7 @@ scout_compute_resolved_api_RangeMap.__module__ = "nominal_api.scout_compute_reso
 
 
 class scout_compute_resolved_api_RangesNode(ConjureUnionType):
+    _boolean_to_ranges: Optional["scout_compute_resolved_api_BooleanToRangesNode"] = None
     _duration_filter: Optional["scout_compute_resolved_api_DurationFilterRangesNode"] = None
     _enum_equality: Optional["scout_compute_resolved_api_EnumEqualityRangesNode"] = None
     _enum_filter: Optional["scout_compute_resolved_api_EnumFilterRangesNode"] = None
@@ -68729,6 +69236,7 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'boolean_to_ranges': ConjureFieldDefinition('booleanToRanges', scout_compute_resolved_api_BooleanToRangesNode),
             'duration_filter': ConjureFieldDefinition('durationFilter', scout_compute_resolved_api_DurationFilterRangesNode),
             'enum_equality': ConjureFieldDefinition('enumEquality', scout_compute_resolved_api_EnumEqualityRangesNode),
             'enum_filter': ConjureFieldDefinition('enumFilter', scout_compute_resolved_api_EnumFilterRangesNode),
@@ -68749,6 +69257,7 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
 
     def __init__(
             self,
+            boolean_to_ranges: Optional["scout_compute_resolved_api_BooleanToRangesNode"] = None,
             duration_filter: Optional["scout_compute_resolved_api_DurationFilterRangesNode"] = None,
             enum_equality: Optional["scout_compute_resolved_api_EnumEqualityRangesNode"] = None,
             enum_filter: Optional["scout_compute_resolved_api_EnumFilterRangesNode"] = None,
@@ -68768,9 +69277,12 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) + (padded_ranges is not None) != 1:
+            if (boolean_to_ranges is not None) + (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) + (padded_ranges is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if boolean_to_ranges is not None:
+                self._boolean_to_ranges = boolean_to_ranges
+                self._type = 'booleanToRanges'
             if duration_filter is not None:
                 self._duration_filter = duration_filter
                 self._type = 'durationFilter'
@@ -68820,6 +69332,11 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
                 self._padded_ranges = padded_ranges
                 self._type = 'paddedRanges'
 
+        elif type_of_union == 'booleanToRanges':
+            if boolean_to_ranges is None:
+                raise ValueError('a union value must not be None')
+            self._boolean_to_ranges = boolean_to_ranges
+            self._type = 'booleanToRanges'
         elif type_of_union == 'durationFilter':
             if duration_filter is None:
                 raise ValueError('a union value must not be None')
@@ -68902,6 +69419,10 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             self._type = 'paddedRanges'
 
     @builtins.property
+    def boolean_to_ranges(self) -> Optional["scout_compute_resolved_api_BooleanToRangesNode"]:
+        return self._boolean_to_ranges
+
+    @builtins.property
     def duration_filter(self) -> Optional["scout_compute_resolved_api_DurationFilterRangesNode"]:
         return self._duration_filter
 
@@ -68968,6 +69489,8 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_RangesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_RangesNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'booleanToRanges' and self.boolean_to_ranges is not None:
+            return visitor._boolean_to_ranges(self.boolean_to_ranges)
         if self._type == 'durationFilter' and self.duration_filter is not None:
             return visitor._duration_filter(self.duration_filter)
         if self._type == 'enumEquality' and self.enum_equality is not None:
@@ -69008,6 +69531,10 @@ scout_compute_resolved_api_RangesNode.__module__ = "nominal_api.scout_compute_re
 
 
 class scout_compute_resolved_api_RangesNodeVisitor:
+
+    @abstractmethod
+    def _boolean_to_ranges(self, boolean_to_ranges: "scout_compute_resolved_api_BooleanToRangesNode") -> Any:
+        pass
 
     @abstractmethod
     def _duration_filter(self, duration_filter: "scout_compute_resolved_api_DurationFilterRangesNode") -> Any:
@@ -102138,6 +102665,94 @@ If the payload is compressed, the appropriate Content-Encoding header must be in
         _data: Any = request
 
         _path = '/storage/writer/v1/nominal/{dataSourceRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            data=_data)
+
+        return
+
+    def write_nominal_columnar_batches(self, auth_header: str, request: Any) -> None:
+        """Synchronously writes to a Nominal data source using the columnar WriteBatchesRequest Protobuf schema.
+
+This is the most efficient write format. Unlike the row-oriented writeNominalBatches endpoint, this schema
+stores timestamps and values as separate packed arrays per channel, which enables protobuf packed encoding
+for value arrays and significantly better compression.
+
+The data_source_rid field in the protobuf body identifies the target data source or dataset.
+The request must be Protobuf-encoded and accompanied by the appropriate content encoding headers if compressed.
+
+The request should follow this Protobuf schema:
+```proto
+message WriteBatchesRequest {
+  repeated RecordsBatch batches = 1;
+  string data_source_rid = 2;
+}
+
+message RecordsBatch {
+  string channel = 1;
+  map<string, string> tags = 2;
+  Points points = 3;
+}
+
+message Points {
+  repeated Timestamp timestamps = 1;
+  oneof points {
+    DoublePoints double_points = 2;
+    StringPoints string_points = 3;
+    IntPoints int_points = 5;
+    ArrayPoints array_points = 6;
+    StructPoints struct_points = 7;
+    Uint64Points uint64_points = 8;
+  }
+}
+
+// Picosecond precision timestamp.
+message Timestamp {
+  optional int64 seconds = 1;
+  optional int64 nanos = 2;
+  optional int32 picos = 3;
+}
+
+message DoublePoints { repeated double points = 1; }
+message StringPoints { repeated string points = 1; }
+message IntPoints { repeated int64 points = 1; }
+message Uint64Points { repeated uint64 points = 1; }
+message StructPoints { repeated string points = 1; }
+
+message ArrayPoints {
+  oneof array_type {
+    DoubleArrayPoints double_array_points = 1;
+    StringArrayPoints string_array_points = 2;
+  }
+}
+message DoubleArrayPoints { repeated DoubleArrayPoint points = 1; }
+message DoubleArrayPoint { repeated double value = 2; }
+message StringArrayPoints { repeated StringArrayPoint points = 1; }
+message StringArrayPoint { repeated string value = 2; }
+```
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/octet-stream',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _data: Any = request
+
+        _path = '/storage/writer/v1/nominal-columnar'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(

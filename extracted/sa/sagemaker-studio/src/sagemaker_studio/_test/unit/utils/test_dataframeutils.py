@@ -29,9 +29,11 @@ class TestReadCatalogTable:
             # Setup mocks
             mock_project = Mock()
             mock_connection = Mock()
+            mock_connection.physical_endpoints = []  # Mock as empty list
             mock_catalog = Mock()
             mock_catalog.type = "NATIVE"
             mock_catalog.id = "123456789012"
+            mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
             mock_ensure_project.return_value = mock_project
             mock_project.connection.return_value = mock_connection
@@ -64,17 +66,26 @@ class TestReadCatalogTable:
 
     def test_read_native_catalog_auto_format(self):
         """Test reading from NATIVE catalog with auto-detected format."""
-        with patch("sagemaker_studio.utils.dataframeutils._ensure_project") as mock_ensure_project:
+        with patch(
+            "sagemaker_studio.utils.dataframeutils._ensure_project"
+        ) as mock_ensure_project, patch(
+            "sagemaker_studio.utils.dataframeutils._get_glue_table_format"
+        ) as mock_get_format:
             # Setup mocks
             mock_project = Mock()
             mock_connection = Mock()
+            mock_connection.physical_endpoints = []  # Mock as empty list
             mock_catalog = Mock()
             mock_catalog.type = "NATIVE"
             mock_catalog.id = "123456789012"
+            mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
             mock_ensure_project.return_value = mock_project
             mock_project.connection.return_value = mock_connection
             mock_connection.catalog.return_value = mock_catalog
+
+            # Mock format detection to return csv_or_text
+            mock_get_format.return_value = "csv_or_text"
 
             # Create expected DataFrame
             expected_df = pd.DataFrame({"col1": [1, 2]})
@@ -85,7 +96,8 @@ class TestReadCatalogTable:
             mock_wr = sys.modules["awswrangler"]
             # Reset the mock to avoid interference from other tests
             mock_wr.reset_mock()
-            mock_wr.catalog.get_table_parameters.return_value = {"classification": "csv"}
+            # Make get_table_parameters return None so it falls back to _get_glue_table_format
+            mock_wr.catalog.get_table_parameters.return_value = None
             mock_wr.catalog.get_table_location.return_value = "s3://bucket/path/table/"
             mock_wr.s3.read_csv.return_value = expected_df
 
@@ -94,24 +106,36 @@ class TestReadCatalogTable:
 
             # Assertions
             pd.testing.assert_frame_equal(result, expected_df)
-            mock_wr.catalog.get_table_parameters.assert_called_once_with(
-                database="test_db", table="test_table", catalog_id="123456789012"
+            mock_get_format.assert_called_once_with(
+                database="test_db",
+                table="test_table",
+                catalog_id="123456789012",
+                region="us-west-2",
             )
             mock_wr.s3.read_csv.assert_called_once_with(path="s3://bucket/path/table/")
 
     def test_read_native_catalog_fallback_format(self):
         """Test reading from NATIVE catalog with fallback to parquet when no classification."""
-        with patch("sagemaker_studio.utils.dataframeutils._ensure_project") as mock_ensure_project:
+        with patch(
+            "sagemaker_studio.utils.dataframeutils._ensure_project"
+        ) as mock_ensure_project, patch(
+            "sagemaker_studio.utils.dataframeutils._get_glue_table_format"
+        ) as mock_get_format:
             # Setup mocks
             mock_project = Mock()
             mock_connection = Mock()
+            mock_connection.physical_endpoints = []  # Mock as empty list
             mock_catalog = Mock()
             mock_catalog.type = "NATIVE"
             mock_catalog.id = "123456789012"
+            mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
             mock_ensure_project.return_value = mock_project
             mock_project.connection.return_value = mock_connection
             mock_connection.catalog.return_value = mock_catalog
+
+            # Mock format detection to return unknown (which falls back to parquet)
+            mock_get_format.return_value = "unknown"
 
             # Create expected DataFrame
             expected_df = pd.DataFrame({"col1": [1, 2]})
@@ -122,7 +146,8 @@ class TestReadCatalogTable:
             mock_wr = sys.modules["awswrangler"]
             # Reset the mock to avoid interference from other tests
             mock_wr.reset_mock()
-            mock_wr.catalog.get_table_parameters.return_value = {}  # No classification
+            # Make get_table_parameters return None so it falls back to _get_glue_table_format
+            mock_wr.catalog.get_table_parameters.return_value = None
             mock_wr.catalog.get_table_location.return_value = "s3://bucket/path/table/"
             mock_wr.s3.read_parquet.return_value = expected_df
 
@@ -135,17 +160,26 @@ class TestReadCatalogTable:
 
     def test_read_native_catalog_exception_fallback_format(self):
         """Test reading from NATIVE catalog with fallback to parquet when get_table_parameters fails."""
-        with patch("sagemaker_studio.utils.dataframeutils._ensure_project") as mock_ensure_project:
+        with patch(
+            "sagemaker_studio.utils.dataframeutils._ensure_project"
+        ) as mock_ensure_project, patch(
+            "sagemaker_studio.utils.dataframeutils._get_glue_table_format"
+        ) as mock_get_format:
             # Setup mocks
             mock_project = Mock()
             mock_connection = Mock()
+            mock_connection.physical_endpoints = []  # Mock as empty list
             mock_catalog = Mock()
             mock_catalog.type = "NATIVE"
             mock_catalog.id = "123456789012"
+            mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
             mock_ensure_project.return_value = mock_project
             mock_project.connection.return_value = mock_connection
             mock_connection.catalog.return_value = mock_catalog
+
+            # Simulate exception when getting table format
+            mock_get_format.side_effect = Exception("Access denied")
 
             # Create expected DataFrame
             expected_df = pd.DataFrame({"col1": [1, 2]})
@@ -156,8 +190,8 @@ class TestReadCatalogTable:
             mock_wr = sys.modules["awswrangler"]
             # Reset the mock to avoid interference from other tests
             mock_wr.reset_mock()
-            # Simulate exception when getting table parameters
-            mock_wr.catalog.get_table_parameters.side_effect = Exception("Access denied")
+            # Make get_table_parameters return None so it falls back to _get_glue_table_format
+            mock_wr.catalog.get_table_parameters.return_value = None
             mock_wr.catalog.get_table_location.return_value = "s3://bucket/path/table/"
             mock_wr.s3.read_parquet.return_value = expected_df
 
@@ -166,8 +200,11 @@ class TestReadCatalogTable:
 
             # Assertions
             pd.testing.assert_frame_equal(result, expected_df)
-            mock_wr.catalog.get_table_parameters.assert_called_once_with(
-                database="test_db", table="test_table", catalog_id="123456789012"
+            mock_get_format.assert_called_once_with(
+                database="test_db",
+                table="test_table",
+                catalog_id="123456789012",
+                region="us-west-2",
             )
             mock_wr.s3.read_parquet.assert_called_once_with(path="s3://bucket/path/table/")
 
@@ -177,9 +214,11 @@ class TestReadCatalogTable:
             # Setup mocks
             mock_project = Mock()
             mock_connection = Mock()
+            mock_connection.physical_endpoints = []  # Mock as empty list
             mock_catalog = Mock()
             mock_catalog.type = "NATIVE"
             mock_catalog.id = "123456789012"
+            mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
             mock_ensure_project.return_value = mock_project
             mock_project.connection.return_value = mock_connection
@@ -209,8 +248,10 @@ class TestReadCatalogTable:
         # Setup mocks
         mock_project = Mock()
         mock_connection = Mock()
+        mock_connection.physical_endpoints = []  # Mock as empty list
         mock_catalog = Mock()
         mock_catalog.type = "UNSUPPORTED"
+        mock_catalog.resource_arn = "arn:aws:glue:us-west-2:123456789012:catalog"
 
         mock_ensure_project.return_value = mock_project
         mock_project.connection.return_value = mock_connection

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tcod
-Version: 20.0.0
+Version: 20.1.0
 Summary: The official Python port of libtcod.
 Author-email: Kyle Benesch <4b796c65+tcod@gmail.com>
 License-Expression: BSD-2-Clause
@@ -23,6 +23,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython

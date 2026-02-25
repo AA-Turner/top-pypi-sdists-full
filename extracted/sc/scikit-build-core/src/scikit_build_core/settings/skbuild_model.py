@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
-from .._compat.typing import Annotated
+from .._compat.typing import Annotated, Self
 
 __all__ = [
     "BackportSettings",
@@ -33,6 +33,8 @@ def __dir__() -> List[str]:
 class SettingsFieldMetadata(TypedDict, total=False):
     display_default: Optional[str]
     deprecated: bool
+    override_only: bool
+    """Do not allow the field to be a top-level table."""
 
 
 class CMakeSettingsDefine(str):
@@ -41,9 +43,11 @@ class CMakeSettingsDefine(str):
     to the CMake representation in the `cmake.define` settings key.
     """
 
+    __slots__ = ()
+
     json_schema = Union[str, bool, List[str]]
 
-    def __new__(cls, raw: Union[str, bool, List[str]]) -> "CMakeSettingsDefine":
+    def __new__(cls, raw: Union[str, bool, List[str]]) -> Self:
         def escape_semicolons(item: str) -> str:
             return item.replace(";", r"\;")
 
@@ -133,6 +137,22 @@ class CMakeSettings:
     DEPRECATED in 0.10; use build.targets instead.
     """
 
+    toolchain_file: Optional[Path] = dataclasses.field(
+        default=None, metadata=SettingsFieldMetadata(override_only=True)
+    )
+    """
+    The CMAKE_TOOLCHAIN_FILE / --toolchain used for cross-compilation.
+
+    This is only allowed in overrides or config-settings.
+    """
+
+    python_hints: bool = True
+    """
+    Do not pass the current environment's python hints such as ``Python_EXECUTABLE``.
+    Primarily used for cross-compilation where the CMAKE_TOOLCHAIN_FILE should handle it
+    instead.
+    """
+
 
 @dataclasses.dataclass
 class SearchSettings:
@@ -205,6 +225,27 @@ class SDistSettings:
 
     .. seealso::
        :confval:`sdist.include`
+    """
+
+    inclusion_mode: Optional[Literal["classic", "default", "manual"]] = (
+        dataclasses.field(
+            default=None,
+            metadata=SettingsFieldMetadata(display_default='"default"  # "classic"'),
+        )
+    )
+    """
+    Method to use to compute the files to include and exclude.
+
+    The methods are:
+
+    * "default": Process the git ignore files. Shortcuts on ignored directories.
+    * "classic": The behavior before 0.12, like "default" but does not shortcut directories.
+    * "manual": No extra logic, based on include/exclude only.
+
+    If you don't set this, it will be "default" unless you set the minimum
+    version below 0.12, in which case it will be "classic".
+
+    .. versionadded: 0.12
     """
 
     reproducible: bool = True
@@ -312,6 +353,20 @@ class WheelSettings:
     build_tag: str = ""
     """
     The build tag to use for the wheel. If empty, no build tag is used.
+    """
+
+    tags: Optional[List[str]] = dataclasses.field(
+        default=None,
+        metadata=SettingsFieldMetadata(override_only=True),
+    )
+    """
+    Wheel tags to manually force, {interpreter}-{abi}-{platform} format.
+
+    Manually specify the wheel tags to use, ignoring other inputs such as
+    ``wheel.py-api``. Each tag must be of the format
+    {interpreter}-{abi}-{platform}.  If not specified, these tags are
+    automatically calculated. This is only allowed in overrides or
+    config-settings.
     """
 
 
@@ -505,7 +560,10 @@ class ScikitBuildSettings:
     This can be set to reuse the build directory from previous runs.
     """
 
-    fail: bool = False
+    fail: Optional[bool] = dataclasses.field(
+        default=None,
+        metadata=SettingsFieldMetadata(override_only=True),
+    )
     """
-    Immediately fail the build. This is only useful in overrides.
+    Immediately fail the build. This is only allowed in overrides or config-settings.
     """

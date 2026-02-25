@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit_build_core
-Version: 0.11.6
+Version: 0.12.0
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -8,11 +8,11 @@ Project-URL: Documentation, https://scikit-build-core.readthedocs.io
 Project-URL: Homepage, https://github.com/scikit-build/scikit-build-core
 Project-URL: Issues, https://github.com/scikit-build/scikit-build-core/issues
 Author-email: Henry Schreiner <henryfs@princeton.edu>
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 4 - Resilient
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Typing :: Typed
@@ -33,52 +34,8 @@ Requires-Dist: importlib-resources>=1.3; python_version < '3.9'
 Requires-Dist: packaging>=23.2
 Requires-Dist: pathspec>=0.10.1
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
-Requires-Dist: typing-extensions>=3.10.0; python_version < '3.9'
-Provides-Extra: cov
-Requires-Dist: pytest-cov; extra == 'cov'
-Provides-Extra: dev
-Requires-Dist: rich; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: furo; extra == 'docs'
-Requires-Dist: hatchling; extra == 'docs'
-Requires-Dist: myst-parser>=0.13; extra == 'docs'
-Requires-Dist: setuptools; extra == 'docs'
-Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-inline-tabs; extra == 'docs'
-Requires-Dist: sphinx-jsonschema; extra == 'docs'
-Requires-Dist: sphinx-tippy; extra == 'docs'
-Requires-Dist: sphinx>=7.0; extra == 'docs'
-Requires-Dist: sphinxcontrib-programoutput; extra == 'docs'
+Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: pyproject
-Provides-Extra: test
-Requires-Dist: build>=0.8; extra == 'test'
-Requires-Dist: cattrs>=22.2.0; extra == 'test'
-Requires-Dist: pip>=23; (python_version < '3.13') and extra == 'test'
-Requires-Dist: pip>=24.1; (python_version >= '3.13') and extra == 'test'
-Requires-Dist: pybind11>=2.11; extra == 'test'
-Requires-Dist: pytest-subprocess>=1.5; extra == 'test'
-Requires-Dist: pytest-xdist>=3.1; extra == 'test'
-Requires-Dist: pytest>=7.2; extra == 'test'
-Requires-Dist: setuptools>=43; (python_version < '3.9') and extra == 'test'
-Requires-Dist: setuptools>=45; (python_version == '3.9') and extra == 'test'
-Requires-Dist: setuptools>=49; (python_version >= '3.10' and python_version < '3.12') and extra == 'test'
-Requires-Dist: setuptools>=66.1; (python_version >= '3.12') and extra == 'test'
-Requires-Dist: virtualenv>=20.20; extra == 'test'
-Requires-Dist: wheel>=0.40; extra == 'test'
-Provides-Extra: test-hatchling
-Requires-Dist: hatchling>=1.24.0; extra == 'test-hatchling'
-Provides-Extra: test-meta
-Requires-Dist: hatch-fancy-pypi-readme>=22.3; extra == 'test-meta'
-Requires-Dist: setuptools-scm; extra == 'test-meta'
-Provides-Extra: test-numpy
-Requires-Dist: numpy; (python_version < '3.14' and platform_python_implementation != 'PyPy' and (platform_system != 'Windows' or platform_machine != 'ARM64')) and extra == 'test-numpy'
-Requires-Dist: numpy~=1.24.0; (python_version == '3.8' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
-Requires-Dist: numpy~=2.0.0; (python_version == '3.9' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
-Requires-Dist: numpy~=2.2.0; (python_version == '3.10' and platform_python_implementation == 'PyPy') and extra == 'test-numpy'
-Provides-Extra: test-schema
-Requires-Dist: fastjsonschema; extra == 'test-schema'
-Requires-Dist: validate-pyproject; extra == 'test-schema'
 Provides-Extra: wheel-free-setuptools
 Requires-Dist: setuptools>=70.1; (python_version >= '3.8') and extra == 'wheel-free-setuptools'
 Provides-Extra: wheels
@@ -103,10 +60,13 @@ Description-Content-Type: text/markdown
 > [!NOTE]
 >
 > We have a public Scikit-build community meeting every month!
-> [Join us on Google Meet](https://meet.google.com/hzu-znrd-uef) on the third
-> Friday of every month at 12:00 PM EST. We also have a developer's meeting on
-> the first Friday of every month at the same time. Our past meeting minutes are
+> [Join us on Google Meet](https://meet.google.com/tgz-umhu-onf) on the third
+> Friday of every month at [12:00 PM ET][]. Some of our past meeting minutes are
 > [available here](https://github.com/orgs/scikit-build/discussions/categories/community-meeting-notes).
+
+<!-- prettier-ignore-start -->
+[12:00 PM ET]: https://howlonghowmany.com/my-time/eastern-time/12-pm
+<!-- prettier-ignore-end -->
 
 <!-- SPHINX-START -->
 
@@ -153,7 +113,7 @@ features over classic Scikit-build:
 - Experimental editable mode support, with optional experimental auto rebuilds
   on import and optional in-place mode
 - Supports WebAssembly (Emscripten/[Pyodide](https://pyodide.org)).
-- Supports [free-threaded Python 3.13](https://py-free-threading.github.io).
+- Supports [free-threaded Python 3.13+](https://py-free-threading.github.io).
 
 The following limitations are present compared to classic scikit-build:
 
@@ -260,6 +220,9 @@ cmake.build-type = "Release"
 # The source directory to use when building the project.
 cmake.source-dir = "."
 
+# Do not pass the current environment's python hints such as ``Python_EXECUTABLE``.
+cmake.python-hints = true
+
 # The versions of Ninja to allow.
 ninja.version = ">=1.5"
 
@@ -274,6 +237,9 @@ sdist.include = []
 
 # Files to exclude from the SDist even if they are included by default. Supports gitignore syntax.
 sdist.exclude = []
+
+# Method to use to compute the files to include and exclude.
+sdist.inclusion-mode = "default"  # "classic"
 
 # Try to build a reproducible distribution.
 sdist.reproducible = true
@@ -373,9 +339,6 @@ minimum-version = "0.11"  # current version
 
 # The CMake build directory. Defaults to a unique temporary directory.
 build-dir = ""
-
-# Immediately fail the build. This is only useful in overrides.
-fail = false
 
 ```
 

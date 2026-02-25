@@ -24,6 +24,7 @@ _OIDC_DISCOVERY = "msal.authority.tenant_discovery"
 _OIDC_DISCOVERY_MOCK = Mock(return_value={
     "authorization_endpoint": "https://contoso.com/placeholder",
     "token_endpoint": "https://contoso.com/placeholder",
+    "issuer": "https://contoso.com/tenant",
 })
 
 
@@ -690,6 +691,7 @@ class TestClientCredentialGrant(unittest.TestCase):
     @patch(_OIDC_DISCOVERY, new=Mock(return_value={
         "authorization_endpoint": "https://contoso.com/common",
         "token_endpoint": "https://contoso.com/common",
+        "issuer": "https://contoso.com/common",
         }))
     def test_common_authority_should_emit_warning(self):
         self._test_certain_authority_should_emit_warning(
@@ -698,6 +700,7 @@ class TestClientCredentialGrant(unittest.TestCase):
     @patch(_OIDC_DISCOVERY, new=Mock(return_value={
         "authorization_endpoint": "https://contoso.com/organizations",
         "token_endpoint": "https://contoso.com/organizations",
+        "issuer": "https://contoso.com/organizations",
         }))
     def test_organizations_authority_should_emit_warning(self):
         self._test_certain_authority_should_emit_warning(
@@ -755,6 +758,7 @@ class TestScopeDecoration(unittest.TestCase):
 @patch("msal.authority.tenant_discovery", new=Mock(return_value={
     "authorization_endpoint": "https://contoso.com/placeholder",
     "token_endpoint": "https://contoso.com/placeholder",
+    "issuer": "https://contoso.com/placeholder",
     }))
 class TestMsalBehaviorWithoutPyMsalRuntimeOrBroker(unittest.TestCase):
 
@@ -796,6 +800,7 @@ class TestMsalBehaviorWithoutPyMsalRuntimeOrBroker(unittest.TestCase):
 @patch("msal.authority.tenant_discovery", new=Mock(return_value={
     "authorization_endpoint": "https://contoso.com/placeholder",
     "token_endpoint": "https://contoso.com/placeholder",
+    "issuer": "https://contoso.com/placeholder",
     }))
 @patch("msal.application._init_broker", new=Mock())  # Pretend pymsalruntime installed and working
 class TestBrokerFallbackWithDifferentAuthorities(unittest.TestCase):
@@ -875,3 +880,50 @@ class TestBrokerFallbackWithDifferentAuthorities(unittest.TestCase):
                 parent_window_handle=app.CONSOLE_WINDOW_HANDLE,
                 )
             self.assertEqual(result.get("error"), "broker_error")
+
+
+class MismatchingScopeTestCase(unittest.TestCase):
+    """Test cache behavior when HTTP response scope differs from requested scope"""
+
+    def test_token_should_be_cached_with_response_scope(self):
+        """Based on https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
+        authorization server may issue an access token with different scope.
+        For example, eSTS normalizes scopes by adding or removing trailing slash.
+        Calling app is supposed to use the normalized scope for subsequent calls.
+        """
+
+        # Create a fresh app instance
+        app = ConfidentialClientApplication(
+            "client_id", client_credential="secret",
+            authority="https://login.microsoftonline.com/common")
+
+        # Mocked request: ask for "invalid_scope" scope but receive "valid_scope1 valid_scope2" scope in response
+        def mock_post(url, headers=None, *args, **kwargs):
+            return MinimalResponse(status_code=200, text=json.dumps({
+                "access_token": "AT_with_valid_scope1_valid_scope2_scopes",
+                "expires_in": 3600,
+                "scope": "valid_scope1 valid_scope2",  # Response scope differs from requested scope
+                "token_type": "Bearer"
+            }))
+
+        result1 = app.acquire_token_for_client(["invalid_scope"], post=mock_post)
+        self.assertEqual(result1[app._TOKEN_SOURCE], app._TOKEN_SOURCE_IDP)
+        self.assertEqual("AT_with_valid_scope1_valid_scope2_scopes", result1.get("access_token"))
+        self.assertEqual(["valid_scope1", "valid_scope2"], result1.get("scope").split())  # Scope from response
+
+        # Second request: ask for same "invalid_scope" scope again
+        # Since cached token has "valid_scope1 valid_scope2" scopes, it shouldn't match the "invalid_scope" request
+        # This should go to IDP again and receive the same response
+        result2 = app.acquire_token_for_client(["invalid_scope"], post=mock_post)
+        # Should get a new token from IDP, not from cache
+        self.assertEqual(result2[app._TOKEN_SOURCE], app._TOKEN_SOURCE_IDP)
+        self.assertEqual("AT_with_valid_scope1_valid_scope2_scopes", result2.get("access_token"))
+        self.assertEqual(["valid_scope1", "valid_scope2"], result2.get("scope").split())
+
+        # Third and fourth requests: ask for individual valid scopes
+        # Should hit cache for the token that has "valid_scope1 valid_scope2" scopes
+        for scope in ["valid_scope1", "valid_scope2"]:
+            result = app.acquire_token_for_client([scope])
+            self.assertEqual(result[app._TOKEN_SOURCE], app._TOKEN_SOURCE_CACHE)
+            self.assertEqual("AT_with_valid_scope1_valid_scope2_scopes", result.get("access_token"))
+            self.assertIsNone(result.get("scope"), "scope field is not returned when token comes from cache")

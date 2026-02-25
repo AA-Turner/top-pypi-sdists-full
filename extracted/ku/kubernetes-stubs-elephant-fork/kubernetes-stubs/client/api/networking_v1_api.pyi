@@ -5,91 +5,487 @@ import kubernetes.client
 class NetworkingV1Api:
     def __init__(self, api_client: typing.Optional[kubernetes.client.ApiClient] = ...) -> None:
         ...
-    def get_api_resources(self) -> kubernetes.client.V1APIResourceList:
+    def get_api_resources(self, *, 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1APIResourceList:
         ...
-    def list_ingress_class(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1IngressClassList:
+    def list_ingress_class(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressClassList:
         ...
-    def create_ingress_class(self, body: kubernetes.client.V1IngressClass, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1IngressClass:
+    def create_ingress_class(self, body: kubernetes.client.V1IngressClass, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressClass:
         ...
-    def delete_collection_ingress_class(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ...) -> kubernetes.client.V1Status:
+    def delete_collection_ingress_class(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def read_ingress_class(self, name: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1IngressClass:
+    def read_ingress_class(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressClass:
         ...
-    def replace_ingress_class(self, name: str, body: kubernetes.client.V1IngressClass, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1IngressClass:
+    def replace_ingress_class(self, name: str, body: kubernetes.client.V1IngressClass, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressClass:
         ...
-    def delete_ingress_class(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ...) -> kubernetes.client.V1Status:
+    def delete_ingress_class(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def patch_ingress_class(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1IngressClass:
+    def patch_ingress_class(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressClass:
         ...
-    def list_ingress_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1IngressList:
+    def list_ingress_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressList:
         ...
-    def list_ip_address(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1IPAddressList:
+    def list_ip_address(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IPAddressList:
         ...
-    def create_ip_address(self, body: kubernetes.client.V1IPAddress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1IPAddress:
+    def create_ip_address(self, body: kubernetes.client.V1IPAddress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IPAddress:
         ...
-    def delete_collection_ip_address(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ...) -> kubernetes.client.V1Status:
+    def delete_collection_ip_address(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def read_ip_address(self, name: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1IPAddress:
+    def read_ip_address(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IPAddress:
         ...
-    def replace_ip_address(self, name: str, body: kubernetes.client.V1IPAddress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1IPAddress:
+    def replace_ip_address(self, name: str, body: kubernetes.client.V1IPAddress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IPAddress:
         ...
-    def delete_ip_address(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ...) -> kubernetes.client.V1Status:
+    def delete_ip_address(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def patch_ip_address(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1IPAddress:
+    def patch_ip_address(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IPAddress:
         ...
-    def list_namespaced_ingress(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1IngressList:
+    def list_namespaced_ingress(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1IngressList:
         ...
-    def create_namespaced_ingress(self, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1Ingress:
+    def create_namespaced_ingress(self, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def delete_collection_namespaced_ingress(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ...) -> kubernetes.client.V1Status:
+    def delete_collection_namespaced_ingress(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def read_namespaced_ingress(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1Ingress:
+    def read_namespaced_ingress(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def replace_namespaced_ingress(self, name: str, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1Ingress:
+    def replace_namespaced_ingress(self, name: str, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def delete_namespaced_ingress(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ...) -> kubernetes.client.V1Status:
+    def delete_namespaced_ingress(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def patch_namespaced_ingress(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1Ingress:
+    def patch_namespaced_ingress(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def read_namespaced_ingress_status(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1Ingress:
+    def read_namespaced_ingress_status(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def replace_namespaced_ingress_status(self, name: str, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1Ingress:
+    def replace_namespaced_ingress_status(self, name: str, namespace: str, body: kubernetes.client.V1Ingress, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def patch_namespaced_ingress_status(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1Ingress:
+    def patch_namespaced_ingress_status(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Ingress:
         ...
-    def list_namespaced_network_policy(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1NetworkPolicyList:
+    def list_namespaced_network_policy(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicyList:
         ...
-    def create_namespaced_network_policy(self, namespace: str, body: kubernetes.client.V1NetworkPolicy, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1NetworkPolicy:
+    def create_namespaced_network_policy(self, namespace: str, body: kubernetes.client.V1NetworkPolicy, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicy:
         ...
-    def delete_collection_namespaced_network_policy(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ...) -> kubernetes.client.V1Status:
+    def delete_collection_namespaced_network_policy(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def read_namespaced_network_policy(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1NetworkPolicy:
+    def read_namespaced_network_policy(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicy:
         ...
-    def replace_namespaced_network_policy(self, name: str, namespace: str, body: kubernetes.client.V1NetworkPolicy, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1NetworkPolicy:
+    def replace_namespaced_network_policy(self, name: str, namespace: str, body: kubernetes.client.V1NetworkPolicy, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicy:
         ...
-    def delete_namespaced_network_policy(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ...) -> kubernetes.client.V1Status:
+    def delete_namespaced_network_policy(self, name: str, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def patch_namespaced_network_policy(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1NetworkPolicy:
+    def patch_namespaced_network_policy(self, name: str, namespace: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicy:
         ...
-    def list_network_policy_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1NetworkPolicyList:
+    def list_network_policy_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1NetworkPolicyList:
         ...
-    def list_service_cidr(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ...) -> kubernetes.client.V1ServiceCIDRList:
+    def list_service_cidr(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDRList:
         ...
-    def create_service_cidr(self, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def create_service_cidr(self, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def delete_collection_service_cidr(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ...) -> kubernetes.client.V1Status:
+    def delete_collection_service_cidr(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def read_service_cidr(self, name: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def read_service_cidr(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def replace_service_cidr(self, name: str, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def replace_service_cidr(self, name: str, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def delete_service_cidr(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ...) -> kubernetes.client.V1Status:
+    def delete_service_cidr(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
         ...
-    def patch_service_cidr(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def patch_service_cidr(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def read_service_cidr_status(self, name: str, *, pretty: typing.Optional[str] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def read_service_cidr_status(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def replace_service_cidr_status(self, name: str, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def replace_service_cidr_status(self, name: str, body: kubernetes.client.V1ServiceCIDR, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...
-    def patch_service_cidr_status(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ...) -> kubernetes.client.V1ServiceCIDR:
+    def patch_service_cidr_status(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1ServiceCIDR:
         ...

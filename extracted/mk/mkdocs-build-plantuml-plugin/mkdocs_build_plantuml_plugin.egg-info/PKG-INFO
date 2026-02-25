@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-build-plantuml-plugin
-Version: 2.0.0
+Version: 2.1.0
 Summary: An MkDocs plugin to call plantuml locally or remote
 Home-page: https://github.com/christo-ph/mkdocs_build_plantuml
 Author: Christoph Galler
@@ -13,7 +13,7 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mkdocs>=1.0.4
@@ -70,7 +70,7 @@ this plugin does _not_ meet your requirements. Please check out [plantuml-markdo
 
 You need to have installed:
 
-- Python3 (>= 3.12)
+- Python3 (>= 3.10)
 - [MkDocs](https://www.mkdocs.org)
 - Java for Plantuml (If running locally)
 - [Plantuml](https://plantuml.com) (if running locally)
@@ -104,6 +104,7 @@ plugins:
       output_folder: 'out'
       input_folder: 'src'
       input_extensions: '' # comma separated list of extensions to parse, by default every file is parsed
+      exclude_dirs: ['.git'] # directories to exclude when walking the diagram root
 ```
 
 It is recommended to use the `server` option, which is much faster than `local`.
@@ -207,6 +208,15 @@ See the [example folder](./example/) for a complete working setup.
 ### Example Output
 
 ![DarkMode](./switch_dark_mode.gif)
+
+## Debugging
+
+To see detailed plugin output (e.g. which diagrams are being processed and from where), run mkdocs with the `--verbose` flag:
+
+```bash
+mkdocs serve --verbose
+mkdocs build --verbose
+```
 
 ## Known restrictions
 

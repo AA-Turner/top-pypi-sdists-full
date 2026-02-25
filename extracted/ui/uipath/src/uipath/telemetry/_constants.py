@@ -1,4 +1,4 @@
-_CONNECTION_STRING = "InstrumentationKey=4128b5ed-f5ec-4612-ac32-b8cff0f2de93;IngestionEndpoint=https://northeurope-2.in.applicationinsights.azure.com/;LiveEndpoint=https://northeurope.livediagnostics.monitor.azure.com/;ApplicationId=f448014b-2abf-4681-8e48-583e33f7d173"
+_CONNECTION_STRING = "InstrumentationKey=962c4d0f-d70c-435f-9d9e-94f6837cbd42;IngestionEndpoint=https://northeurope-2.in.applicationinsights.azure.com/;LiveEndpoint=https://northeurope.livediagnostics.monitor.azure.com/;ApplicationId=9ed6a164-c041-461d-a0ff-c5652d2366a9"
 
 _APP_INSIGHTS_EVENT_MARKER_ATTRIBUTE = "APPLICATION_INSIGHTS_EVENT_MARKER_ATTRIBUTE"
 _OTEL_RESOURCE_ATTRIBUTES = "OTEL_RESOURCE_ATTRIBUTES"

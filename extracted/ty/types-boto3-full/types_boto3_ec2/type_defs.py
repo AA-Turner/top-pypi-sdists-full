@@ -96,6 +96,7 @@ from .literals import (
     ConversionTaskStateType,
     CpuManufacturerType,
     DatafeedSubscriptionStateType,
+    DefaultHttpTokensEnforcedStateType,
     DefaultInstanceMetadataEndpointStateType,
     DefaultInstanceMetadataTagsStateType,
     DefaultRouteTableAssociationValueType,
@@ -153,6 +154,7 @@ from .literals import (
     HostnameTypeType,
     HostRecoveryType,
     HostTenancyType,
+    HttpTokensEnforcedStateType,
     HttpTokensStateType,
     HypervisorTypeType,
     IamInstanceProfileAssociationStateType,
@@ -6784,6 +6786,7 @@ class InstanceMetadataDefaultsResponseTypeDef(TypedDict):
     InstanceMetadataTags: NotRequired[InstanceMetadataTagsStateType]
     ManagedBy: NotRequired[ManagedByType]
     ManagedExceptionMessage: NotRequired[str]
+    HttpTokensEnforced: NotRequired[HttpTokensEnforcedStateType]
 
 
 class GetInstanceTpmEkPubRequestTypeDef(TypedDict):
@@ -7800,6 +7803,7 @@ class ModifyInstanceMetadataDefaultsRequestTypeDef(TypedDict):
     HttpEndpoint: NotRequired[DefaultInstanceMetadataEndpointStateType]
     InstanceMetadataTags: NotRequired[DefaultInstanceMetadataTagsStateType]
     DryRun: NotRequired[bool]
+    HttpTokensEnforced: NotRequired[DefaultHttpTokensEnforcedStateType]
 
 
 class ModifyInstanceMetadataOptionsRequestTypeDef(TypedDict):

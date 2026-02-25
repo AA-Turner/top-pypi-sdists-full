@@ -21,7 +21,7 @@ from pulpcore.app.util import (
     get_domain,
     get_prn,
 )
-from pulpcore.app.contexts import with_task_context, awith_task_context
+from pulpcore.app.contexts import with_task_context, awith_task_context, x_task_diagnostics_var
 from pulpcore.constants import (
     TASK_FINAL_STATES,
     TASK_INCOMPLETE_STATES,
@@ -30,7 +30,6 @@ from pulpcore.constants import (
     TASK_WAKEUP_HANDLE,
     TASK_WAKEUP_UNBLOCK,
 )
-from pulpcore.middleware import x_task_diagnostics_var
 from pulpcore.tasking.kafka import send_task_notification
 
 _logger = logging.getLogger(__name__)
@@ -66,6 +65,7 @@ def _execute_task(task):
     with with_task_context(task):
         task.set_running()
         domain = get_domain()
+
         try:
             log_task_start(task, domain)
             task_function = get_task_function(task)
@@ -336,6 +336,7 @@ async def adispatch(
 def get_task_payload(
     function_name, task_group, args, kwargs, resources, versions, immediate, deferred, app_lock
 ):
+    """Create arguments for creation of a new task"""
     payload = {
         "state": TASK_STATES.WAITING,
         "logging_cid": (get_guid()),

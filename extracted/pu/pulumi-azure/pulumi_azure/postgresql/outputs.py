@@ -16,6 +16,7 @@ from .. import _utilities
 
 __all__ = [
     'FlexibleServerAuthentication',
+    'FlexibleServerCluster',
     'FlexibleServerCustomerManagedKey',
     'FlexibleServerHighAvailability',
     'FlexibleServerIdentity',
@@ -96,6 +97,65 @@ class FlexibleServerAuthentication(dict):
         > **Note:** `tenant_id` is required when `active_directory_auth_enabled` is set to `true`. And it should not be specified when `active_directory_auth_enabled` is set to `false`
         """
         return pulumi.get(self, "tenant_id")
+
+
+@pulumi.output_type
+class FlexibleServerCluster(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "defaultDatabaseName":
+            suggest = "default_database_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in FlexibleServerCluster. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        FlexibleServerCluster.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        FlexibleServerCluster.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 size: _builtins.int,
+                 default_database_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int size: The number of nodes in the cluster. Must be at least `1` and no greater than `32`.
+               
+               > **Note:** The maximum supported cluster size is currently 20 nodes. Support for up to 32 nodes will be available in the near future.
+               
+               > **Note:** Cluster support is only available for PostgreSQL version 17 and above, and is not supported when `create_mode` is set to anything other than `Default`.
+               
+               > **Note:** The cluster `size` can only be increased, not decreased. Attempting to reduce the cluster size will result in an error.
+        :param _builtins.str default_database_name: The default database name to be created. Changing this forces a new PostgreSQL Flexible Server to be created.
+        """
+        pulumi.set(__self__, "size", size)
+        if default_database_name is not None:
+            pulumi.set(__self__, "default_database_name", default_database_name)
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> _builtins.int:
+        """
+        The number of nodes in the cluster. Must be at least `1` and no greater than `32`.
+
+        > **Note:** The maximum supported cluster size is currently 20 nodes. Support for up to 32 nodes will be available in the near future.
+
+        > **Note:** Cluster support is only available for PostgreSQL version 17 and above, and is not supported when `create_mode` is set to anything other than `Default`.
+
+        > **Note:** The cluster `size` can only be increased, not decreased. Attempting to reduce the cluster size will result in an error.
+        """
+        return pulumi.get(self, "size")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultDatabaseName")
+    def default_database_name(self) -> Optional[_builtins.str]:
+        """
+        The default database name to be created. Changing this forces a new PostgreSQL Flexible Server to be created.
+        """
+        return pulumi.get(self, "default_database_name")
 
 
 @pulumi.output_type
@@ -211,6 +271,11 @@ class FlexibleServerHighAvailability(dict):
                  standby_availability_zone: Optional[_builtins.str] = None):
         """
         :param _builtins.str mode: The high availability mode for the PostgreSQL Flexible Server. Possible value are `SameZone` or `ZoneRedundant`.
+        :param _builtins.str standby_availability_zone: Specifies the Availability Zone in which the standby Flexible Server should be located.
+               
+               > **Note:** Azure will automatically assign an Availability Zone if one is not specified. If the PostgreSQL Flexible Server fails-over to the Standby Availability Zone, the `zone` will be updated to reflect the current Primary Availability Zone. You can use Terraform's `ignore_changes` functionality to ignore changes to the `zone` and `high_availability[0].standby_availability_zone` fields should you wish for Terraform to not migrate the PostgreSQL Flexible Server back to it's primary Availability Zone after a fail-over.
+               
+               > **Note:** The Availability Zones available depend on the Azure Region that the PostgreSQL Flexible Server is being deployed into - see [the Azure Availability Zones documentation](https://azure.microsoft.com/global-infrastructure/geographies/#geographies) for more information on which Availability Zones are available in each Azure Region.
         """
         pulumi.set(__self__, "mode", mode)
         if standby_availability_zone is not None:
@@ -227,6 +292,13 @@ class FlexibleServerHighAvailability(dict):
     @_builtins.property
     @pulumi.getter(name="standbyAvailabilityZone")
     def standby_availability_zone(self) -> Optional[_builtins.str]:
+        """
+        Specifies the Availability Zone in which the standby Flexible Server should be located.
+
+        > **Note:** Azure will automatically assign an Availability Zone if one is not specified. If the PostgreSQL Flexible Server fails-over to the Standby Availability Zone, the `zone` will be updated to reflect the current Primary Availability Zone. You can use Terraform's `ignore_changes` functionality to ignore changes to the `zone` and `high_availability[0].standby_availability_zone` fields should you wish for Terraform to not migrate the PostgreSQL Flexible Server back to it's primary Availability Zone after a fail-over.
+
+        > **Note:** The Availability Zones available depend on the Azure Region that the PostgreSQL Flexible Server is being deployed into - see [the Azure Availability Zones documentation](https://azure.microsoft.com/global-infrastructure/geographies/#geographies) for more information on which Availability Zones are available in each Azure Region.
+        """
         return pulumi.get(self, "standby_availability_zone")
 
 

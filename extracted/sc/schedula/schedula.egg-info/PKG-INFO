@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: schedula
-Version: 1.6.1
+Version: 1.6.3
 Summary: Produce a plan that dispatches calls based on a graph of functions, satisfying data dependencies.
 Home-page: https://github.com/vinci1it2000/schedula
-Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.1
+Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.3
 Author: Vincenzo Arcidiacono
 Author-email: vinci1it2000@gmail.com
 License: EUPL 1.1+

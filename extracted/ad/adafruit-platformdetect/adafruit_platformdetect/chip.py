@@ -29,7 +29,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import chips
 
-__version__ = "3.87.0"
+__version__ = "3.88.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -194,7 +194,10 @@ class Chip:
         if platform == "pyboard":
             self._chip_id = chips.STM32F405
             return self._chip_id
-        if platform == "rp2":
+        if platform == "rp2" and "RP2350" in os.uname().machine:
+            self._chip_id = chips.RP2350
+            return self._chip_id
+        if platform == "rp2" and "RP2040" in os.uname().machine:
             self._chip_id = chips.RP2040
             return self._chip_id
         # nothing found!

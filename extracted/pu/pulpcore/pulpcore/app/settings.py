@@ -260,6 +260,7 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "level": "INFO",
             "formatter": "simple",
             "filters": ["correlation_id"],
         }
@@ -318,6 +319,13 @@ ALLOWED_IMPORT_PATHS = []
 
 ALLOWED_EXPORT_PATHS = []
 
+# https://docs.djangoproject.com/en/5.2/ref/settings/#std-setting-CACHES
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+}
+
 # https://pulpproject.org/pulpcore/docs/admin/reference/settings/?h=settings#cache_enabled
 CACHE_ENABLED = False
 CACHE_SETTINGS = {
@@ -375,8 +383,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 #    lines and functions, at the time of peak RSS of the task process. This adds significant
 #    runtime overhead to the task process, 20-40%. Tweaking code might be warranted for
 #    some advanced settings.
+# * "logs" - Dumps the logs specific to each task.
+# * "debug-logs" - Same as "logs" but it exports logs at a DEBUG level, even if the system is
+#    otherwise not configured to print DEBUG logs.
 # NOTE: "memray" and "pyinstrument" require additional packages to be installed on the system.
-TASK_DIAGNOSTICS = []  # ["memory", "pyinstrument", "memray"]
+TASK_DIAGNOSTICS = []  # ["memory", "pyinstrument", "memray", "logs", "debug-logs"]
 
 ANALYTICS = True
 

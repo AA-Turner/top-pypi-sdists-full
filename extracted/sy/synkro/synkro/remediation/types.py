@@ -85,20 +85,16 @@ class Violation:
         """Convert to Langfuse score format.
 
         Returns:
-            Dict compatible with langfuse.score()
+            Dict compatible with langfuse.create_score()
         """
         return {
-            "traceId": self.trace_id,
+            "trace_id": self.trace_id,
+            "traceId": self.trace_id,  # backward compat
             "name": self.name,
             "value": self.score if self.data_type == "numeric" else self.value,
-            "dataType": self.data_type.upper(),
+            "data_type": self.data_type.upper(),
+            "dataType": self.data_type.upper(),  # backward compat
             "comment": self.comment,
-            "metadata": {
-                **self.metadata,
-                "rules_violated": self.rules_violated,
-                "severity": self.severity,
-                "issues": self.issues,
-            },
         }
 
     def to_datadog(self) -> dict[str, Any]:

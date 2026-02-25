@@ -2357,3 +2357,13 @@ releases:
       - 1226-docker-sdk-tls.yml
       - 5.0.5.yml
     release_date: '2025-12-31'
+  5.0.6:
+    changes:
+      bugfixes:
+        - docker_image_pull, docker_container - fix pulled image change detection
+          for Docker 29.2+ (https://github.com/ansible-collections/community.docker/pull/1242).
+      release_summary: Bugfix release.
+    fragments:
+      - 1242-pull.yml
+      - 5.0.6.yml
+    release_date: '2026-02-12'

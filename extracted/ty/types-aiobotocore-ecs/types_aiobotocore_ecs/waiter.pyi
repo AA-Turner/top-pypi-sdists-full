@@ -60,7 +60,7 @@ class ServicesInactiveWaiter(AIOWaiter):
     [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs/waiters/#servicesinactivewaiter)
     """
     async def wait(  # type: ignore[override]
-        self, **kwargs: Unpack[DescribeServicesRequestWaitExtraTypeDef]
+        self, **kwargs: Unpack[DescribeServicesRequestWaitTypeDef]
     ) -> None:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/ServicesInactive.html#ECS.Waiter.ServicesInactive.wait)
@@ -73,7 +73,7 @@ class ServicesStableWaiter(AIOWaiter):
     [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecs/waiters/#servicesstablewaiter)
     """
     async def wait(  # type: ignore[override]
-        self, **kwargs: Unpack[DescribeServicesRequestWaitTypeDef]
+        self, **kwargs: Unpack[DescribeServicesRequestWaitExtraTypeDef]
     ) -> None:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/ServicesStable.html#ECS.Waiter.ServicesStable.wait)

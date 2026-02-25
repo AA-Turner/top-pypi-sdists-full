@@ -54,23 +54,24 @@ _vault_opts = [
                help='AppRole secret_id for authentication with vault'),
     cfg.StrOpt('kv_mountpoint',
                default=_DEFAULT_MOUNTPOINT,
-               help='Mountpoint of KV store in Vault to use, for example: '
-                    '{}'.format(_DEFAULT_MOUNTPOINT)),
+               help='Mountpoint of KV store in Vault to use'),
     cfg.StrOpt('kv_path',
                help='Path relative to root of KV store in Vault to use.'
                ),
     cfg.IntOpt('kv_version',
                default=_DEFAULT_VERSION,
-               help='Version of KV store in Vault to use, for example: '
-                    '{}'.format(_DEFAULT_VERSION)),
-    cfg.StrOpt('vault_url',
+               choices=(1, 2),
+               help='Version of KV store in Vault to use.'),
+    cfg.URIOpt('vault_url',
                default=_DEFAULT_VAULT_URL,
-               help='Use this endpoint to connect to Vault, for example: '
-                    '"%s"' % _DEFAULT_VAULT_URL),
+               schemes=('http', 'https'),
+               help='Use this endpoint to connect to Vault'),
     cfg.StrOpt('ssl_ca_crt_file',
                help='Absolute path to ca cert file'),
     cfg.BoolOpt('use_ssl',
                 default=False,
+                deprecated_for_removal=True,
+                deprecated_reason='This option has no effect.',
                 help=_('SSL Enabled/Disabled')),
     cfg.StrOpt("namespace",
                help=_("Vault Namespace to use for all requests to Vault. "
@@ -173,10 +174,6 @@ class VaultKeyManager(key_manager.KeyManager):
                                           headers=headers,
                                           verify=self._verify_server,
                                           timeout=self._timeout)
-            except requests.exceptions.Timeout as ex:
-                raise exception.KeyManagerError(str(ex))
-            except requests.exceptions.ConnectionError as ex:
-                raise exception.KeyManagerError(str(ex))
             except Exception as ex:
                 raise exception.KeyManagerError(str(ex))
 
@@ -204,10 +201,6 @@ class VaultKeyManager(key_manager.KeyManager):
         try:
             resp = method(resource, headers=headers, json=json,
                           verify=self._verify_server, timeout=self._timeout)
-        except requests.exceptions.Timeout as ex:
-            raise exception.KeyManagerError(str(ex))
-        except requests.exceptions.ConnectionError as ex:
-            raise exception.KeyManagerError(str(ex))
         except Exception as ex:
             raise exception.KeyManagerError(str(ex))
 

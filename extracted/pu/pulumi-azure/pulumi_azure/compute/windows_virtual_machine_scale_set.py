@@ -122,7 +122,7 @@ class WindowsVirtualMachineScaleSetArgs:
         :param pulumi.Input[_builtins.str] health_probe_id: The ID of a Load Balancer Probe which should be used to determine the health of an instance. This is Required and can only be specified when `upgrade_mode` is set to `Automatic` or `Rolling`.
         :param pulumi.Input[_builtins.str] host_group_id: Specifies the ID of the dedicated host group that the virtual machine scale set resides in. Changing this forces a new resource to be created.
         :param pulumi.Input['WindowsVirtualMachineScaleSetIdentityArgs'] identity: An `identity` block as defined below.
-        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         :param pulumi.Input[_builtins.str] location: The Azure location where the Windows Virtual Machine Scale Set should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.float] max_bid_price: The maximum price you're willing to pay for each Virtual Machine in this Scale Set, in US Dollars; which must be greater than the current spot price. If this bid price falls below the current spot price the Virtual Machines in the Scale Set will be evicted using the `eviction_policy`. Defaults to `-1`, which means that each Virtual Machine in the Scale Set should not be evicted for price reasons.
                
@@ -159,6 +159,9 @@ class WindowsVirtualMachineScaleSetArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to this Virtual Machine Scale Set.
         :param pulumi.Input['WindowsVirtualMachineScaleSetTerminationNotificationArgs'] termination_notification: A `termination_notification` block as defined below.
         :param pulumi.Input[_builtins.str] timezone: Specifies the time zone of the virtual machine, [the possible values are defined here](https://jackstromberg.com/2017/01/list-of-time-zones-consumed-by-azure/).
+        :param pulumi.Input[_builtins.str] upgrade_mode: Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+               
+               > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
         :param pulumi.Input[_builtins.str] user_data: The Base64-Encoded User Data which should be used for this Virtual Machine Scale Set.
         :param pulumi.Input[_builtins.bool] vtpm_enabled: Specifies if vTPM (Virtual Trusted Platform Module) and Trusted Launch is enabled for the Virtual Machine. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input['WindowsVirtualMachineScaleSetWinrmListenerArgs']]] winrm_listeners: One or more `winrm_listener` blocks as defined below. Changing this forces a new resource to be created.
@@ -631,7 +634,7 @@ class WindowsVirtualMachineScaleSetArgs:
     @pulumi.getter(name="licenseType")
     def license_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         """
         return pulumi.get(self, "license_type")
 
@@ -920,6 +923,11 @@ class WindowsVirtualMachineScaleSetArgs:
     @_builtins.property
     @pulumi.getter(name="upgradeMode")
     def upgrade_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+
+        > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
+        """
         return pulumi.get(self, "upgrade_mode")
 
     @upgrade_mode.setter
@@ -1092,7 +1100,7 @@ class _WindowsVirtualMachineScaleSetState:
         :param pulumi.Input[_builtins.int] instances: The number of Virtual Machines in the Scale Set.
                
                > **NOTE:** If you're using AutoScaling, you may wish to use [`Ignore Changes` functionality](https://www.pulumi.com/docs/intro/concepts/programming-model/#ignorechanges) to ignore changes to this field.
-        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         :param pulumi.Input[_builtins.str] location: The Azure location where the Windows Virtual Machine Scale Set should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.float] max_bid_price: The maximum price you're willing to pay for each Virtual Machine in this Scale Set, in US Dollars; which must be greater than the current spot price. If this bid price falls below the current spot price the Virtual Machines in the Scale Set will be evicted using the `eviction_policy`. Defaults to `-1`, which means that each Virtual Machine in the Scale Set should not be evicted for price reasons.
                
@@ -1134,6 +1142,9 @@ class _WindowsVirtualMachineScaleSetState:
         :param pulumi.Input['WindowsVirtualMachineScaleSetTerminationNotificationArgs'] termination_notification: A `termination_notification` block as defined below.
         :param pulumi.Input[_builtins.str] timezone: Specifies the time zone of the virtual machine, [the possible values are defined here](https://jackstromberg.com/2017/01/list-of-time-zones-consumed-by-azure/).
         :param pulumi.Input[_builtins.str] unique_id: The Unique ID for this Windows Virtual Machine Scale Set.
+        :param pulumi.Input[_builtins.str] upgrade_mode: Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+               
+               > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
         :param pulumi.Input[_builtins.str] user_data: The Base64-Encoded User Data which should be used for this Virtual Machine Scale Set.
         :param pulumi.Input[_builtins.bool] vtpm_enabled: Specifies if vTPM (Virtual Trusted Platform Module) and Trusted Launch is enabled for the Virtual Machine. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input['WindowsVirtualMachineScaleSetWinrmListenerArgs']]] winrm_listeners: One or more `winrm_listener` blocks as defined below. Changing this forces a new resource to be created.
@@ -1567,7 +1578,7 @@ class _WindowsVirtualMachineScaleSetState:
     @pulumi.getter(name="licenseType")
     def license_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         """
         return pulumi.get(self, "license_type")
 
@@ -1916,6 +1927,11 @@ class _WindowsVirtualMachineScaleSetState:
     @_builtins.property
     @pulumi.getter(name="upgradeMode")
     def upgrade_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+
+        > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
+        """
         return pulumi.get(self, "upgrade_mode")
 
     @upgrade_mode.setter
@@ -2170,7 +2186,7 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] instances: The number of Virtual Machines in the Scale Set.
                
                > **NOTE:** If you're using AutoScaling, you may wish to use [`Ignore Changes` functionality](https://www.pulumi.com/docs/intro/concepts/programming-model/#ignorechanges) to ignore changes to this field.
-        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         :param pulumi.Input[_builtins.str] location: The Azure location where the Windows Virtual Machine Scale Set should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.float] max_bid_price: The maximum price you're willing to pay for each Virtual Machine in this Scale Set, in US Dollars; which must be greater than the current spot price. If this bid price falls below the current spot price the Virtual Machines in the Scale Set will be evicted using the `eviction_policy`. Defaults to `-1`, which means that each Virtual Machine in the Scale Set should not be evicted for price reasons.
                
@@ -2211,6 +2227,9 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to this Virtual Machine Scale Set.
         :param pulumi.Input[Union['WindowsVirtualMachineScaleSetTerminationNotificationArgs', 'WindowsVirtualMachineScaleSetTerminationNotificationArgsDict']] termination_notification: A `termination_notification` block as defined below.
         :param pulumi.Input[_builtins.str] timezone: Specifies the time zone of the virtual machine, [the possible values are defined here](https://jackstromberg.com/2017/01/list-of-time-zones-consumed-by-azure/).
+        :param pulumi.Input[_builtins.str] upgrade_mode: Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+               
+               > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
         :param pulumi.Input[_builtins.str] user_data: The Base64-Encoded User Data which should be used for this Virtual Machine Scale Set.
         :param pulumi.Input[_builtins.bool] vtpm_enabled: Specifies if vTPM (Virtual Trusted Platform Module) and Trusted Launch is enabled for the Virtual Machine. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WindowsVirtualMachineScaleSetWinrmListenerArgs', 'WindowsVirtualMachineScaleSetWinrmListenerArgsDict']]]] winrm_listeners: One or more `winrm_listener` blocks as defined below. Changing this forces a new resource to be created.
@@ -2574,7 +2593,7 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] instances: The number of Virtual Machines in the Scale Set.
                
                > **NOTE:** If you're using AutoScaling, you may wish to use [`Ignore Changes` functionality](https://www.pulumi.com/docs/intro/concepts/programming-model/#ignorechanges) to ignore changes to this field.
-        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        :param pulumi.Input[_builtins.str] license_type: Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         :param pulumi.Input[_builtins.str] location: The Azure location where the Windows Virtual Machine Scale Set should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.float] max_bid_price: The maximum price you're willing to pay for each Virtual Machine in this Scale Set, in US Dollars; which must be greater than the current spot price. If this bid price falls below the current spot price the Virtual Machines in the Scale Set will be evicted using the `eviction_policy`. Defaults to `-1`, which means that each Virtual Machine in the Scale Set should not be evicted for price reasons.
                
@@ -2616,6 +2635,9 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
         :param pulumi.Input[Union['WindowsVirtualMachineScaleSetTerminationNotificationArgs', 'WindowsVirtualMachineScaleSetTerminationNotificationArgsDict']] termination_notification: A `termination_notification` block as defined below.
         :param pulumi.Input[_builtins.str] timezone: Specifies the time zone of the virtual machine, [the possible values are defined here](https://jackstromberg.com/2017/01/list-of-time-zones-consumed-by-azure/).
         :param pulumi.Input[_builtins.str] unique_id: The Unique ID for this Windows Virtual Machine Scale Set.
+        :param pulumi.Input[_builtins.str] upgrade_mode: Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+               
+               > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
         :param pulumi.Input[_builtins.str] user_data: The Base64-Encoded User Data which should be used for this Virtual Machine Scale Set.
         :param pulumi.Input[_builtins.bool] vtpm_enabled: Specifies if vTPM (Virtual Trusted Platform Module) and Trusted Launch is enabled for the Virtual Machine. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WindowsVirtualMachineScaleSetWinrmListenerArgs', 'WindowsVirtualMachineScaleSetWinrmListenerArgsDict']]]] winrm_listeners: One or more `winrm_listener` blocks as defined below. Changing this forces a new resource to be created.
@@ -2900,7 +2922,7 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
     @pulumi.getter(name="licenseType")
     def license_type(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/azure/virtual-machines/virtual-machines-windows-hybrid-use-benefit-licensing)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+        Specifies the type of on-premise license (also known as [Azure Hybrid Use Benefit](https://docs.microsoft.com/en-gb/windows-server/get-started/azure-hybrid-benefit)) which should be used for this Virtual Machine Scale Set. Possible values are `None`, `Windows_Client` and `Windows_Server`.
         """
         return pulumi.get(self, "license_type")
 
@@ -3137,6 +3159,11 @@ class WindowsVirtualMachineScaleSet(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="upgradeMode")
     def upgrade_mode(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Specifies how Upgrades (e.g. changing the Image/SKU) should be performed to Virtual Machine Instances. Possible values are `Automatic`, `Manual` and `Rolling`. Defaults to `Manual`. Changing this forces a new resource to be created.
+
+        > **Note:** If rolling upgrades are configured and running on a Linux Virtual Machine Scale Set, they will be cancelled when Terraform tries to destroy the resource.
+        """
         return pulumi.get(self, "upgrade_mode")
 
     @_builtins.property

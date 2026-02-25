@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-sp-api
-Version: 2.1.7
+Version: 2.1.8
 Summary: Python wrapper for the Amazon Selling-Partner API
 Home-page: https://github.com/saleweaver/python-amazon-sp-api
 Author: Michael Primke
@@ -11,6 +11,7 @@ License-File: LICENSE
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: cachetools>=4.2
 Requires-Dist: confuse>=1.4
+Requires-Dist: typing-extensions
 Provides-Extra: aws-caching
 Requires-Dist: aws-secretsmanager-caching; extra == "aws-caching"
 Requires-Dist: boto3; extra == "aws-caching"

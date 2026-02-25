@@ -168,6 +168,7 @@ from types_boto3_elasticache.client import ElastiCacheClient
 from types_boto3_elasticbeanstalk.client import ElasticBeanstalkClient
 from types_boto3_elb.client import ElasticLoadBalancingClient
 from types_boto3_elbv2.client import ElasticLoadBalancingv2Client
+from types_boto3_elementalinference.client import ElementalInferenceClient
 from types_boto3_emr.client import EMRClient
 from types_boto3_emr_containers.client import EMRContainersClient
 from types_boto3_emr_serverless.client import EMRServerlessClient
@@ -3188,6 +3189,25 @@ class Session:
     ) -> ElasticLoadBalancingv2Client:
         """
         Create client for ElasticLoadBalancingv2 service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["elementalinference"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ElementalInferenceClient:
+        """
+        Create client for ElementalInference service.
         """
 
     @overload

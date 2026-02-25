@@ -104,6 +104,7 @@ from snap7.util import (
     set_int,
     set_word,
     set_byte,
+    set_char,
     set_usint,
     set_sint,
     set_time,
@@ -196,9 +197,9 @@ def print_row(data: bytearray) -> None:
         c = c + (w - 1) * " " + ","
         chr_line2 += c
 
-    print(index_line)
-    print(pri_line1)
-    print(chr_line2)
+    logger.info(index_line)
+    logger.info(pri_line1)
+    logger.info(chr_line2)
 
 
 class DB:
@@ -676,6 +677,9 @@ class Row:
 
         if type_ == "LREAL" and isinstance(value, float):
             return set_lreal(bytearray_, byte_index, value)
+
+        if type_ == "CHAR" and isinstance(value, str):
+            return set_char(bytearray_, byte_index, value)
 
         if isinstance(value, int):
             type_to_func = {

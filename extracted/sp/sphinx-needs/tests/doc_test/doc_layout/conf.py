@@ -31,7 +31,8 @@ needs_types = [
     },
 ]
 
-needs_extra_options = ["author", "author_image"]
+needs_fields = {"author": {"nullable": True}, "author_image": {"nullable": True}}
+
 
 needs_layouts = {
     "example": {

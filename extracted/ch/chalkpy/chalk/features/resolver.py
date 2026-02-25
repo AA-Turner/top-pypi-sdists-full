@@ -4730,19 +4730,27 @@ def make_model_resolver(
     """
     from chalk.features.inference import build_inference_function
 
+    # Extract input and output name mappings from dict arguments
+    input_name_map = None
+    output_name_map = None
+
     if isinstance(input, dict):
         input_features_raw = list(input.keys())
+        # Build mapping: chalk feature name -> onnx_input_name
+        input_name_map = {str(feature): onnx_name for feature, onnx_name in input.items()}
     else:
         input_features_raw = input
 
-    input_features = [unwrap_feature(f) for f in input_features_raw]
-
     if isinstance(output, dict):
         output_features = [unwrap_feature(f) for f in output.keys()]
+        # Build mapping: chalk output name -> chalk_feature_short_name
+        output_name_map = {onnx_name: str(feature) for feature, onnx_name in output.items()}
     elif isinstance(output, list):
         output_features = [unwrap_feature(f) for f in output]
     else:
         output_features = [unwrap_feature(output)]
+
+    input_features = [unwrap_feature(f) for f in input_features_raw]
 
     # If feature_class is not provided, try to infer it from the first input feature
     if feature_class is None:
@@ -4773,7 +4781,13 @@ def make_model_resolver(
     # Use the same underlying inference function as F.inference
     # Pass list of outputs if multiple, single if only one
     output_for_inference = output_features if len(output_features) > 1 else output_features[0]
-    inference_fn = build_inference_function(model, pkey, output_for_inference)
+    inference_fn = build_inference_function(
+        model,
+        pkey,
+        output_for_inference,
+        input_name_map=input_name_map,
+        output_name_map=output_name_map,
+    )
 
     if len(output_features) == 1:
         output_names = output_features[0].name

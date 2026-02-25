@@ -1,9 +1,11 @@
-import pytest
+from unittest import TestCase
+
 import numpy as np
 import pandas as pd
-import pingouin as pg
-from unittest import TestCase
+import pytest
 from scipy.stats import chi2_contingency
+
+import pingouin as pg
 
 df_ind = pg.read_dataset("chi2_independence")
 df_mcnemar = pg.read_dataset("chi2_mcnemar")
@@ -145,12 +147,12 @@ class TestContingency(TestCase):
         _, stats = pg.chi2_mcnemar(df_mcnemar, "treatment_X", "treatment_Y")
         assert round(stats.at["mcnemar", "chi2"], 3) == 20.021
         assert stats.at["mcnemar", "dof"] == 1
-        assert np.isclose(stats.at["mcnemar", "p-approx"], 7.66e-06)
+        assert np.isclose(stats.at["mcnemar", "p_approx"], 7.66e-06)
         # Results are compared to the exact2x2 R package
         # >>> exact2x2(tbl, paired = TRUE, midp = FALSE)
-        assert np.isclose(stats.at["mcnemar", "p-exact"], 3.305e-06)
+        assert np.isclose(stats.at["mcnemar", "p_exact"], 3.305e-06)
         # midp gives slightly different results
-        # assert np.allclose(stats.at['mcnemar', 'p-mid'], 3.305e-06)
+        # assert np.allclose(stats.at['mcnemar', 'p_mid'], 3.305e-06)
 
     def test_dichotomize_series(self):
         """Test function _dichotomize_series."""

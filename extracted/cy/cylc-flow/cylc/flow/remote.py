@@ -79,16 +79,18 @@ def get_proc_ancestors():
 def watch_and_kill(proc):
     """Kill proc if my PPID (etc.) changed - e.g. ssh connection dropped."""
     gpa = get_proc_ancestors()
-    # Allow customising the interval to allow tests to run faster:
-    interval = float(os.getenv('CYLC_PROC_POLL_INTERVAL', 60))
+    interval = 1  # secs
+    count = 0
     while True:
-        sleep(interval)
+        count += 1
         if proc.poll() is not None:
             break
-        if get_proc_ancestors() != gpa:
+        if round(count * interval) % 60 and get_proc_ancestors() != gpa:
+            # (Only run ps command once a minute)
             sleep(1)
             os.kill(proc.pid, signal.SIGTERM)
             break
+        sleep(interval)
 
 
 def run_cmd(
@@ -257,7 +259,7 @@ def construct_rsync_over_ssh_cmd(
     # Note to future devs - be wary of changing the order of the following
     # rsync options, rsync is very particular about order of in/ex-cludes.
     rsync_cmd.extend(rsync_options)
-    for exclude in ['log', 'share', 'work']:
+    for exclude in ['/log', '/share', '/work']:
         rsync_cmd.append(f"--exclude={exclude}")
     for include in DEFAULT_INCLUDES:
         rsync_cmd.append(f"--include={include}")

@@ -164,7 +164,7 @@ on GitHub.
 setup(
     name='pyuwsgi',
     license='GPL2',
-    version='2.0.30',
+    version='2.0.30.post1',
     author='Unbit',
     author_email='info@unbit.it',
     description='The uWSGI server',

@@ -1,5 +1,6 @@
 """ MKDocs Build Plantuml Plugin """
 import base64
+import os
 from pathlib import Path
 import httplib2
 import re
@@ -51,6 +52,7 @@ class BuildPlantumlPluginConfig(base.Config):
     theme_folder = mkdocs.config.config_options.Type(str, default="include/themes/")
     theme_light = mkdocs.config.config_options.Type(str, default="light.puml")
     theme_dark = mkdocs.config.config_options.Type(str, default="dark.puml")
+    exclude_dirs = mkdocs.config.config_options.Type(list, default=[".git"])
 
 
 class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
@@ -64,9 +66,12 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
 
         diagram_roots = []
 
+        exclude_dirs = self.config["exclude_dirs"]
+
         if self.config["allow_multiple_roots"]:
             # Run through cwd in search of diagram roots
-            for subdir, dirs, _ in Path.cwd().walk():
+            for subdir, dirs, _ in os.walk(os.getcwd()):
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
                 for directory in dirs:
                     my_subdir = f"{subdir}/{directory}"
                     if my_subdir.endswith(self.config["diagram_root"]):
@@ -76,7 +81,8 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
 
         # Run through input folders
         for root in diagram_roots:
-            for subdir, _, files in Path(root.src_dir).walk():
+            for subdir, dirs, files in os.walk(root.src_dir):
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
                 for file in files:
                     if self._file_matches_extension(file):
                         diagram = PuElement(file, subdir)
@@ -115,7 +121,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
         diagram_root = DiagramRoot()
         diagram_root.root_dir = str(Path.cwd() / subdir)
         diagram_root.src_dir = str(Path.cwd() / subdir / self.config["input_folder"])
-        log.info(
+        log.debug(
             "root dir: {}, src dir: {}".format(
                 diagram_root.root_dir, diagram_root.src_dir
             )
@@ -149,7 +155,8 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
                 ws = line.find(" ")
                 if ws > 0:
                     # we look for <filename> which starts after a whitespace
-                    out_filename = line[ws + 1 :]
+                    out_filename = line[ws + 1 :].strip().strip('"\'')
+
                     diagram.out_file = str(outDir / f"{out_filename}.{self.config['output_format']}")
                     if self.config["theme_enabled"]:
                         diagram.out_file_dark = str(outDir / f"{out_filename}_dark.{self.config['output_format']}")
@@ -175,7 +182,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
         diagram.inc_time = 0
 
     def _readFile(self, diagram, dark_mode):
-        log.info(f"Processing diagram {diagram.file}")
+        log.debug(f"Processing diagram {diagram.file}")
         temp_file = self._readFileRecursively(
             diagram.src_file, "", diagram, diagram.directory, dark_mode
         )

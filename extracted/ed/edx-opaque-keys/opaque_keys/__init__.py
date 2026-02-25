@@ -14,7 +14,7 @@ from typing import Self
 
 from stevedore.enabled import EnabledExtensionManager
 
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 
 
 class InvalidKeyError(Exception):
@@ -253,7 +253,7 @@ class OpaqueKey(metaclass=OpaqueKeyMetaclass):
         if cls not in cls.LOADED_DRIVERS:
             cls.LOADED_DRIVERS[cls] = EnabledExtensionManager(
                 cls.KEY_TYPE,
-                check_func=lambda extension: issubclass(extension.plugin, cls),
+                check_func=lambda extension: issubclass(extension.plugin, cls),  # type: ignore
                 invoke_on_load=False,
             )
         return cls.LOADED_DRIVERS[cls]

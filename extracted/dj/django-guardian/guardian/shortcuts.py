@@ -114,6 +114,12 @@ def assign_perm(
         ```
 
     """
+    if isinstance(user_or_group, list) and not user_or_group:
+        return None
+
+    if isinstance(obj, list) and not obj:
+        return None
+
     user, group = get_identity(user_or_group)
     # If obj is None we try to operate on global permissions
     if obj is None:
@@ -150,10 +156,10 @@ def assign_perm(
     if isinstance(user_or_group, (QuerySet, list)):
         if user:
             model = get_user_obj_perms_model(obj)
-            return model.objects.assign_perm_to_many(perm, user, obj)
+            return model.objects.assign_perm_to_many(perm, user, obj, ignore_conflicts=True)
         if group:
             model = get_group_obj_perms_model(obj)
-            return model.objects.assign_perm_to_many(perm, group, obj)
+            return model.objects.assign_perm_to_many(perm, group, obj, ignore_conflicts=True)
 
     if user:
         model = get_user_obj_perms_model(obj)
@@ -175,20 +181,29 @@ def assign(perm, user_or_group, obj=None):
 
 
 def remove_perm(
-    perm: str,
+    perm: Union[str, Permission],
     user_or_group: Any = None,
-    obj: Union[Model, QuerySet, None] = None,
-) -> None:
+    obj: Union[Model, QuerySet, list, None] = None,
+) -> Union[tuple[int, dict], None]:
     """Removes permission from user/group and object pair.
 
     Parameters:
-        perm (str): Permission for `obj`, in format `app_label.codename` or `codename`.
-            If `obj` is not given, must be in format `app_label.codename`.
-        user_or_group (User | AnonymousUser | Group): The user or group to remove the permission from.
-            passing any other object would raise`guardian.exceptions.NotUserNorGroup` exception
-        obj (Model | QuerySet | None): Django `Model` instance or QuerySet.
-            Use `None` if assigning global permission.
+        perm (str | Permission): permission to remove for the given `obj`, in format: `app_label.codename` or `codename` or `Permission` instance.
+            If `obj` is not given, must be in format `app_label.codename` or `Permission` instance.
+        user_or_group (User | AnonymousUser | Group | list | QuerySet):
+            instance of `User`, `AnonymousUser`, `Group`,
+            list of `User` or `Group`, or queryset of `User` or `Group`;
+            passing any other object would raise a `guardian.exceptions.NotUserNorGroup` exception
+        obj (Model | QuerySet | None): Django's `Model` instance or QuerySet or
+            a list of Django `Model` instances or `None` if removing global permission.
+            *Default* is `None`.
     """
+    if isinstance(user_or_group, list) and not user_or_group:
+        return None
+
+    if obj is None and isinstance(user_or_group, (QuerySet, list)):
+        raise MultipleIdentityAndObjectError("Bulk global permissions removal is not supported")
+
     user, group = get_identity(user_or_group)
     if obj is None:
         if not isinstance(perm, Permission):
@@ -201,21 +216,34 @@ def remove_perm(
             perm = Permission.objects.get(content_type__app_label=app_label, codename=codename)
         if user:
             user.user_permissions.remove(perm)
-            return
+            return None
         if group:
             group.permissions.remove(perm)
-            return
+            return None
 
     if not isinstance(perm, Permission):
         perm = perm.split(".")[-1]
 
-    if isinstance(obj, QuerySet):
+    if isinstance(obj, list) and not obj:
+        return None
+
+    if isinstance(obj, (QuerySet, list)):
+        if isinstance(user_or_group, (QuerySet, list)):
+            raise MultipleIdentityAndObjectError("Only bulk operations on either users/groups OR objects are supported")
         if user:
-            model = get_user_obj_perms_model(obj.model)
+            model = get_user_obj_perms_model(obj[0] if isinstance(obj, list) else obj.model)
             return model.objects.bulk_remove_perm(perm, user, obj)
         if group:
-            model = get_group_obj_perms_model(obj.model)
+            model = get_group_obj_perms_model(obj[0] if isinstance(obj, list) else obj.model)
             return model.objects.bulk_remove_perm(perm, group, obj)
+
+    if isinstance(user_or_group, (QuerySet, list)):
+        if user:
+            model = get_user_obj_perms_model(obj)
+            return model.objects.remove_perm_from_many(perm, user, obj)
+        if group:
+            model = get_group_obj_perms_model(obj)
+            return model.objects.remove_perm_from_many(perm, group, obj)
 
     if user:
         model = get_user_obj_perms_model(obj)
@@ -224,43 +252,78 @@ def remove_perm(
     if group:
         model = get_group_obj_perms_model(obj)
         return model.objects.remove_perm(perm, group, obj)
+    return None
 
 
 def get_perms(user_or_group: Any, obj: Model) -> list[str]:
-    """Gets the permissions for given user/group and object pair,
+    """Get all permissions for given user/group and object pair.
+
+    This function returns a comprehensive list of all permissions that the user or group
+    has for the specified object. For users, this includes both direct permissions
+    and permissions inherited from groups.
+
+    Args:
+        user_or_group: User, AnonymousUser, or Group instance
+        obj: Django model instance for which to check permissions
 
     Returns:
-        List of permissions for the given user/group and object pair.
+        List of permission codenames (strings) for the given user/group and object pair.
+
+    Note:
+        For inactive users (is_active=False), returns empty list [].
+        For superusers, returns all available permissions for the object's model.
     """
     check = ObjectPermissionChecker(user_or_group)
     return check.get_perms(obj)
 
 
 def get_user_perms(user: Any, obj: Model) -> QuerySet:
-    """Get permissions for given a User-object pair.
+    """Get permissions assigned DIRECTLY to a user for a specific object.
 
-     Unlike `get_perms`, this function only returns permissions assigned directly to the user.
+    This function returns ONLY permissions that are explicitly assigned to the user
+    for the given object. It does NOT include permissions inherited from groups.
+
+    Args:
+        user: User or AnonymousUser instance
+        obj: Django model instance for which to check permissions
 
     Returns:
-        List of permissions for the given user and object pair.
+        QuerySet of permission codenames (strings) that are directly assigned
+        to the user for the given object.
+
+    Note:
+        For inactive users (is_active=False), returns empty QuerySet.
+        Return type is QuerySet, not list (unlike get_perms()).
     """
     check = ObjectPermissionChecker(user)
     return check.get_user_perms(obj)
 
 
 def get_group_perms(user_or_group: Any, obj: Model) -> QuerySet[Permission]:
-    """Get permissions for a given group and object pair.
+    """Get permissions assigned to groups for a specific object.
 
-    Unlike `get_perms`, this function only returns permissions assigned directly to the group.
+    This function returns permissions that are assigned to groups for the given object.
+    When called with a user, it returns permissions from ALL groups the user belongs to.
+    When called with a group, it returns permissions for that specific group only.
+
+    Args:
+        user_or_group: User, AnonymousUser, or Group instance
+        obj: Django model instance for which to check permissions
 
     Returns:
-        List of permissions for the given group and object pair.
+        QuerySet of permission codenames (strings) assigned to the group(s)
+        for the given object.
+
+    Note:
+        For inactive users (is_active=False), returns empty QuerySet.
+        Return type is QuerySet, not list (unlike get_perms()).
+        Does NOT include direct user permissions.
     """
     check = ObjectPermissionChecker(user_or_group)
     return check.get_group_perms(obj)
 
 
-def get_perms_for_model(cls: Model) -> QuerySet:
+def get_perms_for_model(cls: Union[Type[Model], Model, str]) -> QuerySet:
     """Get all permissions for a given model class.
 
     Returns:
@@ -551,6 +614,13 @@ def get_objects_for_user(
 
             - If `accept_global_perms` is `True`: An empty list is returned.
             - If `accept_global_perms` is `False`: An empty list is returned.
+
+    Note: Primary key types
+        Standard PK types (integer family, ``UUIDField``, ``CharField``) use
+        optimised native casts. Non-standard PK types (e.g. ``TextField``,
+        PostgreSQL ``macaddr``/``inet``) are automatically handled via a
+        ``Cast("pk", CharField())`` fallback, so models with any PK type are
+        supported without extra configuration.
     """
     if isinstance(perms, str):
         perms = [perms]
@@ -688,7 +758,11 @@ def get_objects_for_user(
         field_pk = "obj_pk"
 
     values = values.values_list(field_pk, flat=True)
-    q = Q(pk__in=values)
+    if handle_pk_field is not None:
+        q = Q(pk__in=values)
+    else:
+        queryset = queryset.annotate(str_pk=Cast("pk", CharField()))
+        q = Q(str_pk__in=values)
     if use_groups:
         field_pk = group_fields[0]
         values = groups_obj_perms_queryset
@@ -696,8 +770,10 @@ def get_objects_for_user(
             values = values.annotate(obj_pk=handle_pk_field(expression=field_pk))
             field_pk = "obj_pk"
         values = values.values_list(field_pk, flat=True)
-        q |= Q(pk__in=values)
-
+        if handle_pk_field is not None:
+            q |= Q(pk__in=values)
+        else:
+            q |= Q(str_pk__in=values)
     return queryset.filter(q)
 
 
@@ -765,6 +841,13 @@ def get_objects_for_group(
         >>> get_objects_for_group(group, ['tasker.change_task'], accept_global_perms=False)
         [<Task some task>]
         ```
+
+    Note: Primary key types
+        Standard PK types (integer family, ``UUIDField``, ``CharField``) use
+        optimised native casts. Non-standard PK types (e.g. ``TextField``,
+        PostgreSQL ``macaddr``/``inet``) are automatically handled via a
+        ``Cast("pk", CharField())`` fallback, so models with any PK type are
+        supported without extra configuration.
     """
     if isinstance(perms, str):
         perms = [perms]
@@ -855,9 +938,14 @@ def get_objects_for_group(
     if handle_pk_field is not None:
         values = values.annotate(obj_pk=handle_pk_field(expression=field_pk))
         field_pk = "obj_pk"
+    else:
+        queryset = queryset.annotate(str_pk=Cast("pk", CharField()))
 
     values = values.values_list(field_pk, flat=True)
-    return queryset.filter(pk__in=values)
+    if handle_pk_field is not None:
+        return queryset.filter(pk__in=values)
+    else:
+        return queryset.filter(str_pk__in=values)
 
 
 def _handle_pk_field(queryset):
@@ -900,6 +988,11 @@ def filter_perms_queryset_by_objects(perms_queryset, objects):
             handle_pk_field = _handle_pk_field(objects)
             if handle_pk_field is not None:
                 objects = objects.values(_pk=Cast(handle_pk_field("pk"), output_field=CharField()))
+                # Apply the same transformation to the object_pk field for consistent comparison (#930)
+                perms_queryset = perms_queryset.annotate(
+                    _transformed_object_pk=Cast(handle_pk_field(field), output_field=CharField())
+                )
+                field = "_transformed_object_pk"
             else:
                 objects = objects.values("pk")
         else:

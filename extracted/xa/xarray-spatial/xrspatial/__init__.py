@@ -15,6 +15,7 @@ from xrspatial.classify import reclassify  # noqa
 from xrspatial.curvature import curvature  # noqa
 from xrspatial.focal import mean  # noqa
 from xrspatial.hillshade import hillshade  # noqa
+from xrspatial.mahalanobis import mahalanobis  # noqa
 from xrspatial.multispectral import arvi  # noqa
 from xrspatial.multispectral import evi  # noqa
 from xrspatial.multispectral import nbr  # noqa
@@ -39,6 +40,8 @@ from xrspatial.zonal import crosstab as zonal_crosstab  # noqa
 from xrspatial.zonal import regions as regions  # noqa
 from xrspatial.zonal import stats as zonal_stats  # noqa
 from xrspatial.zonal import suggest_zonal_canvas as suggest_zonal_canvas  # noqa
+
+import xrspatial.accessor  # noqa: F401  — registers .xrs accessors
 
 
 try:

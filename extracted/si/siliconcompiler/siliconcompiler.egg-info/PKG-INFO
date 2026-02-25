@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.36.5
+Version: 0.37.0
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License: Apache License 2.0
@@ -31,9 +31,9 @@ Requires-Dist: docker<8.0.0,>=7.1.0
 Requires-Dist: fastjsonschema<2.22.0,>=2.20.0
 Requires-Dist: graphviz<0.22,>=0.20
 Requires-Dist: orjson<4,>=3.11.0
-Requires-Dist: packaging<26,>=21.3
+Requires-Dist: packaging<27,>=21.3
 Requires-Dist: requests<2.33.0,>=2.32.0
-Requires-Dist: Pillow<11.4.0,>=11.3.0
+Requires-Dist: Pillow<12.2.0,>=11.3.0
 Requires-Dist: PyYAML<7.0.0,>=6.0.0
 Requires-Dist: GitPython<3.2,>=3.1.44
 Requires-Dist: PyGithub<2.9.0,>=2.8.0
@@ -45,11 +45,11 @@ Requires-Dist: psutil>=5.8.0
 Requires-Dist: Jinja2>=2.11.3
 Requires-Dist: pyslang==10.0.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
-Requires-Dist: streamlit==1.46.1; python_full_version != "3.9.7"
-Requires-Dist: streamlit_agraph==0.0.45; python_full_version != "3.9.7"
-Requires-Dist: streamlit-antd-components==0.3.2; python_full_version != "3.9.7"
-Requires-Dist: streamlit_javascript==0.1.5; python_full_version != "3.9.7"
-Requires-Dist: streamlit-autorefresh==1.0.1; python_full_version != "3.9.7"
+Requires-Dist: streamlit==1.54.0; python_version > "3.9"
+Requires-Dist: streamlit_agraph==0.0.45; python_version > "3.9"
+Requires-Dist: streamlit-antd-components==0.3.2; python_version > "3.9"
+Requires-Dist: streamlit_javascript==0.1.5; python_version > "3.9"
+Requires-Dist: streamlit-autorefresh==1.0.1; python_version > "3.9"
 Requires-Dist: rich<15.0.0,>=14.0.0
 Provides-Extra: test
 Requires-Dist: pytest==8.4.2; extra == "test"
@@ -57,7 +57,7 @@ Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
 Requires-Dist: pytest-cov==7.0.0; extra == "test"
-Requires-Dist: responses==0.25.8; extra == "test"
+Requires-Dist: responses==0.26.0; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"
@@ -65,7 +65,7 @@ Requires-Dist: tclint==0.7.0; extra == "lint"
 Requires-Dist: codespell==2.4.1; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx<8.3,>=7.4; extra == "docs"
-Requires-Dist: pip-licenses==5.5.0; extra == "docs"
+Requires-Dist: pip-licenses==5.5.1; extra == "docs"
 Requires-Dist: pydata-sphinx-theme==0.16.1; extra == "docs"
 Requires-Dist: sc-leflib>=0.2.0; extra == "docs"
 Provides-Extra: optimizer
@@ -123,7 +123,7 @@ design.add_file("heartbeat.sdc", fileset="sdc")        # add input sources
 project = ASIC(design)                                 # create project
 project.add_fileset(["rtl", "sdc"])                    # enable filesets
 skywater130_demo(project)                              # load a pre-defined target
-project.set('option','remote', True)                   # enable remote execution
+project.option.set_remote(True)                        # enable remote execution
 project.run()                                          # run compilation
 project.summary()                                      # print summary
 project.show()                                         # show layout

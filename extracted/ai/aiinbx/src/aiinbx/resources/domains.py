@@ -93,8 +93,6 @@ class DomainsResource(SyncAPIResource):
         Retrieve a domain by its ID
 
         Args:
-          domain_id: The unique identifier of the domain
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -268,8 +266,6 @@ class AsyncDomainsResource(AsyncAPIResource):
         Retrieve a domain by its ID
 
         Args:
-          domain_id: The unique identifier of the domain
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

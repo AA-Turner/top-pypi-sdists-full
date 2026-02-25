@@ -143,7 +143,7 @@ def _get_pg(module, array, pod):
         )
     else:
         res = array.get_protection_groups(names=[pod])
-    if res.staus_code == 200:
+    if res.status_code == 200:
         return list(res.items)[0]
     return None
 
@@ -154,19 +154,17 @@ def create_default(module, array):
     changed = True
     pg_list = []
     if not module.check_mode:
-        for pgroup in range(0, len(module.params["name"])):
+        for pgroup in module.params["name"]:
             if module.params["scope"] == "array":
                 pg_list.append(
                     flasharray.DefaultProtectionReference(
-                        name=module.params["name"][pgroup], type="protection_group"
+                        name=pgroup, type="protection_group"
                     )
                 )
             else:
                 pg_list.append(
                     flasharray.DefaultProtectionReference(
-                        name=module.params["pod"]
-                        + "::"
-                        + module.params["name"][pgroup],
+                        name=module.params["pod"] + "::" + pgroup,
                         type="protection_group",
                     )
                 )
@@ -214,11 +212,11 @@ def update_default(module, array, current_default):
     api_version = array.get_rest_version()
     changed = False
     current = []
-    for default in range(0, len(current_default)):
+    for default in current_default:
         if module.params["scope"] == "array":
-            current.append(current_default[default].name)
+            current.append(default.name)
         else:
-            current.append(current_default[default].name.split(":")[-1])
+            current.append(default.name.split(":")[-1])
     pg_list = []
     if module.params["state"] == "present":
         if current:
@@ -236,57 +234,57 @@ def update_default(module, array, current_default):
     else:
         changed = True
         if not module.check_mode:
-            for pgroup in range(0, len(new_list)):
+            for pgroup in new_list:
                 if module.params["scope"] == "array":
                     pg_list.append(
                         flasharray.DefaultProtectionReference(
-                            name=new_list[pgroup], type="protection_group"
+                            name=pgroup, type="protection_group"
                         )
                     )
                 else:
                     pg_list.append(
                         flasharray.DefaultProtectionReference(
-                            name=module.params["pod"] + "::" + new_list[pgroup],
+                            name=module.params["pod"] + "::" + pgroup,
                             type="protection_group",
                         )
                     )
-                if module.params["scope"] == "array":
-                    protection = flasharray.ContainerDefaultProtection(
-                        name="", type="", default_protections=pg_list
+            if module.params["scope"] == "array":
+                protection = flasharray.ContainerDefaultProtection(
+                    name="", type="", default_protections=pg_list
+                )
+                if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
+                    res = array.patch_container_default_protections(
+                        names=[""],
+                        container_default_protection=protection,
+                        context_names=[module.params["context"]],
                     )
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.patch_container_default_protections(
-                            names=[""],
-                            container_default_protection=protection,
-                            context_names=[module.params["context"]],
-                        )
-                    else:
-                        res = array.patch_container_default_protections(
-                            names=[""], container_default_protection=protection
-                        )
                 else:
-                    protection = flasharray.ContainerDefaultProtection(
-                        name=module.params["pod"],
-                        type="pod",
-                        default_protections=pg_list,
+                    res = array.patch_container_default_protections(
+                        names=[""], container_default_protection=protection
                     )
-                    if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
-                        res = array.patch_container_default_protections(
-                            names=[module.params["pod"]],
-                            container_default_protection=protection,
-                            context_names=[module.params["context"]],
-                        )
-                    else:
-                        res = array.patch_container_default_protections(
-                            names=[module.params["pod"]],
-                            container_default_protection=protection,
-                        )
-                if res.status_code != 200:
-                    module.fail_json(
-                        msg="Failed to update default protection. Error: {0}".format(
-                            res.errors[0].message
-                        )
+            else:
+                protection = flasharray.ContainerDefaultProtection(
+                    name=module.params["pod"],
+                    type="pod",
+                    default_protections=pg_list,
+                )
+                if LooseVersion(CONTEXT_API_VERSION) <= LooseVersion(api_version):
+                    res = array.patch_container_default_protections(
+                        names=[module.params["pod"]],
+                        container_default_protection=protection,
+                        context_names=[module.params["context"]],
                     )
+                else:
+                    res = array.patch_container_default_protections(
+                        names=[module.params["pod"]],
+                        container_default_protection=protection,
+                    )
+            if res.status_code != 200:
+                module.fail_json(
+                    msg="Failed to update default protection. Error: {0}".format(
+                        res.errors[0].message
+                    )
+                )
     module.exit_json(changed=changed)
 
 
@@ -324,6 +322,11 @@ def delete_default(module, array):
                     names=[module.params["pod"]], container_default_protection=[]
                 )
         if res.status_code != 200:
+            if res.status_code == 403:
+                module.fail_json(
+                    msg="Removing protection groups in SafeMode from default "
+                    "protection is not allowed."
+                )
             module.fail_json(
                 msg="Failed to delete default protection. Error: {0}".format(
                     res.errors[0].message
@@ -381,12 +384,12 @@ def main():
         else:
             ret = array.get_container_default_protections()
         current_default = list(ret.items)[0].default_protections
-    for pgroup in range(0, len(module.params["name"])):
+    for pgroup in module.params["name"]:
         if module.params["scope"] == "pod":
-            pod_name = module.params["pod"] + module.params["name"][pgroup]
+            pod_name = module.params["pod"] + "::" + pgroup
         else:
-            pod_name = module.params["name"][pgroup]
-        if not _get_pg(module, array, pod_name):
+            pod_name = pgroup
+        if not _get_pg(module, array, pod_name) and state == "present":
             module.fail_json(msg="Protection Group {0} does not exist".format(pod_name))
 
     if state == "present" and not current_default:

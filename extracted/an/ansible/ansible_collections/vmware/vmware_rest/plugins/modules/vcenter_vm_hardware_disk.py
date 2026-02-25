@@ -13,6 +13,10 @@ short_description: Adds a thin provisioned virtual disk to the virtual machine
 description: Adds a virtual disk to the virtual machine. The disk (provision)
     type is always 'thin'. While adding the virtual disk, a new VMDK file may
     be created or an existing VMDK file may be used to back the virtual disk.
+deprecated:
+    removed_in: 5.0.0
+    why: This module has been moved to the L(new vmware.vmware collection,https://forum.ansible.com/t/5880)
+    alternative: Use M(vmware.vmware.vm) instead.
 options:
     backing:
         description:
@@ -364,7 +368,7 @@ async def main():
 
     module_args = prepare_argument_spec()
     module = AnsibleModule(
-        argument_spec=module_args, required_if=required_if, supports_check_mode=True
+        argument_spec=module_args, required_if=required_if, supports_check_mode=False
     )
     if not module.params["vcenter_hostname"]:
         module.fail_json("vcenter_hostname cannot be empty")

@@ -188,8 +188,13 @@ class EncryptionServicerImpl(EncryptionServicer):
         1. Decrypt the parent field
         2. Recursively decrypt any nested subfields
         """
-        # First decrypt the parent field
-        ctx = EncryptionContext(model=model_type, field=field_name, metadata={})
+        # First decrypt the parent field.
+        # Populate ctx.metadata from the stored __encryption_context__ marker so
+        # that user decrypt handlers (e.g. ones that look up ctx.metadata["tenant_id"])
+        # receive the same context that was present at encryption time.
+        stored_ctx = data.get(ENCRYPTION_CONTEXT_KEY)
+        metadata = stored_ctx if isinstance(stored_ctx, dict) else {}
+        ctx = EncryptionContext(model=model_type, field=field_name, metadata=metadata)
         decrypted = await decryptor(ctx, data)
 
         # Check for nested subfields that need recursive decryption

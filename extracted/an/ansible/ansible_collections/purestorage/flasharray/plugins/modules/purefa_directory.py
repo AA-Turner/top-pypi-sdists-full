@@ -62,7 +62,7 @@ extends_documentation_fragment:
 """
 
 EXAMPLES = r"""
-- name: Create direcotry foo in filesysten bar with path zeta
+- name: Create directory foo in filesysten bar with path zeta
   purestorage.flasharray.purefa_directory:
     name: foo
     filesystem: bar
@@ -78,7 +78,7 @@ EXAMPLES = r"""
     fa_url: 10.10.10.2
     api_token: e31060a7-21fc-e277-6240-25983c6c4592
 
-- name: Delete diectory foo in filesystem bar
+- name: Delete directory foo in filesystem bar
   purestorage.flasharray.purefa_directory:
     name: foo
     filesystem: bar
@@ -189,8 +189,8 @@ def create_dir(module, array):
         all_fs = list(
             array.get_directories(file_system_names=[module.params["filesystem"]]).items
         )
-    for check in range(0, len(all_fs)):
-        if module.params["path"] == all_fs[check].path[1:]:
+    for check in all_fs:
+        if module.params["path"] == check.path[1:]:
             module.fail_json(
                 msg="Path {0} already existis in file system {1}".format(
                     module.params["path"], module.params["filesystem"]

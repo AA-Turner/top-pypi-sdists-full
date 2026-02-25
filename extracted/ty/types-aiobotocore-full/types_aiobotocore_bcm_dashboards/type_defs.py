@@ -418,17 +418,18 @@ SavingsPlansUtilizationQueryTypeDef = TypedDict(
         "filter": NotRequired[ExpressionUnionTypeDef],
     },
 )
-
-
-class WidgetOutputTypeDef(TypedDict):
-    title: str
-    configs: list[WidgetConfigOutputTypeDef]
-    description: NotRequired[str]
-    width: NotRequired[int]
-    height: NotRequired[int]
-    horizontalOffset: NotRequired[int]
-
-
+WidgetOutputTypeDef = TypedDict(
+    "WidgetOutputTypeDef",
+    {
+        "title": str,
+        "configs": list[WidgetConfigOutputTypeDef],
+        "id": NotRequired[str],
+        "description": NotRequired[str],
+        "width": NotRequired[int],
+        "height": NotRequired[int],
+        "horizontalOffset": NotRequired[int],
+    },
+)
 CostAndUsageQueryUnionTypeDef = Union[CostAndUsageQueryTypeDef, CostAndUsageQueryOutputTypeDef]
 ReservationCoverageQueryUnionTypeDef = Union[
     ReservationCoverageQueryTypeDef, ReservationCoverageQueryOutputTypeDef
@@ -474,17 +475,18 @@ class WidgetConfigTypeDef(TypedDict):
 
 
 WidgetConfigUnionTypeDef = Union[WidgetConfigTypeDef, WidgetConfigOutputTypeDef]
-
-
-class WidgetTypeDef(TypedDict):
-    title: str
-    configs: Sequence[WidgetConfigUnionTypeDef]
-    description: NotRequired[str]
-    width: NotRequired[int]
-    height: NotRequired[int]
-    horizontalOffset: NotRequired[int]
-
-
+WidgetTypeDef = TypedDict(
+    "WidgetTypeDef",
+    {
+        "title": str,
+        "configs": Sequence[WidgetConfigUnionTypeDef],
+        "id": NotRequired[str],
+        "description": NotRequired[str],
+        "width": NotRequired[int],
+        "height": NotRequired[int],
+        "horizontalOffset": NotRequired[int],
+    },
+)
 WidgetUnionTypeDef = Union[WidgetTypeDef, WidgetOutputTypeDef]
 
 

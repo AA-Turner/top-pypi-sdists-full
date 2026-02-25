@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arrow-odbc
-Version: 9.3.5
+Version: 9.3.6
 Requires-Dist: cffi
 Requires-Dist: pyarrow>=8.0.0
 License-File: LICENSE

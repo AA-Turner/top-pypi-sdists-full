@@ -1,0 +1,2 @@
+import{t as e}from"./src-Cc63d66V.js";const t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
+//# sourceMappingURL=layout-qusdqyHS.js.map

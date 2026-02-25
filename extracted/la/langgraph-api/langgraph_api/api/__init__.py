@@ -29,14 +29,13 @@ from langgraph_api.config import (
     HTTP_CONFIG,
     LANGGRAPH_ENCRYPTION,
     MIGRATIONS_PATH,
-    MOUNT_PREFIX,
 )
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import js_bg_tasks
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.js.base import is_js_path
 from langgraph_api.timing import profiled_import
-from langgraph_api.validation import DOCS_HTML
+from langgraph_api.validation import render_docs_html
 from langgraph_runtime.database import healthcheck
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -90,7 +89,8 @@ async def openapi(request: Request):
 
 
 async def docs(request: Request):
-    return HTMLResponse(DOCS_HTML.format(mount_prefix=MOUNT_PREFIX or ""))
+    spec = await asyncio.to_thread(get_openapi_spec)
+    return HTMLResponse(render_docs_html(spec))
 
 
 shadowable_meta_routes: list[BaseRoute] = [

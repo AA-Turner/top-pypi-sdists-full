@@ -15,6 +15,10 @@ description: Applies a customization specification on the virtual machine in {@p
     is powered on. If there is a pending customization for the virtual machine and
     a new one is set, then the existing customization setting will be overwritten
     with the new settings.
+deprecated:
+    removed_in: 5.0.0
+    why: This module has been moved to the L(new vmware.vmware collection,https://forum.ansible.com/t/5880)
+    alternative: Use M(vmware.vmware.vm_apply_customization) instead.
 options:
     configuration_spec:
         description:
@@ -534,7 +538,7 @@ async def main():
 
     module_args = prepare_argument_spec()
     module = AnsibleModule(
-        argument_spec=module_args, required_if=required_if, supports_check_mode=True
+        argument_spec=module_args, required_if=required_if, supports_check_mode=False
     )
     if not module.params["vcenter_hostname"]:
         module.fail_json("vcenter_hostname cannot be empty")

@@ -13399,3 +13399,19 @@
     - Implement SECURE 2.0 enhanced 401(k) catch-up contributions for ages 60-63 (starting
       2025).
   date: 2026-02-24 01:42:07
+- bump: patch
+  changes:
+    fixed:
+    - Fix ACTC earned income to subtract half of SE tax for self-employed filers per
+      IRC 24(d)(1)(B)(i) and 32(c)(2)(A)(ii).
+  date: 2026-02-24 09:57:52
+- bump: minor
+  changes:
+    fixed:
+    - Fix NY supplemental tax for filers with AGI above $25 million in 2022+.
+  date: 2026-02-24 14:30:18
+- bump: minor
+  changes:
+    added:
+    - Connecticut SB-100 reduced income tax rates reform
+  date: 2026-02-24 14:42:50
