@@ -9,8 +9,6 @@ class ContentModality(str, Enum):
     image = "image"
     audio = "audio"
     video = "video"
-    webpage = "webpage"
-    unknown = "unknown"
 
 
 class FileSource(str, Enum):

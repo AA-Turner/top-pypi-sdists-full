@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional
 
 from wisent.core.utils import get_all_docs_from_task
 from wisent.core.errors import InsufficientDataError, TaskNotFoundError
+from wisent.core.constants import JSON_INDENT, LM_HARNESS_NUM_SAMPLES_SMALL, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_LONG, DISPLAY_TOP_N_SMALL, DISPLAY_TOP_N_TINY
+from wisent.core.utils.core.hardware import subprocess_timeout_s
 
 from .sample_extraction import get_evaluation_method, get_category, extract_examples_from_task
 from .group_handling import expand_group_task, get_samples_from_group_task
@@ -35,7 +37,7 @@ def get_task_info(task_name: str, get_task_dict, task_registry) -> Optional[Dict
             if not sub_tasks:
                 print(f"  Warning: Task {task_name} not found and no sub-tasks found")
                 return None
-            print(f"  Found group task with {len(sub_tasks)} sub-tasks: {sub_tasks[:3]}{'...' if len(sub_tasks) > 3 else ''}")
+            print(f"  Found group task with {len(sub_tasks)} sub-tasks: {sub_tasks[:DISPLAY_TOP_N_TINY]}{'...' if len(sub_tasks) > DISPLAY_TOP_N_TINY else ''}")
             return process_group_task(task_name, sub_tasks, get_task_dict)
         task = task_dict[task_name]
         return process_individual_task(task_name, task)
@@ -111,7 +113,7 @@ def process_group_task(group_name: str, sub_tasks: List[str], get_task_dict) -> 
         example_info = {"example_question": f"Example from {group_name} group", "example_good_response": "Sample correct response", "example_bad_response": "Sample incorrect response"}
     all_eval_methods, all_categories = set(), set()
     print(f"  Analyzing all {len(sub_tasks)} sub-tasks for evaluation methods and categories...")
-    for subtask_name in sub_tasks[:10]:
+    for subtask_name in sub_tasks[:DISPLAY_TOP_N_SMALL]:
         try:
             subtask_dict = get_task_dict([subtask_name])
             if subtask_name in subtask_dict:
@@ -139,20 +141,20 @@ def test_sample_retrieval(task_name: str = "truthfulqa_mc1"):
     """Test function to demonstrate the get_task_samples_for_analysis function."""
     from .sample_extraction import get_task_samples_for_analysis
     print(f"\n=== Testing Sample Retrieval for '{task_name}' ===")
-    result = get_task_samples_for_analysis(task_name, num_samples=3)
+    result = get_task_samples_for_analysis(task_name, num_samples=LM_HARNESS_NUM_SAMPLES_SMALL)
     if "error" in result:
         print(f"Error: {result['error']}")
         return False
     print(f"Successfully retrieved samples from '{result['task_name']}'")
     description = result.get('description') or "No description available"
-    print(f"Description: {description[:200]}...")
+    print(f"Description: {description[:DISPLAY_TRUNCATION_MEDIUM]}...")
     print(f"Total documents: {result['total_docs']}")
     print(f"Sampled documents: {result['sampled_docs']}")
     print(f"Output type: {result['output_type']}")
     print(f"\n--- Sample Questions ---")
     for sample in result['samples']:
         print(f"\nSample {sample['sample_id']}:")
-        print(f"Question: {sample.get('question', 'No question')[:300]}...")
+        print(f"Question: {sample.get('question', 'No question')[:DISPLAY_TRUNCATION_LONG]}...")
         print(f"Correct Answer: {sample.get('correct_answer', 'No answer')}")
         print(f"Format: {sample.get('format', 'unknown')}")
     return True
@@ -166,7 +168,7 @@ def test_specific_task():
     for task_name in test_tasks:
         print(f"\nTesting task: {task_name}")
         try:
-            result = get_task_samples_for_analysis(task_name, num_samples=3)
+            result = get_task_samples_for_analysis(task_name, num_samples=LM_HARNESS_NUM_SAMPLES_SMALL)
             print(f"Result keys: {list(result.keys())}")
             if 'error' in result:
                 print(f"Error: {result['error']}")
@@ -189,7 +191,7 @@ def main():
     print("Getting all available tasks from lm_eval...")
     try:
         print("Using subprocess to get task list...")
-        result = subprocess.run(['lm_eval', '--tasks', 'list'], capture_output=True, text=True, timeout=60)
+        result = subprocess.run(['lm_eval', '--tasks', 'list'], capture_output=True, text=True, timeout=subprocess_timeout_s())
         task_names = []
         for line in result.stdout.split('\n'):
             if '|' in line and not line.startswith('|---') and 'Group' not in line and 'Config Location' not in line:
@@ -207,7 +209,7 @@ def main():
     print(f"\nPhase 1: Saving {len(available_tasks)} task names to {tasks_file}")
     initial_data = {"tasks": {task_name: {} for task_name in available_tasks}, "task_list": available_tasks}
     with open(tasks_file, 'w') as f:
-        json.dump(initial_data, f, indent=2, ensure_ascii=False)
+        json.dump(initial_data, f, indent=JSON_INDENT, ensure_ascii=False)
     print(f"Saved {len(available_tasks)} task names to {tasks_file}")
     print(f"\nPhase 2: Populating detailed information for 2 test tasks...")
     tasks_to_populate = ["truthfulqa_mc1", "hellaswag"]
@@ -221,7 +223,7 @@ def main():
             current_data["tasks"][task_name] = task_info
             processed += 1
             with open(tasks_file, 'w') as f:
-                json.dump(current_data, f, indent=2, ensure_ascii=False)
+                json.dump(current_data, f, indent=JSON_INDENT, ensure_ascii=False)
             print(f"  Updated {task_name}")
         else:
             print(f"  Failed to process {task_name}")

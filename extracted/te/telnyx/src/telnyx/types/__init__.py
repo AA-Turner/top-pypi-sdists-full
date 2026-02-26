@@ -8,6 +8,7 @@ from .ip import IP as IP
 from .fax import Fax as Fax
 from .fqdn import Fqdn as Fqdn
 from .room import Room as Room
+from .queue import Queue as Queue
 from .record import Record as Record
 from .shared import (
     APIError as APIError,
@@ -17,11 +18,14 @@ from .shared import (
     SimCardStatus as SimCardStatus,
     SimpleSimCard as SimpleSimCard,
     RoomParticipant as RoomParticipant,
+    RimeVoiceSettings as RimeVoiceSettings,
+    AzureVoiceSettings as AzureVoiceSettings,
     PortingOrderStatus as PortingOrderStatus,
     MessagingFeatureSet as MessagingFeatureSet,
     NumberHealthMetrics as NumberHealthMetrics,
     MinimaxVoiceSettings as MinimaxVoiceSettings,
     InboundMessagePayload as InboundMessagePayload,
+    ResembleVoiceSettings as ResembleVoiceSettings,
     ConnectionJitterBuffer as ConnectionJitterBuffer,
     DocReqsRequirementType as DocReqsRequirementType,
     MessagingPaginationMeta as MessagingPaginationMeta,
@@ -115,6 +119,7 @@ from .media_list_params import MediaListParams as MediaListParams
 from .messaging_profile import MessagingProfile as MessagingProfile
 from .network_interface import NetworkInterface as NetworkInterface
 from .outbound_ip_param import OutboundIPParam as OutboundIPParam
+from .queue_list_params import QueueListParams as QueueListParams
 from .rcs_agent_message import RcsAgentMessage as RcsAgentMessage
 from .requirement_group import RequirementGroup as RequirementGroup
 from .texml_application import TexmlApplication as TexmlApplication
@@ -165,6 +170,8 @@ from .network_list_params import NetworkListParams as NetworkListParams
 from .oauth_grants_params import OAuthGrantsParams as OAuthGrantsParams
 from .outbound_fqdn_param import OutboundFqdnParam as OutboundFqdnParam
 from .portout_list_params import PortoutListParams as PortoutListParams
+from .queue_create_params import QueueCreateParams as QueueCreateParams
+from .queue_update_params import QueueUpdateParams as QueueUpdateParams
 from .replaced_link_click import ReplacedLinkClick as ReplacedLinkClick
 from .verify_profile_data import VerifyProfileData as VerifyProfileData
 from .webhook_api_version import WebhookAPIVersion as WebhookAPIVersion
@@ -217,6 +224,8 @@ from .oauth_grants_response import OAuthGrantsResponse as OAuthGrantsResponse
 from .oauth_register_params import OAuthRegisterParams as OAuthRegisterParams
 from .pagination_meta_oauth import PaginationMetaOAuth as PaginationMetaOAuth
 from .phone_number_detailed import PhoneNumberDetailed as PhoneNumberDetailed
+from .queue_create_response import QueueCreateResponse as QueueCreateResponse
+from .queue_update_response import QueueUpdateResponse as QueueUpdateResponse
 from .recording_list_params import RecordingListParams as RecordingListParams
 from .reserved_phone_number import ReservedPhoneNumber as ReservedPhoneNumber
 from .s3_configuration_data import S3ConfigurationData as S3ConfigurationData
@@ -1284,6 +1293,9 @@ from .call_recording_transcription_saved_webhook_event import (
 from .conference_participant_speak_ended_webhook_event import (
     ConferenceParticipantSpeakEndedWebhookEvent as ConferenceParticipantSpeakEndedWebhookEvent,
 )
+from .payment_create_stored_payment_transaction_params import (
+    PaymentCreateStoredPaymentTransactionParams as PaymentCreateStoredPaymentTransactionParams,
+)
 from .sim_card_data_usage_notification_create_response import (
     SimCardDataUsageNotificationCreateResponse as SimCardDataUsageNotificationCreateResponse,
 )
@@ -1313,6 +1325,9 @@ from .conference_participant_speak_started_webhook_event import (
 )
 from .managed_account_update_global_channel_limit_params import (
     ManagedAccountUpdateGlobalChannelLimitParams as ManagedAccountUpdateGlobalChannelLimitParams,
+)
+from .payment_create_stored_payment_transaction_response import (
+    PaymentCreateStoredPaymentTransactionResponse as PaymentCreateStoredPaymentTransactionResponse,
 )
 from .sim_card_data_usage_notification_retrieve_response import (
     SimCardDataUsageNotificationRetrieveResponse as SimCardDataUsageNotificationRetrieveResponse,

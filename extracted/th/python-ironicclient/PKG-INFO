@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-ironicclient
-Version: 5.15.0
+Version: 6.0.0
 Summary: OpenStack Bare Metal Provisioning API Client Library
 Home-page: https://docs.openstack.org/python-ironicclient/latest/
 Author: OpenStack
@@ -43,6 +43,7 @@ Requires-Dist: tempest>=17.1.0; extra == "test"
 Requires-Dist: stestr>=1.0.0; extra == "test"
 Requires-Dist: ddt>=1.0.1; extra == "test"
 Requires-Dist: python-openstackclient>=3.12.0; extra == "test"
+Requires-Dist: mypy>=1.0.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

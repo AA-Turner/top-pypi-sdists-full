@@ -4,6 +4,7 @@ import sys
 import hashlib
 from typing import Dict, Any, Optional
 from wisent.core.errors import DeviceBenchmarkError, NoBenchmarkDataError, UnknownTypeError
+from wisent.core.constants import AGENT_BENCH_EVAL_DEFAULT_SECONDS, AGENT_CLASSIFIER_TRAINING_DEFAULT_SECONDS, HASH_DISPLAY_LENGTH
 
 
 class DeviceBenchmarkRunnerMixin:
@@ -15,7 +16,7 @@ class DeviceBenchmarkRunnerMixin:
         if not force_rerun:
             cached = self.load_cached_benchmark()
             if cached:
-                print(f"   ✅ Using cached benchmark results (device: {cached.device_id[:8]}...)")
+                print(f"   ✅ Using cached benchmark results (device: {cached.device_id[:HASH_DISPLAY_LENGTH]}...)")
                 self.cached_benchmark = cached
                 return cached
         
@@ -27,7 +28,7 @@ class DeviceBenchmarkRunnerMixin:
         device_id = self.get_device_id()
         device_type = self.get_device_type()
         
-        print(f"   🖥️ Device ID: {device_id[:8]}... ({device_type})")
+        print(f"   🖥️ Device ID: {device_id[:HASH_DISPLAY_LENGTH]}... ({device_type})")
         
         # Run all benchmarks with error handling
         try:
@@ -43,19 +44,19 @@ class DeviceBenchmarkRunnerMixin:
             benchmark_eval = self.run_benchmark_eval_test()
             if benchmark_eval is None:
                 print(f"   ⚠️ Evaluation benchmark returned None, using default value")
-                benchmark_eval = 60.0  # Default 60 seconds per 100 examples
+                benchmark_eval = AGENT_BENCH_EVAL_DEFAULT_SECONDS
         except Exception as e:
             print(f"   ❌ Evaluation benchmark failed: {e}")
-            benchmark_eval = 60.0  # Default fallback
+            benchmark_eval = AGENT_BENCH_EVAL_DEFAULT_SECONDS
             
         try:
             classifier_training = self.run_classifier_training_test()
             if classifier_training is None:
                 print(f"   ⚠️ Classifier training benchmark returned None, using default value")
-                classifier_training = 600.0  # Default 600 seconds per 100 classifiers
+                classifier_training = AGENT_CLASSIFIER_TRAINING_DEFAULT_SECONDS
         except Exception as e:
             print(f"   ❌ Classifier training benchmark failed: {e}")
-            classifier_training = 600.0  # Default fallback
+            classifier_training = AGENT_CLASSIFIER_TRAINING_DEFAULT_SECONDS
             
         try:
             steering = self.run_steering_test()

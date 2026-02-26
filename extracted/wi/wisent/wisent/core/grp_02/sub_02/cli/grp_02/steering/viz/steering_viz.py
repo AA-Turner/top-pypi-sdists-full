@@ -7,7 +7,8 @@ import os
 os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import json
-from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_MAX_NEW_TOKENS_EVAL, AGENT_DIAG_TEMPERATURE
+from wisent.core.constants import DEFAULT_LIMIT, JSON_INDENT, VIZ_TRUTHFUL_REGION_THRESHOLD, PROGRESS_LOG_INTERVAL_10, SEPARATOR_WIDTH_STANDARD
+from wisent.core.models.config import get_generate_kwargs
 import base64
 import tempfile
 from pathlib import Path
@@ -22,7 +23,7 @@ def execute_steering_viz(args):
         train_classifier_and_predict,
     )
 
-    print(f"\n{'='*60}\nSTEERING EFFECT VISUALIZATION\n{'='*60}")
+    print(f"\n{'='*SEPARATOR_WIDTH_STANDARD}\nSTEERING EFFECT VISUALIZATION\n{'='*SEPARATOR_WIDTH_STANDARD}")
 
     # Step 1: Try to load reference activations from database
     print(f"\n[Step 1/4] Loading reference activations...")
@@ -94,7 +95,7 @@ def execute_steering_viz(args):
     _save_summary(output_path, args, base_evaluations, steered_evaluations,
                   base_space_probs, steered_space_probs, train_report, base_data, steered_data)
 
-    print(f"\n{'='*60}\nSTEERING VISUALIZATION COMPLETE\n{'='*60}")
+    print(f"\n{'='*SEPARATOR_WIDTH_STANDARD}\nSTEERING VISUALIZATION COMPLETE\n{'='*SEPARATOR_WIDTH_STANDARD}")
     return {"output": str(output_path)}
 
 
@@ -185,7 +186,7 @@ def _generate_and_extract(args, steering_vector):
     strategy_map = {"last_token": "chat_last", "first_token": "chat_first", "mean": "chat_mean"}
     strategy_str = strategy_map.get(strategy_str, strategy_str)
     extraction_strategy = ExtractionStrategy(strategy_str)
-    max_new_tokens = getattr(args, 'max_new_tokens', DEFAULT_MAX_NEW_TOKENS_EVAL)
+    max_new_tokens = getattr(args, 'max_new_tokens', None) or get_generate_kwargs()["max_new_tokens"]
 
     steering_vectors = LayerActivations({layer_name: steering_vector})
     config = SteeringConfig(scale={layer_name: args.strength})
@@ -205,7 +206,7 @@ def _generate_and_extract(args, steering_vector):
         messages = [{"role": "user", "content": prompt}]
         formatted_prompt = adapter.apply_chat_template(messages, add_generation_prompt=True)
 
-        base_full = adapter._generate_unsteered(formatted_prompt, max_new_tokens=max_new_tokens, temperature=AGENT_DIAG_TEMPERATURE, do_sample=True)
+        base_full = adapter._generate_unsteered(formatted_prompt, max_new_tokens=max_new_tokens, do_sample=True)
         steered_full = adapter.forward_with_steering(formatted_prompt, steering_vectors=steering_vectors, config=config)
 
         # Extract just the assistant response, handling various chat template formats
@@ -243,7 +244,7 @@ def _generate_and_extract(args, steering_vector):
         base_data.append({"prompt": prompt, "response": base_response, "evaluation": base_eval})
         steered_data.append({"prompt": prompt, "response": steered_response, "evaluation": steered_eval})
 
-        if i % 10 == 0:
+        if i % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"  Processed {i+1}/{len(pair_texts)}...")
 
     return base_data, steered_data, torch.stack(base_acts), torch.stack(steered_acts)
@@ -259,10 +260,10 @@ def _save_summary(output_path, args, base_evals, steered_evals, base_probs, stee
         json.dump({"model": args.model, "task": args.task, "layer": args.layer, "strength": args.strength,
                    "text_evaluation": {"base_truthful": base_truthful, "steered_truthful": steered_truthful, "total": len(base_evals)},
                    "activation_space": {"classifier_accuracy": train_report.final.accuracy,
-                       "base_in_truthful": sum(1 for p in base_probs if p >= 0.5),
-                       "steered_in_truthful": sum(1 for p in steered_probs if p >= 0.5),
+                       "base_in_truthful": sum(1 for p in base_probs if p >= VIZ_TRUTHFUL_REGION_THRESHOLD),
+                       "steered_in_truthful": sum(1 for p in steered_probs if p >= VIZ_TRUTHFUL_REGION_THRESHOLD),
                        "base_mean_prob": float(np.mean(base_probs)), "steered_mean_prob": float(np.mean(steered_probs))},
                    "responses": [{"prompt": b["prompt"], "base": b["response"], "steered": s["response"],
                                   "base_eval": b["evaluation"], "steered_eval": s["evaluation"]}
-                                 for b, s in zip(base_data, steered_data)]}, f, indent=2)
+                                 for b, s in zip(base_data, steered_data)]}, f, indent=JSON_INDENT)
     print(f"Summary saved to: {json_path}")

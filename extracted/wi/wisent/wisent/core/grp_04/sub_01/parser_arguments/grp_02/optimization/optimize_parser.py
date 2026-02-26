@@ -1,5 +1,7 @@
 """Parser for the 'optimize' command - full model optimization."""
 
+from wisent.core.constants import DEFAULT_N_TRIALS, PARSER_DEFAULT_NUM_PAIRS
+
 
 def setup_optimize_parser(parser):
     """
@@ -91,13 +93,13 @@ def setup_optimize_parser(parser):
     optuna_group.add_argument(
         "--n-trials",
         type=int,
-        default=50,
+        default=PARSER_DEFAULT_NUM_PAIRS,
         help="Number of Optuna trials per task (default: 50)"
     )
     optuna_group.add_argument(
         "--limit",
         type=int,
-        default=100,
+        default=DEFAULT_N_TRIALS,
         help="Maximum samples per benchmark (default: 100)"
     )
     

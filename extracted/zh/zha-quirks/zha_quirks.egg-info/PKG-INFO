@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zha-quirks
-Version: 0.0.157
+Version: 1.0.0
 Summary: Library implementing Zigpy quirks for ZHA in Home Assistant
 Author-email: "David F. Mulcahey" <david.mulcahey@icloud.com>
 License: Apache-2.0
@@ -8,7 +8,7 @@ Project-URL: repository, https://github.com/zigpy/zha-device-handlers
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: zigpy>=0.91.5
+Requires-Dist: zigpy>=1.0.0
 Dynamic: license-file
 
 # ZHA Device Handlers For Home Assistant

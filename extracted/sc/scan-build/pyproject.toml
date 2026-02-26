@@ -1,6 +1,125 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scan-build"
+version = "3.0.0"
+description = "static code analyzer tool for Clang with compilation database support."
+readme = "README.rst"
+license = "NCSA"
+authors = [
+    { name = "László Nagy", email = "rizsotto@gmail.com" }
 ]
-build-backend = "setuptools.build_meta"
+keywords = ["Clang", "scan-build", "static analyzer"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: University of Illinois/NCSA Open Source License",
+    "Environment :: Console",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Intended Audience :: Developers",
+    "Programming Language :: C",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Quality Assurance"
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/rizsotto/scan-build"
+Repository = "https://github.com/rizsotto/scan-build"
+Issues = "https://github.com/rizsotto/scan-build/issues"
+
+[project.scripts]
+clanganalyzer = "clanganalyzer.analyze:analyze_build"
+analyze-build = "clanganalyzer.analyze:analyze_build"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    "ty>=0.0",
+    "lit>=17.0",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "lit>=17.0",
+]
+lint = [
+    "ruff>=0.1.0",
+    "ty>=0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["clanganalyzer"]
+
+[tool.hatch.build.targets.wheel.sources]
+"clanganalyzer" = "clanganalyzer"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/clanganalyzer",
+    "/tests",
+    "/README.rst",
+    "/LICENSE.txt",
+    "/CHANGES.txt",
+    "/pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 127
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by formatter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["clanganalyzer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--verbose --cov=clanganalyzer --cov-report=term-missing --cov-report=xml"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["clanganalyzer"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

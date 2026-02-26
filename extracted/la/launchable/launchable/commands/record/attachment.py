@@ -16,6 +16,7 @@ class AttachmentStatus:
     SUCCESS = "✓ Recorded successfully"
     FAILED = "⚠ Failed to record"
     SKIPPED_NON_TEXT = "⚠ Skipped: not a valid text file"
+    SKIPPED_DUPLICATE = "⚠ Skipped: duplicate"
 
 
 @click.command()
@@ -66,8 +67,12 @@ def attachment(
                                 [zip_info.filename, AttachmentStatus.SKIPPED_NON_TEXT])
                             continue
 
-                        file_name = normalize_filename(zip_info.filename)
-                        file_name = get_unique_filename(file_name, used_filenames)
+                        file_name = get_unique_filename(zip_info.filename, used_filenames)
+                        if not file_name:
+                            summary_rows.append(
+                                [zip_info.filename, AttachmentStatus.SKIPPED_DUPLICATE])
+                            continue
+
                         status = post_attachment(
                             client, session, file_content, file_name)
                         summary_rows.append([file_name, status])
@@ -93,8 +98,12 @@ def attachment(
                                 [tar_info.name, AttachmentStatus.SKIPPED_NON_TEXT])
                             continue
 
-                        file_name = normalize_filename(tar_info.name)
-                        file_name = get_unique_filename(file_name, used_filenames)
+                        file_name = get_unique_filename(tar_info.name, used_filenames)
+                        if not file_name:
+                            summary_rows.append(
+                                [tar_info.name, AttachmentStatus.SKIPPED_DUPLICATE])
+                            continue
+
                         status = post_attachment(
                             client, session, file_content, file_name)
                         summary_rows.append([file_name, status])
@@ -108,8 +117,12 @@ def attachment(
                             [a, AttachmentStatus.SKIPPED_NON_TEXT])
                         continue
 
-                    file_name = normalize_filename(a)
-                    file_name = get_unique_filename(file_name, used_filenames)
+                    file_name = get_unique_filename(a, used_filenames)
+                    if not file_name:
+                        summary_rows.append(
+                            [a, AttachmentStatus.SKIPPED_DUPLICATE])
+                        continue
+
                     status = post_attachment(client, session, file_content, file_name)
                     summary_rows.append([file_name, status])
 
@@ -119,40 +132,37 @@ def attachment(
     display_summary_as_table(summary_rows)
 
 
-def get_unique_filename(filepath: str, used_filenames: Set[str]) -> str:
+def get_unique_filename(filepath: str, used_filenames: Set[str]) -> Optional[str]:
     """
-    Get a unique filename by extracting the basename and prepending parent folder if needed.
+    Get a unique filename by extracting the basename and prepending parent folders if needed.
     Strategy:
     1. First occurrence: use basename (e.g., app.log)
-    2. Duplicate: prepend parent folder (e.g., nested-app.log)
-    3. Still duplicate: append .1, .2, etc. (e.g., nested-app.1.log)
+    2. Duplicate: prepend parent directories until unique
     """
-    filename = os.path.basename(filepath)
+    # Normalize path separators to forward slash (archives always use forward slash in both linux, and windows)
+    normalized_path = filepath.replace(os.sep, '/')
+    normalized_path = normalize_filename(normalized_path)
+
+    basename = normalized_path.split('/')[-1]
 
     # If basename is not used, return it
-    if filename not in used_filenames:
-        used_filenames.add(filename)
-        return filename
+    if basename not in used_filenames:
+        used_filenames.add(basename)
+        return basename
 
-    # Try prepending the parent directory name
-    parent_dir = os.path.basename(os.path.dirname(filepath))
-    if parent_dir:  # Has a parent directory
-        name, ext = os.path.splitext(filename)
-        filename = f"{parent_dir}-{name}{ext}"
+    # Try prepending parents from nearest to farthest
+    path_parts = normalized_path.split('/')
+    parent_parts = [p for p in path_parts[:-1] if p]
 
-        if filename not in used_filenames:
-            used_filenames.add(filename)
-            return filename
+    prefixed_name = basename
+    for parent in reversed(parent_parts):
+        prefixed_name = f"{parent}/{prefixed_name}"
 
-    # If still duplicate, append numbers
-    name, ext = os.path.splitext(filename)
-    counter = 1
-    while True:
-        filename = f"{name}.{counter}{ext}"
-        if filename not in used_filenames:
-            used_filenames.add(filename)
-            return filename
-        counter += 1
+        if prefixed_name not in used_filenames:
+            used_filenames.add(prefixed_name)
+            return prefixed_name
+
+    return None
 
 
 def matches_include_patterns(filename: str, include_patterns: Tuple[str, ...]) -> bool:

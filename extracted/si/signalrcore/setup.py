@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="signalrcore",
-    version="1.0.1",
+    version="1.0.2",
     author="mandrewcito",
     author_email="signalrcore@mandrewcito.dev",
     description="Python SignalR Core full client (transports and encodings)."
@@ -34,4 +34,11 @@ setuptools.setup(
             'build'
         ]
     },
+    project_urls={
+        "Homepage": "https://signalrcore.mandrewcito.dev",
+        "Documentation": "https://mandrewcito.github.io/signalrcore/",
+        "Repository": "https://github.com/mandrewcito/signalrcore",
+        "Tracker": "https://github.com/mandrewcito/signalrcore/issues",
+        "Changelog": "https://github.com/mandrewcito/signalrcore/releases",
+    }
 )

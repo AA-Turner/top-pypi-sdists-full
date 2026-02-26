@@ -4,8 +4,9 @@ import json
 import os
 import time
 from abc import ABC
+from collections import defaultdict
 from json import JSONDecodeError
-from typing import List, Optional, Dict, Tuple, Union
+from typing import List, Optional, Dict, Tuple, Union, Iterable
 
 from requests.auth import HTTPBasicAuth
 
@@ -319,22 +320,27 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
 
             return source_names
 
-    def get_schemas_by_fq_name(self, fq_schema_names: List[str]) -> Dict[str, Schema]:
+    def get_schemas_by_fq_name(self, fq_schema_names: Iterable[str]) -> Dict[str, Schema]:
         """
         Get schemas by fully qualified name.
         :param fq_schema_names: List of fully qualified schema names.  e.g. some_source.some_schema
         :return: Dictionary of schemas keyed by fully qualified schema name.
         """
         r: Dict[str, Schema] = {}
+        sources = self.get_sources_by_name()
         for sn in fq_schema_names:
             split = sn.split('.')
-            if len(split) != 3:
-                raise Exception(f"Erroneous input.  Should be a fully qualified schema name.  Received: {sn}")
+            if len(split) == 3:
+                warehouse_name, schema_name = split[0], '.'.join(split[-2:])
+            elif len(split) == 2:
+                warehouse_name, schema_name = split[0], split[1]
+            else:
+                log.warning(f"Erroneous input. Should be a fully qualified schema name. Received: {sn}")
+                log.info("Schema will be skipped.")
+                continue
 
-            warehouse_name, schema_name = split[0], '.'.join(split[-2:])
-            source = self.get_sources_by_name(source_names=[warehouse_name])[warehouse_name]
-
-            r[sn] = self.get_schemas_by_name(warehouse_id=source.id, schema_names=[schema_name])[schema_name]
+            r[sn] = self.get_schemas_by_name(
+                warehouse_id=sources[warehouse_name].id, schema_names=[schema_name])[schema_name]
 
         return r
 
@@ -348,6 +354,40 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         schemas = self.get_schemas(warehouse_id=[warehouse_id])
         return {s.name: s for s in schemas.schemas if s.name in schema_names}
 
+    def get_tables_by_fq_name(
+            self, fq_table_names: List[str], ignore_fields: bool = True, include_data_node_ids: bool = True
+    ) -> Dict[str, Table]:
+        """
+        Get tables by fully qualified name.
+        :param fq_table_names: List of fully qualified table names.  e.g. some_source.some_schema.some_table
+        :param ignore_fields: If true, columns are not returned along with tables
+        :param include_data_node_ids: If true, include data nodes IDs with tables
+        :return: Dictionary of tables keyed by fully qualified table name.
+        """
+        fq_schema_table_map = defaultdict(list)
+        for tn in fq_table_names:
+            split = tn.split(".")
+            if len(split) != 3 and len(split) != 4:
+                log.warning(f"Erroneous input. Should be a fully qualified table name. Received: {tn}")
+                log.info("Table will be skipped.")
+                continue
+
+            fq_schema_table_map[".".join(split[:-1])].append(split[-1])
+
+        schemas = self.get_schemas_by_fq_name(fq_schema_names=fq_schema_table_map.keys())
+
+        tables = []
+        for fqn, schema in schemas.items():
+            tables.extend(
+                self.search_tables(schema_id=[schema.id],
+                                   table_name=fq_schema_table_map[fqn],
+                                   ignore_fields=ignore_fields,
+                                   include_data_node_ids=include_data_node_ids).tables
+            )
+
+        return {f"{t.warehouse_name}.{t.schema_name}.{t.name}": t for t in tables}
+
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def set_table_metric_time(self,
                               column_id: int):
         """
@@ -358,6 +398,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         url = f'/dataset/loadedDate/{column_id}'
         self._call_datawatch(method=Method.PUT, url=url, body=None)
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def unset_table_metric_time(self,
                                 table: Table):
         """
@@ -373,6 +414,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         else:
             log.info(f'Table has no metric time set: {table.database_name}.{table.schema_name}.{table.name}')
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def _set_table_metric_times(self,
                                 column_names: List[str],
                                 tables: List[Table],
@@ -399,6 +441,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                     log.info(f'No column name provided can be identified in table '
                              f'{t.database_name}.{t.schema_name}.{t.name}')
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def set_table_metric_times(self,
                                column_names: List[str],
                                table_ids: List[int],
@@ -413,6 +456,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         tables = self.get_tables(ids=table_ids).tables
         self._set_table_metric_times(tables=tables, column_names=column_names, replace=replace)
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def set_source_metric_times(self,
                                 column_names: List[str],
                                 wid: int,
@@ -429,6 +473,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         tables = self.get_tables(warehouse_id=[wid], schema_id=[sid]).tables
         self._set_table_metric_times(tables=tables, column_names=column_names, replace=replace)
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def unset_table_metric_times(self,
                                  table_ids: List[int]):
         """
@@ -440,6 +485,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         for t in tables:
             self.unset_table_metric_time(t)
 
+    @deprecated("Will be removed in 1.0. Use rct_overrides at the metric level instead.")
     def unset_source_metric_times(self,
                                   wid: int):
         """
@@ -972,9 +1018,9 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         return MetricConfiguration().from_dict(response)
 
     def submit_external_monitor_run(
-        self,
-        monitor_id: int,
-        run_request: ExternalMonitorRunRequest
+            self,
+            monitor_id: int,
+            run_request: ExternalMonitorRunRequest
     ) -> MetricInfo:
         """
         Submit a run result for an external monitor.
@@ -999,11 +1045,11 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         return MetricInfo().from_dict(response)
 
     def get_metric_runs(
-        self,
-        metric_id: int,
-        days_of_history: Optional[int] = None,
-        start_epoch_seconds: Optional[int] = None,
-        end_epoch_seconds: Optional[int] = None
+            self,
+            metric_id: int,
+            days_of_history: Optional[int] = None,
+            start_epoch_seconds: Optional[int] = None,
+            end_epoch_seconds: Optional[int] = None
     ) -> GetMetricRunsResponse:
         """
         Get metric runs for a single metric.
@@ -1032,11 +1078,11 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         return GetMetricRunsResponse().from_dict(response)
 
     def get_metric_runs_bulk(
-        self,
-        metric_ids: List[int],
-        days_of_history: Optional[int] = None,
-        start_epoch_seconds: Optional[int] = None,
-        end_epoch_seconds: Optional[int] = None
+            self,
+            metric_ids: List[int],
+            days_of_history: Optional[int] = None,
+            start_epoch_seconds: Optional[int] = None,
+            end_epoch_seconds: Optional[int] = None
     ) -> GetMetricRunsBulkResponse:
         """
         Get metric runs for multiple metrics in a single request.
@@ -1064,6 +1110,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
         return GetMetricRunsBulkResponse().from_dict(response)
 
+    @deprecated("Will be removed in 1.0")
     def regen_autometrics(self, table_id: int):
         url = f'/statistics/suggestions/{table_id}/queue'
         log.info(url)
@@ -1437,7 +1484,8 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         updated = CustomRepository(
             id=repository_id,
             name=name if name is not None else current.name,
-            integration_type=CustomIntegrationType(id=integration_type_id) if integration_type_id is not None else current.integration_type,
+            integration_type=CustomIntegrationType(
+                id=integration_type_id) if integration_type_id is not None else current.integration_type,
             workspace_id=current.workspace_id
         )
         response = self._call_datawatch(Method.PUT, url=url, body=updated.to_json())
@@ -1955,10 +2003,10 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         return BulkWorkflowV2StatusResponse().from_dict(response)
 
     def wait_for_workflow_v2(
-        self,
-        workflow_id: WorkflowV2Id,
-        poll_interval: int = 10,
-        timeout: int = 600
+            self,
+            workflow_id: WorkflowV2Id,
+            poll_interval: int = 10,
+            timeout: int = 600
     ) -> WorkflowV2StatusResponse:
         """Wait for a workflow to complete."""
         start_time = time.time()

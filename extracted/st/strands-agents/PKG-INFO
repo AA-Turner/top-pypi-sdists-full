@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.27.0
+Version: 1.28.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -65,8 +65,6 @@ Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: bidi
 Requires-Dist: aws-sdk-bedrock-runtime; (python_version >= '3.12') and extra == 'bidi'
-Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi'
-Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi'
 Requires-Dist: smithy-aws-core>=0.0.1; (python_version >= '3.12') and extra == 'bidi'
 Provides-Extra: bidi-all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'bidi-all'
@@ -87,6 +85,9 @@ Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'bidi-all'
 Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-all'
 Provides-Extra: bidi-gemini
 Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'bidi-gemini'
+Provides-Extra: bidi-io
+Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-io'
+Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-io'
 Provides-Extra: bidi-openai
 Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-openai'
 Provides-Extra: dev
@@ -338,6 +339,16 @@ Build real-time voice and audio conversations with persistent streaming connecti
 - Google Gemini Live
 - OpenAI Realtime API
 
+**Installation:**
+
+```bash
+# Server-side only (no audio I/O dependencies)
+pip install strands-agents[bidi]
+
+# With audio I/O support (includes PyAudio dependency)
+pip install strands-agents[bidi,bidi-io]
+```
+
 **Quick Example:**
 
 ```python
@@ -353,7 +364,7 @@ async def main():
     model = BidiNovaSonicModel()
     agent = BidiAgent(model=model, tools=[calculator, stop_conversation])
 
-    # Setup audio and text I/O
+    # Setup audio and text I/O (requires bidi-io extra)
     audio_io = BidiAudioIO()
     text_io = BidiTextIO()
 
@@ -367,6 +378,8 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+> **Note**: `BidiAudioIO` and `BidiTextIO` require the `bidi-io` extra. For server-side deployments where audio I/O is handled by clients (browsers, mobile apps), install only `strands-agents[bidi]` and implement custom input/output handlers using the `BidiInput` and `BidiOutput` protocols.
 
 **Configuration Options:**
 

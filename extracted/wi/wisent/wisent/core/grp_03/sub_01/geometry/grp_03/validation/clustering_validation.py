@@ -58,7 +58,7 @@ def validate_clustering_quality(
         if n_concepts is None:
             from .concept_analysis import detect_multiple_concepts
             detection = detect_multiple_concepts(pos_activations, neg_activations)
-            n_concepts = detection.get("n_concepts", 2)
+            n_concepts = detection.get("n_concepts", _C.CONCEPT_DETECTION_DEFAULT_N)
 
         n_neighbors = min(_C.SPECTRAL_N_NEIGHBORS_DEFAULT, len(diff_normalized) - 1)
         warnings = []

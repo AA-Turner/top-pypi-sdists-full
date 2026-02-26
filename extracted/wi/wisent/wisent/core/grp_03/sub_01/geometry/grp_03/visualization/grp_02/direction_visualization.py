@@ -14,6 +14,8 @@ from wisent.core.constants import (
     DIRECTION_HIGH_SIMILARITY,
     DIRECTION_MODERATE_SIMILARITY,
     DIRECTION_LOW_SIMILARITY,
+    N_COMPONENTS_2D,
+    ANGLE_DEVIATION_DEGREES_THRESHOLD,
 )
 
 
@@ -103,7 +105,7 @@ def plot_directions_in_pca_space(
     pos_activations: Optional[torch.Tensor] = None,
     neg_activations: Optional[torch.Tensor] = None,
     names: Optional[List[str]] = None,
-    n_components: int = 2,
+    n_components: int = N_COMPONENTS_2D,
 ) -> Dict[str, Any]:
     """
     Project directions to PCA space and visualize as arrows.
@@ -266,7 +268,7 @@ def _interpret_direction_relationships(angles: Dict[str, Any]) -> List[str]:
     if aligned > 0 and n > 2:
         interpretations.append(f"{aligned} direction pairs are nearly identical")
 
-    if angles["max_angle_degrees"] - angles["min_angle_degrees"] > 60:
+    if angles["max_angle_degrees"] - angles["min_angle_degrees"] > ANGLE_DEVIATION_DEGREES_THRESHOLD:
         interpretations.append("Direction angles vary widely - concepts are distinct")
 
     return interpretations

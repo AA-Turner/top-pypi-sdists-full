@@ -20,6 +20,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from wisent.core.constants import (
     DEFAULT_LAYER, GROM_HIDDEN_DIM, GROM_ROUTER_TEMPERATURE,
     GROM_ROUTER_HIDDEN_DIM, GROM_MAX_ALPHA, DEFAULT_STRENGTH,
+    GROM_GATING_SHRINK_FACTOR,
 )
 
 from wisent.core.weight_modification._standalone_loader_helpers import (
@@ -36,9 +37,9 @@ class GatingNetwork(nn.Module):
             nn.Linear(input_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.Linear(hidden_dim, hidden_dim // GROM_GATING_SHRINK_FACTOR),
             nn.GELU(),
-            nn.Linear(hidden_dim // 2, 1),
+            nn.Linear(hidden_dim // GROM_GATING_SHRINK_FACTOR, 1),
         )
 
     def forward(self, x: torch.Tensor,

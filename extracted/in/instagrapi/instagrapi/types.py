@@ -20,7 +20,9 @@ class TypesBaseModel(BaseModel):
 def validate_external_url(cls, v):
     if v is None or (v.startswith("http") and "://" in v) or isinstance(v, str):
         return v
-    raise ValidationError("external_url must be a URL or string")  # Corrected 'been' to 'be'
+    raise ValidationError(
+        "external_url must be a URL or string"
+    )  # Corrected 'been' to 'be'
 
 
 class Resource(TypesBaseModel):
@@ -168,15 +170,18 @@ class Location(TypesBaseModel):
 
 class SharedMediaImageCandidate(TypesBaseModel):
     """Image candidate for shared media clips with video features"""
+
     estimated_scans_sizes: List[int] = []
     height: int
-    scans_profile: str
+    scans_profile: Optional[str] = None
     url: str
     width: int
+    is_spatial_image: Optional[bool] = None
 
 
 class ScrubberSpritesheetInfo(TypesBaseModel):
     """Spritesheet information for video scrubbing"""
+
     file_size_kb: int
     max_thumbnails_per_sprite: int
     rendered_width: int
@@ -193,11 +198,13 @@ class ScrubberSpritesheetInfo(TypesBaseModel):
 
 class ScrubberSpritesheetInfoCandidates(TypesBaseModel):
     """Container for spritesheet information candidates"""
+
     default: ScrubberSpritesheetInfo
 
 
 class AdditionalCandidates(TypesBaseModel):
     """Additional candidates structure in image_versions2"""
+
     first_frame: Optional[SharedMediaImageCandidate] = None
     igtv_first_frame: Optional[SharedMediaImageCandidate] = None
     smart_frame: Optional[SharedMediaImageCandidate] = None
@@ -205,46 +212,56 @@ class AdditionalCandidates(TypesBaseModel):
 
 class SharedMediaImageVersions(TypesBaseModel):
     """Complete image_versions2 structure for shared media clips"""
+
     additional_candidates: Optional[AdditionalCandidates] = None
     candidates: List[SharedMediaImageCandidate] = []
-    scrubber_spritesheet_info_candidates: Optional[ScrubberSpritesheetInfoCandidates] = None
+    scrubber_spritesheet_info_candidates: Optional[
+        ScrubberSpritesheetInfoCandidates
+    ] = None
 
 
 class ClipsAchievementsInfo(TypesBaseModel):
     """Information about achievements in clips"""
+
     num_earned_achievements: Optional[int] = None
     show_achievements: bool = False
 
 
 class AudioReattributionInfo(TypesBaseModel):
     """Audio reattribution settings"""
+
     should_allow_restore: bool = False
 
 
 class ClipsAdditionalAudioInfo(TypesBaseModel):
     """Additional audio information for clips"""
+
     additional_audio_username: Optional[str] = None
     audio_reattribution_info: AudioReattributionInfo
 
 
 class ClipsAudioRankingInfo(TypesBaseModel):
     """Audio ranking information for clips"""
+
     best_audio_cluster_id: str
 
 
 class ClipsBrandedContentTagInfo(TypesBaseModel):
     """Branded content tag information for clips"""
+
     can_add_tag: bool = False
 
 
 class ClipsContentAppreciationInfo(TypesBaseModel):
     """Content appreciation information for clips"""
+
     enabled: bool = False
     entry_point_container: Optional[str] = None
 
 
 class ClipsMashupInfo(TypesBaseModel):
     """Mashup information for clips"""
+
     can_toggle_mashups_allowed: bool = False
     formatted_mashups_count: Optional[str] = None
     has_been_mashed_up: bool = False
@@ -263,6 +280,7 @@ class ClipsMashupInfo(TypesBaseModel):
 
 class ClipsConsumptionInfo(TypesBaseModel):
     """Consumption information for clips original sound"""
+
     display_media_id: Optional[str] = None
     is_bookmarked: bool = False
     is_trending_in_clips: bool = False
@@ -273,11 +291,13 @@ class ClipsConsumptionInfo(TypesBaseModel):
 
 class ClipsFbDownstreamUseXpostMetadata(TypesBaseModel):
     """Facebook downstream use xpost metadata for clips"""
+
     downstream_use_xpost_deny_reason: str = "NONE"
 
 
 class ClipsIgArtist(TypesBaseModel):
     """Instagram artist information for clips original sound"""
+
     pk: int
     pk_id: str
     id: str
@@ -285,13 +305,14 @@ class ClipsIgArtist(TypesBaseModel):
     full_name: str
     is_private: bool = False
     is_verified: bool = False
-    profile_pic_id: str
+    profile_pic_id: Optional[str] = None
     profile_pic_url: str
     strong_id__: str
 
 
 class ClipsOriginalSoundInfo(TypesBaseModel):
     """Original sound information for clips"""
+
     allow_creator_to_rename: bool = True
     audio_asset_id: int
     attributed_custom_audio_asset_id: Optional[int] = None
@@ -321,7 +342,7 @@ class ClipsOriginalSoundInfo(TypesBaseModel):
     overlap_duration_in_ms: Optional[int] = None
     audio_asset_start_time_in_ms: Optional[int] = None
     ig_artist: ClipsIgArtist
-    audio_filter_infos: List[dict] = []
+    audio_filter_infos: Optional[List[dict]] = None
     audio_parts: List[dict] = []
     audio_parts_by_filter: List[dict] = []
     consumption_info: ClipsConsumptionInfo
@@ -329,8 +350,40 @@ class ClipsOriginalSoundInfo(TypesBaseModel):
     fb_downstream_use_xpost_metadata: ClipsFbDownstreamUseXpostMetadata
 
 
+class ClipsReusableTextColor(TypesBaseModel):
+    """Color information for reusable text in clips"""
+
+    count: int
+    hex_rgba_color: str
+
+
+class ClipsReusableTextInfo(TypesBaseModel):
+    """Reusable text information for clips"""
+
+    alignment: str
+    end_time_ms: float
+    font_size: float
+    height: float
+    id: str
+    is_animated: bool
+    offset_x: float
+    offset_y: float
+    rotation_degree: float
+    scale: float
+    start_time_ms: float
+    text: str
+    text_emphasis_mode: str
+    text_format_type: str
+    width: float
+    z_index: int
+    effects: str = ""
+    animation: str = ""
+    colors: List[ClipsReusableTextColor] = []
+
+
 class ClipsMetadata(TypesBaseModel):
     """Complete clips metadata structure for Media objects"""
+
     clips_creation_entry_point: str = "clips"
     featured_label: Optional[str] = None
     is_public_chat_welcome_video: bool = False
@@ -352,16 +405,16 @@ class ClipsMetadata(TypesBaseModel):
     external_media_info: Optional[dict] = None
     is_fan_club_promo_video: bool = False
     is_shared_to_fb: bool = False
-    mashup_info: ClipsMashupInfo
+    mashup_info: Optional[ClipsMashupInfo] = None
     merchandising_pill_info: Optional[dict] = None
     music_canonical_id: str
     music_info: Optional[dict] = None
     nux_info: Optional[dict] = None
-    original_sound_info: ClipsOriginalSoundInfo
+    original_sound_info: Optional[ClipsOriginalSoundInfo] = None
     originality_info: Optional[dict] = None
     reels_on_the_rise_info: Optional[dict] = None
     reusable_text_attribute_string: Optional[str] = None
-    reusable_text_info: Optional[dict] = None
+    reusable_text_info: Optional[List[ClipsReusableTextInfo]] = None
     shopping_info: Optional[dict] = None
     show_achievements: bool = False
     template_info: Optional[dict] = None
@@ -395,7 +448,7 @@ class Media(TypesBaseModel):
     video_duration: Optional[float] = 0.0  # for Video and IGTV
     title: Optional[str] = ""
     resources: List[Resource] = []
-    clips_metadata: Optional[ClipsMetadata] = None
+    clips_metadata: Optional[ClipsMetadata | dict] = None
 
 
 class MediaXma(TypesBaseModel):
@@ -609,6 +662,7 @@ class DirectMedia(TypesBaseModel):
 
 class MessageReaction(TypesBaseModel):
     """Individual emoji reaction on a direct message"""
+
     timestamp: datetime
     client_context: Optional[str] = None
     sender_id: int
@@ -618,6 +672,7 @@ class MessageReaction(TypesBaseModel):
 
 class MessageReactions(TypesBaseModel):
     """Reactions structure for direct messages"""
+
     likes: List[dict] = []  # Structure unknown from current examples
     likes_count: Optional[int] = 0
     emojis: List[MessageReaction] = []
@@ -625,6 +680,7 @@ class MessageReactions(TypesBaseModel):
 
 class LinkContext(TypesBaseModel):
     """Link context metadata for direct message links"""
+
     link_url: str
     link_title: Optional[str] = ""
     link_summary: Optional[str] = ""
@@ -633,6 +689,7 @@ class LinkContext(TypesBaseModel):
 
 class MessageLink(TypesBaseModel):
     """Link structure for direct messages"""
+
     text: str
     link_context: LinkContext
     client_context: Optional[str] = None
@@ -641,6 +698,7 @@ class MessageLink(TypesBaseModel):
 
 class DisappearingMessagesSeenState(TypesBaseModel):
     """Disappearing messages seen state information"""
+
     item_id: str
     timestamp: datetime
     created_at: datetime
@@ -648,6 +706,7 @@ class DisappearingMessagesSeenState(TypesBaseModel):
 
 class LastSeenInfo(TypesBaseModel):
     """Last seen information for a user in a direct thread"""
+
     item_id: str
     timestamp: datetime
     created_at: datetime
@@ -657,11 +716,13 @@ class LastSeenInfo(TypesBaseModel):
 
 class FallbackUrl(TypesBaseModel):
     """Fallback URL structure for media candidates"""
+
     url: str
 
 
 class DirectMessageImageCandidate(TypesBaseModel):
     """Image candidate for ephemeral visual media in direct messages"""
+
     width: int
     height: int
     url: str
@@ -672,11 +733,13 @@ class DirectMessageImageCandidate(TypesBaseModel):
 
 class DirectMessageImageVersions(TypesBaseModel):
     """Image versions for ephemeral visual media in direct messages"""
+
     candidates: List[DirectMessageImageCandidate] = []
 
 
 class VideoVersion(TypesBaseModel):
     """Individual video version with specific resolution and quality"""
+
     id: Optional[str] = ""
     type: Optional[int] = None
     width: int
@@ -689,6 +752,7 @@ class VideoVersion(TypesBaseModel):
 
 class FriendshipStatus(TypesBaseModel):
     """Friendship status information for visual media user"""
+
     blocking: bool = False
     is_messaging_only_blocking: bool = False
     is_messaging_pseudo_blocking: bool = False
@@ -697,6 +761,7 @@ class FriendshipStatus(TypesBaseModel):
 
 class VisualMediaUser(TypesBaseModel):
     """User information in visual media (enhanced UserShort)"""
+
     id: str
     strong_id__: Optional[str] = None
     pk: int
@@ -724,6 +789,7 @@ class VisualMediaUser(TypesBaseModel):
 
 class ExpiringMediaActionSummary(TypesBaseModel):
     """Summary of expiring media actions"""
+
     type: str
     timestamp: datetime
     count: int
@@ -731,6 +797,7 @@ class ExpiringMediaActionSummary(TypesBaseModel):
 
 class VisualMediaContent(TypesBaseModel):
     """Content structure for visual media (can be rich or minimal)"""
+
     media_type: int  # Always present: 1=image, 2=video
     id: Optional[str] = None
     media_id: Optional[int] = None
@@ -750,6 +817,7 @@ class VisualMediaContent(TypesBaseModel):
 
 class VisualMedia(TypesBaseModel):
     """Complete visual media structure for direct messages"""
+
     media: VisualMediaContent
     seen_user_ids: List[str] = []
     seen_count: int = 0

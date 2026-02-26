@@ -3,10 +3,9 @@ Tests for invalid ways that users may attempt to write service definition and se
 handler implementations.
 """
 
-from typing import Any, Callable
+from dataclasses import dataclass
 
 import pytest
-from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc.handler import (
@@ -19,14 +18,13 @@ from nexusrpc.handler._decorators import operation_handler
 from nexusrpc.handler._operation_handler import OperationHandler
 
 
-@dataclass_transform()
-class _BaseTestCase:
-    pass
-
-
-class _TestCase(_BaseTestCase):
-    build: Callable[..., Any]
+@dataclass()
+class _TestCase:
     error_message: str
+
+    @staticmethod
+    def build():
+        pass
 
 
 class OperationHandlerOverridesNameInconsistentlyWithServiceDefinition(_TestCase):
@@ -124,29 +122,6 @@ class AsyncioHandlerWithSyncioOperation(_TestCase):
     error_message = "you have not supplied an executor"
 
 
-class ServiceDefinitionHasDuplicateMethodNames(_TestCase):
-    @staticmethod
-    def build():
-        @nexusrpc.service
-        class SD:
-            my_op: nexusrpc.Operation[None, None] = nexusrpc.Operation(
-                name="my_op",
-                method_name="my_op",
-                input_type=None,
-                output_type=None,
-            )
-            my_op_2: nexusrpc.Operation[None, None] = nexusrpc.Operation(
-                name="my_op_2",
-                method_name="my_op",
-                input_type=None,
-                output_type=None,
-            )
-
-        _ = SD
-
-    error_message = "Operation method name 'my_op' is not unique"
-
-
 class OperationHandlerNoInputOutputTypeAnnotationsWithoutServiceDefinition(_TestCase):
     @staticmethod
     def build():
@@ -160,6 +135,27 @@ class OperationHandlerNoInputOutputTypeAnnotationsWithoutServiceDefinition(_Test
     error_message = r"has no input type"
 
 
+class SyncOperationNoTypeAnnotationsWithoutServiceDefinition(_TestCase):
+    """Test that @sync_operation with missing type annotations raises an error
+    when no service definition is provided.
+
+    This tests the flow through get_start_method_input_and_output_type_annotations()
+    which returns (None, None) for missing types, followed by
+    OperationDefinition.from_operation() which raises ValueError.
+    """
+
+    @staticmethod
+    def build():
+        @service_handler
+        class ServiceWithMissingTypes:
+            @sync_operation
+            async def op(self, ctx, input): ...  # type: ignore[reportMissingParameterType]
+
+        _ = ServiceWithMissingTypes
+
+    error_message = r"has no input type"
+
+
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -168,8 +164,8 @@ class OperationHandlerNoInputOutputTypeAnnotationsWithoutServiceDefinition(_Test
         ServiceDefinitionHasExtraOp,
         ServiceHandlerHasExtraOp,
         AsyncioHandlerWithSyncioOperation,
-        ServiceDefinitionHasDuplicateMethodNames,
         OperationHandlerNoInputOutputTypeAnnotationsWithoutServiceDefinition,
+        SyncOperationNoTypeAnnotationsWithoutServiceDefinition,
     ],
 )
 def test_invalid_usage(test_case: _TestCase):

@@ -6,7 +6,12 @@ from itertools import repeat, count
 
 import numpy as np
 
-from ._clean_x import unify_columns, unify_feature_names, categorical_encode
+from ._clean_x import (
+    unify_columns_nonschematized,
+    unify_columns_schematized,
+    unify_feature_names,
+    categorical_encode,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -40,15 +45,22 @@ def unify_data(
     # fill with np.nan for missing values and None for unseen values
     X_unified = np.empty((n_samples, len(feature_names_in)), np.object_, "F")
 
-    get_col = unify_columns(
-        X,
-        n_samples,
-        feature_names_in,
-        feature_types,
-        min_unique_continuous,
-        is_schematized,
-        False,
-    )
+    if is_schematized:
+        get_col = unify_columns_schematized(
+            X,
+            n_samples,
+            feature_names_in,
+            feature_types,
+        )
+    else:
+        get_col = unify_columns_nonschematized(
+            X,
+            n_samples,
+            feature_names_in,
+            feature_types,
+            min_unique_continuous,
+        )
+
     for feature_idx in range(len(feature_names_in)):
         if feature_types is not None and feature_types[feature_idx] == "ignore":
             # TODO: we should drop these columns instead of passing them to the dependent model
@@ -106,4 +118,8 @@ def unify_data(
 
                 X_unified[:, feature_idx] = mapping[X_col]
 
-    return X_unified, feature_names_in, feature_types_in
+    return (
+        X_unified,
+        feature_names_in,
+        feature_types if is_schematized else feature_types_in,
+    )

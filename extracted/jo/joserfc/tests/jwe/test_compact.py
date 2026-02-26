@@ -8,6 +8,7 @@ from joserfc.jwe import (
 from joserfc.jwa import JWE_ENC_MODELS
 from joserfc.jwk import RSAKey, ECKey, OctKey, OKPKey, KeySet
 from joserfc.errors import (
+    SecurityWarning,
     InvalidKeyLengthError,
     MissingAlgorithmError,
     MissingEncryptionError,
@@ -176,6 +177,50 @@ class TestJWECompact(TestCase):
             encrypt_compact,
             protected,
             b"i",
+            key,
+            registry=registry,
+        )
+
+    def test_PBES2HS_with_small_p2c(self):
+        key = OctKey.generate_key(128)
+        protected = {
+            "alg": "PBES2-HS256+A128KW",
+            "enc": "A128CBC-HS256",
+            "p2s": "QoGrcBpns_cLWCQPEVuA-g",
+            "p2c": 500,
+        }
+        registry = JWERegistry(algorithms=["PBES2-HS256+A128KW", "A128CBC-HS256"])
+        self.assertWarns(
+            SecurityWarning,
+            encrypt_compact,
+            protected,
+            b"i",
+            key,
+            registry=registry,
+        )
+
+    def test_PBES2HS_with_large_p2c(self):
+        key = OctKey.import_key({"k": "pyL42ncDFSYnenl-GiZjRw", "kty": "oct"})
+        protected = {
+            "alg": "PBES2-HS256+A128KW",
+            "enc": "A128CBC-HS256",
+            "p2s": "QoGrcBpns_cLWCQPEVuA-g",
+            "p2c": 500000,
+        }
+        registry = JWERegistry(algorithms=["PBES2-HS256+A128KW", "A128CBC-HS256"])
+        self.assertRaises(
+            InvalidHeaderValueError,
+            encrypt_compact,
+            protected,
+            b"i",
+            key,
+            registry=registry,
+        )
+        encrypted = "eyJhbGciOiJQQkVTMi1IUzI1NitBMTI4S1ciLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwicDJzIjoiUW9HcmNCcG5zX2NMV0NRUEVWdUEtZyIsInAyYyI6NTAwMDAwfQ.qdtshVQlPM-fW57DRVUnmwMyvBVzUZCm58zn7j5W7IP9S2-cBVTh_w.mMUagTUTRi7fLQ3VUi6g4w.Hi0-8_MusxEwRtW6dkjXzw.Ktm1FmBA9rPe0Vv8w0kZ2g"
+        self.assertRaises(
+            InvalidHeaderValueError,
+            decrypt_compact,
+            encrypted,
             key,
             registry=registry,
         )

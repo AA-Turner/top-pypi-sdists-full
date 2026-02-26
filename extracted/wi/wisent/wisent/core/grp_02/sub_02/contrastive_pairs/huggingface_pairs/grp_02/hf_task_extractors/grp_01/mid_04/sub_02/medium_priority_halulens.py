@@ -7,7 +7,11 @@ import re
 
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.huggingface_pairs.atoms import HuggingFaceBenchmarkExtractor
-from wisent.core.constants import DATA_SPLIT_SEED
+from wisent.core.constants import (
+    CONTEXT_MAX_LENGTH, DEFAULT_RANDOM_SEED, DATABASE_PAIR_LOADING_LIMIT,
+    DISPLAY_TOP_N_TINY, HALULENS_MIN_CONTENT_LENGTH,
+    HALULENS_SENT_LEN_MIN, HALULENS_SENT_LEN_MAX,
+)
 from wisent.core.contrastive_pairs.huggingface_pairs.hf_task_extractors.medium_priority_halulens_helpers import (
     entity_swap_hallucination,
     date_shift_hallucination,
@@ -57,7 +61,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
         "fabrication",      # Add completely fabricated details
     ]
 
-    def __init__(self, seed: int = DATA_SPLIT_SEED):
+    def __init__(self, seed: int = DEFAULT_RANDOM_SEED):
         """
         Initialize HalluLens extractor with dynamic generation.
         
@@ -108,7 +112,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
             docs = self.load_dataset(
                 dataset_name="euirim/goodwiki",
                 split="train",
-                limit=limit * 2 if limit else 1000,  # Load extra for filtering
+                limit=limit * 2 if limit else DATABASE_PAIR_LOADING_LIMIT,  # Load extra for filtering
             )
             return docs
         except Exception as e:
@@ -125,7 +129,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
             title = doc.get("title", "").strip()
             content = doc.get("markdown", doc.get("text", "")).strip()
             
-            if not title or not content or len(content) < 200:
+            if not title or not content or len(content) < HALULENS_MIN_CONTENT_LENGTH:
                 return None
 
             # Extract first meaningful paragraph (skip headers, etc.)
@@ -134,7 +138,7 @@ class HalulensExtractor(HuggingFaceBenchmarkExtractor):
                 return None
             
             # Use first substantive paragraph as context
-            context = paragraphs[0][:1500]  # Limit context length
+            context = paragraphs[0][:CONTEXT_MAX_LENGTH]
             
             # Extract a factual claim from the context
             factual_claim = self._extract_factual_claim(context, title)
@@ -191,7 +195,7 @@ Answer the question based only on the provided context. Be factual and accurate.
         sentences = re.split(r'[.!?]+', context)
         for sent in sentences:
             sent = sent.strip()
-            if len(sent) > 30 and len(sent) < 300:
+            if len(sent) > HALULENS_SENT_LEN_MIN and len(sent) < HALULENS_SENT_LEN_MAX:
                 # Check if sentence has factual content (numbers, proper nouns)
                 if re.search(r'\d+|[A-Z][a-z]+\s+[A-Z][a-z]+', sent):
                     return sent
@@ -221,7 +225,7 @@ Answer the question based only on the provided context. Be factual and accurate.
         """Generate correct answer based on the actual Wikipedia content."""
         sentences = context.split('.')
         # Take first 2-3 sentences as the factual answer
-        answer_sentences = [s.strip() for s in sentences[:3] if s.strip()]
+        answer_sentences = [s.strip() for s in sentences[:DISPLAY_TOP_N_TINY] if s.strip()]
         return '. '.join(answer_sentences) + '.' if answer_sentences else None
 
     def _generate_hallucinated_answer(

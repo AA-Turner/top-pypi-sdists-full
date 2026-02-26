@@ -1,7 +1,7 @@
 """
 ORCID_search_researchers
 
-Search the ORCID registry for researchers by name, affiliation, or keyword. ORCID provides persis...
+Search ORCID registry for researchers by keyword query. Returns ORCID iDs matching the search. Su...
 """
 
 from typing import Any, Optional, Callable
@@ -9,22 +9,28 @@ from ._shared_client import get_shared_client
 
 
 def ORCID_search_researchers(
-    q: str,
+    operation: str,
+    query: str,
+    start: Optional[int] = 0,
     rows: Optional[int] = 10,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> list[Any]:
     """
-    Search the ORCID registry for researchers by name, affiliation, or keyword. ORCID provides persis...
+    Search ORCID registry for researchers by keyword query. Returns ORCID iDs matching the search. Su...
 
     Parameters
     ----------
-    q : str
-        Search query using Lucene syntax. Examples: 'family-name:doudna AND given-nam...
+    operation : str
+        Operation type
+    query : str
+        Search query (e.g., 'BRCA1 cancer genetics', 'Harvard genomics')
+    start : int
+        Pagination offset (0-based)
     rows : int
-        Number of results to return (default 10, max 200)
+        Number of results to return
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -34,12 +40,20 @@ def ORCID_search_researchers(
 
     Returns
     -------
-    Any
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 
     return get_shared_client().run_one_function(
-        {"name": "ORCID_search_researchers", "arguments": {"q": q, "rows": rows}},
+        {
+            "name": "ORCID_search_researchers",
+            "arguments": {
+                "operation": operation,
+                "query": query,
+                "start": start,
+                "rows": rows,
+            },
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

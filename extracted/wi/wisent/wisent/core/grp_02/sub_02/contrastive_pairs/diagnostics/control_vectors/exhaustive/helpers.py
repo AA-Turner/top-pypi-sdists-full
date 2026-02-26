@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple, Any
 from ..geometry import StructureType
 from .types import ExhaustiveCombinationResult
 from wisent.core import constants as _C
+from wisent.core.constants import EXHAUSTIVE_SEARCH_TOP_K
 
 
 __all__ = ["analyze_combination_patterns", "generate_exhaustive_recommendation"]
@@ -16,7 +17,7 @@ __all__ = ["analyze_combination_patterns", "generate_exhaustive_recommendation"]
 def analyze_combination_patterns(
     all_results: List[ExhaustiveCombinationResult],
     layers: List[int],
-    top_k: int = 50,
+    top_k: int = EXHAUSTIVE_SEARCH_TOP_K,
 ) -> Dict[str, Any]:
     """Analyze patterns in top combinations."""
     top_results = all_results[:top_k]
@@ -103,7 +104,7 @@ def generate_exhaustive_recommendation(
 
     important_layers = patterns.get("most_important_layers", [])
     if important_layers:
-        layers_str = ", ".join(f"L{l}" for l in important_layers[:3])
+        layers_str = ", ".join(f"L{l}" for l in important_layers[:_C.DISPLAY_TOP_N_TINY])
         parts.append(f"Most important layers: {layers_str}.")
 
     dominant = patterns.get("dominant_structure", "unknown")

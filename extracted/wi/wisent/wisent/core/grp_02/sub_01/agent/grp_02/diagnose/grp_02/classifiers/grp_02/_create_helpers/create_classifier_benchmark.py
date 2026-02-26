@@ -5,7 +5,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from wisent.core.errors import InsufficientDataError
-from wisent.core.constants import DEFAULT_LAYER
+from wisent.core.constants import DEFAULT_LAYER, CLASSIFIER_BENCHMARK_SAMPLES
 
 from ....activations import Activations
 from ....model import Model
@@ -21,7 +21,7 @@ class BenchmarkMixin:
         issue_type: str,
         relevant_benchmarks: List[str],
         layer: int = DEFAULT_LAYER,
-        num_samples: int = 50,
+        num_samples: int = CLASSIFIER_BENCHMARK_SAMPLES,
         config: Optional["TrainingConfig"] = None,
     ) -> "TrainingResult":
         """

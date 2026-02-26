@@ -2,6 +2,8 @@
 
 from typing import Any, Dict, List
 
+from wisent.core.constants import MIN_PAGE_TEXT_LENGTH, MIN_SENTENCE_LENGTH, DISPLAY_TRUNCATION_COMPACT, MAX_INCORRECT_PER_CORRECT
+
 
 class QAConvertersMixin:
     """Mixin providing QA conversion methods and the sample-to-pairs dispatcher."""
@@ -131,7 +133,7 @@ class QAConvertersMixin:
         """Convert WikiText format (page)."""
         page = sample.get("page", "")
 
-        if not page or len(page.strip()) < 50:  # Skip very short pages
+        if not page or len(page.strip()) < MIN_PAGE_TEXT_LENGTH:  # Skip very short pages
             return []
 
         # For WikiText, we create language modeling pairs
@@ -142,7 +144,7 @@ class QAConvertersMixin:
 
         pairs = []
         for i, sentence in enumerate(sentences):
-            if len(sentence.strip()) > 20:  # Only use substantial sentences
+            if len(sentence.strip()) > MIN_SENTENCE_LENGTH:  # Only use substantial sentences
                 # Create a corrupted version by replacing some words
                 words = sentence.split()
                 if len(words) > 3:
@@ -190,7 +192,7 @@ class QAConvertersMixin:
 
         # Strategy 1: Use other answers from the list as distractors if available
         if len(answer_list) > 1:
-            incorrect_answers.extend(answer_list[1:3])
+            incorrect_answers.extend(answer_list[1:MAX_INCORRECT_PER_CORRECT + 1])
 
         # Strategy 2: Generate generic incorrect answers
         if len(incorrect_answers) < 2:
@@ -199,7 +201,7 @@ class QAConvertersMixin:
 
         # Create contrastive pairs
         pairs = []
-        for incorrect in incorrect_answers[:2]:  # Limit to 2 pairs
+        for incorrect in incorrect_answers[:MAX_INCORRECT_PER_CORRECT]:  # Limit pairs
             pairs.append(
                 {
                     "context": question,
@@ -229,7 +231,7 @@ class QAConvertersMixin:
             # Use other fields
             correct_answer = (
                 answer_dict.get("value", "") or answer_dict.get("normalized_value", "") or str(answer_dict)
-            )[:100]  # Truncate if too long
+            )[:DISPLAY_TRUNCATION_COMPACT]  # Truncate if too long
         else:
             correct_answer = aliases[0]  # Use first alias as primary answer
 
@@ -241,7 +243,7 @@ class QAConvertersMixin:
 
         # Strategy 1: Use other aliases as distractors if available
         if len(aliases) > 1:
-            incorrect_answers.extend(aliases[1:3])
+            incorrect_answers.extend(aliases[1:MAX_INCORRECT_PER_CORRECT + 1])
 
         # Strategy 2: Generate generic incorrect answers for trivia
         if len(incorrect_answers) < 2:
@@ -250,7 +252,7 @@ class QAConvertersMixin:
 
         # Create contrastive pairs
         pairs = []
-        for incorrect in incorrect_answers[:2]:  # Limit to 2 pairs
+        for incorrect in incorrect_answers[:MAX_INCORRECT_PER_CORRECT]:  # Limit pairs
             pairs.append(
                 {
                     "context": question,

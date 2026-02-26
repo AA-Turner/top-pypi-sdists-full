@@ -11,6 +11,9 @@ from wisent.core.constants import (
     DEFAULT_LIMIT,
     DEFAULT_N_TRIALS,
     DEFAULT_RANDOM_SEED,
+    PARSER_DEFAULT_NUM_STRENGTH_STEPS,
+    SENSITIVITY_DEFAULT_THRESHOLD,
+    SENSITIVITY_TOP_CONSTANTS,
 )
 
 
@@ -55,7 +58,7 @@ def _setup_run_parser(subs):
         help="Filter constants by method name (e.g. grom, evaluator)",
     )
     run_p.add_argument(
-        "--steps", type=int, default=5,
+        "--steps", type=int, default=PARSER_DEFAULT_NUM_STRENGTH_STEPS,
         help="Number of values to test per constant (default: 5)",
     )
     run_p.add_argument(
@@ -88,7 +91,7 @@ def _setup_report_parser(subs):
         help="Path to sensitivity result JSON",
     )
     report_p.add_argument(
-        "--threshold", type=float, default=0.01,
+        "--threshold", type=float, default=SENSITIVITY_DEFAULT_THRESHOLD,
         help="Minimum sensitivity to display (default: 0.01)",
     )
     report_p.add_argument(
@@ -122,7 +125,7 @@ def _setup_optimize_parser(subs):
         help="Sensitivity result JSON (from 'sensitivity run')",
     )
     opt_p.add_argument(
-        "--top-n", type=int, default=20,
+        "--top-n", type=int, default=SENSITIVITY_TOP_CONSTANTS,
         dest="top_n",
         help="Number of top constants to optimize (default: 20)",
     )

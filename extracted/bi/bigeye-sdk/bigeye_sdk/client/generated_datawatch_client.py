@@ -106,7 +106,6 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     Group,
     RoleV2ListResponse,
     RoleOperation,
-    BulkResponse,
     GetVirtualTableListRequest,
     GetVirtualTableListResponse,
     IssueMessageUpdate,
@@ -128,11 +127,11 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     CustomRuleInfo, TimeInterval, TimeIntervalType, RebuildSourceRequest, CreatePersonalApiKeyRequest,
     CreatePersonalApiKeyResponse, ListPersonalApiKeyResponse, CreateAgentApiKeyResponse, CreateAgentApiKeyRequest,
     ListAgentApiKeyResponse, GetWorkspaceAccessorsResponse, CreateLineageNodeV2Request, LineageNodeV2,
-    LineageSearchResponse, LineageSearchRequest, GetDebugQueriesResponse, ConfigValueType, SourceMetadataOverrides,
+    GetDebugQueriesResponse, ConfigValueType, SourceMetadataOverrides,
     WarehouseType, BulkChangeGroupGrantsRequest, Grant, RoleV2, IdAndDisplayName, BulkChangeGroupGrantsResponse,
     IssuePriorityChangeEvent, TableLineageV2Response, CreateLineageNodeV2BulkRequest, CreateLineageEdgeV2BulkRequest,
     GetMetricObservedColumnBulkRequest, MetricObservedColumnListResponse, MetricObservedColumnRequest,
-    MetricObservedColumnResponse, GetCustomRuleListRequest, GetDimensionsListResponse, Dimension
+    MetricObservedColumnResponse, GetCustomRuleListRequest, GetDimensionsListResponse, GetSourceListRequest
 )
 from bigeye_sdk.generated.com.bigeye.models._generated_root import AgentApiKeyType, MonitorType
 
@@ -249,9 +248,18 @@ class GeneratedDatawatchClient(abc.ABC):
                       schemas: List[str] = [],
                       table_name: List[str] = [],
                       ids: List[int] = [],
-                      schema_id: List[int] = []) -> List[int]:
-        return [t.id for t in self.get_tables(warehouse_id=warehouse_id, schema=schemas, table_name=table_name,
-                                              ids=ids, schema_id=schema_id).tables]
+                      schema_id: List[int] = [],
+                      include_favorites: bool = False,
+                      ignore_fields: bool = True,
+                      include_data_node_ids: bool = False) -> List[int]:
+        return [t.id for t in self.search_tables(warehouse_id=warehouse_id,
+                                                 schema=schemas,
+                                                 table_name=table_name,
+                                                 ids=ids,
+                                                 schema_id=schema_id,
+                                                 include_favorites=include_favorites,
+                                                 ignore_fields=ignore_fields,
+                                                 include_data_node_ids=include_data_node_ids).tables]
 
     def rebuild(self, warehouse_id: int, schema_name: str = None):
         """
@@ -726,11 +734,18 @@ class GeneratedDatawatchClient(abc.ABC):
     def get_sources(self) -> GetSourceListResponse:
         """Get sources"""
         url = "/api/v1/sources/fetch"
-        request = Empty()
+        request = GetSourceListRequest()
 
-        response = self._call_datawatch(Method.POST, url, request.to_json())
+        response = GetSourceListResponse().from_dict(self._call_datawatch(Method.POST, url, request.to_json()))
+        sources = response.sources
+        while response.pagination_info.next_cursor:
+            request.page_cursor = response.pagination_info.next_cursor
+            response = GetSourceListResponse().from_dict(self._call_datawatch(Method.POST, url, request.to_json()))
+            sources.extend(response.sources)
 
-        return GetSourceListResponse().from_dict(response)
+        response.sources = sources
+
+        return response
 
     def get_schemas(self, *, warehouse_id: List[int] = []) -> SchemaList:
         request = SchemaSearchRequest()

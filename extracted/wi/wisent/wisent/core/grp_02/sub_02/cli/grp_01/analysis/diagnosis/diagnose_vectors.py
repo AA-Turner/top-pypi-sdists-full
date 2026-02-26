@@ -137,8 +137,8 @@ def execute_diagnose_vectors(args):
         if args.show_sample and len(layer_stats) > 0:
             sample_layer = str(layer_stats[0]['layer'])
             sample_vector = vectors[sample_layer]
-            print(f"\n📄 Sample Vector (Layer {sample_layer}, first 10 values):")
-            print(f"   {sample_vector[:10]}")
+            print(f"\n📄 Sample Vector (Layer {sample_layer}, first {_C.DISPLAY_TOP_N_SMALL} values):")
+            print(f"   {sample_vector[:_C.DISPLAY_TOP_N_SMALL]}")
 
         # Cone structure analysis (if requested)
         if hasattr(args, 'check_cone') and args.check_cone:

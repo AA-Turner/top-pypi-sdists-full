@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 from typing import TYPE_CHECKING
-from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH, TETNO_GATE_TEMPERATURE
+from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH, TETNO_GATE_TEMPERATURE, DEFAULT_LAYER_WEIGHT
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.cli.cli_logger import setup_logger, bind
 
@@ -96,7 +96,7 @@ class TETNORuntimeHooks:
         if behavior_vector is None:
             return output
         behavior_vector = behavior_vector.to(hidden_states.device)
-        layer_scale = self.tetno_result.layer_scales.get(layer_name, 1.0)
+        layer_scale = self.tetno_result.layer_scales.get(layer_name, DEFAULT_LAYER_WEIGHT)
         gate = self._current_gate.to(hidden_states.device)
         if hidden_states.dim() == 3:
             gate = gate.view(-1, 1, 1)

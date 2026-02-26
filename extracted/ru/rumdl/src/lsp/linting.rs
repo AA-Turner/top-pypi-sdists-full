@@ -7,6 +7,8 @@
 use anyhow::Result;
 use tower_lsp::lsp_types::*;
 
+use crate::code_block_tools::CodeBlockToolProcessor;
+use crate::embedded_lint::{check_embedded_markdown_blocks, should_lint_embedded_markdown};
 use crate::lint;
 use crate::rule::FixCapability;
 use crate::rules;
@@ -72,8 +74,17 @@ impl RumdlLanguageServer {
         false
     }
 
-    /// Lint a document and return diagnostics
-    pub(crate) async fn lint_document(&self, uri: &Url, text: &str) -> Result<Vec<Diagnostic>> {
+    /// Lint a document and return diagnostics.
+    ///
+    /// When `run_external_tools` is false, external code-block-tools (which spawn
+    /// processes) are skipped. Use false for high-frequency events like `did_change`
+    /// to avoid spawning processes on every keystroke.
+    pub(crate) async fn lint_document(
+        &self,
+        uri: &Url,
+        text: &str,
+        run_external_tools: bool,
+    ) -> Result<Vec<Diagnostic>> {
         let config_guard = self.config.read().await;
 
         // Skip linting if disabled
@@ -147,6 +158,36 @@ impl RumdlLanguageServer {
             }
         }
 
+        // Check embedded markdown blocks if configured in code-block-tools
+        if should_lint_embedded_markdown(&rumdl_config.code_block_tools) {
+            let embedded_warnings = check_embedded_markdown_blocks(text, &filtered_rules, &rumdl_config);
+            all_warnings.extend(embedded_warnings);
+        }
+
+        // Run external code-block-tools only when requested (skip on keystroke events)
+        if run_external_tools && rumdl_config.code_block_tools.enabled {
+            let processor = CodeBlockToolProcessor::new(&rumdl_config.code_block_tools, flavor);
+            match processor.lint(text) {
+                Ok(diagnostics) => {
+                    let tool_warnings: Vec<_> = diagnostics.iter().map(|d| d.to_lint_warning()).collect();
+                    all_warnings.extend(tool_warnings);
+                }
+                Err(e) => {
+                    log::warn!("Code block tools linting failed: {e}");
+                    all_warnings.push(crate::rule::LintWarning {
+                        message: e.to_string(),
+                        line: 1,
+                        column: 1,
+                        end_line: 1,
+                        end_column: 1,
+                        severity: crate::rule::Severity::Error,
+                        fix: None,
+                        rule_name: Some("code-block-tools".to_string()),
+                    });
+                }
+            }
+        }
+
         let diagnostics = all_warnings.iter().map(warning_to_diagnostic).collect();
         Ok(diagnostics)
     }
@@ -156,7 +197,7 @@ impl RumdlLanguageServer {
     /// This method pushes diagnostics to the client via publishDiagnostics.
     /// When the client supports pull diagnostics (textDocument/diagnostic),
     /// we skip pushing to avoid duplicate diagnostics.
-    pub(super) async fn update_diagnostics(&self, uri: Url, text: String) {
+    pub(super) async fn update_diagnostics(&self, uri: Url, text: String, run_external_tools: bool) {
         // Skip pushing if client supports pull diagnostics to avoid duplicates
         if *self.client_supports_pull_diagnostics.read().await {
             log::debug!("Skipping push diagnostics for {uri} - client supports pull model");
@@ -169,7 +210,7 @@ impl RumdlLanguageServer {
             docs.get(&uri).and_then(|entry| entry.version)
         };
 
-        match self.lint_document(&uri, &text).await {
+        match self.lint_document(&uri, &text, run_external_tools).await {
             Ok(diagnostics) => {
                 self.client.publish_diagnostics(uri, diagnostics, version).await;
             }
@@ -378,7 +419,6 @@ impl RumdlLanguageServer {
         match crate::lint(text, &filtered_rules, false, flavor, Some(&rumdl_config)) {
             Ok(warnings) => {
                 let mut actions = Vec::new();
-                let mut fixable_count = 0;
 
                 for warning in &warnings {
                     // Check if warning is within the requested range
@@ -388,15 +428,14 @@ impl RumdlLanguageServer {
                         let mut warning_actions =
                             warning_to_code_actions_with_md013_config(warning, uri, text, Some(&md013_config));
                         actions.append(&mut warning_actions);
-
-                        if warning.fix.is_some() {
-                            fixable_count += 1;
-                        }
                     }
                 }
 
-                // Add "Fix all" action if there are multiple fixable issues in range
-                if fixable_count > 1 {
+                // Count fixable warnings across the entire document for the fixAll gate.
+                // source.fixAll.rumdl applies to the whole file, not just the requested range.
+                let fixable_count = warnings.iter().filter(|w| w.fix.is_some()).count();
+
+                if fixable_count > 0 {
                     // Only apply fixes from fixable rules during "Fix all"
                     // Unfixable rules provide warning-level fixes for individual Quick Fix actions
                     let fixable_warnings: Vec<_> = warnings

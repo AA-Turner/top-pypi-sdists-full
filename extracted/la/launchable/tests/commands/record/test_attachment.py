@@ -168,7 +168,7 @@ class AttachmentTest(CliTestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create temporary files
             text_file_1 = os.path.join(temp_dir, "app.log")
-            text_file_2 = os.path.join(temp_dir, "nested", "app.log")
+            text_file_2 = os.path.join(temp_dir, "nested_2", "app.log")
             zip_path = os.path.join(temp_dir, "logs.zip")
 
             # Create directory structure
@@ -183,7 +183,8 @@ class AttachmentTest(CliTestCase):
             # Create zip file
             with zipfile.ZipFile(zip_path, 'w') as zf:
                 zf.write(text_file_1, 'app.log')
-                zf.write(text_file_2, 'nested/app.log')
+                zf.write(text_file_2, 'nested_1/app.log')
+                zf.write(text_file_2, 'nested_2/app.log')
 
             responses.add(
                 responses.POST,
@@ -196,15 +197,23 @@ class AttachmentTest(CliTestCase):
                 responses.POST,
                 "{}/intake/organizations/{}/workspaces/{}/builds/{}/test_sessions/{}/attachment".format(
                     get_base_url(), self.organization, self.workspace, self.build_name, self.session_id),
-                match=[responses.matchers.header_matcher({"Content-Disposition": 'attachment;filename="nested-app.log"'})],
+                match=[responses.matchers.header_matcher({"Content-Disposition": 'attachment;filename="nested_1/app.log"'})],
+                status=200)
+
+            responses.add(
+                responses.POST,
+                "{}/intake/organizations/{}/workspaces/{}/builds/{}/test_sessions/{}/attachment".format(
+                    get_base_url(), self.organization, self.workspace, self.build_name, self.session_id),
+                match=[responses.matchers.header_matcher({"Content-Disposition": 'attachment;filename="nested_2/app.log"'})],
                 status=200)
 
             result = self.cli("record", "attachment", "--session", self.session, zip_path)
 
-            expect = """| File           | Status                  |
-|----------------|-------------------------|
-| app.log        | ✓ Recorded successfully |
-| nested-app.log | ✓ Recorded successfully |
+            expect = """| File             | Status                  |
+|------------------|-------------------------|
+| app.log          | ✓ Recorded successfully |
+| nested_1/app.log | ✓ Recorded successfully |
+| nested_2/app.log | ✓ Recorded successfully |
 """
             self.assertEqual(expect, result.output)
 
@@ -236,3 +245,36 @@ class AttachmentTest(CliTestCase):
 
             self.assert_success(result)
             self.assertIn("✓ Recorded successfully", result.output)
+
+    @responses.activate
+    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": CliTestCase.launchable_token})
+    def test_attachment_duplicate_file_paths(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create temporary files
+            text_file_1 = os.path.join(temp_dir, "app.log")
+            zip_path = os.path.join(temp_dir, "logs.zip")
+
+            # Write test content
+            with open(text_file_1, 'w') as f:
+                f.write("[INFO] Test log entry")
+
+            # Create zip file
+            with zipfile.ZipFile(zip_path, 'w') as zf:
+                zf.write(text_file_1, 'app.log')
+
+            responses.add(
+                responses.POST,
+                "{}/intake/organizations/{}/workspaces/{}/builds/{}/test_sessions/{}/attachment".format(
+                    get_base_url(), self.organization, self.workspace, self.build_name, self.session_id),
+                match=[responses.matchers.header_matcher({"Content-Disposition": 'attachment;filename="app.log"'})],
+                status=200)
+
+            expect = """| File    | Status                  |
+|---------|-------------------------|
+| app.log | ✓ Recorded successfully |
+| app.log | ⚠ Skipped: duplicate    |
+"""
+
+            result = self.cli("record", "attachment", "--session", self.session, zip_path, zip_path)
+
+            self.assertIn(expect, result.output)

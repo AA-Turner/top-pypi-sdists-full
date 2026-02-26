@@ -1,6 +1,6 @@
 """Synkro enterprise SDK — typed HTTP client for the Synkro CRUD server."""
 
-from synkro.enterprise.client import AsyncSynkro, Synkro
+from synkro.enterprise.client import SYNKRO_GATEWAY_URL, AsyncSynkro, Synkro, createHeaders
 from synkro.enterprise.errors import (
     SynkroAPIError,
     SynkroAuthError,
@@ -25,10 +25,12 @@ __all__ = [
     "PolicyCreateResult",
     "Project",
     "ProjectStatus",
+    "SYNKRO_GATEWAY_URL",
     "Synkro",
     "SynkroAPIError",
     "SynkroAuthError",
     "SynkroError",
     "SynkroNotFoundError",
     "SynkroRateLimitError",
+    "createHeaders",
 ]

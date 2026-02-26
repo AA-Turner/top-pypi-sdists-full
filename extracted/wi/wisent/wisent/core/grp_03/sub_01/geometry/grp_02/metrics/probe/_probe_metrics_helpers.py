@@ -8,9 +8,9 @@ from wisent.core import constants as _C
 def compute_knn_pacmap_accuracy(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
-    k: int = 10,
+    k: int = _C.KNN_DEFAULT_K,
     n_components: int = _C.PACMAP_N_COMPONENTS_DEFAULT,
-    n_folds: int = 5,
+    n_folds: int = _C.CV_FOLDS,
 ) -> float:
     """Compute k-NN accuracy on PaCMAP-reduced features.
 
@@ -24,7 +24,7 @@ def compute_knn_pacmap_accuracy(
         n_folds: Number of cross-validation folds
 
     Returns:
-        Mean cross-validated accuracy, or 0.5 on failure
+        Mean cross-validated accuracy, or CHANCE_LEVEL_ACCURACY on failure
     """
     try:
         import pacmap
@@ -35,7 +35,7 @@ def compute_knn_pacmap_accuracy(
         n_neg = len(neg_activations)
 
         if n_pos < k + 1 or n_neg < k + 1:
-            return 0.5
+            return _C.CHANCE_LEVEL_ACCURACY
 
         X = torch.cat(
             [pos_activations, neg_activations], dim=0
@@ -44,7 +44,7 @@ def compute_knn_pacmap_accuracy(
 
         n_folds = min(n_folds, min(n_pos, n_neg))
         if n_folds < 2:
-            return 0.5
+            return _C.CHANCE_LEVEL_ACCURACY
 
         reducer = pacmap.PaCMAP(
             n_components=n_components,
@@ -61,6 +61,6 @@ def compute_knn_pacmap_accuracy(
         )
         return float(scores.mean())
     except ImportError:
-        return 0.5
+        return _C.CHANCE_LEVEL_ACCURACY
     except Exception:
-        return 0.5
+        return _C.CHANCE_LEVEL_ACCURACY

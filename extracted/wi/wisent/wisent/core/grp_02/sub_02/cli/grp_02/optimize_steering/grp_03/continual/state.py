@@ -11,7 +11,7 @@ from typing import Dict, Optional, Tuple
 import torch
 
 from wisent.core.cli.optimize_steering.continual.replay_buffer import ReplayBuffer
-from wisent.core.constants import DEFAULT_VARIANCE_THRESHOLD, REPLAY_BUFFER_MAX_SIZE, EWC_PERTURBATION_SCALE, EWC_LEARNING_RATE
+from wisent.core.constants import DEFAULT_VARIANCE_THRESHOLD, JSON_INDENT, REPLAY_BUFFER_MAX_SIZE, EWC_PERTURBATION_SCALE, EWC_LEARNING_RATE
 
 
 @dataclass
@@ -147,7 +147,7 @@ def save_state(state: ContinualState, path: str) -> None:
         "metrics": state.metrics,
     }
     with open(os.path.join(path, "metadata.json"), "w") as f:
-        json.dump(metadata, f, indent=2)
+        json.dump(metadata, f, indent=JSON_INDENT)
 
     # Save replay buffer
     state.replay_buffer.save(os.path.join(path, "replay_buffer.json"))
@@ -191,14 +191,14 @@ def load_state(path: str) -> Optional[ContinualState]:
     return state
 
 
-def upload_to_s3(local_path: str, bucket: str, prefix: str) -> None:
-    """Upload checkpoint directory to S3."""
-    s3_uri = f"s3://{bucket}/{prefix}/"
+def upload_to_gcs(local_path: str, bucket: str, prefix: str) -> None:
+    """Upload checkpoint directory to GCS."""
+    gcs_uri = f"gs://{bucket}/{prefix}/"
     subprocess.run(
-        ["aws", "s3", "sync", local_path, s3_uri, "--quiet"],
+        ["gcloud", "storage", "rsync", local_path, gcs_uri, "--quiet"],
         check=True,
     )
-    print(f"   Checkpoint uploaded to {s3_uri}")
+    print(f"   Checkpoint uploaded to {gcs_uri}")
 
 
 # --- EWC (Elastic Weight Consolidation) ---

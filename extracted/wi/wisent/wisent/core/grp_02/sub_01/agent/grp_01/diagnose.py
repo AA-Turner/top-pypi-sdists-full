@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from wisent.core.activations import ExtractionStrategy
-from wisent.core.constants import CLASSIFIER_THRESHOLD, AGENT_QUALITY_HIGH_THRESHOLD, AGENT_CONFIDENCE_HIGH_THRESHOLD, CLASSIFIER_DEFAULT_THRESHOLD, DEFAULT_LAYER
+from wisent.core.constants import CLASSIFIER_THRESHOLD, AGENT_QUALITY_HIGH_THRESHOLD, AGENT_CONFIDENCE_HIGH_THRESHOLD, CLASSIFIER_THRESHOLD, DEFAULT_LAYER, QUALITY_CLASSIFIER_DEFAULT_LAYER
 from wisent.core.activations.activations import Activations
 from wisent.core.classifier.classifier import Classifier
 from wisent.core.errors import (
@@ -49,7 +49,7 @@ class ResponseDiagnostics:
             classifier_configs: List of classifier configurations with paths and layers
                 Example: [
                     {"path": "./models/hallucination_classifier.pt", "layer": DEFAULT_LAYER, "issue_type": "hallucination"},
-                    {"path": "./models/quality_classifier.pt", "layer": 20, "issue_type": "quality"}
+                    {"path": "./models/quality_classifier.pt", "layer": QUALITY_CLASSIFIER_DEFAULT_LAYER, "issue_type": "quality"}
                 ]
         """
         if not classifier_configs:
@@ -227,7 +227,7 @@ class ResponseDiagnostics:
 
         return False
 
-    def add_classifier(self, classifier_path: str, layer_index: int, issue_type: str, threshold: float = CLASSIFIER_DEFAULT_THRESHOLD):
+    def add_classifier(self, classifier_path: str, layer_index: int, issue_type: str, threshold: float = CLASSIFIER_THRESHOLD):
         """Add a new classifier to the diagnostic system."""
         classifier = Classifier()
         classifier.load_model(classifier_path)

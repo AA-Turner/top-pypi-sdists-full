@@ -296,5 +296,69 @@ class TestWebSocketBroadcastInterception(unittest.TestCase):
         mock_ws.send.assert_called_once_with(ended_msg)
 
 
+class TestWebSocketBroadcastGating(unittest.TestCase):
+    """Tests that BroadcastController.broadcast() is NOT called in client_loop
+    when WORKER_LOG_TO_QUEUE=true (fanout consumer handles it instead)."""
+
+    @patch("abstra_internals.utils.websockets.WORKER_LOG_TO_QUEUE", True)
+    @patch(
+        "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
+    )
+    def test_stdio_not_broadcast_when_flag_on(self, MockBroadcast):
+        """With WORKER_LOG_TO_QUEUE=true, stdio messages should NOT be broadcast from client_loop."""
+        stdio_msg = {"type": "stdio", "payload": {"type": "stdout", "log": "hello"}}
+        mock_conn = _make_mock_conn([stdio_msg])
+        mock_ws = _make_mock_ws()
+
+        bind_ws_with_connection(mock_ws, mock_conn, block=False)
+        time.sleep(0.5)
+
+        # BroadcastController.broadcast should NOT be called from client_loop
+        # (the fanout consumer handles it)
+        MockBroadcast.broadcast.assert_not_called()
+
+        # stdio should still NOT be sent to ws (intercepted and skipped)
+        mock_ws.send.assert_not_called()
+
+    @patch("abstra_internals.utils.websockets.WORKER_LOG_TO_QUEUE", True)
+    @patch(
+        "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
+    )
+    def test_stdio_batch_not_broadcast_when_flag_on(self, MockBroadcast):
+        """With WORKER_LOG_TO_QUEUE=true, stdio_batch should NOT be broadcast from client_loop."""
+        batch_msg = {
+            "type": "stdio_batch",
+            "payload": [
+                {"type": "stdout", "log": "line1"},
+                {"type": "stderr", "log": "line2"},
+            ],
+        }
+        mock_conn = _make_mock_conn([batch_msg])
+        mock_ws = _make_mock_ws()
+
+        bind_ws_with_connection(mock_ws, mock_conn, block=False)
+        time.sleep(0.5)
+
+        MockBroadcast.broadcast.assert_not_called()
+        mock_ws.send.assert_not_called()
+
+    @patch("abstra_internals.utils.websockets.WORKER_LOG_TO_QUEUE", True)
+    @patch(
+        "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
+    )
+    def test_task_broadcast_even_when_flag_on(self, MockBroadcast):
+        """With WORKER_LOG_TO_QUEUE=true, task messages should STILL be broadcast (task is not a log)."""
+        task_msg = {"type": "task", "payload": {"id": "t1", "status": "pending"}}
+        mock_conn = _make_mock_conn([task_msg])
+        mock_ws = _make_mock_ws()
+
+        bind_ws_with_connection(mock_ws, mock_conn, block=False)
+        time.sleep(0.5)
+
+        MockBroadcast.broadcast.assert_called_once()
+        broadcast_msg = json.loads(MockBroadcast.broadcast.call_args[1]["msg"])
+        self.assertEqual(broadcast_msg["type"], "task")
+
+
 if __name__ == "__main__":
     unittest.main()

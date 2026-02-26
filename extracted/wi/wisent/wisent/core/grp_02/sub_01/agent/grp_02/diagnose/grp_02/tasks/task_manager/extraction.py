@@ -5,6 +5,8 @@ import random
 from typing import Optional, Tuple, List, Any
 
 from wisent.core.errors import TaskLoadError
+from wisent.core.constants import DISPLAY_TRUNCATION_COMPACT, DISPLAY_TRUNCATION_SHORT, DISPLAY_TOP_N_SMALL, DISPLAY_TOP_N_MEDIUM, DISPLAY_TOP_N_TINY, SAE_TOP_FEATURES_DISPLAY, MAX_TASKS_TO_PROCESS
+from wisent.core import constants as _C
 
 
 def extract_individual_tasks_from_yaml(yaml_file: str, group_name: str, _visited_files=None) -> List[str]:
@@ -46,11 +48,10 @@ def extract_individual_tasks_from_yaml(yaml_file: str, group_name: str, _visited
 
         extract_tasks_recursive(yaml_content)
         potential_tasks = list(set([task for task in individual_tasks if task and isinstance(task, str)]))
-        print(f"   Found potential tasks/groups: {potential_tasks[:5]}...")
+        print(f"   Found potential tasks/groups: {potential_tasks[:_C.DISPLAY_TOP_N_MINI]}...")
         resolved_tasks = []
         yaml_dir = os.path.dirname(yaml_file)
-        max_tasks_to_process = 5
-        for i, task_name in enumerate(potential_tasks[:max_tasks_to_process]):
+        for i, task_name in enumerate(potential_tasks[:MAX_TASKS_TO_PROCESS]):
             if any(suffix in task_name for suffix in ['_zeroshot_', '_fewshot_', '_cot_', '_prompt-', '_task_']):
                 resolved_tasks.append(task_name)
                 continue
@@ -59,7 +60,7 @@ def extract_individual_tasks_from_yaml(yaml_file: str, group_name: str, _visited
                 if os.path.exists(potential_group_file):
                     print(f"   Found nested group file: {os.path.basename(potential_group_file)}")
                     nested_tasks = extract_individual_tasks_from_yaml(potential_group_file, task_name, _visited_files.copy())
-                    resolved_tasks.extend(nested_tasks[:3])
+                    resolved_tasks.extend(nested_tasks[:DISPLAY_TOP_N_TINY])
                     continue
                 for subdir in ['zeroshot', 'fewshot', 'cot']:
                     subdir_path = os.path.join(yaml_dir, task_name, subdir)
@@ -68,13 +69,13 @@ def extract_individual_tasks_from_yaml(yaml_file: str, group_name: str, _visited
                         if os.path.exists(subdir_yaml):
                             print(f"   Found nested group in subdir: {subdir}")
                             nested_tasks = extract_individual_tasks_from_yaml(subdir_yaml, f"{task_name}_{subdir}", _visited_files.copy())
-                            resolved_tasks.extend(nested_tasks[:3])
+                            resolved_tasks.extend(nested_tasks[:DISPLAY_TOP_N_TINY])
                             break
                 else:
                     resolved_tasks.append(task_name)
             else:
                 resolved_tasks.append(task_name)
-        final_tasks = list(set(resolved_tasks))[:10]
+        final_tasks = list(set(resolved_tasks))[:DISPLAY_TOP_N_SMALL]
         print(f"   Extracted individual tasks from YAML: {final_tasks}")
         return final_tasks
     except Exception as e:
@@ -119,7 +120,7 @@ def try_find_related_working_task(task_name: str):
         prefix = parts[0] if parts else task_name
         print(f"   Searching for ANY task starting with '{prefix}_'...")
         matching_tasks = [t for t in all_available_tasks if t.startswith(prefix + '_') and t != task_name]
-        for candidate in matching_tasks[:10]:
+        for candidate in matching_tasks[:DISPLAY_TOP_N_SMALL]:
             print(f"   Trying candidate: {candidate}")
             try:
                 from .group_handling import handle_configurable_group_task
@@ -139,7 +140,7 @@ def try_find_related_working_task(task_name: str):
         for keyword in keywords:
             print(f"   Searching for tasks containing '{keyword}'...")
             keyword_tasks = [t for t in all_available_tasks if keyword in t and t != task_name]
-            for candidate in keyword_tasks[:5]:
+            for candidate in keyword_tasks[:_C.DISPLAY_TOP_N_MINI]:
                 print(f"   Trying keyword match: {candidate}")
                 try:
                     from .group_handling import handle_configurable_group_task
@@ -183,8 +184,8 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                                         if item not in initial_tasks:
                                             initial_tasks.append(item)
                     if initial_tasks:
-                        print(f"   Found {len(initial_tasks)} initial tasks from main YAML: {initial_tasks[:5]}...")
-                        for task_name in initial_tasks[:15]:
+                        print(f"   Found {len(initial_tasks)} initial tasks from main YAML: {initial_tasks[:_C.DISPLAY_TOP_N_MINI]}...")
+                        for task_name in initial_tasks[:SAE_TOP_FEATURES_DISPLAY]:
                             try:
                                 print(f"   Trying initial task: {task_name}")
                                 result = get_task_dict([task_name], task_manager=task_manager)
@@ -193,10 +194,10 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                                     print(f"   SUCCESS: Found working initial task {task_name}")
                                     return task, task_name
                             except Exception as e:
-                                print(f"      Initial task {task_name} failed: {str(e)[:50]}")
+                                print(f"      Initial task {task_name} failed: {str(e)[:DISPLAY_TRUNCATION_SHORT]}")
                                 continue
                 except Exception as yaml_parse_error:
-                    print(f"   Main YAML parsing failed: {str(yaml_parse_error)[:100]}")
+                    print(f"   Main YAML parsing failed: {str(yaml_parse_error)[:DISPLAY_TRUNCATION_COMPACT]}")
                 try:
                     individual_tasks = extract_individual_tasks_from_yaml(yaml_path, group_name)
                     if individual_tasks:
@@ -216,10 +217,10 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                                     print(f"   SUCCESS: Found working base task {base_task}")
                                     return task, base_task
                             except Exception as e:
-                                print(f"      Base task {base_task} failed: {str(e)[:50]}")
+                                print(f"      Base task {base_task} failed: {str(e)[:DISPLAY_TRUNCATION_SHORT]}")
                                 continue
                         valid_tasks = [t for t in individual_tasks if not any(x in t for x in ['{{', '}}', '_common_yaml', 'sentence:'])]
-                        for individual_task in valid_tasks[:5]:
+                        for individual_task in valid_tasks[:_C.DISPLAY_TOP_N_MINI]:
                             try:
                                 print(f"   Trying individual task: {individual_task}")
                                 result = get_task_dict([individual_task], task_manager=task_manager)
@@ -228,10 +229,10 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                                     print(f"   SUCCESS: Found working individual task {individual_task}")
                                     return task, individual_task
                             except Exception as e:
-                                print(f"      Individual task {individual_task} failed: {str(e)[:50]}")
+                                print(f"      Individual task {individual_task} failed: {str(e)[:DISPLAY_TRUNCATION_SHORT]}")
                                 continue
                 except Exception as yaml_error:
-                    print(f"   YAML extraction failed: {str(yaml_error)[:100]}")
+                    print(f"   YAML extraction failed: {str(yaml_error)[:DISPLAY_TRUNCATION_COMPACT]}")
         print(f"   FINAL CATCH-ALL: Searching registry for tasks matching group pattern...")
         all_tasks = getattr(task_manager, 'all_tasks', set())
         if isinstance(all_tasks, list):
@@ -240,12 +241,12 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
         if group_name in all_tasks:
             candidates.append(group_name)
         group_prefix_tasks = [t for t in all_tasks if t.startswith(group_name + '_')]
-        candidates.extend(group_prefix_tasks[:10])
+        candidates.extend(group_prefix_tasks[:DISPLAY_TOP_N_SMALL])
         group_parts = [part for part in group_name.split('_') if len(part) > 2]
         for part in group_parts:
             matching_tasks = [t for t in all_tasks if part in t and t not in candidates]
             matching_tasks.sort(key=lambda x: (part in x.split('_'), len(x)), reverse=True)
-            candidates.extend(matching_tasks[:3])
+            candidates.extend(matching_tasks[:DISPLAY_TOP_N_TINY])
         seen = set()
         unique_candidates = []
         for candidate in candidates:
@@ -253,7 +254,7 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                 unique_candidates.append(candidate)
                 seen.add(candidate)
         print(f"   Found {len(unique_candidates)} candidate tasks to try...")
-        for candidate in unique_candidates[:20]:
+        for candidate in unique_candidates[:DISPLAY_TOP_N_MEDIUM]:
             try:
                 print(f"   Trying candidate: {candidate}")
                 result = get_task_dict([candidate], task_manager=task_manager)
@@ -262,7 +263,7 @@ def try_extract_working_tasks_from_group(group_name: str, task_manager):
                     print(f"   SUCCESS: Found working candidate {candidate}")
                     return task, candidate
             except Exception as e:
-                print(f"      Candidate {candidate} failed: {str(e)[:50]}")
+                print(f"      Candidate {candidate} failed: {str(e)[:DISPLAY_TRUNCATION_SHORT]}")
                 continue
         print(f"   FAILED: Group {group_name} has no working tasks")
         return None

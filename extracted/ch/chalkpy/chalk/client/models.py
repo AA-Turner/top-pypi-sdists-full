@@ -1647,14 +1647,22 @@ class StreamResolverTestMessagePayload(BaseModel):
     message_str: Optional[str]
     message_bytes: Optional[str]
     timestamp: Optional[datetime]
+    headers: list[tuple[str, bytes]] | None
 
     class Config:
         # Add custom encoders to make `datetime` JSON serializable
-        json_encoders = {datetime: lambda v: v.isoformat()}  # Converts datetime to ISO 8601 string
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),  # Converts datetime to ISO 8601 string
+        }
 
     def dict(self, *args: Any, **kwargs: Any):
         original_dict = super().dict(*args, **kwargs)
         encoders = self.__config__.json_encoders or {}
+        if original_headers := original_dict.get("headers"):
+            new_headers: list[tuple[str, str]] = []
+            for (hk, hv) in original_headers:
+                new_headers.append((hk, hv.decode("unicode_escape")))
+            original_dict["headers"] = new_headers
         return {
             key: (encoders[type(value)](value) if type(value) in encoders else value)
             for key, value in original_dict.items()

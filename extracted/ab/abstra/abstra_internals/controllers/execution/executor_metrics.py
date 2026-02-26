@@ -77,6 +77,8 @@ class MetricsCollector:
         self.total_executions_submitted = 0
         self.total_executions_completed = 0
         self.total_executions_failed = 0
+        self._dead_executors_count = 0
+        self._dead_total_execution_time_ms = 0.0
 
         self.last_metrics_log_time = time.time()
         self.metrics_log_interval_seconds = 60.0
@@ -102,8 +104,10 @@ class MetricsCollector:
 
     def record_executor_died(self, executor_id: str) -> None:
         with self.lock:
-            if executor_id in self.executor_metrics:
-                self.executor_metrics[executor_id].is_alive = False
+            executor = self.executor_metrics.pop(executor_id, None)
+            if executor is not None:
+                self._dead_executors_count += 1
+                self._dead_total_execution_time_ms += executor.total_execution_time_ms
 
     def record_execution_started(
         self,
@@ -165,40 +169,36 @@ class MetricsCollector:
             self._log_metrics()
 
     def get_summary(self) -> Dict[str, Any]:
-        total_executors = len(self.executor_metrics)
-        alive_executors = sum(1 for e in self.executor_metrics.values() if e.is_alive)
-        dead_executors = total_executors - alive_executors
-
-        form_executors = sum(
-            1
-            for e in self.executor_metrics.values()
-            if e.is_alive and e.is_form_reserved
-        )
-
-        warmup_times = [
-            e.warmup_duration_ms
-            for e in self.executor_metrics.values()
-            if e.warmup_duration_ms > 0
-        ]
-        avg_warmup_ms = sum(warmup_times) / len(warmup_times) if warmup_times else 0
-
-        avg_exec_time_ms = 0
-        if self.total_executions_completed > 0:
-            total_exec_time = sum(
+        with self.lock:
+            alive_executors = len(self.executor_metrics)
+            dead_executors = self._dead_executors_count
+            form_executors = sum(
+                1 for e in self.executor_metrics.values() if e.is_form_reserved
+            )
+            warmup_times = [
+                e.warmup_duration_ms
+                for e in self.executor_metrics.values()
+                if e.warmup_duration_ms > 0
+            ]
+            total_exec_time = self._dead_total_execution_time_ms + sum(
                 e.total_execution_time_ms for e in self.executor_metrics.values()
             )
-            avg_exec_time_ms = total_exec_time / self.total_executions_completed
+            recent_executions = list(self.completed_executions[-100:])
+            total_completed = self.total_executions_completed
+            total_failed = self.total_executions_failed
+            total_submitted = self.total_executions_submitted
+            active_count = len(self.active_executions)
 
-        total_executions = (
-            self.total_executions_completed + self.total_executions_failed
+        avg_warmup_ms = sum(warmup_times) / len(warmup_times) if warmup_times else 0
+        avg_exec_time_ms = (
+            total_exec_time / total_completed if total_completed > 0 else 0
         )
+
+        total_executions = total_completed + total_failed
         success_rate = (
-            (self.total_executions_completed / total_executions * 100)
-            if total_executions > 0
-            else 0
+            (total_completed / total_executions * 100) if total_executions > 0 else 0
         )
 
-        recent_executions = self.completed_executions[-100:]
         recent_wait_times = [e.wait_time_ms for e in recent_executions]
         avg_wait_time_ms = (
             sum(recent_wait_times) / len(recent_wait_times) if recent_wait_times else 0
@@ -208,14 +208,14 @@ class MetricsCollector:
 
         return {
             "uptime_seconds": uptime_seconds,
-            "total_executors": total_executors,
+            "total_executors": alive_executors,
             "alive_executors": alive_executors,
             "dead_executors": dead_executors,
             "form_capable_executors": form_executors,
-            "active_executions": len(self.active_executions),
-            "total_submitted": self.total_executions_submitted,
-            "total_completed": self.total_executions_completed,
-            "total_failed": self.total_executions_failed,
+            "active_executions": active_count,
+            "total_submitted": total_submitted,
+            "total_completed": total_completed,
+            "total_failed": total_failed,
             "success_rate_percent": round(success_rate, 2),
             "avg_warmup_ms": round(avg_warmup_ms, 2),
             "avg_execution_time_ms": round(avg_exec_time_ms, 2),

@@ -28,7 +28,18 @@ logger = logging.getLogger(__name__)
 
 
 
-from wisent.core.constants import OPTUNA_N_TRIALS_SMALL
+from wisent.core.constants import (
+    DISPLAY_TRUNCATION_ERROR,
+    DISPLAY_TOP_N_MINI,
+    OPTUNA_N_TRIALS_SMALL,
+    OPTIMIZE_CLASSIFICATION_THRESHOLDS,
+    OPTIMIZE_WEIGHT_MOD_TARGET,
+    OPTIMIZATION_BENCHMARK_LIMIT,
+    SEPARATOR_WIDTH_WIDE,
+    SECONDS_PER_MINUTE,
+    SECONDS_PER_HOUR,
+    JSON_INDENT,
+)
 from wisent.core.cli.optimization.core.optimize_helpers import (
     get_checkpoint_path, get_s3_checkpoint_key, load_checkpoint,
     save_checkpoint, get_all_benchmarks, get_personalization_traits,
@@ -53,9 +64,9 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     
     start_time = time.time()
     
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
     print(f"FULL OPTIMIZATION: {args.model}")
-    print(f"{'='*70}")
+    print(f"{'=' * SEPARATOR_WIDTH_WIDE}")
     
     # Determine what to optimize
     all_benchmarks = get_all_benchmarks()
@@ -87,7 +98,7 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     print(f"   Humanization traits: {len(humanization_traits)}")
     print(f"   Welfare traits: {len(welfare_traits)}")
     print(f"   Steering methods: {', '.join(methods)}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * SEPARATOR_WIDTH_WIDE}\n")
     
     # Load checkpoint if resuming
     checkpoint = None
@@ -111,23 +122,23 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     # PHASE 1: CLASSIFICATION OPTIMIZATION
     # =========================================================================
     if not args.skip_classification:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
         print(f"PHASE 1: CLASSIFICATION OPTIMIZATION")
-        print(f"{'='*70}\n")
+        print(f"{'=' * SEPARATOR_WIDTH_WIDE}\n")
         
         try:
             from wisent.core.cli.optimize_classification import execute_optimize_classification
             
             clf_args = argparse.Namespace(
                 model=args.model,
-                tasks=benchmarks[:50] if len(benchmarks) > 50 else benchmarks,
+                tasks=benchmarks[:OPTIMIZATION_BENCHMARK_LIMIT] if len(benchmarks) > OPTIMIZATION_BENCHMARK_LIMIT else benchmarks,
                 limit=args.limit,
                 device=args.device,
                 verbose=getattr(args, 'verbose', False),
                 layer_range=None,
                 skip_full_search=False,
                 aggregation_methods=['average', 'final', 'first', 'max'],
-                threshold_range=[0.3, 0.5, 0.7],
+                threshold_range=list(OPTIMIZE_CLASSIFICATION_THRESHOLDS),
                 optimization_metric='f1',
                 save_plots=False,
             )
@@ -149,9 +160,9 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     # =========================================================================
 
     if not args.skip_steering:
-        print(f"\n{chr(61)*70}")
+        print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
         print(f"PHASE 2: STEERING OPTIMIZATION")
-        print(f"{chr(61)*70}\n")
+        print(f"{'=' * SEPARATOR_WIDTH_WIDE}\n")
         run_benchmark_steering(args, benchmarks, results)
         run_safety_welfare_steering(args, results)
 
@@ -159,9 +170,9 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     # PHASE 3: WEIGHT MODIFICATION OPTIMIZATION
     # =========================================================================
     if not args.skip_weights:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
         print(f"PHASE 3: WEIGHT MODIFICATION OPTIMIZATION")
-        print(f"{'='*70}\n")
+        print(f"{'=' * SEPARATOR_WIDTH_WIDE}\n")
         
         try:
             from wisent.core.cli.optimize_weights import execute_optimize_weights
@@ -169,7 +180,7 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
             # Weight optimization for key traits
             weight_tasks = []
             if personalization_traits:
-                weight_tasks.extend(personalization_traits[:5])  # Use first 5 for practical runtime
+                weight_tasks.extend(personalization_traits[:DISPLAY_TOP_N_MINI])  # Use first 5 for practical runtime
             if safety_traits:
                 weight_tasks.extend(safety_traits)
             if humanization_traits:
@@ -188,7 +199,7 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
                         steering_vectors=None,
                         trials=getattr(args, 'n_trials', OPTUNA_N_TRIALS_SMALL),
                         target_metric="score",
-                        target_value=0.8,
+                        target_value=OPTIMIZE_WEIGHT_MOD_TARGET,
                         device=args.device,
                         verbose=getattr(args, 'verbose', False),
                         output_dir=f"outputs/optimize/{args.model.replace('/', '_')}/weights_{task}",
@@ -200,7 +211,7 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
                 except Exception as e:
                     error_msg = f"weights:{task}: {str(e)}"
                     results["errors"].append(error_msg)
-                    print(f"       Error: {str(e)[:80]}")
+                    print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
         except ImportError as e:
             print(f"   Weight optimization not available: {e}")
     else:
@@ -211,11 +222,11 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     # =========================================================================
     total_time = time.time() - start_time
     
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
     print(f"FULL OPTIMIZATION COMPLETE")
-    print(f"{'='*70}")
+    print(f"{'=' * SEPARATOR_WIDTH_WIDE}")
     print(f"   Model: {args.model}")
-    print(f"   Total time: {total_time/60:.1f} minutes ({total_time/3600:.1f} hours)")
+    print(f"   Total time: {total_time/SECONDS_PER_MINUTE:.1f} minutes ({total_time/SECONDS_PER_HOUR:.1f} hours)")
     print(f"   Steering configs optimized: {len(results['steering'])}")
     print(f"   Weight configs optimized: {len(results['weights'])}")
     print(f"   Errors: {len(results['errors'])}")
@@ -241,11 +252,11 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
     results_file = results_dir / f"full_optimize_{args.model.replace('/', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
     with open(results_file, "w") as f:
-        json.dump(results, f, indent=2, default=str)
+        json.dump(results, f, indent=JSON_INDENT, default=str)
     
     print(f"\n   Results saved to: {results_file}")
     print(f"   Checkpoint: {get_checkpoint_path(args.model)}")
     print(f"   Config cache: ~/.wisent/configs/")
-    print(f"{'='*70}\n")
+    print(f"{'=' * SEPARATOR_WIDTH_WIDE}\n")
     
     return results

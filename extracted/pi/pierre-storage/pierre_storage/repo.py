@@ -254,6 +254,7 @@ class RepoImpl:
         ref: Optional[str] = None,
         include_globs: Optional[List[str]] = None,
         exclude_globs: Optional[List[str]] = None,
+        max_blob_size: Optional[int] = None,
         archive_prefix: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> StreamingResponse:
@@ -263,6 +264,7 @@ class RepoImpl:
             ref: Git ref (branch, tag, or commit SHA)
             include_globs: Optional include globs for archived files
             exclude_globs: Optional exclude globs for archived files
+            max_blob_size: Optional max blob size in bytes
             archive_prefix: Optional archive prefix for tar entries
             ttl: Token TTL in seconds
 
@@ -279,6 +281,8 @@ class RepoImpl:
             body["include_globs"] = include_globs
         if exclude_globs:
             body["exclude_globs"] = exclude_globs
+        if max_blob_size is not None:
+            body["max_blob_size"] = max_blob_size
         if archive_prefix and archive_prefix.strip():
             body["archive"] = {"prefix": archive_prefix.strip()}
 

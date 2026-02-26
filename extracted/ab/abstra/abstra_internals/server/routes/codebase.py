@@ -18,6 +18,7 @@ from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.settings import Settings
 from abstra_internals.utils.code_check import code_check
+from abstra_internals.utils.zip import zip_folder_to_buffer
 
 
 def get_editor_bp(repos: Repositories):
@@ -54,6 +55,26 @@ def get_editor_bp(repos: Repositories):
             flask.abort(400)
         files = controller.list_files(path, mode=mode)
         return [f.to_dict() for f in files]
+
+    @bp.get("/files-zip/<path:path>")
+    def _get_folder_zip(path):
+        folder = Settings.root_path / path
+        resolved = folder.resolve()
+
+        if not resolved.is_relative_to(Settings.root_path.resolve()):
+            flask.abort(400, description="Path is outside project root")
+
+        if not resolved.is_dir():
+            flask.abort(404, description="Folder not found")
+
+        buf = zip_folder_to_buffer(resolved)
+        folder_name = resolved.name or "files"
+        return flask.send_file(
+            buf,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{folder_name}.zip",
+        )
 
     @bp.post("/init-file")
     def _init_file():

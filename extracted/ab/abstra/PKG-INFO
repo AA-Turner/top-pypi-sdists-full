@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.27.0
+Version: 3.27.1
 Summary: Abstra Lib
 Home-page: https://abstra.io
 License: MIT
@@ -47,6 +47,7 @@ Requires-Dist: abstra-json-sql>=0.0.12
 Requires-Dist: filelock>=3.12.0
 Requires-Dist: playwright>=1.40.0
 Requires-Dist: abstra-lua>=0.0.1
+Requires-Dist: ty
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

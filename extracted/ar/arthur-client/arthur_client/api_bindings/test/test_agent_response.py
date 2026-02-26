@@ -35,18 +35,15 @@ class TestAgentResponse(unittest.TestCase):
         model = AgentResponse()
         if include_optional:
             return AgentResponse(
-                id = '',
-                task_id = '',
-                workspace_id = '',
-                data_plane_id = '',
-                model_id = '',
-                name = '',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                is_autocreated = True,
+                name = '',
+                data_plane_id = '',
+                task_id = '',
                 creation_source = None,
+                model_id = '',
                 num_spans = 56,
+                is_autocreated = True,
                 rules = [
                     arthur_client.api_bindings.models.rule_response.RuleResponse(
                         id = '', 
@@ -60,75 +57,47 @@ class TestAgentResponse(unittest.TestCase):
                         updated_at = 56, 
                         config = null, )
                     ],
+                last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                id = '',
+                workspace_id = '',
                 tools = [
-                    arthur_client.api_bindings.models.tool.Tool(
+                    arthur_client.api_bindings.models.tool_response.ToolResponse(
+                        id = '', 
                         name = '', 
                         arguments = [
-                            arthur_client.api_bindings.models.tool_argument.ToolArgument(
+                            arthur_client.api_bindings.models.tool_argument_response.ToolArgumentResponse(
+                                id = '', 
                                 name = '', 
                                 type = '', )
                             ], )
                     ],
                 sub_agents = [
-                    arthur_client.api_bindings.models.sub_agent.SubAgent(
+                    arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
+                        id = '', 
                         name = '', )
                     ],
-                models = [
-                    arthur_client.api_bindings.models.llm_model.LLMModel(
+                llm_models = [
+                    arthur_client.api_bindings.models.llm_model_response.LLMModelResponse(
+                        id = '', 
                         name = '', )
                     ],
                 data_sources = [
-                    arthur_client.api_bindings.models.data_source.DataSource(
+                    arthur_client.api_bindings.models.data_source_response.DataSourceResponse(
+                        id = '', 
                         url = '', )
                     ],
                 infrastructure = 'AWS'
             )
         else:
             return AgentResponse(
-                id = '',
-                task_id = '',
-                workspace_id = '',
-                data_plane_id = '',
-                name = '',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                is_autocreated = True,
+                name = '',
+                data_plane_id = '',
+                task_id = '',
                 creation_source = None,
-                num_spans = 56,
-                rules = [
-                    arthur_client.api_bindings.models.rule_response.RuleResponse(
-                        id = '', 
-                        name = '', 
-                        type = 'KeywordRule', 
-                        apply_to_prompt = True, 
-                        apply_to_response = True, 
-                        enabled = True, 
-                        scope = 'default', 
-                        created_at = 56, 
-                        updated_at = 56, 
-                        config = null, )
-                    ],
-                tools = [
-                    arthur_client.api_bindings.models.tool.Tool(
-                        name = '', 
-                        arguments = [
-                            arthur_client.api_bindings.models.tool_argument.ToolArgument(
-                                name = '', 
-                                type = '', )
-                            ], )
-                    ],
-                sub_agents = [
-                    arthur_client.api_bindings.models.sub_agent.SubAgent(
-                        name = '', )
-                    ],
-                models = [
-                    arthur_client.api_bindings.models.llm_model.LLMModel(
-                        name = '', )
-                    ],
-                data_sources = [
-                    arthur_client.api_bindings.models.data_source.DataSource(
-                        url = '', )
-                    ],
+                id = '',
+                workspace_id = '',
                 infrastructure = 'AWS',
         )
         """

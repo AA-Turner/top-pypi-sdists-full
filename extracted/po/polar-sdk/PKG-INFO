@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polar-sdk
-Version: 0.28.4
+Version: 0.29.0
 Summary: Polar SDK for Python
 Author: Polar
 Requires-Python: >=3.9.2
@@ -287,6 +287,13 @@ def webhook():
 * [activate](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarlicensekeys/README.md#activate) - Activate License Key
 * [deactivate](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarlicensekeys/README.md#deactivate) - Deactivate License Key
 
+#### [customer_portal.members](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarmembers/README.md)
+
+* [list_members](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarmembers/README.md#list_members) - List Members
+* [add_member](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarmembers/README.md#add_member) - Add Member
+* [update_member](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarmembers/README.md#update_member) - Update Member
+* [remove_member](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarmembers/README.md#remove_member) - Remove Member
+
 #### [customer_portal.orders](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarorders/README.md)
 
 * [list](https://github.com/polarsource/polar-python/blob/master/docs/sdks/polarorders/README.md#list) - List Orders
@@ -434,7 +441,7 @@ def webhook():
 ### [orders](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md)
 
 * [list](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#list) - List Orders
-* [export](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#export) - Export Subscriptions
+* [export](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#export) - Export Orders
 * [get](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#get) - Get Order
 * [update](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#update) - Update Order
 * [generate_invoice](https://github.com/polarsource/polar-python/blob/master/docs/sdks/orders/README.md#generate_invoice) - Generate Order Invoice
@@ -604,24 +611,24 @@ with Polar(
 
 
 **Inherit from [`PolarError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/polarerror.py)**:
-* [`ResourceNotFound`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/resourcenotfound.py): Status code `404`. Applicable to 82 of 166 methods.*
-* [`NotPermitted`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notpermitted.py): Status code `403`. Applicable to 10 of 166 methods.*
-* [`Unauthorized`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/unauthorized.py): Not authorized to manage license key. Status code `401`. Applicable to 5 of 166 methods.*
-* [`AlreadyCanceledSubscription`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/alreadycanceledsubscription.py): Status code `403`. Applicable to 4 of 166 methods.*
-* [`AlreadyActiveSubscriptionError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/alreadyactivesubscriptionerror.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 166 methods.*
-* [`NotOpenCheckout`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notopencheckout.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 166 methods.*
-* [`PaymentNotReady`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentnotready.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 166 methods.*
-* [`TrialAlreadyRedeemed`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/trialalreadyredeemed.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 166 methods.*
-* [`ExpiredCheckoutError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/expiredcheckouterror.py): The checkout session is expired. Status code `410`. Applicable to 3 of 166 methods.*
-* [`SubscriptionLocked`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/subscriptionlocked.py): Subscription is pending an update. Status code `409`. Applicable to 2 of 166 methods.*
-* [`MissingInvoiceBillingDetails`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/missinginvoicebillingdetails.py): Order is not paid or is missing billing name or address. Status code `422`. Applicable to 2 of 166 methods.*
-* [`NotPaidOrder`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notpaidorder.py): Order is not paid or is missing billing name or address. Status code `422`. Applicable to 2 of 166 methods.*
-* [`PaymentError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymenterror.py): The payment failed. Status code `400`. Applicable to 1 of 166 methods.*
-* [`CustomerNotReady`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/customernotready.py): Customer is not ready to confirm a payment method. Status code `400`. Applicable to 1 of 166 methods.*
-* [`PaymentMethodInUseByActiveSubscription`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentmethodinusebyactivesubscription.py): Payment method is used by active subscription(s). Status code `400`. Applicable to 1 of 166 methods.*
-* [`RefundedAlready`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/refundedalready.py): Order is already fully refunded. Status code `403`. Applicable to 1 of 166 methods.*
-* [`PaymentAlreadyInProgress`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentalreadyinprogress.py): Payment already in progress. Status code `409`. Applicable to 1 of 166 methods.*
-* [`OrderNotEligibleForRetry`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/ordernoteligibleforretry.py): Order not eligible for retry or payment confirmation failed. Status code `422`. Applicable to 1 of 166 methods.*
+* [`ResourceNotFound`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/resourcenotfound.py): Status code `404`. Applicable to 82 of 170 methods.*
+* [`NotPermitted`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notpermitted.py): Status code `403`. Applicable to 10 of 170 methods.*
+* [`Unauthorized`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/unauthorized.py): Not authorized to manage license key. Status code `401`. Applicable to 5 of 170 methods.*
+* [`AlreadyCanceledSubscription`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/alreadycanceledsubscription.py): Status code `403`. Applicable to 4 of 170 methods.*
+* [`AlreadyActiveSubscriptionError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/alreadyactivesubscriptionerror.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 170 methods.*
+* [`NotOpenCheckout`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notopencheckout.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 170 methods.*
+* [`PaymentNotReady`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentnotready.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 170 methods.*
+* [`TrialAlreadyRedeemed`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/trialalreadyredeemed.py): The checkout is expired, the customer already has an active subscription, or the organization is not ready to accept payments. Status code `403`. Applicable to 3 of 170 methods.*
+* [`ExpiredCheckoutError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/expiredcheckouterror.py): The checkout session is expired. Status code `410`. Applicable to 3 of 170 methods.*
+* [`SubscriptionLocked`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/subscriptionlocked.py): Subscription is pending an update. Status code `409`. Applicable to 2 of 170 methods.*
+* [`MissingInvoiceBillingDetails`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/missinginvoicebillingdetails.py): Order is not paid or is missing billing name or address. Status code `422`. Applicable to 2 of 170 methods.*
+* [`NotPaidOrder`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/notpaidorder.py): Order is not paid or is missing billing name or address. Status code `422`. Applicable to 2 of 170 methods.*
+* [`PaymentError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymenterror.py): The payment failed. Status code `400`. Applicable to 1 of 170 methods.*
+* [`CustomerNotReady`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/customernotready.py): Customer is not ready to confirm a payment method. Status code `400`. Applicable to 1 of 170 methods.*
+* [`PaymentMethodInUseByActiveSubscription`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentmethodinusebyactivesubscription.py): Payment method is used by active subscription(s). Status code `400`. Applicable to 1 of 170 methods.*
+* [`RefundedAlready`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/refundedalready.py): Order is already fully refunded. Status code `403`. Applicable to 1 of 170 methods.*
+* [`PaymentAlreadyInProgress`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/paymentalreadyinprogress.py): Payment already in progress. Status code `409`. Applicable to 1 of 170 methods.*
+* [`OrderNotEligibleForRetry`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/ordernoteligibleforretry.py): Order not eligible for retry or payment confirmation failed. Status code `422`. Applicable to 1 of 170 methods.*
 * [`ResponseValidationError`](https://github.com/polarsource/polar-python/blob/master/./src/polar_sdk/models/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

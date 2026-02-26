@@ -29,7 +29,8 @@ sys.path.insert(0, current_dir)
 # Import the sample retrieval function and benchmark list
 from populate_tasks import get_task_samples_for_analysis
 from only_benchmarks import CORE_BENCHMARKS
-from wisent.core.constants import DEFAULT_NUM_SAMPLES
+from wisent.core.constants import DEFAULT_NUM_SAMPLES, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_COMPACT
+from wisent.core import constants as _C
 
 def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samples: int = DEFAULT_NUM_SAMPLES) -> Dict:
     """
@@ -75,7 +76,7 @@ def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samp
         if "error" in samples_result:
             result["error"] = samples_result["error"]
             result["loading_time_seconds"] = loading_time  # Still record time even if failed
-            print(f"❌ Failed in {loading_time:.2f}s - {samples_result['error'][:100]}...")
+            print(f"❌ Failed in {loading_time:.2f}s - {samples_result['error'][:DISPLAY_TRUNCATION_COMPACT]}...")
         else:
             result["success"] = True
             result["loading_time_seconds"] = loading_time
@@ -87,7 +88,7 @@ def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samp
             if "output_type" in samples_result:
                 result["metadata"]["output_type"] = samples_result["output_type"]
             if "description" in samples_result:
-                result["metadata"]["description"] = samples_result["description"][:200] + "..." if len(str(samples_result.get("description", ""))) > 200 else samples_result.get("description", "")
+                result["metadata"]["description"] = samples_result["description"][:DISPLAY_TRUNCATION_MEDIUM] + "..." if len(str(samples_result.get("description", ""))) > DISPLAY_TRUNCATION_MEDIUM else samples_result.get("description", "")
             
             print(f"✅ {result['samples_retrieved']} samples in {loading_time:.2f}s")
         
@@ -97,7 +98,7 @@ def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samp
         
         result["loading_time_seconds"] = loading_time
         result["error"] = f"Exception: {str(e)}"
-        print(f"💥 Exception in {loading_time:.2f}s - {str(e)[:100]}...")
+        print(f"💥 Exception in {loading_time:.2f}s - {str(e)[:DISPLAY_TRUNCATION_COMPACT]}...")
         
         # Add traceback for debugging
         result["traceback"] = traceback.format_exc()
@@ -150,7 +151,7 @@ def analyze_timing_results(results: List[Dict]) -> Dict:
                 "samples": r["samples_retrieved"],
                 "tags": r["tags"]
             }
-            for r in sorted_by_time[:5]
+            for r in sorted_by_time[:_C.DISPLAY_TOP_N_MINI]
         ]
         analysis["slowest_benchmarks"] = [
             {
@@ -159,7 +160,7 @@ def analyze_timing_results(results: List[Dict]) -> Dict:
                 "samples": r["samples_retrieved"],
                 "tags": r["tags"]
             }
-            for r in sorted_by_time[-5:]
+            for r in sorted_by_time[-_C.DISPLAY_TOP_N_MINI:]
         ]
     
     # Category analysis
@@ -185,7 +186,7 @@ def analyze_timing_results(results: List[Dict]) -> Dict:
         {
             "name": r["benchmark_name"],
             "task": r["task_name"],
-            "error": r["error"][:200] + "..." if len(r["error"]) > 200 else r["error"],
+            "error": r["error"][:DISPLAY_TRUNCATION_MEDIUM] + "..." if len(r["error"]) > DISPLAY_TRUNCATION_MEDIUM else r["error"],
             "tags": r["tags"]
         }
         for r in failed_results
@@ -248,14 +249,14 @@ def save_detailed_results(results: List[Dict], analysis: Dict, output_file: str)
     }
     
     with open(output_file, 'w') as f:
-        json.dump(output_data, f, indent=2)
+        json.dump(output_data, f, indent=_C.JSON_INDENT)
     
     print(f"\n💾 Detailed results saved to: {output_file}")
 
 def main():
     """Main function to time all benchmark loading."""
     print("🚀 Benchmark Loading Timer")
-    print("="*50)
+    print("=" * _C.SEPARATOR_WIDTH_MEDIUM)
     print(f"📋 Testing {len(CORE_BENCHMARKS)} benchmarks...")
     print("⏱️  Measuring time to load 5 samples from each benchmark")
     print()

@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 from abstra_internals.entities.agents.lua.executor import (
+    MAX_EMPTY_CODE_RETRIES,
     MAX_FINISH_REJECTIONS,
     LuaExecutor,
 )
@@ -469,6 +470,90 @@ class TestLuaExecutor:
 
         result = executor.execute("Test", permissions=[])
         assert result.success is True
+
+    def test_empty_code_force_finish_after_max_retries(self):
+        """After MAX_EMPTY_CODE_RETRIES consecutive empty codes, executor fails."""
+        responses: List[Dict[str, Any]] = []
+        for i in range(MAX_EMPTY_CODE_RETRIES + 1):
+            responses.append(
+                {
+                    "thought": f"Thinking step {i + 1}...",
+                    "action": "execute",
+                    "argument": "",
+                }
+            )
+        # Add a finish response that should never be reached
+        responses.append(
+            {
+                "thought": "Done.",
+                "action": "finish_success",
+                "argument": "Should not reach here.",
+            }
+        )
+
+        ai_sdk = MockAiSDK(responses)
+        runtime = LupaRuntime()
+        executor = LuaExecutor(
+            ai_sdk=ai_sdk,  # type: ignore[arg-type]
+            tool_handlers=[FakeTool("navigate", "page"), FinishHandler()],
+            runtime=runtime,
+        )
+
+        result = executor.execute("Test", permissions=[])
+        assert result.success is False
+        assert result.error is not None
+        assert "empty code" in result.error.lower()
+
+    def test_empty_code_counter_resets_on_non_empty_code(self):
+        """Non-empty code resets the consecutive empty-code counter."""
+        ai_sdk = MockAiSDK(
+            [
+                # Two consecutive empty codes (under the limit)
+                {
+                    "thought": "Thinking...",
+                    "action": "execute",
+                    "argument": "",
+                },
+                {
+                    "thought": "Still thinking...",
+                    "action": "execute",
+                    "argument": "",
+                },
+                # Non-empty code resets counter
+                {
+                    "thought": "Now I know.",
+                    "action": "execute",
+                    "argument": 'print("hello")',
+                },
+                # Two more empty codes (under the limit again)
+                {
+                    "thought": "Thinking again...",
+                    "action": "execute",
+                    "argument": "",
+                },
+                {
+                    "thought": "Still thinking...",
+                    "action": "execute",
+                    "argument": "",
+                },
+                # Finish successfully
+                {
+                    "thought": "Done.",
+                    "action": "finish_success",
+                    "argument": "Completed.",
+                },
+            ]
+        )
+        runtime = LupaRuntime()
+        executor = LuaExecutor(
+            ai_sdk=ai_sdk,  # type: ignore[arg-type]
+            tool_handlers=[FinishHandler()],
+            runtime=runtime,
+        )
+
+        result = executor.execute("Test", permissions=[])
+        assert result.success is True
+        assert result.output == "Completed."
 
     def test_screenshot_fn_returning_none(self):
         """When screenshot_fn returns None, no screenshot is stored."""

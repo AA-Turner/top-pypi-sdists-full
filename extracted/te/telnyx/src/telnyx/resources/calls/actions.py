@@ -221,8 +221,11 @@ class ActionsResource(SyncAPIResource):
         stream_url: str | Omit = omit,
         transcription: bool | Omit = omit,
         transcription_config: TranscriptionStartRequestParam | Omit = omit,
+        webhook_retries_policies: Dict[str, action_answer_params.WebhookRetriesPolicies] | Omit = omit,
         webhook_url: str | Omit = omit,
         webhook_url_method: Literal["POST", "GET"] | Omit = omit,
+        webhook_urls: Dict[str, str] | Omit = omit,
+        webhook_urls_method: Literal["POST", "GET"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -309,10 +312,20 @@ class ActionsResource(SyncAPIResource):
 
           transcription: Enable transcription upon call answer. The default value is false.
 
+          webhook_retries_policies: A map of event types to retry policies. Each retry policy contains an array of
+              `retries_ms` specifying the delays between retry attempts in milliseconds.
+              Maximum 5 retries, total delay cannot exceed 60 seconds.
+
           webhook_url: Use this field to override the URL for which Telnyx will send subsequent
               webhooks to for this call.
 
           webhook_url_method: HTTP request type used for `webhook_url`.
+
+          webhook_urls: A map of event types to webhook URLs. When an event of the specified type
+              occurs, the webhook URL associated with that event type will be called instead
+              of `webhook_url`. Events not mapped here will use the default `webhook_url`.
+
+          webhook_urls_method: HTTP request method to invoke `webhook_urls`.
 
           extra_headers: Send extra headers
 
@@ -352,8 +365,11 @@ class ActionsResource(SyncAPIResource):
                     "stream_url": stream_url,
                     "transcription": transcription,
                     "transcription_config": transcription_config,
+                    "webhook_retries_policies": webhook_retries_policies,
                     "webhook_url": webhook_url,
                     "webhook_url_method": webhook_url_method,
+                    "webhook_urls": webhook_urls,
+                    "webhook_urls_method": webhook_urls_method,
                 },
                 action_answer_params.ActionAnswerParams,
             ),
@@ -370,9 +386,11 @@ class ActionsResource(SyncAPIResource):
         call_control_id_to_bridge_with: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        hold_after_unbridge: bool | Omit = omit,
         mute_dtmf: Literal["none", "both", "self", "opposite"] | Omit = omit,
         park_after_unbridge: str | Omit = omit,
         play_ringtone: bool | Omit = omit,
+        prevent_double_bridge: bool | Omit = omit,
         queue: str | Omit = omit,
         record: Literal["record-from-answer"] | Omit = omit,
         record_channels: Literal["single", "dual"] | Omit = omit,
@@ -452,6 +470,9 @@ class ActionsResource(SyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
+          hold_after_unbridge: Specifies behavior after the bridge ends. If set to `true`, the current leg will
+              be put on hold after unbridge instead of being hung up.
+
           mute_dtmf: When enabled, DTMF tones are not passed to the call participant. The webhooks
               containing the DTMF information will be sent.
 
@@ -461,6 +482,9 @@ class ActionsResource(SyncAPIResource):
 
           play_ringtone: Specifies whether to play a ringtone if the call you want to bridge with has not
               yet been answered.
+
+          prevent_double_bridge: When set to `true`, it prevents bridging if the target call is already bridged
+              to another call. Disabled by default.
 
           queue: The name of the queue you want to bridge with, can't be used together with
               call_control_id parameter or video_room_id parameter. Bridging with a queue
@@ -525,9 +549,11 @@ class ActionsResource(SyncAPIResource):
                     "call_control_id_to_bridge_with": call_control_id_to_bridge_with,
                     "client_state": client_state,
                     "command_id": command_id,
+                    "hold_after_unbridge": hold_after_unbridge,
                     "mute_dtmf": mute_dtmf,
                     "park_after_unbridge": park_after_unbridge,
                     "play_ringtone": play_ringtone,
+                    "prevent_double_bridge": prevent_double_bridge,
                     "queue": queue,
                     "record": record,
                     "record_channels": record_channels,
@@ -1063,25 +1089,34 @@ class ActionsResource(SyncAPIResource):
                 the `VoiceId` (e.g., `AWS.Polly.Joanna-Neural`). Check the
                 [available voices](https://docs.aws.amazon.com/polly/latest/dg/available-voices.html)
                 for compatibility.
-              - **Azure:** Use `Azure.<VoiceId>. (e.g. Azure.en-CA-ClaraNeural,
-                Azure.en-CA-LiamNeural, Azure.en-US-BrianMultilingualNeural,
-                Azure.en-US-Ava:DragonHDLatestNeural. For a complete list of voices, go to
-                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery).)
+              - **Azure:** Use `Azure.<VoiceId>` (e.g., `Azure.en-CA-ClaraNeural`,
+                `Azure.en-US-BrianMultilingualNeural`,
+                `Azure.en-US-Ava:DragonHDLatestNeural`). For a complete list of voices, go to
+                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery). Use
+                `voice_settings` to configure custom deployments, regions, or API keys.
               - **ElevenLabs:** Use `ElevenLabs.<ModelId>.<VoiceId>` (e.g.,
                 `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`). The `ModelId` part
                 is optional. To use ElevenLabs, you must provide your ElevenLabs API key as an
                 integration identifier secret in
-                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. Check
+                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. See
+                [integration secrets documentation](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+                for details. Check
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
-              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
+              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>` (e.g., `Telnyx.KokoroTTS.af`).
+                Use `voice_settings` to configure voice_speed and other synthesis parameters.
               - **Minimax:** Use `Minimax.<ModelId>.<VoiceId>` (e.g.,
                 `Minimax.speech-02-hd.Wise_Woman`). Supported models: `speech-02-turbo`,
-                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Optional parameters:
-                `speed` (float, default 1.0), `vol` (float, default 1.0), `pitch` (integer,
-                default 0).
-              - **Resemble:** Use `Resemble.<ModelId>.<VoiceId>` (e.g.,
-                `Resemble.Pro.my_voice`). Supported models: `Pro` (multilingual) and `Turbo`
-                (English only).
+                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Use `voice_settings`
+                to configure speed, volume, pitch, and language_boost.
+              - **Rime:** Use `Rime.<model_id>.<voice_id>` (e.g., `Rime.Arcana.cove`).
+                Supported model_ids: `Arcana`, `Mist`. Use `voice_settings` to configure
+                voice_speed.
+              - **Resemble:** Use `Resemble.Turbo.<voice_id>` (e.g.,
+                `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
+                `voice_settings` to configure precision, sample_rate, and format.
+
+              For service_level basic, you may define the gender of the speaker (male or
+              female).
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
               Base-64 encoded string.
@@ -1167,6 +1202,7 @@ class ActionsResource(SyncAPIResource):
         *,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        custom_headers: Iterable[CustomSipHeaderParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1189,6 +1225,8 @@ class ActionsResource(SyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
+          custom_headers: Custom headers to be added to the SIP BYE message.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1205,6 +1243,7 @@ class ActionsResource(SyncAPIResource):
                 {
                     "client_state": client_state,
                     "command_id": command_id,
+                    "custom_headers": custom_headers,
                 },
                 action_hangup_params.ActionHangupParams,
             ),
@@ -1713,25 +1752,34 @@ class ActionsResource(SyncAPIResource):
                 the `VoiceId` (e.g., `AWS.Polly.Joanna-Neural`). Check the
                 [available voices](https://docs.aws.amazon.com/polly/latest/dg/available-voices.html)
                 for compatibility.
-              - **Azure:** Use `Azure.<VoiceId>. (e.g. Azure.en-CA-ClaraNeural,
-                Azure.en-CA-LiamNeural, Azure.en-US-BrianMultilingualNeural,
-                Azure.en-US-Ava:DragonHDLatestNeural. For a complete list of voices, go to
-                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery).)
+              - **Azure:** Use `Azure.<VoiceId>` (e.g., `Azure.en-CA-ClaraNeural`,
+                `Azure.en-US-BrianMultilingualNeural`,
+                `Azure.en-US-Ava:DragonHDLatestNeural`). For a complete list of voices, go to
+                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery). Use
+                `voice_settings` to configure custom deployments, regions, or API keys.
               - **ElevenLabs:** Use `ElevenLabs.<ModelId>.<VoiceId>` (e.g.,
                 `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`). The `ModelId` part
                 is optional. To use ElevenLabs, you must provide your ElevenLabs API key as an
                 integration identifier secret in
-                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. Check
+                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. See
+                [integration secrets documentation](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+                for details. Check
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
-              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
+              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>` (e.g., `Telnyx.KokoroTTS.af`).
+                Use `voice_settings` to configure voice_speed and other synthesis parameters.
               - **Minimax:** Use `Minimax.<ModelId>.<VoiceId>` (e.g.,
                 `Minimax.speech-02-hd.Wise_Woman`). Supported models: `speech-02-turbo`,
-                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Optional parameters:
-                `speed` (float, default 1.0), `vol` (float, default 1.0), `pitch` (integer,
-                default 0).
-              - **Resemble:** Use `Resemble.<ModelId>.<VoiceId>` (e.g.,
-                `Resemble.Pro.my_voice`). Supported models: `Pro` (multilingual) and `Turbo`
-                (English only).
+                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Use `voice_settings`
+                to configure speed, volume, pitch, and language_boost.
+              - **Rime:** Use `Rime.<model_id>.<voice_id>` (e.g., `Rime.Arcana.cove`).
+                Supported model_ids: `Arcana`, `Mist`. Use `voice_settings` to configure
+                voice_speed.
+              - **Resemble:** Use `Resemble.Turbo.<voice_id>` (e.g.,
+                `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
+                `voice_settings` to configure precision, sample_rate, and format.
+
+              For service_level basic, you may define the gender of the speaker (male or
+              female).
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
               Base-64 encoded string.
@@ -3686,8 +3734,11 @@ class AsyncActionsResource(AsyncAPIResource):
         stream_url: str | Omit = omit,
         transcription: bool | Omit = omit,
         transcription_config: TranscriptionStartRequestParam | Omit = omit,
+        webhook_retries_policies: Dict[str, action_answer_params.WebhookRetriesPolicies] | Omit = omit,
         webhook_url: str | Omit = omit,
         webhook_url_method: Literal["POST", "GET"] | Omit = omit,
+        webhook_urls: Dict[str, str] | Omit = omit,
+        webhook_urls_method: Literal["POST", "GET"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -3774,10 +3825,20 @@ class AsyncActionsResource(AsyncAPIResource):
 
           transcription: Enable transcription upon call answer. The default value is false.
 
+          webhook_retries_policies: A map of event types to retry policies. Each retry policy contains an array of
+              `retries_ms` specifying the delays between retry attempts in milliseconds.
+              Maximum 5 retries, total delay cannot exceed 60 seconds.
+
           webhook_url: Use this field to override the URL for which Telnyx will send subsequent
               webhooks to for this call.
 
           webhook_url_method: HTTP request type used for `webhook_url`.
+
+          webhook_urls: A map of event types to webhook URLs. When an event of the specified type
+              occurs, the webhook URL associated with that event type will be called instead
+              of `webhook_url`. Events not mapped here will use the default `webhook_url`.
+
+          webhook_urls_method: HTTP request method to invoke `webhook_urls`.
 
           extra_headers: Send extra headers
 
@@ -3817,8 +3878,11 @@ class AsyncActionsResource(AsyncAPIResource):
                     "stream_url": stream_url,
                     "transcription": transcription,
                     "transcription_config": transcription_config,
+                    "webhook_retries_policies": webhook_retries_policies,
                     "webhook_url": webhook_url,
                     "webhook_url_method": webhook_url_method,
+                    "webhook_urls": webhook_urls,
+                    "webhook_urls_method": webhook_urls_method,
                 },
                 action_answer_params.ActionAnswerParams,
             ),
@@ -3835,9 +3899,11 @@ class AsyncActionsResource(AsyncAPIResource):
         call_control_id_to_bridge_with: str,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        hold_after_unbridge: bool | Omit = omit,
         mute_dtmf: Literal["none", "both", "self", "opposite"] | Omit = omit,
         park_after_unbridge: str | Omit = omit,
         play_ringtone: bool | Omit = omit,
+        prevent_double_bridge: bool | Omit = omit,
         queue: str | Omit = omit,
         record: Literal["record-from-answer"] | Omit = omit,
         record_channels: Literal["single", "dual"] | Omit = omit,
@@ -3917,6 +3983,9 @@ class AsyncActionsResource(AsyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
+          hold_after_unbridge: Specifies behavior after the bridge ends. If set to `true`, the current leg will
+              be put on hold after unbridge instead of being hung up.
+
           mute_dtmf: When enabled, DTMF tones are not passed to the call participant. The webhooks
               containing the DTMF information will be sent.
 
@@ -3926,6 +3995,9 @@ class AsyncActionsResource(AsyncAPIResource):
 
           play_ringtone: Specifies whether to play a ringtone if the call you want to bridge with has not
               yet been answered.
+
+          prevent_double_bridge: When set to `true`, it prevents bridging if the target call is already bridged
+              to another call. Disabled by default.
 
           queue: The name of the queue you want to bridge with, can't be used together with
               call_control_id parameter or video_room_id parameter. Bridging with a queue
@@ -3990,9 +4062,11 @@ class AsyncActionsResource(AsyncAPIResource):
                     "call_control_id_to_bridge_with": call_control_id_to_bridge_with,
                     "client_state": client_state,
                     "command_id": command_id,
+                    "hold_after_unbridge": hold_after_unbridge,
                     "mute_dtmf": mute_dtmf,
                     "park_after_unbridge": park_after_unbridge,
                     "play_ringtone": play_ringtone,
+                    "prevent_double_bridge": prevent_double_bridge,
                     "queue": queue,
                     "record": record,
                     "record_channels": record_channels,
@@ -4528,25 +4602,34 @@ class AsyncActionsResource(AsyncAPIResource):
                 the `VoiceId` (e.g., `AWS.Polly.Joanna-Neural`). Check the
                 [available voices](https://docs.aws.amazon.com/polly/latest/dg/available-voices.html)
                 for compatibility.
-              - **Azure:** Use `Azure.<VoiceId>. (e.g. Azure.en-CA-ClaraNeural,
-                Azure.en-CA-LiamNeural, Azure.en-US-BrianMultilingualNeural,
-                Azure.en-US-Ava:DragonHDLatestNeural. For a complete list of voices, go to
-                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery).)
+              - **Azure:** Use `Azure.<VoiceId>` (e.g., `Azure.en-CA-ClaraNeural`,
+                `Azure.en-US-BrianMultilingualNeural`,
+                `Azure.en-US-Ava:DragonHDLatestNeural`). For a complete list of voices, go to
+                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery). Use
+                `voice_settings` to configure custom deployments, regions, or API keys.
               - **ElevenLabs:** Use `ElevenLabs.<ModelId>.<VoiceId>` (e.g.,
                 `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`). The `ModelId` part
                 is optional. To use ElevenLabs, you must provide your ElevenLabs API key as an
                 integration identifier secret in
-                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. Check
+                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. See
+                [integration secrets documentation](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+                for details. Check
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
-              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
+              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>` (e.g., `Telnyx.KokoroTTS.af`).
+                Use `voice_settings` to configure voice_speed and other synthesis parameters.
               - **Minimax:** Use `Minimax.<ModelId>.<VoiceId>` (e.g.,
                 `Minimax.speech-02-hd.Wise_Woman`). Supported models: `speech-02-turbo`,
-                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Optional parameters:
-                `speed` (float, default 1.0), `vol` (float, default 1.0), `pitch` (integer,
-                default 0).
-              - **Resemble:** Use `Resemble.<ModelId>.<VoiceId>` (e.g.,
-                `Resemble.Pro.my_voice`). Supported models: `Pro` (multilingual) and `Turbo`
-                (English only).
+                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Use `voice_settings`
+                to configure speed, volume, pitch, and language_boost.
+              - **Rime:** Use `Rime.<model_id>.<voice_id>` (e.g., `Rime.Arcana.cove`).
+                Supported model_ids: `Arcana`, `Mist`. Use `voice_settings` to configure
+                voice_speed.
+              - **Resemble:** Use `Resemble.Turbo.<voice_id>` (e.g.,
+                `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
+                `voice_settings` to configure precision, sample_rate, and format.
+
+              For service_level basic, you may define the gender of the speaker (male or
+              female).
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
               Base-64 encoded string.
@@ -4632,6 +4715,7 @@ class AsyncActionsResource(AsyncAPIResource):
         *,
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
+        custom_headers: Iterable[CustomSipHeaderParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -4654,6 +4738,8 @@ class AsyncActionsResource(AsyncAPIResource):
           command_id: Use this field to avoid duplicate commands. Telnyx will ignore any command with
               the same `command_id` for the same `call_control_id`.
 
+          custom_headers: Custom headers to be added to the SIP BYE message.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -4670,6 +4756,7 @@ class AsyncActionsResource(AsyncAPIResource):
                 {
                     "client_state": client_state,
                     "command_id": command_id,
+                    "custom_headers": custom_headers,
                 },
                 action_hangup_params.ActionHangupParams,
             ),
@@ -5178,25 +5265,34 @@ class AsyncActionsResource(AsyncAPIResource):
                 the `VoiceId` (e.g., `AWS.Polly.Joanna-Neural`). Check the
                 [available voices](https://docs.aws.amazon.com/polly/latest/dg/available-voices.html)
                 for compatibility.
-              - **Azure:** Use `Azure.<VoiceId>. (e.g. Azure.en-CA-ClaraNeural,
-                Azure.en-CA-LiamNeural, Azure.en-US-BrianMultilingualNeural,
-                Azure.en-US-Ava:DragonHDLatestNeural. For a complete list of voices, go to
-                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery).)
+              - **Azure:** Use `Azure.<VoiceId>` (e.g., `Azure.en-CA-ClaraNeural`,
+                `Azure.en-US-BrianMultilingualNeural`,
+                `Azure.en-US-Ava:DragonHDLatestNeural`). For a complete list of voices, go to
+                [Azure Voice Gallery](https://speech.microsoft.com/portal/voicegallery). Use
+                `voice_settings` to configure custom deployments, regions, or API keys.
               - **ElevenLabs:** Use `ElevenLabs.<ModelId>.<VoiceId>` (e.g.,
                 `ElevenLabs.eleven_multilingual_v2.21m00Tcm4TlvDq8ikWAM`). The `ModelId` part
                 is optional. To use ElevenLabs, you must provide your ElevenLabs API key as an
                 integration identifier secret in
-                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. Check
+                `"voice_settings": {"api_key_ref": "<secret_identifier>"}`. See
+                [integration secrets documentation](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+                for details. Check
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
-              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
+              - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>` (e.g., `Telnyx.KokoroTTS.af`).
+                Use `voice_settings` to configure voice_speed and other synthesis parameters.
               - **Minimax:** Use `Minimax.<ModelId>.<VoiceId>` (e.g.,
                 `Minimax.speech-02-hd.Wise_Woman`). Supported models: `speech-02-turbo`,
-                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Optional parameters:
-                `speed` (float, default 1.0), `vol` (float, default 1.0), `pitch` (integer,
-                default 0).
-              - **Resemble:** Use `Resemble.<ModelId>.<VoiceId>` (e.g.,
-                `Resemble.Pro.my_voice`). Supported models: `Pro` (multilingual) and `Turbo`
-                (English only).
+                `speech-02-hd`, `speech-2.6-turbo`, `speech-2.8-turbo`. Use `voice_settings`
+                to configure speed, volume, pitch, and language_boost.
+              - **Rime:** Use `Rime.<model_id>.<voice_id>` (e.g., `Rime.Arcana.cove`).
+                Supported model_ids: `Arcana`, `Mist`. Use `voice_settings` to configure
+                voice_speed.
+              - **Resemble:** Use `Resemble.Turbo.<voice_id>` (e.g.,
+                `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
+                `voice_settings` to configure precision, sample_rate, and format.
+
+              For service_level basic, you may define the gender of the speaker (male or
+              female).
 
           client_state: Use this field to add state to every subsequent webhook. It must be a valid
               Base-64 encoded string.

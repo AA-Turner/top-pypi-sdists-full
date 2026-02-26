@@ -10,6 +10,9 @@ from .transcription_config_param import TranscriptionConfigParam
 from .interruption_settings_param import InterruptionSettingsParam
 from .telnyx_voice_settings_param import TelnyxVoiceSettingsParam
 from .eleven_labs_voice_settings_param import ElevenLabsVoiceSettingsParam
+from ..shared_params.rime_voice_settings import RimeVoiceSettings
+from ..shared_params.azure_voice_settings import AzureVoiceSettings
+from ..shared_params.resemble_voice_settings import ResembleVoiceSettings
 
 __all__ = ["ActionStartAIAssistantParams", "Assistant", "VoiceSettings"]
 
@@ -96,4 +99,11 @@ class Assistant(TypedDict, total=False):
     """Reference to the OpenAI API key. Required only when using OpenAI models"""
 
 
-VoiceSettings: TypeAlias = Union[ElevenLabsVoiceSettingsParam, TelnyxVoiceSettingsParam, AwsVoiceSettingsParam]
+VoiceSettings: TypeAlias = Union[
+    ElevenLabsVoiceSettingsParam,
+    TelnyxVoiceSettingsParam,
+    AwsVoiceSettingsParam,
+    AzureVoiceSettings,
+    RimeVoiceSettings,
+    ResembleVoiceSettings,
+]

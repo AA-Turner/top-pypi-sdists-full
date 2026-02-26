@@ -61803,7 +61803,15 @@ scout_compute_api_ValueVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_ValueDifferenceSeries(ConjureBeanType):
-    """Outputs a new series where each value is the difference between the values of the current and previous point.
+    """Calculates the first discrete difference of the input series. For each point, computes the difference between
+the current value and the previous value (current - previous). The first point in the input series is omitted
+from the output since it has no previous point to compare against.
+
+This is equivalent to pandas DataFrame.diff() with period=1. Useful for analyzing changes between consecutive
+data points in time series data, such as detecting value increases or decreases.
+
+Example: For input values [1.0, 1.0, 2.0, 2.5, 1.8], the output would be [0.0, 1.0, 0.5, -0.7] at the
+corresponding timestamps (the first timestamp is omitted).
     """
 
     @builtins.classmethod

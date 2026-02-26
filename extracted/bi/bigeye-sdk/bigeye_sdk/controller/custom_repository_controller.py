@@ -195,6 +195,124 @@ class CustomRepositoryController:
             for col in response.columns
         ]
 
+    def _query_custom_node_columns(self, entity_id: int) -> List[Dict]:
+        """
+        Query columns for a custom repository node.
+
+        Args:
+            entity_id: The entity ID of the custom node (table-level node)
+
+        Returns:
+            List of column info dicts with keys: name, lineage_id
+            Returns empty list if node has no columns
+
+        Raises:
+            ValueError: If node cannot be fetched or API call fails
+        """
+        try:
+            response = self.client.get_catalog_entity_children(
+                node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                node_id=entity_id
+            )
+        except Exception as e:
+            log.error(f"Failed to fetch children for custom node {entity_id}: {e}")
+            raise ValueError(
+                f"Passthrough expansion failed: Could not fetch columns for custom node "
+                f"(entity_id={entity_id}). Ensure the node exists and is accessible."
+            ) from e
+
+        if not response.entities:
+            return []
+
+        # Extract column information
+        columns = []
+        for entity in response.entities:
+            # Only include nodes that are column-display type
+            # (filtering is implicit - all children of custom tables should be columns)
+            columns.append({
+                'name': entity.node_name,
+                'lineage_id': entity.lineage_id  # This is the data_node ID for edges
+            })
+
+        return columns
+
+    def _query_warehouse_table_columns(self, table_id: int) -> List[Dict]:
+        """
+        Query columns for a warehouse table.
+
+        Args:
+            table_id: The table ID (dataset.id)
+
+        Returns:
+            List of column info dicts with keys: name, lineage_id (data_node_id)
+            Returns empty list if table has no columns
+
+        Raises:
+            ValueError: If table cannot be fetched or API call fails
+        """
+        try:
+            table_response = self.client.get_tables_post(
+                table_ids=[table_id],
+                ignore_fields=False,
+                include_data_node_ids=True
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Passthrough expansion failed: Could not query warehouse table "
+                f"(table_id={table_id}): {e}"
+            ) from e
+
+        if not table_response.tables or len(table_response.tables) == 0:
+            raise ValueError(f"Warehouse table (table_id={table_id}) not found")
+
+        table = table_response.tables[0]
+        if not table.columns or len(table.columns) == 0:
+            return []
+
+        # Extract column info with lineage_id
+        return [
+            {'name': col.name, 'lineage_id': col.data_node_id}
+            for col in table.columns
+        ]
+
+    def _get_node_columns(
+        self,
+        node_lookup: SimpleNodeLookup,
+        node_type: str  # "upstream" or "downstream" for error messages
+    ) -> tuple[List[Dict], str]:
+        """
+        Get columns for a node (warehouse table or custom node).
+
+        Args:
+            node_lookup: SimpleNodeLookup with either table_id or entity_id
+            node_type: "upstream" or "downstream" for error messages
+
+        Returns:
+            Tuple of (columns list, cache_key)
+            columns: List of dicts with 'name' and 'lineage_id'
+            cache_key: String key for caching results
+
+        Raises:
+            ValueError: If neither table_id nor entity_id is provided, or if query fails
+        """
+        if node_lookup.table_id:
+            cache_key = f"table_{node_lookup.table_id}"
+            columns = self._query_warehouse_table_columns(node_lookup.table_id)
+            log.info(f"Queried {node_type} warehouse table (table_id={node_lookup.table_id}): "
+                     f"{len(columns)} columns")
+        elif node_lookup.entity_id:
+            cache_key = f"entity_{node_lookup.entity_id}"
+            columns = self._query_custom_node_columns(node_lookup.entity_id)
+            log.info(f"Queried {node_type} custom node (entity_id={node_lookup.entity_id}): "
+                     f"{len(columns)} columns")
+        else:
+            raise ValueError(
+                f"Passthrough edge requires {node_type}_node with either table_id or entity_id. "
+                f"Got: {node_lookup}"
+            )
+
+        return columns, cache_key
+
     def _node_exists(self, external_id: str, config: CustomRepositoryConfigurationFile) -> bool:
         """
         Check if node with external_id already exists in config.
@@ -495,16 +613,16 @@ class CustomRepositoryController:
         Raises:
             ValueError: If edge is invalid for passthrough
         """
-        # Validate passthrough edge
-        if not edge.upstream_node or not edge.upstream_node.table_id:
+        # Validate passthrough edge - require either table_id or entity_id
+        if not edge.upstream_node or (not edge.upstream_node.table_id and not edge.upstream_node.entity_id):
             raise ValueError(
-                f"Passthrough edge requires upstream_node with table_id. "
+                f"Passthrough edge requires upstream_node with table_id or entity_id. "
                 f"Got: {edge.upstream_node}"
             )
 
-        if not edge.downstream_node or not edge.downstream_node.table_id:
+        if not edge.downstream_node or (not edge.downstream_node.table_id and not edge.downstream_node.entity_id):
             raise ValueError(
-                f"Passthrough edge requires downstream_node with table_id. "
+                f"Passthrough edge requires downstream_node with table_id or entity_id. "
                 f"Got: {edge.downstream_node}"
             )
 
@@ -517,81 +635,52 @@ class CustomRepositoryController:
                 f"Define the passthrough node before using it in edges."
             )
 
-        # Get columns from upstream table using get_tables_post
-        upstream_table_id = edge.upstream_node.table_id
-        upstream_parent_id = str(upstream_table_id)
+        # Get upstream columns
+        upstream_parent_id = None
+        if edge.upstream_node.table_id:
+            upstream_parent_id = f"table_{edge.upstream_node.table_id}"
+        elif edge.upstream_node.entity_id:
+            upstream_parent_id = f"entity_{edge.upstream_node.entity_id}"
 
         if upstream_parent_id not in processed_tables:
-            log.info(f"Querying upstream table (table_id={upstream_table_id}) for column DataNode IDs")
-            try:
-                table_response = self.client.get_tables_post(
-                    table_ids=[upstream_table_id],
-                    ignore_fields=False,
-                    include_data_node_ids=True
-                )
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to query upstream table (table_id={upstream_table_id}): {e}"
-                )
+            upstream_columns, cache_key = self._get_node_columns(edge.upstream_node, "upstream")
 
-            if not table_response.tables or len(table_response.tables) == 0:
-                raise ValueError(
-                    f"Upstream table (table_id={upstream_table_id}) not found"
-                )
-
-            table = table_response.tables[0]
-            if not table.columns or len(table.columns) == 0:
+            if len(upstream_columns) == 0:
                 log.warning(
-                    f"Skipping passthrough for edge: upstream table (table_id={upstream_table_id}) has no columns."
+                    f"Skipping passthrough: upstream node has no columns."
                 )
                 return
 
-            # Extract column info with DataNode IDs
-            columns = [{'name': col.name, 'data_node_id': col.data_node_id} for col in table.columns]
-            processed_tables[upstream_parent_id] = columns
+            processed_tables[cache_key] = upstream_columns
 
         upstream_columns = processed_tables[upstream_parent_id]
 
-        # Get columns from downstream table using get_tables_post
-        downstream_table_id = edge.downstream_node.table_id
-        downstream_parent_id = str(downstream_table_id)
+        # Get downstream columns
+        downstream_parent_id = None
+        if edge.downstream_node.table_id:
+            downstream_parent_id = f"table_{edge.downstream_node.table_id}"
+        elif edge.downstream_node.entity_id:
+            downstream_parent_id = f"entity_{edge.downstream_node.entity_id}"
 
         if downstream_parent_id not in processed_tables:
-            log.info(f"Querying downstream table (table_id={downstream_table_id}) for column DataNode IDs")
-            try:
-                table_response = self.client.get_tables_post(
-                    table_ids=[downstream_table_id],
-                    ignore_fields=False,
-                    include_data_node_ids=True
-                )
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to query downstream table (table_id={downstream_table_id}): {e}"
-                )
+            downstream_columns, cache_key = self._get_node_columns(edge.downstream_node, "downstream")
 
-            if not table_response.tables or len(table_response.tables) == 0:
-                raise ValueError(
-                    f"Downstream table (table_id={downstream_table_id}) not found"
-                )
-
-            table = table_response.tables[0]
-            if not table.columns or len(table.columns) == 0:
+            if len(downstream_columns) == 0:
                 log.warning(
-                    f"Skipping passthrough for edge: downstream table (table_id={downstream_table_id}) has no columns."
+                    f"Skipping passthrough: downstream node has no columns."
                 )
                 return
 
-            # Extract column info with DataNode IDs
-            columns = [{'name': col.name, 'data_node_id': col.data_node_id} for col in table.columns]
-            processed_tables[downstream_parent_id] = columns
+            processed_tables[cache_key] = downstream_columns
 
         downstream_columns = processed_tables[downstream_parent_id]
 
-        # Build column name mappings
-        upstream_col_by_name = {col['name']: col for col in upstream_columns}
-        downstream_col_by_name = {col['name']: col for col in downstream_columns}
+        # Build column name mappings (case-insensitive by normalizing to lowercase)
+        # Use lowercase keys for matching, but preserve original names in the col dict
+        upstream_col_by_name = {col['name'].lower(): col for col in upstream_columns}
+        downstream_col_by_name = {col['name'].lower(): col for col in downstream_columns}
 
-        # Get union of all column names
+        # Get union of all column names (normalized to lowercase for matching)
         all_column_names = set(upstream_col_by_name.keys()) | set(downstream_col_by_name.keys())
 
         log.info(f"Passthrough mapping: {len(upstream_columns)} upstream columns, "
@@ -625,9 +714,9 @@ class CustomRepositoryController:
 
             # Create upstream column DataNode -> passthrough edge (if upstream column exists)
             if col_name in upstream_col_by_name:
-                upstream_col_data_node_id = upstream_col_by_name[col_name]['data_node_id']
+                upstream_col_lineage_id = upstream_col_by_name[col_name]['lineage_id']
                 expanded_edges.append(SimpleRepositorySyncEdge(
-                    upstream_node=SimpleNodeLookup(node_id=upstream_col_data_node_id),
+                    upstream_node=SimpleNodeLookup(node_id=upstream_col_lineage_id),
                     downstream_external_id=passthrough_col_external_id,
                     relationship_type="LINEAGE"
                 ))
@@ -635,10 +724,10 @@ class CustomRepositoryController:
 
             # Create passthrough -> downstream column DataNode edge (if downstream column exists)
             if col_name in downstream_col_by_name:
-                downstream_col_data_node_id = downstream_col_by_name[col_name]['data_node_id']
+                downstream_col_lineage_id = downstream_col_by_name[col_name]['lineage_id']
                 expanded_edges.append(SimpleRepositorySyncEdge(
                     upstream_external_id=passthrough_col_external_id,
-                    downstream_node=SimpleNodeLookup(node_id=downstream_col_data_node_id),
+                    downstream_node=SimpleNodeLookup(node_id=downstream_col_lineage_id),
                     relationship_type="LINEAGE"
                 ))
                 edges_created += 1

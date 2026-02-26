@@ -12,6 +12,9 @@ from .interruption_settings_param import InterruptionSettingsParam
 from .telnyx_voice_settings_param import TelnyxVoiceSettingsParam
 from .google_transcription_language import GoogleTranscriptionLanguage
 from .eleven_labs_voice_settings_param import ElevenLabsVoiceSettingsParam
+from ..shared_params.rime_voice_settings import RimeVoiceSettings
+from ..shared_params.azure_voice_settings import AzureVoiceSettings
+from ..shared_params.resemble_voice_settings import ResembleVoiceSettings
 
 __all__ = ["ActionGatherUsingAIParams", "MessageHistory", "VoiceSettings"]
 
@@ -135,4 +138,11 @@ class MessageHistory(TypedDict, total=False):
     """The role of the message sender"""
 
 
-VoiceSettings: TypeAlias = Union[ElevenLabsVoiceSettingsParam, TelnyxVoiceSettingsParam, AwsVoiceSettingsParam]
+VoiceSettings: TypeAlias = Union[
+    ElevenLabsVoiceSettingsParam,
+    TelnyxVoiceSettingsParam,
+    AwsVoiceSettingsParam,
+    AzureVoiceSettings,
+    RimeVoiceSettings,
+    ResembleVoiceSettings,
+]

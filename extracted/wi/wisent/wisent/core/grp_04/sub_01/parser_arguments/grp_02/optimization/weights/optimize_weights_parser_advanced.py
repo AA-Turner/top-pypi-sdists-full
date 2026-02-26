@@ -2,7 +2,16 @@
 import argparse
 
 from wisent.core import constants as _C
-from wisent.core.constants import PAIRS_SIMILARITY_THRESHOLD
+from wisent.core.constants import (
+    DEFAULT_OPTIMIZATION_STEPS,
+    DIRECTIONS_PER_LAYER,
+    PAIRS_SIMILARITY_THRESHOLD,
+    WEIGHT_MOD_DEFAULT_COMPONENTS,
+    WEIGHT_OPT_STRENGTH_RANGE,
+    WEIGHT_OPT_MAX_WEIGHT_RANGE,
+    WEIGHT_OPT_MIN_WEIGHT_RANGE,
+    WEIGHT_OPT_POSITION_RANGE,
+)
 
 
 def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> None:
@@ -43,25 +52,25 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     search_group.add_argument(
         "--strength-range",
         type=str,
-        default="0.3,2.0",
+        default=WEIGHT_OPT_STRENGTH_RANGE,
         help="Min,max range for directional projection strength. Default: 0.3,2.0"
     )
     search_group.add_argument(
         "--max-weight-range",
         type=str,
-        default="0.5,3.0",
+        default=WEIGHT_OPT_MAX_WEIGHT_RANGE,
         help="Min,max range for kernel max weight. Default: 0.5,3.0"
     )
     search_group.add_argument(
         "--min-weight-range",
         type=str,
-        default="0.0,0.5",
+        default=WEIGHT_OPT_MIN_WEIGHT_RANGE,
         help="Min,max range for kernel min weight. Default: 0.0,0.5"
     )
     search_group.add_argument(
         "--position-range",
         type=str,
-        default="0.3,0.7",
+        default=WEIGHT_OPT_POSITION_RANGE,
         help="Min,max range for kernel peak position (as ratio 0-1). Default: 0.3,0.7"
     )
     search_group.add_argument(
@@ -95,7 +104,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
         "--components",
         type=str,
         nargs="+",
-        default=["self_attn.o_proj", "mlp.down_proj"],
+        default=list(WEIGHT_MOD_DEFAULT_COMPONENTS),
         help="Components to modify. Default: self_attn.o_proj mlp.down_proj"
     )
     method_group.add_argument(
@@ -116,7 +125,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     multi_dir_group.add_argument(
         "--num-directions",
         type=int,
-        default=5,
+        default=DIRECTIONS_PER_LAYER,
         help="Number of directions per layer for multi-direction methods. Default: 5"
     )
     multi_dir_group.add_argument(
@@ -134,7 +143,7 @@ def setup_advanced_optimize_weights_args(parser: argparse.ArgumentParser) -> Non
     multi_dir_group.add_argument(
         "--multi-optimization-steps",
         type=int,
-        default=100,
+        default=DEFAULT_OPTIMIZATION_STEPS,
         help="Optimization steps for multi-direction training. Default: 100"
     )
 

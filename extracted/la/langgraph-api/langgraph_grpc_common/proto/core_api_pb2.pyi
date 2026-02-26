@@ -1014,6 +1014,33 @@ class ThreadTTLConfig(_message.Message):
 Global___ThreadTTLConfig: _TypeAlias = ThreadTTLConfig  # noqa: Y015
 
 @_typing.final
+class ThreadTTLInfo(_message.Message):
+    """TTL information returned in thread responses when include_ttl is requested."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    STRATEGY_FIELD_NUMBER: _builtins.int
+    TTL_MINUTES_FIELD_NUMBER: _builtins.int
+    EXPIRES_AT_FIELD_NUMBER: _builtins.int
+    strategy: Global___ThreadTTLStrategy.ValueType
+    ttl_minutes: _builtins.float
+    @_builtins.property
+    def expires_at(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        strategy: Global___ThreadTTLStrategy.ValueType = ...,
+        ttl_minutes: _builtins.float = ...,
+        expires_at: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["expires_at", b"expires_at"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["expires_at", b"expires_at", "strategy", b"strategy", "ttl_minutes", b"ttl_minutes"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___ThreadTTLInfo: _TypeAlias = ThreadTTLInfo  # noqa: Y015
+
+@_typing.final
 class Fragment(_message.Message):
     """A wrapper type for a byte array (generally used to skip serde round trips)."""
 
@@ -1297,6 +1324,7 @@ class Thread(_message.Message):
     ERROR_FIELD_NUMBER: _builtins.int
     STATE_UPDATED_AT_FIELD_NUMBER: _builtins.int
     EXTRACTED_JSON_FIELD_NUMBER: _builtins.int
+    TTL_FIELD_NUMBER: _builtins.int
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
     extracted_json: _builtins.bytes
     """Extracted values from JSONB columns, populated when extract is specified in search.
@@ -1320,6 +1348,10 @@ class Thread(_message.Message):
     def error(self) -> Global___Fragment: ...
     @_builtins.property
     def state_updated_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def ttl(self) -> Global___ThreadTTLInfo:
+        """TTL information, only present when include_ttl is requested."""
+
     def __init__(
         self,
         *,
@@ -1334,14 +1366,20 @@ class Thread(_message.Message):
         error: Global___Fragment | None = ...,
         state_updated_at: _timestamp_pb2.Timestamp | None = ...,
         extracted_json: _builtins.bytes | None = ...,
+        ttl: Global___ThreadTTLInfo | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "interrupts", b"interrupts", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json", "_ttl", b"_ttl", "config", b"config", "created_at", b"created_at", "error", b"error", "extracted_json", b"extracted_json", "interrupts", b"interrupts", "metadata", b"metadata", "state_updated_at", b"state_updated_at", "status", b"status", "thread_id", b"thread_id", "ttl", b"ttl", "updated_at", b"updated_at", "values", b"values"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__extracted_json: _TypeAlias = _typing.Literal["extracted_json"]  # noqa: Y015
     _WhichOneofArgType__extracted_json: _TypeAlias = _typing.Literal["_extracted_json", b"_extracted_json"]  # noqa: Y015
+    _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
+    _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
+    @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__extracted_json) -> _WhichOneofReturnType__extracted_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__ttl) -> _WhichOneofReturnType__ttl | None: ...
 
 Global___Thread: _TypeAlias = Thread  # noqa: Y015
 
@@ -1400,6 +1438,9 @@ class GetThreadRequest(_message.Message):
 
     THREAD_ID_FIELD_NUMBER: _builtins.int
     FILTERS_FIELD_NUMBER: _builtins.int
+    INCLUDE_TTL_FIELD_NUMBER: _builtins.int
+    include_ttl: _builtins.bool
+    """When true, include TTL information in the response."""
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -1409,11 +1450,15 @@ class GetThreadRequest(_message.Message):
         *,
         thread_id: Global___UUID | None = ...,
         filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        include_ttl: _builtins.bool | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["thread_id", b"thread_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "include_ttl", b"include_ttl", "thread_id", b"thread_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["filters", b"filters", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl", "filters", b"filters", "include_ttl", b"include_ttl", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__include_ttl: _TypeAlias = _typing.Literal["include_ttl"]  # noqa: Y015
+    _WhichOneofArgType__include_ttl: _TypeAlias = _typing.Literal["_include_ttl", b"_include_ttl"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__include_ttl) -> _WhichOneofReturnType__include_ttl | None: ...
 
 Global___GetThreadRequest: _TypeAlias = GetThreadRequest  # noqa: Y015
 
@@ -2018,6 +2063,89 @@ class RunStats(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__pending_unblocked_runs_wait_time_max_secs) -> _WhichOneofReturnType__pending_unblocked_runs_wait_time_max_secs | None: ...
 
 Global___RunStats: _TypeAlias = RunStats  # noqa: Y015
+
+@_typing.final
+class PostgresPoolStats(_message.Message):
+    """Connection pool stats for /metrics aggregation (Python merges with local pool stats)."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    POOL_MAX_FIELD_NUMBER: _builtins.int
+    POOL_SIZE_FIELD_NUMBER: _builtins.int
+    POOL_AVAILABLE_FIELD_NUMBER: _builtins.int
+    REQUESTS_QUEUED_FIELD_NUMBER: _builtins.int
+    REQUESTS_ERRORS_FIELD_NUMBER: _builtins.int
+    pool_max: _builtins.int
+    pool_size: _builtins.int
+    pool_available: _builtins.int
+    requests_queued: _builtins.int
+    requests_errors: _builtins.int
+    def __init__(
+        self,
+        *,
+        pool_max: _builtins.int = ...,
+        pool_size: _builtins.int = ...,
+        pool_available: _builtins.int = ...,
+        requests_queued: _builtins.int = ...,
+        requests_errors: _builtins.int = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["pool_available", b"pool_available", "pool_max", b"pool_max", "pool_size", b"pool_size", "requests_errors", b"requests_errors", "requests_queued", b"requests_queued"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___PostgresPoolStats: _TypeAlias = PostgresPoolStats  # noqa: Y015
+
+@_typing.final
+class RedisPoolStats(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    IDLE_CONNECTIONS_FIELD_NUMBER: _builtins.int
+    IN_USE_CONNECTIONS_FIELD_NUMBER: _builtins.int
+    MAX_CONNECTIONS_FIELD_NUMBER: _builtins.int
+    idle_connections: _builtins.int
+    in_use_connections: _builtins.int
+    max_connections: _builtins.int
+    def __init__(
+        self,
+        *,
+        idle_connections: _builtins.int = ...,
+        in_use_connections: _builtins.int = ...,
+        max_connections: _builtins.int = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["idle_connections", b"idle_connections", "in_use_connections", b"in_use_connections", "max_connections", b"max_connections"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___RedisPoolStats: _TypeAlias = RedisPoolStats  # noqa: Y015
+
+@_typing.final
+class ConnectionPoolStats(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    POSTGRES_FIELD_NUMBER: _builtins.int
+    REDIS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def postgres(self) -> Global___PostgresPoolStats: ...
+    @_builtins.property
+    def redis(self) -> Global___RedisPoolStats: ...
+    def __init__(
+        self,
+        *,
+        postgres: Global___PostgresPoolStats | None = ...,
+        redis: Global___RedisPoolStats | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_postgres", b"_postgres", "_redis", b"_redis", "postgres", b"postgres", "redis", b"redis"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_postgres", b"_postgres", "_redis", b"_redis", "postgres", b"postgres", "redis", b"redis"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__postgres: _TypeAlias = _typing.Literal["postgres"]  # noqa: Y015
+    _WhichOneofArgType__postgres: _TypeAlias = _typing.Literal["_postgres", b"_postgres"]  # noqa: Y015
+    _WhichOneofReturnType__redis: _TypeAlias = _typing.Literal["redis"]  # noqa: Y015
+    _WhichOneofArgType__redis: _TypeAlias = _typing.Literal["_redis", b"_redis"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__postgres) -> _WhichOneofReturnType__postgres | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__redis) -> _WhichOneofReturnType__redis | None: ...
+
+Global___ConnectionPoolStats: _TypeAlias = ConnectionPoolStats  # noqa: Y015
 
 @_typing.final
 class NextRunRequest(_message.Message):

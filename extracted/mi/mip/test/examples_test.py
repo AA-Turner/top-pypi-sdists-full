@@ -8,14 +8,21 @@ import types
 import importlib.machinery
 import pytest
 
+import mip.gurobi
+import mip.highs
+from mip import CBC, GUROBI, HIGHS
+from util import skip_on, has_gurobi_license
 
 EXAMPLES = glob(join("..", "examples", "*.py")) + glob(join(".", "examples", "*.py"))
 
-SOLVERS = ["cbc"]
-if "GUROBI_HOME" in environ:
-    SOLVERS += ["gurobi"]
+SOLVERS = [CBC]
+if has_gurobi_license():
+    SOLVERS += [GUROBI]
+if mip.highs.has_highs:
+    SOLVERS += [HIGHS]
 
 
+@skip_on(NotImplementedError)
 @pytest.mark.parametrize("solver, example", product(SOLVERS, EXAMPLES))
 def test_examples(solver, example):
     """Executes a given example with using solver 'solver'"""

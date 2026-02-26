@@ -8,6 +8,28 @@ import System
 import System.Runtime.InteropServices
 
 
+class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self, owns_handle: bool) -> None:
+        ...
+
+
 class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -54,28 +76,6 @@ class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         ...
 
     def release_handle(self) -> bool:
-        ...
-
-
-class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self, owns_handle: bool) -> None:
         ...
 
 

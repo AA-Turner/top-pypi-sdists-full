@@ -3,6 +3,7 @@ import os
 
 import pytest
 import logging
+import typing
 
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
@@ -96,16 +97,16 @@ class TestTestgresRemote:
                 os.environ.pop("LC_COLLATE", None)
 
                 assert os.environ.get("LANG") == unkData[0]
-                assert not ("LANGUAGE" in os.environ.keys())
+                assert "LANGUAGE" not in os.environ.keys()
                 assert os.environ.get("LC_CTYPE") == unkData[1]
-                assert not ("LC_COLLATE" in os.environ.keys())
+                assert "LC_COLLATE" not in os.environ.keys()
 
                 assert os.getenv('LANG') == unkData[0]
                 assert os.getenv('LANGUAGE') is None
                 assert os.getenv('LC_CTYPE') == unkData[1]
                 assert os.getenv('LC_COLLATE') is None
 
-                exc: ExecUtilException = None
+                exc: typing.Optional[BaseException] = None
                 with __class__.helper__get_node() as node:
                     try:
                         node.init()  # IT RAISES!
@@ -185,6 +186,6 @@ class TestTestgresRemote:
 
     @staticmethod
     def helper__skip_test_if_util_not_exist(name: str):
-        assert type(name) == str  # noqa: E721
+        assert type(name) is str
         if not util_exists(name):
             pytest.skip('might be missing')

@@ -8,9 +8,10 @@ import torch
 from datasets import load_dataset
 
 from wisent.core.models.wisent_model import WisentModel
+from wisent.core.constants import TOKENIZER_MAX_LENGTH_GEOMETRY, DEFAULT_RANDOM_SEED, N_BOOTSTRAP_DEFAULT, PROGRESS_LOG_INTERVAL_20
 
 
-def load_truthfulqa_pairs(n_pairs: int = 100, seed: int = 42) -> List[Dict]:
+def load_truthfulqa_pairs(n_pairs: int = N_BOOTSTRAP_DEFAULT, seed: int = DEFAULT_RANDOM_SEED) -> List[Dict]:
     """Load contrastive pairs from TruthfulQA."""
     random.seed(seed)
     ds = load_dataset("truthfulqa/truthful_qa", "generation", split="validation")
@@ -32,7 +33,7 @@ def load_truthfulqa_pairs(n_pairs: int = 100, seed: int = 42) -> List[Dict]:
     return pairs
 
 
-def load_hellaswag_pairs(n_pairs: int = 100, seed: int = 42) -> List[Dict]:
+def load_hellaswag_pairs(n_pairs: int = N_BOOTSTRAP_DEFAULT, seed: int = DEFAULT_RANDOM_SEED) -> List[Dict]:
     """Load contrastive pairs from HellaSwag."""
     random.seed(seed)
     ds = load_dataset("Rowan/hellaswag", split="validation")
@@ -64,7 +65,7 @@ def load_hellaswag_pairs(n_pairs: int = 100, seed: int = 42) -> List[Dict]:
 
 def get_activations(model: WisentModel, text: str, layer: int) -> torch.Tensor:
     """Extract last token activation from a specific layer."""
-    inputs = model.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    inputs = model.tokenizer(text, return_tensors="pt", truncation=True, max_length=TOKENIZER_MAX_LENGTH_GEOMETRY)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     activations = {}
@@ -103,7 +104,7 @@ def extract_difference_vectors(
     
     total = len(pairs)
     for i, pair in enumerate(pairs):
-        if show_progress and (i + 1) % 20 == 0:
+        if show_progress and (i + 1) % PROGRESS_LOG_INTERVAL_20 == 0:
             print(f"  Extracting activations: {i+1}/{total}")
         
         # Format as chat

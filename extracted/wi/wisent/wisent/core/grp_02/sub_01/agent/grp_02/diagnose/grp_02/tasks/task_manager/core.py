@@ -8,7 +8,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from difflib import SequenceMatcher
 
 from wisent.core.errors import TaskLoadError, TaskNotFoundError, NoDocsAvailableError
-from wisent.core.constants import DATA_SPLIT_RATIO, DATA_SPLIT_SEED, TASK_FUZZY_MATCH_THRESHOLD
+from wisent.core.constants import DEFAULT_SPLIT_RATIO, DEFAULT_RANDOM_SEED, DEFAULT_TIMEOUT_DOCKER, TASK_FUZZY_MATCH_THRESHOLD
+from wisent.core import constants as _C
 
 
 def load_available_tasks() -> List[str]:
@@ -35,7 +36,7 @@ def load_available_tasks() -> List[str]:
     except ImportError:
         try:
             import subprocess
-            result = subprocess.run(['lm_eval', '--tasks', 'list'], capture_output=True, text=True, timeout=30)
+            result = subprocess.run(['lm_eval', '--tasks', 'list'], capture_output=True, text=True, timeout=DEFAULT_TIMEOUT_DOCKER)
             task_names = []
             for line in result.stdout.split('\n'):
                 if '|' in line and not line.startswith('|---') and 'Group' not in line and 'Config Location' not in line:
@@ -151,7 +152,7 @@ class TaskManager:
         if best_match:
             self._task_name_mappings[task_name] = best_match
             return best_match
-        suggestions = [t for t in self.available_tasks if any(w.lower() in t.lower() for w in task_name.split('_'))][:5]
+        suggestions = [t for t in self.available_tasks if any(w.lower() in t.lower() for w in task_name.split('_'))][:_C.DISPLAY_TOP_N_MINI]
         raise TaskNotFoundError(task_name=task_name, available_tasks=suggestions if suggestions else None)
 
     def _calculate_task_name_similarity(self, name1: str, name2: str) -> float:
@@ -177,7 +178,7 @@ class TaskManager:
                 raise TaskNotFoundError(task_name=task_name)
             raise TaskLoadError(task_name=task_name, cause=e)
 
-    def split_task_data(self, task_data, split_ratio: float = DATA_SPLIT_RATIO, random_seed: int = DATA_SPLIT_SEED) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def split_task_data(self, task_data, split_ratio: float = DEFAULT_SPLIT_RATIO, random_seed: int = DEFAULT_RANDOM_SEED) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Split task data into training and testing sets."""
         limit = getattr(task_data, '_limit', None)
         docs = load_docs(task_data, limit)

@@ -3,7 +3,7 @@ Type annotations for neptune service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptune/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -323,14 +323,6 @@ class DBParameterGroupTypeDef(TypedDict):
 class ServerlessV2ScalingConfigurationTypeDef(TypedDict):
     MinCapacity: NotRequired[float]
     MaxCapacity: NotRequired[float]
-
-class CreateGlobalClusterMessageTypeDef(TypedDict):
-    GlobalClusterIdentifier: str
-    SourceDBClusterIdentifier: NotRequired[str]
-    Engine: NotRequired[str]
-    EngineVersion: NotRequired[str]
-    DeletionProtection: NotRequired[bool]
-    StorageEncrypted: NotRequired[bool]
 
 class DBClusterEndpointTypeDef(TypedDict):
     DBClusterEndpointIdentifier: NotRequired[str]
@@ -779,6 +771,16 @@ class CreateEventSubscriptionMessageTypeDef(TypedDict):
     SourceIds: NotRequired[Sequence[str]]
     Enabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateGlobalClusterMessageTypeDef(TypedDict):
+    GlobalClusterIdentifier: str
+    SourceDBClusterIdentifier: NotRequired[str]
+    Engine: NotRequired[str]
+    EngineVersion: NotRequired[str]
+    DeletionProtection: NotRequired[bool]
+    DatabaseName: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    StorageEncrypted: NotRequired[bool]
 
 class TagListMessageTypeDef(TypedDict):
     TagList: list[TagTypeDef]
@@ -1325,10 +1327,12 @@ class GlobalClusterTypeDef(TypedDict):
     Status: NotRequired[str]
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
+    DatabaseName: NotRequired[str]
     StorageEncrypted: NotRequired[bool]
     DeletionProtection: NotRequired[bool]
     GlobalClusterMembers: NotRequired[list[GlobalClusterMemberTypeDef]]
     FailoverState: NotRequired[FailoverStateTypeDef]
+    TagList: NotRequired[list[TagTypeDef]]
 
 class ResourcePendingMaintenanceActionsTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]

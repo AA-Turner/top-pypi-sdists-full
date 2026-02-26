@@ -126,6 +126,22 @@ impl Ephemeris {
     fn __repr__(&self) -> String {
         format!("{self}@{self:p}")
     }
+
+    fn __iter__(slf: Bound<'_, Self>) -> PyResult<EphemerisIterator> {
+        let keys: Vec<hifitime::Epoch> = slf.borrow().state_data.keys().copied().collect();
+        Ok(EphemerisIterator {
+            ephem: slf.into(),
+            keys: keys.into_iter(),
+        })
+    }
+
+    fn __reversed__(slf: Bound<'_, Self>) -> PyResult<EphemerisIterator> {
+        let keys: Vec<hifitime::Epoch> = slf.borrow().state_data.keys().rev().copied().collect();
+        Ok(EphemerisIterator {
+            ephem: slf.into(),
+            keys: keys.into_iter(),
+        })
+    }
 }
 
 #[pymethods]
@@ -145,7 +161,7 @@ impl Covariance {
     }
     /// Returns the 6x6 DCM to rotate a state. If the time derivative of this DCM is defined, this 6x6 accounts for the transport theorem.
     /// Warning: you MUST manually install numpy to call this function.
-    /// :rtype: numpy.array
+    /// :rtype: numpy.ndarray
     #[getter]
     fn get_matrix<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         // Extract data from SMatrix (column-major order, hence the transpose)
@@ -167,5 +183,26 @@ impl Covariance {
     /// :rtype: str
     fn __repr__(&self) -> String {
         format!("{self}@{self:p}")
+    }
+}
+
+#[pyclass]
+struct EphemerisIterator {
+    ephem: Py<Ephemeris>,
+    keys: std::vec::IntoIter<hifitime::Epoch>,
+}
+
+#[pymethods]
+impl EphemerisIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> Option<EphemerisRecord> {
+        if let Some(key) = slf.keys.next() {
+            slf.ephem.borrow(py).state_data.get(&key).copied()
+        } else {
+            None
+        }
     }
 }

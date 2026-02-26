@@ -47,8 +47,7 @@ class MacInterfaceMapInner(object):
         self._logical_nic_name = None
         self.discriminator = None
 
-        if mac_address is not None:
-            self.mac_address = mac_address
+        self.mac_address = mac_address
         if logical_nic_name is not None:
             self.logical_nic_name = logical_nic_name
 
@@ -72,6 +71,8 @@ class MacInterfaceMapInner(object):
         :param mac_address: The mac_address of this MacInterfaceMapInner.  # noqa: E501
         :type: str
         """
+        if mac_address is None:
+            raise ValueError("Invalid value for `mac_address`, must not be `None`")  # noqa: E501
 
         self._mac_address = mac_address
 

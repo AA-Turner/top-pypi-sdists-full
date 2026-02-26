@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+from wisent.core.constants import DISPLAY_TRUNCATION_LARGE, JSON_INDENT
+
 def extract_info_from_readme(readme_path):
     """Extract title, description, paper, homepage from README."""
     content = readme_path.read_text()
@@ -37,13 +39,13 @@ def extract_info_from_readme(readme_path):
         desc = desc_match.group(1).strip()
         # Clean up
         desc = re.sub(r'\s+', ' ', desc)
-        desc = desc[:500]  # Limit length
+        desc = desc[:DISPLAY_TRUNCATION_LARGE]  # Limit length
         info["description"] = desc
     else:
         # Try to get first substantial paragraph
         paragraphs = [p.strip() for p in content.split('\n\n') if len(p.strip()) > 50]
         if paragraphs:
-            info["description"] = paragraphs[0][:500]
+            info["description"] = paragraphs[0][:DISPLAY_TRUNCATION_LARGE]
 
     return info
 
@@ -62,7 +64,7 @@ def main():
         print(f"Processed {benchmark_name}")
 
     with open(output_file, 'w') as f:
-        json.dump(all_info, f, indent=2)
+        json.dump(all_info, f, indent=JSON_INDENT)
 
     print(f"\nExtracted info for {len(all_info)} benchmarks")
     print(f"Output: {output_file}")

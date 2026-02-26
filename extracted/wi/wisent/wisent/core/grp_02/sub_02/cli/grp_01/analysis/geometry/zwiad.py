@@ -8,14 +8,14 @@ import sys
 import pickle
 from pathlib import Path
 from typing import Optional
-from wisent.core.constants import DEFAULT_SCORE
+from wisent.core import constants as _C
 
 
 def execute_zwiad(args):
     """Execute the zwiad command."""
-    print(f"\n{'='*60}")
+    print(f"\n{'='*_C.SEPARATOR_WIDTH_STANDARD}")
     print("ZWIAD - Geometry Analysis with Concept Decomposition")
-    print(f"{'='*60}")
+    print(f"{'='*_C.SEPARATOR_WIDTH_STANDARD}")
 
     # Import dependencies
     from wisent.core.geometry.zwiad.zwiad_with_concepts import (
@@ -57,7 +57,7 @@ def execute_zwiad(args):
                 activations = cache_data['activations']
                 labels = cache_data['labels']
                 metadata = cache_data.get('metadata', {})
-                layer = metadata.get('layer_id', DEFAULT_SCORE)
+                layer = metadata.get('layer_id', _C.DEFAULT_SCORE)
 
                 # Split by labels (0=neg, 1=pos)
                 if isinstance(activations, np.ndarray):
@@ -108,7 +108,7 @@ def execute_zwiad(args):
             try:
                 pair_texts = load_pair_texts_from_database(
                     task_name=args.task,
-                    limit=args.limit or 500,
+                    limit=args.limit or _C.ZWIAD_ANALYSIS_LIMIT,
                     database_url=args.database_url,
                 )
                 print(f"  Loaded {len(pair_texts)} pair texts")
@@ -178,7 +178,7 @@ def execute_zwiad(args):
         try:
             pair_texts = load_pair_texts_from_database(
                 task_name=args.task,
-                limit=args.limit or 200,
+                limit=args.limit or _C.ZWIAD_ANALYSIS_LIMIT_SMALL,
                 database_url=args.database_url,
             )
             print(f"  Loaded {len(pair_texts)} pair texts")
@@ -195,9 +195,9 @@ def execute_zwiad(args):
         sys.exit(1)
 
     # Run zwiad with specified steps
-    print(f"\n{'='*60}")
+    print(f"\n{'='*_C.SEPARATOR_WIDTH_STANDARD}")
     print(f"Running Zwiad protocol (steps: {args.steps})")
-    print(f"{'='*60}")
+    print(f"{'='*_C.SEPARATOR_WIDTH_STANDARD}")
 
     results = run_zwiad_with_concept_naming(
         activations_by_layer=activations_by_layer,
@@ -208,9 +208,9 @@ def execute_zwiad(args):
     )
 
     # Print results
-    print(f"\n{'='*60}")
+    print(f"\n{'='*_C.SEPARATOR_WIDTH_STANDARD}")
     print("RESULTS")
-    print(f"{'='*60}")
+    print(f"{'='*_C.SEPARATOR_WIDTH_STANDARD}")
     print(f"\nLayers concatenated: {results.get('n_layers')} (layers {results.get('layers_used', [])})")
     print(f"Total dimensions: {results.get('total_dims')}")
     print(f"Pairs analyzed: {results.get('n_pairs')}")
@@ -221,11 +221,11 @@ def execute_zwiad(args):
     metrics = results.get("metrics", {})
     if metrics:
         print(f"\n--- Key Metrics (all-layer concatenated) ---")
-        print(f"Signal strength: {metrics.get('signal_strength', DEFAULT_SCORE):.3f}")
-        print(f"Linear probe accuracy: {metrics.get('linear_probe_accuracy', DEFAULT_SCORE):.3f}")
-        print(f"MLP probe accuracy: {metrics.get('mlp_probe_accuracy', DEFAULT_SCORE):.3f}")
-        print(f"KNN accuracy: {metrics.get('knn_accuracy', DEFAULT_SCORE):.3f}")
-        print(f"KNN PCA accuracy: {metrics.get('knn_pca_accuracy', DEFAULT_SCORE):.3f}")
+        print(f"Signal strength: {metrics.get('signal_strength', _C.DEFAULT_SCORE):.3f}")
+        print(f"Linear probe accuracy: {metrics.get('linear_probe_accuracy', _C.DEFAULT_SCORE):.3f}")
+        print(f"MLP probe accuracy: {metrics.get('mlp_probe_accuracy', _C.DEFAULT_SCORE):.3f}")
+        print(f"KNN accuracy: {metrics.get('knn_accuracy', _C.DEFAULT_SCORE):.3f}")
+        print(f"KNN PCA accuracy: {metrics.get('knn_pca_accuracy', _C.DEFAULT_SCORE):.3f}")
 
     # Print concept decomposition
     decomposition = results.get("concept_decomposition")
@@ -236,18 +236,18 @@ def execute_zwiad(args):
 
         for concept in decomposition.get("concepts", []):
             print(f"\nConcept {concept['id']}: {concept.get('name', 'Unnamed')}")
-            print(f"  Pairs: {concept.get('n_pairs', DEFAULT_SCORE)}")
-            print(f"  Silhouette: {concept.get('silhouette_score', DEFAULT_SCORE):.3f}")
+            print(f"  Pairs: {concept.get('n_pairs', _C.DEFAULT_SCORE)}")
+            print(f"  Silhouette: {concept.get('silhouette_score', _C.DEFAULT_SCORE):.3f}")
             if 'optimal_layer' in concept:
-                print(f"  Optimal layer: {concept['optimal_layer']} (acc: {concept.get('optimal_layer_accuracy', DEFAULT_SCORE):.3f})")
+                print(f"  Optimal layer: {concept['optimal_layer']} (acc: {concept.get('optimal_layer_accuracy', _C.DEFAULT_SCORE):.3f})")
 
             # Print representative pairs
             rep_pairs = concept.get("representative_pairs", [])
             if rep_pairs:
                 print(f"  Representative pairs:")
-                for pair in rep_pairs[:3]:
+                for pair in rep_pairs[:_C.DISPLAY_TOP_N_TINY]:
                     if isinstance(pair, dict):
-                        prompt = pair.get("prompt", "")[:80]
+                        prompt = pair.get("prompt", "")[:_C.DISPLAY_TRUNCATION_ERROR]
                         print(f"    - {prompt}...")
                     elif isinstance(pair, int):
                         print(f"    - pair index {pair}")
@@ -294,7 +294,7 @@ def execute_zwiad(args):
         serialized = serialize(results)
 
         with open(output_path, 'w') as f:
-            json.dump(serialized, f, indent=2)
+            json.dump(serialized, f, indent=_C.JSON_INDENT)
         print(f"\nResults saved to: {output_path}")
-    print("\n" + "="*60 + "\nZWIAD COMPLETE\n" + "="*60)
+    print("\n" + "="*_C.SEPARATOR_WIDTH_STANDARD + "\nZWIAD COMPLETE\n" + "="*_C.SEPARATOR_WIDTH_STANDARD)
     return results

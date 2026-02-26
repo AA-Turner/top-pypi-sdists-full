@@ -49,6 +49,7 @@ import tempfile
 import time
 from typing import Dict
 
+from wisent.core.constants import PARSER_DEFAULT_NUM_PAIRS, TEST_MAX_COMBO_SIZE, SEPARATOR_WIDTH_REPORT
 from wisent.tests._exhaustive_helpers import (
     detect_model_layers,
     generate_pairs_cli,
@@ -72,7 +73,7 @@ PROMPT_STRATEGIES = [
 def run_exhaustive_layer_analysis(
     task: str = "truthfulqa_gen",
     model: str = "meta-llama/Llama-3.2-1B-Instruct",
-    num_pairs: int = 50,
+    num_pairs: int = PARSER_DEFAULT_NUM_PAIRS,
     max_layers: int | None = None,
     output_dir: str = "/home/ubuntu/output",
 ):
@@ -89,9 +90,9 @@ def run_exhaustive_layer_analysis(
         detect_geometry_exhaustive,
     )
     sys.stdout.reconfigure(line_buffering=True)
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
     print("EXHAUSTIVE LAYER COMBINATION ANALYSIS")
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
     print(f"Task: {task}, Model: {model}, Pairs: {num_pairs}")
 
     print(f"\n[0] Detecting model layer count from config...")
@@ -138,8 +139,8 @@ def run_exhaustive_layer_analysis(
 def run_limited_layer_analysis(
     task: str = "truthfulqa_gen",
     model: str = "meta-llama/Llama-3.2-1B-Instruct",
-    num_pairs: int = 50,
-    max_combo_size: int = 3,
+    num_pairs: int = PARSER_DEFAULT_NUM_PAIRS,
+    max_combo_size: int = TEST_MAX_COMBO_SIZE,
     output_dir: str = "/home/ubuntu/output",
 ):
     """Run limited layer combination analysis (1,2,3-layer combos + all)."""
@@ -148,9 +149,9 @@ def run_limited_layer_analysis(
     )
     from math import comb
     sys.stdout.reconfigure(line_buffering=True)
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
     print("LIMITED LAYER COMBINATION ANALYSIS")
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
 
     start = time.time()
     model_layers = detect_model_layers(model)
@@ -190,7 +191,7 @@ def run_limited_layer_analysis(
 def run_contiguous_layer_analysis(
     task: str = "truthfulqa_gen",
     model: str = "meta-llama/Llama-3.2-1B-Instruct",
-    num_pairs: int = 50,
+    num_pairs: int = PARSER_DEFAULT_NUM_PAIRS,
     output_dir: str = "/home/ubuntu/output",
 ):
     """Run contiguous layer combination analysis (adjacent layers only)."""
@@ -198,9 +199,9 @@ def run_contiguous_layer_analysis(
         detect_geometry_contiguous,
     )
     sys.stdout.reconfigure(line_buffering=True)
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
     print("CONTIGUOUS LAYER COMBINATION ANALYSIS")
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
 
     start = time.time()
     model_layers = detect_model_layers(model)
@@ -235,8 +236,8 @@ def run_contiguous_layer_analysis(
 def run_smart_layer_analysis(
     task: str = "truthfulqa_gen",
     model: str = "meta-llama/Llama-3.2-1B-Instruct",
-    num_pairs: int = 50,
-    max_combo_size: int = 3,
+    num_pairs: int = PARSER_DEFAULT_NUM_PAIRS,
+    max_combo_size: int = TEST_MAX_COMBO_SIZE,
     token_aggregation: str = "final",
     prompt_strategy: str = "chat_template",
     output_dir: str = "/home/ubuntu/output",
@@ -246,9 +247,9 @@ def run_smart_layer_analysis(
         detect_geometry_smart,
     )
     sys.stdout.reconfigure(line_buffering=True)
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
     print("SMART LAYER COMBINATION ANALYSIS")
-    print("=" * 80)
+    print("=" * SEPARATOR_WIDTH_REPORT)
 
     start = time.time()
     model_layers = detect_model_layers(model)

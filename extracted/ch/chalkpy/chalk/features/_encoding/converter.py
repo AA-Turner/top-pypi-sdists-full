@@ -138,8 +138,6 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             primitive_default = None
 
         self._pyarrow_dtype = pyarrow_dtype
-        if pa.types.is_struct(pyarrow_dtype) and is_nullable:
-            is_nullable = False
         self._is_nullable = is_nullable
         self._primitive_type = pyarrow_to_primitive(self._pyarrow_dtype, name)
         try:

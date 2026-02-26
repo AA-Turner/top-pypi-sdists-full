@@ -11,12 +11,14 @@ from abstra_internals.entities.forms.steps import (
 from abstra_internals.entities.forms.template import (
     BackButton,
     Button,
+    ExitButton,
     NextButton,
     TemplateRenderer,
 )
 
-BACK_ACTION_LABEL = BackButton().label
-NEXT_ACTION_LABEL = NextButton().label
+BACK_ACTION_LABEL = BackButton().safe_get_key()
+NEXT_ACTION_LABEL = NextButton().safe_get_key()
+EXIT_ACTION_LABEL = ExitButton().safe_get_key()
 
 
 class StepsInfo(TypedDict):
@@ -36,6 +38,14 @@ class RenderedForm(TypedDict):
 class ButtonAction(TypedDict):
     key: str
     label: str
+
+
+class NavigationAction:
+    pass
+
+
+class ExitNavigationAction(NavigationAction):
+    pass
 
 
 class FormEntity:
@@ -112,7 +122,7 @@ class FormEntity:
             yielding=isinstance(step, GeneratorStep),
         )
 
-    def handle_navigation(self, dto: dict) -> None:
+    def handle_navigation(self, dto: dict) -> Optional[NavigationAction]:
         step = self.steps[self.current_step_idx]
 
         if not isinstance(step, PageStep):
@@ -123,6 +133,9 @@ class FormEntity:
                 raise Exception("Internal error: reached negative step index")
             self.current_step_idx = self.get_previous_page_idx()
             return
+
+        if dto["action"] == EXIT_ACTION_LABEL:
+            return ExitNavigationAction()
 
         if dto["action"] == NEXT_ACTION_LABEL:
             result = step.run(self.state)

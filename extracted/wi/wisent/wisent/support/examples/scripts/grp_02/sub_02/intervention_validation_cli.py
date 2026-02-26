@@ -7,30 +7,31 @@ from pathlib import Path
 from dataclasses import asdict
 from typing import List
 
+from wisent.core.constants import DEFAULT_RANDOM_SEED, PARSER_DEFAULT_MAX_REGEN_ATTEMPTS, SEPARATOR_WIDTH_WIDE, SEPARATOR_WIDTH_MEDIUM, JSON_INDENT
 from wisent.examples.scripts.intervention_validation_cli_helpers import (
-    S3_BUCKET,
-    S3_PREFIX,
+    GCS_BUCKET,
+    GCS_PREFIX,
     BenchmarkResult,
     run_wisent_task,
-    load_diagnosis_from_s3,
+    load_diagnosis_from_gcs,
     get_benchmarks_by_diagnosis,
 )
 
 
 def run_intervention_validation(
     model_name: str,
-    num_per_category: int = 3,
+    num_per_category: int = PARSER_DEFAULT_MAX_REGEN_ATTEMPTS,
     steering_strengths: List[float] = [1.0, 2.0, 5.0],
 ):
     """Run intervention validation using wisent CLI."""
     
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print("INTERVENTION VALIDATION (using wisent CLI)")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print(f"Model: {model_name}")
     
     # Load diagnosis
-    diagnosis_results = load_diagnosis_from_s3(model_name)
+    diagnosis_results = load_diagnosis_from_gcs(model_name)
     if not diagnosis_results:
         print("ERROR: No diagnosis results found")
         return
@@ -43,7 +44,7 @@ def run_intervention_validation(
     
     # Select benchmarks to test
     import random
-    random.seed(42)
+    random.seed(DEFAULT_RANDOM_SEED)
     
     test_benchmarks = []
     for diag, benches in by_diagnosis.items():
@@ -59,9 +60,9 @@ def run_intervention_validation(
     results = []
     
     for bench, diag, layer, signal, linear in test_benchmarks:
-        print(f"\n{'-' * 50}")
+        print(f"\n{'-' * SEPARATOR_WIDTH_MEDIUM}")
         print(f"Benchmark: {bench} ({diag})")
-        print("-" * 50)
+        print("-" * SEPARATOR_WIDTH_MEDIUM)
         
         # Run baseline (no steering)
         print("  Running baseline (no steering)...")
@@ -109,9 +110,9 @@ def run_intervention_validation(
         print(f"  Best result: strength={best_strength}, change={acc_change:+.3f}, success={steering_success}")
     
     # Summary
-    print("\n" + "=" * 70)
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
     print("VALIDATION SUMMARY")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     
     for diag in ["LINEAR", "NONLINEAR", "NO_SIGNAL"]:
         diag_results = [r for r in results if r.diagnosis == diag]
@@ -146,15 +147,15 @@ def run_intervention_validation(
                 "linear_success_rate": linear_success,
                 "no_signal_success_rate": no_signal_success,
             }
-        }, f, indent=2)
+        }, f, indent=JSON_INDENT)
     
     print(f"\nResults saved to: {output_file}")
     
-    # Upload to S3
+    # Upload to GCS
     try:
-        s3_path = f"s3://{S3_BUCKET}/{S3_PREFIX}/{model_prefix}/{output_file.name}"
-        subprocess.run(["aws", "s3", "cp", str(output_file), s3_path, "--quiet"], check=False)
-        print(f"Uploaded to: {s3_path}")
+        gcs_path = f"gs://{GCS_BUCKET}/{GCS_PREFIX}/{model_prefix}/{output_file.name}"
+        subprocess.run(["gcloud", "storage", "cp", str(output_file), gcs_path, "--quiet"], check=False)
+        print(f"Uploaded to: {gcs_path}")
     except:
         pass
 
@@ -162,7 +163,7 @@ def run_intervention_validation(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Intervention validation using wisent CLI")
     parser.add_argument("--model", type=str, default="Qwen/Qwen3-8B", help="Model to test")
-    parser.add_argument("--num-per-category", type=int, default=3, help="Benchmarks per diagnosis category")
+    parser.add_argument("--num-per-category", type=int, default=PARSER_DEFAULT_MAX_REGEN_ATTEMPTS, help="Benchmarks per diagnosis category")
     args = parser.parse_args()
     
     run_intervention_validation(

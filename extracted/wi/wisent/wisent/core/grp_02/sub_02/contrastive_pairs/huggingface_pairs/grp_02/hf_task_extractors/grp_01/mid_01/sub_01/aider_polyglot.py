@@ -6,6 +6,8 @@ from wisent.core.cli.cli_logger import setup_logger
 
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.huggingface_pairs.atoms import HuggingFaceBenchmarkExtractor
+from wisent.core.constants import HTTP_TIMEOUT_MEDIUM
+from wisent.core.utils.core.hardware import subprocess_timeout_s
 
 __all__ = ["AiderPolyglotExtractor"]
 
@@ -86,7 +88,7 @@ class AiderPolyglotExtractor(HuggingFaceBenchmarkExtractor):
         try:
             # Get list of exercises
             exercises_url = f"{AIDER_GITHUB_API}/{self.language}/exercises/practice"
-            response = requests.get(exercises_url, timeout=30)
+            response = requests.get(exercises_url, timeout=HTTP_TIMEOUT_MEDIUM)
             response.raise_for_status()
             
             exercise_dirs = response.json()
@@ -117,7 +119,7 @@ class AiderPolyglotExtractor(HuggingFaceBenchmarkExtractor):
             
             # Load instructions
             instructions_url = f"{base_url}/{path}/.docs/instructions.md"
-            instructions_resp = requests.get(instructions_url, timeout=15)
+            instructions_resp = requests.get(instructions_url, timeout=subprocess_timeout_s())
             if instructions_resp.status_code != 200:
                 return None
             instructions = instructions_resp.text
@@ -130,7 +132,7 @@ class AiderPolyglotExtractor(HuggingFaceBenchmarkExtractor):
             ext = ext_map.get(self.language, "py")
             
             solution_url = f"{base_url}/{path}/.meta/example.{ext}"
-            solution_resp = requests.get(solution_url, timeout=15)
+            solution_resp = requests.get(solution_url, timeout=subprocess_timeout_s())
             if solution_resp.status_code != 200:
                 return None
             solution = solution_resp.text

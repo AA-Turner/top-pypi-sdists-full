@@ -11,10 +11,10 @@ from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations import Activations
 from wisent.core.models import get_generate_kwargs
 from wisent.core.errors import MissingParameterError
+from wisent.core import constants as _C
 from wisent.core.constants import (AGENT_STEERING_THRESHOLD, AGENT_QUALITY_THRESHOLD,
     AGENT_DEFAULT_TIME_BUDGET_INIT, AGENT_DEFAULT_TIME_BUDGET, AGENT_DEMO_TIME_BUDGET,
-    CLASSIFIER_THRESHOLD, AGENT_MAX_NEW_TOKENS, AGENT_MAX_RESPONSE_ATTEMPTS)
-
+    CLASSIFIER_THRESHOLD, AGENT_MAX_RESPONSE_ATTEMPTS, DEFAULT_STRENGTH)
 from .agent.diagnose import AgentClassifierDecisionSystem, AnalysisResult, ClassifierMarketplace, ResponseDiagnostics
 from .agent.steer import ImprovementResult, ResponseSteering
 from .model import Model
@@ -37,7 +37,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
         layer_override: int = None,
         enable_tracking: bool = True,
         steering_method: str = "CAA",
-        steering_strength: float = 1.0,
+        steering_strength: float = DEFAULT_STRENGTH,
         steering_mode: bool = False,
         normalization_method: str = "none",
         target_norm: Optional[float] = None,
@@ -117,7 +117,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
         max_classifiers: int = None,
     ) -> Dict[str, Any]:
         """Generate a response and autonomously improve it if needed."""
-        print(f"\nAUTONOMOUS RESPONSE TO: {prompt[:100]}...")
+        print(f"\nAUTONOMOUS RESPONSE TO: {prompt[:_C.DISPLAY_TRUNCATION_COMPACT]}...")
 
         quality_threshold = quality_threshold or self.quality_threshold
         time_budget_minutes = time_budget_minutes or self.default_time_budget_minutes
@@ -157,7 +157,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
             if current_response is None:
                 print("Generating initial response...")
                 current_response = await self._generate_response(prompt)
-                print(f"   Response: {current_response[:100]}...")
+                print(f"   Response: {current_response[:_C.DISPLAY_TRUNCATION_COMPACT]}...")
 
             print("Analyzing response...")
             analysis = await self.diagnostics.analyze_response(current_response, prompt)
@@ -206,7 +206,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
                 from ..inference import generate_with_classification_and_handling
 
                 steering_method = self._create_steering_method()
-                gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_MAX_NEW_TOKENS)
+                gen_kwargs = get_generate_kwargs()
                 response, _, _, _ = generate_with_classification_and_handling(
                     self.model, prompt, self.params.layer, **gen_kwargs,
                     steering_method=steering_method, token_aggregation="average",
@@ -216,7 +216,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
             except Exception as e:
                 print(f"   Steering failed, falling back to basic generation: {e}")
 
-        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_MAX_NEW_TOKENS)
+        gen_kwargs = get_generate_kwargs()
         result = self.model.generate(prompt, self.params.layer, **gen_kwargs)
         if isinstance(result, tuple) and len(result) == 3:
             response, _, _ = result
@@ -265,7 +265,7 @@ class AutonomousAgent(QualityEvaluationMixin, SteeringParamsMixin, QualityContro
 async def demo_autonomous_agent():
     """Demo function for the autonomous agent."""
     print("AUTONOMOUS AGENT DEMO - Intelligent Classifier Selection")
-    print("=" * 60)
+    print("=" * _C.SEPARATOR_WIDTH_STANDARD)
     agent = AutonomousAgent()
     try:
         await agent.initialize(quality_threshold=AGENT_QUALITY_THRESHOLD, default_time_budget_minutes=AGENT_DEFAULT_TIME_BUDGET)
@@ -277,12 +277,12 @@ async def demo_autonomous_agent():
             "Explain quantum physics in simple terms",
         ]
         for i, prompt in enumerate(test_prompts, 1):
-            print(f"\n{'=' * 20} Test {i} {'=' * 20}")
+            print(f"\n{'=' * _C.SEPARATOR_PAD_SMALL} Test {i} {'=' * _C.SEPARATOR_PAD_SMALL}")
             result = await agent.respond_autonomously(
-                prompt=prompt, max_attempts=2, time_budget_minutes=AGENT_DEMO_TIME_BUDGET,
+                prompt=prompt, max_attempts=_C.AGENT_RETRY_ATTEMPTS, time_budget_minutes=AGENT_DEMO_TIME_BUDGET,
             )
             print("\nRESULT SUMMARY:")
-            print(f"   Final Response: {result['final_response'][:100]}...")
+            print(f"   Final Response: {result['final_response'][:_C.DISPLAY_TRUNCATION_COMPACT]}...")
             print(f"   Attempts: {result['attempts']}")
             print(f"   Improvements: {len(result['improvement_chain'])}")
             print(f"   Classifiers Used: {result['classifier_info']['count']}")

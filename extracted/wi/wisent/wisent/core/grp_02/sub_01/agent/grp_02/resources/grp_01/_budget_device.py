@@ -4,6 +4,7 @@ from typing import Dict, List
 from wisent.core.errors import NoBenchmarkDataError
 from wisent.core.agent.resources._budget_manager import BudgetManager
 from wisent.core.agent.resources._budget_functions import get_budget_manager
+from wisent.core.constants import AGENT_RESOURCE_BUDGET_MINUTES, DEVICE_HASH_PREFIX, SEPARATOR_WIDTH_COMPACT, SEPARATOR_WIDTH_NARROW, SEPARATOR_WIDTH_MEDIUM, SECONDS_PER_MINUTE
 logger = logging.getLogger(__name__)
 
 def estimate_completion_time_minutes(tasks: List[str]) -> float:
@@ -17,7 +18,7 @@ def estimate_completion_time_minutes(tasks: List[str]) -> float:
         Estimated time in minutes
     """
     seconds = _budget_manager.estimate_completion_time(tasks)
-    return seconds / 60.0
+    return seconds / SECONDS_PER_MINUTE
 
 
 def track_task_performance(task_name: str, start_time: float, end_time: float) -> None:
@@ -45,8 +46,8 @@ def run_device_benchmark(force_rerun: bool = False) -> None:
     benchmark = ensure_benchmark_exists(force_rerun=force_rerun)
     
     print("\n✅ Benchmark Results:")
-    print("=" * 50)
-    print(f"Device ID: {benchmark.device_id[:12]}...")
+    print("=" * SEPARATOR_WIDTH_MEDIUM)
+    print(f"Device ID: {benchmark.device_id[:DEVICE_HASH_PREFIX]}...")
     print(f"Device Type: {benchmark.device_type}")
     print(f"Model Loading: {benchmark.model_loading_seconds:.1f}s")
     print(f"Evaluation: {benchmark.benchmark_eval_seconds_per_100_examples:.1f}s per 100 examples")
@@ -57,7 +58,7 @@ def run_device_benchmark(force_rerun: bool = False) -> None:
     
     # Show some example estimates
     print("\n📊 Example Time Estimates:")
-    print("-" * 30)
+    print("-" * SEPARATOR_WIDTH_COMPACT)
     print(f"Loading model: {benchmark.model_loading_seconds:.1f}s")
     print(f"100 eval examples: {benchmark.benchmark_eval_seconds_per_100_examples:.1f}s")
     print(f"Training classifier (200 samples): {(benchmark.classifier_training_seconds_per_100_samples * 2):.1f}s")
@@ -115,7 +116,7 @@ def main():
     
     # Budget command
     budget_parser = subparsers.add_parser('budget', help='Calculate budget allocations')
-    budget_parser.add_argument('--time-minutes', '-t', type=float, default=5.0, help='Time budget in minutes')
+    budget_parser.add_argument('--time-minutes', '-t', type=float, default=AGENT_RESOURCE_BUDGET_MINUTES, help='Time budget in minutes')
     budget_parser.add_argument('--task-type', default='benchmark_evaluation', help='Task type to optimize for')
     
     args = parser.parse_args()
@@ -130,14 +131,14 @@ def main():
             
         elif args.command == 'info':
             print("🖥️ Current Device Information")
-            print("=" * 40)
+            print("=" * SEPARATOR_WIDTH_NARROW)
             device_info = get_device_info()
             for key, value in device_info.items():
                 print(f"{key}: {value}")
                 
         elif args.command == 'estimate':
             estimated_seconds = estimate_task_time_direct(args.task_type, args.quantity)
-            print(f"⏱️ Estimated time for {args.quantity}x {args.task_type}: {estimated_seconds:.1f} seconds ({estimated_seconds/60:.2f} minutes)")
+            print(f"⏱️ Estimated time for {args.quantity}x {args.task_type}: {estimated_seconds:.1f} seconds ({estimated_seconds/SECONDS_PER_MINUTE:.2f} minutes)")
             
         elif args.command == 'budget':
             max_tasks = calculate_max_tasks_for_time_budget(args.task_type, args.time_minutes)
@@ -162,12 +163,12 @@ def main():
             total_time = max_tasks * task_time
             
             print(f"💰 Budget Analysis:")
-            print(f"Time budget: {args.time_minutes:.1f} minutes ({args.time_minutes * 60:.0f} seconds)")
+            print(f"Time budget: {args.time_minutes:.1f} minutes ({args.time_minutes * SECONDS_PER_MINUTE:.0f} seconds)")
             print(f"Task type: {args.task_type} (mapped to {benchmark_type})")
             print(f"Time per task: {task_time:.2f} seconds")
             print(f"Max tasks: {max_tasks}")
-            print(f"Total estimated time: {total_time:.1f} seconds ({total_time/60:.2f} minutes)")
-            print(f"Budget utilization: {(total_time / (args.time_minutes * 60)) * 100:.1f}%")
+            print(f"Total estimated time: {total_time:.1f} seconds ({total_time/SECONDS_PER_MINUTE:.2f} minutes)")
+            print(f"Budget utilization: {(total_time / (args.time_minutes * SECONDS_PER_MINUTE)) * 100:.1f}%")
             
     except KeyboardInterrupt:
         print("\n❌ Operation interrupted by user")

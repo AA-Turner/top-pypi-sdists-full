@@ -47,10 +47,8 @@ class MultipleChoiceFilter(WBCoreChoiceFilterMixin, django_filters.MultipleChoic
     field_class = WBCoreMultipleChoiceField
     filter_type = "select"
 
-    def _validate_initial_with_request(self, initial, request, name):
-        if request_initial := request.GET.get(name):
-            return request_initial.split(",")
-        return initial
+    def _parse_request_initial(self, request_initial):
+        return request_initial.split(",")
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)

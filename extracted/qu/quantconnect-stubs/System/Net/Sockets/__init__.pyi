@@ -122,15 +122,15 @@ class SocketException(System.ComponentModel.Win32Exception):
         ...
 
     @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
     def __init__(self, error_code: int) -> None:
         ...
 
     @overload
     def __init__(self, error_code: int, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
         ...
 
     @overload

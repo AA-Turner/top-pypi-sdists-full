@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from wisent.core import constants as _C
 
 
 def collect_pairs_and_train(args, wisent_model, layers, checkpoint_dir, benchmarks, loader):
@@ -149,7 +150,7 @@ def collect_pairs_and_train(args, wisent_model, layers, checkpoint_dir, benchmar
             'failed_benchmarks': failed_benchmarks,
         }
         with open(args.save_pairs, 'w') as f:
-            json.dump(pairs_data, f, indent=2)
+            json.dump(pairs_data, f, indent=_C.JSON_INDENT)
 
     # =========================================================================
     # Step 4: Collect activations and train steering vector
@@ -209,7 +210,7 @@ def collect_pairs_and_train(args, wisent_model, layers, checkpoint_dir, benchmar
             positive_texts,
             layers=layers,
             aggregation=aggregation_strategy,
-            batch_size=1,
+            batch_size=_C.COMPARISON_DEFAULT_BATCH_SIZE,
             show_progress=True,
         )
         
@@ -219,7 +220,7 @@ def collect_pairs_and_train(args, wisent_model, layers, checkpoint_dir, benchmar
             negative_texts,
             layers=layers,
             aggregation=aggregation_strategy,
-            batch_size=1,
+            batch_size=_C.COMPARISON_DEFAULT_BATCH_SIZE,
             show_progress=True,
         )
         

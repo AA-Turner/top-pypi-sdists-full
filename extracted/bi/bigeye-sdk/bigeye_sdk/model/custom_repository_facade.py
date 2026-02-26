@@ -52,6 +52,7 @@ class SimpleIntegrationType(str, enum.Enum):
     BI_TOOL = "INTEGRATION_TYPE_BI_TOOL"
     ETL_TOOL = "INTEGRATION_TYPE_ETL_TOOL"
     DATABASE = "INTEGRATION_TYPE_DATABASE"
+    FILE = "INTEGRATION_TYPE_UNSPECIFIED"
 
     def to_protobuf(self) -> IntegrationType:
         """Convert to protobuf IntegrationType"""
@@ -119,6 +120,7 @@ class SimpleNodeLookup(BaseModel):
     Attributes:
         node_id: Direct node ID reference (fully supported)
         table_id: Table ID for passthrough column lookup (used with passthrough_external_id)
+        entity_id: Custom node entity ID for passthrough column lookup (used with passthrough_external_id)
         node_name: Node name for lookup (future)
         node_container_name: Container name for scoped lookup (future)
         source_id: Source/warehouse ID for lookup (future)
@@ -126,6 +128,7 @@ class SimpleNodeLookup(BaseModel):
     """
     node_id: Optional[int] = None
     table_id: Optional[int] = None
+    entity_id: Optional[int] = None
     node_name: Optional[str] = None
     node_container_name: Optional[str] = None
     source_id: Optional[int] = None
@@ -138,9 +141,15 @@ class SimpleNodeLookup(BaseModel):
             self.node_id,
             self.node_name,
             self.source_id,
-            self.table_id
+            self.table_id,
+            self.entity_id
         ]):
-            raise ValueError("At least one lookup field must be provided (node_id, node_name, source_id, or table_id)")
+            raise ValueError("At least one lookup field must be provided (node_id, node_name, source_id, table_id, or entity_id)")
+
+        # Ensure table_id and entity_id are mutually exclusive
+        if self.table_id and self.entity_id:
+            raise ValueError("Cannot specify both table_id and entity_id")
+
         return self
 
     def to_protobuf(self) -> CustomRepositorySyncNodeLookup:

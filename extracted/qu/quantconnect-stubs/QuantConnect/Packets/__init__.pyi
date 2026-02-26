@@ -15,112 +15,6 @@ import System
 import System.Collections.Generic
 
 
-class BaseResultParameters(System.Object):
-    """Base parameters used by LiveResultParameters and BacktestResultParameters"""
-
-    @property
-    def profit_loss(self) -> System.Collections.Generic.IDictionary[datetime.datetime, float]:
-        """Trade profit and loss information since the last algorithm result packet"""
-        ...
-
-    @profit_loss.setter
-    def profit_loss(self, value: System.Collections.Generic.IDictionary[datetime.datetime, float]) -> None:
-        ...
-
-    @property
-    def charts(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Chart]:
-        """Charts updates for the live algorithm since the last result packet"""
-        ...
-
-    @charts.setter
-    def charts(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Chart]) -> None:
-        ...
-
-    @property
-    def orders(self) -> System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]:
-        """Order updates since the last result packet"""
-        ...
-
-    @orders.setter
-    def orders(self, value: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]) -> None:
-        ...
-
-    @property
-    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
-        """Order events updates since the last result packet"""
-        ...
-
-    @order_events.setter
-    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
-        ...
-
-    @property
-    def statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Statistics information sent during the algorithm operations."""
-        ...
-
-    @statistics.setter
-    def statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Runtime banner/updating statistics in the title banner of the live algorithm GUI."""
-        ...
-
-    @runtime_statistics.setter
-    def runtime_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def state(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """State information of the algorithm."""
-        ...
-
-    @state.setter
-    def state(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def algorithm_configuration(self) -> QuantConnect.AlgorithmConfiguration:
-        """The algorithm's configuration required for report generation"""
-        ...
-
-    @algorithm_configuration.setter
-    def algorithm_configuration(self, value: QuantConnect.AlgorithmConfiguration) -> None:
-        ...
-
-    @property
-    def total_performance(self) -> QuantConnect.Statistics.AlgorithmPerformance:
-        """Rolling window detailed statistics."""
-        ...
-
-    @total_performance.setter
-    def total_performance(self, value: QuantConnect.Statistics.AlgorithmPerformance) -> None:
-        ...
-
-    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class BacktestResultParameters(QuantConnect.Packets.BaseResultParameters):
-    """Defines the parameters for BacktestResult"""
-
-    @property
-    def rolling_window(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]:
-        """Rolling window detailed statistics."""
-        ...
-
-    @rolling_window.setter
-    def rolling_window(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]) -> None:
-        ...
-
-    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], rolling_window: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None) -> None:
-        """Creates a new instance"""
-        ...
-
-
 class PacketType(IntEnum):
     """Classifications of internal packet system"""
 
@@ -311,6 +205,167 @@ class Packet(System.Object):
         
         :param type: PacketType for the class.
         """
+        ...
+
+
+class AlgorithmTagsUpdatePacket(QuantConnect.Packets.Packet):
+    """Packet to communicate updates to the algorithm tags"""
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm id for this order event"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def tags(self) -> System.Collections.Generic.HashSet[str]:
+        """The new tags"""
+        ...
+
+    @tags.setter
+    def tags(self, value: System.Collections.Generic.HashSet[str]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, tags: System.Collections.Generic.HashSet[str]) -> None:
+        """Create a new instance of the algorithm tags up[date packet"""
+        ...
+
+
+class BaseResultParameters(System.Object):
+    """Base parameters used by LiveResultParameters and BacktestResultParameters"""
+
+    @property
+    def profit_loss(self) -> System.Collections.Generic.IDictionary[datetime.datetime, float]:
+        """Trade profit and loss information since the last algorithm result packet"""
+        ...
+
+    @profit_loss.setter
+    def profit_loss(self, value: System.Collections.Generic.IDictionary[datetime.datetime, float]) -> None:
+        ...
+
+    @property
+    def charts(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Chart]:
+        """Charts updates for the live algorithm since the last result packet"""
+        ...
+
+    @charts.setter
+    def charts(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Chart]) -> None:
+        ...
+
+    @property
+    def orders(self) -> System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]:
+        """Order updates since the last result packet"""
+        ...
+
+    @orders.setter
+    def orders(self, value: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]) -> None:
+        ...
+
+    @property
+    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
+        """Order events updates since the last result packet"""
+        ...
+
+    @order_events.setter
+    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
+        ...
+
+    @property
+    def statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Statistics information sent during the algorithm operations."""
+        ...
+
+    @statistics.setter
+    def statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def runtime_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Runtime banner/updating statistics in the title banner of the live algorithm GUI."""
+        ...
+
+    @runtime_statistics.setter
+    def runtime_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def state(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """State information of the algorithm."""
+        ...
+
+    @state.setter
+    def state(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def algorithm_configuration(self) -> QuantConnect.AlgorithmConfiguration:
+        """The algorithm's configuration required for report generation"""
+        ...
+
+    @algorithm_configuration.setter
+    def algorithm_configuration(self, value: QuantConnect.AlgorithmConfiguration) -> None:
+        ...
+
+    @property
+    def total_performance(self) -> QuantConnect.Statistics.AlgorithmPerformance:
+        """Rolling window detailed statistics."""
+        ...
+
+    @total_performance.setter
+    def total_performance(self, value: QuantConnect.Statistics.AlgorithmPerformance) -> None:
+        ...
+
+    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None) -> None:
+        """Creates a new instance"""
+        ...
+
+
+class BacktestResultParameters(QuantConnect.Packets.BaseResultParameters):
+    """Defines the parameters for BacktestResult"""
+
+    @property
+    def rolling_window(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]:
+        """Rolling window detailed statistics."""
+        ...
+
+    @rolling_window.setter
+    def rolling_window(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]) -> None:
+        ...
+
+    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], rolling_window: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None) -> None:
+        """Creates a new instance"""
+        ...
+
+
+class BacktestResult(QuantConnect.Result):
+    """Backtest results object class - result specific items from the packet."""
+
+    @property
+    def rolling_window(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]:
+        """Rolling window detailed statistics."""
+        ...
+
+    @rolling_window.setter
+    def rolling_window(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default Constructor"""
+        ...
+
+    @overload
+    def __init__(self, parameters: QuantConnect.Packets.BacktestResultParameters) -> None:
+        """Constructor for the result class using dictionary objects."""
         ...
 
 
@@ -971,272 +1026,6 @@ class BacktestNodePacket(QuantConnect.Packets.AlgorithmNodePacket):
         ...
 
 
-class AlgorithmNameUpdatePacket(QuantConnect.Packets.Packet):
-    """Packet to communicate updates to the algorithm's name"""
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm id for this order event"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        """The new name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, name: str) -> None:
-        """Create a new instance of the algorithm tags up[date packet"""
-        ...
-
-
-class LiveNodePacket(QuantConnect.Packets.AlgorithmNodePacket):
-    """Live job task packet: container for any live specific job variables"""
-
-    @property
-    def deploy_id(self) -> str:
-        """Deploy Id for this live algorithm."""
-        ...
-
-    @deploy_id.setter
-    def deploy_id(self, value: str) -> None:
-        ...
-
-    @property
-    def brokerage(self) -> str:
-        """String name of the brokerage we're trading with"""
-        ...
-
-    @brokerage.setter
-    def brokerage(self, value: str) -> None:
-        ...
-
-    @property
-    def brokerage_data(self) -> System.Collections.Generic.Dictionary[str, str]:
-        """String-String Dictionary of Brokerage Data for this Live Job"""
-        ...
-
-    @brokerage_data.setter
-    def brokerage_data(self, value: System.Collections.Generic.Dictionary[str, str]) -> None:
-        ...
-
-    @property
-    def data_queue_handler(self) -> str:
-        """String name of the DataQueueHandler or LiveDataProvider we're running with"""
-        ...
-
-    @data_queue_handler.setter
-    def data_queue_handler(self, value: str) -> None:
-        ...
-
-    @property
-    def data_channel_provider(self) -> str:
-        """String name of the DataChannelProvider we're running with"""
-        ...
-
-    @data_channel_provider.setter
-    def data_channel_provider(self, value: str) -> None:
-        ...
-
-    @property
-    def disable_acknowledgement(self) -> bool:
-        """Gets flag indicating whether or not the message should be acknowledged and removed from the queue"""
-        ...
-
-    @disable_acknowledgement.setter
-    def disable_acknowledgement(self, value: bool) -> None:
-        ...
-
-    @property
-    def notification_events(self) -> System.Collections.Generic.HashSet[str]:
-        """A list of event types to generate notifications for, which will use notification_targets"""
-        ...
-
-    @notification_events.setter
-    def notification_events(self, value: System.Collections.Generic.HashSet[str]) -> None:
-        ...
-
-    @property
-    def notification_targets(self) -> typing.List[QuantConnect.Notifications.Notification]:
-        """A list of notification targets to use"""
-        ...
-
-    @notification_targets.setter
-    def notification_targets(self, value: typing.List[QuantConnect.Notifications.Notification]) -> None:
-        ...
-
-    @property
-    def live_data_types(self) -> System.Collections.Generic.HashSet[str]:
-        """List of real time data types available in the live trading environment"""
-        ...
-
-    @live_data_types.setter
-    def live_data_types(self, value: System.Collections.Generic.HashSet[str]) -> None:
-        ...
-
-    @property
-    def algorithm_mode(self) -> QuantConnect.AlgorithmMode:
-        """Algorithm running mode."""
-        ...
-
-    def __init__(self) -> None:
-        """Default constructor for JSON of the Live Task Packet"""
-        ...
-
-
-class ResearchNodePacket(QuantConnect.Packets.AlgorithmNodePacket):
-    """Represents a research node packet"""
-
-    @property
-    def research_id(self) -> str:
-        """The research id"""
-        ...
-
-    @research_id.setter
-    def research_id(self, value: str) -> None:
-        ...
-
-    @property
-    def research_token(self) -> str:
-        """Associated research token"""
-        ...
-
-    @research_token.setter
-    def research_token(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class DebugPacket(QuantConnect.Packets.Packet):
-    """Send a simple debug message from the users algorithm to the console."""
-
-    @property
-    def message(self) -> str:
-        """String debug message to send to the users console"""
-        ...
-
-    @message.setter
-    def message(self, value: str) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Associated algorithm Id."""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def compile_id(self) -> str:
-        """Compile id of the algorithm sending this message"""
-        ...
-
-    @compile_id.setter
-    def compile_id(self, value: str) -> None:
-        ...
-
-    @property
-    def project_id(self) -> int:
-        """Project Id for this message"""
-        ...
-
-    @project_id.setter
-    def project_id(self, value: int) -> None:
-        ...
-
-    @property
-    def toast(self) -> bool:
-        """
-        True to emit message as a popup notification (toast),
-        false to emit message in console as text
-        """
-        ...
-
-    @toast.setter
-    def toast(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, packet_type: QuantConnect.Packets.PacketType) -> None:
-        """
-        Constructor for inherited types
-        
-        
-        This codeEntityType is protected.
-        
-        :param packet_type: The type of packet to create
-        """
-        ...
-
-    @overload
-    def __init__(self, project_id: int, algorithm_id: str, compile_id: str, message: str, toast: bool = False) -> None:
-        """Create a new instance of the notify debug packet:"""
-        ...
-
-
-class AlphaNodePacket(QuantConnect.Packets.LiveNodePacket):
-    """Alpha job packet"""
-
-    @property
-    def alpha_id(self) -> str:
-        """Gets or sets the alpha id"""
-        ...
-
-    @alpha_id.setter
-    def alpha_id(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new default instance of the AlgorithmNodePacket class"""
-        ...
-
-
-class BacktestResult(QuantConnect.Result):
-    """Backtest results object class - result specific items from the packet."""
-
-    @property
-    def rolling_window(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]:
-        """Rolling window detailed statistics."""
-        ...
-
-    @rolling_window.setter
-    def rolling_window(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default Constructor"""
-        ...
-
-    @overload
-    def __init__(self, parameters: QuantConnect.Packets.BacktestResultParameters) -> None:
-        """Constructor for the result class using dictionary objects."""
-        ...
-
-
 class BacktestResultPacket(QuantConnect.Packets.Packet):
     """Backtest result packet: send backtest information to GUI for user consumption."""
 
@@ -1409,6 +1198,92 @@ class BacktestResultPacket(QuantConnect.Packets.Packet):
         ...
 
 
+class OrderEventPacket(QuantConnect.Packets.Packet):
+    """Order event packet for passing updates on the state of an order to the portfolio."""
+
+    @property
+    def event(self) -> QuantConnect.Orders.OrderEvent:
+        """Order event object"""
+        ...
+
+    @event.setter
+    def event(self, value: QuantConnect.Orders.OrderEvent) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm id for this order event"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, event_order: QuantConnect.Orders.OrderEvent) -> None:
+        """Create a new instance of the order event packet"""
+        ...
+
+
+class SecurityTypesPacket(QuantConnect.Packets.Packet):
+    """Security types packet contains information on the markets the user data has requested."""
+
+    @property
+    def types(self) -> typing.List[QuantConnect.SecurityType]:
+        """List of Security Type the user has requested (Equity, Forex, Futures etc)."""
+        ...
+
+    @types.setter
+    def types(self, value: typing.List[QuantConnect.SecurityType]) -> None:
+        ...
+
+    @property
+    def types_csv(self) -> str:
+        """CSV formatted, lower case list of SecurityTypes for the web API."""
+        ...
+
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+
+class AlgorithmNameUpdatePacket(QuantConnect.Packets.Packet):
+    """Packet to communicate updates to the algorithm's name"""
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm id for this order event"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """The new name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, name: str) -> None:
+        """Create a new instance of the algorithm tags up[date packet"""
+        ...
+
+
 class LiveResultParameters(QuantConnect.Packets.BaseResultParameters):
     """Defines the parameters for LiveResult"""
 
@@ -1444,6 +1319,399 @@ class LiveResultParameters(QuantConnect.Packets.BaseResultParameters):
         ...
 
 
+class LiveResult(QuantConnect.Result):
+    """Live results object class for packaging live result data."""
+
+    @property
+    def holdings(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Holding]:
+        """Holdings dictionary of algorithm holdings information"""
+        ...
+
+    @holdings.setter
+    def holdings(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Holding]) -> None:
+        ...
+
+    @property
+    def cash_book(self) -> QuantConnect.Securities.CashBook:
+        """Cashbook for the algorithm's live results."""
+        ...
+
+    @cash_book.setter
+    def cash_book(self, value: QuantConnect.Securities.CashBook) -> None:
+        ...
+
+    @property
+    def cash(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
+        """Cash for the algorithm's live results."""
+        ...
+
+    @cash.setter
+    def cash(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
+        ...
+
+    @property
+    def account_currency(self) -> str:
+        """The algorithm's account currency"""
+        ...
+
+    @account_currency.setter
+    def account_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def account_currency_symbol(self) -> str:
+        """The algorithm's account currency"""
+        ...
+
+    @account_currency_symbol.setter
+    def account_currency_symbol(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default Constructor"""
+        ...
+
+    @overload
+    def __init__(self, parameters: QuantConnect.Packets.LiveResultParameters) -> None:
+        """Constructor for the result class for dictionary objects"""
+        ...
+
+
+class LiveNodePacket(QuantConnect.Packets.AlgorithmNodePacket):
+    """Live job task packet: container for any live specific job variables"""
+
+    @property
+    def deploy_id(self) -> str:
+        """Deploy Id for this live algorithm."""
+        ...
+
+    @deploy_id.setter
+    def deploy_id(self, value: str) -> None:
+        ...
+
+    @property
+    def brokerage(self) -> str:
+        """String name of the brokerage we're trading with"""
+        ...
+
+    @brokerage.setter
+    def brokerage(self, value: str) -> None:
+        ...
+
+    @property
+    def brokerage_data(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """String-String Dictionary of Brokerage Data for this Live Job"""
+        ...
+
+    @brokerage_data.setter
+    def brokerage_data(self, value: System.Collections.Generic.Dictionary[str, str]) -> None:
+        ...
+
+    @property
+    def data_queue_handler(self) -> str:
+        """String name of the DataQueueHandler or LiveDataProvider we're running with"""
+        ...
+
+    @data_queue_handler.setter
+    def data_queue_handler(self, value: str) -> None:
+        ...
+
+    @property
+    def data_channel_provider(self) -> str:
+        """String name of the DataChannelProvider we're running with"""
+        ...
+
+    @data_channel_provider.setter
+    def data_channel_provider(self, value: str) -> None:
+        ...
+
+    @property
+    def disable_acknowledgement(self) -> bool:
+        """Gets flag indicating whether or not the message should be acknowledged and removed from the queue"""
+        ...
+
+    @disable_acknowledgement.setter
+    def disable_acknowledgement(self, value: bool) -> None:
+        ...
+
+    @property
+    def notification_events(self) -> System.Collections.Generic.HashSet[str]:
+        """A list of event types to generate notifications for, which will use notification_targets"""
+        ...
+
+    @notification_events.setter
+    def notification_events(self, value: System.Collections.Generic.HashSet[str]) -> None:
+        ...
+
+    @property
+    def notification_targets(self) -> typing.List[QuantConnect.Notifications.Notification]:
+        """A list of notification targets to use"""
+        ...
+
+    @notification_targets.setter
+    def notification_targets(self, value: typing.List[QuantConnect.Notifications.Notification]) -> None:
+        ...
+
+    @property
+    def live_data_types(self) -> System.Collections.Generic.HashSet[str]:
+        """List of real time data types available in the live trading environment"""
+        ...
+
+    @live_data_types.setter
+    def live_data_types(self, value: System.Collections.Generic.HashSet[str]) -> None:
+        ...
+
+    @property
+    def algorithm_mode(self) -> QuantConnect.AlgorithmMode:
+        """Algorithm running mode."""
+        ...
+
+    def __init__(self) -> None:
+        """Default constructor for JSON of the Live Task Packet"""
+        ...
+
+
+class LiveResultPacket(QuantConnect.Packets.Packet):
+    """Live result packet from a lean engine algorithm."""
+
+    @property
+    def user_id(self) -> int:
+        """User Id sending result packet"""
+        ...
+
+    @user_id.setter
+    def user_id(self, value: int) -> None:
+        ...
+
+    @property
+    def project_id(self) -> int:
+        """Project Id of the result packet"""
+        ...
+
+    @project_id.setter
+    def project_id(self, value: int) -> None:
+        ...
+
+    @property
+    def deploy_id(self) -> str:
+        """Live Algorithm Id (DeployId) for this result packet"""
+        ...
+
+    @deploy_id.setter
+    def deploy_id(self, value: str) -> None:
+        ...
+
+    @property
+    def results(self) -> QuantConnect.Packets.LiveResult:
+        """Result data object for this result packet"""
+        ...
+
+    @results.setter
+    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Serialization"""
+        ...
+
+    @overload
+    def __init__(self, json: str) -> None:
+        """Compose the packet from a JSON string:"""
+        ...
+
+    @overload
+    def __init__(self, job: QuantConnect.Packets.LiveNodePacket, results: QuantConnect.Packets.LiveResult) -> None:
+        """
+        Compose Live Result Data Packet - With tradable dates
+        
+        :param job: Job that started this request
+        :param results: Results class for the Backtest job
+        """
+        ...
+
+    @staticmethod
+    def create_empty(job: QuantConnect.Packets.LiveNodePacket) -> QuantConnect.Packets.LiveResultPacket:
+        """
+        Creates an empty result packet, useful when the algorithm fails to initialize
+        
+        :param job: The associated job packet
+        :returns: An empty result packet.
+        """
+        ...
+
+
+class AlphaNodePacket(QuantConnect.Packets.LiveNodePacket):
+    """Alpha job packet"""
+
+    @property
+    def alpha_id(self) -> str:
+        """Gets or sets the alpha id"""
+        ...
+
+    @alpha_id.setter
+    def alpha_id(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new default instance of the AlgorithmNodePacket class"""
+        ...
+
+
+class AlphaResultPacket(QuantConnect.Packets.Packet):
+    """Provides a packet type for transmitting alpha insights data"""
+
+    @property
+    def user_id(self) -> int:
+        """The user's id that deployed the alpha stream"""
+        ...
+
+    @user_id.setter
+    def user_id(self, value: int) -> None:
+        ...
+
+    @property
+    def alpha_id(self) -> str:
+        """
+        The deployed alpha id. This is the id generated upon submssion to the alpha marketplace.
+        If this is a user backtest or live algo then this will not be specified
+        """
+        ...
+
+    @alpha_id.setter
+    def alpha_id(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """The algorithm's unique identifier"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def insights(self) -> typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """The generated insights"""
+        ...
+
+    @insights.setter
+    def insights(self, value: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
+        ...
+
+    @property
+    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
+        """The generated OrderEvents"""
+        ...
+
+    @order_events.setter
+    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
+        ...
+
+    @property
+    def orders(self) -> typing.List[QuantConnect.Orders.Order]:
+        """The new or updated Orders"""
+        ...
+
+    @orders.setter
+    def orders(self, value: typing.List[QuantConnect.Orders.Order]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the AlphaResultPacket class"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, user_id: int, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight] = None, order_events: typing.List[QuantConnect.Orders.OrderEvent] = None, orders: typing.List[QuantConnect.Orders.Order] = None) -> None:
+        """
+        Initializes a new instance of the AlphaResultPacket class
+        
+        :param algorithm_id: The algorithm's unique identifier
+        :param user_id: The user's id
+        :param insights: Alphas generated by the algorithm
+        :param order_events: OrderEvents generated by the algorithm
+        :param orders: Orders generated or updated by the algorithm
+        """
+        ...
+
+
+class DebugPacket(QuantConnect.Packets.Packet):
+    """Send a simple debug message from the users algorithm to the console."""
+
+    @property
+    def message(self) -> str:
+        """String debug message to send to the users console"""
+        ...
+
+    @message.setter
+    def message(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Associated algorithm Id."""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def compile_id(self) -> str:
+        """Compile id of the algorithm sending this message"""
+        ...
+
+    @compile_id.setter
+    def compile_id(self, value: str) -> None:
+        ...
+
+    @property
+    def project_id(self) -> int:
+        """Project Id for this message"""
+        ...
+
+    @project_id.setter
+    def project_id(self, value: int) -> None:
+        ...
+
+    @property
+    def toast(self) -> bool:
+        """
+        True to emit message as a popup notification (toast),
+        false to emit message in console as text
+        """
+        ...
+
+    @toast.setter
+    def toast(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, packet_type: QuantConnect.Packets.PacketType) -> None:
+        """
+        Constructor for inherited types
+        
+        
+        This codeEntityType is protected.
+        
+        :param packet_type: The type of packet to create
+        """
+        ...
+
+    @overload
+    def __init__(self, project_id: int, algorithm_id: str, compile_id: str, message: str, toast: bool = False) -> None:
+        """Create a new instance of the notify debug packet:"""
+        ...
+
+
 class SystemDebugPacket(QuantConnect.Packets.DebugPacket):
     """Debug packets generated by Lean"""
 
@@ -1455,6 +1723,212 @@ class SystemDebugPacket(QuantConnect.Packets.DebugPacket):
     @overload
     def __init__(self, project_id: int, algorithm_id: str, compile_id: str, message: str, toast: bool = False) -> None:
         """Create a new instance of the system debug packet"""
+        ...
+
+
+class RuntimeErrorPacket(QuantConnect.Packets.Packet):
+    """
+    Algorithm runtime error packet from the lean engine.
+    This is a managed error which stops the algorithm execution.
+    """
+
+    @property
+    def message(self) -> str:
+        """Runtime error message from the exception"""
+        ...
+
+    @message.setter
+    def message(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm id which generated this runtime error"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def stack_trace(self) -> str:
+        """Error stack trace information string passed through from the Lean exception"""
+        ...
+
+    @stack_trace.setter
+    def stack_trace(self, value: str) -> None:
+        ...
+
+    @property
+    def user_id(self) -> int:
+        """User Id associated with the backtest that threw the error"""
+        ...
+
+    @user_id.setter
+    def user_id(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, user_id: int, algorithm_id: str, message: str, stacktrace: str = ...) -> None:
+        """Create a new runtime error packet"""
+        ...
+
+
+class HandledErrorPacket(QuantConnect.Packets.Packet):
+    """
+    Algorithm runtime error packet from the lean engine.
+    This is a managed error which stops the algorithm execution.
+    """
+
+    @property
+    def message(self) -> str:
+        """Runtime error message from the exception"""
+        ...
+
+    @message.setter
+    def message(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm id which generated this runtime error"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def stack_trace(self) -> str:
+        """Error stack trace information string passed through from the Lean exception"""
+        ...
+
+    @stack_trace.setter
+    def stack_trace(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, message: str, stacktrace: str = ...) -> None:
+        """Create a new handled error packet"""
+        ...
+
+
+class LogPacket(QuantConnect.Packets.Packet):
+    """Simple log message instruction from the lean engine."""
+
+    @property
+    def message(self) -> str:
+        """Log message to the users console:"""
+        ...
+
+    @message.setter
+    def message(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm Id requesting this logging"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, message: str) -> None:
+        """Create a new instance of the notify Log packet:"""
+        ...
+
+
+class AlgorithmStatusPacket(QuantConnect.Packets.Packet):
+    """Algorithm status update information packet"""
+
+    @property
+    def status(self) -> QuantConnect.AlgorithmStatus:
+        """Current algorithm status"""
+        ...
+
+    @status.setter
+    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
+        ...
+
+    @property
+    def chart_subscription(self) -> str:
+        """Chart we're subscribed to for live trading."""
+        ...
+
+    @chart_subscription.setter
+    def chart_subscription(self, value: str) -> None:
+        ...
+
+    @property
+    def message(self) -> str:
+        """Optional message or reason for state change."""
+        ...
+
+    @message.setter
+    def message(self, value: str) -> None:
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Algorithm Id associated with this status packet"""
+        ...
+
+    @algorithm_id.setter
+    def algorithm_id(self, value: str) -> None:
+        ...
+
+    @property
+    def optimization_id(self) -> str:
+        """OptimizationId for this result packet if any"""
+        ...
+
+    @optimization_id.setter
+    def optimization_id(self, value: str) -> None:
+        ...
+
+    @property
+    def project_id(self) -> int:
+        """Project Id associated with this status packet"""
+        ...
+
+    @project_id.setter
+    def project_id(self, value: int) -> None:
+        ...
+
+    @property
+    def channel_status(self) -> str:
+        """The current state of the channel"""
+        ...
+
+    @channel_status.setter
+    def channel_status(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON"""
+        ...
+
+    @overload
+    def __init__(self, algorithm_id: str, project_id: int, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
+        """Initialize algorithm state packet:"""
         ...
 
 
@@ -1675,398 +2149,6 @@ class StatusHistoryResult(QuantConnect.Packets.HistoryResult):
         ...
 
 
-class AlgorithmStatusPacket(QuantConnect.Packets.Packet):
-    """Algorithm status update information packet"""
-
-    @property
-    def status(self) -> QuantConnect.AlgorithmStatus:
-        """Current algorithm status"""
-        ...
-
-    @status.setter
-    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
-        ...
-
-    @property
-    def chart_subscription(self) -> str:
-        """Chart we're subscribed to for live trading."""
-        ...
-
-    @chart_subscription.setter
-    def chart_subscription(self, value: str) -> None:
-        ...
-
-    @property
-    def message(self) -> str:
-        """Optional message or reason for state change."""
-        ...
-
-    @message.setter
-    def message(self, value: str) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm Id associated with this status packet"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def optimization_id(self) -> str:
-        """OptimizationId for this result packet if any"""
-        ...
-
-    @optimization_id.setter
-    def optimization_id(self, value: str) -> None:
-        ...
-
-    @property
-    def project_id(self) -> int:
-        """Project Id associated with this status packet"""
-        ...
-
-    @project_id.setter
-    def project_id(self, value: int) -> None:
-        ...
-
-    @property
-    def channel_status(self) -> str:
-        """The current state of the channel"""
-        ...
-
-    @channel_status.setter
-    def channel_status(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, project_id: int, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
-        """Initialize algorithm state packet:"""
-        ...
-
-
-class RuntimeErrorPacket(QuantConnect.Packets.Packet):
-    """
-    Algorithm runtime error packet from the lean engine.
-    This is a managed error which stops the algorithm execution.
-    """
-
-    @property
-    def message(self) -> str:
-        """Runtime error message from the exception"""
-        ...
-
-    @message.setter
-    def message(self, value: str) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm id which generated this runtime error"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def stack_trace(self) -> str:
-        """Error stack trace information string passed through from the Lean exception"""
-        ...
-
-    @stack_trace.setter
-    def stack_trace(self, value: str) -> None:
-        ...
-
-    @property
-    def user_id(self) -> int:
-        """User Id associated with the backtest that threw the error"""
-        ...
-
-    @user_id.setter
-    def user_id(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, user_id: int, algorithm_id: str, message: str, stacktrace: str = ...) -> None:
-        """Create a new runtime error packet"""
-        ...
-
-
-class SecurityTypesPacket(QuantConnect.Packets.Packet):
-    """Security types packet contains information on the markets the user data has requested."""
-
-    @property
-    def types(self) -> typing.List[QuantConnect.SecurityType]:
-        """List of Security Type the user has requested (Equity, Forex, Futures etc)."""
-        ...
-
-    @types.setter
-    def types(self, value: typing.List[QuantConnect.SecurityType]) -> None:
-        ...
-
-    @property
-    def types_csv(self) -> str:
-        """CSV formatted, lower case list of SecurityTypes for the web API."""
-        ...
-
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-
-class AlphaResultPacket(QuantConnect.Packets.Packet):
-    """Provides a packet type for transmitting alpha insights data"""
-
-    @property
-    def user_id(self) -> int:
-        """The user's id that deployed the alpha stream"""
-        ...
-
-    @user_id.setter
-    def user_id(self, value: int) -> None:
-        ...
-
-    @property
-    def alpha_id(self) -> str:
-        """
-        The deployed alpha id. This is the id generated upon submssion to the alpha marketplace.
-        If this is a user backtest or live algo then this will not be specified
-        """
-        ...
-
-    @alpha_id.setter
-    def alpha_id(self, value: str) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """The algorithm's unique identifier"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def insights(self) -> typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """The generated insights"""
-        ...
-
-    @insights.setter
-    def insights(self, value: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
-        ...
-
-    @property
-    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
-        """The generated OrderEvents"""
-        ...
-
-    @order_events.setter
-    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
-        ...
-
-    @property
-    def orders(self) -> typing.List[QuantConnect.Orders.Order]:
-        """The new or updated Orders"""
-        ...
-
-    @orders.setter
-    def orders(self, value: typing.List[QuantConnect.Orders.Order]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the AlphaResultPacket class"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, user_id: int, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight] = None, order_events: typing.List[QuantConnect.Orders.OrderEvent] = None, orders: typing.List[QuantConnect.Orders.Order] = None) -> None:
-        """
-        Initializes a new instance of the AlphaResultPacket class
-        
-        :param algorithm_id: The algorithm's unique identifier
-        :param user_id: The user's id
-        :param insights: Alphas generated by the algorithm
-        :param order_events: OrderEvents generated by the algorithm
-        :param orders: Orders generated or updated by the algorithm
-        """
-        ...
-
-
-class AlgorithmTagsUpdatePacket(QuantConnect.Packets.Packet):
-    """Packet to communicate updates to the algorithm tags"""
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm id for this order event"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def tags(self) -> System.Collections.Generic.HashSet[str]:
-        """The new tags"""
-        ...
-
-    @tags.setter
-    def tags(self, value: System.Collections.Generic.HashSet[str]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, tags: System.Collections.Generic.HashSet[str]) -> None:
-        """Create a new instance of the algorithm tags up[date packet"""
-        ...
-
-
-class LiveResult(QuantConnect.Result):
-    """Live results object class for packaging live result data."""
-
-    @property
-    def holdings(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Holding]:
-        """Holdings dictionary of algorithm holdings information"""
-        ...
-
-    @holdings.setter
-    def holdings(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Holding]) -> None:
-        ...
-
-    @property
-    def cash_book(self) -> QuantConnect.Securities.CashBook:
-        """Cashbook for the algorithm's live results."""
-        ...
-
-    @cash_book.setter
-    def cash_book(self, value: QuantConnect.Securities.CashBook) -> None:
-        ...
-
-    @property
-    def cash(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
-        """Cash for the algorithm's live results."""
-        ...
-
-    @cash.setter
-    def cash(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
-        ...
-
-    @property
-    def account_currency(self) -> str:
-        """The algorithm's account currency"""
-        ...
-
-    @account_currency.setter
-    def account_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def account_currency_symbol(self) -> str:
-        """The algorithm's account currency"""
-        ...
-
-    @account_currency_symbol.setter
-    def account_currency_symbol(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default Constructor"""
-        ...
-
-    @overload
-    def __init__(self, parameters: QuantConnect.Packets.LiveResultParameters) -> None:
-        """Constructor for the result class for dictionary objects"""
-        ...
-
-
-class LiveResultPacket(QuantConnect.Packets.Packet):
-    """Live result packet from a lean engine algorithm."""
-
-    @property
-    def user_id(self) -> int:
-        """User Id sending result packet"""
-        ...
-
-    @user_id.setter
-    def user_id(self, value: int) -> None:
-        ...
-
-    @property
-    def project_id(self) -> int:
-        """Project Id of the result packet"""
-        ...
-
-    @project_id.setter
-    def project_id(self, value: int) -> None:
-        ...
-
-    @property
-    def deploy_id(self) -> str:
-        """Live Algorithm Id (DeployId) for this result packet"""
-        ...
-
-    @deploy_id.setter
-    def deploy_id(self, value: str) -> None:
-        ...
-
-    @property
-    def results(self) -> QuantConnect.Packets.LiveResult:
-        """Result data object for this result packet"""
-        ...
-
-    @results.setter
-    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Serialization"""
-        ...
-
-    @overload
-    def __init__(self, json: str) -> None:
-        """Compose the packet from a JSON string:"""
-        ...
-
-    @overload
-    def __init__(self, job: QuantConnect.Packets.LiveNodePacket, results: QuantConnect.Packets.LiveResult) -> None:
-        """
-        Compose Live Result Data Packet - With tradable dates
-        
-        :param job: Job that started this request
-        :param results: Results class for the Backtest job
-        """
-        ...
-
-    @staticmethod
-    def create_empty(job: QuantConnect.Packets.LiveNodePacket) -> QuantConnect.Packets.LiveResultPacket:
-        """
-        Creates an empty result packet, useful when the algorithm fails to initialize
-        
-        :param job: The associated job packet
-        :returns: An empty result packet.
-        """
-        ...
-
-
 class MarketHours(System.Object):
     """Market open hours model for pre, normal and post market hour definitions."""
 
@@ -2152,111 +2234,29 @@ class MarketToday(System.Object):
         ...
 
 
-class LogPacket(QuantConnect.Packets.Packet):
-    """Simple log message instruction from the lean engine."""
+class ResearchNodePacket(QuantConnect.Packets.AlgorithmNodePacket):
+    """Represents a research node packet"""
 
     @property
-    def message(self) -> str:
-        """Log message to the users console:"""
+    def research_id(self) -> str:
+        """The research id"""
         ...
 
-    @message.setter
-    def message(self, value: str) -> None:
+    @research_id.setter
+    def research_id(self, value: str) -> None:
         ...
 
     @property
-    def algorithm_id(self) -> str:
-        """Algorithm Id requesting this logging"""
+    def research_token(self) -> str:
+        """Associated research token"""
         ...
 
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
+    @research_token.setter
+    def research_token(self, value: str) -> None:
         ...
 
-    @overload
     def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, message: str) -> None:
-        """Create a new instance of the notify Log packet:"""
-        ...
-
-
-class HandledErrorPacket(QuantConnect.Packets.Packet):
-    """
-    Algorithm runtime error packet from the lean engine.
-    This is a managed error which stops the algorithm execution.
-    """
-
-    @property
-    def message(self) -> str:
-        """Runtime error message from the exception"""
-        ...
-
-    @message.setter
-    def message(self, value: str) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm id which generated this runtime error"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @property
-    def stack_trace(self) -> str:
-        """Error stack trace information string passed through from the Lean exception"""
-        ...
-
-    @stack_trace.setter
-    def stack_trace(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, message: str, stacktrace: str = ...) -> None:
-        """Create a new handled error packet"""
-        ...
-
-
-class OrderEventPacket(QuantConnect.Packets.Packet):
-    """Order event packet for passing updates on the state of an order to the portfolio."""
-
-    @property
-    def event(self) -> QuantConnect.Orders.OrderEvent:
-        """Order event object"""
-        ...
-
-    @event.setter
-    def event(self, value: QuantConnect.Orders.OrderEvent) -> None:
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Algorithm id for this order event"""
-        ...
-
-    @algorithm_id.setter
-    def algorithm_id(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON"""
-        ...
-
-    @overload
-    def __init__(self, algorithm_id: str, event_order: QuantConnect.Orders.OrderEvent) -> None:
-        """Create a new instance of the order event packet"""
+        """Creates a new instance"""
         ...
 
 

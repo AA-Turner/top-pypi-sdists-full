@@ -22,7 +22,6 @@ from nominal_api import (
     scout_checks_api,
     scout_datasource_connection_api,
     scout_layout_api,
-    scout_notebook_api,
     scout_template_api,
     scout_video_api,
     scout_workbookcommon_api,
@@ -57,7 +56,6 @@ from nominal.core._utils.pagination_tools import (
     search_users_paginated,
     search_videos_paginated,
     search_workbook_templates_paginated,
-    search_workbooks_paginated,
 )
 from nominal.core._utils.query_tools import (
     create_search_assets_query,
@@ -69,7 +67,6 @@ from nominal.core._utils.query_tools import (
     create_search_users_query,
     create_search_videos_query,
     create_search_workbook_templates_query,
-    create_search_workbooks_query,
 )
 from nominal.core.asset import Asset
 from nominal.core.attachment import Attachment, _iter_get_attachments
@@ -98,7 +95,7 @@ from nominal.core.streaming_checklist import _iter_list_streaming_checklists
 from nominal.core.unit import Unit, _available_units
 from nominal.core.user import User
 from nominal.core.video import Video, _create_video
-from nominal.core.workbook import Workbook
+from nominal.core.workbook import Workbook, _search_workbooks
 from nominal.core.workbook_template import WorkbookTemplate
 from nominal.core.workspace import Workspace
 from nominal.ts import (
@@ -1379,19 +1376,6 @@ class NominalClient:
         raw_workbook = self._clients.notebook.get(self._clients.auth_header, rid)
         return Workbook._from_conjure(self._clients, raw_workbook)
 
-    def _iter_search_workbooks(
-        self, query: scout_notebook_api.SearchNotebooksQuery, include_archived: bool
-    ) -> Iterable[Workbook]:
-        for raw_workbook in search_workbooks_paginated(
-            self._clients.notebook, self._clients.auth_header, query, include_archived
-        ):
-            try:
-                yield Workbook._from_notebook_metadata(self._clients, raw_workbook)
-            except ValueError:
-                logger.exception(
-                    "Failed to deserialize workbook metadata with rid %s: %s", raw_workbook.rid, raw_workbook
-                )
-
     def search_workbooks(
         self,
         *,
@@ -1406,12 +1390,13 @@ class NominalClient:
         run: Run | str | None = None,
         workspace: WorkspaceSearchT | None = WorkspaceSearchType.ALL,
         archived: bool | None = None,
+        include_drafts: bool = False,
     ) -> Sequence[Workbook]:
         """Search for workbooks meeting the specified filters.
         Filters are ANDed together, e.g. `(workbook.label == label) AND (workbook.created_by == "rid")`
 
         Args:
-            include_archived: If true, include archived workbooks in results
+            include_archived: If true, include archived workbooks in results. Defaults to False.
             exact_match: Searches for a string to match exactly in the workbook's metadata
             search_text: Fuzzy-searches for a string in the workbook's metadata
             labels: A list of labels that must ALL be present on an workbook to be included.
@@ -1422,6 +1407,7 @@ class NominalClient:
             run: Searches for workbooks with the given run
             workspace: Filters search to given workspace.
             archived: Return workbooks that are either archived or not
+            include_drafts: If true, include workbooks in draft state in results. Defaults to false.
 
         NOTE: If WorkspaceSearchType.ALL is given for `workspace`(default), searches within all workspaces the user can
             access. If WorkspaceSearchType.DEFAULT, searches within the default workspace if configured, or raises
@@ -1432,7 +1418,9 @@ class NominalClient:
         Returns:
             All workbooks which match all of the provided conditions
         """
-        query = create_search_workbooks_query(
+        return _search_workbooks(
+            self._clients,
+            include_archived=include_archived,
             exact_match=exact_match,
             search_text=search_text,
             labels=labels,
@@ -1445,8 +1433,8 @@ class NominalClient:
             run_rid=None if run is None else rid_from_instance_or_string(run),
             workspace_rid=self._workspace_rid_for_search(workspace or WorkspaceSearchType.ALL),
             archived=archived,
+            include_drafts=include_drafts,
         )
-        return list(self._iter_search_workbooks(query, include_archived))
 
     def get_workbook_template(self, rid: str) -> WorkbookTemplate:
         """Gets the given workbook template by rid."""

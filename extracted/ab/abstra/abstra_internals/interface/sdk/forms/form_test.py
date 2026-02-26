@@ -4,10 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from abstra.forms import PandasOutput, TextInput, run
+from abstra.forms import ExitButton, NextButton, PandasOutput, TextInput, run
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.sdk.sdk_forms import FormSDKController
 from abstra_internals.entities.execution_context import FormContext, Request
+from abstra_internals.entities.forms.template import Template, TemplateWithButtons
 from abstra_internals.repositories.users import UsersRepository
 from abstra_internals.settings import Settings
 
@@ -159,6 +160,27 @@ class TestFormSDK(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             run(steps)
+
+    def test_exit_button_triggers_sys_exit(self):
+        """ExitButton should cause sys.exit(0) at the controller level."""
+
+        def page_with_exit(state: dict) -> TemplateWithButtons:
+            return [TextInput(label="Name", key="name")], [
+                ExitButton("Cancel"),
+                NextButton(),
+            ]
+
+        def page2(state: dict) -> Template:
+            return [TextInput(label="Email", key="email")]
+
+        self.mock_conn.recv.side_effect = [
+            '{"type": "form:navigation", "action": "i18n_exit_action", "payload": {"name": "Alice"}, "seq": 1}',
+        ]
+
+        with self.assertRaises(SystemExit) as ctx:
+            run([page_with_exit, page2])
+
+        self.assertEqual(ctx.exception.code, 0)
 
 
 if __name__ == "__main__":

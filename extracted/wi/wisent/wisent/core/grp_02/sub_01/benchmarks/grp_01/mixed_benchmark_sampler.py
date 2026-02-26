@@ -31,7 +31,7 @@ builtins.print = _quiet_print
 from wisent.core.lm_harness_integration.only_benchmarks import CORE_BENCHMARKS
 from wisent.core.contrastive_pairs import ContrastivePairSet
 from .cache.managed_cached_benchmarks import ManagedCachedBenchmarks, get_managed_cache
-from wisent.core.constants import DEFAULT_SPLIT_RATIO
+from wisent.core.constants import DEFAULT_LAYER_WEIGHT, DEFAULT_SPLIT_RATIO, DISPLAY_TOP_N_SMALL
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class MixedBenchmarkSampler:
             raise InsufficientDataError(reason=f"No benchmarks found with tags {tags} (mode={tag_mode})")
         
         logger.info(f"Found {len(matching_benchmarks)} benchmarks matching tags {tags}")
-        logger.info(f"Matching benchmarks: {matching_benchmarks[:10]}...")  # Show first 10
+        logger.info(f"Matching benchmarks: {matching_benchmarks[:DISPLAY_TOP_N_SMALL]}...")
         
         # Collect all available samples from matching benchmarks
         all_samples = []
@@ -163,7 +163,7 @@ class MixedBenchmarkSampler:
                 
             try:
                 # Get samples from this benchmark
-                samples_per_benchmark = max(10, total_samples // len(matching_benchmarks))
+                samples_per_benchmark = max(DISPLAY_TOP_N_SMALL, total_samples // len(matching_benchmarks))
                 
                 cached_samples = self.managed_cache.get_task_samples(
                     task_name=benchmark_name,
@@ -197,7 +197,7 @@ class MixedBenchmarkSampler:
         if benchmark_weights:
             weighted_samples = []
             for sample in all_samples:
-                weight = benchmark_weights.get(sample.benchmark_name, 1.0)
+                weight = benchmark_weights.get(sample.benchmark_name, DEFAULT_LAYER_WEIGHT)
                 # Duplicate samples based on weight (simple approach)
                 weighted_samples.extend([sample] * int(weight))
             all_samples = weighted_samples

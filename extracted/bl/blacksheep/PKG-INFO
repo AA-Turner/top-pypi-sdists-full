@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blacksheep
-Version: 2.6.1
+Version: 2.6.2
 Summary: Fast web framework for Python asyncio
 Author-email: Roberto Prevato <roberto.prevato@gmail.com>
 License-Expression: MIT
@@ -38,11 +38,14 @@ Requires-Dist: httptools>=0.7.1; platform_python_implementation != "PyPy"
 Requires-Dist: async-timeout>=4.0.0; python_version < "3.11"
 Provides-Extra: jinja
 Requires-Dist: Jinja2~=3.1.6; extra == "jinja"
+Provides-Extra: xml
+Requires-Dist: defusedxml>=0.7.1; extra == "xml"
 Provides-Extra: full
 Requires-Dist: cryptography<47.0.0,>=45.0.2; extra == "full"
 Requires-Dist: PyJWT~=2.10.1; extra == "full"
 Requires-Dist: websockets~=15.0.1; extra == "full"
 Requires-Dist: Jinja2~=3.1.6; extra == "full"
+Requires-Dist: defusedxml>=0.7.1; extra == "full"
 Dynamic: license-file
 
 [![Build](https://github.com/Neoteroi/BlackSheep/workflows/Main/badge.svg)](https://github.com/Neoteroi/BlackSheep/actions)

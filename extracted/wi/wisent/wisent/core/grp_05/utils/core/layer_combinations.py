@@ -4,6 +4,8 @@ from itertools import combinations
 from math import comb
 from typing import List
 
+from wisent.core.constants import LAYER_COMBOS_PREVIEW_LIMIT, DEFAULT_LAYER, BENCH_TEST_SAMPLE_SIZE
+
 
 def get_layer_combinations(num_layers: int, max_combo_size: int, single_and_all_only: bool = True) -> List[List[int]]:
     """
@@ -53,9 +55,9 @@ def get_layer_combinations_count(num_layers: int, max_combo_size: int) -> int:
 
 
 if __name__ == "__main__":
-    # Test with 16 layers (like Llama-3.2-1B) and max_combo_size=3
-    num_layers = 16
-    max_combo_size = 3
+    # Test with DEFAULT_LAYER layers (like Llama-3.2-1B) and max_combo_size=BENCH_TEST_SAMPLE_SIZE
+    num_layers = DEFAULT_LAYER
+    max_combo_size = BENCH_TEST_SAMPLE_SIZE
     combos = get_layer_combinations(num_layers, max_combo_size)
     
     print(f"Model with {num_layers} layers, max_combo_size={max_combo_size}:")
@@ -63,8 +65,8 @@ if __name__ == "__main__":
     print(f"Expected: {get_layer_combinations_count(num_layers, max_combo_size)}")
     print()
     
-    print("First 20 combinations:")
-    for i, combo in enumerate(combos[:20]):
+    print(f"First {LAYER_COMBOS_PREVIEW_LIMIT} combinations:")
+    for i, combo in enumerate(combos[:LAYER_COMBOS_PREVIEW_LIMIT]):
         print(f"  {i+1}: {combo}")
-    if len(combos) > 20:
-        print(f"  ... and {len(combos) - 20} more")
+    if len(combos) > LAYER_COMBOS_PREVIEW_LIMIT:
+        print(f"  ... and {len(combos) - LAYER_COMBOS_PREVIEW_LIMIT} more")

@@ -60,6 +60,7 @@ from arthur_client.api_bindings.exceptions import ApiAttributeError
 from arthur_client.api_bindings.exceptions import ApiException
 
 # import models into sdk package
+from arthur_client.api_bindings.models.agent import Agent
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
@@ -135,6 +136,7 @@ from arthur_client.api_bindings.models.data_retrieval_data import DataRetrievalD
 from arthur_client.api_bindings.models.data_retrieval_operation import DataRetrievalOperation
 from arthur_client.api_bindings.models.data_retrieval_status import DataRetrievalStatus
 from arthur_client.api_bindings.models.data_source import DataSource
+from arthur_client.api_bindings.models.data_source_response import DataSourceResponse
 from arthur_client.api_bindings.models.dataset import Dataset
 from arthur_client.api_bindings.models.dataset_column import DatasetColumn
 from arthur_client.api_bindings.models.dataset_connector import DatasetConnector
@@ -201,6 +203,7 @@ from arthur_client.api_bindings.models.keywords_config import KeywordsConfig
 from arthur_client.api_bindings.models.llm_base_config_settings import LLMBaseConfigSettings
 from arthur_client.api_bindings.models.llm_eval import LLMEval
 from arthur_client.api_bindings.models.llm_model import LLMModel
+from arthur_client.api_bindings.models.llm_model_response import LLMModelResponse
 from arthur_client.api_bindings.models.list_datasets_job_spec import ListDatasetsJobSpec
 from arthur_client.api_bindings.models.list_type import ListType
 from arthur_client.api_bindings.models.logit_bias_item import LogitBiasItem
@@ -303,6 +306,8 @@ from arthur_client.api_bindings.models.post_workspace import PostWorkspace
 from arthur_client.api_bindings.models.project import Project
 from arthur_client.api_bindings.models.project_bound_resource_metadata import ProjectBoundResourceMetadata
 from arthur_client.api_bindings.models.project_sort import ProjectSort
+from arthur_client.api_bindings.models.put_agents import PutAgents
+from arthur_client.api_bindings.models.put_agents_response import PutAgentsResponse
 from arthur_client.api_bindings.models.put_available_dataset import PutAvailableDataset
 from arthur_client.api_bindings.models.put_available_datasets import PutAvailableDatasets
 from arthur_client.api_bindings.models.put_custom_aggregation_spec_schema import PutCustomAggregationSpecSchema

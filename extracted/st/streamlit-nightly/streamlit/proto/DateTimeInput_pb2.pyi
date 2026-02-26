@@ -51,6 +51,7 @@ class DateTimeInput(_message.Message):
     FORMAT_FIELD_NUMBER: _builtins.int
     STEP_FIELD_NUMBER: _builtins.int
     IS_RANGE_FIELD_NUMBER: _builtins.int
+    QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     label: _builtins.str
     min: _builtins.str
@@ -62,6 +63,7 @@ class DateTimeInput(_message.Message):
     format: _builtins.str
     step: _builtins.int
     is_range: _builtins.bool
+    query_param_key: _builtins.str
     @_builtins.property
     def default(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
@@ -85,10 +87,14 @@ class DateTimeInput(_message.Message):
         format: _builtins.str = ...,
         step: _builtins.int = ...,
         is_range: _builtins.bool = ...,
+        query_param_key: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["label_visibility", b"label_visibility"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["default", b"default", "disabled", b"disabled", "form_id", b"form_id", "format", b"format", "help", b"help", "id", b"id", "is_range", b"is_range", "label", b"label", "label_visibility", b"label_visibility", "max", b"max", "min", b"min", "set_value", b"set_value", "step", b"step", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "format", b"format", "help", b"help", "id", b"id", "is_range", b"is_range", "label", b"label", "label_visibility", b"label_visibility", "max", b"max", "min", b"min", "query_param_key", b"query_param_key", "set_value", b"set_value", "step", b"step", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
+    _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
 
 Global___DateTimeInput: _TypeAlias = DateTimeInput  # noqa: Y015

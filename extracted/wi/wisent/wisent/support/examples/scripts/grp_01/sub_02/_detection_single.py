@@ -6,13 +6,20 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
-from wisent.core.constants import ZERO_THRESHOLD, LINEARITY_N_INIT
+from wisent.core.constants import (
+    ZERO_THRESHOLD, LINEARITY_N_INIT, DEFAULT_RANDOM_SEED,
+    CONCEPT_PCA_VARIANCE_90, CONCEPT_BIC_STRONG_THRESHOLD,
+    CONCEPT_SILHOUETTE_STRONG, CONCEPT_SILHOUETTE_MODERATE,
+    CONCEPT_DIRECTION_DISTINCT, CONCEPT_DIRECTION_MODERATE,
+    CONCEPT_STABILITY_THRESHOLD,
+    KMEANS_N_INIT_SMALL, KMEANS_N_INIT_MEDIUM, N_BOOTSTRAP_DEFAULT,
+)
 
 
 def detect_multiple_concepts_single_sample(
     diff_vectors: np.ndarray,
-    n_bootstrap: int = 100,
-    seed: int = 42,
+    n_bootstrap: int = N_BOOTSTRAP_DEFAULT,
+    seed: int = DEFAULT_RANDOM_SEED,
 ) -> Dict:
     """
     Detect if a SINGLE sample contains multiple concepts.
@@ -45,11 +52,11 @@ def detect_multiple_concepts_single_sample(
     pca = PCA(n_components=n_pcs)
     proj = pca.fit_transform(diff_vectors)
     
-    gmm1 = GaussianMixture(n_components=1, random_state=seed, n_init=5)
+    gmm1 = GaussianMixture(n_components=1, random_state=seed, n_init=KMEANS_N_INIT_MEDIUM)
     gmm1.fit(proj)
-    gmm2 = GaussianMixture(n_components=2, random_state=seed, n_init=5)
+    gmm2 = GaussianMixture(n_components=2, random_state=seed, n_init=KMEANS_N_INIT_MEDIUM)
     gmm2.fit(proj)
-    gmm3 = GaussianMixture(n_components=3, random_state=seed, n_init=5)
+    gmm3 = GaussianMixture(n_components=3, random_state=seed, n_init=KMEANS_N_INIT_MEDIUM)
     gmm3.fit(proj)
     
     bic_1 = gmm1.bic(proj)
@@ -63,8 +70,8 @@ def detect_multiple_concepts_single_sample(
     # 2. Cluster Stability - Do different clustering runs agree?
     cluster_agreements = []
     for i in range(5):
-        km1 = KMeans(n_clusters=2, random_state=seed + i, n_init=3)
-        km2 = KMeans(n_clusters=2, random_state=seed + i + 100, n_init=3)
+        km1 = KMeans(n_clusters=2, random_state=seed + i, n_init=KMEANS_N_INIT_SMALL)
+        km2 = KMeans(n_clusters=2, random_state=seed + i + 100, n_init=KMEANS_N_INIT_SMALL)
         labels1 = km1.fit_predict(diff_vectors)
         labels2 = km2.fit_predict(diff_vectors)
         # Compute agreement (accounting for label flipping)
@@ -100,7 +107,7 @@ def detect_multiple_concepts_single_sample(
     
     # Effective dimensionality (how many PCs needed to explain 90% variance)
     cumsum = np.cumsum(evs)
-    effective_dim = np.searchsorted(cumsum, 0.90) + 1
+    effective_dim = np.searchsorted(cumsum, CONCEPT_PCA_VARIANCE_90) + 1
     
     # Ratio of second to first eigenvalue
     ev_ratio = evs[1] / evs[0] if len(evs) > 1 else 0
@@ -112,7 +119,7 @@ def detect_multiple_concepts_single_sample(
     evidence_details = []
     
     # BIC: If 2-component is substantially better (diff > 10), suggests multiple concepts
-    if bic_diff_2v1 > 10:
+    if bic_diff_2v1 > CONCEPT_BIC_STRONG_THRESHOLD:
         evidence_for_multiple += 2  # Strong evidence
         evidence_details.append(f"BIC strongly favors 2 components (diff={bic_diff_2v1:.1f})")
     elif bic_diff_2v1 > 0:
@@ -122,10 +129,10 @@ def detect_multiple_concepts_single_sample(
         evidence_details.append(f"BIC favors 1 component (diff={bic_diff_2v1:.1f})")
     
     # Silhouette: If k=2 gives good clustering (> 0.1), suggests structure
-    if silhouette > 0.15:
+    if silhouette > CONCEPT_SILHOUETTE_STRONG:
         evidence_for_multiple += 2
         evidence_details.append(f"Strong cluster structure (silhouette={silhouette:.3f})")
-    elif silhouette > 0.08:
+    elif silhouette > CONCEPT_SILHOUETTE_MODERATE:
         evidence_for_multiple += 1
         evidence_details.append(f"Moderate cluster structure (silhouette={silhouette:.3f})")
     else:
@@ -134,24 +141,24 @@ def detect_multiple_concepts_single_sample(
     # Direction similarity: If clusters have VERY different directions (< 0.2), strongly suggests different concepts
     # Note: Even single-concept data can have ~0.25-0.3 similarity due to noise
     # Truly mixed concepts (like TruthfulQA + HellaSwag) show ~0.1 similarity
-    if cluster_direction_similarity < 0.15:
+    if cluster_direction_similarity < CONCEPT_DIRECTION_DISTINCT:
         evidence_for_multiple += 3  # Very strong evidence - this is the key discriminator
         evidence_details.append(f"Clusters have VERY different directions (sim={cluster_direction_similarity:.3f}) - STRONG signal for multiple concepts")
-    elif cluster_direction_similarity < 0.25:
+    elif cluster_direction_similarity < CONCEPT_DIRECTION_MODERATE:
         evidence_for_multiple += 1
         evidence_details.append(f"Clusters have somewhat different directions (sim={cluster_direction_similarity:.3f})")
     else:
         evidence_details.append(f"Clusters have similar directions (sim={cluster_direction_similarity:.3f}) - typical for single concept")
     
     # Cluster stability: High stability (> 0.8) with good silhouette suggests real structure
-    if cluster_stability > 0.85 and silhouette > 0.1:
+    if cluster_stability > CONCEPT_STABILITY_THRESHOLD and silhouette > 0.1:
         evidence_for_multiple += 1
         evidence_details.append(f"Clusters are stable (stability={cluster_stability:.3f})")
     
     # Determine verdict
-    # The key discriminator is cluster_direction_similarity < 0.15
+    # The key discriminator is cluster_direction_similarity < CONCEPT_DIRECTION_DISTINCT
     # This alone is strong evidence for multiple concepts
-    has_strong_direction_signal = cluster_direction_similarity < 0.15
+    has_strong_direction_signal = cluster_direction_similarity < CONCEPT_DIRECTION_DISTINCT
     
     if has_strong_direction_signal:
         verdict = "MULTIPLE_CONCEPTS"

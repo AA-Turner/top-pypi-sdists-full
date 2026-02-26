@@ -7,6 +7,8 @@ from wisent.core.constants import (
     SAMPLE_RATIO_ADEQUATE, SAMPLE_RATIO_GOOD, SAMPLE_RATIO_ACCEPTABLE,
     SAMPLE_RATIO_MARGINAL,
     EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE,
+    POWER_ANALYSIS_MIN_N, POWER_ANALYSIS_STEP, SAMPLE_ADEQUACY_MAX_N,
+    CLASSIFIER_THRESHOLD, PCA_QUALITY_COMPONENTS,
 )
 
 
@@ -96,7 +98,7 @@ def compute_effective_sample_size(X: np.ndarray, method: str = "eigenvalue") -> 
         "avg_abs_correlation": float(avg_abs_corr),
         "eigenvalue_decay_rate": float(decay_rate),
         "condition_number": float(min(cond, 1e10)),
-        "top_5_eigenvalues": eigenvalues[:5].tolist() if len(eigenvalues) >= 5 else eigenvalues.tolist(),
+        "top_5_eigenvalues": eigenvalues[:PCA_QUALITY_COMPONENTS].tolist() if len(eigenvalues) >= PCA_QUALITY_COMPONENTS else eigenvalues.tolist(),
         "n_eff_ratio": float(n_eff / n) if n > 0 else 1.0,
     }
 
@@ -129,18 +131,18 @@ def recommend_sample_size(
     from scipy import stats
 
     effect_sizes = {"small": EFFECT_SIZE_SMALL, "medium": EFFECT_SIZE_MEDIUM, "large": EFFECT_SIZE_LARGE}
-    d = effect_sizes.get(target_effect_size, 0.5)
+    d = effect_sizes.get(target_effect_size, CLASSIFIER_THRESHOLD)
 
     def required_n(eff_d: float, effect: float, power: float, a: float) -> int:
         """Compute required n for target power at given effect size."""
-        for test_n in range(8, 20000, 2):
+        for test_n in range(POWER_ANALYSIS_MIN_N, SAMPLE_ADEQUACY_MAX_N, POWER_ANALYSIS_STEP):
             df = max(1, min(test_n - 2, test_n - eff_d - 1))
             t_crit = stats.t.ppf(1 - a / 2, df)
             n_per_group = test_n / 2
             test_power = 1 - stats.t.cdf(t_crit, df, loc=effect * np.sqrt(n_per_group / 2))
             if test_power >= power:
                 return test_n
-        return 20000
+        return SAMPLE_ADEQUACY_MAX_N
 
     recommended = required_n(effective_dim, d, target_power, alpha)
     n_for_small = required_n(effective_dim, effect_sizes["small"], target_power, alpha)

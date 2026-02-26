@@ -12,10 +12,12 @@ from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations import Activations
 from wisent.core.models import get_generate_kwargs
 from wisent.core.constants import (DEFAULT_LAYER, CLASSIFIER_THRESHOLD,
-    AGENT_DEFAULT_SAMPLES, CLASSIFIER_MLP_HIDDEN_DIM,
+    AGENT_DEFAULT_SAMPLES, CLASSIFIER_HIDDEN_DIM,
     CLASSIFIER_NUM_EPOCHS, CLASSIFIER_BATCH_SIZE, DEFAULT_CLASSIFIER_LR,
-    CLASSIFIER_EARLY_STOPPING_PATIENCE, AGENT_QUALITY_MAX_TOKENS_THRESHOLD,
-    AGENT_STEERING_PARAMS_MAX_TOKENS)
+    CLASSIFIER_EARLY_STOPPING_PATIENCE, QUALITY_THRESHOLD_CLAMP_MIN,
+    QUALITY_THRESHOLD_CLAMP_MAX, QUALITY_EVAL_LAYER_MIN,
+    QUALITY_EVAL_LAYER_MAX, QUALITY_EVAL_SAMPLES_MIN,
+    QUALITY_EVAL_SAMPLES_MAX)
 
 
 class QualityEvaluationMixin:
@@ -94,7 +96,7 @@ class QualityEvaluationMixin:
         """
 
         # Generate model judgment (short response for yes/no decision)
-        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_QUALITY_MAX_TOKENS_THRESHOLD)
+        gen_kwargs = get_generate_kwargs()
         result = self.model.generate(threshold_prompt, layer_index=DEFAULT_LAYER, **gen_kwargs)
         judgment = result[0] if isinstance(result, tuple) else result
         judgment = judgment.strip().upper()
@@ -155,7 +157,7 @@ class QualityEvaluationMixin:
         """
 
         # Generate model response
-        gen_kwargs = get_generate_kwargs(max_new_tokens=AGENT_STEERING_PARAMS_MAX_TOKENS)
+        gen_kwargs = get_generate_kwargs()
         result = self.model.generate(parameter_prompt, layer_index=DEFAULT_LAYER, **gen_kwargs)
         response = result[0] if isinstance(result, tuple) else result
 
@@ -194,9 +196,9 @@ class QualityEvaluationMixin:
             )
 
         # Validate ranges
-        layer = max(8, min(20, layer))
-        threshold = max(0.1, min(0.9, threshold))
-        samples = max(10, min(50, samples))
+        layer = max(QUALITY_EVAL_LAYER_MIN, min(QUALITY_EVAL_LAYER_MAX, layer))
+        threshold = max(QUALITY_THRESHOLD_CLAMP_MIN, min(QUALITY_THRESHOLD_CLAMP_MAX, threshold))
+        samples = max(QUALITY_EVAL_SAMPLES_MIN, min(QUALITY_EVAL_SAMPLES_MAX, samples))
         if classifier_type not in ["logistic", "svm", "neural"]:
             classifier_type = "logistic"
 
@@ -213,5 +215,5 @@ class QualityEvaluationMixin:
             batch_size=CLASSIFIER_BATCH_SIZE,
             learning_rate=DEFAULT_CLASSIFIER_LR,
             early_stopping_patience=CLASSIFIER_EARLY_STOPPING_PATIENCE,
-            hidden_dim=CLASSIFIER_MLP_HIDDEN_DIM,
+            hidden_dim=CLASSIFIER_HIDDEN_DIM,
         )

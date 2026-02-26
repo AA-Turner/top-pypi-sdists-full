@@ -18,13 +18,14 @@ from wisent.core.constants import (
     MULTI_DIR_SATURATION_K_DEFAULT,
     SIGNAL_SATURATION_DELTA,
     DETECTION_THRESHOLD,
+    DIRECTION_K_VALUES,
 )
 
 
 def compute_multi_direction_accuracy(
     pos_activations,
     neg_activations,
-    k_values: List[int] = [1, 2, 3, 5, 10],
+    k_values: List[int] = list(DIRECTION_K_VALUES),
     n_folds: int = CV_FOLDS,
     n_bootstrap: int = STABILITY_N_BOOTSTRAP,
 ) -> Dict[str, Any]:

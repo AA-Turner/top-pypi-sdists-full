@@ -46,6 +46,7 @@ class ConfigDict(TypedDict):
         no_overwrite: To not overwrite files in an existing directory.
         image: The image to be used while scaffolding devcontainer.
         role_name: The name of role to be used while scaffolding.
+        skip_collection_check: Whether to skip collection path validation.
     """
 
     creator_version: str
@@ -61,6 +62,7 @@ class ConfigDict(TypedDict):
     no_overwrite: bool
     image: str
     role_name: str
+    skip_collection_check: bool
 
 
 @pytest.fixture(name="cli_args")
@@ -88,6 +90,7 @@ def fixture_cli_args(tmp_path: Path, output: Output) -> ConfigDict:
         "no_overwrite": False,
         "image": "",
         "role_name": "",
+        "skip_collection_check": False,
     }
 
 
@@ -278,9 +281,9 @@ def test_error_invalid_collection_path(
 
     """
     cli_args["plugin_type"] = "lookup"
+    cli_args["skip_collection_check"] = skip_collection_check
     add = Add(
         Config(**cli_args),
-        skip_collection_check=skip_collection_check,
     )
 
     if skip_collection_check:
@@ -350,6 +353,65 @@ def test_run_success_add_ai(
     assert not expected_file.is_symlink()
     content = expected_file.read_text()
     assert len(content) > 0
+
+
+def test_run_success_add_ee_ci(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test Add.run() for adding an EE CI GitHub Action workflow.
+
+    Successfully adds EE CI workflow to path.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Add class object.
+        monkeypatch: Pytest monkeypatch fixture.
+
+    """
+    # Set the resource_type to ee-ci
+    cli_args["resource_type"] = "ee-ci"
+    add = Add(
+        Config(**cli_args),
+    )
+    add.run()
+    result = capsys.readouterr().out
+    assert "Note: Resource added to" in result
+
+    # Verify the generated ee-ci files match the expected structure
+    expected_ci = tmp_path / ".github" / "workflows"
+    effective_ci = FIXTURES_DIR / "common" / "ee-ci" / ".github" / "workflows"
+
+    cmp_result = dircmp(expected_ci, effective_ci)
+    diff = has_differences(dcmp=cmp_result, errors=[])
+    assert diff == [], diff
+
+    # Test for overwrite prompt and failure with no overwrite option
+    conflict_file = tmp_path / ".github" / "workflows" / "ci.yml"
+    conflict_file.write_text("name: conflict")
+
+    # expect a CreatorError when the response to overwrite is no.
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    fail_msg = (
+        "The destination directory contains files that will be overwritten."
+        " Please re-run ansible-creator with --overwrite to continue."
+    )
+    with pytest.raises(
+        CreatorError,
+        match=fail_msg,
+    ):
+        add.run()
+
+    # expect a warning followed by ee-ci resource creation msg
+    # when response to overwrite is yes.
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    add.run()
+    result = capsys.readouterr().out
+    assert "already exists" in result, result
+    assert "Note: Resource added to" in result
 
 
 def test_run_success_add_devcontainer(

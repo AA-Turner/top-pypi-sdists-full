@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-cosmos
-Version: 1.13.0
+Version: 1.13.1
 Summary: Orchestrate your dbt projects in Airflow
 Project-URL: Homepage, https://github.com/astronomer/astronomer-cosmos
 Project-URL: Documentation, https://astronomer.github.io/astronomer-cosmos
@@ -140,6 +140,12 @@ Requires-Dist: openlineage-airflow; extra == 'openlineage'
 Requires-Dist: openlineage-integration-common!=1.15.0; extra == 'openlineage'
 Description-Content-Type: text/x-rst
 
+.. License badge
+.. |license| image:: https://img.shields.io/:license-Apache%202-blue.svg
+    :target: https://www.apache.org/licenses/LICENSE-2.0.txt
+    :alt: License
+
+.. PyPI badges
 .. |fury| image:: https://badge.fury.io/py/astronomer-cosmos.svg
     :target: https://badge.fury.io/py/astronomer-cosmos
 

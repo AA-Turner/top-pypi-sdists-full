@@ -35,7 +35,10 @@ Company Expense Policy (effective 2024):
 """
 
 COMPLIANT_MESSAGES = [
-    {"role": "user", "content": "I had a $35 lunch with a client and have the receipt. Can I expense it?"},
+    {
+        "role": "user",
+        "content": "I had a $35 lunch with a client and have the receipt. Can I expense it?",
+    },
     {
         "role": "assistant",
         "content": (
@@ -62,7 +65,6 @@ class TestLangfuseIntegration:
         """Generate traces, upload as dataset items, run guard, post scores."""
         from langfuse import get_client
 
-        from synkro.formatters.langfuse import LangfuseFormatter
         from synkro.guard import PolicyGuard
 
         langfuse = get_client()
@@ -182,7 +184,7 @@ class TestLangfuseIntegration:
         # -------------------------------------------------------------
         print("--- Verifying serialization ---")
         for result in [compliant_result, violating_result]:
-            d = result.to_dict()
+            result.to_dict()
             j = result.to_json()
             parsed = json.loads(j)
             assert parsed["passed"] == result.passed

@@ -56,7 +56,18 @@ class LuaToolAdapter:
         """Wrap a ToolHandler so it can be called from Lua with a table argument."""
         adapter = self
 
-        def wrapper(lua_arg: Any = None) -> str:
+        def wrapper(*args: Any) -> str:
+            if len(args) > 1:
+                safe_name = handler.name.replace("-", "_")
+                result = (
+                    f"Error: {safe_name}() takes a single table argument, not {len(args)} arguments. "
+                    f"Use: {safe_name}({{key = value}})"
+                )
+                adapter._call_log.append((handler.name, {}, result))
+                if adapter._log_fn and result:
+                    adapter._log_fn(result)
+                return result
+            lua_arg = args[0] if args else None
             action_input = _to_dict(lua_arg)
             try:
                 result = handler.execute(action_input)

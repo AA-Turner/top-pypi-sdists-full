@@ -21,8 +21,8 @@ from wisent.core.steering_methods.steering_object import (
     CAASteeringObject,
 )
 from wisent.core.constants import (TIKHONOV_REG, RL_NUM_EPISODES, RL_EPSILON,
-    PIPELINE_STEERING_STRENGTH, PIPELINE_MAX_NEW_TOKENS, PIPELINE_TEMPERATURE, PIPELINE_TOP_P,
-    PRZELOM_EPSILON, SZLAK_INFERENCE_K, DEFAULT_LIMIT)
+    DEFAULT_STRENGTH,
+    PRZELOM_EPSILON, SZLAK_INFERENCE_K, DEFAULT_LIMIT, CONTINUAL_LOOP_QUERY_LIMIT)
 
 
 def ensure_enriched_pairs(
@@ -95,9 +95,8 @@ def evaluate_vectors(
 
     execute_generate_responses(_make_args(
         task=task, input_file=enriched_path, model=model, output=rf,
-        num_questions=limit, steering_object=sf, steering_strength=PIPELINE_STEERING_STRENGTH,
+        num_questions=limit, steering_object=sf, steering_strength=DEFAULT_STRENGTH,
         steering_strategy="constant", use_steering=True, device=device,
-        max_new_tokens=PIPELINE_MAX_NEW_TOKENS, temperature=PIPELINE_TEMPERATURE, top_p=PIPELINE_TOP_P,
         verbose=False, cached_model=None,
     ))
 
@@ -180,7 +179,7 @@ def select_method_for_task(task: str, model: str) -> str:
     try:
         from wisent.core.steering_optimizer import run_auto_steering_optimization
         result = run_auto_steering_optimization(
-            model_name=model, task_name=task, limit=20,
+            model_name=model, task_name=task, limit=CONTINUAL_LOOP_QUERY_LIMIT,
             device=None, verbose=False,
         )
         if "error" not in result:

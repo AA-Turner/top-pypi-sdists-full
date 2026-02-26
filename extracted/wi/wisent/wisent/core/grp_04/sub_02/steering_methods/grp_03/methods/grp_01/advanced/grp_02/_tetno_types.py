@@ -34,9 +34,10 @@ from wisent.core.constants import (
     TETNO_ENTROPY_FLOOR,
     TETNO_ENTROPY_CEILING,
     TETNO_MAX_ALPHA,
-    TETNO_OPTIMIZATION_STEPS,
-    TETNO_LEARNING_RATE,
+    DEFAULT_OPTIMIZATION_STEPS,
+    TECZA_LEARNING_RATE,
     TETNO_THRESHOLD_SEARCH_STEPS,
+    DEFAULT_LAYER_WEIGHT,
 )
 
 __all__ = [
@@ -101,10 +102,10 @@ class TETNOConfig:
     """Maximum steering strength."""
     
     # Training
-    optimization_steps: int = TETNO_OPTIMIZATION_STEPS
+    optimization_steps: int = DEFAULT_OPTIMIZATION_STEPS
     """Steps for condition vector optimization."""
     
-    learning_rate: float = TETNO_LEARNING_RATE
+    learning_rate: float = TECZA_LEARNING_RATE
     """Learning rate for optimization."""
     
     use_caa_init: bool = True
@@ -143,7 +144,7 @@ class TETNOResult:
     
     def get_layer_scale(self, layer: LayerName) -> float:
         """Get scaling factor for a layer."""
-        return self.layer_scales.get(layer, 1.0)
+        return self.layer_scales.get(layer, DEFAULT_LAYER_WEIGHT)
     
     def should_steer(self, hidden_state: torch.Tensor, threshold: Optional[float] = None) -> Tuple[bool, float]:
         """

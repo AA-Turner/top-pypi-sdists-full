@@ -25,11 +25,13 @@ import abc
 import collections
 import contextlib
 import copy
+import fnmatch
 import importlib
 import logging
 import shutil
 import subprocess
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import wcmatch.pathlib
@@ -38,7 +40,7 @@ import wcmatch.wcmatch
 from wcmatch import glob
 
 from molecule import config, logger, text, util
-from molecule.constants import MOLECULE_DEFAULT_SCENARIO_NAME
+from molecule.constants import MOLECULE_COLLECTION_ROOT, MOLECULE_DEFAULT_SCENARIO_NAME
 from molecule.exceptions import MoleculeError, ScenarioFailureError
 from molecule.reporting.definitions import ScenarioResults
 from molecule.reporting.rendering import report
@@ -111,6 +113,64 @@ class Base(abc.ABC):
             self._config.provisioner.manage_inventory()
 
 
+def _is_excluded(name: str, excludes: list[str]) -> bool:
+    """Check if a scenario name matches any exclude pattern.
+
+    Supports both exact names and glob-style wildcards (e.g., 'appliance_*/*').
+
+    Args:
+        name: The scenario name to check.
+        excludes: List of exclude patterns (exact names or glob patterns).
+
+    Returns:
+        True if the name matches any exclude pattern.
+    """
+    for pattern in excludes:
+        if pattern == name:
+            return True
+        if fnmatch.fnmatchcase(name, pattern):
+            return True
+    return False
+
+
+def _resolve_scenario_glob(effective_base_glob: str, scenario_name: str) -> str:
+    """Resolve a scenario name to a glob pattern for molecule.yml discovery.
+
+    In collection mode (glob contains MOLECULE_COLLECTION_ROOT), uses path-based
+    resolution to correctly handle both nested names ('appliance_vlans/merged')
+    and flat names ('default') without corrupting multi-star globs like '**'.
+    Outside collection mode, uses the existing str.replace behavior.
+
+    Args:
+        effective_base_glob: The base glob pattern (e.g., 'extensions/molecule/**/molecule.yml').
+        scenario_name: The scenario name from -s (e.g., 'default' or 'appliance_vlans/merged').
+
+    Returns:
+        A glob string targeting the specific scenario's molecule.yml.
+
+    Raises:
+        ScenarioFailureError: If the scenario name contains path traversal sequences.
+    """
+    if ".." in scenario_name or scenario_name.startswith("/"):
+        msg = f"Invalid scenario name '{scenario_name}': path traversal is not allowed."
+        raise ScenarioFailureError(message=msg)
+
+    is_collection = MOLECULE_COLLECTION_ROOT in effective_base_glob
+    if is_collection:
+        # Split on the first wildcard to get the scenarios root directory.
+        # Assumes the glob follows the pattern <root>*<suffix> where the
+        # first '*' marks the scenario placeholder.
+        base_dir = effective_base_glob.split("*", maxsplit=1)[0]
+        has_wildcard = glob.is_magic(scenario_name, flags=glob.BRACE)
+        is_recursive = "**" in effective_base_glob
+        if has_wildcard and is_recursive:
+            # Preserve recursive matching so -s "camera_*" or -s "{camera,router}_*"
+            # finds scenarios at any depth under matching directories.
+            return str(Path(base_dir) / scenario_name / "**" / "molecule.yml")
+        return str(Path(base_dir) / scenario_name / "molecule.yml")
+    return effective_base_glob.replace("*", scenario_name)
+
+
 def execute_cmdline_scenarios(
     scenario_names: list[str] | None,
     args: MoleculeArgs,
@@ -143,19 +203,24 @@ def execute_cmdline_scenarios(
         configs = [
             config
             for config in get_configs(args, command_args, ansible_args)
-            if config.scenario.name not in excludes
+            if not _is_excluded(config.scenario.name, excludes)
         ]
     else:
         try:
             # filter out excludes
-            scenario_names = [name for name in scenario_names if name not in excludes]
+            scenario_names = [name for name in scenario_names if not _is_excluded(name, excludes)]
             for scenario_name in scenario_names:
-                glob_str = effective_base_glob.replace("*", scenario_name)
+                glob_str = _resolve_scenario_glob(effective_base_glob, scenario_name)
                 configs.extend(get_configs(args, command_args, ansible_args, glob_str))
         except ScenarioFailureError as exc:
             util.sysexit_from_exception(exc)
 
-    default_glob = effective_base_glob.replace("*", MOLECULE_DEFAULT_SCENARIO_NAME)
+        # When -s used glob wildcards (e.g. "appliance_vlans/*"), the resolved
+        # configs may have expanded to multiple scenarios. Replace the original
+        # names with the actual discovered names so Scenarios._verify matches.
+        scenario_names = [c.scenario.name for c in configs]
+
+    default_glob = _resolve_scenario_glob(effective_base_glob, MOLECULE_DEFAULT_SCENARIO_NAME)
     default_config = None
     try:
         default_config = get_configs(args, command_args, ansible_args, default_glob)[0]
@@ -490,4 +555,4 @@ def _get_subcommand(string: str) -> str:
     Returns:
         A string representing the subcommand.
     """
-    return string.split(".")[-1]
+    return string.rsplit(".", maxsplit=1)[-1]

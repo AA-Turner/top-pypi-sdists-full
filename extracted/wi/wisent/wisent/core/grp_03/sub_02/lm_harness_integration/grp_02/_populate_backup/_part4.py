@@ -8,6 +8,9 @@ import random
 from typing import Dict, Any, List, Optional
 
 from wisent.core.errors import InsufficientDataError, TaskNotFoundError
+from wisent.core.constants import DISPLAY_TOP_N_TINY
+from wisent.core.constants import EVAL_HARNESS_NUM_SAMPLES_SMALL, DISPLAY_TRUNCATION_MEDIUM
+from wisent.core import constants as _C
 from wisent.core.lm_harness_integration._populate_backup._part3 import (
     get_samples_from_group_task,
     expand_group_task,
@@ -21,7 +24,7 @@ from wisent.core.lm_harness_integration._populate_backup._part2 import (
 
 
 def get_task_samples_for_analysis(task_name: str,
-                                   num_samples: int = 5) -> Dict[str, Any]:
+                                   num_samples: int = EVAL_HARNESS_NUM_SAMPLES_SMALL) -> Dict[str, Any]:
     """
     Retrieve sample questions and answers from a benchmark task for AI analysis.
 
@@ -49,7 +52,7 @@ def get_task_samples_for_analysis(task_name: str,
             elif len(expanded_tasks) > 1:
                 print(f"Found group task '{task_name}' with "
                       f"{len(expanded_tasks)} subtasks: "
-                      f"{expanded_tasks[:5]}{'...' if len(expanded_tasks) > 5 else ''}")
+                      f"{expanded_tasks[:_C.DISPLAY_TOP_N_MINI]}{'...' if len(expanded_tasks) > _C.DISPLAY_TOP_N_MINI else ''}")
                 return get_samples_from_group_task(
                     task_name, expanded_tasks, num_samples)
             else:
@@ -62,7 +65,7 @@ def get_task_samples_for_analysis(task_name: str,
                     task_name, evaluator.get_task_dict)
                 if subtasks:
                     print(f"Found group expansion with {len(subtasks)} subtasks: "
-                          f"{subtasks[:3]}{'...' if len(subtasks) > 3 else ''}")
+                          f"{subtasks[:DISPLAY_TOP_N_TINY]}{'...' if len(subtasks) > DISPLAY_TOP_N_TINY else ''}")
                     return get_samples_from_group_task(
                         task_name, subtasks, num_samples)
                 else:
@@ -278,7 +281,7 @@ def _build_samples(task, task_name, sample_docs):
                         sample["additional_info"][key] = (
                             f"List with {len(value)} items")
                     else:
-                        sample["additional_info"][key] = str(value)[:200]
+                        sample["additional_info"][key] = str(value)[:DISPLAY_TRUNCATION_MEDIUM]
                 except Exception:
                     sample["additional_info"][key] = "Could not convert to string"
         samples.append(sample)

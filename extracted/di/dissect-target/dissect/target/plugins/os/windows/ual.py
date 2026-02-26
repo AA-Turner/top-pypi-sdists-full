@@ -53,13 +53,13 @@ VirtualMachineRecord = TargetRecordDescriptor(
         ("datetime", "last_seen_active_date"),
         ("string", "vm_guid"),
         ("string", "bios_guid"),
-        ("string", "serial_number"),
+        ("string", "serial"),
         ("string", "path"),
     ],
 )
 
 DomainSeenRecord = TargetRecordDescriptor(
-    "filesystem/windows/ual/virtual_machines",
+    "filesystem/windows/ual/domain",
     [
         ("datetime", "last_seen_date"),
         ("net.ipaddress", "address"),
@@ -129,7 +129,7 @@ FIELD_NAME_MAP = {
     "ProductName": "product_name",
     "RoleGuid": "role_guid",
     "RoleName": "role_name",
-    "SerialNumber": "serial_number",
+    "SerialNumber": "serial",
     "ServicePackMajor": "service_pack_major_version",
     "ServicePackMinor": "service_pack_minor_version",
     "SystemDNSHostName": "system_dns_hostname",

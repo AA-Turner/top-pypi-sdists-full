@@ -62,6 +62,8 @@ class SimpleCustomIconType(enum.Enum):
     CUSTOM_ICON_TYPE_SAP_HANA = f"{ICONS_BUCKET}/sap-hana.svg"
     CUSTOM_ICON_TYPE_ATSCALE = f"{ICONS_BUCKET}/AtScale.svg"
     CUSTOM_ICON_TYPE_LOOKER = f"{ICONS_BUCKET}/looker.svg"
+    CUSTOM_ICON_TYPE_AWS_LAMBDA = f"{ICONS_BUCKET}/aws_lambda.svg"
+    CUSTOM_ICON_TYPE_AWS_S3 = f"{ICONS_BUCKET}/aws_s3.svg"
 
 
 class SimpleCustomNode(YamlModelWithValidatorContext):

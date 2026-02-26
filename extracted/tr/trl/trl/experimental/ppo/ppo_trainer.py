@@ -48,17 +48,22 @@ from transformers.trainer import DEFAULT_CALLBACKS, DEFAULT_PROGRESS_CALLBACK
 from transformers.trainer_callback import CallbackHandler, ExportableState, PrinterCallback
 from transformers.utils import ModelOutput, is_peft_available, is_rich_available
 
-from ...models.utils import create_reference_model, peft_module_casting_to_bf16, unwrap_model_for_generation
+from ...models.utils import unwrap_model_for_generation
 from ...trainer.base_trainer import BaseTrainer
 from ...trainer.utils import (
     disable_dropout_in_model,
-    empty_cache,
     log_table_to_comet_experiment,
     pad,
     prepare_deepspeed,
     selective_log_softmax,
 )
-from ..utils import first_true_indices, get_reward
+from ..utils import (
+    create_reference_model,
+    empty_cache,
+    first_true_indices,
+    get_reward,
+    peft_module_casting_to_bf16,
+)
 from .ppo_config import PPOConfig
 
 
@@ -580,8 +585,8 @@ class PPOTrainer(BaseTrainer):
 
     def save_model(self, output_dir: str | None = None, _internal_call: bool = False):
         backup_model = self.model
-        self.model = self.model.policy  # save only the policy
-
+        if hasattr(self.model, "policy"):
+            self.model = self.model.policy  # save only the policy for inference
         if self.is_deepspeed_enabled:
             backup_deepspeed = self.deepspeed
             self.deepspeed = self.model
@@ -589,7 +594,6 @@ class PPOTrainer(BaseTrainer):
         super().save_model(output_dir, _internal_call)
 
         self.model = backup_model
-
         if self.is_deepspeed_enabled:
             self.deepspeed = backup_deepspeed
 
@@ -940,6 +944,8 @@ class PPOTrainer(BaseTrainer):
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
 
     def generate_completions(self, sampling: bool = False):
+        if self.eval_dataset is None:
+            return  # no eval set to sample from (pass eval_dataset and eval_strategy != "no" for sample generations)
         args = self.args
         processing_class = self.processing_class
         generation_kwargs = {

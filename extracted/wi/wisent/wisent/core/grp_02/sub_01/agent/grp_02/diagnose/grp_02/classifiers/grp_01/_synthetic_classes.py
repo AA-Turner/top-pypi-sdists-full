@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from wisent.core.classifier.classifier import ActivationClassifier
-from wisent.core.constants import DEFAULT_LAYER, AGENT_DIAG_MAX_TOKENS_LONG, AGENT_DIAG_TEMPERATURE_CREATIVE, AGENT_SYNTH_MIN_PAIRS
+from wisent.core.constants import DEFAULT_LAYER, AGENT_SYNTH_MIN_PAIRS, AGENT_SYNTH_DEFAULT_PAIRS, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_COMPACT, TRAIT_LABEL_MAX_LENGTH
+from wisent.core.models.config import get_generate_kwargs
 from wisent.core.errors import InsufficientDataError, MissingParameterError, ExecutionError
 
 from ....core.agent.budget import ResourceType, calculate_max_tasks_for_time_budget, get_budget_manager
@@ -70,10 +71,10 @@ List {max_traits} quality traits for responses:
 
         try:
             analysis, _ = self.model.generate(
-                discovery_prompt, layer_index=DEFAULT_LAYER, max_new_tokens=AGENT_DIAG_MAX_TOKENS_LONG, temperature=AGENT_DIAG_TEMPERATURE_CREATIVE, do_sample=True
+                discovery_prompt, layer_index=DEFAULT_LAYER
             )
 
-            logging.info(f"Model generated analysis: {analysis[:200]}...")
+            logging.info(f"Model generated analysis: {analysis[:DISPLAY_TRUNCATION_MEDIUM]}...")
             return self._parse_discovery_result(analysis)
 
         except Exception as e:
@@ -108,7 +109,7 @@ class SyntheticClassifierFactory:
         self.pair_generator = SyntheticContrastivePairGenerator(model)
 
     def create_classifier_from_trait(
-        self, trait_description: str, num_pairs: int = 15
+        self, trait_description: str, num_pairs: int = AGENT_SYNTH_DEFAULT_PAIRS
     ) -> Tuple[ActivationClassifier, int]:
         """
         Create a classifier for a specific trait using synthetic contrastive pairs.
@@ -125,7 +126,7 @@ class SyntheticClassifierFactory:
             pair_set = self.pair_generator.generate_contrastive_pair_set(
                 trait_description=trait_description,
                 num_pairs=num_pairs,
-                name=f"synthetic_{trait_description[:20].replace(' ', '_')}",
+                name=f"synthetic_{trait_description[:TRAIT_LABEL_MAX_LENGTH].replace(' ', '_')}",
             )
 
             if len(pair_set.pairs) < AGENT_SYNTH_MIN_PAIRS:
@@ -147,7 +148,7 @@ class SyntheticClassifierFactory:
                 logging.debug(f"Processing pair {i + 1}/{len(pair_set.pairs)}...")
                 try:
                     # Get activations for positive response
-                    logging.debug(f"Extracting positive activations for: {pair.positive_response.text[:100]!r}")
+                    logging.debug(f"Extracting positive activations for: {pair.positive_response.text[:DISPLAY_TRUNCATION_COMPACT]!r}")
                     pos_activations = self.model.extract_activations(pair.positive_response.text, layer_obj)
                     logging.debug(
                         f"Positive activations shape: {pos_activations.shape if hasattr(pos_activations, 'shape') else 'N/A'}"
@@ -155,7 +156,7 @@ class SyntheticClassifierFactory:
                     positive_activations.append(pos_activations)
 
                     # Get activations for negative response
-                    logging.debug(f"Extracting negative activations for: {pair.negative_response.text[:100]!r}")
+                    logging.debug(f"Extracting negative activations for: {pair.negative_response.text[:DISPLAY_TRUNCATION_COMPACT]!r}")
                     neg_activations = self.model.extract_activations(pair.negative_response.text, layer_obj)
                     logging.debug(
                         f"Negative activations shape: {neg_activations.shape if hasattr(neg_activations, 'shape') else 'N/A'}"

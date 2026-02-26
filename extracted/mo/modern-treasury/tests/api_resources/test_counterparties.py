@@ -132,6 +132,7 @@ class TestCounterparties:
                 "doing_business_as_names": ["string"],
                 "email": "email",
                 "expected_activity_volume": 0,
+                "external_id": "external_id",
                 "first_name": "first_name",
                 "identifications": [
                     {
@@ -193,6 +194,7 @@ class TestCounterparties:
                             "doing_business_as_names": ["string"],
                             "email": "email",
                             "expected_activity_volume": 0,
+                            "external_id": "external_id",
                             "first_name": "first_name",
                             "identifications": [
                                 {
@@ -412,6 +414,7 @@ class TestCounterparties:
         counterparty = client.counterparties.update(
             id="id",
             email="dev@stainless.com",
+            external_id="external_id",
             legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",
@@ -698,6 +701,7 @@ class TestAsyncCounterparties:
                 "doing_business_as_names": ["string"],
                 "email": "email",
                 "expected_activity_volume": 0,
+                "external_id": "external_id",
                 "first_name": "first_name",
                 "identifications": [
                     {
@@ -759,6 +763,7 @@ class TestAsyncCounterparties:
                             "doing_business_as_names": ["string"],
                             "email": "email",
                             "expected_activity_volume": 0,
+                            "external_id": "external_id",
                             "first_name": "first_name",
                             "identifications": [
                                 {
@@ -978,6 +983,7 @@ class TestAsyncCounterparties:
         counterparty = await async_client.counterparties.update(
             id="id",
             email="dev@stainless.com",
+            external_id="external_id",
             legal_entity_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             name="name",

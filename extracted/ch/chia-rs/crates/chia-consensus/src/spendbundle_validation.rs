@@ -1,6 +1,6 @@
 use crate::allocator::make_allocator;
 use crate::consensus_constants::ConsensusConstants;
-use crate::flags::{COST_CONDITIONS, SIMPLE_GENERATOR};
+use crate::flags::ConsensusFlags;
 use crate::owned_conditions::OwnedSpendBundleConditions;
 use crate::spendbundle_conditions::run_spendbundle;
 use crate::validation_error::{ErrorCode, ValidationErr};
@@ -8,8 +8,7 @@ use chia_bls::GTElement;
 use chia_bls::{aggregate_verify_gt, hash_to_g2};
 use chia_protocol::SpendBundle;
 use chia_sha2::Sha256;
-use clvmr::chia_dialect::{DISABLE_OP, ENABLE_KECCAK_OPS_OUTSIDE_GUARD};
-use clvmr::{LIMIT_HEAP, NodePtr};
+use clvmr::NodePtr;
 
 // type definition makes clippy happy
 pub type ValidationPair = ([u8; 32], GTElement);
@@ -21,9 +20,9 @@ pub fn validate_clvm_and_signature(
     spend_bundle: &SpendBundle,
     max_cost: u64,
     constants: &ConsensusConstants,
-    flags: u32,
+    flags: ConsensusFlags,
 ) -> Result<(OwnedSpendBundleConditions, Vec<ValidationPair>), ValidationErr> {
-    let mut a = make_allocator(LIMIT_HEAP);
+    let mut a = make_allocator(ConsensusFlags::LIMIT_HEAP);
     let (sbc, pkm_pairs) = run_spendbundle(&mut a, spend_bundle, max_cost, flags, constants)?;
     let conditions = OwnedSpendBundleConditions::from(&a, sbc);
 
@@ -66,7 +65,7 @@ pub fn validate_clvm_and_signature(
 pub fn get_flags_for_height_and_constants(
     prev_tx_height: u32,
     constants: &ConsensusConstants,
-) -> u32 {
+) -> ConsensusFlags {
     //  the hard-fork initiated with 2.0. To activate June 2024
     //  * costs are ascribed to some unknown condition codes, to allow for
     // soft-forking in new conditions with cost
@@ -87,13 +86,18 @@ pub fn get_flags_for_height_and_constants(
     // This operator can be hard forked in later, but is not included in a hard fork yet.
 
     // In hard fork 2, we enable the keccak operator outside the softfork guard
-    let mut flags: u32 = 0;
+    let mut flags = ConsensusFlags::empty();
     if prev_tx_height >= constants.hard_fork2_height {
-        flags |= ENABLE_KECCAK_OPS_OUTSIDE_GUARD | COST_CONDITIONS | SIMPLE_GENERATOR;
+        flags |= ConsensusFlags::ENABLE_KECCAK_OPS_OUTSIDE_GUARD
+            | ConsensusFlags::COST_CONDITIONS
+            | ConsensusFlags::SIMPLE_GENERATOR
+            | ConsensusFlags::CANONICAL_INTS
+            | ConsensusFlags::ENABLE_SECP_OPS
+            | ConsensusFlags::RELAXED_BLS;
     }
 
     if prev_tx_height >= constants.soft_fork8_height {
-        flags |= DISABLE_OP;
+        flags |= ConsensusFlags::DISABLE_OP;
     }
     flags
 }
@@ -103,7 +107,7 @@ mod tests {
     use super::*;
     use crate::conditions::ELIGIBLE_FOR_DEDUP;
     use crate::consensus_constants::TEST_CONSTANTS;
-    use crate::flags::{COMPUTE_FINGERPRINT, MEMPOOL_MODE};
+    use crate::flags::MEMPOOL_MODE;
     use crate::make_aggsig_final_message::u64_to_bytes;
     use crate::opcodes::{
         AGG_SIG_AMOUNT, AGG_SIG_ME, AGG_SIG_PARENT, AGG_SIG_PARENT_AMOUNT, AGG_SIG_PARENT_PUZZLE,
@@ -212,10 +216,10 @@ mod tests {
     #[case(0, 0)]
     #[case(TEST_CONSTANTS.hard_fork_height, 0)]
     #[case(5_716_000, 0)]
-    fn test_get_flags(#[case] prev_tx_height: u32, #[case] expected_value: u32) {
+    fn test_get_flags(#[case] prev_tx_height: u32, #[case] expected_bits: u32) {
         assert_eq!(
-            get_flags_for_height_and_constants(prev_tx_height, &TEST_CONSTANTS),
-            expected_value
+            get_flags_for_height_and_constants(prev_tx_height, &TEST_CONSTANTS).bits(),
+            expected_bits
         );
     }
 
@@ -299,7 +303,7 @@ ff843B9ACA00\
             &spend_bundle,
             TEST_CONSTANTS.max_block_cost_clvm,
             &TEST_CONSTANTS,
-            MEMPOOL_MODE | COMPUTE_FINGERPRINT,
+            MEMPOOL_MODE | ConsensusFlags::COMPUTE_FINGERPRINT,
         )
         .expect("SpendBundle should be valid for this test");
 

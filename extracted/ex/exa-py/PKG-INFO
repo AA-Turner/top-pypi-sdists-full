@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: exa-py
-Version: 2.4.0
+Version: 2.5.0
 Summary: Python SDK for Exa API.
 License: MIT
 Author: Exa AI
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpcore (>=1.0.9)
 Requires-Dist: httpx (>=0.28.1)
 Requires-Dist: openai (>=1.48)
@@ -79,6 +80,23 @@ results = exa.search(
     include_domains=["techcrunch.com", "wired.com"],
     contents={"text": True}
 )
+```
+
+```python
+results = exa.search(
+    "What are the latest battery breakthroughs?",
+    type="deep",
+    answer=True,
+    output_schema={
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "key_companies": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["summary", "key_companies"],
+    },
+)
+print(results.answer)
 ```
 
 ## Contents

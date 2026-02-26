@@ -1,131 +1,45 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mlforecast
-Version: 1.0.2
+Version: 1.0.3
 Summary: Scalable machine learning based time series forecasting
-Home-page: https://github.com/Nixtla/mlforecast
-Author: José Morales
-Author-email: jmoralz92@gmail.com
+Author-email: José Morales <jmoralz92@gmail.com>
 License: Apache Software License 2.0
-Keywords: python forecast forecasting machine-learning dask
-Classifier: Development Status :: 5 - Production/Stable
+Project-URL: Homepage, https://github.com/Nixtla/mlforecast
+Project-URL: Repository, https://github.com/Nixtla/mlforecast
+Project-URL: Documentation, https://nixtlaverse.nixtla.io/mlforecast/
+Keywords: python,forecast,forecasting,machine-learning,dask
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cloudpickle
 Requires-Dist: coreforecast>=0.0.15
 Requires-Dist: fsspec
+Requires-Dist: narwhals
 Requires-Dist: optuna
-Requires-Dist: pandas
+Requires-Dist: pandas<3.0
 Requires-Dist: scikit-learn
 Requires-Dist: utilsforecast>=0.2.9
-Provides-Extra: dask
-Requires-Dist: fugue; extra == "dask"
-Requires-Dist: dask[complete]<=2024.12.1; extra == "dask"
-Requires-Dist: lightgbm; extra == "dask"
-Requires-Dist: xgboost; extra == "dask"
-Provides-Extra: ray
-Requires-Dist: fugue[ray]; extra == "ray"
-Requires-Dist: lightgbm_ray; extra == "ray"
-Requires-Dist: xgboost_ray; extra == "ray"
-Provides-Extra: spark
-Requires-Dist: fugue; extra == "spark"
-Requires-Dist: pyspark>=3.3; extra == "spark"
-Requires-Dist: lightgbm; extra == "spark"
-Requires-Dist: xgboost; extra == "spark"
-Provides-Extra: aws
-Requires-Dist: fsspec[s3]; extra == "aws"
-Provides-Extra: azure
-Requires-Dist: fsspec[adl]; extra == "azure"
-Provides-Extra: gcp
-Requires-Dist: fsspec[gcs]; extra == "gcp"
-Provides-Extra: polars
-Requires-Dist: polars[numpy]; extra == "polars"
-Provides-Extra: dev
-Requires-Dist: black>=24; extra == "dev"
-Requires-Dist: datasetsforecast>=1; extra == "dev"
-Requires-Dist: gitpython; extra == "dev"
-Requires-Dist: holidays<0.21; extra == "dev"
-Requires-Dist: lightgbm<4.6; extra == "dev"
-Requires-Dist: matplotlib; extra == "dev"
-Requires-Dist: mlflow>=2.10.0; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: nbdev<2.3.26; extra == "dev"
-Requires-Dist: numpy>=2; extra == "dev"
-Requires-Dist: pandas>=2.2.2; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: polars[numpy]; extra == "dev"
-Requires-Dist: pyarrow; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: setuptools; extra == "dev"
-Requires-Dist: statsmodels; extra == "dev"
-Requires-Dist: xgboost; extra == "dev"
-Provides-Extra: all
-Requires-Dist: mypy; extra == "all"
-Requires-Dist: numpy>=2; extra == "all"
-Requires-Dist: xgboost; extra == "all"
-Requires-Dist: fsspec[s3]; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: ruff; extra == "all"
-Requires-Dist: statsmodels; extra == "all"
-Requires-Dist: mlflow>=2.10.0; extra == "all"
-Requires-Dist: lightgbm<4.6; extra == "all"
-Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: xgboost_ray; extra == "all"
-Requires-Dist: pyarrow; extra == "all"
-Requires-Dist: fsspec[adl]; extra == "all"
-Requires-Dist: setuptools; extra == "all"
-Requires-Dist: gitpython; extra == "all"
-Requires-Dist: polars[numpy]; extra == "all"
-Requires-Dist: fugue[ray]; extra == "all"
-Requires-Dist: pandas>=2.2.2; extra == "all"
-Requires-Dist: pyspark>=3.3; extra == "all"
-Requires-Dist: dask[complete]<=2024.12.1; extra == "all"
-Requires-Dist: datasetsforecast>=1; extra == "all"
-Requires-Dist: lightgbm; extra == "all"
-Requires-Dist: lightgbm_ray; extra == "all"
-Requires-Dist: nbdev<2.3.26; extra == "all"
-Requires-Dist: black>=24; extra == "all"
-Requires-Dist: fsspec[gcs]; extra == "all"
-Requires-Dist: fugue; extra == "all"
-Requires-Dist: holidays<0.21; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 # mlforecast
+
 [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Statistical%20Forecasting%20Algorithms%20by%20Nixtla%20&url=https://github.com/Nixtla/statsforecast&via=nixtlainc&hashtags=StatisticalModels,TimeSeries,Forecasting)
 [![Slack](https://img.shields.io/badge/Slack-4A154B?&logo=slack&logoColor=white.png)](https://join.slack.com/t/nixtlacommunity/shared_invite/zt-1pmhan9j5-F54XR20edHk0UtYAPcW4KQ)
 
-<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
 
 <div align="center">
-
-<center>
-<img src="https://raw.githubusercontent.com/Nixtla/mlforecast/main/nbs/figs/logo.png" />
-</center>
-<h1 align="center">
-Machine Learning 🤖 Forecast
-</h1>
-<h3 align="center">
-Scalable machine learning for time series forecasting
-</h3>
+<center><img src="https://raw.githubusercontent.com/Nixtla/mlforecast/main/nbs/figs/logo.png" /></center>
+<h1 align="center">Machine Learning 🤖 Forecast</h1>
+<h3 align="center">Scalable machine learning for time series forecasting</h3>
 
 [![CI](https://github.com/Nixtla/mlforecast/actions/workflows/ci.yaml/badge.svg)](https://github.com/Nixtla/mlforecast/actions/workflows/ci.yaml)
 [![Python](https://img.shields.io/pypi/pyversions/mlforecast.png)](https://pypi.org/project/mlforecast/)
@@ -150,15 +64,14 @@ data using remote clusters.
 `conda install -c conda-forge mlforecast`
 
 For more detailed instructions you can refer to the [installation
-page](https://nixtla.github.io/mlforecast/docs/getting-started/install.html).
+page](https://nixtlaverse.nixtla.io/mlforecast/docs/getting-started/install.html).
 
 ## Quick Start
 
-**Get Started with this [quick
-guide](https://nixtla.github.io/mlforecast/docs/getting-started/quick_start_local.html).**
-
-**Follow this [end-to-end
-walkthrough](https://nixtla.github.io/mlforecast/docs/getting-started/end_to_end_walkthrough.html)
+1. **Get Started with this [quick
+guide](https://nixtlaverse.nixtla.io/mlforecast/docs/getting-started/quick_start_local.html).**
+2. **Follow this [end-to-end
+walkthrough](https://nixtlaverse.nixtla.io/mlforecast/docs/getting-started/end_to_end_walkthrough.html)
 for best practices.**
 
 ### Videos
@@ -179,7 +92,7 @@ for best practices.**
 Current Python alternatives for machine learning models are slow,
 inaccurate and don’t scale well. So we created a library that can be
 used to forecast in production environments.
-[`MLForecast`](https://Nixtla.github.io/mlforecast/forecast.html#mlforecast)
+[`MLForecast`](https://nixtlaverse.nixtla.io/mlforecast/forecast.html#mlforecast)
 includes efficient feature engineering to train any machine learning
 model (with `fit` and `predict` methods such as
 [`sklearn`](https://scikit-learn.org/stable/)) to fit millions of time
@@ -201,36 +114,36 @@ Missing something? Please open an issue or write us in
 ## Examples and Guides
 
 📚 [End to End
-Walkthrough](https://nixtla.github.io/mlforecast/docs/getting-started/end_to_end_walkthrough.html):
+Walkthrough](https://nixtlaverse.nixtla.io/mlforecast/docs/getting-started/end_to_end_walkthrough):
 model training, evaluation and selection for multiple time series.
 
 🔎 [Probabilistic
-Forecasting](https://nixtla.github.io/mlforecast/docs/how-to-guides/prediction_intervals.html):
+Forecasting](https://nixtlaverse.nixtla.io/mlforecast/docs/tutorials/prediction_intervals_in_forecasting_models):
 use Conformal Prediction to produce prediciton intervals.
 
 👩‍🔬 [Cross
-Validation](https://nixtla.github.io/mlforecast/docs/how-to-guides/cross_validation.html):
+Validation](https://nixtlaverse.nixtla.io/mlforecast/docs/how-to-guides/cross_validation):
 robust model’s performance evaluation.
 
 🔌 [Predict Demand
-Peaks](https://nixtla.github.io/mlforecast/docs/tutorials/electricity_peak_forecasting.html):
+Peaks](https://nixtlaverse.nixtla.io/mlforecast/docs/tutorials/electricity_peak_forecasting):
 electricity load forecasting for detecting daily peaks and reducing
 electric bills.
 
 📈 [Transfer
-Learning](https://nixtla.github.io/mlforecast/docs/how-to-guides/transfer_learning.html):
+Learning](https://nixtlaverse.nixtla.io/mlforecast/docs/how-to-guides/transfer_learning):
 pretrain a model using a set of time series and then predict another one
 using that pretrained model.
 
 🌡️ [Distributed
-Training](https://nixtla.github.io/mlforecast/docs/getting-started/quick_start_distributed.html):
+Training](https://nixtlaverse.nixtla.io/mlforecast/docs/getting-started/quick_start_distributed):
 use a Dask, Ray or Spark cluster to train models at scale.
 
 ## How to use
 
 The following provides a very basic overview, for a more detailed
 description see the
-[documentation](https://nixtla.github.io/mlforecast/).
+[documentation](https://nixtlaverse.nixtla.io/mlforecast/).
 
 ### Data setup
 
@@ -250,8 +163,6 @@ series = generate_daily_series(
 series.head()
 ```
 
-<div>
-
 |     | unique_id | ds         | y          | static_0 |
 |-----|-----------|------------|------------|----------|
 | 0   | id_00     | 2000-01-01 | 17.519167  | 72       |
@@ -260,7 +171,6 @@ series.head()
 | 3   | id_00     | 2000-01-04 | 232.704110 | 72       |
 | 4   | id_00     | 2000-01-05 | 317.510474 | 72       |
 
-</div>
 
 > Note: The unique_id serves as an identifier for each distinct time
 > series in your dataset. If you are using only single time series from
@@ -286,7 +196,7 @@ models = [
 ### Forecast object
 
 Now instantiate an
-[`MLForecast`](https://Nixtla.github.io/mlforecast/forecast.html#mlforecast)
+[`MLForecast`](https://nixtlaverse.nixtla.io/mlforecast/forecast#class-mlforecast)
 object with the models and the features that you want to use. The
 features can be lags, transformations on the lags and date features. You
 can also define transformations to apply to the target before fitting,
@@ -321,7 +231,9 @@ To compute the features and train the models call `fit` on your
 fcst.fit(series)
 ```
 
-    MLForecast(models=[LGBMRegressor, LinearRegression], freq=D, lag_features=['lag7', 'lag14', 'expanding_mean_lag1', 'rolling_mean_lag7_window_size28'], date_features=['dayofweek'], num_threads=1)
+```
+MLForecast(models=[LGBMRegressor, LinearRegression], freq=D, lag_features=['lag7', 'lag14', 'expanding_mean_lag1', 'rolling_mean_lag7_window_size28'], date_features=['dayofweek'], num_threads=1)
+```
 
 ### Predicting
 
@@ -334,7 +246,6 @@ predictions = fcst.predict(14)
 predictions
 ```
 
-<div>
 
 |     | unique_id | ds         | LGBMRegressor | LinearRegression |
 |-----|-----------|------------|---------------|------------------|
@@ -351,7 +262,7 @@ predictions
 | 279 | id_19     | 2000-03-27 | 63.073949     | 48.666783        |
 
 <p>280 rows × 4 columns</p>
-</div>
+
 
 ### Visualize results
 

@@ -14,6 +14,7 @@ from wisent.core.constants import (
     ZERO_THRESHOLD, CONCEPT_K_MAX, CONCEPT_TOP_SINGULAR_VALUES,
     ICD_SINGLE_CONCEPT_THRESHOLD, ICD_MODERATE_THRESHOLD,
     SILHOUETTE_MULTI_CONCEPT_THRESHOLD, SILHOUETTE_WEAK_MULTI_THRESHOLD,
+    CONCEPT_CORRELATION_HIGH, CONCEPT_CORRELATION_MODERATE,
 )
 from wisent.core.contrastive_pairs.diagnostics.analysis.concept_analysis import (
     ConceptAnalysisResult,
@@ -220,10 +221,10 @@ def analyze_concept_interference(
     cross_accuracy_b_to_a = float(probe_b.score(X_train, y_train))
     
     # Interpretation
-    if abs(correlation) > 0.5:
+    if abs(correlation) > CONCEPT_CORRELATION_HIGH:
         interference = "high"
         interpretation = f"High correlation ({correlation:.2f}) means steering {name_a} will significantly affect {name_b}."
-    elif abs(correlation) > 0.2:
+    elif abs(correlation) > CONCEPT_CORRELATION_MODERATE:
         interference = "medium"
         interpretation = f"Moderate correlation ({correlation:.2f}) means some interference between concepts."
     else:

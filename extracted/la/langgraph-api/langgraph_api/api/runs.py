@@ -867,12 +867,16 @@ async def delete_cron(request: ApiRequest):
     cron_id = request.path_params["cron_id"]
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
-    async with connect(supports_core_api=False) as conn:
-        cid = await Crons.delete(
-            conn,
-            cron_id=cron_id,
-        )
-    await fetchone(cid)
+    try:
+        async with connect(supports_core_api=False) as conn:
+            cid = await Crons.delete(
+                conn,
+                cron_id=cron_id,
+            )
+        await fetchone(cid)
+    except Exception as e:
+        await logger.aexception("Failed to delete cron", cron_id=cron_id)
+        raise e
     return Response(status_code=204)
 
 

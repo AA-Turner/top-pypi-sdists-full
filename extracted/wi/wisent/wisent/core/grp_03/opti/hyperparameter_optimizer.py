@@ -11,7 +11,7 @@ from .activations.activations_collector import ActivationCollector
 from .activations.extraction_strategy import ExtractionStrategy
 
 from wisent.core.errors import OptimizationError, NoActivationDataError, InsufficientDataError
-from wisent.core.constants import VAL_SPLIT, MAX_COMBINATIONS, DEFAULT_RANDOM_SEED
+from wisent.core.constants import VAL_SPLIT, MAX_COMBINATIONS, DEFAULT_RANDOM_SEED, THRESHOLD_RANGE_DEFAULT, OPTIMIZER_AGGREGATION_METHODS, OPTIMIZER_TOKEN_TARGETING, PROGRESS_LOG_INTERVAL_20
 from wisent.core.opti._hyperparameter_evaluate import (
     HyperparameterEvaluateMixin,
     detect_model_layers,
@@ -29,7 +29,7 @@ class OptimizationConfig:
     layer_range: List[int] = None
 
     # Token aggregation methods to try
-    aggregation_methods: List[str] = field(default_factory=lambda: ["average", "final", "first", "max", "min"])
+    aggregation_methods: List[str] = field(default_factory=lambda: list(OPTIMIZER_AGGREGATION_METHODS))
 
     # Prompt construction strategies to try
     prompt_construction_strategies: List[str] = field(default_factory=lambda: [
@@ -37,12 +37,10 @@ class OptimizationConfig:
     ])
 
     # Token targeting strategies to try
-    token_targeting_strategies: List[str] = field(default_factory=lambda: [
-        "choice_token", "continuation_token", "last_token", "first_token", "mean_pooling"
-    ])
+    token_targeting_strategies: List[str] = field(default_factory=lambda: list(OPTIMIZER_TOKEN_TARGETING))
 
     # Threshold range to search (for classification)
-    threshold_range: List[float] = field(default_factory=lambda: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+    threshold_range: List[float] = field(default_factory=lambda: list(THRESHOLD_RANGE_DEFAULT))
 
     # Classifier types to try
     classifier_types: List[str] = field(default_factory=lambda: ["logistic"])
@@ -162,7 +160,7 @@ class HyperparameterOptimizer(HyperparameterEvaluateMixin):
         
         for i, (layer, aggregation, prompt_strategy, token_strategy, threshold, classifier_type) in enumerate(combinations):
             try:
-                if verbose and (i + 1) % 20 == 0:
+                if verbose and (i + 1) % PROGRESS_LOG_INTERVAL_20 == 0:
                     print(f"   • Progress: {i + 1}/{len(combinations)} combinations tested")
 
                 # Train and evaluate this combination

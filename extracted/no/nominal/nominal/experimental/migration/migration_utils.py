@@ -21,7 +21,7 @@ import requests
 from conjure_python_client import ConjureBeanType, ConjureEnumType, ConjureUnionType
 from conjure_python_client._serde.decoder import ConjureDecoder
 from conjure_python_client._serde.encoder import ConjureEncoder
-from nominal_api import scout_checks_api, scout_layout_api, scout_template_api, scout_workbookcommon_api
+from nominal_api import scout_checks_api, scout_layout_api, scout_workbookcommon_api
 
 from nominal.core import (
     Asset,
@@ -41,6 +41,7 @@ from nominal.core.filetype import FileTypes
 from nominal.core.run import Run
 from nominal.core.video import Video
 from nominal.core.video_file import VideoFile
+from nominal.core.workbook_template import _create_workbook_template_with_content_and_layout
 from nominal.experimental.checklist_utils.checklist_utils import (
     _create_checklist_with_content,
     _to_create_checklist_entries,
@@ -176,54 +177,6 @@ def _generate_uuid_mapping(objs: list[Any]) -> dict[str, str]:
     for obj in objs:
         _extract_uuids_from_obj(obj, mapping)
     return mapping
-
-
-def create_workbook_template_with_content_and_layout(
-    client: NominalClient,
-    title: str,
-    layout: scout_layout_api.WorkbookLayout,
-    content: scout_workbookcommon_api.WorkbookContent,
-    workspace_rid: str,
-    *,
-    description: str | None = None,
-    labels: Sequence[str] | None = None,
-    properties: Mapping[str, str] | None = None,
-    commit_message: str | None = None,
-) -> WorkbookTemplate:
-    """Create a workbook template with specified content and layout.
-
-    This is a helper method that constructs and creates a workbook template
-    request with the provided parameters, including layout and content.  Method is considered experimental and may
-    change in future releases. The template is created in the target workspace and is not discoverable by default.
-
-    Args:
-        client: The NominalClient to use for creating the template.
-        title: The title of the template.
-        layout: The workbook layout to use.
-        content: The workbook content to use.
-        workspace_rid: The resource ID of the workspace to create the template in.
-        description: The description of the template.
-        labels: List of labels to apply to the template.
-        properties: Dictionary of properties for the template.
-        commit_message: The commit message for the template creation.
-
-    Returns:
-        The newly created WorkbookTemplate.
-    """
-    request = scout_template_api.CreateTemplateRequest(
-        title=title,
-        description=description if description is not None else "",
-        labels=list(labels) if labels is not None else [],
-        properties=dict(properties) if properties is not None else {},
-        is_published=False,
-        layout=layout,
-        content=content,
-        message=commit_message if commit_message is not None else "",
-        workspace=client._workspace_rid_for_search(workspace_rid),
-    )
-
-    template = client._clients.template.create(client._clients.auth_header, request)
-    return WorkbookTemplate._from_conjure(client._clients, template)
 
 
 def _replace_uuids_in_obj(obj: Any, mapping: dict[str, str]) -> Any:
@@ -401,8 +354,8 @@ def copy_workbook_template_from(
             )
         )
         new_workbook_content = scout_workbookcommon_api.WorkbookContent(channel_variables={}, charts={})
-    new_workbook_template = create_workbook_template_with_content_and_layout(
-        client=destination_client,
+    new_workbook_template = _create_workbook_template_with_content_and_layout(
+        clients=destination_client._clients,
         title=new_template_title or raw_source_template.metadata.title,
         description=new_template_description or raw_source_template.metadata.description,
         labels=new_template_labels or raw_source_template.metadata.labels,
@@ -1037,6 +990,120 @@ def _copy_asset_videos(
             copy_video_file_to_video_dataset(source_video_file, new_video_dataset)
 
 
+def _copy_asset_workbook(
+    source_workbook: Workbook, destination_asset: Asset, destination_client: NominalClient
+) -> Workbook:
+    """Copy a workbook from the source to the destination client.
+
+    Args:
+        source_workbook: The source Workbook to copy.
+        destination_asset: The destination Asset with which to create the copied workbook.
+        destination_client: The NominalClient to create the copied workbook in.
+
+    Returns:
+        The newly created Workbook in the destination client.
+    """
+    log_extras = {
+        "destination_client_workspace": destination_client.get_workspace(destination_client._clients.workspace_rid).rid
+    }
+    logger.debug(
+        "Copying asset workbook %s (rid: %s)",
+        source_workbook.title,
+        source_workbook.rid,
+        extra=log_extras,
+    )
+    source_template = source_workbook._create_template_from_workbook()
+    new_template = clone_workbook_template(source_template, destination_client)
+    new_workbook = new_template.create_workbook(
+        asset=destination_asset, title=source_workbook.title, is_draft=source_workbook.is_draft()
+    )
+    new_template.archive()
+    source_template.archive()
+    logger.debug(
+        "New asset workbook created: %s (rid: %s)",
+        new_workbook.title,
+        new_workbook.rid,
+        extra=log_extras,
+    )
+    logger.info(
+        "WORKBOOK: Old RID: %s, New RID: %s",
+        source_workbook.rid,
+        new_workbook.rid,
+        extra={"to_file": True},
+    )
+    return new_workbook
+
+
+def _copy_run_workbook(source_workbook: Workbook, source_run: Run, destination_client: NominalClient) -> Workbook:
+    """Copy a workbook from the source to the destination client.
+
+    Args:
+        source_workbook: The source Workbook to copy.
+        source_run: The source Run with which to create the copied workbook.
+        destination_client: The NominalClient to create the copied workbook in.
+
+    Returns:
+        The newly created Workbook in the destination client.
+    """
+    log_extras = {
+        "destination_client_workspace": destination_client.get_workspace(destination_client._clients.workspace_rid).rid
+    }
+    logger.debug(
+        "Copying run workbook %s (rid: %s)",
+        source_workbook.title,
+        source_workbook.rid,
+        extra=log_extras,
+    )
+    source_template = source_workbook._create_template_from_workbook()
+    new_template = clone_workbook_template(source_template, destination_client)
+    new_workbook = new_template.create_workbook(
+        run=source_run, title=source_workbook.title, is_draft=source_workbook.is_draft()
+    )
+    new_template.archive()
+    source_template.archive()
+    logger.debug(
+        "New run workbook created: %s (rid: %s)",
+        new_workbook.title,
+        new_workbook.rid,
+        extra=log_extras,
+    )
+    logger.info(
+        "WORKBOOK: Old RID: %s, New RID: %s",
+        source_workbook.rid,
+        new_workbook.rid,
+        extra={"to_file": True},
+    )
+    return new_workbook
+
+
+def _copy_asset_and_run_workbooks(
+    source_asset: Asset,
+    new_asset: Asset,
+    destination_client: NominalClient,
+    run_mapping: Dict[str, str] | None = None,
+) -> None:
+    """Copy workbooks associated with the source asset and its runs to the destination client.
+
+    For asset workbooks with exactly one asset, copies them as asset workbooks.
+    For run workbooks with exactly one run and a matching run mapping, copies them as run workbooks
+    on the destination run.
+    """
+    asset_workbooks = source_asset.search_workbooks(include_drafts=True)
+    for workbook in asset_workbooks:
+        if workbook.asset_rids and len(workbook.asset_rids) == 1:
+            _copy_asset_workbook(workbook, new_asset, destination_client)
+
+    if run_mapping:
+        for source_run in source_asset.list_runs():
+            if source_run.rid not in run_mapping:
+                logger.warning("Run %s not found in run mapping", source_run.rid)
+            else:
+                destination_run = destination_client.get_run(run_mapping[source_run.rid])
+                for workbook in source_run.search_workbooks(include_drafts=True):
+                    if workbook.run_rids and len(workbook.run_rids) == 1:
+                        _copy_run_workbook(workbook, destination_run, destination_client)
+
+
 def copy_asset_from(
     source_asset: Asset,
     destination_client: NominalClient,
@@ -1120,6 +1187,8 @@ def copy_asset_from(
 
     if include_video:
         _copy_asset_videos(source_asset, destination_client, new_asset)
+
+    _copy_asset_and_run_workbooks(source_asset, new_asset, destination_client, run_mapping)
 
     logger.debug("New asset created: %s (rid: %s)", new_asset, new_asset.rid, extra=log_extras)
     logger.info(

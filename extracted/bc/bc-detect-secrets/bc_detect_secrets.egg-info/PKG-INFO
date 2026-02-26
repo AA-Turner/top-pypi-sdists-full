@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bc-detect-secrets
-Version: 1.5.45
+Version: 1.5.46
 Summary: Tool for detecting secrets in the codebase
 Home-page: https://github.com/bridgecrewio/detect-secrets
 Author: bridgecrew

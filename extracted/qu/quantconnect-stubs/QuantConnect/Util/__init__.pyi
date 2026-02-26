@@ -21,131 +21,91 @@ import System.Text
 import System.Text.RegularExpressions
 import System.Threading
 
-QuantConnect_Util_MarketHoursDatabaseJsonConverter_MarketHoursDatabaseJson = typing.Any
 Expression = typing.Any
+QuantConnect_Util_MarketHoursDatabaseJsonConverter_MarketHoursDatabaseJson = typing.Any
 
-QuantConnect_Util_TypeChangeJsonConverter_T = typing.TypeVar("QuantConnect_Util_TypeChangeJsonConverter_T")
-QuantConnect_Util_TypeChangeJsonConverter_TResult = typing.TypeVar("QuantConnect_Util_TypeChangeJsonConverter_TResult")
-QuantConnect_Util_BusyBlockingCollection_T = typing.TypeVar("QuantConnect_Util_BusyBlockingCollection_T")
+QuantConnect_Util_BusyCollection_T = typing.TypeVar("QuantConnect_Util_BusyCollection_T")
 QuantConnect_Util_ListComparer_T = typing.TypeVar("QuantConnect_Util_ListComparer_T")
-QuantConnect_Util_ConcurrentSet_T = typing.TypeVar("QuantConnect_Util_ConcurrentSet_T")
 QuantConnect_Util_FixedSizeQueue_T = typing.TypeVar("QuantConnect_Util_FixedSizeQueue_T")
-QuantConnect_Util_ReferenceWrapper_T = typing.TypeVar("QuantConnect_Util_ReferenceWrapper_T")
-QuantConnect_Util_FixedSizeHashQueue_T = typing.TypeVar("QuantConnect_Util_FixedSizeHashQueue_T")
+QuantConnect_Util_NullStringValueConverter_T = typing.TypeVar("QuantConnect_Util_NullStringValueConverter_T")
+QuantConnect_Util_CircularQueue_T = typing.TypeVar("QuantConnect_Util_CircularQueue_T")
+QuantConnect_Util_ConcurrentSet_T = typing.TypeVar("QuantConnect_Util_ConcurrentSet_T")
 QuantConnect_Util_IReadOnlyRef_T = typing.TypeVar("QuantConnect_Util_IReadOnlyRef_T")
 QuantConnect_Util_Ref_T = typing.TypeVar("QuantConnect_Util_Ref_T")
-QuantConnect_Util_CircularQueue_T = typing.TypeVar("QuantConnect_Util_CircularQueue_T")
 QuantConnect_Util_MemoizingEnumerable_T = typing.TypeVar("QuantConnect_Util_MemoizingEnumerable_T")
+QuantConnect_Util_FixedSizeHashQueue_T = typing.TypeVar("QuantConnect_Util_FixedSizeHashQueue_T")
 QuantConnect_Util_SingleValueListConverter_T = typing.TypeVar("QuantConnect_Util_SingleValueListConverter_T")
-QuantConnect_Util_NullStringValueConverter_T = typing.TypeVar("QuantConnect_Util_NullStringValueConverter_T")
-QuantConnect_Util_BusyCollection_T = typing.TypeVar("QuantConnect_Util_BusyCollection_T")
+QuantConnect_Util_TypeChangeJsonConverter_T = typing.TypeVar("QuantConnect_Util_TypeChangeJsonConverter_T")
+QuantConnect_Util_TypeChangeJsonConverter_TResult = typing.TypeVar("QuantConnect_Util_TypeChangeJsonConverter_TResult")
+QuantConnect_Util_ReferenceWrapper_T = typing.TypeVar("QuantConnect_Util_ReferenceWrapper_T")
+QuantConnect_Util_BusyBlockingCollection_T = typing.TypeVar("QuantConnect_Util_BusyBlockingCollection_T")
 QuantConnect_Util__EventContainer_Callable = typing.TypeVar("QuantConnect_Util__EventContainer_Callable")
 QuantConnect_Util__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Util__EventContainer_ReturnType")
 
 
-class WorkerThread(System.Object, System.IDisposable):
-    """
-    This worker tread is required to guarantee all python operations are
-    executed by the same thread, to enable complete debugging functionality.
-    We don't use the main thread, to avoid any chance of blocking the process
-    """
+class ChartPointJsonConverter:
+    """Json Converter for ChartPoint which handles special reading"""
 
-    instance: QuantConnect.Util.WorkerThread = ...
-    """The worker thread instance"""
-
-    @property
-    def finished_work_item(self) -> System.Threading.AutoResetEvent:
-        """Will be set when the worker thread finishes a work item"""
-        ...
-
-    def __init__(self) -> None:
+    def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Creates a new instance, which internally launches a new worker thread
+        Determine if this Converter can convert this type
         
+        :param object_type: Type that we would like to convert
+        :returns: True if Series.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Reads series from Json"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write point to Json"""
+        ...
+
+
+class ObjectActivator(System.Object):
+    """Provides methods for creating new instances of objects"""
+
+    @staticmethod
+    def add_activator(key: typing.Type, value: typing.Callable[[typing.List[System.Object]], System.Object]) -> None:
+        """
+        Adds method to return an instance of object
         
-        This codeEntityType is protected.
+        :param key: The key of the method to add
+        :param value: The value of the method to add
         """
         ...
 
-    def add(self, action: typing.Callable[[], typing.Any]) -> None:
+    @staticmethod
+    def clone(instance_to_clone: typing.Any) -> System.Object:
         """
-        Adds a new item of work
+        Clones the specified instance using reflection
         
-        :param action: The work item to add
+        :param instance_to_clone: The instance to be cloned
+        :returns: A field/property wise, non-recursive clone of the instance.
         """
         ...
 
-    def dispose(self) -> None:
-        """Disposes the worker thread."""
-        ...
-
-
-class PerformanceTarget(IntEnum):
-    """This class has no documentation."""
-
-    SELECTION = 0
-
-    SUBSCRIPTIONS = 1
-
-    SLICE = 2
-
-    ON_DATA = 3
-
-    SCHEDULE = 4
-
-    CONSOLIDATORS = 5
-
-    SECURITIES = 6
-
-    TRANSACTIONS = 7
-
-    SPLITS_DIVIDENDS_DELISTING = 8
-
-
-class PerformanceTrackingTool(System.Object):
-    """Helper class to track algorithm performance"""
-
-    @property
-    def data_points(self) -> int:
-        """Gets the number of data points processed per second"""
-        ...
-
-    @property
-    def history_data_points(self) -> int:
-        """Gets the number of data points of algorithm history provider"""
-        ...
-
-    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        ...
-
-    def sample(self, data_point_count: int, utc_algo_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    def shutdown(self) -> None:
-        ...
-
-    def start(self, target: QuantConnect.Util.PerformanceTarget) -> None:
-        ...
-
-    def stop(self, target: QuantConnect.Util.PerformanceTarget) -> None:
-        ...
-
-
-class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonConverter_T, QuantConnect_Util_TypeChangeJsonConverter_TResult], metaclass=abc.ABCMeta):
-    """
-    Provides a base class for a JsonConverter that serializes a
-    an input type as some other output type
-    """
-
-    @property
-    def populate_properties(self) -> bool:
+    @staticmethod
+    def get_activator(data_type: typing.Type) -> typing.Callable[[typing.List[System.Object]], System.Object]:
         """
-        True will populate TResult object returned by convert(TResult) with json properties
+        Fast Object Creator from Generic Type:
+        Modified from http://rogeralsing.com/2008/02/28/linq-expressions-creating-objects/
         
-        
-        This codeEntityType is protected.
+        :param data_type: Type of the object we wish to create
+        :returns: Method to return an instance of object.
         """
         ...
+
+    @staticmethod
+    def reset_activators() -> None:
+        """Reset the object activators"""
+        ...
+
+
+class DoubleUnixSecondsDateTimeJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[typing.Optional[datetime.datetime], typing.Optional[float]]):
+    """Defines a JsonConverter that serializes DateTime use the number of whole and fractional seconds since unix epoch"""
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
@@ -157,9 +117,9 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         ...
 
     @overload
-    def convert(self, value: QuantConnect_Util_TypeChangeJsonConverter_T) -> QuantConnect_Util_TypeChangeJsonConverter_TResult:
+    def convert(self, value: typing.Optional[datetime.datetime]) -> typing.Optional[float]:
         """
-        Convert the input value to a value to be serialized
+        Convert the input value to a value to be serialzied
         
         
         This codeEntityType is protected.
@@ -170,7 +130,7 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         ...
 
     @overload
-    def convert(self, value: QuantConnect_Util_TypeChangeJsonConverter_TResult) -> QuantConnect_Util_TypeChangeJsonConverter_T:
+    def convert(self, value: typing.Optional[float]) -> typing.Optional[datetime.datetime]:
         """
         Converts the input value to be deserialized
         
@@ -182,169 +142,48 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         """
         ...
 
-    def create(self, type: typing.Type, token: typing.Any) -> QuantConnect_Util_TypeChangeJsonConverter_T:
+
+class ExpressionBuilder(System.Object):
+    """Provides methods for constructing expressions at runtime"""
+
+    @staticmethod
+    def as_enumerable(expression: typing.Any) -> typing.Iterable[Expression]:
         """
-        Creates an instance of the un-projected type to be deserialized
+        Converts the specified expression into an enumerable of expressions by walking the expression tree
         
+        :param expression: The expression to enumerate
+        :returns: An enumerable containing all expressions in the input expression.
+        """
+        ...
+
+    @staticmethod
+    def is_binary_comparison(type: typing.Any) -> bool:
+        """Determines whether or not the specified type is a binary comparison."""
+        ...
+
+    @staticmethod
+    def make_property_or_field_selector(type: typing.Type, property_or_field: str) -> typing.Any:
+        """
+        Constructs a selector of the form: x => x.property_or_field where x is an instance of 'type'
         
-        This codeEntityType is protected.
+        :param type: The type of the parameter in the expression
+        :param property_or_field: The name of the property or field to bind to
+        :returns: A new lambda expression that represents accessing the property or field on 'type'.
+        """
+        ...
+
+
+class CashAmountUtil(System.Object):
+    """Provides utility methods for working with CashAmount instances"""
+
+    @staticmethod
+    def should_add_cash_balance(balance: QuantConnect.Securities.CashAmount, account_currency: str) -> bool:
+        """
+        Determines if a cash balance should be added to the cash book
         
-        :param type: The input object type, this is the data held in the token
-        :param token: The input data to be converted into a T
-        :returns: A new instance of T that is to be serialized using default rules.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class BusyBlockingCollection(typing.Generic[QuantConnect_Util_BusyBlockingCollection_T], System.Object, QuantConnect.Interfaces.IBusyCollection[QuantConnect_Util_BusyBlockingCollection_T]):
-    """
-    A small wrapper around BlockingCollection{T} used to communicate busy state of the items
-    being processed
-    """
-
-    @property
-    def wait_handle(self) -> System.Threading.WaitHandle:
-        """
-        Gets a wait handle that can be used to wait until this instance is done
-        processing all of it's item
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of items held within this collection"""
-        ...
-
-    @property
-    def is_busy(self) -> bool:
-        """Returns true if processing, false otherwise"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the BusyBlockingCollection{T} class
-        with a bounded capacity of int.MaxValue
-        """
-        ...
-
-    @overload
-    def __init__(self, bounded_capacity: int) -> None:
-        """
-        Initializes a new instance of the BusyBlockingCollection{T} class
-        with the specified bounded_capacity
-        
-        :param bounded_capacity: The maximum number of items allowed in the collection
-        """
-        ...
-
-    @overload
-    def add(self, item: QuantConnect_Util_BusyBlockingCollection_T) -> None:
-        """
-        Adds the items to this collection
-        
-        :param item: The item to be added
-        """
-        ...
-
-    @overload
-    def add(self, item: QuantConnect_Util_BusyBlockingCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
-        """
-        Adds the items to this collection
-        
-        :param item: The item to be added
-        :param cancellation_token: A cancellation token to observer
-        """
-        ...
-
-    def complete_adding(self) -> None:
-        """Marks the BusyBlockingCollection{T} as not accepting any more additions"""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
-        """
-        Provides a consuming enumerable for items in this collection.
-        
-        :returns: An enumerable that removes and returns items from the collection.
-        """
-        ...
-
-    @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
-        """
-        Provides a consuming enumerable for items in this collection.
-        
-        :param cancellation_token: A cancellation token to observer
-        :returns: An enumerable that removes and returns items from the collection.
-        """
-        ...
-
-
-class Composer(System.Object):
-    """Provides methods for obtaining exported MEF instances"""
-
-    INSTANCE: QuantConnect.Util.Composer
-    """Gets the singleton instance"""
-
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the Composer class. This type
-        is a light wrapper on top of an MEF CompositionContainer
-        """
-        ...
-
-    def reset(self) -> None:
-        """Clears the cache of exported values, causing new instances to be created."""
-        ...
-
-
-class ListComparer(typing.Generic[QuantConnect_Util_ListComparer_T], System.Object, System.Collections.Generic.IEqualityComparer[typing.Sequence[QuantConnect_Util_ListComparer_T]]):
-    """
-    An implementation of IEqualityComparer{T} for List{T}.
-    Useful when using a List{T} as the key of a collection.
-    """
-
-    def equals(self, x: typing.Sequence[QuantConnect_Util_ListComparer_T], y: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> bool:
-        """
-        Determines whether the specified objects are equal.
-        
-        :returns: true if the specified objects are equal; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self, obj: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> int:
-        """
-        Returns a hash code for the specified object.
-        
-        :returns: A hash code for the specified object created from combining the hash
-        code of all the elements in the collection.
+        :param balance: The cash balance to check
+        :param account_currency: The algorithm's account currency
+        :returns: True if the balance should be added, false otherwise.
         """
         ...
 
@@ -387,258 +226,6 @@ class StringDecimalJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[float
         ...
 
 
-class ConcurrentSet(typing.Generic[QuantConnect_Util_ConcurrentSet_T], System.Object, System.Collections.Generic.ISet[QuantConnect_Util_ConcurrentSet_T], typing.Iterable[QuantConnect_Util_ConcurrentSet_T]):
-    """
-    Provides a thread-safe set collection that mimics the behavior of HashSet{T}
-    and will be keep insertion order
-    """
-
-    @property
-    def count(self) -> int:
-        """Gets the number of elements contained in the System.Collections.Generic.ICollection`1."""
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        """Gets a value indicating whether the System.Collections.Generic.ICollection`1 is read-only."""
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect_Util_ConcurrentSet_T]:
-        ...
-
-    def add(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
-        """
-        Adds an element to the current set and returns a value to indicate if the element was successfully added.
-        
-        :param item: The element to add to the set.
-        :returns: true if the element is added to the set; false if the element is already in the set.
-        """
-        ...
-
-    def clear(self) -> None:
-        """Removes all items from the System.Collections.Generic.ICollection`1."""
-        ...
-
-    def contains(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
-        """
-        Determines whether the System.Collections.Generic.ICollection`1 contains a specific value.
-        
-        :param item: The object to locate in the System.Collections.Generic.ICollection`1.
-        :returns: true if item is found in the System.Collections.Generic.ICollection`1; otherwise, false.
-        """
-        ...
-
-    def copy_to(self, array: typing.List[QuantConnect_Util_ConcurrentSet_T], array_index: int) -> None:
-        """
-        Copies the elements of the System.Collections.Generic.ICollection`1 to an System.Array, starting at a particular System.Array index.
-        
-        :param array: The one-dimensional System.Array that is the destination of the elements copied from System.Collections.Generic.ICollection`1. The System.Array must have zero-based indexing.
-        :param array_index: The zero-based index in array at which copying begins.
-        """
-        ...
-
-    def except_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
-        """
-        Removes all elements in the specified collection from the current set.
-        
-        :param other: The collection of items to remove from the set.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_ConcurrentSet_T]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
-        """
-        ...
-
-    def intersect_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
-        """
-        Modifies the current set so that it contains only elements that are also in a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        """
-        ...
-
-    def is_proper_subset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether the current set is a proper (strict) subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a proper subset of other; otherwise, false.
-        """
-        ...
-
-    def is_proper_superset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether the current set is a proper (strict) superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a proper superset of other; otherwise, false.
-        """
-        ...
-
-    def is_subset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether a set is a subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a subset of other; otherwise, false.
-        """
-        ...
-
-    def is_superset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether the current set is a superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a superset of other; otherwise, false.
-        """
-        ...
-
-    def overlaps(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether the current set overlaps with the specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set and other share at least one common element; otherwise, false.
-        """
-        ...
-
-    def remove(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
-        """
-        Removes the first occurrence of a specific object from the System.Collections.Generic.ICollection`1.
-        
-        :param item: The object to remove from the System.Collections.Generic.ICollection`1.
-        :returns: true if item was successfully removed from the System.Collections.Generic.ICollection`1; otherwise, false. This method also returns false if item is not found in the original System.Collections.Generic.ICollection`1.
-        """
-        ...
-
-    def set_equals(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
-        """
-        Determines whether the current set and the specified collection contain the same elements.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is equal to other; otherwise, false.
-        """
-        ...
-
-    def symmetric_except_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
-        """
-        Modifies the current set so that it contains only elements that are present either in the current set or in the specified collection, but not both.
-        
-        :param other: The collection to compare to the current set.
-        """
-        ...
-
-    def union_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
-        """
-        Modifies the current set so that it contains all elements that are present in either the current set or the specified collection.
-        
-        :param other: The collection to compare to the current set.
-        """
-        ...
-
-
-class DateTimeJsonConverter:
-    """Provides a json converter that allows defining the date time format used"""
-
-    @property
-    def can_read(self) -> bool:
-        """True, can read a json into a date time"""
-        ...
-
-    @property
-    def can_write(self) -> bool:
-        """True, can write a datetime to json"""
-        ...
-
-    @overload
-    def __init__(self, format: str) -> None:
-        """
-        Initializes a new instance of the DateTimeJsonConverter class
-        
-        :param format: >The date time format
-        """
-        ...
-
-    @overload
-    def __init__(self, format: str, format_2: str) -> None:
-        """
-        Initializes a new instance of the DateTimeJsonConverter class
-        
-        :param format: >The date time format
-        :param format_2: Other format for backwards compatibility
-        """
-        ...
-
-    @overload
-    def __init__(self, format: str, format_2: str, format_3: str) -> None:
-        """
-        Initializes a new instance of the DateTimeJsonConverter class
-        
-        :param format: >The date time format
-        :param format_2: Other format for backwards compatibility
-        :param format_3: Other format for backwards compatibility
-        """
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """True if can convert the given object type"""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Converts the given value"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes the given value to json"""
-        ...
-
-
-class KeyStringSynchronizer(System.Object):
-    """Helper class to synchronize execution based on a string key"""
-
-    def execute(self, key: str, single_execution: bool, action: typing.Callable[[], typing.Any]) -> None:
-        """
-        Execute the given action synchronously with any other thread using the same key
-        
-        :param key: The synchronization key
-        :param single_execution: True if execution should happen only once at the same time for multiple threads
-        :param action: The action to execute
-        """
-        ...
-
-
-class ReaderWriterLockSlimExtensions(System.Object):
-    """Provides extension methods to make working with the ReaderWriterLockSlim class easier"""
-
-    @staticmethod
-    def read(reader_writer_lock_slim: System.Threading.ReaderWriterLockSlim) -> System.IDisposable:
-        """
-        Opens the read lock
-        
-        :param reader_writer_lock_slim: The lock to open for read
-        :returns: A disposable reference which will release the lock upon disposal.
-        """
-        ...
-
-    @staticmethod
-    def write(reader_writer_lock_slim: System.Threading.ReaderWriterLockSlim) -> System.IDisposable:
-        """
-        Opens the write lock
-        
-        :param reader_writer_lock_slim: The lock to open for write
-        :returns: A disposale reference which will release thelock upon disposal.
-        """
-        ...
-
-
-class XElementExtensions(System.Object):
-    """Provides extension methods for the XML to LINQ types"""
-
-
 class SecurityExtensions(System.Object):
     """
     Provides useful infrastructure methods to the Security class.
@@ -648,60 +235,6 @@ class SecurityExtensions(System.Object):
     @staticmethod
     def is_internal_feed(security: QuantConnect.Securities.Security) -> bool:
         """Determines if all subscriptions for the security are internal feeds"""
-        ...
-
-
-class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.SecurityIdentifier, str]):
-    """A JsonConverter implementation that serializes a SecurityIdentifier as a string"""
-
-    @overload
-    def convert(self, value: QuantConnect.SecurityIdentifier) -> str:
-        """
-        Converts as security identifier to a string
-        
-        
-        This codeEntityType is protected.
-        
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Converts the input string to a security identifier
-        
-        
-        This codeEntityType is protected.
-        
-        :param value: The deserialized value that needs to be converted to T
-        :returns: The converted value.
-        """
-        ...
-
-
-class FixedSizeQueue(typing.Generic[QuantConnect_Util_FixedSizeQueue_T], System.Collections.Generic.Queue[QuantConnect_Util_FixedSizeQueue_T]):
-    """
-    Helper method for a limited length queue which self-removes the extra elements.
-    http://stackoverflow.com/questions/5852863/fixed-size-queue-which-automatically-dequeues-old-values-upon-new-enques
-    """
-
-    @property
-    def limit(self) -> int:
-        """Max Length"""
-        ...
-
-    @limit.setter
-    def limit(self, value: int) -> None:
-        ...
-
-    def __init__(self, limit: int) -> None:
-        """Create a new fixed length queue:"""
-        ...
-
-    def enqueue(self, item: QuantConnect_Util_FixedSizeQueue_T) -> None:
-        """Enqueue a new item int the generic fixed length queue:"""
         ...
 
 
@@ -772,62 +305,169 @@ class PythonUtil(System.Object):
         ...
 
 
-class ReferenceWrapper(typing.Generic[QuantConnect_Util_ReferenceWrapper_T], System.Object):
-    """
-    We wrap a T instance, a value type, with a class, a reference type, to achieve thread safety when assigning new values
-    and reading from multiple threads. This is possible because assignments are atomic operations in C# for reference types (among others).
-    """
+class LeanDataPathComponents(System.Object):
+    """Type representing the various pieces of information emebedded into a lean data file path"""
 
     @property
-    def value(self) -> QuantConnect_Util_ReferenceWrapper_T:
-        """The current value"""
+    def date(self) -> datetime.datetime:
+        """Gets the date component from the file name"""
         ...
 
-    def __init__(self, value: QuantConnect_Util_ReferenceWrapper_T) -> None:
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """Gets the security type from the path"""
+        ...
+
+    @property
+    def market(self) -> str:
+        """Gets the market from the path"""
+        ...
+
+    @property
+    def resolution(self) -> QuantConnect.Resolution:
+        """Gets the resolution from the path"""
+        ...
+
+    @property
+    def filename(self) -> str:
+        """Gets the file name, not inluding directory information"""
+        ...
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
         """
-        Creates a new instance
+        Gets the symbol object implied by the path. For options, or any
+        multi-entry zip file, this should be the canonical symbol
+        """
+        ...
+
+    @property
+    def tick_type(self) -> QuantConnect.TickType:
+        """Gets the tick type from the file name"""
+        ...
+
+    def __init__(self, security_type: QuantConnect.SecurityType, market: str, resolution: QuantConnect.Resolution, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filename: str, date: typing.Union[datetime.datetime, datetime.date], tick_type: QuantConnect.TickType) -> None:
+        """Initializes a new instance of the LeanDataPathComponents class"""
+        ...
+
+    @staticmethod
+    def parse(path: str) -> QuantConnect.Util.LeanDataPathComponents:
+        """
+        Parses the specified path into a new instance of the LeanDataPathComponents class
         
-        :param value: The value to use
+        :param path: The path to be parsed
+        :returns: A new instance of the LeanDataPathComponents class representing the specified path.
         """
         ...
 
 
-class StreamReaderEnumerable(System.Object, typing.Iterable[str], System.IDisposable):
-    """Converts a StreamReader into an enumerable of string"""
+class RateGate(System.Object, System.IDisposable):
+    """Used to control the rate of some occurrence per unit of time."""
+
+    @property
+    def occurrences(self) -> int:
+        """Number of occurrences allowed per unit of time."""
+        ...
+
+    @property
+    def time_unit_milliseconds(self) -> int:
+        """The length of the time unit, in milliseconds."""
+        ...
+
+    @property
+    def is_rate_limited(self) -> bool:
+        """Flag indicating we are currently being rate limited"""
+        ...
+
+    def __init__(self, occurrences: int, time_unit: datetime.timedelta) -> None:
+        """
+        Initializes a RateGate with a rate of occurrences
+        per time_unit.
+        
+        :param occurrences: Number of occurrences allowed per unit of time.
+        :param time_unit: Length of the time unit.
+        """
+        ...
 
     @overload
-    def __init__(self, stream: System.IO.Stream, *disposables: typing.Union[System.IDisposable, typing.Iterable[System.IDisposable]]) -> None:
+    def dispose(self) -> None:
+        """Releases unmanaged resources held by an instance of this class."""
+        ...
+
+    @overload
+    def dispose(self, is_disposing: bool) -> None:
         """
-        Initializes a new instance of the StreamReaderEnumerable class
+        Releases unmanaged resources held by an instance of this class.
         
-        :param stream: The stream to be read
-        :param disposables: Allows specifying other resources that should be disposed when this instance is disposed
+        
+        This codeEntityType is protected.
+        
+        :param is_disposing: Whether this object is being disposed.
         """
         ...
 
     @overload
-    def __init__(self, reader: System.IO.StreamReader, *disposables: typing.Union[System.IDisposable, typing.Iterable[System.IDisposable]]) -> None:
+    def wait_to_proceed(self, milliseconds_timeout: int) -> bool:
         """
-        Initializes a new instance of the StreamReaderEnumerable class
+        Blocks the current thread until allowed to proceed or until the
+        specified timeout elapses.
         
-        :param reader: The stream reader instance to convert to an enumerable of string
-        :param disposables: Allows specifying other resources that should be disposed when this instance is disposed
+        :param milliseconds_timeout: Number of milliseconds to wait, or -1 to wait indefinitely.
+        :returns: true if the thread is allowed to proceed, or false if timed out.
         """
         ...
 
-    def __iter__(self) -> typing.Iterator[str]:
+    @overload
+    def wait_to_proceed(self, timeout: datetime.timedelta) -> bool:
+        """
+        Blocks the current thread until allowed to proceed or until the
+        specified timeout elapses.
+        
+        :param timeout: 
+        :returns: true if the thread is allowed to proceed, or false if timed out.
+        """
+        ...
+
+    @overload
+    def wait_to_proceed(self) -> None:
+        """Blocks the current thread indefinitely until allowed to proceed."""
+        ...
+
+
+class WorkerThread(System.Object, System.IDisposable):
+    """
+    This worker tread is required to guarantee all python operations are
+    executed by the same thread, to enable complete debugging functionality.
+    We don't use the main thread, to avoid any chance of blocking the process
+    """
+
+    instance: QuantConnect.Util.WorkerThread = ...
+    """The worker thread instance"""
+
+    @property
+    def finished_work_item(self) -> System.Threading.AutoResetEvent:
+        """Will be set when the worker thread finishes a work item"""
+        ...
+
+    def __init__(self) -> None:
+        """
+        Creates a new instance, which internally launches a new worker thread
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def add(self, action: typing.Callable[[], typing.Any]) -> None:
+        """
+        Adds a new item of work
+        
+        :param action: The work item to add
+        """
         ...
 
     def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[str]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
-        """
+        """Disposes the worker thread."""
         ...
 
 
@@ -1038,178 +678,61 @@ class MarketHoursDatabaseJsonConverter(QuantConnect.Util.TypeChangeJsonConverter
         ...
 
 
-class FixedSizeHashQueue(typing.Generic[QuantConnect_Util_FixedSizeHashQueue_T], System.Object, typing.Iterable[QuantConnect_Util_FixedSizeHashQueue_T]):
-    """Provides an implementation of an add-only fixed length, unique queue system"""
-
-    def __init__(self, size: int) -> None:
-        """
-        Initializes a new instance of the FixedSizeHashQueue{T} class
-        
-        :param size: The maximum number of items to hold
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect_Util_FixedSizeHashQueue_T]:
-        ...
-
-    def add(self, item: QuantConnect_Util_FixedSizeHashQueue_T) -> bool:
-        """Returns true if the item was added and didn't already exists"""
-        ...
-
-    def contains(self, item: QuantConnect_Util_FixedSizeHashQueue_T) -> bool:
-        """Returns true if the specified item exists in the collection"""
-        ...
-
-    def dequeue(self) -> QuantConnect_Util_FixedSizeHashQueue_T:
-        """Dequeues and returns the next item in the queue"""
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_FixedSizeHashQueue_T]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
-        """
-        ...
-
-    def try_peek(self, item: typing.Optional[QuantConnect_Util_FixedSizeHashQueue_T]) -> typing.Tuple[bool, QuantConnect_Util_FixedSizeHashQueue_T]:
-        """Tries to inspect the first item in the queue"""
-        ...
-
-
-class CashAmountUtil(System.Object):
-    """Provides utility methods for working with CashAmount instances"""
+class OptionPayoff(System.Object):
+    """Static class containing useful methods related with options payoff"""
 
     @staticmethod
-    def should_add_cash_balance(balance: QuantConnect.Securities.CashAmount, account_currency: str) -> bool:
+    def get_intrinsic_value(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> float:
         """
-        Determines if a cash balance should be added to the cash book
+        Intrinsic value function of the option
         
-        :param balance: The cash balance to check
-        :param account_currency: The algorithm's account currency
-        :returns: True if the balance should be added, false otherwise.
-        """
-        ...
-
-
-class LinqExtensions(System.Object):
-    """Provides more extension methods for the enumerable types"""
-
-
-class StreamReaderExtensions(System.Object):
-    """Extension methods to fetch data from a StreamReader instance"""
-
-    @staticmethod
-    def get_char(stream: System.IO.StreamReader, delimiter: str = ...) -> str:
-        """
-        Gets a character from a stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The string instance read.
+        :param underlying_price: The price of the underlying
+        :param strike: The strike price of the option
+        :param right: The option right of the option, call or put
+        :returns: The intrinsic value remains for the option at expiry.
         """
         ...
 
     @staticmethod
-    def get_date_time(stream: System.IO.StreamReader, format: str = ..., delimiter: str = ...) -> datetime.datetime:
+    def get_pay_off(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> float:
         """
-        Gets a date time instance from a stream reader
+        Option payoff function at expiration time
         
-        :param stream: The data stream
-        :param format: The format in which the date time is
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The date time instance read.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_decimal(stream: System.IO.StreamReader, delimiter: str = ...) -> float:
-        """
-        Gets a decimal from the provided stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The decimal read from the stream.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_decimal(stream: System.IO.StreamReader, past_end_line: typing.Optional[bool], delimiter: str = ...) -> typing.Tuple[float, bool]:
-        """
-        Gets a decimal from the provided stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :param past_end_line: True if end line was past, useful for consumers to know a line ended
-        :returns: The decimal read from the stream.
-        """
-        ...
-
-    @staticmethod
-    def get_int_32(stream: System.IO.StreamReader, delimiter: str = ...) -> int:
-        """
-        Gets an integer from a stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The integer instance read.
-        """
-        ...
-
-    @staticmethod
-    def get_int_64(stream: System.IO.StreamReader, delimiter: str = ...) -> int:
-        """
-        Gets an integer from a stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The integer instance read.
-        """
-        ...
-
-    @staticmethod
-    def get_string(stream: System.IO.StreamReader, delimiter: str = ...) -> str:
-        """
-        Gets a string from a stream reader
-        
-        :param stream: The data stream
-        :param delimiter: The data delimiter character to use, default is ','
-        :returns: The string instance read.
+        :param underlying_price: The price of the underlying
+        :param strike: The strike price of the option
+        :param right: The option right of the option, call or put
         """
         ...
 
 
-class FuncTextWriter(System.IO.TextWriter):
-    """Provides an implementation of TextWriter that redirects Write(string) and WriteLine(string)"""
+class CandlestickJsonConverter:
+    """Candlestick Json Converter"""
 
     @property
-    def encoding(self) -> System.Text.Encoding:
+    def can_read(self) -> bool:
+        """This converter wont be used to read JSON. Will throw exception if manually called."""
         ...
 
-    def __init__(self, writer: typing.Callable[[str], typing.Any]) -> None:
+    def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Initializes a new instance of the FuncTextWriter that will direct
-        messages to the algorithm's Debug function.
+        Determine if this Converter can convert this type
         
-        :param writer: The algorithm hosting the Debug function where messages will be directed
-        """
-        ...
-
-    def write(self, value: str) -> None:
-        """
-        Writes the string value using the delegate provided at construction
-        
-        :param value: The string value to be written
+        :param object_type: Type that we would like to convert
+        :returns: True if Series.
         """
         ...
 
-    def write_line(self, value: str) -> None:
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Json reader implementation which handles backwards compatiblity for old equity chart points"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
         """
-        Writes the string value using the delegate provided at construction
+        Write Series to Json
         
-        :param value: 
+        :param writer: The Json Writer to use
+        :param value: The value to written to Json
+        :param serializer: The Json Serializer to use
         """
         ...
 
@@ -1230,263 +753,194 @@ class PerformanceTimer(System.Object):
         ...
 
 
-class IReadOnlyRef(typing.Generic[QuantConnect_Util_IReadOnlyRef_T], metaclass=abc.ABCMeta):
-    """Represents a read-only reference to any value, T"""
+class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.Object, QuantConnect.Interfaces.IBusyCollection[QuantConnect_Util_BusyCollection_T]):
+    """A non blocking IBusyCollection{T} implementation"""
 
     @property
-    @abc.abstractmethod
-    def value(self) -> QuantConnect_Util_IReadOnlyRef_T:
-        """Gets the current value this reference points to"""
+    def wait_handle(self) -> System.Threading.WaitHandle:
+        """
+        Gets a wait handle that can be used to wait until this instance is done
+        processing all of it's item
+        """
         ...
-
-
-class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_T]):
-    """Represents a reference to any value, T"""
 
     @property
-    def value(self) -> QuantConnect_Util_Ref_T:
-        """Gets or sets the value of this reference"""
+    def count(self) -> int:
+        """Gets the number of items held within this collection"""
         ...
 
-    @value.setter
-    def value(self, value: QuantConnect_Util_Ref_T) -> None:
+    @property
+    def is_busy(self) -> bool:
+        """Returns true if processing, false otherwise"""
         ...
 
-    def __init__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_T], setter: typing.Callable[[QuantConnect_Util_Ref_T], typing.Any]) -> None:
+    @overload
+    def add(self, item: QuantConnect_Util_BusyCollection_T) -> None:
         """
-        Initializes a new instance of the Ref{T} class
+        Adds the items to this collection
         
-        :param getter: A function delegate to get the current value
-        :param setter: A function delegate to set the current value
+        :param item: The item to be added
         """
         ...
 
-    def as_read_only(self) -> QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_T]:
+    @overload
+    def add(self, item: QuantConnect_Util_BusyCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
         """
-        Returns a read-only version of this instance
+        Adds the items to this collection
         
-        :returns: A new instance with read-only semantics/gaurantees.
+        :param item: The item to be added
+        :param cancellation_token: A cancellation token to observer
         """
         ...
 
+    def complete_adding(self) -> None:
+        """Marks the collection as not accepting any more additions"""
+        ...
 
-class Validate(System.Object):
-    """Provides methods for validating strings following a certain format, such as an email address"""
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
 
-    class RegularExpression(System.Object):
-        """Provides static storage of compiled regular expressions to preclude parsing on each invocation"""
-
-        EMAIL_DOMAIN_NAME: System.Text.RegularExpressions.Regex = ...
+    @overload
+    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
         """
-        Matches the domain name in an email address ignored@<domain.com>
-        Pattern sourced via msdn:
-        https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
-        """
-
-        EMAIL: System.Text.RegularExpressions.Regex = ...
-        """
-        Matches a valid email address address@sub.domain.com
-        Pattern sourced via msdn:
-        https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
-        """
-
-    @staticmethod
-    def email_address(email_address: str) -> bool:
-        """
-        Validates the provided email address
+        Provides a consuming enumerable for items in this collection.
         
-        :param email_address: The email address to be validated
-        :returns: True if the provided email address is valid.
+        :returns: An enumerable that removes and returns items from the collection.
+        """
+        ...
+
+    @overload
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
+        """
+        Provides a consuming enumerable for items in this collection.
+        
+        :param cancellation_token: A cancellation token to observer
+        :returns: An enumerable that removes and returns items from the collection.
         """
         ...
 
 
-class ColorJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[System.Drawing.Color, str]):
+class ListComparer(typing.Generic[QuantConnect_Util_ListComparer_T], System.Object, System.Collections.Generic.IEqualityComparer[typing.Sequence[QuantConnect_Util_ListComparer_T]]):
     """
-    A JsonConverter implementation that serializes a Color as a string.
-    If Color is empty, string is also empty and vice-versa. Meaning that color is autogen.
+    An implementation of IEqualityComparer{T} for List{T}.
+    Useful when using a List{T} as the key of a collection.
     """
 
-    @overload
-    def convert(self, value: System.Drawing.Color) -> str:
+    def equals(self, x: typing.Sequence[QuantConnect_Util_ListComparer_T], y: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> bool:
         """
-        Converts a .NET Color to a hexadecimal as a string
+        Determines whether the specified objects are equal.
         
-        
-        This codeEntityType is protected.
-        
-        :param value: The input value to be converted before serialization
-        :returns: Hexadecimal number as a string. If .NET Color is null, returns default #000000.
+        :returns: true if the specified objects are equal; otherwise, false.
         """
         ...
 
-    @overload
-    def convert(self, value: str) -> System.Drawing.Color:
+    def get_hash_code(self, obj: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> int:
         """
-        Converts the input string to a .NET Color object
+        Returns a hash code for the specified object.
         
-        
-        This codeEntityType is protected.
-        
-        :param value: The deserialized value that needs to be converted to T
-        :returns: The converted value.
+        :returns: A hash code for the specified object created from combining the hash
+        code of all the elements in the collection.
         """
         ...
 
 
-class CurrencyPairUtil(System.Object):
-    """Utility methods for decomposing and comparing currency pairs"""
+class FixedSizeQueue(typing.Generic[QuantConnect_Util_FixedSizeQueue_T], System.Collections.Generic.Queue[QuantConnect_Util_FixedSizeQueue_T]):
+    """
+    Helper method for a limited length queue which self-removes the extra elements.
+    http://stackoverflow.com/questions/5852863/fixed-size-queue-which-automatically-dequeues-old-values-upon-new-enques
+    """
 
-    class Match(IntEnum):
-        """Represents the relation between two currency pairs"""
-
-        NO_MATCH = 0
-        """The two currency pairs don't match each other normally nor when one is reversed"""
-
-        EXACT_MATCH = 1
-        """The two currency pairs match each other exactly"""
-
-        INVERSE_MATCH = 2
-        """The two currency pairs are the inverse of each other"""
-
-    @staticmethod
-    def compare_pair(pair_a: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency_b: str, quote_currency_b: str) -> QuantConnect.Util.CurrencyPairUtil.Match:
-        """
-        Returns how two currency pairs are related to each other
-        
-        :param pair_a: The first pair
-        :param base_currency_b: The base currency of the second pair
-        :param quote_currency_b: The quote currency of the second pair
-        :returns: The Match member that represents the relation between the two pairs.
-        """
+    @property
+    def limit(self) -> int:
+        """Max Length"""
         ...
+
+    @limit.setter
+    def limit(self, value: int) -> None:
+        ...
+
+    def __init__(self, limit: int) -> None:
+        """Create a new fixed length queue:"""
+        ...
+
+    def enqueue(self, item: QuantConnect_Util_FixedSizeQueue_T) -> None:
+        """Enqueue a new item int the generic fixed length queue:"""
+        ...
+
+
+class ComparisonOperator(System.Object):
+    """Utility Comparison Operator class"""
+
+
+class DisposableExtensions(System.Object):
+    """Provides extensions methods for IDisposable"""
 
     @staticmethod
     @overload
-    def currency_pair_dual(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], known_symbol: str) -> str:
+    def dispose_safely(disposable: System.IDisposable) -> bool:
         """
-        You have currency_pair AB and one known symbol (A or B). This function returns the other symbol (B or A).
+        Calls IDisposable.Dispose within a try/catch and logs any errors.
         
-        :param currency_pair: Currency pair AB
-        :param known_symbol: Known part of the currency_pair (either A or B)
-        :returns: The other part of currency_pair (either B or A), or null if known symbol is not part of currency_pair.
+        :param disposable: The IDisposable to be disposed
+        :returns: True if the object was successfully disposed, false if an error was thrown.
         """
         ...
 
     @staticmethod
     @overload
-    def currency_pair_dual(base_currency: str, quote_currency: str, known_symbol: str) -> str:
+    def dispose_safely(disposable: System.IDisposable, error_handler: typing.Callable[[System.Exception], typing.Any]) -> bool:
         """
-        You have currencyPair AB and one known symbol (A or B). This function returns the other symbol (B or A).
+        Calls IDisposable.Dispose within a try/catch and invokes the
+        error_handler on any errors.
         
-        :param base_currency: The base currency of the currency pair
-        :param quote_currency: The quote currency of the currency pair
-        :param known_symbol: Known part of the currencyPair (either A or B)
-        :returns: The other part of currencyPair (either B or A), or null if known symbol is not part of the currency pair.
+        :param disposable: The IDisposable to be disposed
+        :param error_handler: Error handler delegate invoked if an exception is thrown
+        while calling IDisposable.Dispose
+        :returns: True if the object was successfully disposed, false if an error was thrown or
+        the specified disposable was null.
         """
         ...
 
-    @staticmethod
-    def decompose_currency_pair(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency: typing.Optional[str], quote_currency: typing.Optional[str], default_quote_currency: str = ...) -> typing.Tuple[None, str, str]:
+
+class LinqExtensions(System.Object):
+    """Provides more extension methods for the enumerable types"""
+
+
+class NullStringValueConverter(typing.Generic[QuantConnect_Util_NullStringValueConverter_T]):
+    """
+    Converts the string "null" into a new instance of T.
+    This converter only handles deserialization concerns.
+    """
+
+    def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Decomposes the specified currency pair into a base and quote currency provided as out parameters
+        Determines whether this instance can convert the specified object type.
         
-        :param currency_pair: The input currency pair to be decomposed
-        :param base_currency: The output base currency
-        :param quote_currency: The output quote currency
-        :param default_quote_currency: Optionally can provide a default quote currency
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
         """
         ...
 
-    @staticmethod
-    def is_decomposable(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
         """
-        Checks whether a symbol is decomposable into a base and a quote currency
+        Reads the JSON representation of the object.
         
-        :param currency_pair: The pair to check for
-        :returns: True if the pair can be decomposed into base and quote currencies, false if not.
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
         """
         ...
 
-    @staticmethod
-    def is_forex_decomposable(currency_pair: str) -> bool:
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
         """
-        Checks whether a symbol is decomposable into a base and a quote currency
+        Writes the JSON representation of the object.
         
-        :param currency_pair: The pair to check for
-        :returns: True if the pair can be decomposed into base and quote currencies, false if not.
-        """
-        ...
-
-    @staticmethod
-    def is_valid_security_type(security_type: typing.Optional[QuantConnect.SecurityType], throw_exception: bool) -> bool:
-        ...
-
-    @staticmethod
-    def try_decompose_currency_pair(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[bool, str, str]:
-        """
-        Tries to decomposes the specified currency pair into a base and quote currency provided as out parameters
-        
-        :param currency_pair: The input currency pair to be decomposed
-        :param base_currency: The output base currency
-        :param quote_currency: The output quote currency
-        :returns: True if was able to decompose the currency pair.
-        """
-        ...
-
-
-class LeanDataPathComponents(System.Object):
-    """Type representing the various pieces of information emebedded into a lean data file path"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Gets the date component from the file name"""
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """Gets the security type from the path"""
-        ...
-
-    @property
-    def market(self) -> str:
-        """Gets the market from the path"""
-        ...
-
-    @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """Gets the resolution from the path"""
-        ...
-
-    @property
-    def filename(self) -> str:
-        """Gets the file name, not inluding directory information"""
-        ...
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """
-        Gets the symbol object implied by the path. For options, or any
-        multi-entry zip file, this should be the canonical symbol
-        """
-        ...
-
-    @property
-    def tick_type(self) -> QuantConnect.TickType:
-        """Gets the tick type from the file name"""
-        ...
-
-    def __init__(self, security_type: QuantConnect.SecurityType, market: str, resolution: QuantConnect.Resolution, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filename: str, date: typing.Union[datetime.datetime, datetime.date], tick_type: QuantConnect.TickType) -> None:
-        """Initializes a new instance of the LeanDataPathComponents class"""
-        ...
-
-    @staticmethod
-    def parse(path: str) -> QuantConnect.Util.LeanDataPathComponents:
-        """
-        Parses the specified path into a new instance of the LeanDataPathComponents class
-        
-        :param path: The path to be parsed
-        :returns: A new instance of the LeanDataPathComponents class representing the specified path.
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
         """
         ...
 
@@ -1539,41 +993,300 @@ class CircularQueue(typing.Generic[QuantConnect_Util_CircularQueue_T], System.Ob
         ...
 
 
-class DoubleUnixSecondsDateTimeJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[typing.Optional[datetime.datetime], typing.Optional[float]]):
-    """Defines a JsonConverter that serializes DateTime use the number of whole and fractional seconds since unix epoch"""
+class JsonRoundingConverter:
+    """
+    Helper JsonConverter that will round decimal and double types,
+    to FRACTIONAL_DIGITS fractional digits
+    """
+
+    FRACTIONAL_DIGITS: int = 4
+    """The number of fractional digits to round to"""
+
+    @property
+    def can_read(self) -> bool:
+        """
+        Will always return false.
+        Gets a value indicating whether this Newtonsoft.Json.JsonConverter can read JSON.
+        """
+        ...
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
         Determines whether this instance can convert the specified object type.
         
         :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
+        :returns: True if this instance can convert the specified object type.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Not implemented, will throw NotImplementedException
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class DateTimeJsonConverter:
+    """Provides a json converter that allows defining the date time format used"""
+
+    @property
+    def can_read(self) -> bool:
+        """True, can read a json into a date time"""
+        ...
+
+    @property
+    def can_write(self) -> bool:
+        """True, can write a datetime to json"""
+        ...
+
+    @overload
+    def __init__(self, format: str) -> None:
+        """
+        Initializes a new instance of the DateTimeJsonConverter class
+        
+        :param format: >The date time format
         """
         ...
 
     @overload
-    def convert(self, value: typing.Optional[datetime.datetime]) -> typing.Optional[float]:
+    def __init__(self, format: str, format_2: str) -> None:
         """
-        Convert the input value to a value to be serialzied
+        Initializes a new instance of the DateTimeJsonConverter class
         
-        
-        This codeEntityType is protected.
-        
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param format: >The date time format
+        :param format_2: Other format for backwards compatibility
         """
         ...
 
     @overload
-    def convert(self, value: typing.Optional[float]) -> typing.Optional[datetime.datetime]:
+    def __init__(self, format: str, format_2: str, format_3: str) -> None:
         """
-        Converts the input value to be deserialized
+        Initializes a new instance of the DateTimeJsonConverter class
         
+        :param format: >The date time format
+        :param format_2: Other format for backwards compatibility
+        :param format_3: Other format for backwards compatibility
+        """
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """True if can convert the given object type"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Converts the given value"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes the given value to json"""
+        ...
+
+
+class ConcurrentSet(typing.Generic[QuantConnect_Util_ConcurrentSet_T], System.Object, System.Collections.Generic.ISet[QuantConnect_Util_ConcurrentSet_T], typing.Iterable[QuantConnect_Util_ConcurrentSet_T]):
+    """
+    Provides a thread-safe set collection that mimics the behavior of HashSet{T}
+    and will be keep insertion order
+    """
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the System.Collections.Generic.ICollection`1."""
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether the System.Collections.Generic.ICollection`1 is read-only."""
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect_Util_ConcurrentSet_T]:
+        ...
+
+    def add(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
+        """
+        Adds an element to the current set and returns a value to indicate if the element was successfully added.
         
-        This codeEntityType is protected.
+        :param item: The element to add to the set.
+        :returns: true if the element is added to the set; false if the element is already in the set.
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all items from the System.Collections.Generic.ICollection`1."""
+        ...
+
+    def contains(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
+        """
+        Determines whether the System.Collections.Generic.ICollection`1 contains a specific value.
         
-        :param value: The deserialized value that needs to be converted to T
-        :returns: The converted value.
+        :param item: The object to locate in the System.Collections.Generic.ICollection`1.
+        :returns: true if item is found in the System.Collections.Generic.ICollection`1; otherwise, false.
+        """
+        ...
+
+    def copy_to(self, array: typing.List[QuantConnect_Util_ConcurrentSet_T], array_index: int) -> None:
+        """
+        Copies the elements of the System.Collections.Generic.ICollection`1 to an System.Array, starting at a particular System.Array index.
+        
+        :param array: The one-dimensional System.Array that is the destination of the elements copied from System.Collections.Generic.ICollection`1. The System.Array must have zero-based indexing.
+        :param array_index: The zero-based index in array at which copying begins.
+        """
+        ...
+
+    def except_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
+        """
+        Removes all elements in the specified collection from the current set.
+        
+        :param other: The collection of items to remove from the set.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_ConcurrentSet_T]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+    def intersect_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
+        """
+        Modifies the current set so that it contains only elements that are also in a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        """
+        ...
+
+    def is_proper_subset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether the current set is a proper (strict) subset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a proper subset of other; otherwise, false.
+        """
+        ...
+
+    def is_proper_superset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether the current set is a proper (strict) superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a proper superset of other; otherwise, false.
+        """
+        ...
+
+    def is_subset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether a set is a subset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a subset of other; otherwise, false.
+        """
+        ...
+
+    def is_superset_of(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether the current set is a superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a superset of other; otherwise, false.
+        """
+        ...
+
+    def overlaps(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether the current set overlaps with the specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set and other share at least one common element; otherwise, false.
+        """
+        ...
+
+    def remove(self, item: QuantConnect_Util_ConcurrentSet_T) -> bool:
+        """
+        Removes the first occurrence of a specific object from the System.Collections.Generic.ICollection`1.
+        
+        :param item: The object to remove from the System.Collections.Generic.ICollection`1.
+        :returns: true if item was successfully removed from the System.Collections.Generic.ICollection`1; otherwise, false. This method also returns false if item is not found in the original System.Collections.Generic.ICollection`1.
+        """
+        ...
+
+    def set_equals(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> bool:
+        """
+        Determines whether the current set and the specified collection contain the same elements.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is equal to other; otherwise, false.
+        """
+        ...
+
+    def symmetric_except_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
+        """
+        Modifies the current set so that it contains only elements that are present either in the current set or in the specified collection, but not both.
+        
+        :param other: The collection to compare to the current set.
+        """
+        ...
+
+    def union_with(self, other: typing.List[QuantConnect_Util_ConcurrentSet_T]) -> None:
+        """
+        Modifies the current set so that it contains all elements that are present in either the current set or the specified collection.
+        
+        :param other: The collection to compare to the current set.
+        """
+        ...
+
+
+class IReadOnlyRef(typing.Generic[QuantConnect_Util_IReadOnlyRef_T], metaclass=abc.ABCMeta):
+    """Represents a read-only reference to any value, T"""
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> QuantConnect_Util_IReadOnlyRef_T:
+        """Gets the current value this reference points to"""
+        ...
+
+
+class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_T]):
+    """Represents a reference to any value, T"""
+
+    @property
+    def value(self) -> QuantConnect_Util_Ref_T:
+        """Gets or sets the value of this reference"""
+        ...
+
+    @value.setter
+    def value(self, value: QuantConnect_Util_Ref_T) -> None:
+        ...
+
+    def __init__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_T], setter: typing.Callable[[QuantConnect_Util_Ref_T], typing.Any]) -> None:
+        """
+        Initializes a new instance of the Ref{T} class
+        
+        :param getter: A function delegate to get the current value
+        :param setter: A function delegate to set the current value
+        """
+        ...
+
+    def as_read_only(self) -> QuantConnect.Util.IReadOnlyRef[QuantConnect_Util_Ref_T]:
+        """
+        Returns a read-only version of this instance
+        
+        :returns: A new instance with read-only semantics/gaurantees.
         """
         ...
 
@@ -1609,6 +1322,287 @@ class MemoizingEnumerable(typing.Generic[QuantConnect_Util_MemoizingEnumerable_T
         Returns an enumerator that iterates through the collection.
         
         :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+
+class Validate(System.Object):
+    """Provides methods for validating strings following a certain format, such as an email address"""
+
+    class RegularExpression(System.Object):
+        """Provides static storage of compiled regular expressions to preclude parsing on each invocation"""
+
+        EMAIL_DOMAIN_NAME: System.Text.RegularExpressions.Regex = ...
+        """
+        Matches the domain name in an email address ignored@<domain.com>
+        Pattern sourced via msdn:
+        https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
+        """
+
+        EMAIL: System.Text.RegularExpressions.Regex = ...
+        """
+        Matches a valid email address address@sub.domain.com
+        Pattern sourced via msdn:
+        https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
+        """
+
+    @staticmethod
+    def email_address(email_address: str) -> bool:
+        """
+        Validates the provided email address
+        
+        :param email_address: The email address to be validated
+        :returns: True if the provided email address is valid.
+        """
+        ...
+
+
+class XElementExtensions(System.Object):
+    """Provides extension methods for the XML to LINQ types"""
+
+
+class FuncTextWriter(System.IO.TextWriter):
+    """Provides an implementation of TextWriter that redirects Write(string) and WriteLine(string)"""
+
+    @property
+    def encoding(self) -> System.Text.Encoding:
+        ...
+
+    def __init__(self, writer: typing.Callable[[str], typing.Any]) -> None:
+        """
+        Initializes a new instance of the FuncTextWriter that will direct
+        messages to the algorithm's Debug function.
+        
+        :param writer: The algorithm hosting the Debug function where messages will be directed
+        """
+        ...
+
+    def write(self, value: str) -> None:
+        """
+        Writes the string value using the delegate provided at construction
+        
+        :param value: The string value to be written
+        """
+        ...
+
+    def write_line(self, value: str) -> None:
+        """
+        Writes the string value using the delegate provided at construction
+        
+        :param value: 
+        """
+        ...
+
+
+class StreamReaderEnumerable(System.Object, typing.Iterable[str], System.IDisposable):
+    """Converts a StreamReader into an enumerable of string"""
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, *disposables: typing.Union[System.IDisposable, typing.Iterable[System.IDisposable]]) -> None:
+        """
+        Initializes a new instance of the StreamReaderEnumerable class
+        
+        :param stream: The stream to be read
+        :param disposables: Allows specifying other resources that should be disposed when this instance is disposed
+        """
+        ...
+
+    @overload
+    def __init__(self, reader: System.IO.StreamReader, *disposables: typing.Union[System.IDisposable, typing.Iterable[System.IDisposable]]) -> None:
+        """
+        Initializes a new instance of the StreamReaderEnumerable class
+        
+        :param reader: The stream reader instance to convert to an enumerable of string
+        :param disposables: Allows specifying other resources that should be disposed when this instance is disposed
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[str]:
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[str]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+
+class FixedSizeHashQueue(typing.Generic[QuantConnect_Util_FixedSizeHashQueue_T], System.Object, typing.Iterable[QuantConnect_Util_FixedSizeHashQueue_T]):
+    """Provides an implementation of an add-only fixed length, unique queue system"""
+
+    def __init__(self, size: int) -> None:
+        """
+        Initializes a new instance of the FixedSizeHashQueue{T} class
+        
+        :param size: The maximum number of items to hold
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect_Util_FixedSizeHashQueue_T]:
+        ...
+
+    def add(self, item: QuantConnect_Util_FixedSizeHashQueue_T) -> bool:
+        """Returns true if the item was added and didn't already exists"""
+        ...
+
+    def contains(self, item: QuantConnect_Util_FixedSizeHashQueue_T) -> bool:
+        """Returns true if the specified item exists in the collection"""
+        ...
+
+    def dequeue(self) -> QuantConnect_Util_FixedSizeHashQueue_T:
+        """Dequeues and returns the next item in the queue"""
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_FixedSizeHashQueue_T]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+    def try_peek(self, item: typing.Optional[QuantConnect_Util_FixedSizeHashQueue_T]) -> typing.Tuple[bool, QuantConnect_Util_FixedSizeHashQueue_T]:
+        """Tries to inspect the first item in the queue"""
+        ...
+
+
+class ReaderWriterLockSlimExtensions(System.Object):
+    """Provides extension methods to make working with the ReaderWriterLockSlim class easier"""
+
+    @staticmethod
+    def read(reader_writer_lock_slim: System.Threading.ReaderWriterLockSlim) -> System.IDisposable:
+        """
+        Opens the read lock
+        
+        :param reader_writer_lock_slim: The lock to open for read
+        :returns: A disposable reference which will release the lock upon disposal.
+        """
+        ...
+
+    @staticmethod
+    def write(reader_writer_lock_slim: System.Threading.ReaderWriterLockSlim) -> System.IDisposable:
+        """
+        Opens the write lock
+        
+        :param reader_writer_lock_slim: The lock to open for write
+        :returns: A disposale reference which will release thelock upon disposal.
+        """
+        ...
+
+
+class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.SecurityIdentifier, str]):
+    """A JsonConverter implementation that serializes a SecurityIdentifier as a string"""
+
+    @overload
+    def convert(self, value: QuantConnect.SecurityIdentifier) -> str:
+        """
+        Converts as security identifier to a string
+        
+        
+        This codeEntityType is protected.
+        
+        :param value: The input value to be converted before serialziation
+        :returns: A new instance of TResult that is to be serialzied.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Converts the input string to a security identifier
+        
+        
+        This codeEntityType is protected.
+        
+        :param value: The deserialized value that needs to be converted to T
+        :returns: The converted value.
+        """
+        ...
+
+
+class DecimalJsonConverter:
+    """Json converter to represent decimals as strings"""
+
+    @property
+    def can_write(self) -> bool:
+        """Gets a value indicating whether this JsonConverter can write JSON."""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class EnumeratorExtensions(System.Object):
+    """Provides convenience of linq extension methods for IEnumerator{T} types"""
+
+
+class SingleValueListConverter(typing.Generic[QuantConnect_Util_SingleValueListConverter_T]):
+    """Reads json and always produces a List, even if the input has just an object"""
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object. If the JSON represents a singular instance, it will be returned
+        in a list.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object. If the instance is not a list then it will
+        be wrapped in a list
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
         """
         ...
 
@@ -1981,117 +1975,86 @@ class LeanData(System.Object):
         ...
 
 
-class ChartPointJsonConverter:
-    """Json Converter for ChartPoint which handles special reading"""
+class KeyStringSynchronizer(System.Object):
+    """Helper class to synchronize execution based on a string key"""
 
-    def can_convert(self, object_type: typing.Type) -> bool:
+    def execute(self, key: str, single_execution: bool, action: typing.Callable[[], typing.Any]) -> None:
         """
-        Determine if this Converter can convert this type
+        Execute the given action synchronously with any other thread using the same key
         
-        :param object_type: Type that we would like to convert
-        :returns: True if Series.
+        :param key: The synchronization key
+        :param single_execution: True if execution should happen only once at the same time for multiple threads
+        :param action: The action to execute
         """
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Reads series from Json"""
-        ...
 
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write point to Json"""
-        ...
+class PerformanceTarget(IntEnum):
+    """This class has no documentation."""
+
+    SELECTION = 0
+
+    SUBSCRIPTIONS = 1
+
+    SLICE = 2
+
+    ON_DATA = 3
+
+    SCHEDULE = 4
+
+    CONSOLIDATORS = 5
+
+    SECURITIES = 6
+
+    TRANSACTIONS = 7
+
+    SPLITS_DIVIDENDS_DELISTING = 8
 
 
-class JsonRoundingConverter:
-    """
-    Helper JsonConverter that will round decimal and double types,
-    to FRACTIONAL_DIGITS fractional digits
-    """
-
-    FRACTIONAL_DIGITS: int = 4
-    """The number of fractional digits to round to"""
+class PerformanceTrackingTool(System.Object):
+    """Helper class to track algorithm performance"""
 
     @property
-    def can_read(self) -> bool:
-        """
-        Will always return false.
-        Gets a value indicating whether this Newtonsoft.Json.JsonConverter can read JSON.
-        """
+    def data_points(self) -> int:
+        """Gets the number of data points processed per second"""
         ...
 
-    def can_convert(self, object_type: typing.Type) -> bool:
+    @property
+    def history_data_points(self) -> int:
+        """Gets the number of data points of algorithm history provider"""
+        ...
+
+    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        ...
+
+    def sample(self, data_point_count: int, utc_algo_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    def shutdown(self) -> None:
+        ...
+
+    def start(self, target: QuantConnect.Util.PerformanceTarget) -> None:
+        ...
+
+    def stop(self, target: QuantConnect.Util.PerformanceTarget) -> None:
+        ...
+
+
+class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonConverter_T, QuantConnect_Util_TypeChangeJsonConverter_TResult], metaclass=abc.ABCMeta):
+    """
+    Provides a base class for a JsonConverter that serializes a
+    an input type as some other output type
+    """
+
+    @property
+    def populate_properties(self) -> bool:
         """
-        Determines whether this instance can convert the specified object type.
+        True will populate TResult object returned by convert(TResult) with json properties
         
-        :param object_type: Type of the object.
-        :returns: True if this instance can convert the specified object type.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Not implemented, will throw NotImplementedException
         
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
+        This codeEntityType is protected.
         """
         ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class ObjectActivator(System.Object):
-    """Provides methods for creating new instances of objects"""
-
-    @staticmethod
-    def add_activator(key: typing.Type, value: typing.Callable[[typing.List[System.Object]], System.Object]) -> None:
-        """
-        Adds method to return an instance of object
-        
-        :param key: The key of the method to add
-        :param value: The value of the method to add
-        """
-        ...
-
-    @staticmethod
-    def clone(instance_to_clone: typing.Any) -> System.Object:
-        """
-        Clones the specified instance using reflection
-        
-        :param instance_to_clone: The instance to be cloned
-        :returns: A field/property wise, non-recursive clone of the instance.
-        """
-        ...
-
-    @staticmethod
-    def get_activator(data_type: typing.Type) -> typing.Callable[[typing.List[System.Object]], System.Object]:
-        """
-        Fast Object Creator from Generic Type:
-        Modified from http://rogeralsing.com/2008/02/28/linq-expressions-creating-objects/
-        
-        :param data_type: Type of the object we wish to create
-        :returns: Method to return an instance of object.
-        """
-        ...
-
-    @staticmethod
-    def reset_activators() -> None:
-        """Reset the object activators"""
-        ...
-
-
-class SingleValueListConverter(typing.Generic[QuantConnect_Util_SingleValueListConverter_T]):
-    """Reads json and always produces a List, even if the input has just an object"""
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
@@ -2102,77 +2065,42 @@ class SingleValueListConverter(typing.Generic[QuantConnect_Util_SingleValueListC
         """
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+    @overload
+    def convert(self, value: QuantConnect_Util_TypeChangeJsonConverter_T) -> QuantConnect_Util_TypeChangeJsonConverter_TResult:
         """
-        Reads the JSON representation of the object. If the JSON represents a singular instance, it will be returned
-        in a list.
+        Convert the input value to a value to be serialized
         
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
+        
+        This codeEntityType is protected.
+        
+        :param value: The input value to be converted before serialziation
+        :returns: A new instance of TResult that is to be serialzied.
         """
         ...
 
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+    @overload
+    def convert(self, value: QuantConnect_Util_TypeChangeJsonConverter_TResult) -> QuantConnect_Util_TypeChangeJsonConverter_T:
         """
-        Writes the JSON representation of the object. If the instance is not a list then it will
-        be wrapped in a list
+        Converts the input value to be deserialized
         
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
+        
+        This codeEntityType is protected.
+        
+        :param value: The deserialized value that needs to be converted to T
+        :returns: The converted value.
         """
         ...
 
-
-class ExpressionBuilder(System.Object):
-    """Provides methods for constructing expressions at runtime"""
-
-    @staticmethod
-    def as_enumerable(expression: typing.Any) -> typing.Iterable[Expression]:
+    def create(self, type: typing.Type, token: typing.Any) -> QuantConnect_Util_TypeChangeJsonConverter_T:
         """
-        Converts the specified expression into an enumerable of expressions by walking the expression tree
+        Creates an instance of the un-projected type to be deserialized
         
-        :param expression: The expression to enumerate
-        :returns: An enumerable containing all expressions in the input expression.
-        """
-        ...
-
-    @staticmethod
-    def is_binary_comparison(type: typing.Any) -> bool:
-        """Determines whether or not the specified type is a binary comparison."""
-        ...
-
-    @staticmethod
-    def make_property_or_field_selector(type: typing.Type, property_or_field: str) -> typing.Any:
-        """
-        Constructs a selector of the form: x => x.property_or_field where x is an instance of 'type'
         
-        :param type: The type of the parameter in the expression
-        :param property_or_field: The name of the property or field to bind to
-        :returns: A new lambda expression that represents accessing the property or field on 'type'.
-        """
-        ...
-
-
-class ComparisonOperator(System.Object):
-    """Utility Comparison Operator class"""
-
-
-class NullStringValueConverter(typing.Generic[QuantConnect_Util_NullStringValueConverter_T]):
-    """
-    Converts the string "null" into a new instance of T.
-    This converter only handles deserialization concerns.
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
+        This codeEntityType is protected.
         
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
+        :param type: The input object type, this is the data held in the token
+        :param token: The input data to be converted into a T
+        :returns: A new instance of T that is to be serialized using default rules.
         """
         ...
 
@@ -2199,83 +2127,55 @@ class NullStringValueConverter(typing.Generic[QuantConnect_Util_NullStringValueC
         ...
 
 
-class ComparisonOperatorTypes(IntEnum):
-    """Comparison operators"""
-
-    EQUALS = 0
-    """Check if their operands are equal"""
-
-    NOT_EQUAL = 1
-    """Check if their operands are not equal"""
-
-    GREATER = 2
-    """Checks left-hand operand is greater than its right-hand operand"""
-
-    GREATER_OR_EQUAL = 3
-    """Checks left-hand operand is greater or equal to its right-hand operand"""
-
-    LESS = 4
-    """Checks left-hand operand is less than its right-hand operand"""
-
-    LESS_OR_EQUAL = 5
-    """Checks left-hand operand is less or equal to its right-hand operand"""
-
-
-class OptionPayoff(System.Object):
-    """Static class containing useful methods related with options payoff"""
-
-    @staticmethod
-    def get_intrinsic_value(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> float:
-        """
-        Intrinsic value function of the option
-        
-        :param underlying_price: The price of the underlying
-        :param strike: The strike price of the option
-        :param right: The option right of the option, call or put
-        :returns: The intrinsic value remains for the option at expiry.
-        """
-        ...
-
-    @staticmethod
-    def get_pay_off(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> float:
-        """
-        Option payoff function at expiration time
-        
-        :param underlying_price: The price of the underlying
-        :param strike: The strike price of the option
-        :param right: The option right of the option, call or put
-        """
-        ...
-
-
-class CandlestickJsonConverter:
-    """Candlestick Json Converter"""
+class ReferenceWrapper(typing.Generic[QuantConnect_Util_ReferenceWrapper_T], System.Object):
+    """
+    We wrap a T instance, a value type, with a class, a reference type, to achieve thread safety when assigning new values
+    and reading from multiple threads. This is possible because assignments are atomic operations in C# for reference types (among others).
+    """
 
     @property
-    def can_read(self) -> bool:
-        """This converter wont be used to read JSON. Will throw exception if manually called."""
+    def value(self) -> QuantConnect_Util_ReferenceWrapper_T:
+        """The current value"""
         ...
 
-    def can_convert(self, object_type: typing.Type) -> bool:
+    def __init__(self, value: QuantConnect_Util_ReferenceWrapper_T) -> None:
         """
-        Determine if this Converter can convert this type
+        Creates a new instance
         
-        :param object_type: Type that we would like to convert
-        :returns: True if Series.
+        :param value: The value to use
         """
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Json reader implementation which handles backwards compatiblity for old equity chart points"""
-        ...
 
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+class ColorJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[System.Drawing.Color, str]):
+    """
+    A JsonConverter implementation that serializes a Color as a string.
+    If Color is empty, string is also empty and vice-versa. Meaning that color is autogen.
+    """
+
+    @overload
+    def convert(self, value: System.Drawing.Color) -> str:
         """
-        Write Series to Json
+        Converts a .NET Color to a hexadecimal as a string
         
-        :param writer: The Json Writer to use
-        :param value: The value to written to Json
-        :param serializer: The Json Serializer to use
+        
+        This codeEntityType is protected.
+        
+        :param value: The input value to be converted before serialization
+        :returns: Hexadecimal number as a string. If .NET Color is null, returns default #000000.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> System.Drawing.Color:
+        """
+        Converts the input string to a .NET Color object
+        
+        
+        This codeEntityType is protected.
+        
+        :param value: The deserialized value that needs to be converted to T
+        :returns: The converted value.
         """
         ...
 
@@ -2307,78 +2207,11 @@ class SeriesJsonConverter:
         ...
 
 
-class DecimalJsonConverter:
-    """Json converter to represent decimals as strings"""
-
-    @property
-    def can_write(self) -> bool:
-        """Gets a value indicating whether this JsonConverter can write JSON."""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class DisposableExtensions(System.Object):
-    """Provides extensions methods for IDisposable"""
-
-    @staticmethod
-    @overload
-    def dispose_safely(disposable: System.IDisposable) -> bool:
-        """
-        Calls IDisposable.Dispose within a try/catch and logs any errors.
-        
-        :param disposable: The IDisposable to be disposed
-        :returns: True if the object was successfully disposed, false if an error was thrown.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def dispose_safely(disposable: System.IDisposable, error_handler: typing.Callable[[System.Exception], typing.Any]) -> bool:
-        """
-        Calls IDisposable.Dispose within a try/catch and invokes the
-        error_handler on any errors.
-        
-        :param disposable: The IDisposable to be disposed
-        :param error_handler: Error handler delegate invoked if an exception is thrown
-        while calling IDisposable.Dispose
-        :returns: True if the object was successfully disposed, false if an error was thrown or
-        the specified disposable was null.
-        """
-        ...
-
-
-class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.Object, QuantConnect.Interfaces.IBusyCollection[QuantConnect_Util_BusyCollection_T]):
-    """A non blocking IBusyCollection{T} implementation"""
+class BusyBlockingCollection(typing.Generic[QuantConnect_Util_BusyBlockingCollection_T], System.Object, QuantConnect.Interfaces.IBusyCollection[QuantConnect_Util_BusyBlockingCollection_T]):
+    """
+    A small wrapper around BlockingCollection{T} used to communicate busy state of the items
+    being processed
+    """
 
     @property
     def wait_handle(self) -> System.Threading.WaitHandle:
@@ -2399,7 +2232,25 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def add(self, item: QuantConnect_Util_BusyCollection_T) -> None:
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the BusyBlockingCollection{T} class
+        with a bounded capacity of int.MaxValue
+        """
+        ...
+
+    @overload
+    def __init__(self, bounded_capacity: int) -> None:
+        """
+        Initializes a new instance of the BusyBlockingCollection{T} class
+        with the specified bounded_capacity
+        
+        :param bounded_capacity: The maximum number of items allowed in the collection
+        """
+        ...
+
+    @overload
+    def add(self, item: QuantConnect_Util_BusyBlockingCollection_T) -> None:
         """
         Adds the items to this collection
         
@@ -2408,7 +2259,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def add(self, item: QuantConnect_Util_BusyCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
+    def add(self, item: QuantConnect_Util_BusyBlockingCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
         """
         Adds the items to this collection
         
@@ -2418,7 +2269,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     def complete_adding(self) -> None:
-        """Marks the collection as not accepting any more additions"""
+        """Marks the BusyBlockingCollection{T} as not accepting any more additions"""
         ...
 
     def dispose(self) -> None:
@@ -2426,7 +2277,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
+    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -2435,7 +2286,7 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
     @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyCollection_T]:
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Util_BusyBlockingCollection_T]:
         """
         Provides a consuming enumerable for items in this collection.
         
@@ -2445,81 +2296,230 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
 
-class RateGate(System.Object, System.IDisposable):
-    """Used to control the rate of some occurrence per unit of time."""
+class CurrencyPairUtil(System.Object):
+    """Utility methods for decomposing and comparing currency pairs"""
 
-    @property
-    def occurrences(self) -> int:
-        """Number of occurrences allowed per unit of time."""
-        ...
+    class Match(IntEnum):
+        """Represents the relation between two currency pairs"""
 
-    @property
-    def time_unit_milliseconds(self) -> int:
-        """The length of the time unit, in milliseconds."""
-        ...
+        NO_MATCH = 0
+        """The two currency pairs don't match each other normally nor when one is reversed"""
 
-    @property
-    def is_rate_limited(self) -> bool:
-        """Flag indicating we are currently being rate limited"""
-        ...
+        EXACT_MATCH = 1
+        """The two currency pairs match each other exactly"""
 
-    def __init__(self, occurrences: int, time_unit: datetime.timedelta) -> None:
+        INVERSE_MATCH = 2
+        """The two currency pairs are the inverse of each other"""
+
+    @staticmethod
+    def compare_pair(pair_a: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency_b: str, quote_currency_b: str) -> QuantConnect.Util.CurrencyPairUtil.Match:
         """
-        Initializes a RateGate with a rate of occurrences
-        per time_unit.
+        Returns how two currency pairs are related to each other
         
-        :param occurrences: Number of occurrences allowed per unit of time.
-        :param time_unit: Length of the time unit.
+        :param pair_a: The first pair
+        :param base_currency_b: The base currency of the second pair
+        :param quote_currency_b: The quote currency of the second pair
+        :returns: The Match member that represents the relation between the two pairs.
         """
         ...
 
+    @staticmethod
     @overload
-    def dispose(self) -> None:
-        """Releases unmanaged resources held by an instance of this class."""
+    def currency_pair_dual(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], known_symbol: str) -> str:
+        """
+        You have currency_pair AB and one known symbol (A or B). This function returns the other symbol (B or A).
+        
+        :param currency_pair: Currency pair AB
+        :param known_symbol: Known part of the currency_pair (either A or B)
+        :returns: The other part of currency_pair (either B or A), or null if known symbol is not part of currency_pair.
+        """
         ...
 
+    @staticmethod
     @overload
-    def dispose(self, is_disposing: bool) -> None:
+    def currency_pair_dual(base_currency: str, quote_currency: str, known_symbol: str) -> str:
         """
-        Releases unmanaged resources held by an instance of this class.
+        You have currencyPair AB and one known symbol (A or B). This function returns the other symbol (B or A).
         
-        
-        This codeEntityType is protected.
-        
-        :param is_disposing: Whether this object is being disposed.
+        :param base_currency: The base currency of the currency pair
+        :param quote_currency: The quote currency of the currency pair
+        :param known_symbol: Known part of the currencyPair (either A or B)
+        :returns: The other part of currencyPair (either B or A), or null if known symbol is not part of the currency pair.
         """
         ...
 
+    @staticmethod
+    def decompose_currency_pair(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency: typing.Optional[str], quote_currency: typing.Optional[str], default_quote_currency: str = ...) -> typing.Tuple[None, str, str]:
+        """
+        Decomposes the specified currency pair into a base and quote currency provided as out parameters
+        
+        :param currency_pair: The input currency pair to be decomposed
+        :param base_currency: The output base currency
+        :param quote_currency: The output quote currency
+        :param default_quote_currency: Optionally can provide a default quote currency
+        """
+        ...
+
+    @staticmethod
+    def is_decomposable(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Checks whether a symbol is decomposable into a base and a quote currency
+        
+        :param currency_pair: The pair to check for
+        :returns: True if the pair can be decomposed into base and quote currencies, false if not.
+        """
+        ...
+
+    @staticmethod
+    def is_forex_decomposable(currency_pair: str) -> bool:
+        """
+        Checks whether a symbol is decomposable into a base and a quote currency
+        
+        :param currency_pair: The pair to check for
+        :returns: True if the pair can be decomposed into base and quote currencies, false if not.
+        """
+        ...
+
+    @staticmethod
+    def is_valid_security_type(security_type: typing.Optional[QuantConnect.SecurityType], throw_exception: bool) -> bool:
+        ...
+
+    @staticmethod
+    def try_decompose_currency_pair(currency_pair: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[bool, str, str]:
+        """
+        Tries to decomposes the specified currency pair into a base and quote currency provided as out parameters
+        
+        :param currency_pair: The input currency pair to be decomposed
+        :param base_currency: The output base currency
+        :param quote_currency: The output quote currency
+        :returns: True if was able to decompose the currency pair.
+        """
+        ...
+
+
+class Composer(System.Object):
+    """Provides methods for obtaining exported MEF instances"""
+
+    INSTANCE: QuantConnect.Util.Composer
+    """Gets the singleton instance"""
+
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the Composer class. This type
+        is a light wrapper on top of an MEF CompositionContainer
+        """
+        ...
+
+    def reset(self) -> None:
+        """Clears the cache of exported values, causing new instances to be created."""
+        ...
+
+
+class StreamReaderExtensions(System.Object):
+    """Extension methods to fetch data from a StreamReader instance"""
+
+    @staticmethod
+    def get_char(stream: System.IO.StreamReader, delimiter: str = ...) -> str:
+        """
+        Gets a character from a stream reader
+        
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The string instance read.
+        """
+        ...
+
+    @staticmethod
+    def get_date_time(stream: System.IO.StreamReader, format: str = ..., delimiter: str = ...) -> datetime.datetime:
+        """
+        Gets a date time instance from a stream reader
+        
+        :param stream: The data stream
+        :param format: The format in which the date time is
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The date time instance read.
+        """
+        ...
+
+    @staticmethod
     @overload
-    def wait_to_proceed(self, milliseconds_timeout: int) -> bool:
+    def get_decimal(stream: System.IO.StreamReader, delimiter: str = ...) -> float:
         """
-        Blocks the current thread until allowed to proceed or until the
-        specified timeout elapses.
+        Gets a decimal from the provided stream reader
         
-        :param milliseconds_timeout: Number of milliseconds to wait, or -1 to wait indefinitely.
-        :returns: true if the thread is allowed to proceed, or false if timed out.
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The decimal read from the stream.
         """
         ...
 
+    @staticmethod
     @overload
-    def wait_to_proceed(self, timeout: datetime.timedelta) -> bool:
+    def get_decimal(stream: System.IO.StreamReader, past_end_line: typing.Optional[bool], delimiter: str = ...) -> typing.Tuple[float, bool]:
         """
-        Blocks the current thread until allowed to proceed or until the
-        specified timeout elapses.
+        Gets a decimal from the provided stream reader
         
-        :param timeout: 
-        :returns: true if the thread is allowed to proceed, or false if timed out.
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :param past_end_line: True if end line was past, useful for consumers to know a line ended
+        :returns: The decimal read from the stream.
         """
         ...
 
-    @overload
-    def wait_to_proceed(self) -> None:
-        """Blocks the current thread indefinitely until allowed to proceed."""
+    @staticmethod
+    def get_int_32(stream: System.IO.StreamReader, delimiter: str = ...) -> int:
+        """
+        Gets an integer from a stream reader
+        
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The integer instance read.
+        """
+        ...
+
+    @staticmethod
+    def get_int_64(stream: System.IO.StreamReader, delimiter: str = ...) -> int:
+        """
+        Gets an integer from a stream reader
+        
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The integer instance read.
+        """
+        ...
+
+    @staticmethod
+    def get_string(stream: System.IO.StreamReader, delimiter: str = ...) -> str:
+        """
+        Gets a string from a stream reader
+        
+        :param stream: The data stream
+        :param delimiter: The data delimiter character to use, default is ','
+        :returns: The string instance read.
+        """
         ...
 
 
-class EnumeratorExtensions(System.Object):
-    """Provides convenience of linq extension methods for IEnumerator{T} types"""
+class ComparisonOperatorTypes(IntEnum):
+    """Comparison operators"""
+
+    EQUALS = 0
+    """Check if their operands are equal"""
+
+    NOT_EQUAL = 1
+    """Check if their operands are not equal"""
+
+    GREATER = 2
+    """Checks left-hand operand is greater than its right-hand operand"""
+
+    GREATER_OR_EQUAL = 3
+    """Checks left-hand operand is greater or equal to its right-hand operand"""
+
+    LESS = 4
+    """Checks left-hand operand is less than its right-hand operand"""
+
+    LESS_OR_EQUAL = 5
+    """Checks left-hand operand is less or equal to its right-hand operand"""
 
 
 class _EventContainer(typing.Generic[QuantConnect_Util__EventContainer_Callable, QuantConnect_Util__EventContainer_ReturnType]):

@@ -413,6 +413,13 @@ def test_target_path_rglob(path_fs: VirtualFilesystem) -> None:
     ]
     assert list(path_fs.path("/some").rglob("*.TXT")) == []
     assert list(path_fs.path("/some").rglob("*.csv")) == []
+    assert list(map(str, path_fs.path("/").rglob("*.*"))) == [
+        "/some/symlink.txt",
+        "/some/file.txt",
+        "/some/dir/link.txt",
+        "/some/dir/file.txt",
+        "/some/dir/nested/file.txt",
+    ]
 
     with patch.object(path_fs, "case_sensitive", False):
         assert list(map(str, path_fs.path("/some").rglob("*.TXT"))) == [
@@ -476,8 +483,9 @@ def test_target_path_is_symlink(path_fs: VirtualFilesystem) -> None:
 def test_target_path_is_junction(path_fs: VirtualFilesystem) -> None:
     assert not path_fs.path("/some").is_junction()
 
-    mock_entry = Mock(spec=NtfsFilesystemEntry)
-    mock_entry.dereference.return_value.is_mount_point.return_value = True
+    mock_entry = Mock()
+    mock_entry.__class__ = NtfsFilesystemEntry
+    mock_entry.entry.is_mount_point.return_value = True
 
     path_fs.map_file_entry("/junction", mock_entry)
     assert path_fs.path("/junction").is_junction()
@@ -582,6 +590,28 @@ def test_target_path_errors(path_fs: VirtualFilesystem) -> None:
 
     with pytest.raises(NotADirectoryError):
         path_fs.path("some/file.txt/dir").stat()
+
+
+def test_target_path_get(path_fs: VirtualFilesystem) -> None:
+    # Ensure that TargetPath.get() works as expected
+    p = path_fs.path("/some/file.txt")
+    assert not hasattr(p, "_entry")
+
+    entry = p.get()
+    assert entry is p._entry
+
+    p = next(path_fs.path("/some").iterdir())
+    assert not hasattr(p, "_entry")
+    assert hasattr(p, "_direntry")
+
+    entry = p.get()
+    assert entry is p._entry
+
+    with (
+        patch.object(path_fs, "get", side_effect=Exception("Test exception")),
+        pytest.raises(Exception, match="Test exception"),
+    ):
+        path_fs.path("/some/file.txt").get()
 
 
 def test_target_path_not_implemented(path_fs: VirtualFilesystem) -> None:
@@ -700,6 +730,27 @@ def test_open_decompress(file_name: str, compressor: Callable, content: bytes) -
     assert fsutil.open_decompress(vfs.path(file_name)).read() == content
     fh.seek(2)
     assert fsutil.open_decompress(fileobj=fh).read() == content
+
+
+@pytest.mark.parametrize(
+    ("compressor", "mock_bool_name"),
+    [
+        (fsutil.lzma.compress, "HAS_XZ"),
+        (fsutil.bz2.compress, "HAS_BZ2"),
+        (fsutil.zstd.compress, "HAS_ZSTD"),
+    ],
+)
+def test_open_decompress_missing_module(
+    compressor: Callable, mock_bool_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vfs = VirtualFilesystem()
+    fh = io.BytesIO(compressor(b"hello world"))
+    vfs.map_file_fh("compressed_file", fh)
+
+    with monkeypatch.context() as m:
+        m.setattr(f"{fsutil.__name__}.{mock_bool_name}", False)
+        with pytest.raises(RuntimeError, match=r".* compression detected, but missing optional python module"):
+            fsutil.open_decompress(vfs.path("compressed_file"))
 
 
 def test_open_decompress_text_modes() -> None:

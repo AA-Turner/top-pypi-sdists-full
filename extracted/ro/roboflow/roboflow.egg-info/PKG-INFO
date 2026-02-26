@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: roboflow
-Version: 1.2.14
+Version: 1.2.15
 Summary: Official Python package for working with the Roboflow API
 Home-page: https://github.com/roboflow-ai/roboflow-python
 Author: Roboflow
@@ -147,6 +147,28 @@ Description: <div align="center">
         predictions = model.predict(img_url, hosted=True).json()
         
         print(predictions)
+        ```
+        
+        ### Search and Export
+        
+        Search for images across your workspace and export matching results as a ready-to-use dataset:
+        
+        ```python
+        workspace = rf.workspace()
+        
+        # Export images matching a search query
+        workspace.search_export(
+            query="class:person",       # search query (e.g. "tag:review", "class:dog", "*")
+            format="coco",              # annotation format: coco, yolov8, yolov5, voc, etc.
+            dataset="my-project",       # optional: limit to a specific project
+            location="./my-export",     # optional: output directory
+        )
+        ```
+        
+        Or from the CLI:
+        
+        ```bash
+        roboflow search-export "class:person" -f coco -d my-project -l ./my-export
         ```
         
         ## Library Structure

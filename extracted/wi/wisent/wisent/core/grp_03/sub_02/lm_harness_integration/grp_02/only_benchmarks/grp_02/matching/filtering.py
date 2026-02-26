@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
+from wisent.core.constants import BENCHMARK_LOADING_TIME_DEFAULT, SECONDS_PER_MINUTE, SEPARATOR_WIDTH_PLUS
+
 
 __all__ = [
     "apply_priority_filtering",
@@ -32,8 +34,8 @@ def apply_priority_filtering(
             continue
 
         if time_budget_minutes is not None:
-            loading_time = config.get("loading_time", 60.0)
-            max_time_per_benchmark = time_budget_minutes * 60 / 2
+            loading_time = config.get("loading_time", BENCHMARK_LOADING_TIME_DEFAULT)
+            max_time_per_benchmark = time_budget_minutes * SECONDS_PER_MINUTE / 2
             if loading_time > max_time_per_benchmark:
                 continue
 
@@ -70,7 +72,7 @@ def print_priority_summary(core_benchmarks: Dict[str, Dict]) -> None:
     total = sum(priority_counts.values())
 
     print("BENCHMARK PRIORITY SUMMARY FOR AGENTIC OPTIMIZATION")
-    print("=" * 65)
+    print("=" * SEPARATOR_WIDTH_PLUS)
     print(f"Total benchmarks: {total}")
     print()
 

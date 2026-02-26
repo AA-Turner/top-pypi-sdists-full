@@ -4435,6 +4435,7 @@ https://docs.chalk.ai/cli/apply
         message_filepath: Optional[str] = None,
         message_keys: Optional[List[Optional[str]]] = None,
         message_bodies: Optional[List[Union[str, bytes, BaseModel]]] = None,
+        message_headers: list[list[tuple[str, bytes]]] | None = None,
         message_timestamps: Optional[List[Union[str, datetime]]] = None,
         branch: Union[BranchId, ellipsis, None] = ...,
         environment: Optional[EnvironmentId] = None,
@@ -4456,6 +4457,7 @@ https://docs.chalk.ai/cli/apply
                 message_keys=message_keys,
                 message_bodies=message_bodies,
                 message_timestamps=message_timestamps,
+                message_headers=message_headers,
             )
             if message_bodies is not None or message_filepath is not None
             else None
@@ -4484,6 +4486,7 @@ https://docs.chalk.ai/cli/apply
         message_keys: Optional[List[Optional[str]]] = None,
         message_bodies: Optional[List[Union[str, bytes, BaseModel]]] = None,
         message_timestamps: Optional[List[Union[str, datetime]]] = None,
+        message_headers: list[list[tuple[str, bytes]]] | None = None,
     ) -> List[StreamResolverTestMessagePayload]:
         if message_filepath and (message_keys or message_bodies):
             raise ValueError("Only one of 'message_filepath' or ('message_keys' and 'message_bodies') can be provided.")
@@ -4515,6 +4518,8 @@ https://docs.chalk.ai/cli/apply
             message_keys_list = [None] * len(message_bodies)
         else:
             message_keys_list = message_keys
+        if message_headers is None:
+            message_headers = [[] for _ in message_bodies]
         if len(message_keys_list) != len(message_bodies):
             raise ValueError(
                 (
@@ -4547,8 +4552,8 @@ https://docs.chalk.ai/cli/apply
 
         payloads: List[StreamResolverTestMessagePayload] = []
         first_type = type(message_bodies[0])
-        for i, (message, key, timestamp) in enumerate(
-            zip(message_bodies, message_keys_list, timestamp_datetimes, strict=True)
+        for i, (message, key, timestamp, headers) in enumerate(
+            zip(message_bodies, message_keys_list, timestamp_datetimes, message_headers, strict=True)
         ):
             if not isinstance(message, first_type):
                 raise ValueError(
@@ -4562,6 +4567,7 @@ https://docs.chalk.ai/cli/apply
                         message_str=None,
                         message_bytes=base64.b64encode(message).decode("utf-8"),
                         timestamp=timestamp,
+                        headers=headers,
                     )
                 )
             elif isinstance(message, BaseModel):
@@ -4571,6 +4577,7 @@ https://docs.chalk.ai/cli/apply
                         message_str=message.json(),
                         message_bytes=None,
                         timestamp=timestamp,
+                        headers=headers,
                     )
                 )
             else:  # str
@@ -4580,6 +4587,7 @@ https://docs.chalk.ai/cli/apply
                         message_str=str(message),
                         message_bytes=None,
                         timestamp=timestamp,
+                        headers=headers,
                     )
                 )
 

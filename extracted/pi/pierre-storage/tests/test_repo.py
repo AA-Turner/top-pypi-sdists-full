@@ -194,6 +194,7 @@ class TestRepoFileOperations:
                 ref="main",
                 include_globs=["README.md"],
                 exclude_globs=["vendor/**"],
+                max_blob_size=1024,
                 archive_prefix="repo/",
             )
 
@@ -207,6 +208,7 @@ class TestRepoFileOperations:
                 "ref": "main",
                 "include_globs": ["README.md"],
                 "exclude_globs": ["vendor/**"],
+                "max_blob_size": 1024,
                 "archive": {"prefix": "repo/"},
             }
 

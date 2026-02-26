@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Tuple, Optional, Union
 from sys import platform, maxsize
-from os.path import dirname, isfile, exists
+from os.path import dirname, isfile
 import os
 import multiprocessing as multip
 import numbers
@@ -55,56 +55,52 @@ MAX_NAME_SIZE = 512
 DEF_PUMPP = 30
 
 try:
-    pathmip = dirname(mip.__file__)
-    pathlib = os.path.join(pathmip, "libraries")
     libfile = ""
-    # if user wants to force the loading of an specific CBC library
-    # (for debugging purposes, for example)
+    # if user wants to force the loading of a specific CBC library
     if "PMIP_CBC_LIBRARY" in os.environ:
         libfile = os.environ["PMIP_CBC_LIBRARY"]
         pathlib = dirname(libfile)
-
         if platform.lower().startswith("win"):
-            if pathlib not in os.environ["PATH"]:
+            if hasattr(os, "add_dll_directory"):
+                os.add_dll_directory(pathlib)
+            elif pathlib not in os.environ["PATH"]:
                 os.environ["PATH"] += ";" + pathlib
+        old_dir = os.getcwd()
+        os.chdir(pathlib)
+        cbclib = ffi.dlopen(libfile)
+        os.chdir(old_dir)
     else:
-        if "linux" in platform.lower():
-            if os_is_64_bit:
-                pathlibe = pathlib
-                libfile = os.path.join(pathlib, "cbc-c-linux-x86-64.so")
-                if not exists(libfile):
-                    pathlibe = pathlib
-                    libfile = os.path.join(pathlib, "cbc-c-linux-x86-64.so")
-                pathlib = pathlibe
-            else:
-                raise NotImplementedError("Linux 32 bits platform not supported.")
-        elif platform.lower().startswith("win"):
-            if os_is_64_bit:
-                pathlibe = os.path.join(pathlib, "win64")
-                libfile = os.path.join(pathlibe, "cbc-c-windows-x86-64.dll")
-                if exists(libfile):
-                    if pathlibe not in os.environ["PATH"]:
-                        os.environ["PATH"] = pathlibe + ";" + os.environ["PATH"]
-                else:
-                    pathlibe = pathlib
-                    libfile = os.path.join(pathlibe, "cbc-c-windows-x86-64.dll")
-                    if pathlibe not in os.environ["PATH"]:
-                        os.environ["PATH"] = pathlibe + ";" + os.environ["PATH"]
-                pathlib = pathlibe
+        import cbcbox as _cbcbox
 
-            else:
+        _lib_dir = _cbcbox.cbc_lib_dir()
+        if "linux" in platform.lower():
+            if not os_is_64_bit:
+                raise NotImplementedError("Linux 32 bits platform not supported.")
+            libfile = os.path.join(_lib_dir, "libCbc.so")
+        elif platform.lower().startswith("win"):
+            if not os_is_64_bit:
                 raise NotImplementedError("Win32 platform not supported.")
+            # autotools/MinGW places DLLs under bin/, not lib/
+            _bin_dir = os.path.join(_cbcbox.cbc_dist_dir(), "bin")
+            libfile = os.path.join(_bin_dir, "libCbc-0.dll")
+            if not os.path.exists(libfile):
+                raise FileNotFoundError(
+                    "libCbc-0.dll not found in cbcbox Windows distribution at"
+                    " {}. The cbcbox Windows wheel may only contain a static"
+                    " libCbc.a. A shared libCbc-0.dll is required.".format(_bin_dir)
+                )
+            # Python 3.8+ ignores PATH for DLL resolution; use add_dll_directory
+            if hasattr(os, "add_dll_directory"):
+                os.add_dll_directory(_bin_dir)
+            elif _bin_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = _bin_dir + ";" + os.environ["PATH"]
         elif platform.lower().startswith("darwin") or platform.lower().startswith(
             "macos"
         ):
-            if os_is_64_bit:
-                libfile = os.path.join(pathlib, "cbc-c-darwin-x86-64.dylib")
-        if not libfile:
-            raise NotImplementedError("You operating system/platform is not supported")
-    old_dir = os.getcwd()
-    os.chdir(pathlib)
-    cbclib = ffi.dlopen(libfile)
-    os.chdir(old_dir)
+            libfile = os.path.join(_lib_dir, "libCbc.dylib")
+        else:
+            raise NotImplementedError("Your operating system/platform is not supported")
+        cbclib = ffi.dlopen(libfile)
     has_cbc = True
 except Exception as e:
     logger.error("An error occurred while loading the CBC library:\t " "{}\n".format(e))
@@ -600,34 +596,35 @@ INT_PARAM_CLIQUE_MERGING = 18
 INT_PARAM_MAX_NODES_NOT_IMPROV_FS = 19
 
 
-Osi_getNumCols = cbclib.Osi_getNumCols
-Osi_getColSolution = cbclib.Osi_getColSolution
-Osi_getIntegerTolerance = cbclib.Osi_getIntegerTolerance
-Osi_isInteger = cbclib.Osi_isInteger
-Osi_isProvenOptimal = cbclib.Osi_isProvenOptimal
-Cbc_setIntParam = cbclib.Cbc_setIntParam
-Cbc_setDblParam = cbclib.Cbc_setDblParam
-Cbc_getSolverPtr = cbclib.Cbc_getSolverPtr
+if has_cbc:
+    Osi_getNumCols = cbclib.Osi_getNumCols
+    Osi_getColSolution = cbclib.Osi_getColSolution
+    Osi_getIntegerTolerance = cbclib.Osi_getIntegerTolerance
+    Osi_isInteger = cbclib.Osi_isInteger
+    Osi_isProvenOptimal = cbclib.Osi_isProvenOptimal
+    Cbc_setIntParam = cbclib.Cbc_setIntParam
+    Cbc_setDblParam = cbclib.Cbc_setDblParam
+    Cbc_getSolverPtr = cbclib.Cbc_getSolverPtr
 
-Cbc_generateCuts = cbclib.Cbc_generateCuts
-Cbc_solveLinearProgram = cbclib.Cbc_solveLinearProgram
+    Cbc_generateCuts = cbclib.Cbc_generateCuts
+    Cbc_solveLinearProgram = cbclib.Cbc_solveLinearProgram
 
-Cbc_reset = cbclib.Cbc_reset
+    Cbc_reset = cbclib.Cbc_reset
 
-Cbc_computeFeatures = cbclib.Cbc_computeFeatures
-Cbc_nFeatures = cbclib.Cbc_nFeatures
-Cbc_featureName = cbclib.Cbc_featureName
+    Cbc_computeFeatures = cbclib.Cbc_computeFeatures
+    Cbc_nFeatures = cbclib.Cbc_nFeatures
+    Cbc_featureName = cbclib.Cbc_featureName
 
-OsiCuts_new = cbclib.OsiCuts_new
-OsiCuts_addRowCut = cbclib.OsiCuts_addRowCut
-OsiCuts_addGlobalRowCut = cbclib.OsiCuts_addGlobalRowCut
-OsiCuts_sizeRowCuts = cbclib.OsiCuts_sizeRowCuts
-OsiCuts_nzRowCut = cbclib.OsiCuts_nzRowCut
-OsiCuts_idxRowCut = cbclib.OsiCuts_idxRowCut
-OsiCuts_coefRowCut = cbclib.OsiCuts_coefRowCut
-OsiCuts_rhsRowCut = cbclib.OsiCuts_rhsRowCut
-OsiCuts_senseRowCut = cbclib.OsiCuts_senseRowCut
-OsiCuts_delete = cbclib.OsiCuts_delete
+    OsiCuts_new = cbclib.OsiCuts_new
+    OsiCuts_addRowCut = cbclib.OsiCuts_addRowCut
+    OsiCuts_addGlobalRowCut = cbclib.OsiCuts_addGlobalRowCut
+    OsiCuts_sizeRowCuts = cbclib.OsiCuts_sizeRowCuts
+    OsiCuts_nzRowCut = cbclib.OsiCuts_nzRowCut
+    OsiCuts_idxRowCut = cbclib.OsiCuts_idxRowCut
+    OsiCuts_coefRowCut = cbclib.OsiCuts_coefRowCut
+    OsiCuts_rhsRowCut = cbclib.OsiCuts_rhsRowCut
+    OsiCuts_senseRowCut = cbclib.OsiCuts_senseRowCut
+    OsiCuts_delete = cbclib.OsiCuts_delete
 
 
 def cbc_set_parameter(model: Solver, param: str, value: str):
@@ -1225,6 +1222,12 @@ class SolverCbc(Solver):
         )
 
         self.__clear_sol()
+        # Cbc_reset clears previous solve state (required in newer CBC to
+        # avoid stale results when re-solving), but also resets objective
+        # sense, so we save and restore it.
+        _sense = cbclib.Cbc_getObjSense(self._model)
+        Cbc_reset(self._model)
+        cbclib.Cbc_setObjSense(self._model, _sense)
         cbclib.Cbc_solve(self._model)
 
         if cbclib.Cbc_isAbandoned(self._model):
@@ -1405,7 +1408,10 @@ class SolverCbc(Solver):
 
     def add_constr(self, lin_expr: LinExpr, name: str = ""):
         # collecting linear expression data
-        numnz = len(lin_expr.expr)
+
+        # In case of empty linear expression add dummy row
+        # by setting first index of row explicitly with 0
+        numnz = len(lin_expr.expr) or 1
 
         if numnz > self.iidx_space:
             self.iidx_space = max(numnz, self.iidx_space * 2)
@@ -1413,12 +1419,12 @@ class SolverCbc(Solver):
             self.dvec = ffi.new("double[%d]" % self.iidx_space)
 
         # cind = self.iidx
-        self.iidx = [var.idx for var in lin_expr.expr.keys()]
+        self.iidx = [var.idx for var in lin_expr.expr.keys()] or [0]
 
         # cind = ffi.new("int[]", [var.idx for var in lin_expr.expr.keys()])
         # cval = ffi.new("double[]", [coef for coef in lin_expr.expr.values()])
         # cval = self.dvec
-        self.dvec = [coef for coef in lin_expr.expr.values()]
+        self.dvec = [coef for coef in lin_expr.expr.values()] or [0]
 
         # constraint sense and rhs
         sense = lin_expr.sense.encode("utf-8")

@@ -8,11 +8,12 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from wisent.core.constants import (
     NORM_EPS, DEFAULT_STRENGTH, DIAG_NUM_COMPONENTS,
-    BLEND_DEFAULT, MLP_HIDDEN_DIM, MLP_OPTIMIZATION_STEPS,
+    BLEND_DEFAULT, MLP_HIDDEN_DIM, DEFAULT_OPTIMIZATION_STEPS,
     CLAMPING_MARGIN_DEFAULT, CENTROID_SHIFT_FACTOR,
-    ADVANCED_MLP_LR, ADAPTIVE_MAX_STRENGTH, ADVANCED_DEFAULT_STRENGTHS,
-    CLASSIFIER_MLP_HIDDEN_DIM, CLASSIFIER_NUM_EPOCHS,
-    VIZ_MLP_HIDDEN_DIM, VIZ_MLP_EPOCHS,
+    MLP_LEARNING_RATE, ADAPTIVE_MAX_STRENGTH, ADVANCED_DEFAULT_STRENGTHS,
+    CLASSIFIER_HIDDEN_DIM, CLASSIFIER_NUM_EPOCHS,
+    VIZ_MLP_EPOCHS,
+    CLAMPING_STEERING_MARGIN, BETA_SEARCH_GRID,
 )
 
 
@@ -179,7 +180,7 @@ class ContrastSteering(SteeringMethod):
 class MLPSteering(SteeringMethod):
     """Learned non-linear steering via small MLP."""
 
-    def __init__(self, hidden_dim: int = MLP_HIDDEN_DIM, epochs: int = MLP_OPTIMIZATION_STEPS):
+    def __init__(self, hidden_dim: int = MLP_HIDDEN_DIM, epochs: int = DEFAULT_OPTIMIZATION_STEPS):
         self.hidden_dim = hidden_dim
         self.epochs = epochs
         self.mlp = None
@@ -201,7 +202,7 @@ class MLPSteering(SteeringMethod):
         pos_centroid = torch.from_numpy(pos_acts.mean(axis=0)).float()
         Y = pos_centroid.unsqueeze(0).expand(len(neg_acts), -1)
 
-        optimizer = torch.optim.Adam(self.mlp.parameters(), lr=ADVANCED_MLP_LR)
+        optimizer = torch.optim.Adam(self.mlp.parameters(), lr=MLP_LEARNING_RATE)
         for _ in range(self.epochs):
             optimizer.zero_grad()
             pred = self.mlp(X)
@@ -263,15 +264,15 @@ def get_all_steering_methods(strengths: List[float] = None) -> List[SteeringMeth
     for s in strengths:
         methods.append(LinearSteering(strength=s))
     methods.append(ClampingSteering(margin=CLAMPING_MARGIN_DEFAULT))
-    methods.append(ClampingSteering(margin=0.5))
+    methods.append(ClampingSteering(margin=CLAMPING_STEERING_MARGIN))
     for n in [3, 5, 10]:
         methods.append(ProjectionSteering(n_components=n, strength=1.0))
-    for b in [0.3, 0.5, 0.7, 0.9]:
+    for b in BETA_SEARCH_GRID:
         methods.append(ReplacementSteering(blend=b))
     for s in strengths:
         methods.append(ContrastSteering(strength=s))
-    methods.append(MLPSteering(hidden_dim=CLASSIFIER_MLP_HIDDEN_DIM, epochs=CLASSIFIER_NUM_EPOCHS))
-    methods.append(MLPSteering(hidden_dim=VIZ_MLP_HIDDEN_DIM, epochs=VIZ_MLP_EPOCHS))
+    methods.append(MLPSteering(hidden_dim=CLASSIFIER_HIDDEN_DIM, epochs=CLASSIFIER_NUM_EPOCHS))
+    methods.append(MLPSteering(hidden_dim=MLP_HIDDEN_DIM, epochs=VIZ_MLP_EPOCHS))
     for s in [1.0, 2.0, 5.0]:
         methods.append(AdaptiveSteering(max_strength=s))
 

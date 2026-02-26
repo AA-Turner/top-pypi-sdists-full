@@ -10,23 +10,23 @@ import torch
 import numpy as np
 from wisent.core.constants import ZERO_THRESHOLD
 
-S3_BUCKET = "wisent-bucket"
-S3_PREFIX = "intervention_validation"
+GCS_BUCKET = "wisent-images-bucket"
+GCS_PREFIX = "intervention_validation"
 
 
-def s3_upload_file(local_path: Path, model_name: str) -> None:
-    """Upload a single file to S3."""
+def gcs_upload_file(local_path: Path, model_name: str) -> None:
+    """Upload a single file to GCS."""
     model_prefix = model_name.replace('/', '_')
-    s3_path = f"s3://{S3_BUCKET}/{S3_PREFIX}/{model_prefix}/{local_path.name}"
+    gcs_path = f"gs://{GCS_BUCKET}/{GCS_PREFIX}/{model_prefix}/{local_path.name}"
     try:
         subprocess.run(
-            ["aws", "s3", "cp", str(local_path), s3_path, "--quiet"],
+            ["gcloud", "storage", "cp", str(local_path), gcs_path, "--quiet"],
             check=True,
             capture_output=True,
         )
-        print(f"  Uploaded to S3: {s3_path}")
+        print(f"  Uploaded to GCS: {gcs_path}")
     except Exception as e:
-        print(f"  S3 upload failed: {e}")
+        print(f"  GCS upload failed: {e}")
 
 @dataclass
 class SteeringResult:
@@ -131,14 +131,14 @@ def apply_steering_to_model(
 
 
 def load_diagnosis_results(model_name: str, output_dir: Path) -> Dict[str, Any]:
-    """Load Zwiad diagnosis results from S3/local."""
+    """Load Zwiad diagnosis results from GCS/local."""
     model_prefix = model_name.replace('/', '_')
-    
-    # Try to download from S3 first
+
+    # Try to download from GCS first
     try:
         subprocess.run(
-            ["aws", "s3", "sync", 
-             f"s3://{S3_BUCKET}/direction_discovery/{model_prefix}/",
+            ["gcloud", "storage", "rsync",
+             f"gs://{GCS_BUCKET}/direction_discovery/{model_prefix}/",
              str(output_dir / "diagnosis"),
              "--quiet"],
             check=False,

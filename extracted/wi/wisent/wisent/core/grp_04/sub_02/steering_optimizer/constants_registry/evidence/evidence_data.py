@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from wisent.core.constants import (
     EVIDENCE_DOMINANCE_MARGIN, EVIDENCE_MAX_AGE_DAYS,
-    EVIDENCE_CROSS_MODEL_DECAY,
+    EVIDENCE_CROSS_MODEL_DECAY, HASH_DIGEST_PREFIX,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class AxisEvidence:
             f"{self.task_name}:{self.method_name}:"
             f"{self.created_at}"
         )
-        return hashlib.sha256(blob.encode()).hexdigest()[:16]
+        return hashlib.sha256(blob.encode()).hexdigest()[:HASH_DIGEST_PREFIX]
 
     def to_dict(self) -> Dict[str, Any]:
         return {

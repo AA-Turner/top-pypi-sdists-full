@@ -3,7 +3,10 @@ from typing import List, cast
 
 import pandas as pd
 
-from abstra_internals.entities.forms.form_entity import FormEntity
+from abstra_internals.entities.forms.form_entity import (
+    ExitNavigationAction,
+    FormEntity,
+)
 from abstra_internals.entities.forms.steps import (
     ComputationStep,
     GeneratorStep,
@@ -12,10 +15,12 @@ from abstra_internals.entities.forms.steps import (
 )
 from abstra_internals.entities.forms.template import (
     BackButton,
+    ExitButton,
     NextButton,
     State,
     Template,
     TemplateGeneratorFunction,
+    TemplateWithButtons,
 )
 from abstra_internals.entities.forms.widgets.library import (
     DropdownInput,
@@ -1529,3 +1534,160 @@ class FormEntityTest(unittest.TestCase):
             )
 
             state = form.run()
+
+    def test_exit_button_ends_form_immediately(self):
+        """ExitButton should return ExitNavigationAction."""
+
+        def page1(state: State) -> TemplateWithButtons:
+            return [TextInput(key="name", label="Name")], [
+                ExitButton(),
+                NextButton(),
+            ]
+
+        def page2(state: State) -> Template:
+            return [TextInput(key="email", label="Email")]
+
+        steps: List[Step] = [PageStep(page1), PageStep(page2)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+
+        rendered = form.run()
+        assert rendered is not None
+        self.assertEqual(rendered["buttons"], [ExitButton(), NextButton()])
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"name": "Bob"},
+                "action": "i18n_exit_action",
+            }
+        )
+
+        self.assertIsInstance(action, ExitNavigationAction)
+
+    def test_exit_button_returns_exit_action(self):
+        """ExitButton should return ExitNavigationAction so the controller can call sys.exit."""
+
+        def page1(state: State) -> TemplateWithButtons:
+            return [
+                TextInput(key="a", label="A"),
+                TextInput(key="b", label="B"),
+            ], [ExitButton("Cancel"), NextButton()]
+
+        steps: List[Step] = [PageStep(page1), PageStep(input_page)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+        form.run()
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"a": "val_a", "b": "val_b"},
+                "action": "i18n_exit_action",
+            }
+        )
+
+        self.assertIsInstance(action, ExitNavigationAction)
+
+    def test_exit_button_with_custom_label(self):
+        """ExitButton with custom label should still use the exit action key."""
+
+        def page1(state: State) -> TemplateWithButtons:
+            return [TextInput(key="name", label="Name")], [
+                ExitButton("Cancel"),
+                NextButton(),
+            ]
+
+        steps: List[Step] = [PageStep(page1)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+        rendered = form.run()
+        assert rendered is not None
+
+        exit_btn = rendered["buttons"][0]
+        self.assertEqual(exit_btn.label, "Cancel")
+        self.assertEqual(exit_btn.safe_get_key(), "i18n_exit_action")
+
+    def test_next_button_does_not_return_exit_action(self):
+        """Normal form completion via NextButton should not return ExitNavigationAction."""
+
+        def page1(state: State) -> TemplateWithButtons:
+            return [TextInput(key="name", label="Name")], [
+                ExitButton("Cancel"),
+                NextButton(),
+            ]
+
+        steps: List[Step] = [PageStep(page1)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+        form.run()
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"name": "Alice"},
+                "action": "i18n_next_action",
+            }
+        )
+
+        self.assertIsNone(action)
+        rendered = form.run()
+        self.assertIsNone(rendered)
+
+    def test_exit_on_second_page(self):
+        """ExitButton on page 2 should return ExitNavigationAction."""
+
+        def page1(state: State) -> Template:
+            return [TextInput(key="name", label="Name")]
+
+        def page2(state: State) -> TemplateWithButtons:
+            return [TextInput(key="email", label="Email")], [
+                ExitButton("Cancel"),
+                NextButton(),
+            ]
+
+        def page3(state: State) -> Template:
+            return [TextInput(key="phone", label="Phone")]
+
+        steps: List[Step] = [PageStep(page1), PageStep(page2), PageStep(page3)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+        form.run()
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"name": "Alice"},
+                "action": "i18n_next_action",
+            }
+        )
+        self.assertIsNone(action)
+        form.run()
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"email": "alice@test.com"},
+                "action": "i18n_exit_action",
+            }
+        )
+
+        self.assertIsInstance(action, ExitNavigationAction)
+
+    def test_exit_button_on_single_page_form(self):
+        """ExitButton on a single-page form should return ExitNavigationAction."""
+
+        def only_page(state: State) -> TemplateWithButtons:
+            return [TextInput(key="name", label="Name")], [
+                ExitButton("Cancel"),
+                NextButton(),
+            ]
+
+        steps: List[Step] = [PageStep(only_page)]
+        form = FormEntity(steps, State(), force_hide_steps=False)
+        form.run()
+
+        action = form.handle_navigation(
+            {
+                "type": "form:navigation",
+                "payload": {"name": "Bob"},
+                "action": "i18n_exit_action",
+            }
+        )
+
+        self.assertIsInstance(action, ExitNavigationAction)

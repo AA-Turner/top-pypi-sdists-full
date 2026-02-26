@@ -17,7 +17,8 @@ from wisent.core.errors import (
     ModelArchitectureUnknownError,
     NoActivationDataError,
 )
-from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER, ACTIVATIONS_BATCH_SIZE
+from wisent.core.constants import COMPARISON_MAX_LENGTH, COMPARISON_STEERING_LAYER, CHANCE_LEVEL_ACCURACY
+from wisent.core.utils.core.hardware import default_batch_size
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class _SteeringOptimizerEval:
         batch_size: int,
         max_length: int,
         task_name: str,
-        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
+        max_new_tokens: int = None,
     ) -> Tuple[List[str], List[str]]:
         """
         Collect unsteered model predictions for baseline comparison.
@@ -100,7 +101,7 @@ class _SteeringOptimizerEval:
         model,
         tokenizer,
         device: str,
-        max_length: int = 512,
+        max_length: int = COMPARISON_MAX_LENGTH,
     ) -> torch.Tensor:
         """
         Extract activation from text at specified layer with aggregation.
@@ -183,7 +184,7 @@ class _SteeringOptimizerEval:
         model,
         tokenizer,
         device: str,
-        max_length: int = 512,
+        max_length: int = COMPARISON_MAX_LENGTH,
         description: str = "predictions",
     ) -> List[float]:
         """
@@ -204,7 +205,7 @@ class _SteeringOptimizerEval:
             return []
 
         # Get classifier metadata
-        layer = self._session_classifier_metadata.get("layer", 12)
+        layer = self._session_classifier_metadata.get("layer", COMPARISON_STEERING_LAYER)
         aggregation = self._session_classifier_metadata.get("aggregation", "mean_pooling")
 
         self.logger.info(
@@ -214,7 +215,7 @@ class _SteeringOptimizerEval:
         confidence_scores = []
 
         # Process predictions in batches for efficiency
-        batch_size = ACTIVATIONS_BATCH_SIZE  # Smaller batch size to avoid OOM
+        batch_size = default_batch_size()  # Smaller batch size to avoid OOM
         for i in range(0, len(predictions), batch_size):
             batch_predictions = predictions[i : i + batch_size]
             batch_activations = []
@@ -273,7 +274,7 @@ class _SteeringOptimizerEval:
         confidence_scores = confidence_scores[: len(predictions)]
 
         # Log statistics
-        avg_score = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
+        avg_score = sum(confidence_scores) / len(confidence_scores) if confidence_scores else CHANCE_LEVEL_ACCURACY
         self.logger.debug(
             f"Generated {len(confidence_scores)} classifier confidence scores for {description} (avg={avg_score:.3f})"
         )

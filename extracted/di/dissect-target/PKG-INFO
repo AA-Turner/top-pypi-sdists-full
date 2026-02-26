@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dissect.target
-Version: 3.24
+Version: 3.25.1
 Summary: This module ties all other Dissect modules together, it provides a programming API and command line tools which allow easy access to various data sources inside disk images or file collections (a.k.a. targets)
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: AGPL-3.0-or-later
@@ -23,11 +23,11 @@ License-File: LICENSE
 License-File: COPYRIGHT
 Requires-Dist: defusedxml
 Requires-Dist: dissect.cstruct<5,>=4
-Requires-Dist: dissect.database<2,>=1
+Requires-Dist: dissect.database<2,>=1.1
 Requires-Dist: dissect.eventlog<4,>=3
-Requires-Dist: dissect.evidence<4,>=3
-Requires-Dist: dissect.hypervisor<4,>=3.20
-Requires-Dist: dissect.ntfs<4,>=3.15
+Requires-Dist: dissect.evidence<4,>=3.13
+Requires-Dist: dissect.hypervisor<4,>=3.21
+Requires-Dist: dissect.ntfs<4,>=3.16
 Requires-Dist: dissect.regf<4,>=3.13
 Requires-Dist: dissect.util<4,>=3
 Requires-Dist: dissect.volume<4,>=3.17
@@ -35,12 +35,14 @@ Requires-Dist: flow.record~=3.21.0
 Requires-Dist: structlog
 Provides-Extra: full
 Requires-Dist: asn1crypto; extra == "full"
+Requires-Dist: dissect.apfs<2,>=1.1; extra == "full"
 Requires-Dist: dissect.archive<2,>=1; extra == "full"
 Requires-Dist: dissect.btrfs<2,>=1; extra == "full"
 Requires-Dist: dissect.cim<4,>=3; extra == "full"
 Requires-Dist: dissect.clfs<2,>=1; extra == "full"
 Requires-Dist: dissect.cramfs<2,>=1; extra == "full"
 Requires-Dist: dissect.etl<4,>=3; extra == "full"
+Requires-Dist: dissect.executable<2,>=1; extra == "full"
 Requires-Dist: dissect.extfs<4,>=3; extra == "full"
 Requires-Dist: dissect.fat<4,>=3; extra == "full"
 Requires-Dist: dissect.ffs<4,>=3; extra == "full"
@@ -58,34 +60,37 @@ Requires-Dist: fusepy; extra == "full"
 Requires-Dist: pycryptodome; extra == "full"
 Requires-Dist: ruamel.yaml; extra == "full"
 Requires-Dist: tomli; python_version < "3.11" and extra == "full"
-Requires-Dist: zstandard; platform_python_implementation != "PyPy" and extra == "full"
+Requires-Dist: backports.zstd; python_version < "3.14" and extra == "full"
 Provides-Extra: dev
 Requires-Dist: dissect.target[full,yara]; extra == "dev"
+Requires-Dist: dissect.apfs[dev]<2.0.dev,>=1.1; extra == "dev"
 Requires-Dist: dissect.archive[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.btrfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.cim[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.clfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.cramfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
-Requires-Dist: dissect.database[dev]<2.0.dev,>=1.0.dev; extra == "dev"
+Requires-Dist: dissect.database[dev]<2.0.dev,>=1.1; extra == "dev"
 Requires-Dist: dissect.etl[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.eventlog[dev]<4.0.dev,>=3.0.dev; extra == "dev"
-Requires-Dist: dissect.evidence[dev]<4.0.dev,>=3.0.dev; extra == "dev"
+Requires-Dist: dissect.evidence[dev]<4.0.dev,>=3.13; extra == "dev"
+Requires-Dist: dissect.executable[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.extfs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.fat[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.ffs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
-Requires-Dist: dissect.fve[dev]<5.0.dev,>=4.5.dev; extra == "dev"
-Requires-Dist: dissect.hypervisor[dev]<4.0.dev,>=3.20.dev; extra == "dev"
+Requires-Dist: dissect.fve[dev]<5.0.dev,>=4.5; extra == "dev"
+Requires-Dist: dissect.hypervisor[dev]<4.0.dev,>=3.21; extra == "dev"
 Requires-Dist: dissect.jffs[dev]<2.0.dev,>=1.5.dev; extra == "dev"
-Requires-Dist: dissect.ntfs[dev]<4.0.dev,>=3.15.dev; extra == "dev"
-Requires-Dist: dissect.qnxfs[dev]<2.0.dev,>=1.1.dev; extra == "dev"
-Requires-Dist: dissect.regf[dev]<4.0.dev,>=3.13.dev; extra == "dev"
+Requires-Dist: dissect.ntfs[dev]<4.0.dev,>=3.16; extra == "dev"
+Requires-Dist: dissect.ole[dev]<4.0.dev,>=3.0.dev; extra == "dev"
+Requires-Dist: dissect.qnxfs[dev]<2.0.dev,>=1.1; extra == "dev"
+Requires-Dist: dissect.regf[dev]<4.0.dev,>=3.13; extra == "dev"
 Requires-Dist: dissect.shellitem[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Requires-Dist: dissect.squashfs[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.thumbcache[dev]<2.0.dev,>=1.0.dev; extra == "dev"
 Requires-Dist: dissect.util<4.0.dev,>=3.0.dev; extra == "dev"
-Requires-Dist: dissect.vmfs[dev]<4.0.dev,>=3.12.dev; extra == "dev"
-Requires-Dist: dissect.volume[dev]<4.0.dev,>=3.17.dev; extra == "dev"
+Requires-Dist: dissect.vmfs[dev]<4.0.dev,>=3.12; extra == "dev"
+Requires-Dist: dissect.volume[dev]<4.0.dev,>=3.17; extra == "dev"
 Requires-Dist: dissect.xfs[dev]<4.0.dev,>=3.0.dev; extra == "dev"
 Provides-Extra: yara
 Requires-Dist: dissect.target[full]; extra == "yara"

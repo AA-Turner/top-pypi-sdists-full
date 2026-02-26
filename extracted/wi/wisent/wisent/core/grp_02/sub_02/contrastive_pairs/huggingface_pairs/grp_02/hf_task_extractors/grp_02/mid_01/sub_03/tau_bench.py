@@ -6,6 +6,7 @@ from wisent.core.cli.cli_logger import setup_logger
 
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.huggingface_pairs.atoms import HuggingFaceBenchmarkExtractor
+from wisent.core.constants import HTTP_TIMEOUT_MEDIUM, DISPLAY_TOP_N_MINI
 
 __all__ = ["TauBenchExtractor"]
 
@@ -111,7 +112,7 @@ class TauBenchExtractor(HuggingFaceBenchmarkExtractor):
                 continue
 
             try:
-                response = requests.get(url, timeout=30)
+                response = requests.get(url, timeout=HTTP_TIMEOUT_MEDIUM)
                 response.raise_for_status()
                 content = response.text
 
@@ -220,7 +221,7 @@ class TauBenchExtractor(HuggingFaceBenchmarkExtractor):
     ) -> str:
         """Create a successful task completion response."""
         steps = []
-        for i, action in enumerate(actions[:5]):  # Limit to first 5 actions for brevity
+        for i, action in enumerate(actions[:DISPLAY_TOP_N_MINI]):  # Limit to first 5 actions for brevity
             name = action.get("name", "")
             args = action.get("arguments", {})
             args_str = ", ".join(f"{k}={v!r}" for k, v in list(args.items())[:2])

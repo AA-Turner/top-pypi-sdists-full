@@ -4,7 +4,9 @@ import json
 import os
 
 from wisent.core.cli.optimization.core.optimize_helpers import save_checkpoint
-from wisent.core.constants import DEFAULT_LAYER, DEFAULT_SCORE, DEFAULT_STRENGTH
+from wisent.core.constants import (
+    DEFAULT_LAYER, DEFAULT_SCORE, DEFAULT_STRENGTH, DISPLAY_TRUNCATION_ERROR,
+)
 
 
 def run_safety_welfare_steering(args, results):
@@ -100,8 +102,8 @@ def run_safety_welfare_steering(args, results):
             except Exception as e:
                 error_msg = f"safety:{trait}: {str(e)}"
                 results["errors"].append(error_msg)
-                print(f"       Error: {str(e)[:80]}")
-            
+                print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
+
             save_checkpoint(args.model, results, phase=f"steering_safety_{trait_idx}")
     
     # 2d. Humanization steering
@@ -165,8 +167,8 @@ def run_safety_welfare_steering(args, results):
             except Exception as e:
                 error_msg = f"humanization:{trait}: {str(e)}"
                 results["errors"].append(error_msg)
-                print(f"       Error: {str(e)[:80]}")
-            
+                print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
+
             save_checkpoint(args.model, results, phase=f"steering_humanization_{trait_idx}")
 
     # 2e. Welfare trait steering (AI subjective states)
@@ -230,7 +232,7 @@ def run_safety_welfare_steering(args, results):
             except Exception as e:
                 error_msg = f"welfare:{trait}: {str(e)}"
                 results["errors"].append(error_msg)
-                print(f"       Error: {str(e)[:80]}")
+                print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
 
             save_checkpoint(args.model, results, phase=f"steering_welfare_{trait_idx}")
     else:

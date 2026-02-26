@@ -38,7 +38,7 @@ impl ConcatNode {
         let name: Arc<str> = "Concat".into();
         let node_info =
             ctx.next_node_info(name, NodeType::Concat, NodeCategory::Intermediate, context);
-        let runtime_stats = Arc::new(DefaultRuntimeStats::new(&ctx.meter, node_info.id));
+        let runtime_stats = Arc::new(DefaultRuntimeStats::new(&ctx.meter, &node_info));
         let morsel_size_requirement = MorselSizeRequirement::default();
 
         Self {
@@ -160,7 +160,7 @@ impl PipelineNode for ConcatNode {
     }
 
     fn start(
-        &self,
+        &mut self,
         maintain_order: bool,
         runtime_handle: &mut ExecutionRuntimeContext,
     ) -> crate::Result<Receiver<Arc<MicroPartition>>> {

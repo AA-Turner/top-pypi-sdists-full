@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoConfig, AutoModel, PreTrainedModel
 
-from wisent.core.constants import NEAR_ZERO_TOL, DESKLIB_MAX_LENGTH
+from wisent.core.constants import NEAR_ZERO_TOL, DESKLIB_MAX_LENGTH, MIN_RESPONSE_TEXT_LENGTH
 from wisent.core.evaluators.custom.custom_evaluator import (
     CustomEvaluator,
     CustomEvaluatorConfig,
@@ -126,7 +126,7 @@ class DesklibDetectorEvaluator(CustomEvaluator):
         
         Returns score where higher = more human-like.
         """
-        if len(response.strip()) < 50:
+        if len(response.strip()) < MIN_RESPONSE_TEXT_LENGTH:
             logger.warning("Text too short for reliable detection")
             return {
                 "score": 0.5,

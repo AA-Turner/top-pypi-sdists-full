@@ -3,7 +3,7 @@ import logging
 import time
 from typing import List, Tuple
 from wisent.core.classifier.classifier import ActivationClassifier
-from wisent.core.constants import DEFAULT_LAYER, AGENT_SYNTH_MIN_PAIRS, AGENT_SYNTH_TIME_MULTIPLIER
+from wisent.core.constants import DEFAULT_LAYER, AGENT_SYNTH_MIN_PAIRS, AGENT_SYNTH_TIME_MULTIPLIER, AGENT_SYNTH_TRAIT_DISCOVERY_COST_S, AGENT_SYNTH_DATA_GEN_COST_PER_PAIR_S, AGENT_SYNTH_CLASSIFIER_TRAINING_COST_S, AGENT_SYNTH_PAIRS_PER_TRAIT, SECONDS_PER_MINUTE
 from wisent.core.agent.diagnose.classifiers._synthetic_classes import (
     TraitDiscoveryResult, SyntheticClassifierResult,
     AutomaticTraitDiscovery, SyntheticClassifierFactory,
@@ -25,7 +25,7 @@ class SyntheticClassifierSystem:
         self.classifier_factory = SyntheticClassifierFactory(model)
 
     def create_classifiers_for_prompt(
-        self, prompt: str, time_budget_minutes: float, pairs_per_trait: int = 12
+        self, prompt: str, time_budget_minutes: float, pairs_per_trait: int = AGENT_SYNTH_PAIRS_PER_TRAIT
     ) -> Tuple[List[ActivationClassifier], TraitDiscoveryResult]:
         """
         Create synthetic classifiers for a prompt by discovering relevant traits.
@@ -47,7 +47,7 @@ class SyntheticClassifierSystem:
 
             # Estimate costs for different operations (in seconds)
             model_loading_cost = estimate_task_time_direct("model_loading", 1)  # Already loaded, minimal cost
-            trait_discovery_cost = 10.0  # Estimate: simple text generation ~10s
+            trait_discovery_cost = AGENT_SYNTH_TRAIT_DISCOVERY_COST_S  # Estimate: simple text generation
             data_generation_cost = estimate_task_time_direct("data_generation", 1)  # Per pair
             classifier_training_cost = (
                 estimate_task_time_direct("classifier_training", 100) / 100
@@ -62,11 +62,11 @@ class SyntheticClassifierSystem:
             logging.info(f"Could not get benchmark data: {e}")
             logging.info("Using fallback estimates")
             # Fallback estimates if benchmarks aren't available
-            trait_discovery_cost = 10.0
-            data_generation_cost = 30.0  # Per pair
-            classifier_training_cost = 180.0  # Per classifier (3 minutes)
+            trait_discovery_cost = AGENT_SYNTH_TRAIT_DISCOVERY_COST_S
+            data_generation_cost = AGENT_SYNTH_DATA_GEN_COST_PER_PAIR_S  # Per pair
+            classifier_training_cost = AGENT_SYNTH_CLASSIFIER_TRAINING_COST_S  # Per classifier
 
-        budget_seconds = time_budget_minutes * 60.0
+        budget_seconds = time_budget_minutes * SECONDS_PER_MINUTE
 
         # Step 1: Budget-aware trait discovery
         logging.info("Discovering relevant traits for this prompt...")

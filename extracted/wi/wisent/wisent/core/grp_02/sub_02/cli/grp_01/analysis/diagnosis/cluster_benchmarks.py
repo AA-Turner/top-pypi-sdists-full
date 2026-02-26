@@ -42,7 +42,11 @@ STRATEGIES = [
 RANDOM_TOKENS = ["I", "Well", "The", "Sure", "Let", "That", "It", "This", "My", "To"]
 
 
-from wisent.core.constants import NORM_EPS, CLUSTER_PROGRESS_INTERVAL, CLUSTER_MIN_PAIRS
+from wisent.core.constants import (
+    NORM_EPS, CLUSTER_PROGRESS_INTERVAL, CLUSTER_MIN_PAIRS,
+    GEOMETRY_DEFAULT_NUM_COMPONENTS, DIAG_OPTIMIZATION_STEPS,
+    DEFAULT_RANDOM_SEED, JSON_INDENT, CHANCE_LEVEL_ACCURACY,
+)
 from wisent.core.cli.analysis.diagnosis.cluster_benchmarks_activations import (
     ConfigResult, get_layers_to_test, get_activation, get_mc_balanced_activations,
     load_benchmark_pairs, compute_directions_for_strategy,
@@ -77,12 +81,12 @@ def evaluate_directions(directions, activations, clusters):
         n = min(len(pos), len(neg))
         
         g_correct = sum(1 for i in range(n) if torch.dot(pos[i], global_dir) > torch.dot(neg[i], global_dir))
-        global_accs.append(g_correct / n if n > 0 else 0.5)
+        global_accs.append(g_correct / n if n > 0 else CHANCE_LEVEL_ACCURACY)
         
         cid = bench_to_cluster.get(bench)
         if cid in cluster_dirs:
             c_correct = sum(1 for i in range(n) if torch.dot(pos[i], cluster_dirs[cid]) > torch.dot(neg[i], cluster_dirs[cid]))
-            cluster_accs.append(c_correct / n if n > 0 else 0.5)
+            cluster_accs.append(c_correct / n if n > 0 else CHANCE_LEVEL_ACCURACY)
         else:
             cluster_accs.append(global_accs[-1])
     
@@ -104,9 +108,9 @@ def execute_cluster_benchmarks(args):
     output_dir = Path(output)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    random.seed(42)
-    np.random.seed(42)
-    torch.manual_seed(42)
+    random.seed(DEFAULT_RANDOM_SEED)
+    np.random.seed(DEFAULT_RANDOM_SEED)
+    torch.manual_seed(DEFAULT_RANDOM_SEED)
     
     logger.info(f"Loading {model}...")
     tokenizer = AutoTokenizer.from_pretrained(model, trust_remote_code=True)
@@ -141,7 +145,7 @@ def execute_cluster_benchmarks(args):
     logger.info(f"Loaded {len(all_pairs)} benchmarks")
     
     # Test configurations
-    geo_config = GeometryAnalysisConfig(num_components=5, optimization_steps=50)
+    geo_config = GeometryAnalysisConfig(num_components=GEOMETRY_DEFAULT_NUM_COMPONENTS, optimization_steps=DIAG_OPTIMIZATION_STEPS)
     all_results = []
     best_config = None
     best_acc = 0
@@ -205,7 +209,7 @@ def execute_cluster_benchmarks(args):
             
             # Save intermediate
             with open(output_dir / 'intermediate.json', 'w') as f:
-                json.dump({'results': [asdict(r) for r in all_results], 'best_acc': best_acc}, f, indent=2)
+                json.dump({'results': [asdict(r) for r in all_results], 'best_acc': best_acc}, f, indent=JSON_INDENT)
     
     # Save final
     if best_config:
@@ -226,7 +230,7 @@ def execute_cluster_benchmarks(args):
         }
         
         with open(output_dir / 'cluster_summary.json', 'w') as f:
-            json.dump(summary, f, indent=2)
+            json.dump(summary, f, indent=JSON_INDENT)
         
         print(f"\nBest: Layer {best_config['layer']}, Strategy {best_config['strategy']}")
         print(f"Global: {best_config['global_acc']:.3f}, Cluster: {best_config['cluster_acc']:.3f}")

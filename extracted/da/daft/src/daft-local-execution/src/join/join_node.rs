@@ -81,7 +81,7 @@ impl<Op: JoinOperator + 'static> JoinNode<Op> {
     ) -> Self {
         let name: Arc<str> = op.name().into();
         let node_info = ctx.next_node_info(name, op.op_type(), NodeCategory::Intermediate, context);
-        let runtime_stats = op.make_runtime_stats(&ctx.meter, node_info.id);
+        let runtime_stats = op.make_runtime_stats(&ctx.meter, &node_info);
 
         let morsel_size_requirement = op.morsel_size_requirement().unwrap_or_default();
         Self {
@@ -461,7 +461,7 @@ impl<Op: JoinOperator + 'static> PipelineNode for JoinNode<Op> {
     }
 
     fn start(
-        &self,
+        &mut self,
         maintain_order: bool,
         runtime_handle: &mut ExecutionRuntimeContext,
     ) -> crate::Result<Receiver<Arc<MicroPartition>>> {

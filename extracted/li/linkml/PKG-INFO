@@ -1,24 +1,22 @@
 Metadata-Version: 2.4
 Name: linkml
-Version: 1.9.6
+Version: 1.10.0
 Summary: Linked Open Data Modeling Language
 Author: Deepak Unni
 Author-email: Chris Mungall <cjmungall@lbl.gov>, Sierra Moxon <smoxon@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sujay Patil <spatil@lbl.gov>, Harshad Hegde <hhegde@lbl.gov>, Mark Andrew Miller <MAM@lbl.gov>, Gaurav Vaidya <gaurav@renci.org>, Kevin Schaper <kevin@tislab.org>
 License-Expression: Apache-2.0
-License-File: LICENSE
 Keywords: biolink,data modeling,linked data,owl,rdf,schema
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Science/Research
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: antlr4-python3-runtime<4.10,>=4.9.0
 Requires-Dist: click<8.2,>=8.0
 Requires-Dist: graphviz>=0.10.1
@@ -32,7 +30,7 @@ Requires-Dist: openpyxl
 Requires-Dist: parse
 Requires-Dist: prefixcommons>=0.1.7
 Requires-Dist: prefixmaps>=0.2.2
-Requires-Dist: pydantic<3.0.0,>=1.0.0
+Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pyjsg>=0.11.6
 Requires-Dist: pyshex>=0.7.20
 Requires-Dist: pyshexc>=0.8.3

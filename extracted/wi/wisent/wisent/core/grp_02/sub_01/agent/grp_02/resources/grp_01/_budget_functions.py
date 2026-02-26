@@ -5,7 +5,14 @@ from typing import Dict, List, Optional, Any
 from wisent.core.errors import BudgetCalculationError, NoBenchmarkDataError, ResourceEstimationError
 from wisent.core.agent.resources._budget_types import ResourceType, ResourceBudget, TaskEstimate
 from wisent.core.agent.resources._budget_manager import BudgetManager
-from wisent.core.constants import AGENT_RESOURCE_BUDGET_MINUTES
+from wisent.core.constants import (
+    AGENT_RESOURCE_BUDGET_MINUTES,
+    BENCHMARK_LOADING_TIME_DEFAULT,
+    PRIORITY_HIGH,
+    PRIORITY_MEDIUM,
+    PRIORITY_LOW,
+    SECONDS_PER_MINUTE,
+)
 logger = logging.getLogger(__name__)
 
 def get_budget_manager() -> BudgetManager:
@@ -51,7 +58,7 @@ def calculate_max_tasks_for_time_budget(task_type: str = "benchmark_evaluation",
         else:
             time_per_task = estimate_task_time(benchmark_type, 1)
         
-        time_budget_seconds = time_budget_minutes * 60.0
+        time_budget_seconds = time_budget_minutes * SECONDS_PER_MINUTE
         max_tasks = max(1, int(time_budget_seconds / time_per_task))
         
         return max_tasks
@@ -110,17 +117,17 @@ def optimize_benchmarks_for_budget(task_candidates: List[str],
         for task in task_candidates:
             if task in BENCHMARKS:
                 config = BENCHMARKS[task]
-                loading_time = config.get('loading_time', 60.0)  # seconds
+                loading_time = config.get('loading_time', BENCHMARK_LOADING_TIME_DEFAULT)  # seconds
                 priority = config.get('priority', 'unknown')
                 
                 # Calculate priority score for selection
                 priority_score = 0
                 if priority == 'high':
-                    priority_score = 3
+                    priority_score = PRIORITY_HIGH
                 elif priority == 'medium':
-                    priority_score = 2
+                    priority_score = PRIORITY_MEDIUM
                 elif priority == 'low':
-                    priority_score = 1
+                    priority_score = PRIORITY_LOW
                 
                 # Calculate efficiency score (priority per second)
                 efficiency_score = priority_score / max(loading_time, 1.0)
@@ -136,7 +143,7 @@ def optimize_benchmarks_for_budget(task_candidates: List[str],
                 # Fallback for unknown benchmarks
                 benchmark_info.append({
                     'task': task,
-                    'loading_time': 60.0,
+                    'loading_time': BENCHMARK_LOADING_TIME_DEFAULT,
                     'priority': 'unknown',
                     'priority_score': 0,
                     'efficiency_score': 0.0
@@ -151,8 +158,8 @@ def optimize_benchmarks_for_budget(task_candidates: List[str],
         # Select benchmarks that fit within budget
         selected_benchmarks = []
         total_time = 0.0
-        time_budget_seconds = time_budget_minutes * 60.0
-        
+        time_budget_seconds = time_budget_minutes * SECONDS_PER_MINUTE
+
         for info in benchmark_info:
             if total_time + info['loading_time'] <= time_budget_seconds:
                 selected_benchmarks.append(info['task'])

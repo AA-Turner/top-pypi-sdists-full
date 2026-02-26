@@ -29,7 +29,10 @@ except ImportError:
     HAS_BZ2 = False
 
 try:
-    import zstandard
+    if sys.version_info >= (3, 14):
+        from compression import zstd  # novermin
+    else:
+        from backports import zstd
 
     HAS_ZSTD = True
 except ImportError:
@@ -289,15 +292,15 @@ def walk_ext(
 ) -> Iterator[
     tuple[list[filesystem.FilesystemEntry], list[filesystem.FilesystemEntry], list[filesystem.FilesystemEntry]]
 ]:
-    dirs = []
-    files = []
+    dirs: list[filesystem.FilesystemEntry] = []
+    files: list[filesystem.FilesystemEntry] = []
 
     try:
         for entry in path_entry.scandir():
             if entry.is_dir():
-                dirs.append(entry)
+                dirs.append(entry.get())
             else:
-                files.append(entry)
+                files.append(entry.get())
     except Exception as e:
         if onerror is not None and callable(onerror):
             e.entry = path_entry
@@ -316,18 +319,18 @@ def walk_ext(
         yield [path_entry], dirs, files
 
 
-def recurse(path_entry: filesystem.FilesystemEntry) -> Iterator[filesystem.FilesystemEntry]:
-    """Recursively walk the given :class:`FilesystemEntry`, yields :class:`FilesystemEntry` instances."""
-    yield path_entry
+def recurse(entry: filesystem.FilesystemEntry) -> Iterator[filesystem.FilesystemEntry]:
+    """Recursively walk the given :class:`FilesystemEntry`, yields :class:`DirEntry` instances."""
+    yield entry
 
-    if not path_entry.is_dir():
+    if not entry.is_dir():
         return
 
-    for child_entry in path_entry.scandir():
-        if child_entry.is_dir() and not child_entry.is_symlink():
-            yield from recurse(child_entry)
+    for direntry in entry.scandir():
+        if direntry.is_dir(follow_symlinks=False):
+            yield from recurse(direntry.get())
         else:
-            yield child_entry
+            yield direntry.get()
 
 
 def glob_split(pattern: str, alt_separator: str = "") -> tuple[str, str]:
@@ -424,7 +427,7 @@ def glob_ext1(direntry: filesystem.FilesystemEntry, pattern: str) -> Iterator[fi
         name = entry.name if case_sensitive else entry.name.lower()
         pattern = pattern if case_sensitive else pattern.lower()
         if fnmatch.fnmatch(name, pattern):
-            yield entry
+            yield entry.get()
 
 
 def glob_ext0(direntry: filesystem.FilesystemEntry, path: str) -> Iterator[filesystem.FilesystemEntry]:
@@ -526,6 +529,9 @@ def open_decompress(
     Returns:
         An binary or text IO stream, depending on the mode with which the file was opened.
 
+    Raises:
+        ValueError: path and fileobj are mutually exclusive, but one of them is required
+
     Example:
         .. code-block:: python
 
@@ -557,17 +563,21 @@ def open_decompress(
     if magic[:2] == b"\x1f\x8b":
         return gzip.open(file, mode, encoding=encoding, errors=errors, newline=newline)
 
-    if HAS_XZ and magic[:5] == b"\xfd7zXZ":
+    if magic[:5] == b"\xfd7zXZ":
+        if not HAS_XZ:
+            raise RuntimeError("lzma compression detected, but missing optional python module")
         return lzma.open(file, mode, encoding=encoding, errors=errors, newline=newline)
 
-    if HAS_BZ2 and magic[:3] == b"BZh" and 0x31 <= magic[3] <= 0x39:
+    if magic[:3] == b"BZh" and 0x31 <= magic[3] <= 0x39:
         # In a valid bz2 header the 4th byte is in the range b'1' ... b'9'.
+        if not HAS_BZ2:
+            raise RuntimeError("bz2 compression detected, but missing optional python module")
         return bz2.open(file, mode, encoding=encoding, errors=errors, newline=newline)
 
-    if HAS_ZSTD and magic[:4] in [b"\xfd\x2f\xb5\x28", b"\x28\xb5\x2f\xfd"]:
-        # stream_reader is not seekable, so we have to resort to the less
-        # efficient decompressor which returns bytes.
-        return io.BytesIO(zstandard.decompress(file.read()))
+    if magic[:4] in [b"\xfd\x2f\xb5\x28", b"\x28\xb5\x2f\xfd"]:
+        if not HAS_ZSTD:
+            raise RuntimeError("zstd compression detected, but missing optional python module")
+        return zstd.open(file, mode=mode, encoding=encoding, errors=errors, newline=newline)
 
     if path:
         file.close()

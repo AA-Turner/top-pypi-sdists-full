@@ -10,6 +10,8 @@ import numpy as np
 from typing import Dict, Any
 from wisent.core.constants import (
     NORM_EPS, STEERABILITY_AMBIENT_DIM, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
+    STEERABILITY_SILHOUETTE_SAMPLE_LIMIT, STEERABILITY_MIN_PAIRS,
+    CUMSUM_THRESHOLD_90, MIN_CLUSTERS,
 )
 
 
@@ -41,7 +43,7 @@ def compute_steerability_metrics(
     try:
         n_pairs = min(len(pos_activations), len(neg_activations))
         
-        if n_pairs < 5:
+        if n_pairs < STEERABILITY_MIN_PAIRS:
             return _empty_steerability_metrics()
         
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
@@ -57,7 +59,7 @@ def compute_steerability_metrics(
         diff_norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
         valid_mask = diff_norms.squeeze() > NORM_EPS
         
-        if valid_mask.sum() < 5:
+        if valid_mask.sum() < STEERABILITY_MIN_PAIRS:
             return _empty_steerability_metrics()
         
         diff_normalized = diff_vectors[valid_mask] / diff_norms[valid_mask]
@@ -97,11 +99,11 @@ def compute_steerability_metrics(
         def spherical_silhouette(X_norm, labels):
             n = len(X_norm)
             k = len(set(labels))
-            if k < 2:
+            if k < MIN_CLUSTERS:
                 return 0.0
             
             silhouettes = []
-            for i in range(min(n, 200)):
+            for i in range(min(n, STEERABILITY_SILHOUETTE_SAMPLE_LIMIT)):
                 same_cluster = labels == labels[i]
                 if same_cluster.sum() > 1:
                     a = 1 - (X_norm[i] @ X_norm[same_cluster].T).mean()
@@ -132,7 +134,7 @@ def compute_steerability_metrics(
             total_var = eigenvalues.sum()
             if total_var > 0:
                 cumsum = np.cumsum(eigenvalues) / total_var
-                effective_dims = int(np.searchsorted(cumsum, 0.9) + 1)
+                effective_dims = int(np.searchsorted(cumsum, CUMSUM_THRESHOLD_90) + 1)
             else:
                 effective_dims = 1
         except:

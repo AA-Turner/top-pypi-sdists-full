@@ -138,7 +138,7 @@ impl RumdlLanguageServer {
     /// This method first checks if the document is in the cache (opened in editor).
     /// If not found, it attempts to read the file from disk and caches it for
     /// future requests.
-    async fn get_document_content(&self, uri: &Url) -> Option<String> {
+    pub(super) async fn get_document_content(&self, uri: &Url) -> Option<String> {
         // First check the cache
         {
             let docs = self.documents.read().await;
@@ -274,6 +274,8 @@ impl LanguageServer for RumdlLanguageServer {
                     all_commit_characters: None,
                     completion_item: None,
                 }),
+                definition_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
                 workspace: Some(WorkspaceServerCapabilities {
                     workspace_folders: Some(WorkspaceFoldersServerCapabilities {
                         supported: Some(true),
@@ -331,8 +333,7 @@ impl LanguageServer for RumdlLanguageServer {
             log::info!("Triggered initial workspace indexing for cross-file analysis");
         }
 
-        // Register file watcher for markdown files to detect external changes
-        // Watch all supported markdown extensions
+        // Register file watchers for markdown files and config files
         let markdown_patterns = [
             "**/*.md",
             "**/*.markdown",
@@ -344,8 +345,15 @@ impl LanguageServer for RumdlLanguageServer {
             "**/*.qmd",
             "**/*.rmd",
         ];
+        let config_patterns = [
+            "**/.rumdl.toml",
+            "**/rumdl.toml",
+            "**/pyproject.toml",
+            "**/.markdownlint.json",
+        ];
         let watchers: Vec<_> = markdown_patterns
             .iter()
+            .chain(config_patterns.iter())
             .map(|pattern| FileSystemWatcher {
                 glob_pattern: GlobPattern::String((*pattern).to_string()),
                 kind: Some(WatchKind::all()),
@@ -689,7 +697,7 @@ impl LanguageServer for RumdlLanguageServer {
         let tasks = doc_list.into_iter().map(|(uri, text)| {
             let server = self.clone();
             tokio::spawn(async move {
-                server.update_diagnostics(uri, text).await;
+                server.update_diagnostics(uri, text, true).await;
             })
         });
 
@@ -729,7 +737,7 @@ impl LanguageServer for RumdlLanguageServer {
                 .await;
         }
 
-        self.update_diagnostics(uri, text).await;
+        self.update_diagnostics(uri, text, true).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -757,7 +765,7 @@ impl LanguageServer for RumdlLanguageServer {
                     .await;
             }
 
-            self.update_diagnostics(uri, text).await;
+            self.update_diagnostics(uri, text, false).await;
         }
     }
 
@@ -805,7 +813,7 @@ impl LanguageServer for RumdlLanguageServer {
         // Re-lint the document after save
         // Note: Auto-fixing is now handled by will_save_wait_until which runs before the save
         if let Some(entry) = self.documents.read().await.get(&params.text_document.uri) {
-            self.update_diagnostics(params.text_document.uri, entry.content.clone())
+            self.update_diagnostics(params.text_document.uri, entry.content.clone(), true)
                 .await;
         }
     }
@@ -839,15 +847,11 @@ impl LanguageServer for RumdlLanguageServer {
                 {
                     log::info!("Config file changed: {}, invalidating config cache", path.display());
 
-                    // Invalidate all cache entries that were loaded from this config file
+                    // Clear the entire config cache when any config file changes.
+                    // Fallback entries (no config_file) become stale when a new config file
+                    // is created, and directory-scoped entries may resolve differently after edits.
                     let mut cache = self.config_cache.write().await;
-                    cache.retain(|_, entry| {
-                        if let Some(config_file) = &entry.config_file {
-                            config_file != &path
-                        } else {
-                            true
-                        }
-                    });
+                    cache.clear();
 
                     // Also reload the global fallback configuration
                     drop(cache);
@@ -895,7 +899,7 @@ impl LanguageServer for RumdlLanguageServer {
             };
 
             for (uri, text) in docs_to_update {
-                self.update_diagnostics(uri, text).await;
+                self.update_diagnostics(uri, text, true).await;
             }
         }
     }
@@ -1079,11 +1083,29 @@ impl LanguageServer for RumdlLanguageServer {
         }
     }
 
+    async fn goto_definition(&self, params: GotoDefinitionParams) -> JsonRpcResult<Option<GotoDefinitionResponse>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+
+        log::debug!("Go-to-definition at {uri} {}:{}", position.line, position.character);
+
+        Ok(self.handle_goto_definition(&uri, position).await)
+    }
+
+    async fn references(&self, params: ReferenceParams) -> JsonRpcResult<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+
+        log::debug!("Find references at {uri} {}:{}", position.line, position.character);
+
+        Ok(self.handle_references(&uri, position).await)
+    }
+
     async fn diagnostic(&self, params: DocumentDiagnosticParams) -> JsonRpcResult<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
 
         if let Some(text) = self.get_open_document_content(&uri).await {
-            match self.lint_document(&uri, &text).await {
+            match self.lint_document(&uri, &text, true).await {
                 Ok(diagnostics) => Ok(DocumentDiagnosticReportResult::Report(DocumentDiagnosticReport::Full(
                     RelatedFullDocumentDiagnosticReport {
                         related_documents: None,

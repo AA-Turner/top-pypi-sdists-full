@@ -166,7 +166,6 @@ from types_aiobotocore_emr_serverless.client import EMRServerlessClient
 from types_aiobotocore_entityresolution.client import EntityResolutionClient
 from types_aiobotocore_es.client import ElasticsearchServiceClient
 from types_aiobotocore_events.client import EventBridgeClient
-from types_aiobotocore_evidently.client import CloudWatchEvidentlyClient
 from types_aiobotocore_evs.client import EVSClient
 from types_aiobotocore_finspace.client import FinspaceClient
 from types_aiobotocore_finspace_data.client import FinSpaceDataClient
@@ -208,7 +207,6 @@ from types_aiobotocore_iot_jobs_data.client import IoTJobsDataPlaneClient
 from types_aiobotocore_iot_managed_integrations.client import (
     ManagedintegrationsforIoTDeviceManagementClient,
 )
-from types_aiobotocore_iotanalytics.client import IoTAnalyticsClient
 from types_aiobotocore_iotdeviceadvisor.client import IoTDeviceAdvisorClient
 from types_aiobotocore_iotevents.client import IoTEventsClient
 from types_aiobotocore_iotevents_data.client import IoTEventsDataClient
@@ -391,6 +389,7 @@ from types_aiobotocore_ses.client import SESClient
 from types_aiobotocore_sesv2.client import SESV2Client
 from types_aiobotocore_shield.client import ShieldClient
 from types_aiobotocore_signer.client import SignerClient
+from types_aiobotocore_signer_data.client import SignerDataPlaneClient
 from types_aiobotocore_signin.client import SignInServiceClient
 from types_aiobotocore_simspaceweaver.client import SimSpaceWeaverClient
 from types_aiobotocore_snow_device_management.client import SnowDeviceManagementClient
@@ -3306,25 +3305,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["evidently"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[CloudWatchEvidentlyClient]:
-        """
-        Create client for CloudWatchEvidently service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["evs"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -4061,25 +4041,6 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[ManagedintegrationsforIoTDeviceManagementClient]:
         """
         Create client for ManagedintegrationsforIoTDeviceManagement service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["iotanalytics"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[IoTAnalyticsClient]:
-        """
-        Create client for IoTAnalytics service.
         """
 
     @overload  # type: ignore[override]
@@ -7386,6 +7347,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[SignerClient]:
         """
         Create client for Signer service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["signer-data"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SignerDataPlaneClient]:
+        """
+        Create client for SignerDataPlane service.
         """
 
     @overload  # type: ignore[override]

@@ -25,6 +25,7 @@ from sklearn.decomposition import PCA
 from wisent.core.constants import (
     ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
     CONCEPT_PCA_COMPONENTS, CONCEPT_K_MAX,
+    CLUSTERING_MEANINGFUL_THRESHOLD,
 )
 
 
@@ -221,7 +222,7 @@ def decompose_concepts(
             continue
     
     # If no good clustering found, return single concept
-    if best_score < 0.1:  # Threshold for meaningful clustering
+    if best_score < CLUSTERING_MEANINGFUL_THRESHOLD:
         direction = diff_vectors.mean(axis=0)
         norm = np.linalg.norm(direction)
         if norm > ZERO_THRESHOLD:

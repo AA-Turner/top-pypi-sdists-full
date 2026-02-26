@@ -7,7 +7,7 @@ from typing import Dict
 import torch
 
 from .geometry_types import StructureType, StructureScore, GeometryAnalysisConfig
-from wisent.core.constants import NORM_EPS, COMPARE_TOL
+from wisent.core.constants import NORM_EPS, COMPARE_TOL, GEO_MANIFOLD_SCORE_DEFAULT, GEO_MANIFOLD_CONFIDENCE, GEO_ORTHOGONAL_CONFIDENCE, KMEANS_MAX_ITERATIONS_DEFAULT
 from wisent.core import constants as _C
 
 
@@ -140,9 +140,9 @@ def detect_cluster_structure(
         return StructureScore(StructureType.CLUSTER, 0.0, 0.0, {"reason": "insufficient_data"})
 
     best_silhouette = -1.0
-    best_k = 2
+    best_k = _C.MIN_CLUSTERS
 
-    for k in range(2, min(cfg.max_clusters + 1, n_samples // 2)):
+    for k in range(_C.MIN_CLUSTERS, min(cfg.max_clusters + 1, n_samples // 2)):
         try:
             labels, centroids, silhouette = _kmeans_with_silhouette(all_activations, k)
             if silhouette > best_silhouette:
@@ -178,7 +178,7 @@ def detect_sparse_structure(
         active_dims = (abs_diff > threshold).sum().item()
         sparsity = 1 - (active_dims / mean_diff.shape[0])
         sparse_score = float(sparsity)
-        confidence = 0.8
+        confidence = _C.SPARSE_DETECTION_CONFIDENCE
         return StructureScore(
             StructureType.SPARSE, score=sparse_score,
             confidence=confidence,
@@ -197,7 +197,7 @@ def detect_manifold_structure(
     """Detect non-linear manifold structure (fallback)."""
     # Manifold is the most general - use moderate score as fallback
     return StructureScore(
-        StructureType.MANIFOLD, score=0.4, confidence=0.5,
+        StructureType.MANIFOLD, score=GEO_MANIFOLD_SCORE_DEFAULT, confidence=GEO_MANIFOLD_CONFIDENCE,
         details={"note": "Manifold is fallback structure"}
     )
 
@@ -222,7 +222,7 @@ def detect_bimodal_structure(
         bimodal_score = min(1.0, gap / (2 * std + NORM_EPS))
         return StructureScore(
             StructureType.BIMODAL, score=float(bimodal_score),
-            confidence=0.7, details={"gap_over_std": float(gap / (std + NORM_EPS))}
+            confidence=_C.BIMODAL_DETECTION_CONFIDENCE, details={"gap_over_std": float(gap / (std + NORM_EPS))}
         )
     except Exception as e:
         return StructureScore(StructureType.BIMODAL, 0.0, 0.0, {"error": str(e)})
@@ -252,13 +252,13 @@ def detect_orthogonal_structure(
         orthogonal_score = max(0, 1 - mean_abs_cos / cfg.orthogonal_threshold)
         return StructureScore(
             StructureType.ORTHOGONAL, score=float(orthogonal_score),
-            confidence=0.6, details={"mean_abs_cosine": mean_abs_cos}
+            confidence=GEO_ORTHOGONAL_CONFIDENCE, details={"mean_abs_cosine": mean_abs_cos}
         )
     except Exception as e:
         return StructureScore(StructureType.ORTHOGONAL, 0.0, 0.0, {"error": str(e)})
 
 
-def _kmeans_with_silhouette(data: torch.Tensor, k: int, max_iters: int = 50):
+def _kmeans_with_silhouette(data: torch.Tensor, k: int, max_iters: int = KMEANS_MAX_ITERATIONS_DEFAULT):
     """Simple k-means with silhouette score."""
     n = data.shape[0]
     idx = torch.randperm(n)[:k]

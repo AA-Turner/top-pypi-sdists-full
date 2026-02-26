@@ -120,8 +120,12 @@ class AutoIterator:
         if self.legacy_pagination:
             params[self.configured_page_on] = self._next_page
         else:
+            next_page_on = self._next_page
+            if not isinstance(next_page_on, list) and hasattr(next_page_on, "value"):
+                # Convert to a list
+                next_page_on = next_page_on.value
             params["page_on"] = self._page_on
-            params["page_at_key"] = self._next_page
+            params["page_at_key"] = next_page_on
             params["page_sort"] = self.page_sort
         return params
 

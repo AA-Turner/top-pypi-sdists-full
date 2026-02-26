@@ -6,7 +6,7 @@ import os
 
 from wisent.core.models import get_generate_kwargs
 from wisent.data.contrastive_pairs import save_personalization_pairs, save_synthetic_pairs
-from wisent.core.constants import GENERATE_PAIRS_MIN_TOKENS, GENERATE_PAIRS_MAX_TOKENS
+from wisent.core.constants import GENERATE_PAIRS_MIN_TOKENS, JSON_INDENT, SIMHASH_RELAXED_THRESHOLD_BITS, TOKENS_PER_PAIR_ESTIMATE, TOKENS_BASE_OFFSET, DISPLAY_TRUNCATION_SHORT, TRAIT_LABEL_MAX_LENGTH, TRAIT_NAME_MAX_LENGTH
 
 
 def execute_generate_pairs(args):
@@ -37,8 +37,8 @@ def execute_generate_pairs(args):
             print(f"\n⚙️  Initializing programmatic nonsense generator...")
             generator = ProgrammaticNonsenseGenerator(
                 nonsense_mode=nonsense_mode,
-                contrastive_set_name=f"nonsense_{nonsense_mode}_{args.trait[:20].replace(' ', '_')}",
-                trait_label=args.trait[:50],
+                contrastive_set_name=f"nonsense_{nonsense_mode}_{args.trait[:TRAIT_LABEL_MAX_LENGTH].replace(' ', '_')}",
+                trait_label=args.trait[:DISPLAY_TRUNCATION_SHORT],
                 trait_description=args.trait,
             )
 
@@ -73,18 +73,19 @@ def execute_generate_pairs(args):
 
             # 2. Set up generation config
             # Scale max_new_tokens based on number of pairs (roughly 150 tokens per pair + buffer)
-            estimated_tokens = args.num_pairs * 150 + 500
-            max_tokens = max(GENERATE_PAIRS_MIN_TOKENS, min(estimated_tokens, GENERATE_PAIRS_MAX_TOKENS))
+            gen_kwargs = get_generate_kwargs()
+            estimated_tokens = args.num_pairs * TOKENS_PER_PAIR_ESTIMATE + TOKENS_BASE_OFFSET
+            max_tokens = max(GENERATE_PAIRS_MIN_TOKENS, min(estimated_tokens, gen_kwargs["max_new_tokens"]))
 
             # Get generation config from centralized inference config
-            generation_config = get_generate_kwargs(max_new_tokens=max_tokens)
+            generation_config = {**gen_kwargs, "max_new_tokens": max_tokens}
 
             # 3. Set up cleaning pipeline
             print(f"\n🧹 Setting up cleaning pipeline...")
             from wisent.core.synthetic.cleaners.methods.base_dedupers import SimHashDeduper
 
             cleaning_steps = [
-                DeduperCleaner(deduper=SimHashDeduper(threshold_bits=10)),  # Relaxed threshold to keep more diverse pairs
+                DeduperCleaner(deduper=SimHashDeduper(threshold_bits=SIMHASH_RELAXED_THRESHOLD_BITS)),  # Relaxed threshold to keep more diverse pairs
             ]
             cleaner = PairsCleaner(steps=cleaning_steps)
 
@@ -98,9 +99,9 @@ def execute_generate_pairs(args):
             generator = SyntheticContrastivePairsGenerator(
                 model=model,
                 generation_config=generation_config,
-                contrastive_set_name=f"synthetic_{args.trait[:20].replace(' ', '_')}",
+                contrastive_set_name=f"synthetic_{args.trait[:TRAIT_LABEL_MAX_LENGTH].replace(' ', '_')}",
                 trait_description=args.trait,
-                trait_label=args.trait[:50],
+                trait_label=args.trait[:DISPLAY_TRUNCATION_SHORT],
                 db_instructions=db_instructions,
                 cleaner=cleaner,
                 diversity=diversity,
@@ -164,7 +165,7 @@ def execute_generate_pairs(args):
             }
 
         with open(args.output, 'w') as f:
-            json.dump(save_data, f, indent=2)
+            json.dump(save_data, f, indent=JSON_INDENT)
 
         print(f"   ✓ Saved {len(pairs_data)} pairs to: {args.output}")
 
@@ -213,7 +214,7 @@ def execute_generate_pairs(args):
                 else:
                     stored_path = save_synthetic_pairs(
                         pairs=pair_set,
-                        name=args.trait[:30].replace(' ', '_'),
+                        name=args.trait[:TRAIT_NAME_MAX_LENGTH].replace(' ', '_'),
                         model=getattr(args, 'model', None),
                         metadata=metadata,
                     )

@@ -4,6 +4,7 @@
 import uuid
 
 from django.db import models
+from django.db.models import Func, IntegerField
 from django.utils import timezone
 
 from ara.setup import ara_version
@@ -13,16 +14,43 @@ from ara.setup import ara_version
 # was prevously a char(32) column
 # https://codeberg.org/ansible-community/ara/issues/617
 class Char32UUIDField(models.UUIDField):
+    """
+    UUIDField that uses char(32) on MariaDB for compatibility with
+    databases created before Django 5.0. Other backends use their default.
+    """
+
     def db_type(self, connection):
-        return "char(32)"
+        if connection.vendor == "mysql":
+            return "char(32)"
+        # PostgreSQL, SQLite use default behavior
+        return super().db_type(connection)
 
     def get_db_prep_value(self, value, connection, prepared=False):
         value = super().get_db_prep_value(value, connection, prepared)
-        if value is not None:
+        if value is not None and connection.vendor == "mysql":
             if isinstance(value, str):
                 value = uuid.UUID(value)
             value = value.hex
         return value
+
+
+class JsonLength(Func):
+    """
+    Use native DB functions to count the number of items in a json list.
+    """
+
+    output_field = IntegerField()
+
+    def as_postgresql(self, compiler, connection):
+        return self.as_sql(
+            compiler, connection, function="jsonb_array_length", template="%(function)s(%(expressions)s)"
+        )
+
+    def as_mysql(self, compiler, connection):
+        return self.as_sql(compiler, connection, function="JSON_LENGTH", template="%(function)s(%(expressions)s)")
+
+    def as_sqlite(self, compiler, connection):
+        return self.as_sql(compiler, connection, function="json_array_length", template="%(function)s(%(expressions)s)")
 
 
 class Base(models.Model):
@@ -226,6 +254,9 @@ class Task(Duration):
     tags = models.BinaryField(max_length=(2**32) - 1)
     handler = models.BooleanField()
     status = models.CharField(max_length=25, choices=STATUS, default=UNKNOWN)
+    warnings = models.JSONField(default=list)
+    deprecations = models.JSONField(default=list)
+    exceptions = models.JSONField(default=list)
 
     play = models.ForeignKey(Play, on_delete=models.CASCADE, related_name="tasks")
     file = models.ForeignKey(File, on_delete=models.CASCADE, related_name="tasks")

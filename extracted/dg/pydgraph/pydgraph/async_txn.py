@@ -216,9 +216,11 @@ class AsyncTxn:
                     query_error = error
 
             if query_error is not None:
-                # Try to discard the transaction on error
+                # Try to discard the transaction on error.
+                # Note: We use _locked_discard() here because we already hold self._lock,
+                # and asyncio.Lock is not reentrant. Calling self.discard() would deadlock.
                 try:
-                    await self.discard(
+                    await self._locked_discard(
                         timeout=timeout, metadata=metadata, credentials=credentials
                     )
                 except asyncio.CancelledError:
@@ -458,34 +460,64 @@ class AsyncTxn:
             Various gRPC errors on failure
         """
         async with self._lock:
-            if not self._common_discard():
-                return
+            await self._locked_discard(
+                timeout=timeout, metadata=metadata, credentials=credentials
+            )
 
-            new_metadata = self._dg.add_login_metadata(metadata)
-            try:
+    async def _locked_discard(
+        self,
+        timeout: float | None = None,
+        metadata: list[tuple[str, str]] | None = None,
+        credentials: grpc.CallCredentials | None = None,
+    ) -> None:
+        """Internal discard implementation that doesn't acquire the lock.
+
+        This method must only be called when the caller already holds self._lock.
+        Use discard() for the public API.
+
+        Args:
+            timeout: Request timeout in seconds
+            metadata: Request metadata
+            credentials: Call credentials
+
+        Raises:
+            RuntimeError: If called without holding self._lock
+            Various gRPC errors on failure
+        """
+        # Defensive check: ensure caller holds the lock to prevent misuse
+        if not self._lock.locked():
+            raise RuntimeError(
+                "_locked_discard must only be called while holding self._lock"
+            )
+
+        if not self._prepare_discard():
+            return
+
+        new_metadata = self._dg.add_login_metadata(metadata)
+        try:
+            await self._dc.commit_or_abort(
+                self._ctx,
+                timeout=timeout,
+                metadata=new_metadata,
+                credentials=credentials,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            # Handle JWT expiration with automatic retry
+            if util.is_jwt_expired(error):
+                await self._dg.retry_login()
+                new_metadata = self._dg.add_login_metadata(metadata)
                 await self._dc.commit_or_abort(
                     self._ctx,
                     timeout=timeout,
                     metadata=new_metadata,
                     credentials=credentials,
                 )
-            except asyncio.CancelledError:
+            else:
                 raise
-            except Exception as error:
-                # Handle JWT expiration with automatic retry
-                if util.is_jwt_expired(error):
-                    await self._dg.retry_login()
-                    new_metadata = self._dg.add_login_metadata(metadata)
-                    await self._dc.commit_or_abort(
-                        self._ctx,
-                        timeout=timeout,
-                        metadata=new_metadata,
-                        credentials=credentials,
-                    )
-                else:
-                    raise
 
-    def _common_discard(self) -> bool:
+    def _prepare_discard(self) -> bool:
         """Validates and prepares for discard.
 
         Returns:
@@ -533,9 +565,7 @@ class AsyncTxn:
         """
         return self
 
-    async def __aexit__(
-        self, exc_type: Any, exc_val: Any, exc_tb: Any
-    ) -> bool:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         """Async context manager exit.
 
         Automatically discards transaction if not already finished.

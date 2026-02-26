@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 4.5.0
+Version: 4.6.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -15,14 +15,13 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
@@ -36,7 +35,7 @@ Requires-Dist: httpx<1.0.0
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
 Requires-Dist: multiprocess<0.70.19
-Requires-Dist: fsspec[http]<=2025.10.0,>=2023.1.0
+Requires-Dist: fsspec[http]<=2026.2.0,>=2023.1.0
 Requires-Dist: huggingface-hub<2.0,>=0.25.0
 Requires-Dist: packaging
 Requires-Dist: pyyaml>=5.1

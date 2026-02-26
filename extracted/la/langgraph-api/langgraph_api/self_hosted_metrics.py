@@ -11,10 +11,11 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 from langgraph_api import asyncio as lg_asyncio
-from langgraph_api import config, metadata
+from langgraph_api import config
+from langgraph_api.api.meta import meta_pool_stats
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.http_metrics_utils import HTTP_LATENCY_BUCKETS
-from langgraph_runtime.database import connect, pool_stats
+from langgraph_runtime.database import connect
 from langgraph_runtime.metrics import get_metrics
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
@@ -286,9 +287,7 @@ def _get_pool_stats():
     # so we submit this as a coro to run in the main event loop
     async def _fetch_pool_stats():
         try:
-            return pool_stats(
-                metadata.PROJECT_ID, metadata.HOST_REVISION_ID, format="json"
-            )
+            return await meta_pool_stats("json")
         except Exception as e:
             logger.warning("Failed to get pool stats", exc_info=e)
             return {"postgres": {}, "redis": {}}

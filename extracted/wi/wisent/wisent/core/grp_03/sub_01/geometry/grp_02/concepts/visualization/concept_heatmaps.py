@@ -5,7 +5,15 @@ from typing import Dict, Any, List, Optional
 import io
 import base64
 
-from wisent.core.constants import VIZ_DPI
+from wisent.core.constants import (
+    VIZ_DPI, HEATMAP_TEXT_CONTRAST_THRESHOLD, VIZ_HEATMAP_ASTERISK_SIZE,
+    CLASSIFIER_THRESHOLD, VIZ_FONTSIZE_ANNOTATION,
+    VIZ_FIGSIZE_MIN_WIDTH, VIZ_FIGSIZE_MIN_HEIGHT,
+    VIZ_FIGSIZE_HEATMAP_SCALE_W, VIZ_FIGSIZE_HEATMAP_SCALE_H,
+    VIZ_FIGSIZE_CONCEPT_MIN_W, VIZ_FIGSIZE_CONCEPT_SCALE,
+    VIZ_HEATMAP_ACCURACY_VMIN, VIZ_HEATMAP_ACCURACY_VMAX,
+    VIZ_CORRELATION_VMIN, VIZ_CORRELATION_VMAX,
+)
 
 
 def create_layer_accuracy_heatmap(
@@ -40,12 +48,12 @@ def create_layer_accuracy_heatmap(
     for i, concept in enumerate(concepts):
         layer_accs = concept.get("layer_accuracies", {})
         for j, layer in enumerate(layers):
-            matrix[i, j] = layer_accs.get(layer, 0.5)
+            matrix[i, j] = layer_accs.get(layer, CLASSIFIER_THRESHOLD)
 
     # Create heatmap
-    fig, ax = plt.subplots(figsize=(max(8, len(layers) * 0.5), max(4, n_concepts * 0.8)))
+    fig, ax = plt.subplots(figsize=(max(VIZ_FIGSIZE_MIN_WIDTH, len(layers) * VIZ_FIGSIZE_HEATMAP_SCALE_W), max(VIZ_FIGSIZE_MIN_HEIGHT, n_concepts * VIZ_FIGSIZE_HEATMAP_SCALE_H)))
 
-    im = ax.imshow(matrix, aspect='auto', cmap='RdYlGn', vmin=0.5, vmax=1.0)
+    im = ax.imshow(matrix, aspect='auto', cmap='RdYlGn', vmin=VIZ_HEATMAP_ACCURACY_VMIN, vmax=VIZ_HEATMAP_ACCURACY_VMAX)
 
     ax.set_xticks(range(len(layers)))
     ax.set_xticklabels([str(l) for l in layers])
@@ -61,7 +69,7 @@ def create_layer_accuracy_heatmap(
         opt_layer = concept.get("optimal_layer")
         if opt_layer in layers:
             j = layers.index(opt_layer)
-            ax.scatter(j, i, marker='*', s=200, c='black', zorder=10)
+            ax.scatter(j, i, marker='*', s=VIZ_HEATMAP_ASTERISK_SIZE, c='black', zorder=10)
 
     plt.colorbar(im, ax=ax, label="Linear Accuracy")
     ax.set_title("Linear Separability by Concept and Layer\n(* = optimal layer)")
@@ -95,9 +103,9 @@ def create_inter_concept_similarity_heatmap(
     matrix = np.array(matrix)
     n_concepts = len(matrix)
 
-    fig, ax = plt.subplots(figsize=(max(6, n_concepts * 1.2), max(5, n_concepts)))
+    fig, ax = plt.subplots(figsize=(max(VIZ_FIGSIZE_CONCEPT_MIN_W, n_concepts * VIZ_FIGSIZE_CONCEPT_SCALE), max(VIZ_FIGSIZE_MIN_HEIGHT + 1, n_concepts)))
 
-    im = ax.imshow(matrix, cmap='coolwarm', vmin=-1, vmax=1)
+    im = ax.imshow(matrix, cmap='coolwarm', vmin=VIZ_CORRELATION_VMIN, vmax=VIZ_CORRELATION_VMAX)
 
     ax.set_xticks(range(n_concepts))
     ax.set_xticklabels(concept_names, rotation=45, ha='right')
@@ -107,8 +115,8 @@ def create_inter_concept_similarity_heatmap(
     # Add text annotations
     for i in range(n_concepts):
         for j in range(n_concepts):
-            color = 'white' if abs(matrix[i, j]) > 0.5 else 'black'
-            ax.text(j, i, f"{matrix[i, j]:.2f}", ha='center', va='center', color=color, fontsize=9)
+            color = 'white' if abs(matrix[i, j]) > HEATMAP_TEXT_CONTRAST_THRESHOLD else 'black'
+            ax.text(j, i, f"{matrix[i, j]:.2f}", ha='center', va='center', color=color, fontsize=VIZ_FONTSIZE_ANNOTATION)
 
     plt.colorbar(im, ax=ax, label="Cosine Similarity")
     ax.set_title("Inter-Concept Similarity\n(centroid cosine similarity)")

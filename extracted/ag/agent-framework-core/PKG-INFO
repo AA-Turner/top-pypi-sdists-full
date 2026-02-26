@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.0.0rc1
+Version: 1.0.0rc2
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -24,7 +24,7 @@ Requires-Dist: opentelemetry-sdk>=1.39.0
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.13
 Requires-Dist: openai>=1.99.0
 Requires-Dist: azure-identity>=1,<2
-Requires-Dist: azure-ai-projects >= 2.0.0b3
+Requires-Dist: azure-ai-projects == 2.0.0b3
 Requires-Dist: mcp[ws]>=1.24.0,<2
 Requires-Dist: packaging>=24.1
 Requires-Dist: agent-framework-a2a ; extra == "all"

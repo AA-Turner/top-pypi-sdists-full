@@ -91,8 +91,9 @@ def canonical_path(
         j = i + 1
         patterns = list(
             filter(
-                lambda p: p.split("/")[j] == node
-                or is_path_param(p.split("/")[j]),
+                lambda p: (
+                    p.split("/")[j] == node or is_path_param(p.split("/")[j])
+                ),
                 patterns,
             )
         )
@@ -299,14 +300,17 @@ def infer_entity_wrapper(method: str, path: CanonicalPath) -> EntityWrapper:
     if is_path_param(path_nodes[-1]):
         # Singular if it's an individual resource's URL for read/update/delete
         # (named similarly to the second to last node, as the last is its ID
-        # and the second to last denotes the API resource collection it is in):
+        # and the second to last denotes the API resource collection it is in)
+        # Examples: "user" in GET /users/{id}, "service" in PUT /services/{id}
         return singular_name(path_nodes[-2])
     elif m == "POST":
         # Singular if creating a new resource by POSTing to the index
-        # containing similar resources (named simiarly to the last path node):
+        # containing similar resources (named simiarly to the last path node)
+        # Example: "user" in POST /users
         return singular_name(path_nodes[-1])
     else:
-        # Plural if listing via GET to the index endpoint, or multi-put:
+        # Plural if listing via GET to the index endpoint, or multi-put
+        # Example: GET /users
         return path_nodes[-1]
 
 
@@ -518,6 +522,8 @@ class RestApiV2BaseClient(ApiClient):
     :param debug:
         Sets :attr:`pagerduty.ApiClient.print_debug`. Set to ``True`` to enable
         verbose command-line output.
+    :param base_url:
+        Sets the base API URL to be used by the client for all API calls.
     """
 
     api_call_counts = None
@@ -533,14 +539,19 @@ class RestApiV2BaseClient(ApiClient):
     """
 
     def __init__(
-        self, api_key: str, auth_type: str = "token", debug: bool = False, **kw
+        self,
+        api_key: str,
+        auth_type: str = "token",
+        debug: bool = False,
+        base_url=None,
+        **kw,
     ):
         self.api_call_counts = {}
         self.api_time = {}
         self.auth_type = auth_type
         auth_method = self._build_auth_method(api_key)
         super(RestApiV2BaseClient, self).__init__(
-            auth_method, debug=debug, **kw
+            auth_method, debug=debug, base_url=base_url, **kw
         )
 
     def _build_auth_method(self, api_key: str) -> AuthMethod:

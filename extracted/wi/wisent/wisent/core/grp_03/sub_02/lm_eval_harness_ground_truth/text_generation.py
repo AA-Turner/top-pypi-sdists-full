@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict
 
 from wisent.core.activations.activations import Activations
-from wisent.core.constants import EVAL_MAX_NEW_TOKENS, AGENT_DIAG_TEMPERATURE
+from wisent.core.constants import CLASSIFIER_THRESHOLD, SPLIT_RATIO_FULL
 from wisent.core.layer import Layer
 from wisent.core.models import get_generate_kwargs
 
@@ -20,7 +20,7 @@ def evaluate_text_generation(evaluator, classifier, task_name: str, num_samples:
             docs, task_data = evaluator._load_task_interface_data(task_name, num_samples)
         else:
             task_data = model.load_lm_eval_task(task_name, shots=0, limit=num_samples)
-            docs, _ = model.split_task_data(task_data, split_ratio=1.0)
+            docs, _ = model.split_task_data(task_data, split_ratio=SPLIT_RATIO_FULL)
         if not docs:
             return evaluator._error_result(f"No documents retrieved from task: {task_name}")
         logger.info(f"Retrieved {len(docs)} documents from {task_name}")
@@ -32,7 +32,7 @@ def evaluate_text_generation(evaluator, classifier, task_name: str, num_samples:
                 else:
                     question = str(doc.get("question", doc.get("text", "")))
                 logger.debug(f"Generating response for: {question}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_MAX_NEW_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
+                gen_kwargs = get_generate_kwargs(do_sample=False)
                 generated_response, _ = model.generate(prompt=question, layer_index=layer, **gen_kwargs)
                 if task_name.startswith("hle") or task_name in ["math500", "math", "hendrycks_math"]:
                     ground_truth = doc.get("answer", "")
@@ -64,30 +64,30 @@ def evaluate_text_generation(evaluator, classifier, task_name: str, num_samples:
                     features_numpy = features.cpu().numpy()
                     prediction_proba = classifier.predict_proba([features_numpy])
                     if isinstance(prediction_proba, (list, tuple)):
-                        prediction = prediction_proba[0] if len(prediction_proba) > 0 else 0.5
+                        prediction = prediction_proba[0] if len(prediction_proba) > 0 else CLASSIFIER_THRESHOLD
                     else:
                         prediction = prediction_proba
                     if hasattr(prediction, "__len__") and not isinstance(prediction, str):
-                        prediction = prediction[0] if len(prediction) > 0 else 0.5
+                        prediction = prediction[0] if len(prediction) > 0 else CLASSIFIER_THRESHOLD
                     prediction = float(prediction)
                 except Exception as proba_error:
                     logger.warning(f"predict_proba failed: {proba_error}, trying predict...")
                     try:
                         predictions = classifier.predict([features.cpu().numpy()])
-                        prediction = float(predictions[0]) if len(predictions) > 0 else 0.5
+                        prediction = float(predictions[0]) if len(predictions) > 0 else CLASSIFIER_THRESHOLD
                     except Exception as predict_error:
                         logger.error(f"Both predict_proba and predict failed: {predict_error}")
-                        prediction = 0.5
+                        prediction = CLASSIFIER_THRESHOLD
                 classification_results.append({"question": response_data["question"],
                     "generated_response": response_data["generated_response"],
-                    "classifier_score": prediction, "classifier_truthful": prediction < 0.5})
+                    "classifier_score": prediction, "classifier_truthful": prediction < CLASSIFIER_THRESHOLD})
             except Exception as e:
                 import traceback
                 logger.error(f"Error classifying generated response: {e}")
                 logger.error(f"Full traceback: {traceback.format_exc()}")
                 classification_results.append({"question": response_data["question"],
                     "generated_response": response_data["generated_response"],
-                    "classifier_score": 0.5, "classifier_truthful": False, "error": str(e)})
+                    "classifier_score": CLASSIFIER_THRESHOLD, "classifier_truthful": False, "error": str(e)})
                 continue
         return {"ground_truth": "EVALUATED", "method_used": "lm-eval-harness-text-generation",
                 "confidence": evaluation_results.get("accuracy", 0.0),

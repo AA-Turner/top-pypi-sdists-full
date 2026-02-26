@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any
 import torch
 import torch.nn.functional as F
 
-
+from wisent.core import constants as _C
 
 from wisent.core.cli.steering.core.verify_steering_analysis import (
     _compare_activations, _check_gate_intensity, _print_summary,
@@ -25,9 +25,9 @@ def execute_verify_steering(args):
 
     model_path = Path(args.model_path)
 
-    print("\n" + "=" * 64)
+    print("\n" + "=" * _C.BANNER_WIDTH)
     print("STEERING VERIFICATION")
-    print("=" * 64)
+    print("=" * _C.BANNER_WIDTH)
 
     # 1. Detect steering type and load config
     steering_type, config = _detect_steering_type(model_path)
@@ -57,9 +57,9 @@ def execute_verify_steering(args):
         sys.exit(1)
 
     # 5. Load models
-    print("\n" + "-" * 64)
+    print("\n" + "-" * _C.BANNER_WIDTH)
     print("Loading models...")
-    print("-" * 64)
+    print("-" * _C.BANNER_WIDTH)
 
     # Use load_steered_model for the steered model to properly load biases
     from wisent.core.weight_modification.export import load_steered_model
@@ -89,9 +89,9 @@ def execute_verify_steering(args):
         print(f"Filtered to {len(steering_dirs)} layers: {list(steering_dirs.keys())}")
 
     # 8. Run activation comparison
-    print("\n" + "-" * 64)
+    print("\n" + "-" * _C.BANNER_WIDTH)
     print("ACTIVATION ALIGNMENT CHECK")
-    print("-" * 64)
+    print("-" * _C.BANNER_WIDTH)
 
     results = _compare_activations(
         base_model=base_model,
@@ -108,9 +108,9 @@ def execute_verify_steering(args):
 
     if steering_type == "grom" and config.get("mode") in ("dynamic", "hybrid"):
         if args.check_gate or args.check_intensity:
-            print("\n" + "-" * 64)
+            print("\n" + "-" * _C.BANNER_WIDTH)
             print("GATE/INTENSITY NETWORK CHECK")
-            print("-" * 64)
+            print("-" * _C.BANNER_WIDTH)
             gate_results, intensity_results = _check_gate_intensity(
                 steered_model=steered_model,
                 tokenizer=tokenizer,
@@ -121,9 +121,9 @@ def execute_verify_steering(args):
             )
 
     # 10. Summary
-    print("\n" + "=" * 64)
+    print("\n" + "=" * _C.BANNER_WIDTH)
     print("VERIFICATION SUMMARY")
-    print("=" * 64)
+    print("=" * _C.BANNER_WIDTH)
 
     _print_summary(results, gate_results, intensity_results, args.alignment_threshold)
 
@@ -141,7 +141,7 @@ def execute_verify_steering(args):
             "intensity_results": intensity_results,
         }
         with open(args.output, "w") as f:
-            json.dump(output_data, f, indent=2, default=str)
+            json.dump(output_data, f, indent=_C.JSON_INDENT, default=str)
         print(f"\nDetailed results saved to: {args.output}")
 
     # 12. Exit code based on verification result
@@ -181,18 +181,18 @@ def _detect_steering_type(model_path: Path) -> tuple:
 
                     # Common model mappings
                     if "Qwen3" in arch:
-                        if hidden_size <= 1024 and num_layers <= 28:
+                        if hidden_size <= _C.HIDDEN_SIZE_QWEN3_SMALL and num_layers <= _C.NUM_LAYERS_QWEN3_SMALL_MAX:
                             config["base_model"] = "Qwen/Qwen3-0.6B"
-                        elif hidden_size <= 2048:
+                        elif hidden_size <= _C.HIDDEN_SIZE_QWEN3_MEDIUM:
                             config["base_model"] = "Qwen/Qwen3-1.7B"
-                        elif hidden_size <= 3072:
+                        elif hidden_size <= _C.HIDDEN_SIZE_QWEN3_LARGE:
                             config["base_model"] = "Qwen/Qwen3-4B"
                         else:
                             config["base_model"] = "Qwen/Qwen3-8B"
                     elif "Llama" in arch:
-                        if hidden_size <= 2048:
+                        if hidden_size <= _C.HIDDEN_SIZE_QWEN3_MEDIUM:
                             config["base_model"] = "meta-llama/Llama-3.2-1B"
-                        elif hidden_size <= 4096:
+                        elif hidden_size <= _C.HIDDEN_SIZE_LLAMA_MEDIUM:
                             config["base_model"] = "meta-llama/Llama-3.2-3B"
                         else:
                             config["base_model"] = "meta-llama/Llama-3.1-8B"

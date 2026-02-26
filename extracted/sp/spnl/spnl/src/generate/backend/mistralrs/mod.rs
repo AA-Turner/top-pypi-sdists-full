@@ -69,12 +69,6 @@ pub async fn generate_completion(
 ) -> SpnlResult {
     use tokio::io::AsyncWriteExt;
 
-    if let Some(true) = options.prepare {
-        return Err(anyhow::anyhow!(
-            "Prepare mode not supported for mistralrs backend"
-        ));
-    }
-
     let n_prompts = spec.inputs.len();
 
     let quiet = mp.is_some() || options.time || options.silent;
@@ -271,6 +265,12 @@ pub async fn generate_completion(
     Ok(Query::Par(final_results))
 }
 
+/// Unload all models from the global pool, releasing GPU memory.
+/// Call between benchmark runs to avoid accumulating models in VRAM.
+pub async fn unload_all_models() {
+    get_model_pool().unload_all().await
+}
+
 /// Generate multiple completions for the same input (Repeat operation)
 pub async fn generate_chat(
     spec: Repeat,
@@ -278,12 +278,6 @@ pub async fn generate_chat(
     options: &GenerateOptions,
 ) -> SpnlResult {
     use tokio::io::AsyncWriteExt;
-
-    if let Some(true) = options.prepare {
-        return Err(anyhow::anyhow!(
-            "Prepare mode not supported for mistralrs backend"
-        ));
-    }
 
     let n_usize = spec.n as usize;
 

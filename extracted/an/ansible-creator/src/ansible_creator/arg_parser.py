@@ -111,21 +111,12 @@ class Parser:
         self.add_plugin_parser: argparse.ArgumentParser | None = None
         self.exit_code: int = 0
 
-    def parse_args(self) -> tuple[argparse.Namespace, list[Msg], int]:
-        """Parse the root arguments.
+    def build_parser(self) -> CustomArgumentParser:
+        """Build the full parser tree with all subcommands registered.
 
         Returns:
-            The parsed arguments, any pending logs, and exit code
-            (0 for success, os.EX_USAGE for usage error)
+            The root ``CustomArgumentParser`` with all subcommands configured.
         """
-        is_init = sys.argv[1:2] == ["init"]
-        not_empty = sys.argv[2:] != []
-        not_help = not any(arg in sys.argv for arg in ["-h", "--help"])
-        if all((is_init, not_empty, not_help)):
-            proceed = self.handle_deprecations()
-            if not proceed:
-                return argparse.Namespace(), self.pending_logs, 1
-
         parser = CustomArgumentParser(
             description="The fastest way to generate all your ansible content.",
         )
@@ -142,6 +133,25 @@ class Parser:
         )
         self._add(subparser=subparser)  # type: ignore[arg-type]
         self._init(subparser=subparser)  # type: ignore[arg-type]
+        self._schema(subparser=subparser)  # type: ignore[arg-type]
+        return parser
+
+    def parse_args(self) -> tuple[argparse.Namespace, list[Msg], int]:
+        """Parse the root arguments.
+
+        Returns:
+            The parsed arguments, any pending logs, and exit code
+            (0 for success, os.EX_USAGE for usage error)
+        """
+        is_init = sys.argv[1:2] == ["init"]
+        not_empty = sys.argv[2:] != []
+        not_help = not any(arg in sys.argv for arg in ["-h", "--help"])
+        if all((is_init, not_empty, not_help)):
+            proceed = self.handle_deprecations()
+            if not proceed:
+                return argparse.Namespace(), self.pending_logs, 1
+
+        parser = self.build_parser()
 
         if HAS_ARGCOMPLETE:  # pragma: no cover
             argcomplete.autocomplete(parser)
@@ -182,7 +192,7 @@ class Parser:
                 Msg(
                     prefix=Level.ERROR,
                     message="Missing required argument 'resource-type'.\n"
-                    "Choose from: devcontainer, devfile, execution-environment, "
+                    "Choose from: devcontainer, devfile, ee-ci, execution-environment, "
                     "play-argspec, role",
                 )
             )
@@ -341,6 +351,7 @@ class Parser:
         self._add_resource_ai(subparser=subparser)
         self._add_resource_devcontainer(subparser=subparser)
         self._add_resource_devfile(subparser=subparser)
+        self._add_resource_ee_ci(subparser=subparser)
         self._add_resource_execution_env(subparser=subparser)
         self._add_resource_play_argspec(subparser=subparser)
         self._add_resource_role(subparser=subparser)
@@ -355,6 +366,16 @@ class Parser:
             "ai",
             help="Add AI agent helper files.",
         )
+        parser.add_argument(
+            "path",
+            default="./",
+            metavar="path",
+            nargs="?",
+            help="The destination directory for the AI agent helper files. The default is the "
+            "current working directory.",
+        )
+
+        self._add_overwrite(parser)
         self._add_args_common(parser)
 
     def _add_resource_devcontainer(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
@@ -406,6 +427,29 @@ class Parser:
             nargs="?",
             help="The destination directory for the devfile file. The default is the "
             "current working directory.",
+        )
+
+        self._add_overwrite(parser)
+        self._add_args_common(parser)
+
+    def _add_resource_ee_ci(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
+        """Add EE CI GitHub Action workflow to an existing path.
+
+        Args:
+            subparser: The subparser to add EE CI workflow to
+        """
+        parser = subparser.add_parser(
+            "ee-ci",
+            help="Add a GitHub Action CI workflow for building execution environments.",
+        )
+
+        parser.add_argument(
+            "path",
+            default="./",
+            metavar="path",
+            nargs="?",
+            help="The destination directory for the EE CI workflow. "
+            "The default is the current working directory.",
         )
 
         self._add_overwrite(parser)
@@ -619,6 +663,18 @@ class Parser:
         self._init_collection(subparser=subparser)
         self._init_playbook(subparser=subparser)
         self._init_ee_project(subparser=subparser)
+
+    def _schema(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
+        """Output CLI schema as JSON.
+
+        Args:
+            subparser: The subparser to add schema to
+        """
+        parser = subparser.add_parser(
+            "schema",
+            help="Output the CLI schema as JSON for tool integration.",
+        )
+        self._add_args_common(parser)
 
     def _init_collection(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Initialize an Ansible collection.

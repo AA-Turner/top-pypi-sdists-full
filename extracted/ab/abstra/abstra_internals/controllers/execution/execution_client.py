@@ -84,18 +84,16 @@ class HeadlessClient(ExecutionClient):
     def handle_failure(self, e: Exception):
         close_dto = contract.CloseDTO(exit_status="EXCEPTION", exception=e)
         self._send(contract.ExecutionEndedMessage(close_dto, self._production_mode))
-        self.conn.close()
 
     def handle_success(self):
         close_dto = contract.CloseDTO(exit_status="SUCCESS")
         self._send(contract.ExecutionEndedMessage(close_dto, self._production_mode))
-        self.conn.close()
 
     def handle_start(self, execution_id: str):
         self._send(contract.ExecutionStartedMessage(execution_id))
 
     def handle_abandoned(self) -> None:
-        self.conn.close()
+        pass
 
     def _send(self, msg: contract.Message) -> None:
         str_data = serialize(msg.to_json())

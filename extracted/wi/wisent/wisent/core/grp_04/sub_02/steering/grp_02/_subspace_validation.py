@@ -8,19 +8,22 @@ from wisent.core.steering._subspace_analysis import UNIVERSAL_SUBSPACE_RANK
 from wisent.core import constants as _C
 from wisent.core.constants import (
     ZERO_THRESHOLD,
-    SUBSPACE_LINEAR_VARIANCE_THRESHOLD,
-    SUBSPACE_CONE_THRESHOLD,
-    SUBSPACE_MANIFOLD_THRESHOLD,
-    SUBSPACE_CLUSTER_SILHOUETTE_THRESHOLD,
-    SUBSPACE_ORTHOGONAL_THRESHOLD,
+    GEO_DIAG_LINEAR_VARIANCE,
+    GEO_DIAG_CONE_THRESHOLD,
+    GEO_DIAG_MANIFOLD_THRESHOLD,
+    GEO_DIAG_CLUSTER_SILHOUETTE,
+    GEO_DIAG_ORTHOGONAL_THRESHOLD,
+    SUBSPACE_VAR_THRESHOLD_MAX,
+    SUBSPACE_SAMPLE_CONSERVATIVE,
+    SUBSPACE_SAMPLE_RELAXED,
 )
 
 UNIVERSAL_SUBSPACE_THRESHOLDS = {
-    "linear_variance_threshold": SUBSPACE_LINEAR_VARIANCE_THRESHOLD,
-    "cone_threshold": SUBSPACE_CONE_THRESHOLD,
-    "manifold_threshold": SUBSPACE_MANIFOLD_THRESHOLD,
-    "cluster_silhouette_threshold": SUBSPACE_CLUSTER_SILHOUETTE_THRESHOLD,
-    "orthogonal_threshold": SUBSPACE_ORTHOGONAL_THRESHOLD,
+    "linear_variance_threshold": GEO_DIAG_LINEAR_VARIANCE,
+    "cone_threshold": GEO_DIAG_CONE_THRESHOLD,
+    "manifold_threshold": GEO_DIAG_MANIFOLD_THRESHOLD,
+    "cluster_silhouette_threshold": GEO_DIAG_CLUSTER_SILHOUETTE,
+    "orthogonal_threshold": GEO_DIAG_ORTHOGONAL_THRESHOLD,
 }
 
 _LOG = setup_logger(__name__)
@@ -67,7 +70,7 @@ def compute_subspace_alignment(
 def verify_subspace_preservation(
     original_weights: torch.Tensor,
     modified_weights: torch.Tensor,
-    threshold: float = 0.95,
+    threshold: float = SUBSPACE_VAR_THRESHOLD_MAX,
 ) -> Tuple[bool, Dict[str, float]]:
     """
     Verify that weight modification preserved subspace membership.
@@ -157,7 +160,7 @@ def get_recommended_geometry_thresholds(
     
     # Adjust for sample size
     # Small samples -> more conservative (raise thresholds)
-    if n_samples < 20:
+    if n_samples < SUBSPACE_SAMPLE_CONSERVATIVE:
         thresholds["linear_variance_threshold"] = min(
             _C.SUBSPACE_VAR_THRESHOLD_MAX,
             thresholds["linear_variance_threshold"] + _C.SUBSPACE_VAR_THRESHOLD_ADJUST,
@@ -166,7 +169,7 @@ def get_recommended_geometry_thresholds(
             _C.SUBSPACE_CONE_MIN_DYNAMIC,
             thresholds["cone_threshold"] - _C.SUBSPACE_CONE_ADJUST,
         )
-    elif n_samples > 100:
+    elif n_samples > SUBSPACE_SAMPLE_RELAXED:
         thresholds["linear_variance_threshold"] = max(
             _C.SUBSPACE_VAR_THRESHOLD_MIN,
             thresholds["linear_variance_threshold"] - _C.SUBSPACE_VAR_FINE_ADJUST,

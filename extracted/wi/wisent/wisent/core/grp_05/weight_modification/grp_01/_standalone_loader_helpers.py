@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH
+from wisent.core.constants import DEFAULT_LAYER, DEFAULT_STRENGTH, TETNO_GATE_SCALE_FACTOR, DEFAULT_LAYER_WEIGHT, STEERING_BASE_STRENGTH_DEFAULT
 
 
 class TETNOHooks:
@@ -86,7 +86,7 @@ class TETNOHooks:
         c_norm = F.normalize(self.condition_vector, p=2, dim=-1)
         similarity = (h_norm * c_norm).sum(dim=-1)
         self._current_gate = torch.sigmoid(
-            (similarity - self.optimal_threshold) / 0.1)
+            (similarity - self.optimal_threshold) / TETNO_GATE_SCALE_FACTOR)
 
         return output
 
@@ -104,7 +104,7 @@ class TETNOHooks:
 
         behavior = behavior.to(hidden.device)
         gate = self._current_gate.to(hidden.device)
-        scale = self.layer_scales.get(layer_name, 1.0)
+        scale = self.layer_scales.get(layer_name, DEFAULT_LAYER_WEIGHT)
 
         if hidden.dim() == 3:
             gate = gate.view(-1, 1, 1)
@@ -220,7 +220,7 @@ def load_model(
                     repo_id=str(model_path), filename="tetno_steering.pt")
                 tetno_data = torch.load(data_file, map_location="cpu")
 
-            hooks = TETNOHooksClass(model, tetno_data, base_strength=0.5)
+            hooks = TETNOHooksClass(model, tetno_data, base_strength=STEERING_BASE_STRENGTH_DEFAULT)
             hooks.install()
 
     return model, tokenizer, hooks

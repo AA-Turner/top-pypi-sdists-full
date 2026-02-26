@@ -1,4 +1,4 @@
-from typing import Union, Callable, Optional
+from typing import Union, Literal, Callable, Optional
 from typing_extensions import TypedDict
 
 from ..types import (
@@ -13,11 +13,14 @@ from ..types import (
     ScenarioListParams,
     BenchmarkListParams,
     BlueprintListParams,
+    McpConfigListParams,
     ObjectDownloadParams,
     ScenarioUpdateParams,
     BenchmarkCreateParams,
     BenchmarkUpdateParams,
     BlueprintCreateParams,
+    McpConfigCreateParams,
+    McpConfigUpdateParams,
     DevboxUploadFileParams,
     GatewayConfigListParams,
     NetworkPolicyListParams,
@@ -219,6 +222,9 @@ class ScenarioPreview(ScenarioView):
     input_context: InputContextPreview  # type: ignore[assignment]
     """The input context for the Scenario."""
 
+    status: Optional[Literal["active", "archived"]] = None  # type: ignore[assignment]
+    """Status is not set for previews."""
+
 
 class SDKBenchmarkCreateParams(BenchmarkCreateParams, LongRequestOptions):
     pass
@@ -260,6 +266,18 @@ class SDKNetworkPolicyListParams(NetworkPolicyListParams, BaseRequestOptions):
 
 
 class SDKNetworkPolicyUpdateParams(NetworkPolicyUpdateParams, LongRequestOptions):
+    pass
+
+
+class SDKMcpConfigCreateParams(McpConfigCreateParams, LongRequestOptions):
+    pass
+
+
+class SDKMcpConfigListParams(McpConfigListParams, BaseRequestOptions):
+    pass
+
+
+class SDKMcpConfigUpdateParams(McpConfigUpdateParams, LongRequestOptions):
     pass
 
 

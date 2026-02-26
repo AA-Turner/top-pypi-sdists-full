@@ -257,15 +257,11 @@ class RabbitMQProducerRepository(ProducerRepository):
 
                         if isinstance(msg, dict):
                             msg_type = msg.get("type")
-                            if msg_type in ("stdio", "task"):
-                                BroadcastController.broadcast(msg=serialize(msg))
+                            if msg_type in ("stdio", "stdio_batch"):
+                                # Fanout consumer handles stdio broadcast
                                 continue
-                            if msg_type == "stdio_batch":
-                                for item in msg.get("payload", []):
-                                    individual = {"type": "stdio", "payload": item}
-                                    BroadcastController.broadcast(
-                                        msg=serialize(individual)
-                                    )
+                            if msg_type == "task":
+                                BroadcastController.broadcast(msg=serialize(msg))
                                 continue
 
                         if isinstance(msg, str):
@@ -284,7 +280,7 @@ class RabbitMQProducerRepository(ProducerRepository):
                                                 }
                                             )
                                         )
-                                    break
+                                        break
                             except (json.JSONDecodeError, AttributeError):
                                 pass
 

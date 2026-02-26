@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from wisent.core.constants import HUMANIZATION_COHERENCE_THRESHOLD, HUMANIZATION_MAX_LENGTH
+from wisent.core.constants import HUMANIZATION_COHERENCE_THRESHOLD, HUMANIZATION_MAX_LENGTH, DISPLAY_TRUNCATION_COMPACT, DISPLAY_TRUNCATION_SHORT
 from wisent.core.evaluators.custom.custom_evaluator import (
     CustomEvaluator,
     CustomEvaluatorConfig,
@@ -131,8 +131,8 @@ class HumanizationCoherentEvaluator(CustomEvaluator):
         # If coherence is below threshold, return 0
         if coherence_score < self.coherence_threshold:
             logger.warning(f"Coherence check failed: {coherence_score:.3f} < {self.coherence_threshold}")
-            logger.warning(f"Prompt: {prompt[:50]}...")
-            logger.warning(f"Response preview: {response[:100]}...")
+            logger.warning(f"Prompt: {prompt[:DISPLAY_TRUNCATION_SHORT]}...")
+            logger.warning(f"Response preview: {response[:DISPLAY_TRUNCATION_COMPACT]}...")
             return {
                 "score": 0.0,
                 "human_prob": 0.0,

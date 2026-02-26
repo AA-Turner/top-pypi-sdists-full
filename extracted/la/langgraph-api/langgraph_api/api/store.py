@@ -58,14 +58,20 @@ async def put_item(request: ApiRequest):
     namespace = tuple(payload["namespace"]) if payload.get("namespace") else ()
     if err := _validate_namespace(namespace):
         return err
-    handler_payload = {
+    handler_payload: dict[str, Any] = {
         "namespace": namespace,
         "key": payload["key"],
         "value": payload["value"],
+        "index": payload.get("index"),
+        "ttl": payload.get("ttl"),
     }
     await handle_event("put", handler_payload)
     await (await get_store()).aput(
-        handler_payload["namespace"], handler_payload["key"], handler_payload["value"]
+        handler_payload["namespace"],
+        handler_payload["key"],
+        handler_payload["value"],
+        index=handler_payload["index"],
+        ttl=handler_payload["ttl"],
     )
     return Response(status_code=204)
 
@@ -79,13 +85,19 @@ async def get_item(request: ApiRequest):
     key = request.query_params.get("key")
     if not key:
         return ApiResponse({"error": "Key is required"}, status_code=400)
-    handler_payload = {
+    refresh_ttl_raw = request.query_params.get("refresh_ttl")
+    handler_payload: dict[str, Any] = {
         "namespace": namespace,
         "key": key,
+        "refresh_ttl": refresh_ttl_raw.lower() == "true"
+        if refresh_ttl_raw is not None
+        else None,
     }
     await handle_event("get", handler_payload)
     result = await (await get_store()).aget(
-        handler_payload["namespace"], handler_payload["key"]
+        handler_payload["namespace"],
+        handler_payload["key"],
+        refresh_ttl=handler_payload["refresh_ttl"],
     )
     if result is None:
         return ApiResponse(None)
@@ -123,12 +135,13 @@ async def search_items(request: ApiRequest):
     limit = int(payload.get("limit") or 10)
     offset = int(payload.get("offset") or 0)
     query = payload.get("query")
-    handler_payload = {
+    handler_payload: dict[str, Any] = {
         "namespace": namespace_prefix,
         "filter": filter,
         "limit": limit,
         "offset": offset,
         "query": query,
+        "refresh_ttl": payload.get("refresh_ttl"),
     }
     await handle_event("search", handler_payload)
     items = await (await get_store()).asearch(
@@ -137,6 +150,7 @@ async def search_items(request: ApiRequest):
         limit=handler_payload["limit"],
         offset=handler_payload["offset"],
         query=handler_payload["query"],
+        refresh_ttl=handler_payload["refresh_ttl"],
     )
     return ApiResponse(
         {

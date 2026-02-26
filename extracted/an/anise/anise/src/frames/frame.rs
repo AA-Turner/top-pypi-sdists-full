@@ -10,6 +10,7 @@
 
 use core::fmt;
 use core::fmt::Debug;
+use der::{Decode, Encode, Reader, Writer};
 use serde_derive::{Deserialize, Serialize};
 use snafu::ResultExt;
 
@@ -27,11 +28,13 @@ use crate::structure::planetocentric::ellipsoid::Ellipsoid;
 use crate::NaifId;
 
 #[cfg(feature = "python")]
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use pyo3::pyclass::CompareOp;
+#[cfg(feature = "python")]
+use pyo3::types::{PyBytes, PyType};
 
 /// A Frame uniquely defined by its ephemeris center and orientation. Refer to FrameDetail for frames combined with parameters.
 ///
@@ -99,6 +102,24 @@ impl Frame {
     pub fn stripped(mut self) -> Self {
         self.strip();
         self
+    }
+
+    /// Specifies what data is available in this structure.
+    ///
+    /// Returns:
+    /// + Bit 0 is set if `mu_km3_s2` is available
+    /// + Bit 1 is set if `shape` is available
+    fn available_data(&self) -> u8 {
+        let mut bits: u8 = 0;
+
+        if self.mu_km3_s2.is_some() {
+            bits |= 1 << 0;
+        }
+        if self.shape.is_some() {
+            bits |= 1 << 1;
+        }
+
+        bits
     }
 }
 
@@ -195,6 +216,29 @@ impl Frame {
     fn set_shape(&mut self, shape: Option<Ellipsoid>) -> PyResult<()> {
         self.shape = shape;
         Ok(())
+    }
+
+    /// Decodes an ASN.1 DER encoded byte array into a Frame.
+    ///
+    /// :type data: bytes
+    /// :rtype: Frame
+    #[classmethod]
+    pub fn from_asn1(_cls: &Bound<'_, PyType>, data: &[u8]) -> PyResult<Self> {
+        match Self::from_der(data) {
+            Ok(obj) => Ok(obj),
+            Err(e) => Err(PyValueError::new_err(format!("ASN.1 decoding error: {e}"))),
+        }
+    }
+
+    /// Encodes this Frame into an ASN.1 DER encoded byte array.
+    ///
+    /// :rtype: bytes
+    pub fn to_asn1<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let mut buf = Vec::new();
+        match self.encode_to_vec(&mut buf) {
+            Ok(_) => Ok(PyBytes::new(py, &buf)),
+            Err(e) => Err(PyValueError::new_err(format!("ASN.1 encoding error: {e}"))),
+        }
     }
 }
 
@@ -347,6 +391,54 @@ impl Frame {
                 frame: self.into(),
             })?
             .polar_radius_km)
+    }
+}
+
+impl Encode for Frame {
+    fn encoded_len(&self) -> der::Result<der::Length> {
+        let available_flags = self.available_data();
+
+        self.ephemeris_id.encoded_len()?
+            + self.orientation_id.encoded_len()?
+            + available_flags.encoded_len()?
+            + self.mu_km3_s2.encoded_len()?
+            + self.shape.encoded_len()?
+    }
+
+    fn encode(&self, encoder: &mut impl Writer) -> der::Result<()> {
+        self.ephemeris_id.encode(encoder)?;
+        self.orientation_id.encode(encoder)?;
+        self.available_data().encode(encoder)?;
+        self.mu_km3_s2.encode(encoder)?;
+        self.shape.encode(encoder)
+    }
+}
+
+impl<'a> Decode<'a> for Frame {
+    fn decode<R: Reader<'a>>(decoder: &mut R) -> der::Result<Self> {
+        let ephemeris_id: NaifId = decoder.decode()?;
+        let orientation_id: NaifId = decoder.decode()?;
+
+        let data_flags: u8 = decoder.decode()?;
+
+        let mu_km3_s2 = if data_flags & (1 << 0) != 0 {
+            Some(decoder.decode()?)
+        } else {
+            None
+        };
+
+        let shape = if data_flags & (1 << 1) != 0 {
+            Some(decoder.decode()?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            ephemeris_id,
+            orientation_id,
+            mu_km3_s2,
+            shape,
+        })
     }
 }
 

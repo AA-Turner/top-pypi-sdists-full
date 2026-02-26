@@ -19,6 +19,7 @@ from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
 from src import NodeApp
+from src import enums
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
@@ -221,9 +222,9 @@ class TestTestgresCommon:
                 node.start()
 
             assert x is not None
-            assert type(x.value) == StartNodeException  # noqa: E721
-            assert type(x.value.description) == str  # noqa: E721
-            assert type(x.value.message) == str  # noqa: E721
+            assert type(x.value) is StartNodeException
+            assert type(x.value.description) is str
+            assert type(x.value.message) is str
 
             assert x.value.description == "Cannot start node"
             assert x.value.message.startswith(x.value.description)
@@ -300,9 +301,9 @@ class TestTestgresCommon:
                 node.start2()
 
             assert x is not None
-            assert type(x.value) == StartNodeException  # noqa: E721
-            assert type(x.value.description) == str  # noqa: E721
-            assert type(x.value.message) == str  # noqa: E721
+            assert type(x.value) is StartNodeException
+            assert type(x.value.description) is str
+            assert type(x.value.message) is str
 
             assert x.value.description == "Cannot start node"
             assert x.value.message.startswith(x.value.description)
@@ -597,15 +598,15 @@ class TestTestgresCommon:
             node.slow_start()
             assert node.is_started
             node_pid = node.pid
-            assert type(node_pid) == int  # noqa: E721
+            assert type(node_pid) is int
             aux_pids = node.auxiliary_pids
-            assert type(aux_pids) == dict  # noqa: E721
+            assert type(aux_pids) is dict
             assert ProcessType.BackgroundWriter in aux_pids
             bw_pids = aux_pids[ProcessType.BackgroundWriter]
-            assert type(bw_pids) == list  # noqa: E721
+            assert type(bw_pids) is list
             assert len(bw_pids) == 1
             bw_pid = bw_pids[0]
-            assert type(bw_pid) == int  # noqa: E721
+            assert type(bw_pid) is int
             node.kill(ProcessType.BackgroundWriter)
             assert node.is_started
 
@@ -698,13 +699,13 @@ class TestTestgresCommon:
 
                 children = node.child_processes
                 assert children is not None
-                assert type(children) == list  # noqa: E721
+                assert type(children) is list
 
                 logging.info("Children count is {}".format(len(children)))
                 logging.info("")
 
                 def LOCAL__safe_call_cmdline(p: ProcessProxy) -> str:
-                    assert type(p) == ProcessProxy  # noqa: E721
+                    assert type(p) is ProcessProxy
                     try:
                         return p.cmdline()
                     except Exception as e:
@@ -719,7 +720,7 @@ class TestTestgresCommon:
 
                     try:
                         assert child is not None
-                        assert type(child) == ProcessProxy  # noqa: E721
+                        assert type(child) is ProcessProxy
                         assert hasattr(child, "process")
                         assert hasattr(child, "ptype")
                         assert hasattr(child, "pid")
@@ -727,9 +728,9 @@ class TestTestgresCommon:
                         assert child.process is not None
                         assert child.ptype is not None
                         assert child.pid is not None
-                        assert type(child.ptype) == ProcessType  # noqa: E721
-                        assert type(child.pid) == int  # noqa: E721
-                        assert type(child.cmdline) == types.MethodType  # noqa: E721
+                        assert type(child.ptype) is ProcessType
+                        assert type(child.pid) is int
+                        assert type(child.cmdline) is types.MethodType
 
                         logging.info("ptype is {}".format(child.ptype))
                         logging.info("pid is {}".format(child.pid))
@@ -781,31 +782,32 @@ class TestTestgresCommon:
         ) -> typing.List[ProcessType]:
             # returns list of the absence processes
             assert node is not None
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             assert expectedTypes is not None
-            assert type(expectedTypes) == list  # noqa: E721
+            assert type(expectedTypes) is list
 
             pids = node.auxiliary_pids
-            assert pids is not None  # noqa: E721
-            assert type(pids) == dict  # noqa: E721
+            assert pids is not None
+            assert type(pids) is dict
 
             result: typing.List[ProcessType] = list()
             for ptype in expectedTypes:
-                if not (ptype in pids):
+                if ptype not in pids:
                     result.append(ptype)
             return result
 
         def LOCAL__check_auxiliary_pids__multiple_attempts(
                 node: PostgresNode,
-                expectedTypes: typing.List[ProcessType]):
+                expectedTypes: typing.List[ProcessType],
+        ):
             assert node is not None
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             assert expectedTypes is not None
-            assert type(expectedTypes) == list  # noqa: E721
+            assert type(expectedTypes) is list
 
             nAttempt = 0
 
-            while nAttempt < 5:
+            while True:
                 nAttempt += 1
 
                 logging.info("Test pids of [{0}] node. Attempt #{1}.".format(
@@ -818,18 +820,20 @@ class TestTestgresCommon:
 
                 absenceList = LOCAL__test_auxiliary_pids(node, expectedTypes)
                 assert absenceList is not None
-                assert type(absenceList) == list  # noqa: E721
+                assert type(absenceList) is list
                 if len(absenceList) == 0:
                     logging.info("Bingo!")
-                    return
+                    break
+
+                if nAttempt == 5:
+                    raise Exception("Node {0} does not have the following processes: {1}.".format(
+                        node.name,
+                        absenceList,
+                    ))
 
                 logging.info("These processes are not found: {0}.".format(absenceList))
                 continue
-
-            raise Exception("Node {0} does not have the following processes: {1}.".format(
-                node.name,
-                absenceList
-            ))
+            return
 
         with __class__.helper__get_node(node_svc).init().start() as master:
 
@@ -841,7 +845,7 @@ class TestTestgresCommon:
                 assert (con.pid > 0)
 
             with master.replicate().start() as replica:
-                assert type(replica) == PostgresNode  # noqa: E721
+                assert type(replica) is PostgresNode
 
                 # test __str__ method
                 str(master.child_processes[0])
@@ -1057,12 +1061,12 @@ class TestTestgresCommon:
                                 lines = log.readlines()
 
                             assert lines is not None
-                            assert type(lines) == list  # noqa: E721
+                            assert type(lines) is list
 
                             def LOCAL__test_lines(lines: typing.Iterable[str]) -> bool:
                                 assert isinstance(lines, typing.Iterable)
                                 for s in lines:
-                                    assert type(s) == str  # noqa: E721
+                                    assert type(s) is str
                                     if C_NODE_NAME in s:
                                         logging.info("OK. We found the node_name in a line \"{0}\"".format(s))
                                         return True
@@ -1088,8 +1092,8 @@ class TestTestgresCommon:
                     assert logging.Logger.manager is not None
                     assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
                     logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
-                    assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
-                    assert not (handler in logging._handlers.values())
+                    assert C_NODE_NAME not in logging.Logger.manager.loggerDict.keys()
+                    assert handler not in logging._handlers.values()
         # GO HOME!
         return
 
@@ -1228,7 +1232,7 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
         with __class__.helper__get_node(node_svc).init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
-            assert (type(err) == str)  # noqa: E721
+            assert (type(err) is str)
             assert ('select_or_not_select' in err)
             assert ('ERROR:  syntax error at or near "select_or_not_select"' in err)
 
@@ -1365,7 +1369,7 @@ class TestTestgresCommon:
                 time.sleep(3)
 
             port = node_svc.port_manager.reserve_port()
-            assert type(port) == int  # noqa: E721
+            assert type(port) is int
             ok = False
             try:
                 with __class__.helper__get_node(node_svc, port=port) as node:
@@ -1388,7 +1392,7 @@ class TestTestgresCommon:
         self,
         node_svc: PostgresNodeService,
         node: PostgresNode
-    ) -> None:
+    ) -> bool:
         assert isinstance(node_svc, PostgresNodeService)
         assert isinstance(node, PostgresNode)
         assert node.status() == NodeStatus.Uninitialized
@@ -1693,25 +1697,36 @@ class TestTestgresCommon:
                 res = replica.safe_psql('select * from abc')
                 assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
 
-    def test_dump(self, node_svc: PostgresNodeService):
+    @pytest.fixture(
+        params=[
+            enums.DumpFormat.Plain,
+            enums.DumpFormat.Custom,
+            enums.DumpFormat.Directory,
+            enums.DumpFormat.Tar
+        ]
+    )
+    def dump_fmt(self, request: pytest.FixtureRequest) -> enums.DumpFormat:
+        assert type(request.param) is enums.DumpFormat
+        return request.param
+
+    def test_dump(self, node_svc: PostgresNodeService, dump_fmt: enums.DumpFormat):
         assert isinstance(node_svc, PostgresNodeService)
+        assert type(dump_fmt) is enums.DumpFormat
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
         with __class__.helper__get_node(node_svc).init().start() as node1:
-
             node1.execute(query_create)
-            for format in ['plain', 'custom', 'directory', 'tar']:
-                with removing(node_svc.os_ops, node1.dump(format=format)) as dump:
-                    with __class__.helper__get_node(node_svc).init().start() as node3:
-                        if format == 'directory':
-                            assert (os.path.isdir(dump))
-                        else:
-                            assert (os.path.isfile(dump))
-                        # restore dump
-                        node3.restore(filename=dump)
-                        res = node3.execute(query_select)
-                        assert (res == [(1, ), (2, )])
+            with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
+                with __class__.helper__get_node(node_svc).init().start() as node3:
+                    if dump_fmt == enums.DumpFormat.Directory:
+                        assert (os.path.isdir(dump))
+                    else:
+                        assert (os.path.isfile(dump))
+                    # restore dump
+                    node3.restore(filename=dump)
+                    res = node3.execute(query_select)
+                    assert (res == [(1, ), (2, )])
 
     def test_dump_with_options(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1771,7 +1786,7 @@ class TestTestgresCommon:
             assert (res_psql == b'1\n')
 
             with node.replicate() as r:
-                assert type(r) == PostgresNode  # noqa: E721
+                assert type(r) is PostgresNode
                 r.start()
                 res_exec = r.execute('select 1')
                 assert (res_exec == [(1,)])
@@ -1784,13 +1799,13 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             node.init().start()
             assert (node._should_free_port)
-            assert (type(node.port) == int)  # noqa: E721
+            assert (type(node.port) is int)
             node_port_copy = node.port
             r = node.safe_psql("SELECT 1;")
             assert (__class__.helper__rm_carriage_returns(r) == b'1\n')
 
             with __class__.helper__get_node(node_svc, port=node.port) as node2:
-                assert (type(node2.port) == int)  # noqa: E721
+                assert (type(node2.port) is int)
                 assert (node2.port == node.port)
                 assert (not node2._should_free_port)
                 assert (node2.status() == NodeStatus.Uninitialized)
@@ -1822,8 +1837,8 @@ class TestTestgresCommon:
 
         def __init__(self, prevPortManager: PortManager, dummyPortNumber: int, dummyPortMaxUsage: int):
             assert isinstance(prevPortManager, PortManager)
-            assert type(dummyPortNumber) == int  # noqa: E721
-            assert type(dummyPortMaxUsage) == int  # noqa: E721
+            assert type(dummyPortNumber) is int
+            assert type(dummyPortMaxUsage) is int
             assert dummyPortNumber >= 0
             assert dummyPortMaxUsage >= 0
 
@@ -1846,9 +1861,9 @@ class TestTestgresCommon:
             assert self.m_PrevPortManager is not None
 
         def reserve_port(self) -> int:
-            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
-            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
-            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortMaxUsage) is int
+            assert type(self.m_DummyPortTotalUsage) is int
+            assert type(self.m_DummyPortCurrentUsage) is int
             assert self.m_DummyPortTotalUsage >= 0
             assert self.m_DummyPortCurrentUsage >= 0
 
@@ -1865,12 +1880,12 @@ class TestTestgresCommon:
             self.m_DummyPortCurrentUsage += 1
             return self.m_DummyPortNumber
 
-        def release_port(self, dummyPortNumber: int):
-            assert type(dummyPortNumber) == int  # noqa: E721
+        def release_port(self, number: int) -> None:
+            assert type(number) is int
 
-            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
-            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
-            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortMaxUsage) is int
+            assert type(self.m_DummyPortTotalUsage) is int
+            assert type(self.m_DummyPortCurrentUsage) is int
             assert self.m_DummyPortTotalUsage >= 0
             assert self.m_DummyPortCurrentUsage >= 0
 
@@ -1880,15 +1895,15 @@ class TestTestgresCommon:
             assert self.m_PrevPortManager is not None
             assert isinstance(self.m_PrevPortManager, PortManager)
 
-            if self.m_DummyPortCurrentUsage > 0 and dummyPortNumber == self.m_DummyPortNumber:
+            if self.m_DummyPortCurrentUsage > 0 and number == self.m_DummyPortNumber:
                 assert self.m_DummyPortTotalUsage > 0
                 self.m_DummyPortCurrentUsage -= 1
                 return
 
-            return self.m_PrevPortManager.release_port(dummyPortNumber)
+            return self.m_PrevPortManager.release_port(number)
 
     def test_port_rereserve_during_node_start(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
         assert PostgresNode._C_MAX_START_ATEMPTS == 5
 
         C_COUNT_OF_BAD_PORT_USAGE = 3
@@ -1896,7 +1911,7 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node1:
             node1.init().start()
             assert node1._should_free_port
-            assert type(node1.port) == int  # noqa: E721
+            assert type(node1.port) is int
             node1_port_copy = node1.port
             assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
 
@@ -1923,7 +1938,7 @@ class TestTestgresCommon:
             assert __class__.helper__rm_carriage_returns(r) == b'3\n'
 
     def test_port_conflict(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
         assert PostgresNode._C_MAX_START_ATEMPTS > 1
 
         C_COUNT_OF_BAD_PORT_USAGE = PostgresNode._C_MAX_START_ATEMPTS
@@ -1931,7 +1946,7 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node1:
             node1.init().start()
             assert node1._should_free_port
-            assert type(node1.port) == int  # noqa: E721
+            assert type(node1.port) is int
             node1_port_copy = node1.port
             assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
 
@@ -1967,22 +1982,22 @@ class TestTestgresCommon:
             assert __class__.helper__rm_carriage_returns(r) == b'3\n'
 
     def test_try_to_get_port_after_free_manual_port(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         with __class__.helper__get_node(node_svc) as node1:
             assert node1 is not None
-            assert type(node1) == PostgresNode  # noqa: E721
+            assert type(node1) is PostgresNode
             assert node1.port is not None
-            assert type(node1.port) == int  # noqa: E721
+            assert type(node1.port) is int
             with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
                 assert node2 is not None
-                assert type(node1) == PostgresNode  # noqa: E721
+                assert type(node1) is PostgresNode
                 assert node2 is not node1
                 assert node2.port is not None
-                assert type(node2.port) == int  # noqa: E721
+                assert type(node2.port) is int
                 assert node2.port == node1.port
 
                 logging.info("Release node2 port")
@@ -1997,22 +2012,22 @@ class TestTestgresCommon:
                     assert p is None
 
     def test_try_to_start_node_after_free_manual_port(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         with __class__.helper__get_node(node_svc) as node1:
             assert node1 is not None
-            assert type(node1) == PostgresNode  # noqa: E721
+            assert type(node1) is PostgresNode
             assert node1.port is not None
-            assert type(node1.port) == int  # noqa: E721
+            assert type(node1.port) is int
             with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
                 assert node2 is not None
-                assert type(node1) == PostgresNode  # noqa: E721
+                assert type(node1) is PostgresNode
                 assert node2 is not node1
                 assert node2.port is not None
-                assert type(node2.port) == int  # noqa: E721
+                assert type(node2.port) is int
                 assert node2.port == node1.port
 
                 logging.info("Release node2 port")
@@ -2026,7 +2041,7 @@ class TestTestgresCommon:
                     node2.start()
 
     def test_node__os_ops(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert node_svc.os_ops is not None
         assert isinstance(node_svc.os_ops, OsOperations)
@@ -2041,7 +2056,7 @@ class TestTestgresCommon:
             assert node.os_ops is node_svc.os_ops
 
     def test_node__port_manager(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
@@ -2056,14 +2071,14 @@ class TestTestgresCommon:
             assert node.port_manager is node_svc.port_manager
 
     def test_node__port_manager_and_explicit_port(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         port = node_svc.port_manager.reserve_port()
-        assert type(port) == int  # noqa: E721
+        assert type(port) is int
 
         try:
             with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops) as node:
@@ -2082,14 +2097,14 @@ class TestTestgresCommon:
             node_svc.port_manager.release_port(port)
 
     def test_node__no_port_manager(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         port = node_svc.port_manager.reserve_port()
-        assert type(port) == int  # noqa: E721
+        assert type(port) is int
 
         try:
             with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops, port_manager=None) as node:
@@ -2114,8 +2129,8 @@ class TestTestgresCommon:
             self,
             record_count: int,
         ):
-            assert type(record_count) == int  # noqa: E721
-            self.record_count = record_count  # noqa: E721
+            assert type(record_count) is int
+            self.record_count = record_count
             return
 
     sm_TableCheckSumTestDatas = [
@@ -2150,17 +2165,17 @@ class TestTestgresCommon:
         node_svc: PostgresNodeService,
         table_checksum_test_data: tagTableChecksumTestData,
     ):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
-        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
+        assert type(table_checksum_test_data) is __class__.tagTableChecksumTestData
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         with __class__.helper__get_node(node_svc) as node:
             assert node is not None
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
-            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert type(node.port) is int
+            assert type(table_checksum_test_data.record_count) is int
             assert table_checksum_test_data.record_count >= 0
 
             node.init()
@@ -2169,7 +2184,7 @@ class TestTestgresCommon:
             C_DB = "postgres"
 
             with node.connect(dbname=C_DB) as cn:
-                assert type(cn) == NodeConnection  # noqa: E721
+                assert type(cn) is NodeConnection
 
                 cn.execute("create table t (id integer, data varchar(32));")
                 cn.commit()
@@ -2190,7 +2205,7 @@ class TestTestgresCommon:
                         row = cursor.fetchone()
                         if row is None:
                             break
-                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert type(row) in [list, tuple]
                         assert len(row) == 1
                         record_count += 1
                         checksum1 += int(row[0])
@@ -2199,7 +2214,7 @@ class TestTestgresCommon:
                     assert record_count == table_checksum_test_data.record_count
 
                 checksum2 = node.table_checksum("t", C_DB)
-                assert type(checksum2) == int  # noqa: E721
+                assert type(checksum2) is int
 
                 assert checksum1 == checksum2
                 pass
@@ -2210,17 +2225,17 @@ class TestTestgresCommon:
         node_svc: PostgresNodeService,
         table_checksum_test_data: tagTableChecksumTestData,
     ):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
-        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
+        assert type(table_checksum_test_data) is __class__.tagTableChecksumTestData
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         with __class__.helper__get_node(node_svc) as node:
             assert node is not None
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
-            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert type(node.port) is int
+            assert type(table_checksum_test_data.record_count) is int
             assert table_checksum_test_data.record_count >= 0
 
             node.init()
@@ -2229,7 +2244,7 @@ class TestTestgresCommon:
             C_DB = "postgres"
 
             with node.connect(dbname=C_DB) as cn:
-                assert type(cn) == NodeConnection  # noqa: E721
+                assert type(cn) is NodeConnection
 
                 cn.execute("create table t (id integer, data varchar(32));")
                 cn.commit()
@@ -2250,7 +2265,7 @@ class TestTestgresCommon:
                         row = cursor.fetchone()
                         if row is None:
                             break
-                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert type(row) in [list, tuple]
                         assert len(row) == 1
                         record_count += 1
                         checksum1 += int(row[0])
@@ -2259,28 +2274,28 @@ class TestTestgresCommon:
                     assert record_count == table_checksum_test_data.record_count
 
                 actual_result = node.pgbench_table_checksums(C_DB, ["t"])
-                assert type(actual_result) == set  # noqa: E721
+                assert type(actual_result) is set
                 actual1 = actual_result.pop()
-                assert type(actual1) == tuple  # noqa: E721
+                assert type(actual1) is tuple
                 assert len(actual1) == 2
-                assert type(actual1[0]) == str  # noqa: E721
-                assert type(actual1[1]) == int  # noqa: E721
+                assert type(actual1[0]) is str
+                assert type(actual1[1]) is int
 
                 assert checksum1 == actual1[1]
                 pass
         return
 
     def test_node__pgbench_table_checksums__pbckp_2278(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
         with __class__.helper__get_node(node_svc) as node:
             assert node is not None
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
+            assert type(node.port) is int
 
             node.init()
             node.slow_start()
@@ -2304,7 +2319,7 @@ class TestTestgresCommon:
         node: PostgresNode
     ) -> bool:
         assert node is not None
-        assert type(node) == PostgresNode  # noqa: E721
+        assert type(node) is PostgresNode
         assert node.status() == NodeStatus.Running
 
         # We will check
@@ -2314,7 +2329,7 @@ class TestTestgresCommon:
         logging.info("run pgbench_table_checksums")
         full_checksums = node.pgbench_table_checksums()
         assert full_checksums is not None
-        assert type(full_checksums) == set  # noqa: E721
+        assert type(full_checksums) is set
         assert len(full_checksums) == 4
 
         expectedTables: typing.Dict[str, bool] = {
@@ -2327,10 +2342,10 @@ class TestTestgresCommon:
         ok = True
 
         for tcs in full_checksums:
-            assert type(tcs) == tuple  # noqa: E721
+            assert type(tcs) is tuple
             assert len(tcs) == 2
-            assert type(tcs[0]) == str  # noqa: E721
-            assert type(tcs[1]) == int  # noqa: E721
+            assert type(tcs[0]) is str
+            assert type(tcs[1]) is int
 
             tableName = tcs[0]
             if tableName not in expectedTables:
@@ -2355,13 +2370,13 @@ from pg_locks x join pg_class c on x.relation=c.oid
 where c.relname=%s;"""
 
         cn = node.connect(dbname="postgres")
-        assert type(cn) == NodeConnection  # noqa: E721
+        assert type(cn) is NodeConnection
 
         try:
             for tcs in full_checksums:
                 tableName = tcs[0]
                 recs = cn.execute(C_SQL, tableName)
-                assert type(recs) == list  # noqa: E721
+                assert type(recs) is list
                 if len(recs) == 0:
                     logging.info("Table [{}] does not have a lock. It is ok.".format(
                         tableName,
@@ -2370,7 +2385,7 @@ where c.relname=%s;"""
                     ok = False
                     assert len(recs) == 1
                     rec = recs[0]
-                    assert type(rec) == tuple  # noqa: E721
+                    assert type(rec) is tuple
                     assert len(rec) == 2
                     logging.error("Table [{}] has a lock [granted: {}][mode: {}].".format(
                         tableName,
@@ -2413,7 +2428,7 @@ where c.relname=%s;"""
             raise Exception("Call of rmdirs is not expected!")
 
     def test_node_app__make_empty__base_dir_is_None(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
@@ -2421,7 +2436,7 @@ where c.relname=%s;"""
 
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
-        assert type(tmp_dir) == str  # noqa: E721
+        assert type(tmp_dir) is str
         logging.info("temp directory is [{}]".format(tmp_dir))
 
         # -----------
@@ -2436,10 +2451,10 @@ where c.relname=%s;"""
             with pytest.raises(expected_exception=BaseException) as x:
                 node_app.make_empty(base_dir=None)
 
-            if type(x.value) == AssertionError:  # noqa: E721
+            if type(x.value) is AssertionError:
                 pass
             else:
-                assert type(x.value) == ValueError  # noqa: E721
+                assert type(x.value) is ValueError
                 assert str(x.value) == "Argument 'base_dir' is not defined."
 
         # -----------
@@ -2447,7 +2462,7 @@ where c.relname=%s;"""
         node_svc.os_ops.rmdir(tmp_dir)
 
     def test_node_app__make_empty__base_dir_is_Empty(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
@@ -2455,7 +2470,7 @@ where c.relname=%s;"""
 
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
-        assert type(tmp_dir) == str  # noqa: E721
+        assert type(tmp_dir) is str
         logging.info("temp directory is [{}]".format(tmp_dir))
 
         # -----------
@@ -2477,7 +2492,7 @@ where c.relname=%s;"""
         node_svc.os_ops.rmdir(tmp_dir)
 
     def test_node_app__make_empty(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
@@ -2485,7 +2500,7 @@ where c.relname=%s;"""
 
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
-        assert type(tmp_dir) == str  # noqa: E721
+        assert type(tmp_dir) is str
         logging.info("temp directory is [{}]".format(tmp_dir))
 
         # -----------
@@ -2497,10 +2512,10 @@ where c.relname=%s;"""
 
         assert node_app.os_ops is node_svc.os_ops
         assert node_app.port_manager is node_svc.port_manager
-        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
 
-        node: PostgresNode = None
+        node: typing.Optional[PostgresNode] = None
         try:
             node = node_app.make_simple("node")
             assert node is not None
@@ -2508,7 +2523,7 @@ where c.relname=%s;"""
             assert node.os_ops is node_svc.os_ops
             assert node.port_manager is node_svc.port_manager
 
-            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert type(node_app.nodes_to_cleanup) is list
             assert len(node_app.nodes_to_cleanup) == 1
             assert node_app.nodes_to_cleanup[0] is node
 
@@ -2518,14 +2533,15 @@ where c.relname=%s;"""
                 node.stop()
                 node.release_resources()
 
-        node.cleanup(release_resources=True)
+        if node is not None:
+            node.cleanup(release_resources=True)
 
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
         node_svc.os_ops.rmdir(tmp_dir)
 
     def test_node_app__make_simple__checksum(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
@@ -2533,7 +2549,7 @@ where c.relname=%s;"""
 
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
-        assert type(tmp_dir) == str  # noqa: E721
+        assert type(tmp_dir) is str
 
         logging.info("temp directory is [{}]".format(tmp_dir))
         node_app = NodeApp(test_path=tmp_dir, os_ops=node_svc.os_ops)
@@ -2578,7 +2594,7 @@ where c.relname=%s;"""
         node_svc.os_ops.rmdir(tmp_dir)
 
     def test_node_app__make_empty_with_explicit_port(self, node_svc: PostgresNodeService):
-        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(node_svc) is PostgresNodeService
 
         assert isinstance(node_svc.os_ops, OsOperations)
         assert node_svc.port_manager is not None
@@ -2588,7 +2604,7 @@ where c.relname=%s;"""
 
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
-        assert type(tmp_dir) == str  # noqa: E721
+        assert type(tmp_dir) is str
         logging.info("temp directory is [{}]".format(tmp_dir))
 
         # -----------
@@ -2600,7 +2616,7 @@ where c.relname=%s;"""
 
         assert node_app.os_ops is node_svc.os_ops
         assert node_app.port_manager is node_svc.port_manager
-        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
 
         attempt = 0
@@ -2617,7 +2633,7 @@ where c.relname=%s;"""
                 ))
 
                 port = node_app.port_manager.reserve_port()
-                assert type(port) == int  # noqa: E721
+                assert type(port) is int
                 assert port is not ports
 
                 try:
@@ -2638,7 +2654,7 @@ where c.relname=%s;"""
                 assert node.port == port
                 assert node._should_free_port == False  # noqa: E712
 
-                assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+                assert type(node_app.nodes_to_cleanup) is list
                 assert len(node_app.nodes_to_cleanup) == attempt
                 assert node_app.nodes_to_cleanup[-1] is node
 
@@ -2703,22 +2719,22 @@ where c.relname=%s;"""
 
     @staticmethod
     def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2: str):
-        assert type(ver1) == str  # noqa: E721
-        assert type(ver2) == str  # noqa: E721
+        assert type(ver1) is str
+        assert type(ver2) is str
         if not __class__.helper__pg_version_ge(ver1, ver2):
             pytest.skip('requires {0}+'.format(ver2))
 
     @staticmethod
     def helper__skip_test_if_pg_version_is_ge(ver1: str, ver2: str):
-        assert type(ver1) == str  # noqa: E721
-        assert type(ver2) == str  # noqa: E721
+        assert type(ver1) is str
+        assert type(ver2) is str
         if __class__.helper__pg_version_ge(ver1, ver2):
             pytest.skip('requires <{0}'.format(ver2))
 
     @staticmethod
     def helper__pg_version_ge(ver1: str, ver2: str) -> bool:
-        assert type(ver1) == str  # noqa: E721
-        assert type(ver2) == str  # noqa: E721
+        assert type(ver1) is str
+        assert type(ver2) is str
         v1 = PgVer(ver1)
         v2 = PgVer(ver2)
         return v1 >= v2
@@ -2738,13 +2754,13 @@ where c.relname=%s;"""
         if isinstance(out, bytes):
             return out.replace(b'\r', b'')
 
-        assert type(out) == str  # noqa: E721
+        assert type(out) is str
         return out.replace('\r', '')
 
     @staticmethod
     def helper__skip_test_if_util_not_exist(os_ops: OsOperations, name: str):
         assert isinstance(os_ops, OsOperations)
-        assert type(name) == str  # noqa: E721
+        assert type(name) is str
         if not __class__.helper__util_exists(os_ops, name):
             pytest.skip('might be missing')
 

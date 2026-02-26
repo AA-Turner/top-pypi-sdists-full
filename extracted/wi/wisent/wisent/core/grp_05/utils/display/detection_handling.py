@@ -10,7 +10,7 @@ from typing import Optional, Callable, Dict, Any
 import logging
 
 from wisent.core.errors import UnknownTypeError
-from wisent.core.constants import MAX_REGENERATION_ATTEMPTS
+from wisent.core.constants import MAX_REGENERATION_ATTEMPTS, DISPLAY_TRUNCATION_COMPACT
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class DetectionHandler:
         if self.log_detections:
             logger.warning(
                 f"Detected {detection_type} with confidence {confidence_score:.3f} "
-                f"in response: {original_response[:100]}..."
+                f"in response: {original_response[:DISPLAY_TRUNCATION_COMPACT]}..."
             )
         
         if self.action == DetectionAction.PASS_THROUGH:

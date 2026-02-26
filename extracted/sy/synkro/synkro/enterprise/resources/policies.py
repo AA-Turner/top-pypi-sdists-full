@@ -96,7 +96,6 @@ class Policies:
         *,
         text: str,
         name: str | None = None,
-        score_threshold: float | None = None,
         model: str | None = None,
     ) -> PolicyCreateResult:
         """POST /api/projects/{project_id}/policies
@@ -108,8 +107,6 @@ class Policies:
         body: dict = {"policy_text": text}
         if name is not None:
             body["name"] = name
-        if score_threshold is not None:
-            body["score_threshold"] = score_threshold
         if model is not None:
             body["model"] = model
         data = self._http.post(f"/api/projects/{project_id}/policies", json=body)
@@ -129,7 +126,6 @@ class Policies:
         name: str | None = None,
         text: str | None = None,
         rule_updates: list[dict] | None = None,
-        score_threshold: float | None = None,
         is_active: bool | None = None,
     ) -> None:
         """PATCH /api/projects/{project_id}/policies"""
@@ -140,8 +136,6 @@ class Policies:
             body["policy_text"] = text
         if rule_updates is not None:
             body["rule_updates"] = rule_updates
-        if score_threshold is not None:
-            body["score_threshold"] = score_threshold
         if is_active is not None:
             body["is_active"] = is_active
         self._http.patch(f"/api/projects/{project_id}/policies", json=body)
@@ -168,7 +162,6 @@ class AsyncPolicies:
         *,
         text: str,
         name: str | None = None,
-        score_threshold: float | None = None,
         model: str | None = None,
     ) -> PolicyCreateResult:
         """POST /api/projects/{project_id}/policies
@@ -180,8 +173,6 @@ class AsyncPolicies:
         body: dict = {"policy_text": text}
         if name is not None:
             body["name"] = name
-        if score_threshold is not None:
-            body["score_threshold"] = score_threshold
         if model is not None:
             body["model"] = model
         data = await self._http.post(f"/api/projects/{project_id}/policies", json=body)
@@ -201,7 +192,6 @@ class AsyncPolicies:
         name: str | None = None,
         text: str | None = None,
         rule_updates: list[dict] | None = None,
-        score_threshold: float | None = None,
         is_active: bool | None = None,
     ) -> None:
         """PATCH /api/projects/{project_id}/policies"""
@@ -212,8 +202,6 @@ class AsyncPolicies:
             body["policy_text"] = text
         if rule_updates is not None:
             body["rule_updates"] = rule_updates
-        if score_threshold is not None:
-            body["score_threshold"] = score_threshold
         if is_active is not None:
             body["is_active"] = is_active
         await self._http.patch(f"/api/projects/{project_id}/policies", json=body)

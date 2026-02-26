@@ -9,12 +9,12 @@ import sys
 import re
 from typing import Dict, Any, List, Optional
 
-from wisent.core.constants import (DEFAULT_LAYER, TAG_ANALYSIS_MAX_NEW_TOKENS,
-    TAG_GEN_MAX_NEW_TOKENS, TAG_GEN_TEMPERATURE)
+from wisent.core.constants import (DEFAULT_LAYER, DISPLAY_TOP_N_TINY, LLAMA_PAD_TOKEN_ID,
+    MAX_BENCHMARKS_SINGLE)
 from wisent.core.utils import preferred_dtype, resolve_default_device, resolve_device
 
 
-def get_relevant_benchmarks_for_prompt(prompt: str, max_benchmarks: int = 1,
+def get_relevant_benchmarks_for_prompt(prompt: str, max_benchmarks: int = MAX_BENCHMARKS_SINGLE,
                                         existing_model=None) -> List[Dict[str, Any]]:
     """
     Use Llama-3.1B-Instruct to determine the most relevant benchmarks
@@ -57,10 +57,8 @@ def get_relevant_benchmarks_for_prompt(prompt: str, max_benchmarks: int = 1,
             torch_dtype=torch_dtype,
             device_map=device_map,
             device=pipeline_device,
-            max_new_tokens=TAG_GEN_MAX_NEW_TOKENS,
-            temperature=TAG_GEN_TEMPERATURE,
             do_sample=True,
-            pad_token_id=50256
+            pad_token_id=LLAMA_PAD_TOKEN_ID
         )
         print(f"   Successfully loaded Llama-3.1-8B-Instruct pipeline")
         benchmark_list = "\n".join([
@@ -97,11 +95,11 @@ Top {max_benchmarks} most relevant benchmarks:"""
         print("   Analyzing with Llama...")
         if existing_model is not None:
             response, _ = existing_model.generate(
-                formatted_prompt, layer_index=DEFAULT_LAYER, max_new_tokens=TAG_ANALYSIS_MAX_NEW_TOKENS)
+                formatted_prompt, layer_index=DEFAULT_LAYER)
             generated_text = response.strip()
         else:
             response = generator(
-                formatted_prompt, max_new_tokens=TAG_ANALYSIS_MAX_NEW_TOKENS, temperature=TAG_GEN_TEMPERATURE)
+                formatted_prompt)
             full_response = response[0]['generated_text']
             generated_text = full_response.split(
                 "<|start_header_id|>assistant<|end_header_id|>"
@@ -165,7 +163,7 @@ def _parse_benchmark_response(generated_text, available_benchmarks,
     lines = generated_text.split('\n')
     for line in lines:
         line = line.strip()
-        if not line or not any(char.isdigit() for char in line[:3]):
+        if not line or not any(char.isdigit() for char in line[:DISPLAY_TOP_N_TINY]):
             continue
         if ':' in line:
             parts = line.split(':', 1)

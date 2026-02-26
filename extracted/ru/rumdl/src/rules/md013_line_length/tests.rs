@@ -3712,3 +3712,318 @@ Regular paragraph after the alert block.
         assert!(!result.contains("[!"), "No alert markers should appear in result");
     }
 }
+
+/// Tests for link reference definition and standalone link exemptions in the reflow path.
+/// The reflow path for list items must exempt link reference definitions and standalone
+/// link lines from line-length warnings and preserve them verbatim during reflow output.
+mod reflow_link_exemption_tests {
+    use super::*;
+
+    /// Helper: create a rule with reflow=true and ReflowMode::Default
+    fn make_rule_reflow_default(line_length: usize) -> MD013LineLength {
+        let config = MD013Config {
+            line_length: crate::types::LineLength::from_const(line_length),
+            reflow: true,
+            reflow_mode: ReflowMode::Default,
+            ..Default::default()
+        };
+        MD013LineLength::from_config_struct(config)
+    }
+
+    /// Helper: create a rule with reflow=true and ReflowMode::Default and strict=true
+    fn make_rule_reflow_default_strict(line_length: usize) -> MD013LineLength {
+        let config = MD013Config {
+            line_length: crate::types::LineLength::from_const(line_length),
+            reflow: true,
+            reflow_mode: ReflowMode::Default,
+            strict: true,
+            ..Default::default()
+        };
+        MD013LineLength::from_config_struct(config)
+    }
+
+    #[test]
+    fn test_multi_paragraph_list_item_with_link_ref_definition() {
+        // A list item with a short text paragraph and a link reference definition.
+        // The link ref definition is 81 chars (with 4-space indent) but should be exempt.
+        let content = "\
+- This is short text.
+
+    [very-long-reference-id]: https://example.com/very/long/path/to/some/resource/page
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Link reference definition in list item should be exempt; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_multi_paragraph_list_item_with_standalone_link() {
+        // A list item with a short text paragraph and a standalone inline link.
+        // The standalone link line is long but should be exempt.
+        let content = "\
+- This is short text.
+
+    [A very long title for a resource article](https://example.com/very/long/path/to/some/resource)
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Standalone link in list item should be exempt; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_list_item_with_actual_long_text_still_warns() {
+        // A list item where the actual text exceeds the limit should still warn.
+        let content = "\
+- This is a very long paragraph line that definitely exceeds the eighty character limit for this test case right here.
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "Long text in list item should still trigger a warning"
+        );
+        // The warning message should report the actual line length, not some combined length
+        let msg = &result[0].message;
+        assert!(
+            msg.contains("exceeds 80 characters"),
+            "Warning should mention the 80 char limit; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_multi_paragraph_list_item_long_text_and_link_ref() {
+        // A list item with BOTH a long text line AND a link reference definition.
+        // Should warn about the long text, not the link ref.
+        let content = "\
+- This is a very long paragraph line that definitely exceeds the eighty character limit for this test case and more.
+
+    [ref]: https://example.com/very/long/path/to/some/resource/page/that/is/also/very/long
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "Long text line should trigger a warning even with exempt link ref"
+        );
+        // The message should report the length of the actual long text line,
+        // not the combined length of text + link ref.
+        let msg = &result[0].message;
+        // The first line is ~113 chars ("- This is a very long...")
+        // It should NOT report the combined length (~200+) of all content joined
+        let reported_length: usize = msg.split_whitespace().find_map(|w| w.parse().ok()).unwrap_or(0);
+        assert!(
+            reported_length < 150,
+            "Warning should report actual line length (~113), not combined content; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_single_paragraph_list_item_with_long_link_ref() {
+        // A list item where the content is a link reference definition.
+        // The is_exempt_line helper strips the list marker and detects the link ref def.
+        let content = "\
+- [very-long-reference-identifier]: https://example.com/very/long/path/to/some/resource/page
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "List item with link ref definition content should be exempt; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_link_ref_outside_list_item_exempt() {
+        // Regression test: link reference definitions outside list items should remain exempt.
+        let content = "\
+[very-long-reference-identifier]: https://example.com/very/long/path/to/some/resource/page
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Link ref definition outside list should be exempt; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_standalone_link_exempt_not_in_strict_mode() {
+        // In strict mode, standalone links are NOT exempt.
+        let content = "\
+- This is short text.
+
+    [A very long title for a resource article](https://example.com/very/long/path/to/some/resource)
+";
+        let rule = make_rule_reflow_default_strict(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "Standalone link in strict mode should NOT be exempt"
+        );
+    }
+
+    #[test]
+    fn test_link_ref_exempt_even_in_strict_mode() {
+        // Link reference definitions are always exempt, even in strict mode.
+        let content = "\
+- This is short text.
+
+    [very-long-reference-id]: https://example.com/very/long/path/to/some/resource/page
+";
+        let rule = make_rule_reflow_default_strict(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Link ref definition should be exempt even in strict mode; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_reflow_default_message_reports_actual_line_length() {
+        // Verify the warning message reports the actual longest line, not combined content.
+        let content = "\
+- First paragraph with some reasonably long text that goes over eighty characters for testing purposes.
+
+    Second paragraph that is also quite long and exceeds the limit by a fair amount for this test.
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(!result.is_empty(), "Should have a warning for long lines");
+        let msg = &result[0].message;
+        let reported_length: usize = msg.split_whitespace().find_map(|w| w.parse().ok()).unwrap_or(0);
+        // The first line is ~102 chars, combined would be ~200+.
+        // The message should report the individual max, not the combined.
+        assert!(
+            reported_length < 150,
+            "Message should report individual line length, not combined; got: {msg}"
+        );
+    }
+
+    /// Helper: create a rule with reflow=true and ReflowMode::Normalize
+    fn make_rule_reflow_normalize(line_length: usize) -> MD013LineLength {
+        let config = MD013Config {
+            line_length: crate::types::LineLength::from_const(line_length),
+            reflow: true,
+            reflow_mode: ReflowMode::Normalize,
+            ..Default::default()
+        };
+        MD013LineLength::from_config_struct(config)
+    }
+
+    #[test]
+    fn test_normalize_mode_list_item_with_link_ref_def_no_warning() {
+        // In Normalize mode, a list item with one text paragraph and one link ref def
+        // paragraph should NOT trigger normalization. The link ref def paragraph should
+        // not count toward the paragraph_count that triggers should_normalize().
+        let content = "\
+- This is short text.
+
+    [very-long-reference-id]: https://example.com/very/long/path/to/some/resource/page
+";
+        let rule = make_rule_reflow_normalize(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Normalize mode should not trigger for list item with only one text paragraph and a link ref def; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_normalize_mode_list_item_with_standalone_link_no_warning() {
+        // In Normalize mode, a list item with one text paragraph and a standalone link
+        // paragraph should NOT trigger normalization.
+        let content = "\
+- This is short text.
+
+    [A very long title for a resource](https://example.com/very/long/path/to/some/resource)
+";
+        let rule = make_rule_reflow_normalize(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Normalize mode should not trigger for standalone link paragraph; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_normalize_mode_list_item_with_actual_multiple_paragraphs_warns() {
+        // In Normalize mode, a list item with two actual text paragraphs should still
+        // trigger normalization.
+        let content = "\
+- First paragraph text.
+
+    Second paragraph text.
+";
+        let rule = make_rule_reflow_normalize(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            !result.is_empty(),
+            "Normalize mode should trigger for list item with two actual text paragraphs"
+        );
+    }
+
+    #[test]
+    fn test_reflow_output_preserves_link_ref_def_when_long_text_triggers() {
+        // When a list item has long text AND a link ref def, the reflow should fix the
+        // long text but preserve the link ref def verbatim.
+        let content = "\
+- This is a very long paragraph line that definitely exceeds the eighty character limit for this test case and more words.
+
+    [ref]: https://example.com/very/long/path/to/some/resource/page/that/is/also/very/long
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(!result.is_empty(), "Long text should trigger warning");
+        // Verify the fix preserves the link ref def intact
+        let fix = result[0].fix.as_ref().expect("Should have a fix");
+        let replacement = &fix.replacement;
+        assert!(
+            replacement
+                .contains("[ref]: https://example.com/very/long/path/to/some/resource/page/that/is/also/very/long"),
+            "Fix should preserve link ref def verbatim; got:\n{replacement}"
+        );
+    }
+
+    #[test]
+    fn test_reflow_output_preserves_standalone_link_when_long_text_triggers() {
+        // When a list item has long text AND a standalone link, the reflow should fix the
+        // long text but preserve the standalone link verbatim.
+        let content = "\
+- This is a very long paragraph line that definitely exceeds the eighty character limit for this test case and more words.
+
+    [A very long title for a resource article](https://example.com/very/long/path/to/some/resource)
+";
+        let rule = make_rule_reflow_default(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(!result.is_empty(), "Long text should trigger warning");
+        // Verify the fix preserves the standalone link intact
+        let fix = result[0].fix.as_ref().expect("Should have a fix");
+        let replacement = &fix.replacement;
+        assert!(
+            replacement.contains(
+                "[A very long title for a resource article](https://example.com/very/long/path/to/some/resource)"
+            ),
+            "Fix should preserve standalone link verbatim; got:\n{replacement}"
+        );
+    }
+}

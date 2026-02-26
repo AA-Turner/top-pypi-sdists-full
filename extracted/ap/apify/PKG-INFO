@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 3.2.1
+Version: 3.3.0
 Summary: Apify SDK for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://docs.apify.com/sdk/python/docs/changelog
 Project-URL: Discord, https://discord.com/invite/jyEM2PRvMU
-Project-URL: Documentation, https://docs.apify.com/sdk/python/docs/overview/introduction
+Project-URL: Documentation, https://docs.apify.com/sdk/python/docs/overview
 Project-URL: Homepage, https://docs.apify.com/sdk/python/
 Project-URL: Issue Tracker, https://github.com/apify/apify-sdk-python/issues
 Project-URL: Release Notes, https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2
@@ -239,7 +239,7 @@ Requires-Dist: typing-extensions>=4.1.0
 Requires-Dist: websockets>=14.0
 Requires-Dist: yarl>=1.18.0
 Provides-Extra: scrapy
-Requires-Dist: scrapy>=2.11.0; extra == 'scrapy'
+Requires-Dist: scrapy>=2.14.0; extra == 'scrapy'
 Description-Content-Type: text/markdown
 
 <h1 align=center>Apify SDK for Python</h1>
@@ -403,7 +403,7 @@ To create and run Actors through Apify Console,
 see the [Console documentation](https://docs.apify.com/academy/getting-started/creating-actors#choose-your-template).
 
 To create and run Python Actors locally, check the documentation for
-[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/overview/running-locally).
+[how to create and run Python Actors locally](https://docs.apify.com/sdk/python/docs/quick-start).
 
 ## Guides
 

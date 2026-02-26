@@ -90,6 +90,7 @@ class ScanHandler:
         partial_output: Optional[Path] = None,
         dump_scan_id_path: Optional[Path] = None,
         enable_mal_deps: bool = False,
+        use_scan_v2: bool = False,
     ) -> None:
         """
         When dry_run is True, semgrep ci would get the config from the app,
@@ -104,6 +105,7 @@ class ScanHandler:
         and enable or disable transitive reachability accordingly.
         :param enable_mal_deps: Override to enable malicious dependency
         rules for this scan, even if disabled at the deployment level.
+        :param use_scan_v2: Enable experimental v2 /scans endpoint with fallback to v1.
         """
         state = get_state()
         self.local_id = str(state.local_scan_id)
@@ -122,6 +124,7 @@ class ScanHandler:
         self.partial_output = partial_output
         self.dump_scan_id_path = dump_scan_id_path
         self.enable_transitive_reachability = enable_transitive_reachability
+        self.use_scan_v2 = use_scan_v2
 
     @property
     def scan_id(self) -> Optional[int]:
@@ -355,16 +358,173 @@ class ScanHandler:
             scan_info_to_attrs(self.scan_response.info)
         )
 
+    def _raise_if_request_failed(self, response: requests.Response) -> None:
+        """
+        Handle HTTP response errors from the backend.
+
+        :param response: The HTTP response to check
+        :raises SystemExit: On 401 (invalid API key)
+        :raises Exception: On 404 or other HTTP errors
+        """
+        state = get_state()
+
+        if response.status_code == 401:
+            logger.info(
+                "API token not valid. Try to run `semgrep logout` and `semgrep login` again. "
+                "Or in CI, ensure your SEMGREP_APP_TOKEN variable is set correctly.",
+            )
+            sys.exit(INVALID_API_KEY_EXIT_CODE)
+
+        if response.status_code == 404:
+            raise Exception(
+                "Failed to create a scan with given token and deployment_id. "
+                "Please make sure they have been set correctly. "
+                f"API server at {state.env.semgrep_url} returned this response: {response.text}"
+            )
+
+        try:
+            response.raise_for_status()
+        except requests.RequestException:
+            raise Exception(
+                f"API server at {state.env.semgrep_url} returned this error: {response.text}"
+            )
+
     @telemetry.trace()
     def start_scan(
         self, project_metadata: out.ProjectMetadata, project_config: ProjectConfig
     ) -> None:
         """
         Start a scan and get configuration from the server.
+
+        If use_scan_v2 is enabled, attempts v2 endpoint first with fallback to v1.
         """
-        # TODO: Switch to start_scan_v2 (async config generation) when it's ready
+        span = telemetry.get_current_span()
+
+        if self.use_scan_v2:
+            span.set_attribute("scan.v2.attempted", True)
+            try:
+                response = self.start_scan_v2(project_metadata, project_config)
+                span.set_attribute("scan.v2.succeeded", True)
+                self._handle_scan_response(response)
+                return
+            except Exception as e:
+                span.set_attribute("scan.v2.succeeded", False)
+                logger.info(f"V2 scan endpoint failed, falling back to v1: {e}")
+                # Fall through to v1
+        else:
+            span.set_attribute("scan.v2.attempted", False)
+
         response = self.start_scan_v1(project_metadata, project_config)
         self._handle_scan_response(response)
+
+    @telemetry.trace()
+    def start_scan_v2(
+        self, project_metadata: out.ProjectMetadata, project_config: ProjectConfig
+    ) -> out.ScanResponse:
+        """
+        Create a scan using the v2 endpoint with async config generation.
+
+        1. POST to /api/cli/v2/scans to create scan (returns scan info immediately)
+        2. Poll GET /api/cli/v2/scans/{scan_request_id}/config for up to 3 minutes
+        3. Construct and return ScanResponse from the combined responses
+
+        Note: scan_request_id is the client-generated unique_id, not the server's scan.id
+        """
+        state = get_state()
+        span = telemetry.get_current_span()
+
+        # scan_request_id is the client-generated unique ID
+        scan_request_id = self.scan_metadata.unique_id.value
+        span.set_attribute("scan.v2.scan_request_id", scan_request_id)
+
+        # Step 1: Build and send create scan request
+        request = out.CreateScanRequestV2(
+            scan_metadata=self.scan_metadata,
+            project_metadata=project_metadata,
+            project_config=project_config.to_CiConfigFromRepo(),
+        )
+
+        logger.debug(
+            f"Starting scan (v2) with request_id={scan_request_id}: {json.dumps(request.to_json(), indent=4)}"
+        )
+
+        create_response = state.app_session.post(
+            f"{state.env.semgrep_url}/api/cli/v2/scans",
+            json=request.to_json(),
+        )
+
+        self._raise_if_request_failed(create_response)
+
+        create_scan_response = out.CreateScanResponseV2.from_json(
+            create_response.json()
+        )
+        scan_info = create_scan_response.info
+
+        # Note: scan_info.id can be null for dry runs
+        if scan_info.id:
+            logger.debug(f"Scan created with ID: {scan_info.id}")
+            span.set_attribute("scan.v2.scan_id", scan_info.id)
+
+        # Step 2: Poll for config using scan_request_id (3 minute timeout)
+        timeout_minutes = 3
+        start_time = datetime.now().replace(tzinfo=None)
+        deadline = start_time + timedelta(minutes=timeout_minutes)
+        poll_attempt = 0
+        poll_interval_seconds = 5
+
+        while datetime.now().replace(tzinfo=None) < deadline:
+            poll_attempt += 1
+            span.set_attribute("scan.v2.poll_attempts", poll_attempt)
+
+            logger.debug(f"Polling for scan config")
+
+            config_response = state.app_session.get(
+                f"{state.env.semgrep_url}/api/cli/v2/scans/{scan_request_id}/config",
+                timeout=state.env.upload_findings_timeout,
+            )
+
+            self._raise_if_request_failed(config_response)
+
+            get_config_response = out.GetConfigResponseV2.from_json(
+                config_response.json()
+            )
+            status = get_config_response.status
+
+            if isinstance(status.value, out.Success):
+                # Config is ready
+                span.set_attribute("scan.v2.config_ready", True)
+
+                if (
+                    not get_config_response.config
+                    or not get_config_response.engine_params
+                ):
+                    raise Exception(
+                        f"Config status is Success but config or engine_params is missing"
+                    )
+
+                return out.ScanResponse(
+                    info=scan_info,
+                    config=get_config_response.config,
+                    engine_params=get_config_response.engine_params,
+                )
+
+            elif isinstance(status.value, out.Failure):
+                # Config generation failed
+                span.set_attribute("scan.v2.config_status", "failure")
+                raise Exception(
+                    f"Config generation failed for scan_request_id={scan_request_id}"
+                )
+
+            elif isinstance(status.value, out.Pending):
+                # Still pending - continue polling
+                span.set_attribute("scan.v2.config_status", "pending")
+
+            sleep(poll_interval_seconds)
+
+        # Timeout - config never became ready
+        raise Exception(
+            f"Config generation timed out after {timeout_minutes} minutes (scan_request_id={scan_request_id}, {poll_attempt} attempts)"
+        )
 
     @telemetry.trace()
     def start_scan_v1(
@@ -389,26 +549,7 @@ class ScanHandler:
             json=request,
         )
 
-        if response.status_code == 401:
-            logger.info(
-                "API token not valid. Try to run `semgrep logout` and `semgrep login` again. "
-                "Or in CI, ensure your SEMGREP_APP_TOKEN variable is set correctly.",
-            )
-            sys.exit(INVALID_API_KEY_EXIT_CODE)
-
-        if response.status_code == 404:
-            raise Exception(
-                "Failed to create a scan with given token and deployment_id."
-                "Please make sure they have been set correctly."
-                f"API server at {state.env.semgrep_url} returned this response: {response.text}"
-            )
-
-        try:
-            response.raise_for_status()
-        except requests.RequestException:
-            raise Exception(
-                f"API server at {state.env.semgrep_url} returned this error: {response.text}"
-            )
+        self._raise_if_request_failed(response)
 
         return out.ScanResponse.from_json(response.json())
 

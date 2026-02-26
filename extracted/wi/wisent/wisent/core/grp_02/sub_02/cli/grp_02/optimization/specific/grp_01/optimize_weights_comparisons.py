@@ -6,7 +6,7 @@ import re
 import torch
 from wisent.core.models.wisent_model import WisentModel
 from wisent.core.opti.methods.opti_weights import WeightsOptimizerConfig
-from wisent.core.constants import WEIGHT_MIN_DISTANCE_FRACTION, WEIGHT_COMPARISON_MAX_NEW_TOKENS
+from wisent.core.constants import JSON_INDENT, WEIGHT_MIN_DISTANCE_FRACTION, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_LONG
 
 
 def _apply_weight_modification_standalone(
@@ -116,7 +116,7 @@ def _show_response_comparisons(
         messages = [{"role": "user", "content": prompt_text}]
         responses = wisent_model.generate(
             [messages],
-            **get_generate_kwargs(max_new_tokens=WEIGHT_COMPARISON_MAX_NEW_TOKENS),
+            **get_generate_kwargs(),
         )
 
         response = responses[0] if responses else ""
@@ -223,7 +223,7 @@ def _show_response_comparisons(
             "comparisons": comparisons,
         }
         with open(save_path, "w") as f:
-            json.dump(output_data, f, indent=2)
+            json.dump(output_data, f, indent=JSON_INDENT)
         print(f"\nSaved {len(comparisons)} comparisons to: {save_path}")
 
     if num_comparisons and num_comparisons > 0:
@@ -233,13 +233,13 @@ def _show_response_comparisons(
             print(f"{'─'*80}")
             print(f"Comparison {i+1}/{num_comparisons}")
             print(f"{'─'*80}")
-            print(f"PROMPT: {comp['prompt'][:200]}{'...' if len(comp['prompt']) > 200 else ''}")
+            print(f"PROMPT: {comp['prompt'][:DISPLAY_TRUNCATION_MEDIUM]}{'...' if len(comp['prompt']) > DISPLAY_TRUNCATION_MEDIUM else ''}")
             print()
             print(f"BASELINE (score={comp['baseline_score']:.2f}, refusal={comp['baseline_refusal']}):")
-            print(f"  {comp['baseline_response'][:300]}{'...' if len(comp['baseline_response']) > 300 else ''}")
+            print(f"  {comp['baseline_response'][:DISPLAY_TRUNCATION_LONG]}{'...' if len(comp['baseline_response']) > DISPLAY_TRUNCATION_LONG else ''}")
             print()
             print(f"OPTIMIZED (score={comp['optimized_score']:.2f}, refusal={comp['optimized_refusal']}):")
-            print(f"  {comp['optimized_response'][:300]}{'...' if len(comp['optimized_response']) > 300 else ''}")
+            print(f"  {comp['optimized_response'][:DISPLAY_TRUNCATION_LONG]}{'...' if len(comp['optimized_response']) > DISPLAY_TRUNCATION_LONG else ''}")
             print()
             delta_str = f"+{comp['delta']:.2f}" if comp['delta'] >= 0 else f"{comp['delta']:.2f}"
             print(f"DELTA: {delta_str}")

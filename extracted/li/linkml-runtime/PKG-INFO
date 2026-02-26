@@ -1,37 +1,39 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: linkml-runtime
-Version: 1.9.5
+Version: 1.10.0
 Summary: Runtime environment for LinkML, the Linked open data modeling language
-License: CC0-1.0
-Keywords: linkml,metamodel,schema visualization,rdf,owl,yaml
-Author: Chris Mungall
-Author-email: cjmungall@lbl.gov
-Requires-Python: >=3.9
+Author-email: Chris Mungall <cjmungall@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sierra Moxon <smoxon@lbl.gov>, Bill Duncan <wdduncan@gmail.com>, Harshad Hegde <hhegde@lbl.gov>
+License-Expression: CC0-1.0
+License-File: LICENSE
+Keywords: linkml,metamodel,owl,rdf,schema visualization,yaml
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Healthcare Industry
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Requires-Dist: click
-Requires-Dist: curies (>=0.5.4)
+Requires-Dist: curies>=0.5.4
 Requires-Dist: deprecated
 Requires-Dist: hbreader
-Requires-Dist: isodate (>=0.7.2,<1.0.0) ; python_version < "3.11"
-Requires-Dist: json-flattener (>=0.1.9)
-Requires-Dist: jsonasobj2 (>=1.0.4,<2.dev0)
-Requires-Dist: jsonschema (>=3.2.0)
-Requires-Dist: prefixcommons (>=0.1.12)
-Requires-Dist: prefixmaps (>=0.1.4)
-Requires-Dist: pydantic (>=1.10.2,<3.0.0)
+Requires-Dist: isodate<1.0.0,>=0.7.2; python_version < '3.11'
+Requires-Dist: json-flattener>=0.1.9
+Requires-Dist: jsonasobj2==1.*,>=1.0.0,>=1.0.4
+Requires-Dist: jsonschema>=3.2.0
+Requires-Dist: prefixcommons>=0.1.12
+Requires-Dist: prefixmaps>=0.1.4
+Requires-Dist: pydantic<3.0.0,>=1.10.2
 Requires-Dist: pyyaml
-Requires-Dist: rdflib (>=6.0.0)
+Requires-Dist: rdflib>=6.0.0
 Requires-Dist: requests
+Provides-Extra: dev
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: requests-cache; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # linkml-runtime
@@ -65,4 +67,3 @@ It also includes the [SchemaView](https://linkml.io/linkml/developers/manipulati
 ## Notebooks
 
 See the [notebooks](https://github.com/linkml/linkml-runtime/tree/main/notebooks) folder for examples.
-

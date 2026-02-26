@@ -15,6 +15,7 @@ from ..convenience import (
 from wisent.core.constants import (
     DEFAULT_SCORE, DEFAULT_STRENGTH, BLEND_DEFAULT,
     PAIRS_NUM_PAIRS, BROYDEN_DEFAULT_ALPHA,
+    WEIGHT_MOD_DEFAULT_COMPONENTS,
 )
 
 @dataclass
@@ -32,7 +33,7 @@ class WeightModificationResult:
     num_pairs: int = PAIRS_NUM_PAIRS
     alpha: float = BROYDEN_DEFAULT_ALPHA
     additive_method: str = "bias"
-    components: List[str] = field(default_factory=lambda: ["self_attn.o_proj", "mlp.down_proj"])
+    components: List[str] = field(default_factory=lambda: list(WEIGHT_MOD_DEFAULT_COMPONENTS))
     normalize_vectors: bool = True
     norm_preserve: bool = True
     use_biprojection: bool = True

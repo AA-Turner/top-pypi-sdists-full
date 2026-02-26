@@ -6,14 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "mip"
 description = "Python tools for Modeling and Solving Mixed-Integer Linear Programs (MIPs)"
 readme = "README.md"
-requires-python = ">=3.7,<3.12"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
-    {name="T.A.M. Toffolo", email="haroldo.santos@gmail.com"},
-    {name="H.G. Santos", email="tulio@toffolo.com.br"}
-]
-maintainers = [
-    {name="S. Heger", email="heger@m2p.net"}
+    {name="Tulio A.M. Toffolo", email="tulio@toffolo.com.br"},
+    {name="Haroldo G. Santos", email="haroldo.santos@gmail.com"}
 ]
 keywords = [
     "Optimization",
@@ -24,20 +21,32 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Scientific/Engineering :: Mathematics"
 ]
 dynamic = ["version"]
 
-dependencies = ["cffi==1.15.*"]
+dependencies = ["cffi>=1.15", "cbcbox>=2.902"]
 
 [project.optional-dependencies]
-numpy = ["numpy==1.24.*; python_version >= '3.8'", "numpy==1.21.6; python_version == '3.7'"]
-gurobi = ["gurobipy>=8"]
-test = ["pytest==7.2.0", "networkx==2.8.8; python_version >= '3.8'", "networkx==2.6.3; python_version == '3.7'", "matplotlib==3.6.2; python_version >= '3.8'", "matplotlib==3.5.3; python_version == '3.7'"]
+numpy = [
+    "numpy>=1.25,<3",
+]
+gurobi = ["gurobipy>=10"]
+highs = ["highsbox>=1.10.0"]
+test = [
+    "pytest>=7.4,<9",
+    "networkx>=2.8.8,<4",
+    "matplotlib>=3.7,<4; platform_system!='Windows' or implementation_name!='pypy'",
+]
 
 [project.urls]
 "Homepage" = "https://www.python-mip.com"
@@ -45,9 +54,6 @@ test = ["pytest==7.2.0", "networkx==2.8.8; python_version >= '3.8'", "networkx==
 
 [tool.setuptools]
 packages = ["mip"]
-
-[tool.setuptools.package-data]
-"mip.libraries" = ["*.so", "*.dylib", "*.dll"]
 
 [tool.setuptools_scm]
 write_to = "mip/_version.py"

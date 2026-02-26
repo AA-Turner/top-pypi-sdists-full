@@ -608,70 +608,52 @@ class AlphaModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_Algorithm_Fr
         ...
 
 
-class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+class CompositeAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
     """
-    Defines a custom alpha model that uses MACD crossovers. The MACD signal line is
-    used to generate up/down insights if it's stronger than the bounce threshold.
-    If the MACD signal is within the bounce threshold then a flat price insight is returned.
+    Provides an implementation of IAlphaModel that combines multiple alpha
+    models into a single alpha model and properly sets each insights 'SourceModel' property.
     """
 
-    class SymbolData(System.Object):
-        """Class representing basic data of a symbol"""
-
-        @property
-        def previous_direction(self) -> typing.Optional[QuantConnect.Algorithm.Framework.Alphas.InsightDirection]:
-            """Previous direction property"""
-            ...
-
-        @previous_direction.setter
-        def previous_direction(self, value: typing.Optional[QuantConnect.Algorithm.Framework.Alphas.InsightDirection]) -> None:
-            ...
-
-        @property
-        def security(self) -> QuantConnect.Securities.Security:
-            """Security of the Symbol Data"""
-            ...
-
-        @property
-        def consolidator(self) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-            """Consolidator property"""
-            ...
-
-        @property
-        def macd(self) -> QuantConnect.Indicators.MovingAverageConvergenceDivergence:
-            """Moving Average Convergence Divergence indicator"""
-            ...
-
-        def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, security: QuantConnect.Securities.Security, fast_period: int, slow_period: int, signal_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: QuantConnect.Resolution) -> None:
-            """Initializes an instance of the SymbolData class with the given arguments"""
-            ...
-
-    @property
-    def _symbol_data(self) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Algorithm.Framework.Alphas.MacdAlphaModel.SymbolData]:
+    @overload
+    def __init__(self, *alpha_models: typing.Union[QuantConnect.Algorithm.Framework.Alphas.IAlphaModel, typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.IAlphaModel]]) -> None:
         """
-        Dictionary containing basic information for each symbol present as key
+        Initializes a new instance of the CompositeAlphaModel class
         
-        
-        This codeEntityType is protected.
+        :param alpha_models: The individual alpha models defining this composite model
         """
         ...
 
-    def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: QuantConnect.Resolution = ...) -> None:
+    @overload
+    def __init__(self, *alpha_models: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
         """
-        Initializes a new instance of the MacdAlphaModel class
+        Initializes a new instance of the CompositeAlphaModel class
         
-        :param fast_period: The MACD fast period
-        :param slow_period: The MACD slow period
-        :param signal_period: The smoothing period for the MACD signal
-        :param moving_average_type: The type of moving average to use in the MACD
-        :param resolution: The resolution of data sent into the MACD indicator
+        :param alpha_models: The individual alpha models defining this composite model
+        """
+        ...
+
+    @overload
+    def add_alpha(self, py_alpha_model: typing.Any) -> None:
+        """
+        Adds a new AlphaModel
+        
+        :param py_alpha_model: The alpha model to add
+        """
+        ...
+
+    @overload
+    def add_alpha(self, alpha_model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
+        """
+        Adds a new AlphaModel
+        
+        :param alpha_model: The alpha model to add
         """
         ...
 
     def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """
         Event fired each time the we add/remove securities from the data feed.
-        This initializes the MACD for each added security and cleans up the indicator for each removed security.
+        This method patches this call through the each of the wrapped models.
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
@@ -680,7 +662,9 @@ class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
 
     def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
-        Determines an insight for each security based on it's current MACD signal
+        Updates this alpha model with the latest data from the algorithm.
+        This is called each time the algorithm receives data for subscribed securities.
+        This method patches this call through the each of the wrapped models.
         
         :param algorithm: The algorithm instance
         :param data: The new data available
@@ -689,25 +673,25 @@ class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         ...
 
 
-class RsiAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """
-    Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
-    trigger a new insight.
-    """
+class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Provides an implementation of IAlphaModel that wraps a PyObject object"""
 
-    def __init__(self, period: int = 14, resolution: QuantConnect.Resolution = ...) -> None:
+    @property
+    def name(self) -> str:
+        """Defines a name for a framework model"""
+        ...
+
+    def __init__(self, model: typing.Any) -> None:
         """
-        Initializes a new instance of the RsiAlphaModel class
+        Constructor for initialising the IAlphaModel class with wrapped PyObject object
         
-        :param period: The RSI indicator period
-        :param resolution: The resolution of data sent into the RSI indicator
+        :param model: >Model that generates alpha
         """
         ...
 
     def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """
-        Cleans out old security data and initializes the RSI for any newly added securities.
-        This functional also seeds any new indicators using a history request.
+        Event fired each time the we add/remove securities from the data feed
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
@@ -723,6 +707,30 @@ class RsiAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         :param data: The new data available
         :returns: The new insights generated.
         """
+        ...
+
+
+class NullAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Provides a null implementation of an alpha model"""
+
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """
+        Updates this alpha model with the latest data from the algorithm.
+        This is called each time the algorithm receives data for subscribed securities
+        
+        :param algorithm: The algorithm instance
+        :param data: The new data available
+        :returns: The new insights generated.
+        """
+        ...
+
+
+class AlphaModelExtensions(System.Object):
+    """Provides extension methods for alpha models"""
+
+    @staticmethod
+    def get_model_name(model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> str:
+        """Gets the name of the alpha model"""
         ...
 
 
@@ -805,6 +813,87 @@ class EmaCrossAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
+        
+        :param algorithm: The algorithm instance
+        :param data: The new data available
+        :returns: The new insights generated.
+        """
+        ...
+
+
+class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """
+    Defines a custom alpha model that uses MACD crossovers. The MACD signal line is
+    used to generate up/down insights if it's stronger than the bounce threshold.
+    If the MACD signal is within the bounce threshold then a flat price insight is returned.
+    """
+
+    class SymbolData(System.Object):
+        """Class representing basic data of a symbol"""
+
+        @property
+        def previous_direction(self) -> typing.Optional[QuantConnect.Algorithm.Framework.Alphas.InsightDirection]:
+            """Previous direction property"""
+            ...
+
+        @previous_direction.setter
+        def previous_direction(self, value: typing.Optional[QuantConnect.Algorithm.Framework.Alphas.InsightDirection]) -> None:
+            ...
+
+        @property
+        def security(self) -> QuantConnect.Securities.Security:
+            """Security of the Symbol Data"""
+            ...
+
+        @property
+        def consolidator(self) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+            """Consolidator property"""
+            ...
+
+        @property
+        def macd(self) -> QuantConnect.Indicators.MovingAverageConvergenceDivergence:
+            """Moving Average Convergence Divergence indicator"""
+            ...
+
+        def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, security: QuantConnect.Securities.Security, fast_period: int, slow_period: int, signal_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: QuantConnect.Resolution) -> None:
+            """Initializes an instance of the SymbolData class with the given arguments"""
+            ...
+
+    @property
+    def _symbol_data(self) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Algorithm.Framework.Alphas.MacdAlphaModel.SymbolData]:
+        """
+        Dictionary containing basic information for each symbol present as key
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: QuantConnect.Resolution = ...) -> None:
+        """
+        Initializes a new instance of the MacdAlphaModel class
+        
+        :param fast_period: The MACD fast period
+        :param slow_period: The MACD slow period
+        :param signal_period: The smoothing period for the MACD signal
+        :param moving_average_type: The type of moving average to use in the MACD
+        :param resolution: The resolution of data sent into the MACD indicator
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed.
+        This initializes the MACD for each added security and cleans up the indicator for each removed security.
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """
+        Determines an insight for each security based on it's current MACD signal
         
         :param algorithm: The algorithm instance
         :param data: The new data available
@@ -906,21 +995,25 @@ class PearsonCorrelationPairsTradingAlphaModel(QuantConnect.Algorithm.Framework.
         ...
 
 
-class HistoricalReturnsAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Alpha model that uses historical returns to create insights"""
+class RsiAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """
+    Uses Wilder's RSI to create insights. Using default settings, a cross over below 30 or above 70 will
+    trigger a new insight.
+    """
 
-    def __init__(self, lookback: int = 1, resolution: QuantConnect.Resolution = ...) -> None:
+    def __init__(self, period: int = 14, resolution: QuantConnect.Resolution = ...) -> None:
         """
-        Initializes a new instance of the HistoricalReturnsAlphaModel class
+        Initializes a new instance of the RsiAlphaModel class
         
-        :param lookback: Historical return lookback period
-        :param resolution: The resolution of historical data
+        :param period: The RSI indicator period
+        :param resolution: The resolution of data sent into the RSI indicator
         """
         ...
 
     def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """
-        Event fired each time the we add/remove securities from the data feed
+        Cleans out old security data and initializes the RSI for any newly added securities.
+        This functional also seeds any new indicators using a history request.
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
@@ -987,108 +1080,15 @@ class ConstantAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         ...
 
 
-class CompositeAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """
-    Provides an implementation of IAlphaModel that combines multiple alpha
-    models into a single alpha model and properly sets each insights 'SourceModel' property.
-    """
+class HistoricalReturnsAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Alpha model that uses historical returns to create insights"""
 
-    @overload
-    def __init__(self, *alpha_models: typing.Union[QuantConnect.Algorithm.Framework.Alphas.IAlphaModel, typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.IAlphaModel]]) -> None:
+    def __init__(self, lookback: int = 1, resolution: QuantConnect.Resolution = ...) -> None:
         """
-        Initializes a new instance of the CompositeAlphaModel class
+        Initializes a new instance of the HistoricalReturnsAlphaModel class
         
-        :param alpha_models: The individual alpha models defining this composite model
-        """
-        ...
-
-    @overload
-    def __init__(self, *alpha_models: typing.Union[typing.Any, typing.Iterable[typing.Any]]) -> None:
-        """
-        Initializes a new instance of the CompositeAlphaModel class
-        
-        :param alpha_models: The individual alpha models defining this composite model
-        """
-        ...
-
-    @overload
-    def add_alpha(self, py_alpha_model: typing.Any) -> None:
-        """
-        Adds a new AlphaModel
-        
-        :param py_alpha_model: The alpha model to add
-        """
-        ...
-
-    @overload
-    def add_alpha(self, alpha_model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
-        """
-        Adds a new AlphaModel
-        
-        :param alpha_model: The alpha model to add
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed.
-        This method patches this call through the each of the wrapped models.
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """
-        Updates this alpha model with the latest data from the algorithm.
-        This is called each time the algorithm receives data for subscribed securities.
-        This method patches this call through the each of the wrapped models.
-        
-        :param algorithm: The algorithm instance
-        :param data: The new data available
-        :returns: The new insights generated.
-        """
-        ...
-
-
-class NullAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Provides a null implementation of an alpha model"""
-
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """
-        Updates this alpha model with the latest data from the algorithm.
-        This is called each time the algorithm receives data for subscribed securities
-        
-        :param algorithm: The algorithm instance
-        :param data: The new data available
-        :returns: The new insights generated.
-        """
-        ...
-
-
-class AlphaModelExtensions(System.Object):
-    """Provides extension methods for alpha models"""
-
-    @staticmethod
-    def get_model_name(model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> str:
-        """Gets the name of the alpha model"""
-        ...
-
-
-class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Provides an implementation of IAlphaModel that wraps a PyObject object"""
-
-    @property
-    def name(self) -> str:
-        """Defines a name for a framework model"""
-        ...
-
-    def __init__(self, model: typing.Any) -> None:
-        """
-        Constructor for initialising the IAlphaModel class with wrapped PyObject object
-        
-        :param model: >Model that generates alpha
+        :param lookback: Historical return lookback period
+        :param resolution: The resolution of historical data
         """
         ...
 
@@ -1110,14 +1110,6 @@ class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel
         :param data: The new data available
         :returns: The new insights generated.
         """
-        ...
-
-
-class IInsightScoreFunction(metaclass=abc.ABCMeta):
-    """Abstraction in charge of scoring insights"""
-
-    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Method to evaluate and score insights for each time step"""
         ...
 
 
@@ -1144,16 +1136,8 @@ class GeneratedInsightsCollection(System.Object):
         ...
 
 
-class InsightScoreFunctionPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction], QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction):
-    """A python implementation insight evaluator wrapper"""
-
-    def __init__(self, insight_evaluator: typing.Any) -> None:
-        """
-        Creates a new python wrapper instance
-        
-        :param insight_evaluator: The python instance to wrap
-        """
-        ...
+class IInsightScoreFunction(metaclass=abc.ABCMeta):
+    """Abstraction in charge of scoring insights"""
 
     def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """Method to evaluate and score insights for each time step"""
@@ -1334,6 +1318,22 @@ class InsightCollection(System.Object, typing.Iterable[QuantConnect.Algorithm.Fr
         :param insights: The insights for the specified symbol, or null if not found
         :returns: True if insights for the specified symbol were found, false otherwise.
         """
+        ...
+
+
+class InsightScoreFunctionPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction], QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction):
+    """A python implementation insight evaluator wrapper"""
+
+    def __init__(self, insight_evaluator: typing.Any) -> None:
+        """
+        Creates a new python wrapper instance
+        
+        :param insight_evaluator: The python instance to wrap
+        """
+        ...
+
+    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Method to evaluate and score insights for each time step"""
         ...
 
 

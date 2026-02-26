@@ -7,7 +7,7 @@ iterative improvement loop, and steered generation.
 """
 
 import time
-from wisent.core.constants import QUALITY_CONTROL_MAX_ATTEMPTS
+from wisent.core.constants import QUALITY_CONTROL_MAX_ATTEMPTS, CLASSIFIER_THRESHOLD, DISPLAY_TRUNCATION_COMPACT, SECONDS_PER_MINUTE
 
 
 class QualityControlMixin:
@@ -36,7 +36,7 @@ class QualityControlMixin:
         start_time = time.time()
         time_budget = time_budget_minutes or self.default_time_budget_minutes
 
-        print(f"\n QUALITY-CONTROLLED RESPONSE TO: {prompt[:100]}...")
+        print(f"\n QUALITY-CONTROLLED RESPONSE TO: {prompt[:DISPLAY_TRUNCATION_COMPACT]}...")
         print(f" Hard timeout enforced: {time_budget:.1f} minutes")
 
         try:
@@ -97,7 +97,7 @@ class QualityControlMixin:
         print("\n Step 3: Training combined classifier...")
         timeout_mgr.check_timeout()
 
-        remaining_minutes = timeout_mgr.get_remaining_time() / 60.0
+        remaining_minutes = timeout_mgr.get_remaining_time() / SECONDS_PER_MINUTE
         classifier_time_budget = min(time_budget, remaining_minutes)
 
         classifier_decision = await self.decision_system.create_single_quality_classifier(
@@ -109,7 +109,7 @@ class QualityControlMixin:
             response = await self._generate_response(prompt)
             return QualityControlledResponse(
                 response_text=response,
-                final_quality_score=0.5,
+                final_quality_score=CLASSIFIER_THRESHOLD,
                 attempts_needed=1,
                 classifier_params_used=classifier_params,
                 total_time_seconds=time.time() - start_time,
@@ -125,7 +125,7 @@ class QualityControlMixin:
             response = await self._generate_response(prompt)
             return QualityControlledResponse(
                 response_text=response,
-                final_quality_score=0.5,
+                final_quality_score=CLASSIFIER_THRESHOLD,
                 attempts_needed=1,
                 classifier_params_used=classifier_params,
                 total_time_seconds=time.time() - start_time,
@@ -136,7 +136,7 @@ class QualityControlMixin:
         timeout_mgr.check_timeout()
 
         current_response = await self._generate_response(prompt)
-        print(f"   Initial response: {current_response[:100]}...")
+        print(f"   Initial response: {current_response[:DISPLAY_TRUNCATION_COMPACT]}...")
         print(f"   Remaining time: {timeout_mgr.get_remaining_time():.1f}s")
 
         # Step 5: Iterative quality improvement loop
@@ -177,7 +177,7 @@ class QualityControlMixin:
             try:
                 steered_response = await self._generate_with_steering(prompt, steering_params)
                 current_response = steered_response
-                print(f"   New response: {current_response[:100]}...")
+                print(f"   New response: {current_response[:DISPLAY_TRUNCATION_COMPACT]}...")
             except Exception as e:
                 print(f"   Warning: Steering failed: {e}")
                 print("   Keeping previous response")
@@ -204,11 +204,11 @@ class QualityControlMixin:
             self._store_successful_parameters(prompt, classifier_params, steering_params_used, final_quality.score)
 
         print("\n QUALITY CONTROL COMPLETE")
-        print(f"   Final response: {result.response_text[:100]}...")
+        print(f"   Final response: {result.response_text[:DISPLAY_TRUNCATION_COMPACT]}...")
         print(f"   Final quality: {result.final_quality_score:.3f}")
         print(f"   Attempts: {result.attempts_needed}")
         print(f"   Total time: {result.total_time_seconds:.1f}s")
-        print(f"   Time used: {timeout_mgr.get_elapsed_time():.1f}s / {time_budget * 60:.1f}s")
+        print(f"   Time used: {timeout_mgr.get_elapsed_time():.1f}s / {time_budget * SECONDS_PER_MINUTE:.1f}s")
 
         return result
 

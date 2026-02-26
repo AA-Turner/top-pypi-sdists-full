@@ -32,9 +32,6 @@ macro_rules! impl_series_like_for_data_array {
             fn into_series(&self) -> Series {
                 self.0.clone().into_series()
             }
-            fn to_arrow2(&self) -> Box<dyn daft_arrow::array::Array> {
-                self.0.data().to_boxed()
-            }
 
             fn to_arrow(&self) -> DaftResult<ArrayRef> {
                 Ok(arrow::array::make_array(self.0.to_data()))
@@ -44,14 +41,11 @@ macro_rules! impl_series_like_for_data_array {
                 self
             }
 
-            fn with_nulls(
-                &self,
-                nulls: Option<daft_arrow::buffer::NullBuffer>,
-            ) -> DaftResult<Series> {
+            fn with_nulls(&self, nulls: Option<arrow::buffer::NullBuffer>) -> DaftResult<Series> {
                 Ok(self.0.with_nulls(nulls)?.into_series())
             }
 
-            fn nulls(&self) -> Option<&daft_arrow::buffer::NullBuffer> {
+            fn nulls(&self) -> Option<&arrow::buffer::NullBuffer> {
                 self.0.nulls()
             }
 

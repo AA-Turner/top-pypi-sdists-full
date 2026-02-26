@@ -1,10 +1,15 @@
 Metadata-Version: 2.4
 Name: signalrcore
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python SignalR Core full client (transports and encodings).Compatible with azure / serverless functions.Also with automatic reconnect and manually reconnect.
 Home-page: https://github.com/mandrewcito/signalrcore
 Author: mandrewcito
 Author-email: signalrcore@mandrewcito.dev
+Project-URL: Homepage, https://signalrcore.mandrewcito.dev
+Project-URL: Documentation, https://mandrewcito.github.io/signalrcore/
+Project-URL: Repository, https://github.com/mandrewcito/signalrcore
+Project-URL: Tracker, https://github.com/mandrewcito/signalrcore/issues
+Project-URL: Changelog, https://github.com/mandrewcito/signalrcore/releases
 Keywords: signalr core client 3.1+
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Operating System :: OS Independent
@@ -26,6 +31,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license-file
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
@@ -71,13 +77,13 @@ Feature list:
 
 * [Pypi](https://pypi.org/project/signalrcore/)
 
-* [Wiki - This Doc](https://mandrewcito.github.io/signalrcore/)
+* [Documentation](https://mandrewcito.github.io/signalrcore/)
 
 * [Aspnetcore SignalR docs](https://github.com/dotnet/aspnetcore/tree/main/src/SignalR/docs)
 
 # Development
 Software requirements:
-> - python > 3.8
+> - python >= 3.9
 > - virtualenv
 > - pip
 > - docker

@@ -3,7 +3,8 @@ import torch
 import torch.nn.functional as F
 from typing import Any, Dict, Optional
 from wisent.core.contrastive_pairs import ContrastivePairSet
-from wisent.core.constants import TIKHONOV_REG, EWC_PERTURBATION_SCALE, EVAL_BATCH_SIZE
+from wisent.core.constants import TIKHONOV_REG, EWC_PERTURBATION_SCALE, STEERING_OPT_NUM_EPOCHS
+from wisent.core.utils.core.hardware import eval_batch_size
 
 
 class SteeringOptimizationMixin:
@@ -15,7 +16,7 @@ class SteeringOptimizationMixin:
         target_layer,
         pair_set: ContrastivePairSet,
         learning_rate: float = TIKHONOV_REG,
-        num_epochs: int = 10,
+        num_epochs: int = STEERING_OPT_NUM_EPOCHS,
         regularization_strength: float = EWC_PERTURBATION_SCALE,
     ) -> Dict[str, Any]:
         """
@@ -59,7 +60,7 @@ class SteeringOptimizationMixin:
                 num_batches = 0
 
                 # Process in batches
-                batch_size = EVAL_BATCH_SIZE
+                batch_size = eval_batch_size()
                 for i in range(0, len(X_tensors), batch_size):
                     batch_X = X_tensors[i : i + batch_size]
                     batch_y = y_labels[i : i + batch_size]

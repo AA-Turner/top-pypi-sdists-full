@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from wisent.core.classifier.classifier import ActivationClassifier, Classifier
-from wisent.core.constants import CLASSIFIER_TRAINING_SAMPLES, CLASSIFIER_TEST_SIZE, CLASSIFIER_DEFAULT_THRESHOLD
+from wisent.core.constants import CLASSIFIER_TRAINING_SAMPLES, CLASSIFIER_TEST_SIZE, CLASSIFIER_THRESHOLD, CLASSIFIER_MIN_TARGET_SCORE, LAYER_STRIDE_DEFAULT
 from wisent.core.errors import ClassifierCreationError, InsufficientDataError
 
 from ...activations import Activations
@@ -31,7 +31,7 @@ class TrainingConfig:
     issue_type: str
     layer: int
     classifier_type: str = "logistic"
-    threshold: float = CLASSIFIER_DEFAULT_THRESHOLD
+    threshold: float = CLASSIFIER_THRESHOLD
     model_name: str = ""
     training_samples: int = CLASSIFIER_TRAINING_SAMPLES
     test_split: float = CLASSIFIER_TEST_SIZE
@@ -161,7 +161,7 @@ class ClassifierCreator(BenchmarkMixin, DataGenerationMixin, ScoringMixin, Train
         layer_range: Tuple[int, int] = None,
         classifier_types: List[str] = None,
         target_metric: str = "f1",
-        min_target_score: float = 0.7,
+        min_target_score: float = CLASSIFIER_MIN_TARGET_SCORE,
     ) -> TrainingResult:
         """
         Optimize classifier by testing different configurations.
@@ -195,7 +195,7 @@ class ClassifierCreator(BenchmarkMixin, DataGenerationMixin, ScoringMixin, Train
         best_result = None
         best_score = 0.0
 
-        layers_to_test = range(layer_range[0], layer_range[1] + 1, 2)
+        layers_to_test = range(layer_range[0], layer_range[1] + 1, LAYER_STRIDE_DEFAULT)
 
         for layer in layers_to_test:
             for classifier_type in classifier_types:

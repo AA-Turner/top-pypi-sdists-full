@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keepercommander
-Version: 17.2.8
+Version: 17.2.9
 Summary: Keeper Commander for Python 3
 Home-page: https://keepersecurity.com/
 Download-URL: https://github.com/Keeper-Security/Commander/releases
@@ -36,7 +36,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: requests>=2.31.0
 Requires-Dist: tabulate
 Requires-Dist: websockets
-Requires-Dist: keeper_pam_webrtc_rs>=1.2.1; python_version >= "3.8"
+Requires-Dist: keeper_pam_webrtc_rs>=2.0.1; python_version >= "3.8"
 Requires-Dist: pydantic>=2.6.4; python_version >= "3.8"
 Requires-Dist: fpdf2>=2.8.3
 Requires-Dist: cbor2; sys_platform == "darwin" and python_version >= "3.10"

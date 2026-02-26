@@ -14,7 +14,8 @@ from wisent.core.cli.optimize_steering.data.responses import execute_generate_re
 from wisent.core.cli.optimize_steering.scores import execute_evaluate_responses
 from wisent.core.constants import (DEFAULT_N_TRIALS, WELFARE_LIMIT, DEFAULT_NUM_HIDDEN_LAYERS,
     DEFAULT_NUM_STRENGTH_STEPS, DEFAULT_LAYER,
-    PIPELINE_MAX_NEW_TOKENS, PIPELINE_TEMPERATURE, PIPELINE_TOP_P)
+    PARSER_STRENGTH_RANGE_WELFARE, SEPARATOR_WIDTH_REPORT,
+    JSON_INDENT, LAYER_STRIDE_DEFAULT)
 
 
 def _execute_welfare_optimization(args):
@@ -35,15 +36,15 @@ def _execute_welfare_optimization(args):
     device = getattr(args, 'device', None)
     output_dir = getattr(args, 'output_dir', './welfare_optimization')
 
-    print(f"\n{'=' * 80}")
+    print(f"\n{'=' * SEPARATOR_WIDTH_REPORT}")
     print(f"🧠 WELFARE STATE STEERING OPTIMIZATION (ANIMA)")
-    print(f"{'=' * 80}")
+    print(f"{'=' * SEPARATOR_WIDTH_REPORT}")
     print(f"   Model: {model}")
     print(f"   Welfare Trait: {trait}")
     print(f"   Direction: {direction}")
     print(f"   Trials: {n_trials}")
     print(f"   Output: {output_dir}")
-    print(f"{'=' * 80}\n")
+    print(f"{'=' * SEPARATOR_WIDTH_REPORT}\n")
 
     # Load welfare pairs
     try:
@@ -81,10 +82,10 @@ def _execute_welfare_optimization(args):
     # Determine layers to search
     layers = getattr(args, 'layers', None)
     if layers is None:
-        layers = list(range(0, num_layers, 2))
+        layers = list(range(0, num_layers, LAYER_STRIDE_DEFAULT))
 
     # Strength range
-    strength_range = getattr(args, 'strength_range', [0.5, 3.0])
+    strength_range = getattr(args, 'strength_range', list(PARSER_STRENGTH_RANGE_WELFARE))
     num_strength_steps = getattr(args, 'num_strength_steps', DEFAULT_NUM_STRENGTH_STEPS)
     strengths = [
         strength_range[0] + i * (strength_range[1] - strength_range[0]) / (num_strength_steps - 1)
@@ -178,9 +179,9 @@ def _execute_welfare_optimization(args):
                             print(f"   [{current}/{total_configs}] Failed: {e}")
 
     # Print results
-    print(f"\n{'=' * 80}")
+    print(f"\n{'=' * SEPARATOR_WIDTH_REPORT}")
     print(f"📊 WELFARE OPTIMIZATION COMPLETE")
-    print(f"{'=' * 80}")
+    print(f"{'=' * SEPARATOR_WIDTH_REPORT}")
     print(f"\n✅ Best configuration for '{trait}' ({direction}):")
     print(f"   Score: {best_score:.4f}")
     for k, v in best_params.items():
@@ -196,7 +197,7 @@ def _execute_welfare_optimization(args):
         "best_params": best_params,
     }
     with open(results_file, 'w') as f:
-        json.dump(output_data, f, indent=2)
+        json.dump(output_data, f, indent=JSON_INDENT)
     print(f"\n💾 Results saved to: {results_file}")
 
     return output_data
@@ -256,9 +257,6 @@ def _run_welfare_pipeline(
         steering_strategy=steering_strategy,
         use_steering=True,
         device=device,
-        max_new_tokens=PIPELINE_MAX_NEW_TOKENS,
-        temperature=PIPELINE_TEMPERATURE,
-        top_p=PIPELINE_TOP_P,
         verbose=False,
     ))
 

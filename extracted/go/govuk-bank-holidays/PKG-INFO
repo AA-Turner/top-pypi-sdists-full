@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: govuk-bank-holidays
-Version: 0.18
+Version: 0.19
 Summary: Tool to load UK bank holidays from GOV.UK
 Home-page: https://github.com/ministryofjustice/govuk-bank-holidays
 Author: Ministry of Justice Digital & Technology
@@ -99,6 +99,9 @@ Alternatively, you can use ``tox`` if you have multiple python versions.
 
 History
 -------
+
+0.19
+    Updated cached bank holidays file to include latest holidays published by GOV.UK.
 
 0.18
     Added support for python 3.14 and removed 3.9 which has reached end-of-life.

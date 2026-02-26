@@ -371,9 +371,9 @@ class TestBaremetalPortGroupList(TestBaremetalPortGroup):
         self.baremetal_mock.portgroup.list.assert_called_with(**kwargs)
 
         collist = (
-            "UUID",
-            "Address",
-            "Name")
+            "uuid",
+            "address",
+            "name")
         self.assertEqual(collist, columns)
 
         datalist = ((baremetal_fakes.baremetal_portgroup_uuid,
@@ -395,9 +395,9 @@ class TestBaremetalPortGroupList(TestBaremetalPortGroup):
         self.baremetal_mock.portgroup.list.assert_called_with(**kwargs)
 
         collist = (
-            "UUID",
-            "Address",
-            "Name")
+            "uuid",
+            "address",
+            "name")
         self.assertEqual(collist, columns)
 
         datalist = ((baremetal_fakes.baremetal_portgroup_uuid,
@@ -419,9 +419,9 @@ class TestBaremetalPortGroupList(TestBaremetalPortGroup):
         self.baremetal_mock.portgroup.list.assert_called_with(**kwargs)
 
         collist = (
-            "UUID",
-            "Address",
-            "Name")
+            "uuid",
+            "address",
+            "name")
         self.assertEqual(collist, columns)
 
         datalist = ((baremetal_fakes.baremetal_portgroup_uuid,
@@ -443,10 +443,11 @@ class TestBaremetalPortGroupList(TestBaremetalPortGroup):
         }
         self.baremetal_mock.portgroup.list.assert_called_with(**kwargs)
 
-        collist = ('UUID', 'Address', 'Created At', 'Extra',
-                   'Standalone Ports Supported', 'Node UUID', 'Name',
-                   'Updated At', 'Internal Info', 'Mode', 'Properties',
-                   'Physical Network', 'Category')
+        collist = ('uuid', 'address', 'created_at', 'extra',
+                   'standalone_ports_supported', 'node_uuid', 'name',
+                   'updated_at', 'internal_info', 'mode', 'properties',
+                   'physical_network', 'category')
+
         self.assertEqual(collist, columns)
 
         datalist = ((baremetal_fakes.baremetal_portgroup_uuid,
@@ -501,6 +502,30 @@ class TestBaremetalPortGroupList(TestBaremetalPortGroup):
         self.assertRaises(osctestutils.ParserException,
                           self.check_parser,
                           self.cmd, arglist, verifylist)
+
+    def test_baremetal_portgroup_list_by_shards(self):
+        arglist = ['--shards', 'shard1', 'shard2']
+        verifylist = [('shards', ['shard1', 'shard2'])]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        columns, data = self.cmd.take_action(parsed_args)
+
+        kwargs = {
+            'shards': ['shard1', 'shard2'],
+            'marker': None,
+            'limit': None}
+        self.baremetal_mock.portgroup.list.assert_called_with(**kwargs)
+
+        collist = (
+            "uuid",
+            "address",
+            "name")
+        self.assertEqual(collist, columns)
+
+        datalist = ((baremetal_fakes.baremetal_portgroup_uuid,
+                     baremetal_fakes.baremetal_portgroup_address,
+                     baremetal_fakes.baremetal_portgroup_name),)
+        self.assertEqual(datalist, tuple(data))
 
 
 class TestBaremetalPortGroupDelete(TestBaremetalPortGroup):

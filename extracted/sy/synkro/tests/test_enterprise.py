@@ -255,7 +255,6 @@ class TestPolicies:
                 "policy_text": "All expenses...",
                 "rules": [{"id": "R001"}],
                 "rule_count": 1,
-                "score_threshold": 0.8,
                 "is_active": True,
             }
         ]
@@ -264,7 +263,6 @@ class TestPolicies:
         assert len(policies) == 1
         assert isinstance(policies[0], Policy)
         assert policies[0].id == "pol_1"
-        assert policies[0].score_threshold == 0.8
         client.close()
 
     def test_create(self):
@@ -278,9 +276,7 @@ class TestPolicies:
             "timing_ms": 1500,
         }
         with patch.object(client._http, "post", return_value=mock_data) as mock_post:
-            result = client.policies.create(
-                "p1", text="All expenses require receipts", name="v1", score_threshold=0.9
-            )
+            result = client.policies.create("p1", text="All expenses require receipts", name="v1")
         assert isinstance(result, PolicyCreateResult)
         assert result.ok is True
         assert result.rule_count == 2
@@ -291,7 +287,6 @@ class TestPolicies:
             json={
                 "policy_text": "All expenses require receipts",
                 "name": "v1",
-                "score_threshold": 0.9,
             },
         )
         client.close()
@@ -359,7 +354,6 @@ class TestPolicies:
                 "pol_1",
                 name="v2",
                 rule_updates=[{"rule_id": "R001", "mode": "blocking"}],
-                score_threshold=0.75,
             )
         mock_patch.assert_called_once_with(
             "/api/projects/p1/policies",
@@ -367,7 +361,6 @@ class TestPolicies:
                 "policy_id": "pol_1",
                 "name": "v2",
                 "rule_updates": [{"rule_id": "R001", "mode": "blocking"}],
-                "score_threshold": 0.75,
             },
         )
         client.close()
@@ -465,7 +458,6 @@ class TestTypes:
         p = Policy(id="pol_1", name="n", policy_text="t")
         assert p.rules == []
         assert p.rule_count == 0
-        assert p.score_threshold == 1.0
         assert p.is_active is True
 
     def test_langsmith_connection_defaults(self):
@@ -480,6 +472,99 @@ class TestTypes:
         assert r.rules == []
         assert r.model is None
         assert r.timing_ms is None
+
+
+# ── Gateway Tests ────────────────────────────────────────
+
+
+class TestGateway:
+    def _make_gw_client(self, gateway_url="https://gateway.synkro.sh/v1/projects/my-slug"):
+        return Synkro(
+            api_key="sk-test-123",
+            gateway_url=gateway_url,
+            base_url="http://localhost:3000",
+        )
+
+    def test_gateway_returns_dict(self):
+        client = self._make_gw_client()
+        mock_openai = MagicMock()
+        mock_async_openai = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {"openai": MagicMock(OpenAI=mock_openai, AsyncOpenAI=mock_async_openai)},
+        ):
+            result = client.gateway(api_key="provider-key-123", provider="google")
+        assert "client" in result
+        assert "async_client" in result
+        assert result["api_key"] == "provider-key-123"
+        client.close()
+
+    def test_gateway_with_provider_and_user_id(self):
+        client = self._make_gw_client()
+        mock_openai = MagicMock()
+        mock_async_openai = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {"openai": MagicMock(OpenAI=mock_openai, AsyncOpenAI=mock_async_openai)},
+        ):
+            client.gateway(
+                api_key="provider-key-123",
+                user_id="user-42",
+                provider="google",
+            )
+        # Verify OpenAI clients were created with correct headers
+        sync_call = mock_openai.call_args
+        assert sync_call.kwargs["base_url"] == "https://gateway.synkro.sh/v1/projects/my-slug"
+        assert sync_call.kwargs["api_key"] == "provider-key-123"
+        assert sync_call.kwargs["default_headers"]["x-synkro-api-key"] == "sk-test-123"
+        assert sync_call.kwargs["default_headers"]["x-synkro-provider"] == "google"
+        assert sync_call.kwargs["default_headers"]["x-synkro-user-id"] == "user-42"
+        client.close()
+
+    def test_gateway_minimal(self):
+        client = self._make_gw_client()
+        mock_openai = MagicMock()
+        mock_async_openai = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {"openai": MagicMock(OpenAI=mock_openai, AsyncOpenAI=mock_async_openai)},
+        ):
+            result = client.gateway(api_key="sk-xxx")
+        sync_call = mock_openai.call_args
+        assert sync_call.kwargs["default_headers"] == {"x-synkro-api-key": "sk-test-123"}
+        assert result["api_key"] == "sk-xxx"
+        client.close()
+
+    def test_gateway_no_url_raises(self):
+        client = _make_client()  # no gateway_url
+        with pytest.raises(ValueError, match="No gateway_url configured"):
+            client.gateway(api_key="sk-xxx")
+        client.close()
+
+    def test_gateway_import_error(self):
+        client = self._make_gw_client()
+        with patch.dict("sys.modules", {"openai": None}):
+            with pytest.raises(ImportError, match="openai is required"):
+                client.gateway(api_key="sk-xxx")
+        client.close()
+
+
+class TestCreateHeaders:
+    def test_all_fields(self):
+        from synkro.enterprise import createHeaders
+
+        headers = createHeaders(api_key="sk-abc", provider="openai", user_id="u1")
+        assert headers == {
+            "x-synkro-api-key": "sk-abc",
+            "x-synkro-provider": "openai",
+            "x-synkro-user-id": "u1",
+        }
+
+    def test_minimal(self):
+        from synkro.enterprise import createHeaders
+
+        headers = createHeaders(api_key="sk-abc")
+        assert headers == {"x-synkro-api-key": "sk-abc"}
 
 
 # ── Error Class Tests ────────────────────────────────────

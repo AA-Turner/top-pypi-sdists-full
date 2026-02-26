@@ -5,8 +5,9 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any
 
+from wisent.core.constants import SEPARATOR_WIDTH_WIDE, JSON_INDENT
 from wisent.examples.scripts.generate_paper_data_helpers import (
-    S3_BUCKET,
+    GCS_BUCKET,
     download_all_results,
     load_model_results,
     compute_diagnosis,
@@ -154,15 +155,15 @@ def generate_summary_statistics(all_models: Dict[str, Dict]) -> str:
 
 def main():
     """Generate all paper data."""
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print("GENERATING PAPER DATA")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     
     output_dir = Path("/tmp/paper_data")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Download results
-    print("\n1. Downloading results from S3...")
+    print("\n1. Downloading results from GCS...")
     results_dir = output_dir / "results"
     models = download_all_results(results_dir)
     print(f"   Found {len(models)} models: {list(models.keys())}")
@@ -192,7 +193,7 @@ def main():
     print("\n5. Generating figure data...")
     figure_data = generate_figure_data(all_models)
     with open(output_dir / "figure_data.json", "w") as f:
-        json.dump(figure_data, f, indent=2)
+        json.dump(figure_data, f, indent=JSON_INDENT)
     print(f"   Saved: {output_dir / 'figure_data.json'}")
     
     # Generate summary statistics
@@ -203,18 +204,18 @@ def main():
     print(f"   Saved: {output_dir / 'summary_statistics.md'}")
     print(summary)
     
-    # Upload to S3
-    print("\n7. Uploading to S3...")
+    # Upload to GCS
+    print("\n7. Uploading to GCS...")
     for f in output_dir.glob("*"):
         if f.is_file():
             subprocess.run(
-                ["aws", "s3", "cp", str(f), f"s3://{S3_BUCKET}/paper_data/{f.name}", "--quiet"],
+                ["gcloud", "storage", "cp", str(f), f"gs://{GCS_BUCKET}/paper_data/{f.name}", "--quiet"],
                 check=False,
             )
     
-    print("\n" + "=" * 70)
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
     print("PAPER DATA GENERATION COMPLETE")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print(f"Output directory: {output_dir}")
 
 

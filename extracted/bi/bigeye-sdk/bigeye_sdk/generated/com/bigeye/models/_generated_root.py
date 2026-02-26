@@ -629,6 +629,9 @@ class AggregateField(betterproto.Enum):
     AGGREGATE_FIELD_DIMENSION = 22
     AGGREGATE_FIELD_CHILD_ENTITIES = 23
     AGGREGATE_FIELD_SENSITIVE_COLUMNS = 24
+    AGGREGATE_FIELD_SCAN_JOBS = 25
+    AGGREGATE_FIELD_CLASSIFIERS = 26
+    AGGREGATE_FIELD_DATA_CLASSES = 27
 
 
 class GroupByEntityType(betterproto.Enum):
@@ -1223,6 +1226,14 @@ class ClassifierSortField(betterproto.Enum):
     CLASSIFIER_SORT_FIELD_CREATOR = 4
     CLASSIFIER_SORT_FIELD_DETECTOR_TYPE = 5
     CLASSIFIER_SORT_FIELD_NUMBER_OF_SCAN_JOBS = 6
+    CLASSIFIER_SORT_FIELD_DESCRIPTION = 7
+
+
+class TestDetectorResponseType(betterproto.Enum):
+    TEST_DETECTOR_RESPONSE_TYPE_UNSPECIFIED = 0
+    TEST_DETECTOR_RESPONSE_TYPE_POSITIVE = 1
+    TEST_DETECTOR_RESPONSE_TYPE_NEGATIVE = 2
+    TEST_DETECTOR_RESPONSE_TYPE_MALFORMED = 3
 
 
 class ModelTypes(betterproto.Enum):
@@ -1264,6 +1275,7 @@ class TableSplitStrategy(betterproto.Enum):
     TABLE_SPLIT_STRATEGY_HASH_MOD = 4
     TABLE_SPLIT_STRATEGY_REQUIRED_PARTITION_FILTER = 5
     TABLE_SPLIT_STRATEGY_AUTO_OR_INCREMENTAL = 6
+    TABLE_SPLIT_STRATEGY_SAMPLED = 7
 
 
 @dataclass
@@ -1601,7 +1613,7 @@ class MetricConfiguration(betterproto.Message):
         betterproto.message_field(26)
     )
     monitor_type: "MonitorType" = betterproto.enum_field(27)
-    create_issue_on_absent_groups: bool = betterproto.bool_field(28)
+    alert_on_absent_groups: bool = betterproto.bool_field(28)
 
 
 @dataclass
@@ -2995,6 +3007,13 @@ class MetaCenterRepository(betterproto.Message):
     type: str = betterproto.string_field(3)
     integration_partner: "IntegrationPartner" = betterproto.enum_field(4)
     copy_disabled: bool = betterproto.bool_field(5)
+    integration_entity_id: str = betterproto.string_field(6)
+
+
+@dataclass
+class GatherMetaCenterRepositoriesRequest(betterproto.Message):
+    integration_id: int = betterproto.int32_field(1)
+    repository_uid: str = betterproto.string_field(2)
 
 
 @dataclass
@@ -5998,6 +6017,7 @@ class BulkMetricConfiguration(betterproto.Message):
     owner_id: int = betterproto.int32_field(17)
     is_lookback_using_current_time: bool = betterproto.bool_field(18)
     dimension_id: int = betterproto.int32_field(19)
+    alert_on_absent_groups: bool = betterproto.bool_field(20)
 
 
 @dataclass
@@ -6781,8 +6801,8 @@ class CreateOrUpdateScanJobRequest(betterproto.Message):
     scan_type: "ScanType" = betterproto.enum_field(9)
     notification_channels: List["NotificationChannel"] = betterproto.message_field(10)
     incremental_scan_start_at: int = betterproto.int64_field(13)
-    fraction_of_rows_to_sample: float = betterproto.double_field(14)
-    minimum_sample_size_rows: int = betterproto.int32_field(15)
+    sampled_scan_fraction_of_rows: float = betterproto.double_field(14)
+    sampled_scan_min_number_of_rows: int = betterproto.int32_field(15)
     schedule: "ScanSchedule" = betterproto.message_field(16)
 
 
@@ -6810,8 +6830,8 @@ class ScanJob(betterproto.Message):
     scan_type: "ScanType" = betterproto.enum_field(13)
     notification_channels: List["NotificationChannel"] = betterproto.message_field(14)
     incremental_scan_start_at: int = betterproto.int64_field(17)
-    fraction_of_rows_to_sample: float = betterproto.double_field(18)
-    minimum_sample_size_rows: int = betterproto.int32_field(19)
+    sampled_scan_fraction_of_rows: float = betterproto.double_field(18)
+    sampled_scan_min_number_of_rows: int = betterproto.int32_field(19)
     status: "ScanJobStatus" = betterproto.enum_field(20)
     distinct_warehouses: List["Warehouse"] = betterproto.message_field(21)
     next_run_at: int = betterproto.int64_field(22)
@@ -6830,13 +6850,10 @@ class GetScanJobListRequest(betterproto.Message):
     scan_types: List["ScanType"] = betterproto.enum_field(7)
     schedule_ids: List[int] = betterproto.int32_field(8)
     statuses: List["ScanJobStatus"] = betterproto.enum_field(9)
-    include_warehouse_ids: bool = betterproto.bool_field(10)
-    include_schema_ids: bool = betterproto.bool_field(11)
-    include_table_ids: bool = betterproto.bool_field(12)
-    include_classifiers: bool = betterproto.bool_field(13)
-    include_notification_channels: bool = betterproto.bool_field(14)
-    include_tables_to_rct_columns: bool = betterproto.bool_field(15)
-    include_tables_to_partition_columns: bool = betterproto.bool_field(16)
+    include_tables: bool = betterproto.bool_field(10)
+    include_classifiers: bool = betterproto.bool_field(12)
+    include_notification_channels: bool = betterproto.bool_field(13)
+    include_warehouses: bool = betterproto.bool_field(14)
 
 
 @dataclass
@@ -6866,10 +6883,11 @@ class ScanRun(betterproto.Message):
     started_at: int = betterproto.int64_field(6)
     completed_at: int = betterproto.int64_field(7)
     rows_scanned: int = betterproto.int64_field(8)
-    rows_matched: int = betterproto.int64_field(9)
     display_name: str = betterproto.string_field(10)
     scan_type: "ScanType" = betterproto.enum_field(11)
-    schedule: "IdAndDisplayName" = betterproto.message_field(12)
+    schedule: "ScanSchedule" = betterproto.message_field(12)
+    next_run_at: int = betterproto.int64_field(13)
+    number_of_classifiers: int = betterproto.int32_field(14)
 
 
 @dataclass
@@ -6952,6 +6970,9 @@ class ScanFinding(betterproto.Message):
     chunk_infos: List["ScanFindingChunkInfo"] = betterproto.message_field(18)
     is_marked_for_reset_scan: bool = betterproto.bool_field(19)
     was_reset_scan: bool = betterproto.bool_field(20)
+    is_table_deleted: bool = betterproto.bool_field(21)
+    is_schema_deleted: bool = betterproto.bool_field(22)
+    is_source_deleted: bool = betterproto.bool_field(23)
 
 
 @dataclass
@@ -6962,6 +6983,7 @@ class ScanFindingChunkInfo(betterproto.Message):
     agent_version: str = betterproto.string_field(4)
     query: str = betterproto.string_field(5)
     query_executed_at: int = betterproto.int64_field(6)
+    sds_python_version: str = betterproto.string_field(7)
 
 
 @dataclass
@@ -7111,6 +7133,8 @@ class GetClassifierListRequest(betterproto.Message):
     data_class_ids: List[int] = betterproto.int64_field(9)
     include_detector: bool = betterproto.bool_field(10)
     creator_ids: List[int] = betterproto.int32_field(11)
+    # Filter to classifiers used by these scan jobs
+    scan_job_ids: List[int] = betterproto.int64_field(12)
 
 
 @dataclass
@@ -7144,7 +7168,7 @@ class TestDetectorRequest(betterproto.Message):
 
 @dataclass
 class TestDetectorResponse(betterproto.Message):
-    positive: bool = betterproto.bool_field(1)
+    response_type: "TestDetectorResponseType" = betterproto.enum_field(1)
 
 
 @dataclass
@@ -7479,12 +7503,6 @@ class GatherLineageForMetaCenterMetadataRequest(betterproto.Message):
     integration_id: int = betterproto.int32_field(1)
     repository_offset: int = betterproto.int32_field(2)
     metadata_offset: int = betterproto.int32_field(3)
-
-
-@dataclass
-class GatherMetaCenterRepositoriesRequest(betterproto.Message):
-    integration_id: int = betterproto.int32_field(1)
-    repository_uid: str = betterproto.string_field(2)
 
 
 @dataclass
@@ -7900,6 +7918,7 @@ class ScanJobResponse(betterproto.Message):
     failed_tables: List["FailedUpdate"] = betterproto.message_field(3)
     bytes_scanned: int = betterproto.int64_field(4)
     invoking_user: int = betterproto.int32_field(5)
+    rows_scanned: int = betterproto.int64_field(6)
 
 
 @dataclass
@@ -7922,6 +7941,8 @@ class ScanTableRequest(betterproto.Message):
     scan_run_table_id: int = betterproto.int64_field(8)
     scan_type: "ScanType" = betterproto.enum_field(9)
     incremental_scan_start_at: int = betterproto.int64_field(10)
+    sampled_scan_min_number_of_rows: int = betterproto.int32_field(11)
+    sampled_scan_fraction_of_rows: float = betterproto.double_field(12)
 
 
 @dataclass
@@ -7945,12 +7966,14 @@ class ScanTableResponse(betterproto.Message):
     success: bool = betterproto.bool_field(2)
     error_message: str = betterproto.string_field(3)
     bytes_scanned: int = betterproto.int64_field(4)
+    rows_scanned: int = betterproto.int64_field(5)
 
 
 @dataclass
 class SplitResponse(betterproto.Message):
     chunks: List["ScanChunkRequest"] = betterproto.message_field(1)
     new_watermark_epoch_seconds: int = betterproto.int64_field(2)
+    table_full_row_count: int = betterproto.int64_field(3)
 
 
 @dataclass
@@ -7977,6 +8000,7 @@ class ScanChunkResponse(betterproto.Message):
     bytes_scanned: int = betterproto.int64_field(6)
     agent_version: str = betterproto.string_field(7)
     query_executed_at: int = betterproto.int64_field(8)
+    sds_python_version: str = betterproto.string_field(9)
 
 
 @dataclass
@@ -7999,6 +8023,7 @@ class PersistTableFindingsRequest(betterproto.Message):
 class RetryScanJobRequest(betterproto.Message):
     scan_run_id: int = betterproto.int64_field(1)
     invoking_user: int = betterproto.int32_field(2)
+    scan_job_id: int = betterproto.int64_field(3)
 
 
 @dataclass
@@ -8011,6 +8036,7 @@ class RetryChunksInfo(betterproto.Message):
     failed_chunks: List["ScanChunkRequest"] = betterproto.message_field(1)
     parallelism_for_chunks: int = betterproto.int32_field(2)
     has_chunks: bool = betterproto.bool_field(3)
+    total_chunk_count: int = betterproto.int32_field(4)
 
 
 @dataclass
@@ -8336,7 +8362,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
         metric_observed_column_response: List["MetricObservedColumnResponse"] = [],
         monitor_type: "MonitorType" = 0,
-        create_issue_on_absent_groups: bool = False,
+        alert_on_absent_groups: bool = False,
     ) -> MetricConfiguration:
         """Create or update metric"""
 
@@ -8379,7 +8405,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         if metric_observed_column_response is not None:
             request.metric_observed_column_response = metric_observed_column_response
         request.monitor_type = monitor_type
-        request.create_issue_on_absent_groups = create_issue_on_absent_groups
+        request.alert_on_absent_groups = alert_on_absent_groups
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/CreateMetric",
@@ -8604,7 +8630,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
         metric_observed_column_response: List["MetricObservedColumnResponse"] = [],
         monitor_type: "MonitorType" = 0,
-        create_issue_on_absent_groups: bool = False,
+        alert_on_absent_groups: bool = False,
     ) -> MetricValidationResult:
         """Validate a metric configuration"""
 
@@ -8647,7 +8673,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         if metric_observed_column_response is not None:
             request.metric_observed_column_response = metric_observed_column_response
         request.monitor_type = monitor_type
-        request.create_issue_on_absent_groups = create_issue_on_absent_groups
+        request.alert_on_absent_groups = alert_on_absent_groups
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/ValidateMetric",

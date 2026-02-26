@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: molecule
-Version: 25.12.0
+Version: 26.2.0
 Summary: Molecule aids in the development and testing of Ansible roles
 Author-email: Ansible by Red Hat <info@ansible.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -34,7 +34,6 @@ License-File: LICENSE
 Requires-Dist: ansible-compat>=25.1.4
 Requires-Dist: ansible-core>=2.15.0
 Requires-Dist: click<9,>=8.0
-Requires-Dist: click-help-colors>=0.9.4
 Requires-Dist: enrich>=1.2.7
 Requires-Dist: jinja2>=2.11.3
 Requires-Dist: jsonschema>=4.9.1
@@ -78,11 +77,11 @@ molecule ...
 python3 -m molecule ...  # python module calling method
 ```
 
-# Documentation
+## Documentation
 
 Read the documentation and more at <https://docs.ansible.com/projects/molecule//>.
 
-# Get Involved
+## Get Involved
 
 See the [Talk to us](https://docs.ansible.com/projects/molecule//contributing/#talk-to-us) section of the documentation to ask questions, find help, and join the conversation.
 
@@ -92,20 +91,20 @@ For complete details, see the
 If you want to get moving fast and make a quick patch:
 
 ```bash
-$ git clone https://github.com/ansible-community/molecule && cd molecule
-$ python3 -m venv .venv && source .venv/bin/activate
-$ python3 -m pip install -U setuptools pip tox
+git clone https://github.com/ansible-community/molecule && cd molecule
+python3 -m venv .venv && source .venv/bin/activate
+python3 -m pip install -U setuptools pip tox
 ```
 
 And you're ready to make your changes!
 
-# Authors
+## Authors
 
 Molecule project was created by [Retr0h](https://github.com/retr0h) and
 it is now community-maintained as part of the
 [Ansible](https://ansible.com) by Red Hat project.
 
-# License
+## License
 
 The
 [MIT](https://github.com/ansible-community/molecule/blob/main/LICENSE)

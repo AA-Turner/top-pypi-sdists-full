@@ -1,5 +1,7 @@
 import warnings
 from contextlib import suppress
+from typing import Any
+from urllib.parse import unquote
 
 from django.core.exceptions import ValidationError
 from django_filters.utils import get_model_field
@@ -61,13 +63,17 @@ class WBCoreFilterMixin:
             initial = callable_initial(self, request, view)
         else:
             initial = self.initial
-
         return initial
+
+    def _parse_request_initial(self, request_default: str) -> Any:
+        request_default = request_default[0] if isinstance(request_default, list) else request_default
+        request_default = unquote(request_default)
+        return request_default
 
     def _validate_initial_with_request(self, initial, request, name):
         if request_default := request.GET.get(name):
             try:
-                return self.field.to_python(request_default)
+                return self.field.to_python(self._parse_request_initial(request_default))
             except ValidationError:
                 return None
         return initial
@@ -105,7 +111,6 @@ class WBCoreFilterMixin:
 
         if initial is not None or self.allow_empty_initial:
             lookup_expr["input_properties"]["initial"] = initial
-
         lookup_expr["input_properties"]["required"] = self.required
         representation["depends_on"] = self.depends_on
         return representation, lookup_expr

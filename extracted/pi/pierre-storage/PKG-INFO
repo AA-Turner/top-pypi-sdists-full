@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 1.3.1
+Version: 1.3.2
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT
@@ -194,6 +194,7 @@ archive_response = await repo.get_archive_stream(
     ref="main",
     include_globs=["README.md"],
     exclude_globs=["vendor/**"],
+    max_blob_size=1024 * 1024,  # optional max file size in bytes
     archive_prefix="repo/",
 )
 archive_bytes = await archive_response.aread()
@@ -640,6 +641,7 @@ class Repo:
         ref: Optional[str] = None,
         include_globs: Optional[List[str]] = None,
         exclude_globs: Optional[List[str]] = None,
+        max_blob_size: Optional[int] = None,
         archive_prefix: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> Response: ...

@@ -81,12 +81,69 @@ def _generate_seeded_input(
     if np.issubdtype(np_dtype, np.bool_):
         return (rng.random(shape) > 0.5).astype(np_dtype)
     if np.issubdtype(np_dtype, np.floating):
+        distribution = _resolve_float_seeded_distribution(shape=shape)
+        if distribution == "uniform_0_1":
+            return rng.uniform(0.0, 1.0, size=shape).astype(np_dtype)
+        if distribution == "uniform_-1_1":
+            return rng.uniform(-1.0, 1.0, size=shape).astype(np_dtype)
         return rng.standard_normal(shape).astype(np_dtype)
     if np.issubdtype(np_dtype, np.signedinteger):
-        return rng.integers(low=-8, high=9, size=shape, dtype=np_dtype)
+        mode = str(
+            os.environ.get("ONNX2TF_EVAL_INTEGER_RANDOM_MODE", "zeros")
+        ).strip().lower()
+        if mode in {"zeros", "zero"}:
+            return np.zeros(shape, dtype=np_dtype)
+        if mode in {"uniform_small", "small"}:
+            return rng.integers(low=-8, high=9, size=shape, dtype=np_dtype)
+        raise ValueError(
+            "Invalid ONNX2TF_EVAL_INTEGER_RANDOM_MODE. "
+            "Expected one of: zeros, uniform_small. "
+            f"got: {mode}"
+        )
     if np.issubdtype(np_dtype, np.unsignedinteger):
-        return rng.integers(low=0, high=17, size=shape, dtype=np_dtype)
+        mode = str(
+            os.environ.get("ONNX2TF_EVAL_INTEGER_RANDOM_MODE", "zeros")
+        ).strip().lower()
+        if mode in {"zeros", "zero"}:
+            return np.zeros(shape, dtype=np_dtype)
+        if mode in {"uniform_small", "small"}:
+            return rng.integers(low=0, high=17, size=shape, dtype=np_dtype)
+        raise ValueError(
+            "Invalid ONNX2TF_EVAL_INTEGER_RANDOM_MODE. "
+            "Expected one of: zeros, uniform_small. "
+            f"got: {mode}"
+        )
     return rng.standard_normal(shape).astype(np.float32).astype(np_dtype)
+
+
+def _is_likely_image_tensor_shape(shape: Tuple[int, ...]) -> bool:
+    if len(shape) != 4:
+        return False
+    c_first = int(shape[1]) if int(shape[1]) > 0 else -1
+    c_last = int(shape[3]) if int(shape[3]) > 0 else -1
+    return (c_first in (1, 3, 4)) or (c_last in (1, 3, 4))
+
+
+def _resolve_float_seeded_distribution(*, shape: Tuple[int, ...]) -> str:
+    env_value = str(
+        os.environ.get("ONNX2TF_EVAL_FLOAT_RANDOM_DISTRIBUTION", "auto")
+    ).strip().lower()
+    if env_value in {"", "auto"}:
+        # Most image models expect normalized non-negative inputs.
+        if _is_likely_image_tensor_shape(shape):
+            return "uniform_0_1"
+        return "normal"
+    if env_value in {"normal", "gaussian", "standard_normal"}:
+        return "normal"
+    if env_value in {"uniform_0_1", "uniform01", "0_1"}:
+        return "uniform_0_1"
+    if env_value in {"uniform_-1_1", "uniform_m1_p1", "uniform11", "-1_1"}:
+        return "uniform_-1_1"
+    raise ValueError(
+        "Invalid ONNX2TF_EVAL_FLOAT_RANDOM_DISTRIBUTION. "
+        "Expected one of: auto, normal, uniform_0_1, uniform_-1_1. "
+        f"got: {env_value}"
+    )
 
 
 def _extract_sample_from_custom(
@@ -274,9 +331,54 @@ def _max_abs_error(a: np.ndarray, b: np.ndarray) -> float:
         )
     if a.size == 0:
         return 0.0
-    a64 = np.asarray(a, dtype=np.float64)
-    b64 = np.asarray(b, dtype=np.float64)
+    a64, b64 = _sanitize_metric_vectors(a, b)
     return float(np.max(np.abs(a64 - b64)))
+
+
+def _sanitize_metric_vectors(
+    ref: np.ndarray,
+    pred: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return metric-safe vectors:
+    - Matching NaN / +Inf / -Inf pairs are treated as equal (set to 0).
+    - Remaining non-finite values are mapped to large finite sentinels so
+      aggregate metrics stay finite and deterministic.
+    """
+    ref_flat = np.asarray(ref, dtype=np.float64).reshape(-1)
+    pred_flat = np.asarray(pred, dtype=np.float64).reshape(-1)
+    if ref_flat.shape != pred_flat.shape:
+        raise ValueError(
+            "Evaluation tensor shape mismatch. "
+            f"ref={tuple(ref.shape)} pred={tuple(pred.shape)}"
+        )
+    if ref_flat.size == 0:
+        return ref_flat, pred_flat
+
+    both_nan = np.isnan(ref_flat) & np.isnan(pred_flat)
+    both_pos_inf = np.isposinf(ref_flat) & np.isposinf(pred_flat)
+    both_neg_inf = np.isneginf(ref_flat) & np.isneginf(pred_flat)
+    equal_nonfinite = both_nan | both_pos_inf | both_neg_inf
+
+    needs_copy = bool(np.any(equal_nonfinite))
+    has_nonfinite = bool(np.any(~np.isfinite(ref_flat) | ~np.isfinite(pred_flat)))
+    if not needs_copy and not has_nonfinite:
+        return ref_flat, pred_flat
+
+    ref_clean = np.array(ref_flat, dtype=np.float64, copy=True)
+    pred_clean = np.array(pred_flat, dtype=np.float64, copy=True)
+
+    if needs_copy:
+        ref_clean[equal_nonfinite] = 0.0
+        pred_clean[equal_nonfinite] = 0.0
+
+    remaining_nonfinite = ~np.isfinite(ref_clean) | ~np.isfinite(pred_clean)
+    if np.any(remaining_nonfinite):
+        large = 1.0e30
+        ref_clean = np.nan_to_num(ref_clean, nan=0.0, posinf=large, neginf=-large)
+        pred_clean = np.nan_to_num(pred_clean, nan=0.0, posinf=large, neginf=-large)
+
+    return ref_clean, pred_clean
 
 
 def _align_output_layout_for_compare(
@@ -348,13 +450,7 @@ class _MetricAccumulator:
         self.sum_pred_norm = 0.0
 
     def update(self, ref: np.ndarray, pred: np.ndarray) -> None:
-        ref_flat = np.asarray(ref, dtype=np.float64).reshape(-1)
-        pred_flat = np.asarray(pred, dtype=np.float64).reshape(-1)
-        if ref_flat.shape != pred_flat.shape:
-            raise ValueError(
-                "Evaluation tensor shape mismatch. "
-                f"ref={tuple(ref.shape)} pred={tuple(pred.shape)}"
-            )
+        ref_flat, pred_flat = _sanitize_metric_vectors(ref, pred)
         if ref_flat.size == 0:
             return
         diff = ref_flat - pred_flat

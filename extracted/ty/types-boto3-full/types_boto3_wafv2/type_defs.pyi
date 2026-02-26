@@ -100,6 +100,7 @@ __all__ = (
     "BlockActionTypeDef",
     "BlockActionUnionTypeDef",
     "BodyTypeDef",
+    "BotStatisticsTypeDef",
     "ByteMatchStatementOutputTypeDef",
     "ByteMatchStatementTypeDef",
     "ByteMatchStatementUnionTypeDef",
@@ -181,6 +182,7 @@ __all__ = (
     "FieldToProtectOutputTypeDef",
     "FieldToProtectTypeDef",
     "FilterOutputTypeDef",
+    "FilterSourceTypeDef",
     "FilterTypeDef",
     "FirewallManagerRuleGroupTypeDef",
     "FirewallManagerStatementTypeDef",
@@ -210,6 +212,8 @@ __all__ = (
     "GetRuleGroupResponseTypeDef",
     "GetSampledRequestsRequestTypeDef",
     "GetSampledRequestsResponseTypeDef",
+    "GetTopPathStatisticsByTrafficRequestTypeDef",
+    "GetTopPathStatisticsByTrafficResponseTypeDef",
     "GetWebACLForResourceRequestTypeDef",
     "GetWebACLForResourceResponseTypeDef",
     "GetWebACLRequestTypeDef",
@@ -293,6 +297,7 @@ __all__ = (
     "OverrideActionTypeDef",
     "OverrideActionUnionTypeDef",
     "PasswordFieldTypeDef",
+    "PathStatisticsTypeDef",
     "PhoneNumberFieldTypeDef",
     "PutLoggingConfigurationRequestTypeDef",
     "PutLoggingConfigurationResponseTypeDef",
@@ -457,6 +462,11 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class BodyTypeDef(TypedDict):
     OversizeHandling: NotRequired[OversizeHandlingType]
+
+class BotStatisticsTypeDef(TypedDict):
+    BotName: str
+    RequestCount: int
+    Percentage: float
 
 TextTransformationTypeDef = TypedDict(
     "TextTransformationTypeDef",
@@ -655,6 +665,11 @@ class SingleQueryArgumentTypeDef(TypedDict):
 
 class UriFragmentTypeDef(TypedDict):
     FallbackBehavior: NotRequired[FallbackBehaviorType]
+
+class FilterSourceTypeDef(TypedDict):
+    BotCategory: NotRequired[str]
+    BotOrganization: NotRequired[str]
+    BotName: NotRequired[str]
 
 class GenerateMobileSdkReleaseUrlRequestTypeDef(TypedDict):
     Platform: PlatformType
@@ -1217,6 +1232,13 @@ class DescribeManagedProductsByVendorResponseTypeDef(TypedDict):
     ManagedProducts: list[ManagedProductDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class PathStatisticsTypeDef(TypedDict):
+    Path: str
+    RequestCount: int
+    Percentage: float
+    Source: NotRequired[FilterSourceTypeDef]
+    TopBots: NotRequired[list[BotStatisticsTypeDef]]
+
 class GetIPSetResponseTypeDef(TypedDict):
     IPSet: IPSetTypeDef
     LockToken: str
@@ -1438,6 +1460,13 @@ class DataProtectionConfigOutputTypeDef(TypedDict):
 class DataProtectionConfigTypeDef(TypedDict):
     DataProtections: Sequence[DataProtectionTypeDef]
 
+class GetTopPathStatisticsByTrafficResponseTypeDef(TypedDict):
+    PathStatistics: list[PathStatisticsTypeDef]
+    TotalRequestCount: int
+    NextMarker: str
+    TopCategories: list[PathStatisticsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class SampledHTTPRequestTypeDef(TypedDict):
     Request: HTTPRequestTypeDef
     Weight: int
@@ -1632,6 +1661,18 @@ class GetSampledRequestsRequestTypeDef(TypedDict):
     Scope: ScopeType
     TimeWindow: TimeWindowUnionTypeDef
     MaxItems: int
+
+class GetTopPathStatisticsByTrafficRequestTypeDef(TypedDict):
+    WebAclArn: str
+    Scope: ScopeType
+    TimeWindow: TimeWindowUnionTypeDef
+    Limit: int
+    NumberOfTopTrafficBotsPerPath: int
+    UriPathPrefix: NotRequired[str]
+    BotCategory: NotRequired[str]
+    BotOrganization: NotRequired[str]
+    BotName: NotRequired[str]
+    NextMarker: NotRequired[str]
 
 RateBasedStatementCustomKeyUnionTypeDef = Union[
     RateBasedStatementCustomKeyTypeDef, RateBasedStatementCustomKeyOutputTypeDef

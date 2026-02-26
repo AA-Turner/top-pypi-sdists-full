@@ -13,7 +13,9 @@ from sklearn.metrics import silhouette_score
 from wisent.core.constants import (
     ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
     LINEARITY_PCA_COMPONENTS, LINEARITY_N_BOOTSTRAP, STAT_ALPHA,
-    CV_FOLDS, DIP_TEST_SIMULATIONS, DIRECTION_N_SPLITS,
+    CV_FOLDS, DIP_TEST_SIMULATIONS, DIRECTION_N_SPLITS, CV_FOLDS,
+    N_BOOTSTRAP_DEFAULT, DISPLAY_TOP_N_SMALL,
+    PERCENTILE_HIGH,
 )
 
 
@@ -31,7 +33,7 @@ def compute_eigenvalue_analysis(diff_vectors: np.ndarray) -> Dict:
         "eigenvalue_ratio": ratios[1] if len(ratios) > 1 else 0,
         "top_5_ratios": ratios[:5].tolist(),
         "explained_variance_2d": sum(pca.explained_variance_ratio_[:2]),
-        "eigenvalues": eigenvalues[:10].tolist(),
+        "eigenvalues": eigenvalues[:DISPLAY_TOP_N_SMALL].tolist(),
     }
 
 
@@ -65,7 +67,7 @@ def compute_clustering_analysis(diff_vectors: np.ndarray) -> Dict:
 def compute_direction_consistency(
     diff_vectors: np.ndarray,
     n_splits: int = DIRECTION_N_SPLITS,
-    seed: int = 42
+    seed: int = DEFAULT_RANDOM_SEED
 ) -> Dict:
     """
     Test if random splits give consistent directions.
@@ -104,7 +106,7 @@ def compute_direction_consistency(
     }
 
 
-def compute_cv_variance(diff_vectors: np.ndarray, n_folds: int = 5) -> Dict:
+def compute_cv_variance(diff_vectors: np.ndarray, n_folds: int = CV_FOLDS) -> Dict:
     """
     Compute cross-validation variance for linear probe.
     
@@ -157,9 +159,8 @@ def hartigans_dip_test(data: np.ndarray) -> Tuple[float, float]:
     dip = np.max(np.abs(ecdf - data_norm))
     
     # Approximate p-value using Monte Carlo
-    n_simulations = 1000
     dip_null = []
-    for _ in range(n_simulations):
+    for _ in range(DIP_TEST_SIMULATIONS):
         sample = np.sort(np.random.uniform(0, 1, n))
         sample_ecdf = np.arange(1, n + 1) / n
         dip_null.append(np.max(np.abs(sample_ecdf - sample)))
@@ -206,8 +207,8 @@ def compute_bimodality_analysis(diff_vectors: np.ndarray) -> Dict:
 
 def compute_null_distribution(
     diff_vectors: np.ndarray,
-    n_bootstrap: int = 100,
-    seed: int = 42
+    n_bootstrap: int = N_BOOTSTRAP_DEFAULT,
+    seed: int = DEFAULT_RANDOM_SEED
 ) -> Dict:
     """
     Compute null distribution of metrics assuming data is from ONE concept.
@@ -258,19 +259,19 @@ def compute_null_distribution(
         "bic_diff": {
             "mean": np.mean(null_bic_diffs),
             "std": np.std(null_bic_diffs),
-            "p95": np.percentile(null_bic_diffs, 95),
+            "p95": np.percentile(null_bic_diffs, PERCENTILE_HIGH),
             "values": null_bic_diffs,
         },
         "silhouette": {
             "mean": np.mean(null_silhouettes),
             "std": np.std(null_silhouettes),
-            "p95": np.percentile(null_silhouettes, 95),
+            "p95": np.percentile(null_silhouettes, PERCENTILE_HIGH),
             "values": null_silhouettes,
         },
         "eigenvalue_ratio": {
             "mean": np.mean(null_eigenvalue_ratios),
             "std": np.std(null_eigenvalue_ratios),
-            "p95": np.percentile(null_eigenvalue_ratios, 95),
+            "p95": np.percentile(null_eigenvalue_ratios, PERCENTILE_HIGH),
             "values": null_eigenvalue_ratios,
         },
     }

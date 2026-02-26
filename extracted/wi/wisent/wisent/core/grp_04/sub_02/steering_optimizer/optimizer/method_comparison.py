@@ -11,8 +11,9 @@ from typing import Dict, List, Optional, Any, Union
 
 from wisent.core.steering_methods import SteeringMethodRegistry, SteeringMethodType
 from wisent.core.constants import (
-    DEFAULT_LIMIT, DEFAULT_SPLIT_RATIO, SEARCH_DEFAULT_STRENGTHS,
-    SEARCH_MAX_LAYER_CAP,
+    DEFAULT_LIMIT, DEFAULT_NUM_HIDDEN_LAYERS, DEFAULT_SPLIT_RATIO,
+    SEARCH_DEFAULT_STRENGTHS, SEARCH_MAX_LAYER_CAP,
+    OPTIMIZE_MAX_TIME_MINUTES, SECONDS_PER_MINUTE,
 )
 
 from ..types import (
@@ -38,7 +39,7 @@ class MethodComparisonMixin:
         layer_range: Optional[str] = None,
         strength_range: Optional[List[float]] = None,
         limit: int = DEFAULT_LIMIT,
-        max_time_minutes: float = 30.0,
+        max_time_minutes: float = OPTIMIZE_MAX_TIME_MINUTES,
         split_ratio: float = DEFAULT_SPLIT_RATIO
     ) -> SteeringOptimizationSummary:
         """
@@ -101,7 +102,7 @@ class MethodComparisonMixin:
 
             for layer in layers_to_test:
                 for strength in strength_range:
-                    if time.time() - start_time > max_time_minutes * 60:
+                    if time.time() - start_time > max_time_minutes * SECONDS_PER_MINUTE:
                         logger.warning("Time limit reached, stopping optimization")
                         break
 
@@ -167,7 +168,7 @@ class MethodComparisonMixin:
             model_name=self.model_name,
             optimization_type="method_comparison",
             total_configurations_tested=configurations_tested,
-            optimization_time_minutes=optimization_time / 60,
+            optimization_time_minutes=optimization_time / SECONDS_PER_MINUTE,
             best_overall_method=best_overall_config['method'] if best_overall_config else "none",
             best_overall_layer=best_overall_config['layer'] if best_overall_config else 0,
             best_overall_strength=best_overall_config['strength'] if best_overall_config else 0.0,
@@ -194,10 +195,10 @@ class MethodComparisonMixin:
                 config = AutoConfig.from_pretrained(self.model_name, trust_remote_code=True)
                 num_layers = getattr(config, 'num_hidden_layers', None) or \
                              getattr(config, 'n_layer', None) or \
-                             getattr(config, 'num_layers', None) or 32
+                             getattr(config, 'num_layers', None) or DEFAULT_NUM_HIDDEN_LAYERS
                 return list(range(num_layers))
             except Exception:
-                return list(range(32))
+                return list(range(DEFAULT_NUM_HIDDEN_LAYERS))
 
     def _analyze_results(self, all_results: Dict) -> tuple:
         """Analyze optimization results to compute rankings."""

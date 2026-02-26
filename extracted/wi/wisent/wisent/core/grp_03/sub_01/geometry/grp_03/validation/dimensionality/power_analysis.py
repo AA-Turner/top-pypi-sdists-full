@@ -8,6 +8,7 @@ from wisent.core.constants import (
     EFFECT_SIZE_SMALL, EFFECT_SIZE_MEDIUM, EFFECT_SIZE_LARGE,
     POWER_EXCELLENT_THRESHOLD, POWER_ADEQUATE_THRESHOLD, POWER_LOW_THRESHOLD,
     MDE_SMALL_THRESHOLD, MDE_MEDIUM_THRESHOLD, MDE_LARGE_THRESHOLD,
+    POWER_ANALYSIS_MIN_N, POWER_ANALYSIS_MAX_N, POWER_ANALYSIS_STEP,
 )
 
 
@@ -54,8 +55,8 @@ def compute_statistical_power(
         power_small = power_medium = power_large = 0.0
 
     # Required n for 80% power at medium effect
-    required_n = 8
-    for test_n in range(8, 10000, 2):
+    required_n = POWER_ANALYSIS_MIN_N
+    for test_n in range(POWER_ANALYSIS_MIN_N, POWER_ANALYSIS_MAX_N, POWER_ANALYSIS_STEP):
         test_n_per_group = test_n / 2
         test_df = max(1, test_n - 2)
         test_t_crit = stats.t.ppf(1 - alpha / 2, test_df)

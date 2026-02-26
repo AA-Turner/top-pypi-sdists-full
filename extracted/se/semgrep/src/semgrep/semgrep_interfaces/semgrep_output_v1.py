@@ -9415,7 +9415,8 @@ class EngineConfiguration:
 class ScanResponse:
     """Original type: scan_response = { ... }
 
-    Response from the backend to the CLI to the POST /api/cli/scans
+    Response from the backend to the CLI to the (deprecated) POST
+    /api/cli/scans
     """
 
     info: ScanInfo
@@ -9709,7 +9710,7 @@ class CiConfigFromRepo:
 class ScanRequest:
     """Original type: scan_request = { ... }
 
-    Sent by the CLI to the POST /api/cli/scans to create a scan.
+    Sent by the CLI to the (deprecated) POST /api/cli/scans to create a scan.
     """
 
     project_metadata: ProjectMetadata
@@ -11854,6 +11855,135 @@ class HasFeatures:
         return json.dumps(self.to_json(), **kw)
 
 
+@dataclass
+class Pending:
+    """Original type: get_config_response_status = [ ... | Pending | ... ]
+    """
+
+    @property
+    def kind(self) -> str:
+        """Name of the class representing this variant."""
+        return 'Pending'
+
+    @staticmethod
+    def to_json() -> Any:
+        return 'pending'
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class Success:
+    """Original type: get_config_response_status = [ ... | Success | ... ]
+    """
+
+    @property
+    def kind(self) -> str:
+        """Name of the class representing this variant."""
+        return 'Success'
+
+    @staticmethod
+    def to_json() -> Any:
+        return 'success'
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class Failure:
+    """Original type: get_config_response_status = [ ... | Failure | ... ]
+    """
+
+    @property
+    def kind(self) -> str:
+        """Name of the class representing this variant."""
+        return 'Failure'
+
+    @staticmethod
+    def to_json() -> Any:
+        return 'failure'
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class GetConfigResponseStatus:
+    """Original type: get_config_response_status = [ ... ]
+    """
+
+    value: Union[Pending, Success, Failure]
+
+    @property
+    def kind(self) -> str:
+        """Name of the class representing this variant."""
+        return self.value.kind
+
+    @classmethod
+    def from_json(cls, x: Any) -> 'GetConfigResponseStatus':
+        if isinstance(x, str):
+            if x == 'pending':
+                return cls(Pending())
+            if x == 'success':
+                return cls(Success())
+            if x == 'failure':
+                return cls(Failure())
+            _atd_bad_json('GetConfigResponseStatus', x)
+        _atd_bad_json('GetConfigResponseStatus', x)
+
+    def to_json(self) -> Any:
+        return self.value.to_json()
+
+    @classmethod
+    def from_json_string(cls, x: str) -> 'GetConfigResponseStatus':
+        return cls.from_json(json.loads(x))
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class GetConfigResponseV2:
+    """Original type: get_config_response_v2 = { ... }
+
+    Response from the backend to the CLI for GET
+    /api/cli/v2/scans/<scan_request_id>/config.
+    """
+
+    status: GetConfigResponseStatus
+    config: Optional[ScanConfiguration] = None
+    engine_params: Optional[EngineConfiguration] = None
+
+    @classmethod
+    def from_json(cls, x: Any) -> 'GetConfigResponseV2':
+        if isinstance(x, dict):
+            return cls(
+                status=GetConfigResponseStatus.from_json(x['status']) if 'status' in x else _atd_missing_json_field('GetConfigResponseV2', 'status'),
+                config=ScanConfiguration.from_json(x['config']) if 'config' in x else None,
+                engine_params=EngineConfiguration.from_json(x['engine_params']) if 'engine_params' in x else None,
+            )
+        else:
+            _atd_bad_json('GetConfigResponseV2', x)
+
+    def to_json(self) -> Any:
+        res: Dict[str, Any] = {}
+        res['status'] = (lambda x: x.to_json())(self.status)
+        if self.config is not None:
+            res['config'] = (lambda x: x.to_json())(self.config)
+        if self.engine_params is not None:
+            res['engine_params'] = (lambda x: x.to_json())(self.engine_params)
+        return res
+
+    @classmethod
+    def from_json_string(cls, x: str) -> 'GetConfigResponseV2':
+        return cls.from_json(json.loads(x))
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
 @dataclass(frozen=True)
 class ApplyFixesReturn:
     """Original type: apply_fixes_return = { ... }
@@ -13130,6 +13260,75 @@ class DeploymentResponse:
 
     @classmethod
     def from_json_string(cls, x: str) -> 'DeploymentResponse':
+        return cls.from_json(json.loads(x))
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class CreateScanResponseV2:
+    """Original type: create_scan_response_v2 = { ... }
+
+    Response from the backend to the CLI for POST /api/cli/v2/scans.
+    """
+
+    info: ScanInfo
+
+    @classmethod
+    def from_json(cls, x: Any) -> 'CreateScanResponseV2':
+        if isinstance(x, dict):
+            return cls(
+                info=ScanInfo.from_json(x['info']) if 'info' in x else _atd_missing_json_field('CreateScanResponseV2', 'info'),
+            )
+        else:
+            _atd_bad_json('CreateScanResponseV2', x)
+
+    def to_json(self) -> Any:
+        res: Dict[str, Any] = {}
+        res['info'] = (lambda x: x.to_json())(self.info)
+        return res
+
+    @classmethod
+    def from_json_string(cls, x: str) -> 'CreateScanResponseV2':
+        return cls.from_json(json.loads(x))
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass
+class CreateScanRequestV2:
+    """Original type: create_scan_request_v2 = { ... }
+
+    Sent by the CLI to the backend in POST /api/cli/v2/scans.
+    """
+
+    project_metadata: ProjectMetadata
+    scan_metadata: ScanMetadata
+    project_config: Optional[CiConfigFromRepo] = None
+
+    @classmethod
+    def from_json(cls, x: Any) -> 'CreateScanRequestV2':
+        if isinstance(x, dict):
+            return cls(
+                project_metadata=ProjectMetadata.from_json(x['project_metadata']) if 'project_metadata' in x else _atd_missing_json_field('CreateScanRequestV2', 'project_metadata'),
+                scan_metadata=ScanMetadata.from_json(x['scan_metadata']) if 'scan_metadata' in x else _atd_missing_json_field('CreateScanRequestV2', 'scan_metadata'),
+                project_config=CiConfigFromRepo.from_json(x['project_config']) if 'project_config' in x else None,
+            )
+        else:
+            _atd_bad_json('CreateScanRequestV2', x)
+
+    def to_json(self) -> Any:
+        res: Dict[str, Any] = {}
+        res['project_metadata'] = (lambda x: x.to_json())(self.project_metadata)
+        res['scan_metadata'] = (lambda x: x.to_json())(self.scan_metadata)
+        if self.project_config is not None:
+            res['project_config'] = (lambda x: x.to_json())(self.project_config)
+        return res
+
+    @classmethod
+    def from_json_string(cls, x: str) -> 'CreateScanRequestV2':
         return cls.from_json(json.loads(x))
 
     def to_json_string(self, **kw: Any) -> str:

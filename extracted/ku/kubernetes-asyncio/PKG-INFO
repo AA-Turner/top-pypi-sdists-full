@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kubernetes_asyncio
-Version: 35.0.0
+Version: 35.0.1
 Summary: Kubernetes Asynchronous Python Client
 Author-email: Tomasz Prus <tomasz.prus@gmail.com>
 License-Expression: Apache-2.0

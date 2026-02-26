@@ -4,9 +4,9 @@ from typing import Annotated, Any
 
 import questionary
 import typer
-from cognite.client.data_classes import Annotation
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import ContainerReference
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.commands._migrate import MigrationCommand
@@ -110,7 +110,7 @@ class MigrateApp(typer.Typer):
         This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
         depend on the primary resources 3D and annotations.
         """
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrationPrepareCommand(client=client)
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
@@ -626,7 +626,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -742,7 +742,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Files to CogniteFiles."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         selected, dry_run, verbose = cls._prepare_asset_centric_arguments(
             client=client,
@@ -909,7 +909,7 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate(
                 selected=selected,
                 data=annotation_io,
-                mapper=AssetCentricMapper[Annotation](client),
+                mapper=AssetCentricMapper[AnnotationResponse](client),
                 log_dir=log_dir,
                 dry_run=dry_run,
                 verbose=verbose,

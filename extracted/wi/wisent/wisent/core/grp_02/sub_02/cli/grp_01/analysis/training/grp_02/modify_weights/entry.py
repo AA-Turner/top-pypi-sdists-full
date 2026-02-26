@@ -19,6 +19,7 @@ from .executor import (
     execute_szlak_mode, execute_wicher_mode,
 )
 from wisent.core.weight_modification.utils import get_default_components_for_extraction
+from wisent.core import constants as _C
 _LOG = setup_logger(__name__)
 
 def execute_modify_weights(args):
@@ -36,12 +37,12 @@ def execute_modify_weights(args):
         if getattr(args, 'verbose', False):
             print(f"Auto-selected --components {args.components} from --extraction-component {extraction_component}")
     if args.verbose:
-        print("\n" + "=" * 80)
+        print("\n" + "=" * _C.SEPARATOR_WIDTH_REPORT)
         print("WEIGHT MODIFICATION")
-        print("=" * 80)
+        print("=" * _C.SEPARATOR_WIDTH_REPORT)
         print(f"Model: {args.model}")
         print(f"Output: {args.output_dir}")
-        print("=" * 80 + "\n")
+        print("=" * _C.SEPARATOR_WIDTH_REPORT + "\n")
     steering_vectors = _load_or_generate_vectors(args, needs_auto_selection)
     harmless_vectors = _load_harmless_vectors(args)
     wisent_model, model, tokenizer = _load_model(args)
@@ -195,7 +196,7 @@ def _load_model(args):
                 elif hasattr(m, 'transformer') and hasattr(m.transformer, 'h'):
                     self.num_layers = len(m.transformer.h)
                 else:
-                    self.num_layers = 32
+                    self.num_layers = _C.DEFAULT_NUM_HIDDEN_LAYERS
         wisent_model = ModelInfo(model)
     else:
         wisent_model = WisentModel(args.model, device=getattr(args, 'device', None))
@@ -212,7 +213,7 @@ def _run_auto_selection(args, wisent_model, steering_vectors):
     from wisent.core.steering_methods.methods.caa import CAAMethod
     from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
     pairs = _generate_pairs(args, wisent_model)
-    if pairs and len(pairs) >= 10:
+    if pairs and len(pairs) >= _C.MIN_PAIRS_FOR_LINEARITY:
         steering_method, modification_method, _ = auto_select_steering_method(pairs, wisent_model, args.verbose)
         args.steering_method = steering_method
         args.method = modification_method
@@ -275,11 +276,11 @@ def _print_timing(args, start_time: float):
 def _print_summary(args, stats: Dict):
     """Print final summary."""
     if args.verbose:
-        print("\n" + "=" * 80)
+        print("\n" + "=" * _C.SEPARATOR_WIDTH_REPORT)
         print("WEIGHT MODIFICATION COMPLETE")
-        print("=" * 80)
+        print("=" * _C.SEPARATOR_WIDTH_REPORT)
         print(f"Modified model: {args.output_dir}")
         print(f"Method: {args.method}")
         print(f"Layers modified: {stats['layers_modified']}")
         print(f"Parameters modified: {stats['total_parameters_modified']:,}")
-        print("=" * 80 + "\n")
+        print("=" * _C.SEPARATOR_WIDTH_REPORT + "\n")

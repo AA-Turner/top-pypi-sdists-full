@@ -160,4 +160,14 @@ def split_subset(client):
 @launchable.record.tests
 def record_tests(client, reports):
     client.path_builder = junit5_nested_class_path_builder(client.path_builder)
+
+    # Override report method to filter out failsafe-summary.xml
+    original_report = client.report
+
+    def report_with_filter(junit_report_file: str):
+        if not junit_report_file.endswith('failsafe-summary.xml'):
+            original_report(junit_report_file)
+
+    client.report = report_with_filter
+
     launchable.CommonRecordTestImpls.load_report_files(client=client, source_roots=reports)

@@ -25,12 +25,14 @@ from wisent.core.models.wisent_model import WisentModel
 from wisent.core.constants import (
     ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
     VIZ_N_NEIGHBORS, VIZ_MIN_DIST, STABILITY_N_CLUSTERS,
+    TOKENIZER_MAX_LENGTH_GEOMETRY, N_COMPONENTS_2D,
+    PROGRESS_LOG_INTERVAL_20,
 )
 
 
 def get_activations_all_layers(model: WisentModel, text: str) -> Dict[int, torch.Tensor]:
     """Extract last token activation from ALL layers."""
-    inputs = model.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    inputs = model.tokenizer(text, return_tensors="pt", truncation=True, max_length=TOKENIZER_MAX_LENGTH_GEOMETRY)
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     activations = {}
@@ -73,7 +75,7 @@ def extract_difference_vectors_all_layers(
     
     total = len(pairs)
     for i, pair in enumerate(pairs):
-        if show_progress and (i + 1) % 20 == 0:
+        if show_progress and (i + 1) % PROGRESS_LOG_INTERVAL_20 == 0:
             print(f"  Extracting activations: {i+1}/{total}")
         
         prompt = pair["question"]
@@ -100,7 +102,7 @@ def extract_difference_vectors_all_layers(
 def compute_projection(
     diff_vectors: np.ndarray,
     method: str = "pca",
-    n_components: int = 2,
+    n_components: int = N_COMPONENTS_2D,
     seed: int = DEFAULT_RANDOM_SEED,
 ) -> Tuple[np.ndarray, str]:
     """

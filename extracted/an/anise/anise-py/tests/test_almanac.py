@@ -1,25 +1,37 @@
 import os
-from pathlib import Path
 import pickle
 from math import radians
+from os import environ
+from pathlib import Path
+
+import numpy as np
 
 from anise import (
     Almanac,
-    MetaAlmanac,
-    MetaFile,
     LocationDataSet,
     LocationDhallSet,
     LocationDhallSetEntry,
+    MetaAlmanac,
+    MetaFile,
 )
 from anise.analysis import OrbitalElement
-from anise.astro import *
+from anise.astro import (
+    Covariance,
+    DataType,
+    Ellipsoid,
+    Ephemeris,
+    EphemerisRecord,
+    Frame,
+    FrameUid,
+    LocalFrame,
+    Location,
+    Orbit,
+    TerrainMask,
+)
 from anise.constants import Frames
 from anise.rotation import DCM, Quaternion
 from anise.time import Duration, Epoch, TimeSeries, Unit
 from anise.utils import convert_tpc
-
-import numpy as np
-from os import environ
 
 
 def test_state_transformation():
@@ -79,6 +91,11 @@ def test_state_transformation():
 
     assert orig_state.cartesian_pos_vel().shape == (6,)
 
+    # Check that we can serialize in ASN.1
+    as_asn1 = orig_state.to_asn1()
+    assert isinstance(as_asn1, bytes)
+    assert Orbit.from_asn1(as_asn1) == orig_state
+
     # Ensure we can call all of the DCM functions
     for func in [
         "dcm_from_ric_to_inertial",
@@ -98,7 +115,7 @@ def test_state_transformation():
     q = dcm.to_quaternion()
     q_rebuilt = Quaternion(q.w, q.x, q.y, q.z, q.from_id, q.to_id)
     # Test quaternion multiplication
-    conj_q = q.conjugate()
+    conj_q = q_rebuilt.conjugate()
     assert (conj_q * q).is_zero()
 
     conj_dcm = conj_q.to_dcm()
@@ -454,12 +471,19 @@ def test_oem():
     assert ephem_from_list.end_epoch() == ephem_from_empty.end_epoch()
     assert ephem_from_list.len() == ephem_from_empty.len()
 
+    # Check that we can iterate over an ephem entry by entry
+    entry_count = 0
+    for entry in ephem:
+        entry_count += 1
+        assert isinstance(entry, EphemerisRecord)
+    assert entry_count == ephem.len()
+
 
 if __name__ == "__main__":
     # test_meta_load()
     # test_exports()
     # test_frame_defs()
     # test_convert_tpc()
-    test_state_transformation()
+    # test_state_transformation()
     # test_location()
-    # test_oem()
+    test_oem()

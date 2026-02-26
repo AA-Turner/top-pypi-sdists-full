@@ -78,6 +78,8 @@ from .type_defs import (
     GetRuleGroupResponseTypeDef,
     GetSampledRequestsRequestTypeDef,
     GetSampledRequestsResponseTypeDef,
+    GetTopPathStatisticsByTrafficRequestTypeDef,
+    GetTopPathStatisticsByTrafficResponseTypeDef,
     GetWebACLForResourceRequestTypeDef,
     GetWebACLForResourceResponseTypeDef,
     GetWebACLRequestTypeDef,
@@ -489,6 +491,17 @@ class WAFV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_sampled_requests.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_sampled_requests)
+        """
+
+    def get_top_path_statistics_by_traffic(
+        self, **kwargs: Unpack[GetTopPathStatisticsByTrafficRequestTypeDef]
+    ) -> GetTopPathStatisticsByTrafficResponseTypeDef:
+        """
+        Retrieves aggregated statistics about the top URI paths accessed by bot traffic
+        for a specified web ACL and time window.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_top_path_statistics_by_traffic.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_top_path_statistics_by_traffic)
         """
 
     def get_web_acl(self, **kwargs: Unpack[GetWebACLRequestTypeDef]) -> GetWebACLResponseTypeDef:

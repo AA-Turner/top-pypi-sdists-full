@@ -3,10 +3,10 @@
 # See https://docs.python.org/3/howto/annotations.html#accessing-the-annotations-dict-of-an-object-in-python-3-9-and-older
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
-from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc import Operation, ServiceDefinition
@@ -15,12 +15,8 @@ from nexusrpc._util import get_service_definition
 # See https://docs.python.org/3/howto/annotations.html
 
 
-@dataclass_transform()
-class _BaseTestCase:
-    pass
-
-
-class _TestCase(_BaseTestCase):
+@dataclass()
+class _TestCase:
     UserService: type[Any]
     expected_operation_names: set[str]
     expected_error: Optional[str] = None
@@ -31,7 +27,9 @@ class TypeAnnotationsOnly(_TestCase):
     class A1:
         a: Operation[int, str]
 
-    # TODO(preview) why is the decorator omitted here?
+    # A2 intentionally omits @nexusrpc.service at definition time.
+    # The decorator will be applied in the test function to verify that
+    # service definitions correctly inherit operations from decorated parent classes.
     class A2(A1):
         b: Operation[int, str]  # type: ignore[reportUninitializedInstanceVariable]
 
@@ -44,7 +42,9 @@ class TypeAnnotationsWithValues(_TestCase):
     class A1:
         a: Operation[int, str] = Operation[int, str](name="a-name")
 
-    # TODO(preview) why is the decorator omitted here?
+    # A2 intentionally omits @nexusrpc.service at definition time.
+    # The decorator will be applied in the test function to verify that
+    # service definitions correctly inherit operations from decorated parent classes.
     class A2(A1):
         b: Operation[int, str] = Operation[int, str](name="b-name")
 

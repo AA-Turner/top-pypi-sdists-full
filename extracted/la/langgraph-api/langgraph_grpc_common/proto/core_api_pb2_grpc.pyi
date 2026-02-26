@@ -293,6 +293,8 @@ class RunsStub:
     """Mark a run as done (internal worker method)"""
     Stats: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.RunStats]
     """Get run statistics (internal method, no auth)"""
+    PoolStats: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.ConnectionPoolStats]
+    """Get connection pool stats for metrics aggregation (internal method, no auth)"""
     Count: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CountRunsRequest, _core_api_pb2.CountResponse]
     """Count runs matching criteria (internal method, no auth)"""
     Next: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.NextRunRequest, _core_api_pb2.NextRunResponse]
@@ -327,6 +329,8 @@ class RunsAsyncStub(RunsStub):
     """Mark a run as done (internal worker method)"""
     Stats: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.RunStats]  # type: ignore[assignment]
     """Get run statistics (internal method, no auth)"""
+    PoolStats: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.ConnectionPoolStats]  # type: ignore[assignment]
+    """Get connection pool stats for metrics aggregation (internal method, no auth)"""
     Count: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CountRunsRequest, _core_api_pb2.CountResponse]  # type: ignore[assignment]
     """Count runs matching criteria (internal method, no auth)"""
     Next: _aio.UnaryUnaryMultiCallable[_core_api_pb2.NextRunRequest, _core_api_pb2.NextRunResponse]  # type: ignore[assignment]
@@ -424,6 +428,14 @@ class RunsServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_core_api_pb2.RunStats, _abc.Awaitable[_core_api_pb2.RunStats]]:
         """Get run statistics (internal method, no auth)"""
+
+    @_abc_1.abstractmethod
+    def PoolStats(
+        self,
+        request: _empty_pb2.Empty,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.ConnectionPoolStats, _abc.Awaitable[_core_api_pb2.ConnectionPoolStats]]:
+        """Get connection pool stats for metrics aggregation (internal method, no auth)"""
 
     @_abc_1.abstractmethod
     def Count(

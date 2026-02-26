@@ -232,6 +232,8 @@ def fetch_metrics(
         project_identifier=project_identifier,
         filter_=experiments_filter,
         attributes=attributes_filter,
+        exact_run_ids=None,
+        exact_attribute_names=attributes if isinstance(attributes, list) else None,
         include_time=include_time,
         step_range=step_range,
         lineage_to_the_root=lineage_to_the_root,
@@ -304,6 +306,7 @@ def fetch_experiments_table(
         sort_direction=sort_direction,
         limit=limit,
         type_suffix_in_column_names=type_suffix_in_column_names,
+        exact_attribute_names=attributes if isinstance(attributes, list) else None,
         container_type=_search.ContainerType.EXPERIMENT,
     )
 

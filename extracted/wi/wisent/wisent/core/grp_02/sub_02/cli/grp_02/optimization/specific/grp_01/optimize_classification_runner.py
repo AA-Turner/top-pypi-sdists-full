@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 
-from wisent.core.constants import DEFAULT_SCORE, DATA_SPLIT_RATIO, DATA_SPLIT_SEED
+from wisent.core.constants import DEFAULT_SCORE, DEFAULT_SPLIT_RATIO, DEFAULT_RANDOM_SEED, PROGRESS_LOG_INTERVAL_20
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
@@ -52,7 +52,7 @@ def run_classification_optimization(
                                                 threshold, prompt_strategy,
                                                 token_strategy, result,
                                             )
-                                        if combinations_tested % 20 == 0:
+                                        if combinations_tested % PROGRESS_LOG_INTERVAL_20 == 0:
                                             mn = args.optimization_metric
                                             print(f"      Progress: {combinations_tested}/{total_combinations}, best {mn}: {best_score:.4f}", end='\r')
                                     except Exception as e:
@@ -85,7 +85,7 @@ def _build_task_args(task_name, args, layer, classifier_type, agg_method, thresh
         detection_threshold=threshold,
         prompt_construction_strategy=prompt_strategy,
         token_targeting_strategy=token_strategy,
-        split_ratio=DATA_SPLIT_RATIO, seed=DATA_SPLIT_SEED, limit=args.limit,
+        split_ratio=DEFAULT_SPLIT_RATIO, seed=DEFAULT_RANDOM_SEED, limit=args.limit,
         training_limit=None, testing_limit=None,
         device=args.device, save_classifier=None, output=None,
         inference_only=False, load_steering_vector=None,
@@ -155,7 +155,7 @@ def _train_final_if_needed(args, task_name, best_config, execute_tasks_fn):
         detection_threshold=c['threshold'],
         prompt_construction_strategy=c['prompt_construction_strategy'],
         token_targeting_strategy=c['token_targeting_strategy'],
-        split_ratio=DATA_SPLIT_RATIO, seed=DATA_SPLIT_SEED, limit=args.limit,
+        split_ratio=DEFAULT_SPLIT_RATIO, seed=DEFAULT_RANDOM_SEED, limit=args.limit,
         training_limit=None, testing_limit=None, device=args.device,
         save_classifier=os.path.join(args.classifiers_dir, f"{task_name}_classifier.pt"),
         output=os.path.join(args.classifiers_dir, task_name),

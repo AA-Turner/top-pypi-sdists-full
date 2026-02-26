@@ -1,5 +1,5 @@
 """CLI entry point for estimating unified goodness training time."""
-from wisent.core.constants import DATA_SPLIT_RATIO
+from wisent.core.constants import DEFAULT_SPLIT_RATIO, PARSER_DEFAULT_NUM_STRENGTH_STEPS, BENCHMARK_FAST_LOAD_THRESHOLD, SEPARATOR_WIDTH_WIDE, SEPARATOR_WIDTH_HALF
 from wisent.core.cli.analysis.training.estimate_time_functions import (
     BENCHMARK_SIZES, BENCHMARK_LOAD_TIMES, estimate_runtime,
     get_benchmark_load_time, get_benchmark_size, format_time,
@@ -19,11 +19,11 @@ def main():
         help="Cap pairs per benchmark (benchmarks with more get randomly sampled down)"
     )
     parser.add_argument(
-        "--train-ratio", type=float, default=DATA_SPLIT_RATIO,
+        "--train-ratio", type=float, default=DEFAULT_SPLIT_RATIO,
         help="Fraction of pairs for training (default: 0.8 = 80%% train, 20%% eval)"
     )
     parser.add_argument(
-        "--eval-scales", type=int, default=5,
+        "--eval-scales", type=int, default=PARSER_DEFAULT_NUM_STRENGTH_STEPS,
         help="Number of steering scales to evaluate"
     )
     parser.add_argument(
@@ -61,7 +61,7 @@ def main():
         if name in BENCHMARK_LOAD_TIMES:
             if BENCHMARK_LOAD_TIMES[name] < 15:
                 priority = 'high'
-            elif BENCHMARK_LOAD_TIMES[name] < 50:
+            elif BENCHMARK_LOAD_TIMES[name] < BENCHMARK_FAST_LOAD_THRESHOLD:
                 priority = 'medium'
             else:
                 priority = 'low'
@@ -74,9 +74,9 @@ def main():
         selected = dict(list(selected.items())[:args.max_benchmarks])
     
     # Print header
-    print("\n" + "=" * 70)
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
     print("  UNIFIED GOODNESS TRAINING - TIME ESTIMATE")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     
     # Print configuration
     print(f"\n CONFIGURATION:")
@@ -127,7 +127,7 @@ def main():
         print(f"   Activation collection:{format_time(estimate['activation_collection']):>10s}")
         print(f"   Vector training:      {format_time(estimate['vector_training']):>10s}")
         print(f"   Evaluation:           {format_time(estimate['evaluation']):>10s}")
-        print(f"   " + "-" * 35)
+        print(f"   " + "-" * SEPARATOR_WIDTH_HALF)
         print(f"   TOTAL:                {format_time(estimate['total_seconds']):>10s}")
     
     # Print data summary
@@ -150,7 +150,7 @@ def main():
             if name in BENCHMARK_LOAD_TIMES:
                 if BENCHMARK_LOAD_TIMES[name] < 15:
                     priority = 'high'
-                elif BENCHMARK_LOAD_TIMES[name] < 50:
+                elif BENCHMARK_LOAD_TIMES[name] < BENCHMARK_FAST_LOAD_THRESHOLD:
                     priority = 'medium'
                 else:
                     priority = 'low'
@@ -181,8 +181,8 @@ def main():
         )
         print(f"   {name:<45s} {est['total_pairs']:>10,} {format_time(est['total_seconds']):>12s}")
     
-    print("\n" + "=" * 70)
-    
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
+
     return estimate
 
 

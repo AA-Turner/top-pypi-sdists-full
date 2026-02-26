@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict
 
 from wisent.core.activations.activations import Activations
-from wisent.core.constants import EVAL_GT_CODE_MAX_TOKENS, EVAL_GT_CODE_BIGCODE_MAX_TOKENS, AGENT_DIAG_TEMPERATURE
+from wisent.core.constants import CODE_CORRECTNESS_THRESHOLD, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_COMPACT, SPLIT_RATIO_FULL, CHANCE_LEVEL_ACCURACY
 from wisent.core.layer import Layer
 from wisent.core.models import get_generate_kwargs
 from wisent.core.utils import get_all_docs_from_task, create_deterministic_split
@@ -25,7 +25,7 @@ def evaluate_generic_code_execution(evaluator, classifier, task_name: str, num_s
             _, docs = create_deterministic_split(all_docs, task_name)
             logger.info(f"Using {len(docs)} test docs from unified split (total: {len(all_docs)}, original splits: {split_counts})")
         else:
-            docs, _ = model.split_task_data(task_data, split_ratio=1.0)
+            docs, _ = model.split_task_data(task_data, split_ratio=SPLIT_RATIO_FULL)
         if not docs:
             return evaluator._error_result(f"No documents retrieved from task: {task_name}")
         logger.info(f"Retrieved {len(docs)} documents from {task_name}")
@@ -39,7 +39,7 @@ def evaluate_generic_code_execution(evaluator, classifier, task_name: str, num_s
                     starter_code = doc.get("starter_code", "")
                     prompt = f"{question}\n\n{starter_code}" if starter_code else question
                 logger.debug(f"Generating code for sample {i + 1}/{len(docs)}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_GT_CODE_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
+                gen_kwargs = get_generate_kwargs(do_sample=False)
                 generated_code, _ = model.generate(prompt=prompt, layer_index=layer, **gen_kwargs)
                 generated_codes.append(generated_code)
                 eval_result = secure_evaluator.evaluate_response(task_name, doc, generated_code)
@@ -87,10 +87,10 @@ def evaluate_code_execution(evaluator, classifier, task_name: str, num_samples: 
             try:
                 prompt = bigcode_task.doc_to_text(sample)
                 logger.debug(f"Generating code for sample {i + 1}/{len(bigcode_task)}...")
-                gen_kwargs = get_generate_kwargs(max_new_tokens=EVAL_GT_CODE_BIGCODE_MAX_TOKENS, temperature=AGENT_DIAG_TEMPERATURE, do_sample=False)
+                gen_kwargs = get_generate_kwargs(do_sample=False)
                 generated_code, _ = model.generate(prompt=prompt, layer_index=layer, **gen_kwargs)
                 generated_codes.append(generated_code)
-                logger.debug(f"Generated: {generated_code[:100]}...")
+                logger.debug(f"Generated: {generated_code[:DISPLAY_TRUNCATION_COMPACT]}...")
             except Exception as e:
                 logger.error(f"Error generating code for sample {i}: {e}")
                 generated_codes.append("")
@@ -123,17 +123,17 @@ def evaluate_code_execution(evaluator, classifier, task_name: str, num_samples: 
                         prediction = float(prediction_proba)
                 except:
                     predictions = classifier.predict([features_numpy])
-                    prediction = float(predictions[0]) if len(predictions) > 0 else 0.5
+                    prediction = float(predictions[0]) if len(predictions) > 0 else CHANCE_LEVEL_ACCURACY
                 code_passed = False
                 if i < len(evaluation_results.get("execution_results", [])):
                     sample_results = evaluation_results["execution_results"][i].get("results", [])
                     if sample_results:
                         code_passed = sample_results[0].get("passed", False)
-                classification_results.append({"classifier_score": prediction, "code_passed": code_passed, "code_snippet": code[:200]})
+                classification_results.append({"classifier_score": prediction, "code_passed": code_passed, "code_snippet": code[:DISPLAY_TRUNCATION_MEDIUM]})
             except Exception as e:
                 logger.error(f"Error classifying generated code {i}: {e}")
                 classification_results.append({"classifier_score": 0.5, "code_passed": False, "error": str(e)})
-        correct_predictions = sum(1 for r in classification_results if (r["classifier_score"] > 0.5 and r["code_passed"]) or (r["classifier_score"] <= 0.5 and not r["code_passed"]))
+        correct_predictions = sum(1 for r in classification_results if (r["classifier_score"] > CODE_CORRECTNESS_THRESHOLD and r["code_passed"]) or (r["classifier_score"] <= CODE_CORRECTNESS_THRESHOLD and not r["code_passed"]))
         classifier_accuracy = correct_predictions / len(classification_results) if classification_results else 0.0
         return {"ground_truth": "CODE_EXECUTION", "method_used": "bigcode-evaluation",
                 "confidence": classifier_accuracy, "pass_rate": pass_rate,

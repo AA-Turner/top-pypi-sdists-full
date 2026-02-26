@@ -102,6 +102,40 @@ class TestLuaToolAdapter:
         # No crash, no auto-print — just works normally
 
 
+class TestMultiArgWrapper:
+    def test_multi_arg_returns_error(self):
+        """Calling a wrapper with 2+ args returns a helpful error instead of TypeError."""
+        tool = FakeTool("files-write", "ok")
+        adapter = LuaToolAdapter()
+        fn = adapter.adapt(tool)
+        result = fn("path.txt", "content")
+        assert "Error" in result
+        assert "single table argument" in result
+        assert "files_write" in result
+        assert tool.call_count == 0
+        assert len(adapter.call_log) == 1
+
+    def test_multi_arg_logged(self):
+        """Multi-arg error is recorded in call log and via log_fn."""
+        logged: list = []
+        tool = FakeTool("files-write", "ok")
+        adapter = LuaToolAdapter(log_fn=logged.append)
+        fn = adapter.adapt(tool)
+        fn("a", "b", "c")
+        assert len(logged) == 1
+        assert "single table argument" in logged[0]
+        assert "3 arguments" in logged[0]
+
+    def test_single_string_arg_still_works(self):
+        """A single non-dict arg still works (returns {} to handler)."""
+        tool = FakeTool("test", "ok")
+        adapter = LuaToolAdapter()
+        fn = adapter.adapt(tool)
+        result = fn("hello")
+        assert result == "ok"
+        assert tool.call_count == 1
+
+
 class TestLuaTableToDict:
     def test_none_returns_empty(self):
         assert lua_table_to_dict(None) == {}

@@ -6,6 +6,7 @@ from langgraph_api import __version__, config, metadata
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.route import ApiRequest
+from langgraph_api.schema import PoolStats, PostgresPoolStats, RedisPoolStats
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect, pool_stats
 from langgraph_runtime.metrics import get_metrics
@@ -18,6 +19,103 @@ else:
 METRICS_FORMATS = {"prometheus", "json"}
 
 logger = structlog.stdlib.get_logger(__name__)
+
+
+def _merge_pool_stats(local: PoolStats, remote: PoolStats) -> PoolStats:
+    """Merge local and remote pool stats by summing numeric values. Used to aggregate Python + Go pool metrics."""
+    merged: PoolStats = {}
+    if "postgres" in local or "postgres" in remote:
+        lp = local.get("postgres") or {}
+        rp = remote.get("postgres") or {}
+        merged["postgres"] = PostgresPoolStats(
+            pool_max=lp.get("pool_max", 0) + rp.get("pool_max", 0),
+            pool_size=lp.get("pool_size", 0) + rp.get("pool_size", 0),
+            pool_available=lp.get("pool_available", 0) + rp.get("pool_available", 0),
+            requests_queued=lp.get("requests_queued", 0) + rp.get("requests_queued", 0),
+            requests_errors=lp.get("requests_errors", 0) + rp.get("requests_errors", 0),
+        )
+    if "redis" in local or "redis" in remote:
+        lr = local.get("redis") or {}
+        rr = remote.get("redis") or {}
+        merged["redis"] = RedisPoolStats(
+            idle_connections=lr.get("idle_connections", 0)
+            + rr.get("idle_connections", 0),
+            in_use_connections=lr.get("in_use_connections", 0)
+            + rr.get("in_use_connections", 0),
+            max_connections=lr.get("max_connections", 0) + rr.get("max_connections", 0),
+        )
+    return merged
+
+
+def _pool_stats_to_prometheus_lines(
+    stats: PoolStats, project_id: str | None, revision_id: str | None
+) -> list[str]:
+    """Format merged pool stats as Prometheus text lines (same format as langgraph_runtime.database.pool_stats)."""
+    lines = []
+    if "postgres" in stats:
+        pg = stats["postgres"]
+        lines.extend(
+            [
+                "# HELP lg_api_pg_pool_max The maximum size of the postgres connection pool.",
+                "# TYPE lg_api_pg_pool_max gauge",
+                f'lg_api_pg_pool_max{{project_id="{project_id}", revision_id="{revision_id}"}} {pg.get("pool_max", 0)}',
+                "# HELP lg_api_pg_pool_size Number of connections currently managed by the postgres connection pool (in the pool, given to clients, being prepared)",
+                "# TYPE lg_api_pg_pool_size gauge",
+                f'lg_api_pg_pool_size{{project_id="{project_id}", revision_id="{revision_id}"}} {pg.get("pool_size", 0)}',
+                "# HELP lg_api_pg_pool_available Number of connections currently idle in the postgres connection pool",
+                "# TYPE lg_api_pg_pool_available gauge",
+                f'lg_api_pg_pool_available{{project_id="{project_id}", revision_id="{revision_id}"}} {pg.get("pool_available", 0)}',
+                "# HELP lg_api_pg_pool_requests_queued Number of postgres connection requests queued because a postgres connection wasn't immediately available in the pool",
+                "# TYPE lg_api_pg_pool_requests_queued counter",
+                f'lg_api_pg_pool_requests_queued{{project_id="{project_id}", revision_id="{revision_id}"}} {pg.get("requests_queued", 0)}',
+                "# HELP lg_api_pg_pool_requests_errors Number of postgres connection requests resulting in an error (timeouts, queue full...)",
+                "# TYPE lg_api_pg_pool_requests_errors counter",
+                f'lg_api_pg_pool_requests_errors{{project_id="{project_id}", revision_id="{revision_id}"}} {pg.get("requests_errors", 0)}',
+            ]
+        )
+    if "redis" in stats:
+        rd = stats["redis"]
+        lines.extend(
+            [
+                "# HELP lg_api_redis_pool_available Number of connections currently idle in the redis connection pool",
+                "# TYPE lg_api_redis_pool_available gauge",
+                f'lg_api_redis_pool_available{{project_id="{project_id}", revision_id="{revision_id}"}} {rd.get("idle_connections", 0)}',
+                "# HELP lg_api_redis_pool_size Number of connections currently in use in the redis connection pool",
+                "# TYPE lg_api_redis_pool_size gauge",
+                f'lg_api_redis_pool_size{{project_id="{project_id}", revision_id="{revision_id}"}} {rd.get("in_use_connections", 0)}',
+                "# HELP lg_api_redis_pool_max The maximum size of the redis connection pool.",
+                "# TYPE lg_api_redis_pool_max gauge",
+                f'lg_api_redis_pool_max{{project_id="{project_id}", revision_id="{revision_id}"}} {rd.get("max_connections", 0)}',
+            ]
+        )
+    return lines
+
+
+async def _grpc_pool_stats() -> PoolStats:
+    """Fetch connection pool stats from the Core API (Go) via gRPC for metrics aggregation. Returns {} on error."""
+    if not IS_POSTGRES_OR_GRPC_BACKEND:
+        return {}
+    try:
+        return await Runs.pool_stats()
+    except Exception as e:
+        await logger.awarning(
+            "Failed to fetch Core API pool stats for aggregation", exc_info=e
+        )
+        return {}
+
+
+async def meta_pool_stats(metrics_format: str) -> PoolStats | list[str]:
+    local_pool_stats: PoolStats = pool_stats()
+
+    # Aggregate with Core API (Go) pool stats when using gRPC backend
+    grpc_pool_stats = await _grpc_pool_stats()
+    merged_pool_stats = _merge_pool_stats(local_pool_stats, grpc_pool_stats)
+    if metrics_format == "prometheus":
+        return _pool_stats_to_prometheus_lines(
+            merged_pool_stats, metadata.PROJECT_ID, metadata.HOST_REVISION_ID
+        )
+    else:
+        return merged_pool_stats
 
 
 async def meta_info(request: ApiRequest):
@@ -61,16 +159,12 @@ async def meta_metrics(request: ApiRequest):
         metadata.PROJECT_ID, metadata.HOST_REVISION_ID, metrics_format
     )
 
-    pg_redis_stats = pool_stats(
-        project_id=metadata.PROJECT_ID,
-        revision_id=metadata.HOST_REVISION_ID,
-        format=metrics_format,
-    )
+    merged_pool_stats = await meta_pool_stats(metrics_format)
 
     if metrics_format == "json":
         async with connect() as conn:
             resp = {
-                **pg_redis_stats,
+                **merged_pool_stats,
                 "queue": await Runs.stats(conn),
                 **http_metrics,
             }
@@ -103,7 +197,6 @@ async def meta_metrics(request: ApiRequest):
                     ]
                 )
         except Exception as e:
-            # if we get a db connection error/timeout, just skip queue stats
             await logger.awarning(
                 "Ignoring error while getting run stats for /metrics", exc_info=e
             )
@@ -124,7 +217,7 @@ async def meta_metrics(request: ApiRequest):
             )
 
         metrics.extend(http_metrics)
-        metrics.extend(pg_redis_stats)
+        metrics.extend(merged_pool_stats)
 
         metrics_response = "\n".join(metrics)
         return PlainTextResponse(metrics_response)

@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Tuple, Optional
 import argparse
 import torch
-from wisent.core.constants import EXTRACTION_WEIGHTED_DECAY
+from wisent.core.constants import EXTRACTION_WEIGHTED_DECAY, ROLE_PLAY_TOKENS
 
 class ExtractionStrategy(str, Enum):
     """
@@ -188,8 +188,7 @@ def tokenizer_has_chat_template(tokenizer) -> bool:
     has_template = hasattr(tokenizer, "chat_template") and tokenizer.chat_template is not None
     return has_method and has_template
 
-# Random tokens for role_play strategy (deterministic based on prompt hash)
-ROLE_PLAY_TOKENS = ["I", "Well", "The", "Sure", "Let", "That", "It", "This", "My", "To"]
+# ROLE_PLAY_TOKENS imported from wisent.core.constants
 
 def extract_activation(
     strategy: ExtractionStrategy,

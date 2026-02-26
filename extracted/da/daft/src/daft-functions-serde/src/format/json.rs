@@ -1,15 +1,13 @@
-#![allow(deprecated, reason = "arrow2 migration")]
 use std::sync::Arc;
 
 use common_error::{DaftError, DaftResult};
 use daft_arrow::{
-    array::Utf8Array as ArrowUtf8Array,
+    arrow_array::{ArrayRef, LargeStringArray, builder::OffsetBufferBuilder},
     datatypes::DataType as ArrowDataType,
     io::json::{
         read::{self, json_deserializer::Value},
         write::new_serializer,
     },
-    offset::Offsets,
 };
 use daft_core::{
     prelude::{DataType, Field, Utf8Array},
@@ -26,12 +24,12 @@ pub(crate) fn deserialize(input: &Utf8Array, dtype: &DataType) -> DaftResult<Ser
         .collect::<DaftResult<Vec<_>>>()?;
     let json_array = Value::Array(json_items);
     // convert the JSON Array into an arrow2 Array
-    #[allow(deprecated, reason = "arrow2 migration")]
     let arrow2_field = field.to_arrow2()?;
     let arrow2_dtype = ArrowDataType::LargeList(Box::new(arrow2_field));
     let arrow2_array = read::deserialize(&json_array, arrow2_dtype)?;
+    let arrow_array: ArrayRef = arrow2_array.into();
     // convert the arrow2 Array into a Daft Series.
-    Series::from_arrow2(Arc::new(field), arrow2_array)
+    Series::from_arrow(field, arrow_array)
 }
 
 // Parses a single item.
@@ -49,12 +47,13 @@ pub fn try_deserialize(input: &Utf8Array, dtype: &DataType) -> DaftResult<Series
     let json_items: Vec<Value> = input.into_iter().map(try_parse_item).collect();
     let json_array = Value::Array(json_items);
     // convert the JSON Array into an arrow2 Array
-    #[allow(deprecated, reason = "arrow2 migration")]
     let arrow2_field = field.to_arrow2()?;
     let arrow2_dtype = ArrowDataType::LargeList(Box::new(arrow2_field));
     let arrow2_array = read::deserialize(&json_array, arrow2_dtype)?;
+    let arrow_array: ArrayRef = arrow2_array.into();
+
     // convert the arrow2 Array into a Daft Series.
-    Series::from_arrow2(Arc::new(field), arrow2_array)
+    Series::from_arrow(field, arrow_array)
 }
 
 /// Parses a single item, inserting null on any parsing failure.
@@ -67,27 +66,23 @@ pub fn try_parse_item(item: Option<&str>) -> Value<'_> {
 pub fn serialize(input: Series) -> DaftResult<Utf8Array> {
     // setup inputs
     let name = input.name();
-    #[allow(deprecated, reason = "arrow2 migration")]
-    let input = input.to_arrow2();
-    let nulls = input.validity().cloned();
+    let nulls = input.nulls().cloned();
+    let input = input.to_arrow()?;
+    let input: Box<dyn daft_arrow::array::Array> = input.into();
+
     // setup outputs
     let mut values = Vec::<u8>::new();
-    let mut offsets = Offsets::<i64>::new();
+    let mut offsets = OffsetBufferBuilder::new(input.len());
     let mut serializer = new_serializer(input.as_ref(), 0, usize::MAX);
     // drive the serializer
     while let Some(bytes) = serializer.next() {
-        offsets.try_push(bytes.len() as i64)?;
+        offsets.push_length(bytes.len());
+
         values.extend(bytes);
     }
-    // create the daft array
-    let array = ArrowUtf8Array::new(
-        ArrowDataType::LargeUtf8,
-        offsets.into(),
-        values.into(),
-        nulls,
-    );
-    let array = Box::new(array);
-    Ok(Utf8Array::new(Field::new(name, DataType::Utf8).into(), array).unwrap())
+    let array = LargeStringArray::new(offsets.finish(), values.into(), nulls);
+
+    Utf8Array::from_arrow(Field::new(name, DataType::Utf8), Arc::new(array))
 }
 
 /// Serializes each input value as a JSON string, inserting null on any failures.

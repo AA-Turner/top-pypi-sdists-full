@@ -16,6 +16,7 @@ from dissect.target.filesystem import (
     Filesystem,
     FilesystemEntry,
     VirtualDirectory,
+    VirtualDirEntry,
     VirtualFile,
     VirtualFilesystem,
 )
@@ -56,7 +57,7 @@ class TarFilesystem(Filesystem):
         self._fs = VirtualFilesystem(alt_separator=self.alt_separator, case_sensitive=self.case_sensitive)
 
         for member in self.tar.getmembers():
-            mname = member.name.strip("/")
+            mname = member.name.removeprefix("./").strip("/")
             if not mname.startswith(self.base) or mname == ".":
                 continue
 
@@ -93,12 +94,7 @@ class TarFilesystemEntry(VirtualFile):
         except Exception:
             raise FileNotFoundError
 
-    def iterdir(self) -> Iterator[str]:
-        if self.is_dir():
-            return self._resolve().iterdir()
-        return super().iterdir()
-
-    def scandir(self) -> Iterator[FilesystemEntry]:
+    def scandir(self) -> Iterator[VirtualDirEntry]:
         if self.is_dir():
             return self._resolve().scandir()
         return super().scandir()

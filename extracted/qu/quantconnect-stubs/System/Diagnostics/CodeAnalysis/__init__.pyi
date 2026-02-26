@@ -24,21 +24,6 @@ class ConstantExpectedAttribute(System.Attribute):
         ...
 
 
-class ExcludeFromCodeCoverageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def justification(self) -> str:
-        ...
-
-    @justification.setter
-    def justification(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
 class SuppressMessageAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -88,6 +73,21 @@ class SuppressMessageAttribute(System.Attribute):
 
 class UnscopedRefAttribute(System.Attribute):
     """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class ExcludeFromCodeCoverageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def justification(self) -> str:
+        ...
+
+    @justification.setter
+    def justification(self, value: str) -> None:
+        ...
 
     def __init__(self) -> None:
         ...

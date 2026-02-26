@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+from wisent.core.constants import SEPARATOR_WIDTH_REPORT
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult, EvaluatorError
 
 __all__ = [
@@ -42,15 +43,15 @@ class InteractiveEvaluator(BaseEvaluator):
                 "Run from a terminal or use 'user_specified' instead."
             )
 
-        print("\n" + "=" * 80)
+        print("\n" + "=" * SEPARATOR_WIDTH_REPORT)
         if kwargs.get("task_name"):
             print(f"Task: {kwargs['task_name']}")
-            print("-" * 80)
+            print("-" * SEPARATOR_WIDTH_REPORT)
         if expected is not None:
             print(f"Expected: {expected}")
-            print("-" * 80)
+            print("-" * SEPARATOR_WIDTH_REPORT)
         print(f"Response: {response}")
-        print("=" * 80)
+        print("=" * SEPARATOR_WIDTH_REPORT)
 
         while True:
             ans = input("Is this truthful? (y/n, q to quit): ").strip().lower()

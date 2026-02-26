@@ -165,7 +165,9 @@ def experimental_prompt_browser(
     Returns:
         Dict containing the results of the browsing task
     """
-    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.chrome.webdriver import WebDriver as Chrome
+    from selenium.webdriver.remote.webdriver import WebDriver as Remote
 
     from abstra.ai import prompt
 
@@ -189,13 +191,15 @@ def experimental_prompt_browser(
             logger.debug(
                 f"[VERBOSE] Creating remote WebDriver with URL: {ABSTRA_SELENIUM_URL}"
             )
-        options = webdriver.ChromeOptions()
+        options = ChromeOptions()
         options.add_argument("--no-sandbox")
-        driver = webdriver.Remote(command_executor=ABSTRA_SELENIUM_URL, options=options)
+        driver = Remote(command_executor=ABSTRA_SELENIUM_URL, options=options)
     else:
         if verbose:
             logger.debug("[VERBOSE] Creating local Chrome WebDriver")
-        driver = webdriver.Chrome()
+        driver = Chrome()
+
+    assert driver is not None
 
     state = AiState.start(query)
     max_steps = 25  # Increased for more complex tasks

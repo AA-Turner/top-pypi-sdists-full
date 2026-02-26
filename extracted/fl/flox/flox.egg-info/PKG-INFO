@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flox
-Version: 0.11.1
+Version: 0.11.2
 Summary: GroupBy operations for dask.array
 License-Expression: Apache-2.0
 Project-URL: homepage, https://flox.readthedocs.io

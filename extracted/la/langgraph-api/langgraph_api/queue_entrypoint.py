@@ -18,9 +18,10 @@ import socket
 
 import structlog
 
+from langgraph_api.api.meta import meta_pool_stats
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
 from langgraph_runtime import lifespan
-from langgraph_runtime.database import healthcheck, pool_stats
+from langgraph_runtime.database import healthcheck
 from langgraph_runtime.metrics import get_metrics
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -70,11 +71,7 @@ async def health_and_metrics_server():
         project_id = os.getenv("LANGSMITH_HOST_PROJECT_ID")
         revision_id = os.getenv("LANGSMITH_HOST_REVISION_ID")
 
-        pg_redis_stats = pool_stats(
-            project_id=project_id,
-            revision_id=revision_id,
-            format=metrics_format,
-        )
+        pg_redis_stats = await meta_pool_stats(metrics_format)
 
         if metrics_format == "json":
             resp = {

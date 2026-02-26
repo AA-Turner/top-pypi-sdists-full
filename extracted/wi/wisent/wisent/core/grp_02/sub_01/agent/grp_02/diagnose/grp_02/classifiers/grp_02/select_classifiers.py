@@ -17,7 +17,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from ...model_persistence import ModelPersistence
 from wisent.core.errors import NoSuitableClassifierError
-from wisent.core.constants import DEFAULT_LAYER, SELECT_F1_WEIGHT, SELECT_ACCURACY_WEIGHT
+from wisent.core.constants import DEFAULT_LAYER, SELECT_F1_WEIGHT, SELECT_ACCURACY_WEIGHT, SELECT_MAX_CLASSIFIERS, CLASSIFIER_BONUS_SAMPLE_DENOM, CLASSIFIER_BONUS_MAX, CLASSIFIER_RECENCY_DAYS, CLASSIFIER_THRESHOLD, CLASSIFIER_RECENCY_BONUS
 
 
 from wisent.core.agent.diagnose.classifiers._select_classifiers_helpers import ClassifierSelectorHelpersMixin, auto_select_classifiers_for_agent  # noqa: F401
@@ -39,7 +39,7 @@ class SelectionCriteria:
     required_issue_types: List[str]
     preferred_layers: Optional[List[int]] = None
     min_performance_score: float = 0.0
-    max_classifiers: int = 10
+    max_classifiers: int = SELECT_MAX_CLASSIFIERS
     model_name: Optional[str] = None
     task_type: Optional[str] = None
 
@@ -131,7 +131,7 @@ class ClassifierSelector(ClassifierSelectorHelpersMixin):
             performance_score = self._calculate_performance_score(metadata)
             
             # Determine threshold
-            threshold = metadata.get('detection_threshold', 0.5)
+            threshold = metadata.get('detection_threshold', CLASSIFIER_THRESHOLD)
             
             return ClassifierInfo(
                 path=filepath,
@@ -266,7 +266,7 @@ class ClassifierSelector(ClassifierSelectorHelpersMixin):
         # Bonus for larger training sets
         training_samples = metadata.get('training_samples', 0)
         if training_samples > 0:
-            sample_bonus = min(training_samples / 1000, 0.2)  # Max 0.2 bonus
+            sample_bonus = min(training_samples / CLASSIFIER_BONUS_SAMPLE_DENOM, CLASSIFIER_BONUS_MAX)
             score += sample_bonus
         
         # Bonus for recent training
@@ -275,8 +275,8 @@ class ClassifierSelector(ClassifierSelectorHelpersMixin):
                 from datetime import datetime
                 created_at = datetime.fromisoformat(metadata['created_at'])
                 days_old = (datetime.now() - created_at).days
-                if days_old < 30:  # Recent training
-                    score += 0.1
+                if days_old < CLASSIFIER_RECENCY_DAYS:
+                    score += CLASSIFIER_RECENCY_BONUS
             except:
                 pass
         

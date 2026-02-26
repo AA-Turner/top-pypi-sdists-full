@@ -1574,7 +1574,7 @@ class StreamKey(_message.Message):
     ) -> None: ...
 
 class SQLResolverSettings(_message.Message):
-    __slots__ = ("finalizer", "incremental_settings", "fields_root_fqn", "escaped_param_name_to_fqn")
+    __slots__ = ("finalizer", "incremental_settings", "fields_root_fqn", "escaped_param_name_to_fqn", "field_types")
     class FieldsRootFqnEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1591,20 +1591,31 @@ class SQLResolverSettings(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class FieldTypesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     FINALIZER_FIELD_NUMBER: _ClassVar[int]
     INCREMENTAL_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     FIELDS_ROOT_FQN_FIELD_NUMBER: _ClassVar[int]
     ESCAPED_PARAM_NAME_TO_FQN_FIELD_NUMBER: _ClassVar[int]
+    FIELD_TYPES_FIELD_NUMBER: _ClassVar[int]
     finalizer: Finalizer
     incremental_settings: IncrementalSettings
     fields_root_fqn: _containers.ScalarMap[str, str]
     escaped_param_name_to_fqn: _containers.ScalarMap[str, str]
+    field_types: _containers.ScalarMap[str, str]
     def __init__(
         self,
         finalizer: _Optional[_Union[Finalizer, str]] = ...,
         incremental_settings: _Optional[_Union[IncrementalSettings, _Mapping]] = ...,
         fields_root_fqn: _Optional[_Mapping[str, str]] = ...,
         escaped_param_name_to_fqn: _Optional[_Mapping[str, str]] = ...,
+        field_types: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class IncrementalSettings(_message.Message):

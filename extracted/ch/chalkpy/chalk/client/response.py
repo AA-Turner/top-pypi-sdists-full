@@ -609,7 +609,7 @@ class DatasetRevision(Protocol):
         This dataset will immediately materialize the entire result set as a table, and is thus not appropriate for
         larger datasets.
 
-        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Items in the dataset are returned in pydict format. That is, {"column": value} for each column in the row.
         Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
         returned as numpy arrays.
 
@@ -654,7 +654,7 @@ class DatasetRevision(Protocol):
         entire table immediately. This makes the IterableDataset best suited for larger datasets, where individual
         accesses need not be efficient.
 
-        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Items in the dataset are returned in pydict format. That is, {"column": value} for each column in the row.
         Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
         returned as numpy arrays.
 
@@ -664,13 +664,10 @@ class DatasetRevision(Protocol):
             Optional mapping of columns to alias dataset columns, or alternatively a subset of columns, which will
             be used to filter and/or alias the columns included in the batch. None will return all columns in the
             dataset with their original name. Defaults to None.
-
         shuffle_chunks
             Whether to iterate over the result chunks randomly. Defaults to False.
-
         shuffle_rows
             Whether to iterate over the rows within a chunk randomly. Defaults to False.
-
         generator
             The torch generator to use when generating a shuffling of chunks and rows, if specified. Defaults to None.
 

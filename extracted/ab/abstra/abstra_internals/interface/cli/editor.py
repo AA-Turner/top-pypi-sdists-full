@@ -37,6 +37,7 @@ from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.tasks_watcher import TasksWatcher, on_tasks_update
 from abstra_internals.utils.browser import background_open_editor
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
+from abstra_internals.utils.stdio_broadcast import start_stdio_broadcast_consumer
 from abstra_internals.version import check_latest_version
 
 
@@ -150,8 +151,12 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     )
     watcher.start()
 
-    logs_watcher = LogsWatcher([on_logs_update])
-    logs_watcher.start()
+    if WORKER_LOG_TO_QUEUE and use_rabbitmq_workers:
+        assert RABBITMQ_CONNECTION_URI is not None
+        start_stdio_broadcast_consumer(RABBITMQ_CONNECTION_URI)
+    else:
+        logs_watcher = LogsWatcher([on_logs_update])
+        logs_watcher.start()
 
     tasks_watcher = TasksWatcher([on_tasks_update])
     tasks_watcher.start()

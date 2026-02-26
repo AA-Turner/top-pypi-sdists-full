@@ -10,6 +10,8 @@ import time
 from typing import Optional, Any
 from contextlib import asynccontextmanager
 
+from wisent.core.constants import AGENT_TIMEOUT_CHECK_INTERVAL, SECONDS_PER_MINUTE
+
 
 class TimeoutError(Exception):
     """Raised when an operation exceeds its time budget."""
@@ -24,7 +26,7 @@ class TimeoutManager:
     """Manages hard timeouts for agent operations."""
     
     def __init__(self, budget_minutes: float):
-        self.budget_seconds = budget_minutes * 60.0
+        self.budget_seconds = budget_minutes * SECONDS_PER_MINUTE
         self.start_time = None
         self.deadline = None
         
@@ -117,7 +119,7 @@ class AsyncTimeoutChecker:
     Automatically checks timeout every few operations.
     """
     
-    def __init__(self, timeout_mgr: TimeoutManager, check_interval: int = 10):
+    def __init__(self, timeout_mgr: TimeoutManager, check_interval: int = AGENT_TIMEOUT_CHECK_INTERVAL):
         self.timeout_mgr = timeout_mgr
         self.check_interval = check_interval
         self.operation_count = 0

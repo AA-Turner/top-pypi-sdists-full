@@ -29,6 +29,13 @@ class ActionBridgeParams(TypedDict, total=False):
     `call_control_id`.
     """
 
+    hold_after_unbridge: bool
+    """Specifies behavior after the bridge ends.
+
+    If set to `true`, the current leg will be put on hold after unbridge instead of
+    being hung up.
+    """
+
     mute_dtmf: Literal["none", "both", "self", "opposite"]
     """When enabled, DTMF tones are not passed to the call participant.
 
@@ -47,6 +54,12 @@ class ActionBridgeParams(TypedDict, total=False):
     """
     Specifies whether to play a ringtone if the call you want to bridge with has not
     yet been answered.
+    """
+
+    prevent_double_bridge: bool
+    """
+    When set to `true`, it prevents bridging if the target call is already bridged
+    to another call. Disabled by default.
     """
 
     queue: str

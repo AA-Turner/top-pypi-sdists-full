@@ -16,21 +16,62 @@ import System.Runtime.InteropServices.ComTypes
 import System.Runtime.Serialization
 import System.Security
 
-System_Runtime_InteropServices_GCHandle = typing.Any
-System_Runtime_InteropServices_ArrayWithOffset = typing.Any
-System_Runtime_InteropServices_CULong = typing.Any
+System_Runtime_InteropServices_CLong = typing.Any
 System_Runtime_InteropServices_PinnedGCHandle = typing.Any
+System_Runtime_InteropServices_ArrayWithOffset = typing.Any
+System_Runtime_InteropServices_NFloat = typing.Any
+System_Runtime_InteropServices_CULong = typing.Any
 System_Runtime_InteropServices_WeakGCHandle = typing.Any
 System_Runtime_InteropServices_OSPlatform = typing.Any
-System_Runtime_InteropServices_NFloat = typing.Any
-System_Runtime_InteropServices_CLong = typing.Any
+System_Runtime_InteropServices_GCHandle = typing.Any
 
-System_Runtime_InteropServices_GCHandle_T = typing.TypeVar("System_Runtime_InteropServices_GCHandle_T")
-System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup")
-System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup")
 System_Runtime_InteropServices_PinnedGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_PinnedGCHandle_T")
-System_Runtime_InteropServices_WeakGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_WeakGCHandle_T")
 System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup")
+System_Runtime_InteropServices_WeakGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_WeakGCHandle_T")
+System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup")
+System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup")
+System_Runtime_InteropServices_GCHandle_T = typing.TypeVar("System_Runtime_InteropServices_GCHandle_T")
+
+
+class CoClassAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def co_class(self) -> typing.Type:
+        ...
+
+    def __init__(self, co_class: typing.Type) -> None:
+        ...
+
+
+class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.IntPtr:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System.IntPtr) -> None:
+        ...
+
+    @overload
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.CLong) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
 
 
 class GCHandleType(IntEnum):
@@ -45,7 +86,27 @@ class GCHandleType(IntEnum):
     PINNED = 3
 
 
-class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System.IEquatable[System_Runtime_InteropServices_GCHandle], System.IDisposable):
+class TypeIdentifierAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def scope(self) -> str:
+        ...
+
+    @property
+    def identifier(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, scope: str, identifier: str) -> None:
+        ...
+
+
+class PinnedGCHandle(typing.Generic[System_Runtime_InteropServices_PinnedGCHandle_T], System.IEquatable[System_Runtime_InteropServices_PinnedGCHandle], System.IDisposable):
     """This class has no documentation."""
 
     @property
@@ -53,33 +114,14 @@ class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System
         ...
 
     @property
-    def target(self) -> System_Runtime_InteropServices_GCHandle_T:
+    def target(self) -> System_Runtime_InteropServices_PinnedGCHandle_T:
         ...
 
     @target.setter
-    def target(self, value: System_Runtime_InteropServices_GCHandle_T) -> None:
+    def target(self, value: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
         ...
 
-    def __eq__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_GCHandle_T) -> None:
-        ...
-
-    def __ne__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
-        ...
-
-    def addr_of_pinned_object(self) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(value: typing.Any) -> System.Runtime.InteropServices.GCHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(value: typing.Any, type: System.Runtime.InteropServices.GCHandleType) -> System.Runtime.InteropServices.GCHandle:
+    def __init__(self, target: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
         ...
 
     def dispose(self) -> None:
@@ -90,70 +132,26 @@ class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System
         ...
 
     @overload
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.GCHandle) -> bool:
-        ...
-
-    def free(self) -> None:
+    def equals(self, other: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> bool:
         ...
 
     @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]:
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]:
+        ...
+
+    def get_address_of_object_data(self) -> typing.Any:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
     @staticmethod
-    @overload
-    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle) -> System.IntPtr:
+    def to_int_ptr(value: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> System.IntPtr:
         ...
 
 
-class LCIDConversionAttribute(System.Attribute):
+class TypeMapping(System.Object):
     """This class has no documentation."""
-
-    @property
-    def value(self) -> int:
-        ...
-
-    def __init__(self, lcid: int) -> None:
-        ...
-
-
-class VariantWrapper(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_object(self) -> System.Object:
-        ...
-
-    def __init__(self, obj: typing.Any) -> None:
-        ...
-
-
-class TypeMapAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup], System.Attribute):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, value: str, target: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str, target: typing.Type, trim_target: typing.Type) -> None:
-        ...
 
 
 class ComVisibleAttribute(System.Attribute):
@@ -167,12 +165,181 @@ class ComVisibleAttribute(System.Attribute):
         ...
 
 
-class ExtendedLayoutKind(IntEnum):
+class CurrencyWrapper(System.Object):
     """This class has no documentation."""
 
-    C_STRUCT = 0
+    @property
+    def wrapped_object(self) -> float:
+        ...
 
-    C_UNION = 1
+    @overload
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, obj: float) -> None:
+        ...
+
+
+class CreateObjectFlags(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    TRACKER_OBJECT = 1
+
+    UNIQUE_INSTANCE = 2
+
+    AGGREGATION = 4
+
+    UNWRAP = 8
+
+
+class Architecture(IntEnum):
+    """This class has no documentation."""
+
+    X_86 = 0
+
+    X_64 = 1
+
+    ARM = 2
+
+    ARM_64 = 3
+
+    WASM = 4
+
+    S_390X = 5
+
+    LOONG_ARCH_64 = 6
+
+    ARMV_6 = 7
+
+    PPC_64_LE = 8
+
+    RISC_V_64 = 9
+
+
+class ComInterfaceType(IntEnum):
+    """This class has no documentation."""
+
+    INTERFACE_IS_DUAL = 0
+
+    INTERFACE_IS_I_UNKNOWN = 1
+
+    INTERFACE_IS_I_DISPATCH = 2
+
+    INTERFACE_IS_I_INSPECTABLE = 3
+
+
+class InterfaceTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Runtime.InteropServices.ComInterfaceType:
+        ...
+
+    @overload
+    def __init__(self, interface_type: System.Runtime.InteropServices.ComInterfaceType) -> None:
+        ...
+
+    @overload
+    def __init__(self, interface_type: int) -> None:
+        ...
+
+
+class CharSet(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 1
+
+    ANSI = 2
+
+    UNICODE = 3
+
+    AUTO = 4
+
+
+class LayoutKind(IntEnum):
+    """This class has no documentation."""
+
+    SEQUENTIAL = 0
+
+    EXTENDED = 1
+
+    EXPLICIT = 2
+
+    AUTO = 3
+
+
+class StructLayoutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Runtime.InteropServices.LayoutKind:
+        ...
+
+    @property
+    def pack(self) -> int:
+        ...
+
+    @pack.setter
+    def pack(self, value: int) -> None:
+        ...
+
+    @property
+    def size(self) -> int:
+        ...
+
+    @size.setter
+    def size(self, value: int) -> None:
+        ...
+
+    @property
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
+        ...
+
+    @char_set.setter
+    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
+        ...
+
+    @overload
+    def __init__(self, layout_kind: System.Runtime.InteropServices.LayoutKind) -> None:
+        ...
+
+    @overload
+    def __init__(self, layout_kind: int) -> None:
+        ...
+
+
+class SafeArrayTypeMismatchException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class DispIdAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> int:
+        ...
+
+    def __init__(self, disp_id: int) -> None:
+        ...
 
 
 class PosixSignal(IntEnum):
@@ -231,37 +398,158 @@ class PosixSignalRegistration(System.Object, System.IDisposable):
         ...
 
 
-class DefaultParameterValueAttribute(System.Attribute):
+class ExternalException(System.SystemException):
     """This class has no documentation."""
 
     @property
-    def value(self) -> System.Object:
+    def error_code(self) -> int:
         ...
 
-    def __init__(self, value: typing.Any) -> None:
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, error_code: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
-class CharSet(IntEnum):
+class COMException(System.Runtime.InteropServices.ExternalException):
     """This class has no documentation."""
 
-    NONE = 1
-
-    ANSI = 2
-
-    UNICODE = 3
-
-    AUTO = 4
-
-
-class DefaultCharSetAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    def __init__(self, char_set: System.Runtime.InteropServices.CharSet) -> None:
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, error_code: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class ClassInterfaceType(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    AUTO_DISPATCH = 1
+
+    AUTO_DUAL = 2
+
+
+class CollectionsMarshal(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def as_bytes(array: System.Collections.BitArray) -> System.Span[int]:
+        ...
+
+
+class SafeArrayRankMismatchException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
+    """This class has no documentation."""
+
+    FREE_BSD: System.Runtime.InteropServices.OSPlatform
+
+    LINUX: System.Runtime.InteropServices.OSPlatform
+
+    OSX: System.Runtime.InteropServices.OSPlatform
+
+    WINDOWS: System.Runtime.InteropServices.OSPlatform
+
+    def __eq__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+    def __ne__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+    @staticmethod
+    def create(os_platform: str) -> System.Runtime.InteropServices.OSPlatform:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class RuntimeInformation(System.Object):
+    """This class has no documentation."""
+
+    OS_DESCRIPTION: str
+
+    OS_ARCHITECTURE: System.Runtime.InteropServices.Architecture
+
+    RUNTIME_IDENTIFIER: str
+
+    process_architecture: System.Runtime.InteropServices.Architecture
+
+    @staticmethod
+    def is_os_platform(os_platform: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+
+class AllowReversePInvokeCallsAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 
@@ -295,209 +583,75 @@ class ArrayWithOffset(System.IEquatable[System_Runtime_InteropServices_ArrayWith
         ...
 
 
-class CustomQueryInterfaceResult(IntEnum):
-    """This class has no documentation."""
-
-    HANDLED = 0
-
-    NOT_HANDLED = 1
-
-    FAILED = 2
-
-
-class TypeIdentifierAttribute(System.Attribute):
+class ComEventInterfaceAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def scope(self) -> str:
+    def source_interface(self) -> typing.Type:
         ...
 
     @property
-    def identifier(self) -> str:
+    def event_provider(self) -> typing.Type:
         ...
 
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, scope: str, identifier: str) -> None:
+    def __init__(self, source_interface: typing.Type, event_provider: typing.Type) -> None:
         ...
 
 
-class CriticalHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
+class CallingConvention(IntEnum):
+    """This class has no documentation."""
+
+    WINAPI = 1
+
+    CDECL = 2
+
+    STD_CALL = 3
+
+    THIS_CALL = 4
+
+    FAST_CALL = 5
+
+
+class UnmanagedFunctionPointerAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def handle(self) -> System.IntPtr:
-        ...
-
-    @handle.setter
-    def handle(self, value: System.IntPtr) -> None:
+    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
         ...
 
     @property
-    def is_closed(self) -> bool:
+    def best_fit_mapping(self) -> bool:
+        ...
+
+    @best_fit_mapping.setter
+    def best_fit_mapping(self, value: bool) -> None:
         ...
 
     @property
-    @abc.abstractmethod
-    def is_invalid(self) -> bool:
+    def set_last_error(self) -> bool:
         ...
 
-    def __init__(self, invalid_handle_value: System.IntPtr) -> None:
+    @set_last_error.setter
+    def set_last_error(self, value: bool) -> None:
         ...
-
-    def close(self) -> None:
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def release_handle(self) -> bool:
-        ...
-
-    def set_handle(self, handle: System.IntPtr) -> None:
-        ...
-
-    def set_handle_as_invalid(self) -> None:
-        ...
-
-
-class ExternalException(System.SystemException):
-    """This class has no documentation."""
 
     @property
-    def error_code(self) -> int:
+    def throw_on_unmappable_char(self) -> bool:
         ...
 
-    @overload
-    def __init__(self) -> None:
+    @throw_on_unmappable_char.setter
+    def throw_on_unmappable_char(self, value: bool) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
+    @property
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
         ...
 
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    @char_set.setter
+    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str, error_code: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class SEHException(System.Runtime.InteropServices.ExternalException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def can_resume(self) -> bool:
-        ...
-
-
-class LayoutKind(IntEnum):
-    """This class has no documentation."""
-
-    SEQUENTIAL = 0
-
-    EXTENDED = 1
-
-    EXPLICIT = 2
-
-    AUTO = 3
-
-
-class ComMemberType(IntEnum):
-    """This class has no documentation."""
-
-    METHOD = 0
-
-    PROP_GET = 1
-
-    PROP_SET = 2
-
-
-class NativeMemory(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def aligned_alloc(byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    def aligned_free(ptr: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def aligned_realloc(ptr: typing.Any, byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(byte_count: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_zeroed(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_zeroed(byte_count: System.UIntPtr) -> typing.Any:
-        ...
-
-    @staticmethod
-    def clear(ptr: typing.Any, byte_count: System.UIntPtr) -> None:
-        ...
-
-    @staticmethod
-    def copy(source: typing.Any, destination: typing.Any, byte_count: System.UIntPtr) -> None:
-        ...
-
-    @staticmethod
-    def fill(ptr: typing.Any, byte_count: System.UIntPtr, value: int) -> None:
-        ...
-
-    @staticmethod
-    def free(ptr: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def realloc(ptr: typing.Any, byte_count: System.UIntPtr) -> typing.Any:
+    def __init__(self, calling_convention: System.Runtime.InteropServices.CallingConvention) -> None:
         ...
 
 
@@ -509,20 +663,6 @@ class CreateComInterfaceFlags(IntEnum):
     CALLER_DEFINED_I_UNKNOWN = 1
 
     TRACKER_SUPPORT = 2
-
-
-class CreateObjectFlags(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    TRACKER_OBJECT = 1
-
-    UNIQUE_INSTANCE = 2
-
-    AGGREGATION = 4
-
-    UNWRAP = 8
 
 
 class CreatedWrapperFlags(IntEnum):
@@ -643,1022 +783,6 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class CustomQueryInterfaceMode(IntEnum):
-    """This class has no documentation."""
-
-    IGNORE = 0
-
-    ALLOW = 1
-
-
-class SafeHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def handle(self) -> System.IntPtr:
-        ...
-
-    @handle.setter
-    def handle(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def is_closed(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self, invalid_handle_value: System.IntPtr, owns_handle: bool) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dangerous_add_ref(self, success: bool) -> None:
-        ...
-
-    def dangerous_get_handle(self) -> System.IntPtr:
-        ...
-
-    def dangerous_release(self) -> None:
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        ...
-
-    def release_handle(self) -> bool:
-        ...
-
-    def set_handle_as_invalid(self) -> None:
-        ...
-
-
-class Marshal(System.Object):
-    """This class has no documentation."""
-
-    SYSTEM_DEFAULT_CHAR_SIZE: int = 2
-
-    SYSTEM_MAX_DBCS_CHAR_SIZE: int = ...
-
-    @staticmethod
-    def add_ref(p_unk: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    def alloc_co_task_mem(cb: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_h_global(cb: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_h_global(cb: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def are_com_objects_available_for_cleanup() -> bool:
-        ...
-
-    @staticmethod
-    def bind_to_moniker(moniker_name: str) -> System.Object:
-        ...
-
-    @staticmethod
-    def change_wrapper_handle_strength(otp: typing.Any, f_is_weak: bool) -> None:
-        ...
-
-    @staticmethod
-    def cleanup_unused_objects_in_current_context() -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: typing.List[int], start_index: int, destination: System.IntPtr, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: typing.List[str], start_index: int, destination: System.IntPtr, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: typing.List[float], start_index: int, destination: System.IntPtr, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: typing.List[System.IntPtr], start_index: int, destination: System.IntPtr, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: System.IntPtr, destination: typing.List[int], start_index: int, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: System.IntPtr, destination: typing.List[str], start_index: int, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: System.IntPtr, destination: typing.List[float], start_index: int, length: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def copy(source: System.IntPtr, destination: typing.List[System.IntPtr], start_index: int, length: int) -> None:
-        ...
-
-    @staticmethod
-    def create_aggregated_object(p_outer: System.IntPtr, o: typing.Any) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def create_wrapper_of_type(o: typing.Any, t: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    def destroy_structure(ptr: System.IntPtr, structuretype: typing.Type) -> None:
-        ...
-
-    @staticmethod
-    def final_release_com_object(o: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    def free_bstr(ptr: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def free_co_task_mem(ptr: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def free_h_global(hglobal: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def generate_guid_for_type(type: typing.Type) -> System.Guid:
-        ...
-
-    @staticmethod
-    def generate_prog_id_for_type(type: typing.Type) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_com_interface_for_object(o: typing.Any, t: typing.Type) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def get_com_interface_for_object(o: typing.Any, t: typing.Type, mode: System.Runtime.InteropServices.CustomQueryInterfaceMode) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_com_object_data(obj: typing.Any, key: typing.Any) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_delegate_for_function_pointer(ptr: System.IntPtr, t: typing.Type) -> System.Delegate:
-        ...
-
-    @staticmethod
-    def get_end_com_slot(t: typing.Type) -> int:
-        ...
-
-    @staticmethod
-    def get_exception_code() -> int:
-        warnings.warn("GetExceptionCode() may be unavailable in future releases.", DeprecationWarning)
-
-    @staticmethod
-    @overload
-    def get_exception_for_hr(error_code: int) -> System.Exception:
-        ...
-
-    @staticmethod
-    @overload
-    def get_exception_for_hr(error_code: int, error_info: System.IntPtr) -> System.Exception:
-        ...
-
-    @staticmethod
-    @overload
-    def get_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> System.Exception:
-        ...
-
-    @staticmethod
-    def get_exception_pointers() -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_function_pointer_for_delegate(d: System.Delegate) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_hinstance(m: System.Reflection.Module) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_hr_for_exception(e: System.Exception) -> int:
-        ...
-
-    @staticmethod
-    def get_hr_for_last_win_32_error() -> int:
-        ...
-
-    @staticmethod
-    def get_i_dispatch_for_object(o: typing.Any) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_i_unknown_for_object(o: typing.Any) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_last_p_invoke_error() -> int:
-        ...
-
-    @staticmethod
-    def get_last_p_invoke_error_message() -> str:
-        ...
-
-    @staticmethod
-    def get_last_system_error() -> int:
-        ...
-
-    @staticmethod
-    def get_last_win_32_error() -> int:
-        ...
-
-    @staticmethod
-    def get_native_variant_for_object(obj: typing.Any, p_dst_native_variant: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def get_object_for_i_unknown(p_unk: System.IntPtr) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_object_for_native_variant(p_src_native_variant: System.IntPtr) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_objects_for_native_variants(a_src_native_variant: System.IntPtr, c_vars: int) -> typing.List[System.Object]:
-        ...
-
-    @staticmethod
-    def get_p_invoke_error_message(error: int) -> str:
-        ...
-
-    @staticmethod
-    def get_start_com_slot(t: typing.Type) -> int:
-        ...
-
-    @staticmethod
-    def get_typed_object_for_i_unknown(p_unk: System.IntPtr, t: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_type_from_clsid(clsid: System.Guid) -> typing.Type:
-        ...
-
-    @staticmethod
-    def get_type_info_name(type_info: System.Runtime.InteropServices.ComTypes.ITypeInfo) -> str:
-        ...
-
-    @staticmethod
-    def get_unique_object_for_i_unknown(unknown: System.IntPtr) -> System.Object:
-        ...
-
-    @staticmethod
-    def init_handle(safe_handle: System.Runtime.InteropServices.SafeHandle, handle: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def is_com_object(o: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    def is_type_visible_from_com(t: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    def offset_of(t: typing.Type, field_name: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def prelink(m: System.Reflection.MethodInfo) -> None:
-        ...
-
-    @staticmethod
-    def prelink_all(c: typing.Type) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_ansi(ptr: System.IntPtr) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_ansi(ptr: System.IntPtr, len: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_auto(ptr: System.IntPtr, len: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_auto(ptr: System.IntPtr) -> str:
-        ...
-
-    @staticmethod
-    def ptr_to_string_bstr(ptr: System.IntPtr) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_uni(ptr: System.IntPtr) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_uni(ptr: System.IntPtr, len: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_utf_8(ptr: System.IntPtr) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_string_utf_8(ptr: System.IntPtr, byte_len: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    def query_interface(p_unk: System.IntPtr, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[int, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def read_byte(ptr: System.IntPtr, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_byte(ptr: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_byte(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_16(ptr: System.IntPtr, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_16(ptr: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_16(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_32(ptr: System.IntPtr, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_32(ptr: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_32(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_64(ptr: System.IntPtr, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_64(ptr: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_64(ptr: typing.Any, ofs: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_ptr(ptr: System.IntPtr, ofs: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_ptr(ptr: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def read_int_ptr(ptr: typing.Any, ofs: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def re_alloc_co_task_mem(pv: System.IntPtr, cb: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def re_alloc_h_global(pv: System.IntPtr, cb: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def release(p_unk: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    def release_com_object(o: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    def secure_string_to_bstr(s: System.Security.SecureString) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def secure_string_to_co_task_mem_ansi(s: System.Security.SecureString) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def secure_string_to_co_task_mem_unicode(s: System.Security.SecureString) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def secure_string_to_global_alloc_ansi(s: System.Security.SecureString) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def secure_string_to_global_alloc_unicode(s: System.Security.SecureString) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def set_com_object_data(obj: typing.Any, key: typing.Any, data: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    def set_last_p_invoke_error(error: int) -> None:
-        ...
-
-    @staticmethod
-    def set_last_system_error(error: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def size_of(structure: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def size_of(t: typing.Type) -> int:
-        ...
-
-    @staticmethod
-    def string_to_bstr(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_co_task_mem_ansi(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_co_task_mem_auto(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_co_task_mem_uni(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_co_task_mem_utf_8(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_h_global_ansi(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_h_global_auto(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def string_to_h_global_uni(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def structure_to_ptr(structure: typing.Any, ptr: System.IntPtr, f_delete_old: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def throw_exception_for_hr(error_code: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def throw_exception_for_hr(error_code: int, error_info: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def throw_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def unsafe_addr_of_pinned_array_element(arr: System.Array, index: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def write_byte(ptr: System.IntPtr, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_byte(ptr: System.IntPtr, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_byte(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: System.IntPtr, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: System.IntPtr, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: System.IntPtr, ofs: int, val: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: System.IntPtr, val: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: typing.Any, ofs: int, val: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_16(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_32(ptr: System.IntPtr, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_32(ptr: System.IntPtr, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_32(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_64(ptr: System.IntPtr, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_64(ptr: System.IntPtr, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_64(ptr: typing.Any, ofs: int, val: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_ptr(ptr: System.IntPtr, ofs: int, val: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_ptr(ptr: System.IntPtr, val: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_int_ptr(ptr: typing.Any, ofs: int, val: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_bstr(s: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_co_task_mem_ansi(s: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_co_task_mem_unicode(s: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_co_task_mem_utf_8(s: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_global_alloc_ansi(s: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def zero_free_global_alloc_unicode(s: System.IntPtr) -> None:
-        ...
-
-
-class ClassInterfaceType(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    AUTO_DISPATCH = 1
-
-    AUTO_DUAL = 2
-
-
-class ClassInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Runtime.InteropServices.ClassInterfaceType:
-        ...
-
-    @overload
-    def __init__(self, class_interface_type: System.Runtime.InteropServices.ClassInterfaceType) -> None:
-        ...
-
-    @overload
-    def __init__(self, class_interface_type: int) -> None:
-        ...
-
-
-class VarEnum(IntEnum):
-    """This class has no documentation."""
-
-    VT_EMPTY = 0
-
-    VT_NULL = 1
-
-    VT_I_2 = 2
-
-    VT_I_4 = 3
-
-    VT_R_4 = 4
-
-    VT_R_8 = 5
-
-    VT_CY = 6
-
-    VT_DATE = 7
-
-    VT_BSTR = 8
-
-    VT_DISPATCH = 9
-
-    VT_ERROR = 10
-
-    VT_BOOL = 11
-
-    VT_VARIANT = 12
-
-    VT_UNKNOWN = 13
-
-    VT_DECIMAL = 14
-
-    VT_I_1 = 16
-
-    VT_UI_1 = 17
-
-    VT_UI_2 = 18
-
-    VT_UI_4 = 19
-
-    VT_I_8 = 20
-
-    VT_UI_8 = 21
-
-    VT_INT = 22
-
-    VT_UINT = 23
-
-    VT_VOID = 24
-
-    VT_HRESULT = 25
-
-    VT_PTR = 26
-
-    VT_SAFEARRAY = 27
-
-    VT_CARRAY = 28
-
-    VT_USERDEFINED = 29
-
-    VT_LPSTR = 30
-
-    VT_LPWSTR = 31
-
-    VT_RECORD = 36
-
-    VT_FILETIME = 64
-
-    VT_BLOB = 65
-
-    VT_STREAM = 66
-
-    VT_STORAGE = 67
-
-    VT_STREAMED_OBJECT = 68
-
-    VT_STORED_OBJECT = 69
-
-    VT_BLOB_OBJECT = 70
-
-    VT_CF = 71
-
-    VT_CLSID = 72
-
-    VT_VECTOR = ...
-
-    VT_ARRAY = ...
-
-    VT_BYREF = ...
-
-
-class CallingConvention(IntEnum):
-    """This class has no documentation."""
-
-    WINAPI = 1
-
-    CDECL = 2
-
-    STD_CALL = 3
-
-    THIS_CALL = 4
-
-    FAST_CALL = 5
-
-
-class DllImportAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @property
-    def entry_point(self) -> str:
-        ...
-
-    @entry_point.setter
-    def entry_point(self, value: str) -> None:
-        ...
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    @char_set.setter
-    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-    @property
-    def set_last_error(self) -> bool:
-        ...
-
-    @set_last_error.setter
-    def set_last_error(self, value: bool) -> None:
-        ...
-
-    @property
-    def exact_spelling(self) -> bool:
-        ...
-
-    @exact_spelling.setter
-    def exact_spelling(self, value: bool) -> None:
-        ...
-
-    @property
-    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
-        ...
-
-    @calling_convention.setter
-    def calling_convention(self, value: System.Runtime.InteropServices.CallingConvention) -> None:
-        ...
-
-    @property
-    def best_fit_mapping(self) -> bool:
-        ...
-
-    @best_fit_mapping.setter
-    def best_fit_mapping(self, value: bool) -> None:
-        ...
-
-    @property
-    def preserve_sig(self) -> bool:
-        ...
-
-    @preserve_sig.setter
-    def preserve_sig(self, value: bool) -> None:
-        ...
-
-    @property
-    def throw_on_unmappable_char(self) -> bool:
-        ...
-
-    @throw_on_unmappable_char.setter
-    def throw_on_unmappable_char(self, value: bool) -> None:
-        ...
-
-    def __init__(self, dll_name: str) -> None:
-        ...
-
-
-class OutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.UIntPtr:
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.UIntPtr) -> None:
-        ...
-
-    @overload
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.CULong) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class StandardOleMarshalObject(System.MarshalByRefObject, System.Runtime.InteropServices.IMarshal):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class BestFitMappingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def best_fit_mapping(self) -> bool:
-        ...
-
-    @property
-    def throw_on_unmappable_char(self) -> bool:
-        ...
-
-    @throw_on_unmappable_char.setter
-    def throw_on_unmappable_char(self, value: bool) -> None:
-        ...
-
-    def __init__(self, best_fit_mapping: bool) -> None:
-        ...
-
-
-class ICustomAdapter(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_underlying_object(self) -> System.Object:
-        ...
-
-
-class ExtendedLayoutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self, layout_kind: System.Runtime.InteropServices.ExtendedLayoutKind) -> None:
-        ...
-
-
-class ICustomFactory(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def create_instance(self, server_type: typing.Type) -> System.MarshalByRefObject:
-        ...
-
-
-class StructLayoutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Runtime.InteropServices.LayoutKind:
-        ...
-
-    @property
-    def pack(self) -> int:
-        ...
-
-    @pack.setter
-    def pack(self, value: int) -> None:
-        ...
-
-    @property
-    def size(self) -> int:
-        ...
-
-    @size.setter
-    def size(self, value: int) -> None:
-        ...
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    @char_set.setter
-    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-    @overload
-    def __init__(self, layout_kind: System.Runtime.InteropServices.LayoutKind) -> None:
-        ...
-
-    @overload
-    def __init__(self, layout_kind: int) -> None:
-        ...
-
-
 class ComEventsHelper(System.Object):
     """This class has no documentation."""
 
@@ -1668,382 +792,6 @@ class ComEventsHelper(System.Object):
 
     @staticmethod
     def remove(rcw: typing.Any, iid: System.Guid, dispid: int, d: System.Delegate) -> System.Delegate:
-        ...
-
-
-class DllImportSearchPath(IntEnum):
-    """This class has no documentation."""
-
-    USE_DLL_DIRECTORY_FOR_DEPENDENCIES = ...
-
-    APPLICATION_DIRECTORY = ...
-
-    USER_DIRECTORIES = ...
-
-    SYSTEM_32 = ...
-
-    SAFE_DIRECTORIES = ...
-
-    ASSEMBLY_DIRECTORY = ...
-
-    LEGACY_BEHAVIOR = ...
-
-
-class NativeLibrary(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def free(handle: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def get_export(handle: System.IntPtr, name: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_main_program_handle() -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def load(library_path: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def load(library_name: str, assembly: System.Reflection.Assembly, search_path: typing.Optional[System.Runtime.InteropServices.DllImportSearchPath]) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def set_dll_import_resolver(assembly: System.Reflection.Assembly, resolver: typing.Callable[[str, System.Reflection.Assembly, typing.Optional[System.Runtime.InteropServices.DllImportSearchPath]], System.IntPtr]) -> None:
-        ...
-
-    @staticmethod
-    def try_get_export(handle: System.IntPtr, name: str, address: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_load(library_path: str, handle: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_load(library_name: str, assembly: System.Reflection.Assembly, search_path: typing.Optional[System.Runtime.InteropServices.DllImportSearchPath], handle: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-
-class ComEventInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def source_interface(self) -> typing.Type:
-        ...
-
-    @property
-    def event_provider(self) -> typing.Type:
-        ...
-
-    def __init__(self, source_interface: typing.Type, event_provider: typing.Type) -> None:
-        ...
-
-
-class WasmImportLinkageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class TypeMapAssociationAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup], System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self, source: typing.Type, proxy: typing.Type) -> None:
-        ...
-
-
-class ComInterfaceType(IntEnum):
-    """This class has no documentation."""
-
-    INTERFACE_IS_DUAL = 0
-
-    INTERFACE_IS_I_UNKNOWN = 1
-
-    INTERFACE_IS_I_DISPATCH = 2
-
-    INTERFACE_IS_I_INSPECTABLE = 3
-
-
-class CurrencyWrapper(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_object(self) -> float:
-        ...
-
-    @overload
-    def __init__(self, obj: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, obj: float) -> None:
-        ...
-
-
-class TypeMapping(System.Object):
-    """This class has no documentation."""
-
-
-class DefaultDllImportSearchPathsAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def paths(self) -> System.Runtime.InteropServices.DllImportSearchPath:
-        ...
-
-    def __init__(self, paths: System.Runtime.InteropServices.DllImportSearchPath) -> None:
-        ...
-
-
-class Architecture(IntEnum):
-    """This class has no documentation."""
-
-    X_86 = 0
-
-    X_64 = 1
-
-    ARM = 2
-
-    ARM_64 = 3
-
-    WASM = 4
-
-    S_390X = 5
-
-    LOONG_ARCH_64 = 6
-
-    ARMV_6 = 7
-
-    PPC_64_LE = 8
-
-    RISC_V_64 = 9
-
-
-class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
-    """This class has no documentation."""
-
-    FREE_BSD: System.Runtime.InteropServices.OSPlatform
-
-    LINUX: System.Runtime.InteropServices.OSPlatform
-
-    OSX: System.Runtime.InteropServices.OSPlatform
-
-    WINDOWS: System.Runtime.InteropServices.OSPlatform
-
-    def __eq__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
-        ...
-
-    def __ne__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
-        ...
-
-    @staticmethod
-    def create(os_platform: str) -> System.Runtime.InteropServices.OSPlatform:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class RuntimeInformation(System.Object):
-    """This class has no documentation."""
-
-    RUNTIME_IDENTIFIER: str
-
-    process_architecture: System.Runtime.InteropServices.Architecture
-
-    OS_DESCRIPTION: str
-
-    OS_ARCHITECTURE: System.Runtime.InteropServices.Architecture
-
-    @staticmethod
-    def is_os_platform(os_platform: System.Runtime.InteropServices.OSPlatform) -> bool:
-        ...
-
-
-class ComDefaultInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> typing.Type:
-        ...
-
-    def __init__(self, default_interface: typing.Type) -> None:
-        ...
-
-
-class MemoryMarshal(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
-        ...
-
-    @staticmethod
-    def get_array_data_reference(array: System.Array) -> typing.Any:
-        ...
-
-    @staticmethod
-    def try_get_string(memory: System.ReadOnlyMemory[str], text: typing.Optional[str], start: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[bool, str, int, int]:
-        ...
-
-
-class PinnedGCHandle(typing.Generic[System_Runtime_InteropServices_PinnedGCHandle_T], System.IEquatable[System_Runtime_InteropServices_PinnedGCHandle], System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def is_allocated(self) -> bool:
-        ...
-
-    @property
-    def target(self) -> System_Runtime_InteropServices_PinnedGCHandle_T:
-        ...
-
-    @target.setter
-    def target(self, value: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> bool:
-        ...
-
-    @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]:
-        ...
-
-    def get_address_of_object_data(self) -> typing.Any:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> System.IntPtr:
-        ...
-
-
-class UnmanagedCallConvAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def call_convs(self) -> typing.List[typing.Type]:
-        ...
-
-    @call_convs.setter
-    def call_convs(self, value: typing.List[typing.Type]) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class WeakGCHandle(typing.Generic[System_Runtime_InteropServices_WeakGCHandle_T], System.IEquatable[System_Runtime_InteropServices_WeakGCHandle], System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def is_allocated(self) -> bool:
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_WeakGCHandle_T, track_resurrection: bool = False) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> bool:
-        ...
-
-    @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def set_target(self, target: System_Runtime_InteropServices_WeakGCHandle_T) -> None:
-        ...
-
-    @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> System.IntPtr:
-        ...
-
-    def try_get_target(self, target: typing.Optional[System_Runtime_InteropServices_WeakGCHandle_T]) -> typing.Tuple[bool, System_Runtime_InteropServices_WeakGCHandle_T]:
-        ...
-
-
-class FieldOffsetAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> int:
-        ...
-
-    def __init__(self, offset: int) -> None:
-        ...
-
-
-class InAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class UnmanagedCallersOnlyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def call_convs(self) -> typing.List[typing.Type]:
-        ...
-
-    @call_convs.setter
-    def call_convs(self, value: typing.List[typing.Type]) -> None:
-        ...
-
-    @property
-    def entry_point(self) -> str:
-        ...
-
-    @entry_point.setter
-    def entry_point(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
         ...
 
 
@@ -2656,76 +1404,137 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
 
-class CoClassAttribute(System.Attribute):
+class StandardOleMarshalObject(System.MarshalByRefObject, System.Runtime.InteropServices.IMarshal):
     """This class has no documentation."""
 
-    @property
-    def co_class(self) -> typing.Type:
-        ...
-
-    def __init__(self, co_class: typing.Type) -> None:
-        ...
-
-
-class ICustomMarshaler(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clean_up_managed_data(self, managed_obj: typing.Any) -> None:
-        ...
-
-    def clean_up_native_data(self, p_native_data: System.IntPtr) -> None:
-        ...
-
-    def get_native_data_size(self) -> int:
-        ...
-
-    def marshal_managed_to_native(self, managed_obj: typing.Any) -> System.IntPtr:
-        ...
-
-    def marshal_native_to_managed(self, p_native_data: System.IntPtr) -> System.Object:
-        ...
-
-
-class GCHandleExtensions(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def get_address_of_string_data(handle: System.Runtime.InteropServices.PinnedGCHandle[str]) -> typing.Any:
-        ...
-
-
-class InvalidOleVariantTypeException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
     def __init__(self) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
 
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class ComImportAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class GuidAttribute(System.Attribute):
+class DispatchWrapper(System.Object):
     """This class has no documentation."""
 
     @property
-    def value(self) -> str:
+    def wrapped_object(self) -> System.Object:
         ...
 
-    def __init__(self, guid: str) -> None:
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+
+class ClassInterfaceAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Runtime.InteropServices.ClassInterfaceType:
+        ...
+
+    @overload
+    def __init__(self, class_interface_type: System.Runtime.InteropServices.ClassInterfaceType) -> None:
+        ...
+
+    @overload
+    def __init__(self, class_interface_type: int) -> None:
+        ...
+
+
+class CriticalHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def handle(self) -> System.IntPtr:
+        ...
+
+    @handle.setter
+    def handle(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def is_closed(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self, invalid_handle_value: System.IntPtr) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def release_handle(self) -> bool:
+        ...
+
+    def set_handle(self, handle: System.IntPtr) -> None:
+        ...
+
+    def set_handle_as_invalid(self) -> None:
+        ...
+
+
+class NativeMemory(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def aligned_alloc(byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    def aligned_free(ptr: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def aligned_realloc(ptr: typing.Any, byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(byte_count: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_zeroed(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_zeroed(byte_count: System.UIntPtr) -> typing.Any:
+        ...
+
+    @staticmethod
+    def clear(ptr: typing.Any, byte_count: System.UIntPtr) -> None:
+        ...
+
+    @staticmethod
+    def copy(source: typing.Any, destination: typing.Any, byte_count: System.UIntPtr) -> None:
+        ...
+
+    @staticmethod
+    def fill(ptr: typing.Any, byte_count: System.UIntPtr, value: int) -> None:
+        ...
+
+    @staticmethod
+    def free(ptr: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def realloc(ptr: typing.Any, byte_count: System.UIntPtr) -> typing.Any:
         ...
 
 
@@ -2754,32 +1563,6 @@ class SafeBuffer(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, 
         ...
 
 
-class PreserveSigAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class HandleRef:
-    """This class has no documentation."""
-
-    @property
-    def wrapper(self) -> System.Object:
-        ...
-
-    @property
-    def handle(self) -> System.IntPtr:
-        ...
-
-    def __init__(self, wrapper: typing.Any, handle: System.IntPtr) -> None:
-        ...
-
-    @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.HandleRef) -> System.IntPtr:
-        ...
-
-
 class ProgIdAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -2791,82 +1574,6 @@ class ProgIdAttribute(System.Attribute):
         ...
 
 
-class SafeArrayTypeMismatchException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class IDynamicInterfaceCastable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_interface_implementation(self, interface_type: System.RuntimeTypeHandle) -> System.RuntimeTypeHandle:
-        ...
-
-    def is_interface_implemented(self, interface_type: System.RuntimeTypeHandle, throw_if_not_implemented: bool) -> bool:
-        ...
-
-
-class DynamicInterfaceCastableImplementationAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DispatchWrapper(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_object(self) -> System.Object:
-        ...
-
-    def __init__(self, obj: typing.Any) -> None:
-        ...
-
-
-class ComSourceInterfacesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, source_interfaces: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, source_interface: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type, source_interface_4: typing.Type) -> None:
-        ...
-
-
 class TypeMapAssemblyTargetAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup], System.Attribute):
     """This class has no documentation."""
 
@@ -2874,11 +1581,765 @@ class TypeMapAssemblyTargetAttribute(typing.Generic[System_Runtime_InteropServic
         ...
 
 
-class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
+class WasmImportLinkageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class DllImportSearchPath(IntEnum):
+    """This class has no documentation."""
+
+    USE_DLL_DIRECTORY_FOR_DEPENDENCIES = ...
+
+    APPLICATION_DIRECTORY = ...
+
+    USER_DIRECTORIES = ...
+
+    SYSTEM_32 = ...
+
+    SAFE_DIRECTORIES = ...
+
+    ASSEMBLY_DIRECTORY = ...
+
+    LEGACY_BEHAVIOR = ...
+
+
+class NativeLibrary(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def free(handle: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def get_export(handle: System.IntPtr, name: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_main_program_handle() -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def load(library_path: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def load(library_name: str, assembly: System.Reflection.Assembly, search_path: typing.Optional[System.Runtime.InteropServices.DllImportSearchPath]) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def set_dll_import_resolver(assembly: System.Reflection.Assembly, resolver: typing.Callable[[str, System.Reflection.Assembly, typing.Optional[System.Runtime.InteropServices.DllImportSearchPath]], System.IntPtr]) -> None:
+        ...
+
+    @staticmethod
+    def try_get_export(handle: System.IntPtr, name: str, address: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_load(library_path: str, handle: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_load(library_name: str, assembly: System.Reflection.Assembly, search_path: typing.Optional[System.Runtime.InteropServices.DllImportSearchPath], handle: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+
+class SafeHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def value(self) -> System.IntPtr:
+    def handle(self) -> System.IntPtr:
+        ...
+
+    @handle.setter
+    def handle(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def is_closed(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self, invalid_handle_value: System.IntPtr, owns_handle: bool) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dangerous_add_ref(self, success: bool) -> None:
+        ...
+
+    def dangerous_get_handle(self) -> System.IntPtr:
+        ...
+
+    def dangerous_release(self) -> None:
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        ...
+
+    def release_handle(self) -> bool:
+        ...
+
+    def set_handle_as_invalid(self) -> None:
+        ...
+
+
+class CustomQueryInterfaceMode(IntEnum):
+    """This class has no documentation."""
+
+    IGNORE = 0
+
+    ALLOW = 1
+
+
+class Marshal(System.Object):
+    """This class has no documentation."""
+
+    SYSTEM_DEFAULT_CHAR_SIZE: int = 2
+
+    SYSTEM_MAX_DBCS_CHAR_SIZE: int = ...
+
+    @staticmethod
+    def add_ref(p_unk: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    def alloc_co_task_mem(cb: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_h_global(cb: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_h_global(cb: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def are_com_objects_available_for_cleanup() -> bool:
+        ...
+
+    @staticmethod
+    def bind_to_moniker(moniker_name: str) -> System.Object:
+        ...
+
+    @staticmethod
+    def change_wrapper_handle_strength(otp: typing.Any, f_is_weak: bool) -> None:
+        ...
+
+    @staticmethod
+    def cleanup_unused_objects_in_current_context() -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: typing.List[int], start_index: int, destination: System.IntPtr, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: typing.List[str], start_index: int, destination: System.IntPtr, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: typing.List[float], start_index: int, destination: System.IntPtr, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: typing.List[System.IntPtr], start_index: int, destination: System.IntPtr, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: System.IntPtr, destination: typing.List[int], start_index: int, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: System.IntPtr, destination: typing.List[str], start_index: int, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: System.IntPtr, destination: typing.List[float], start_index: int, length: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def copy(source: System.IntPtr, destination: typing.List[System.IntPtr], start_index: int, length: int) -> None:
+        ...
+
+    @staticmethod
+    def create_aggregated_object(p_outer: System.IntPtr, o: typing.Any) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def create_wrapper_of_type(o: typing.Any, t: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    def destroy_structure(ptr: System.IntPtr, structuretype: typing.Type) -> None:
+        ...
+
+    @staticmethod
+    def final_release_com_object(o: typing.Any) -> int:
+        ...
+
+    @staticmethod
+    def free_bstr(ptr: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def free_co_task_mem(ptr: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def free_h_global(hglobal: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def generate_guid_for_type(type: typing.Type) -> System.Guid:
+        ...
+
+    @staticmethod
+    def generate_prog_id_for_type(type: typing.Type) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_com_interface_for_object(o: typing.Any, t: typing.Type) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def get_com_interface_for_object(o: typing.Any, t: typing.Type, mode: System.Runtime.InteropServices.CustomQueryInterfaceMode) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_com_object_data(obj: typing.Any, key: typing.Any) -> System.Object:
+        ...
+
+    @staticmethod
+    def get_delegate_for_function_pointer(ptr: System.IntPtr, t: typing.Type) -> System.Delegate:
+        ...
+
+    @staticmethod
+    def get_end_com_slot(t: typing.Type) -> int:
+        ...
+
+    @staticmethod
+    def get_exception_code() -> int:
+        warnings.warn("GetExceptionCode() may be unavailable in future releases.", DeprecationWarning)
+
+    @staticmethod
+    @overload
+    def get_exception_for_hr(error_code: int) -> System.Exception:
+        ...
+
+    @staticmethod
+    @overload
+    def get_exception_for_hr(error_code: int, error_info: System.IntPtr) -> System.Exception:
+        ...
+
+    @staticmethod
+    @overload
+    def get_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> System.Exception:
+        ...
+
+    @staticmethod
+    def get_exception_pointers() -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_function_pointer_for_delegate(d: System.Delegate) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_hinstance(m: System.Reflection.Module) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_hr_for_exception(e: System.Exception) -> int:
+        ...
+
+    @staticmethod
+    def get_hr_for_last_win_32_error() -> int:
+        ...
+
+    @staticmethod
+    def get_i_dispatch_for_object(o: typing.Any) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_i_unknown_for_object(o: typing.Any) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_last_p_invoke_error() -> int:
+        ...
+
+    @staticmethod
+    def get_last_p_invoke_error_message() -> str:
+        ...
+
+    @staticmethod
+    def get_last_system_error() -> int:
+        ...
+
+    @staticmethod
+    def get_last_win_32_error() -> int:
+        ...
+
+    @staticmethod
+    def get_native_variant_for_object(obj: typing.Any, p_dst_native_variant: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def get_object_for_i_unknown(p_unk: System.IntPtr) -> System.Object:
+        ...
+
+    @staticmethod
+    def get_object_for_native_variant(p_src_native_variant: System.IntPtr) -> System.Object:
+        ...
+
+    @staticmethod
+    def get_objects_for_native_variants(a_src_native_variant: System.IntPtr, c_vars: int) -> typing.List[System.Object]:
+        ...
+
+    @staticmethod
+    def get_p_invoke_error_message(error: int) -> str:
+        ...
+
+    @staticmethod
+    def get_start_com_slot(t: typing.Type) -> int:
+        ...
+
+    @staticmethod
+    def get_typed_object_for_i_unknown(p_unk: System.IntPtr, t: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    def get_type_from_clsid(clsid: System.Guid) -> typing.Type:
+        ...
+
+    @staticmethod
+    def get_type_info_name(type_info: System.Runtime.InteropServices.ComTypes.ITypeInfo) -> str:
+        ...
+
+    @staticmethod
+    def get_unique_object_for_i_unknown(unknown: System.IntPtr) -> System.Object:
+        ...
+
+    @staticmethod
+    def init_handle(safe_handle: System.Runtime.InteropServices.SafeHandle, handle: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def is_com_object(o: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def is_type_visible_from_com(t: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    def offset_of(t: typing.Type, field_name: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def prelink(m: System.Reflection.MethodInfo) -> None:
+        ...
+
+    @staticmethod
+    def prelink_all(c: typing.Type) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_ansi(ptr: System.IntPtr) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_ansi(ptr: System.IntPtr, len: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_auto(ptr: System.IntPtr, len: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_auto(ptr: System.IntPtr) -> str:
+        ...
+
+    @staticmethod
+    def ptr_to_string_bstr(ptr: System.IntPtr) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_uni(ptr: System.IntPtr) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_uni(ptr: System.IntPtr, len: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_utf_8(ptr: System.IntPtr) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_string_utf_8(ptr: System.IntPtr, byte_len: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_structure(ptr: System.IntPtr, structure: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def ptr_to_structure(ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    def query_interface(p_unk: System.IntPtr, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[int, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def read_byte(ptr: System.IntPtr, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_byte(ptr: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_byte(ptr: typing.Any, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_16(ptr: System.IntPtr, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_16(ptr: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_16(ptr: typing.Any, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_32(ptr: System.IntPtr, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_32(ptr: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_32(ptr: typing.Any, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_64(ptr: System.IntPtr, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_64(ptr: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_64(ptr: typing.Any, ofs: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_ptr(ptr: System.IntPtr, ofs: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_ptr(ptr: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def read_int_ptr(ptr: typing.Any, ofs: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def re_alloc_co_task_mem(pv: System.IntPtr, cb: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def re_alloc_h_global(pv: System.IntPtr, cb: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def release(p_unk: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    def release_com_object(o: typing.Any) -> int:
+        ...
+
+    @staticmethod
+    def secure_string_to_bstr(s: System.Security.SecureString) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def secure_string_to_co_task_mem_ansi(s: System.Security.SecureString) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def secure_string_to_co_task_mem_unicode(s: System.Security.SecureString) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def secure_string_to_global_alloc_ansi(s: System.Security.SecureString) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def secure_string_to_global_alloc_unicode(s: System.Security.SecureString) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def set_com_object_data(obj: typing.Any, key: typing.Any, data: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    def set_last_p_invoke_error(error: int) -> None:
+        ...
+
+    @staticmethod
+    def set_last_system_error(error: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def size_of(structure: typing.Any) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def size_of(t: typing.Type) -> int:
+        ...
+
+    @staticmethod
+    def string_to_bstr(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_co_task_mem_ansi(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_co_task_mem_auto(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_co_task_mem_uni(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_co_task_mem_utf_8(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_h_global_ansi(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_h_global_auto(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def string_to_h_global_uni(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def structure_to_ptr(structure: typing.Any, ptr: System.IntPtr, f_delete_old: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def throw_exception_for_hr(error_code: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def throw_exception_for_hr(error_code: int, error_info: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def throw_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def unsafe_addr_of_pinned_array_element(arr: System.Array, index: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def write_byte(ptr: System.IntPtr, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_byte(ptr: System.IntPtr, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_byte(ptr: typing.Any, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: System.IntPtr, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: System.IntPtr, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: System.IntPtr, ofs: int, val: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: System.IntPtr, val: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: typing.Any, ofs: int, val: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_16(ptr: typing.Any, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_32(ptr: System.IntPtr, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_32(ptr: System.IntPtr, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_32(ptr: typing.Any, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_64(ptr: System.IntPtr, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_64(ptr: System.IntPtr, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_64(ptr: typing.Any, ofs: int, val: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_ptr(ptr: System.IntPtr, ofs: int, val: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_ptr(ptr: System.IntPtr, val: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_int_ptr(ptr: typing.Any, ofs: int, val: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_bstr(s: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_co_task_mem_ansi(s: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_co_task_mem_unicode(s: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_co_task_mem_utf_8(s: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_global_alloc_ansi(s: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def zero_free_global_alloc_unicode(s: System.IntPtr) -> None:
+        ...
+
+
+class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.UIntPtr:
         ...
 
     @overload
@@ -2886,7 +2347,7 @@ class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
         ...
 
     @overload
-    def __init__(self, value: System.IntPtr) -> None:
+    def __init__(self, value: System.UIntPtr) -> None:
         ...
 
     @overload
@@ -2894,7 +2355,7 @@ class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
         ...
 
     @overload
-    def equals(self, other: System.Runtime.InteropServices.CLong) -> bool:
+    def equals(self, other: System.Runtime.InteropServices.CULong) -> bool:
         ...
 
     def get_hash_code(self) -> int:
@@ -2904,14 +2365,31 @@ class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
         ...
 
 
-class UnknownWrapper(System.Object):
+class CustomQueryInterfaceResult(IntEnum):
+    """This class has no documentation."""
+
+    HANDLED = 0
+
+    NOT_HANDLED = 1
+
+    FAILED = 2
+
+
+class ICustomQueryInterface(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_interface(self, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[System.Runtime.InteropServices.CustomQueryInterfaceResult, System.IntPtr]:
+        ...
+
+
+class DefaultParameterValueAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def wrapped_object(self) -> System.Object:
+    def value(self) -> System.Object:
         ...
 
-    def __init__(self, obj: typing.Any) -> None:
+    def __init__(self, value: typing.Any) -> None:
         ...
 
 
@@ -2993,6 +2471,105 @@ class UnmanagedType(IntEnum):
     H_STRING = ...
 
     LPUTF_8_STR = ...
+
+
+class InAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class VarEnum(IntEnum):
+    """This class has no documentation."""
+
+    VT_EMPTY = 0
+
+    VT_NULL = 1
+
+    VT_I_2 = 2
+
+    VT_I_4 = 3
+
+    VT_R_4 = 4
+
+    VT_R_8 = 5
+
+    VT_CY = 6
+
+    VT_DATE = 7
+
+    VT_BSTR = 8
+
+    VT_DISPATCH = 9
+
+    VT_ERROR = 10
+
+    VT_BOOL = 11
+
+    VT_VARIANT = 12
+
+    VT_UNKNOWN = 13
+
+    VT_DECIMAL = 14
+
+    VT_I_1 = 16
+
+    VT_UI_1 = 17
+
+    VT_UI_2 = 18
+
+    VT_UI_4 = 19
+
+    VT_I_8 = 20
+
+    VT_UI_8 = 21
+
+    VT_INT = 22
+
+    VT_UINT = 23
+
+    VT_VOID = 24
+
+    VT_HRESULT = 25
+
+    VT_PTR = 26
+
+    VT_SAFEARRAY = 27
+
+    VT_CARRAY = 28
+
+    VT_USERDEFINED = 29
+
+    VT_LPSTR = 30
+
+    VT_LPWSTR = 31
+
+    VT_RECORD = 36
+
+    VT_FILETIME = 64
+
+    VT_BLOB = 65
+
+    VT_STREAM = 66
+
+    VT_STORAGE = 67
+
+    VT_STREAMED_OBJECT = 68
+
+    VT_STORED_OBJECT = 69
+
+    VT_BLOB_OBJECT = 70
+
+    VT_CF = 71
+
+    VT_CLSID = 72
+
+    VT_VECTOR = ...
+
+    VT_ARRAY = ...
+
+    VT_BYREF = ...
 
 
 class MarshalAsAttribute(System.Attribute):
@@ -3083,160 +2660,42 @@ class MarshalAsAttribute(System.Attribute):
         ...
 
 
-class UnmanagedFunctionPointerAttribute(System.Attribute):
+class WeakGCHandle(typing.Generic[System_Runtime_InteropServices_WeakGCHandle_T], System.IEquatable[System_Runtime_InteropServices_WeakGCHandle], System.IDisposable):
     """This class has no documentation."""
 
     @property
-    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
+    def is_allocated(self) -> bool:
         ...
 
-    @property
-    def best_fit_mapping(self) -> bool:
+    def __init__(self, target: System_Runtime_InteropServices_WeakGCHandle_T, track_resurrection: bool = False) -> None:
         ...
 
-    @best_fit_mapping.setter
-    def best_fit_mapping(self, value: bool) -> None:
-        ...
-
-    @property
-    def set_last_error(self) -> bool:
-        ...
-
-    @set_last_error.setter
-    def set_last_error(self, value: bool) -> None:
-        ...
-
-    @property
-    def throw_on_unmappable_char(self) -> bool:
-        ...
-
-    @throw_on_unmappable_char.setter
-    def throw_on_unmappable_char(self, value: bool) -> None:
-        ...
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    @char_set.setter
-    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-    def __init__(self, calling_convention: System.Runtime.InteropServices.CallingConvention) -> None:
-        ...
-
-
-class COMException(System.Runtime.InteropServices.ExternalException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
+    def dispose(self) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    def equals(self, other: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> bool:
         ...
-
-    @overload
-    def __init__(self, message: str, error_code: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class OptionalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CollectionsMarshal(System.Object):
-    """This class has no documentation."""
 
     @staticmethod
-    def as_bytes(array: System.Collections.BitArray) -> System.Span[int]:
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]:
         ...
 
-
-class SafeArrayRankMismatchException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
+    def get_hash_code(self) -> int:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
+    def set_target(self, target: System_Runtime_InteropServices_WeakGCHandle_T) -> None:
         ...
 
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    @staticmethod
+    def to_int_ptr(value: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> System.IntPtr:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class InvalidComObjectException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class InterfaceTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Runtime.InteropServices.ComInterfaceType:
-        ...
-
-    @overload
-    def __init__(self, interface_type: System.Runtime.InteropServices.ComInterfaceType) -> None:
-        ...
-
-    @overload
-    def __init__(self, interface_type: int) -> None:
-        ...
-
-
-class BStrWrapper(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_object(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
+    def try_get_target(self, target: typing.Optional[System_Runtime_InteropServices_WeakGCHandle_T]) -> typing.Tuple[bool, System_Runtime_InteropServices_WeakGCHandle_T]:
         ...
 
 
@@ -3260,10 +2719,444 @@ class ErrorWrapper(System.Object):
         ...
 
 
-class AllowReversePInvokeCallsAttribute(System.Attribute):
+class OptionalAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class ComMemberType(IntEnum):
+    """This class has no documentation."""
+
+    METHOD = 0
+
+    PROP_GET = 1
+
+    PROP_SET = 2
+
+
+class MemoryMarshal(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
+        ...
+
+    @staticmethod
+    def get_array_data_reference(array: System.Array) -> typing.Any:
+        ...
+
+    @staticmethod
+    def try_get_string(memory: System.ReadOnlyMemory[str], text: typing.Optional[str], start: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[bool, str, int, int]:
+        ...
+
+
+class DllImportAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @property
+    def entry_point(self) -> str:
+        ...
+
+    @entry_point.setter
+    def entry_point(self, value: str) -> None:
+        ...
+
+    @property
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
+        ...
+
+    @char_set.setter
+    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
+        ...
+
+    @property
+    def set_last_error(self) -> bool:
+        ...
+
+    @set_last_error.setter
+    def set_last_error(self, value: bool) -> None:
+        ...
+
+    @property
+    def exact_spelling(self) -> bool:
+        ...
+
+    @exact_spelling.setter
+    def exact_spelling(self, value: bool) -> None:
+        ...
+
+    @property
+    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
+        ...
+
+    @calling_convention.setter
+    def calling_convention(self, value: System.Runtime.InteropServices.CallingConvention) -> None:
+        ...
+
+    @property
+    def best_fit_mapping(self) -> bool:
+        ...
+
+    @best_fit_mapping.setter
+    def best_fit_mapping(self, value: bool) -> None:
+        ...
+
+    @property
+    def preserve_sig(self) -> bool:
+        ...
+
+    @preserve_sig.setter
+    def preserve_sig(self, value: bool) -> None:
+        ...
+
+    @property
+    def throw_on_unmappable_char(self) -> bool:
+        ...
+
+    @throw_on_unmappable_char.setter
+    def throw_on_unmappable_char(self, value: bool) -> None:
+        ...
+
+    def __init__(self, dll_name: str) -> None:
+        ...
+
+
+class IDynamicInterfaceCastable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_interface_implementation(self, interface_type: System.RuntimeTypeHandle) -> System.RuntimeTypeHandle:
+        ...
+
+    def is_interface_implemented(self, interface_type: System.RuntimeTypeHandle, throw_if_not_implemented: bool) -> bool:
+        ...
+
+
+class DynamicInterfaceCastableImplementationAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class HandleRef:
+    """This class has no documentation."""
+
+    @property
+    def wrapper(self) -> System.Object:
+        ...
+
+    @property
+    def handle(self) -> System.IntPtr:
+        ...
+
+    def __init__(self, wrapper: typing.Any, handle: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def to_int_ptr(value: System.Runtime.InteropServices.HandleRef) -> System.IntPtr:
+        ...
+
+
+class OutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class UnmanagedCallersOnlyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def call_convs(self) -> typing.List[typing.Type]:
+        ...
+
+    @call_convs.setter
+    def call_convs(self, value: typing.List[typing.Type]) -> None:
+        ...
+
+    @property
+    def entry_point(self) -> str:
+        ...
+
+    @entry_point.setter
+    def entry_point(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class ExtendedLayoutKind(IntEnum):
+    """This class has no documentation."""
+
+    C_STRUCT = 0
+
+    C_UNION = 1
+
+
+class ExtendedLayoutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self, layout_kind: System.Runtime.InteropServices.ExtendedLayoutKind) -> None:
+        ...
+
+
+class GuidAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    def __init__(self, guid: str) -> None:
+        ...
+
+
+class ComDefaultInterfaceAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> typing.Type:
+        ...
+
+    def __init__(self, default_interface: typing.Type) -> None:
+        ...
+
+
+class ComSourceInterfacesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, source_interfaces: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type, source_interface_4: typing.Type) -> None:
+        ...
+
+
+class TypeMapAssociationAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup], System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self, source: typing.Type, proxy: typing.Type) -> None:
+        ...
+
+
+class SEHException(System.Runtime.InteropServices.ExternalException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def can_resume(self) -> bool:
+        ...
+
+
+class BestFitMappingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def best_fit_mapping(self) -> bool:
+        ...
+
+    @property
+    def throw_on_unmappable_char(self) -> bool:
+        ...
+
+    @throw_on_unmappable_char.setter
+    def throw_on_unmappable_char(self, value: bool) -> None:
+        ...
+
+    def __init__(self, best_fit_mapping: bool) -> None:
+        ...
+
+
+class InvalidComObjectException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class ComImportAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class DefaultDllImportSearchPathsAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def paths(self) -> System.Runtime.InteropServices.DllImportSearchPath:
+        ...
+
+    def __init__(self, paths: System.Runtime.InteropServices.DllImportSearchPath) -> None:
+        ...
+
+
+class ICustomAdapter(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_underlying_object(self) -> System.Object:
+        ...
+
+
+class BStrWrapper(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def wrapped_object(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        ...
+
+
+class FieldOffsetAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> int:
+        ...
+
+    def __init__(self, offset: int) -> None:
+        ...
+
+
+class InvalidOleVariantTypeException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class ICustomMarshaler(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clean_up_managed_data(self, managed_obj: typing.Any) -> None:
+        ...
+
+    def clean_up_native_data(self, p_native_data: System.IntPtr) -> None:
+        ...
+
+    def get_native_data_size(self) -> int:
+        ...
+
+    def marshal_managed_to_native(self, managed_obj: typing.Any) -> System.IntPtr:
+        ...
+
+    def marshal_native_to_managed(self, p_native_data: System.IntPtr) -> System.Object:
+        ...
+
+
+class PreserveSigAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class TypeMapAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup], System.Attribute):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, value: str, target: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str, target: typing.Type, trim_target: typing.Type) -> None:
+        ...
+
+
+class VariantWrapper(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def wrapped_object(self) -> System.Object:
+        ...
+
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+
+class ICustomFactory(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def create_instance(self, server_type: typing.Type) -> System.MarshalByRefObject:
+        ...
+
+
+class GCHandleExtensions(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def get_address_of_string_data(handle: System.Runtime.InteropServices.PinnedGCHandle[str]) -> typing.Any:
         ...
 
 
@@ -3287,21 +3180,128 @@ class MarshalDirectiveException(System.SystemException):
         ...
 
 
-class ICustomQueryInterface(metaclass=abc.ABCMeta):
+class UnmanagedCallConvAttribute(System.Attribute):
     """This class has no documentation."""
 
-    def get_interface(self, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[System.Runtime.InteropServices.CustomQueryInterfaceResult, System.IntPtr]:
+    @property
+    def call_convs(self) -> typing.List[typing.Type]:
+        ...
+
+    @call_convs.setter
+    def call_convs(self, value: typing.List[typing.Type]) -> None:
+        ...
+
+    def __init__(self) -> None:
         ...
 
 
-class DispIdAttribute(System.Attribute):
+class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System.IEquatable[System_Runtime_InteropServices_GCHandle], System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def is_allocated(self) -> bool:
+        ...
+
+    @property
+    def target(self) -> System_Runtime_InteropServices_GCHandle_T:
+        ...
+
+    @target.setter
+    def target(self, value: System_Runtime_InteropServices_GCHandle_T) -> None:
+        ...
+
+    def __eq__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
+        ...
+
+    def __init__(self, target: System_Runtime_InteropServices_GCHandle_T) -> None:
+        ...
+
+    def __ne__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
+        ...
+
+    def addr_of_pinned_object(self) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(value: typing.Any) -> System.Runtime.InteropServices.GCHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(value: typing.Any, type: System.Runtime.InteropServices.GCHandleType) -> System.Runtime.InteropServices.GCHandle:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.GCHandle) -> bool:
+        ...
+
+    def free(self) -> None:
+        ...
+
+    @staticmethod
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle) -> System.IntPtr:
+        ...
+
+
+class DefaultCharSetAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
+        ...
+
+    def __init__(self, char_set: System.Runtime.InteropServices.CharSet) -> None:
+        ...
+
+
+class UnknownWrapper(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def wrapped_object(self) -> System.Object:
+        ...
+
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+
+class LCIDConversionAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
     def value(self) -> int:
         ...
 
-    def __init__(self, disp_id: int) -> None:
+    def __init__(self, lcid: int) -> None:
         ...
 
 

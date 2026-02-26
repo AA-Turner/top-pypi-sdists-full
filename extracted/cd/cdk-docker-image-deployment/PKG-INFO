@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-docker-image-deployment
-Version: 0.0.957
+Version: 0.0.958
 Summary: This module allows you to copy docker image assets to a repository you control. This can be necessary if you want to build a Docker image in one CDK app and consume it in a different app or outside the CDK.
 Home-page: https://github.com/cdklabs/cdk-docker-image-deployment#readme
 Author: Parker Scanlon
@@ -22,7 +22,7 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.24.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.126.0
+Requires-Dist: jsii<2.0.0,>=1.127.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

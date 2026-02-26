@@ -362,7 +362,7 @@ class TestAgenticToolEnvironmentVariables:
             
             # In fallback mode with no tool config, should use built-in defaults
             assert tool._api_type == "CHATGPT"  # Built-in default
-            assert tool._temperature == 0.1     # Built-in default
+            assert tool._temperature == 1.0     # Built-in default
 
 
 if __name__ == "__main__":

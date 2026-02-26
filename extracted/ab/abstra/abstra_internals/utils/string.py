@@ -21,3 +21,8 @@ def to_snake_case(name: str):
     # remove trailing _
     name = re.sub(r"_$", "", name)
     return name.lower()
+
+
+def sanitize_filename(value: str) -> str:
+    """Replace path separators with underscores so the value is safe for use as a filename."""
+    return value.replace("/", "_").replace("\\", "_")

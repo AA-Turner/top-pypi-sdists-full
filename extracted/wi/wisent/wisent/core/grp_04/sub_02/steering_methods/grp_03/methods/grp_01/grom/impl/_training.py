@@ -10,6 +10,7 @@ from wisent.core.constants import (
     GROM_ADAPT_LINEAR_DIRECTIONS, GROM_ADAPT_MAX_DIRECTIONS,
     GROM_ADAPT_MANIFOLD_THRESHOLD, GROM_ADAPT_COMPLEX_DIRECTIONS,
     GROM_CAA_ALIGNMENT_THRESHOLD, GROM_CAA_SIMILARITY_SKIP,
+    GROM_SIGNIFICANT_DIRECTIONS_DEFAULT,
 )
 from wisent.core.steering_methods.methods.grom._config import GeometryAdaptation
 
@@ -89,7 +90,7 @@ def _analyze_and_adapt_geometry_impl(
         # Cone structure benefits from multiple directions
         cone_details = geo_result.all_scores.get("cone")
         if cone_details and hasattr(cone_details, "details"):
-            sig_dirs = cone_details.details.get("significant_directions", 3)
+            sig_dirs = cone_details.details.get("significant_directions", GROM_SIGNIFICANT_DIRECTIONS_DEFAULT)
             adapted_num_directions = max(2, min(sig_dirs + 1, GROM_ADAPT_MAX_DIRECTIONS))
             if adapted_num_directions != original_num_directions:
                 adaptations.append(

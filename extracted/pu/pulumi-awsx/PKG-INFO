@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_awsx
-Version: 3.2.0
+Version: 3.2.1
 Summary: Pulumi Amazon Web Services (AWS) AWSX Components.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com

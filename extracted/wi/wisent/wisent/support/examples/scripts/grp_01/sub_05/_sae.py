@@ -3,7 +3,7 @@
 import torch
 import numpy as np
 from typing import Tuple
-from wisent.core.constants import NORM_EPS, L1_DEFAULT_COEF
+from wisent.core.constants import NORM_EPS, L1_DEFAULT_COEF, SAE_L1_COEF_DEFAULT, SAE_N_EPOCHS_DEFAULT, SAE_BATCH_SIZE_DEFAULT, SAE_HIDDEN_DIM_MULTIPLIER
 
 
 # =============================================================================
@@ -90,9 +90,9 @@ class SparseAutoencoder(torch.nn.Module):
 def train_sparse_autoencoder(
     activations: torch.Tensor,
     hidden_dim: int = None,
-    l1_coef: float = 5e-4,
-    n_epochs: int = 500,
-    batch_size: int = 64,
+    l1_coef: float = SAE_L1_COEF_DEFAULT,
+    n_epochs: int = SAE_N_EPOCHS_DEFAULT,
+    batch_size: int = SAE_BATCH_SIZE_DEFAULT,
     lr: float = L1_DEFAULT_COEF,
     device: str = "cpu",
     verbose: bool = True,
@@ -115,7 +115,7 @@ def train_sparse_autoencoder(
     """
     input_dim = activations.shape[1]
     if hidden_dim is None:
-        hidden_dim = input_dim * 4  # 4x overcomplete
+        hidden_dim = input_dim * SAE_HIDDEN_DIM_MULTIPLIER  # overcomplete
     
     # Move data to device
     activations = activations.to(device).float()

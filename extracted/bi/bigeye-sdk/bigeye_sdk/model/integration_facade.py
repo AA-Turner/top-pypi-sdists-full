@@ -58,6 +58,7 @@ class SimpleIntegrationType(enum.Enum):
     BI_TOOL = "INTEGRATION_TYPE_BI_TOOL"
     ETL_TOOL = "INTEGRATION_TYPE_ETL_TOOL"
     DATABASE = "INTEGRATION_TYPE_DATABASE"
+    FILE = "INTEGRATION_TYPE_UNSPECIFIED"  # Maps to UNSPECIFIED until backend adds INTEGRATION_TYPE_FILE
 
     def to_protobuf(self) -> IntegrationType:
         """Convert to protobuf IntegrationType"""

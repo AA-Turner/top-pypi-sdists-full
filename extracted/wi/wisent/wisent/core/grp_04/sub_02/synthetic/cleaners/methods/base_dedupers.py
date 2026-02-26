@@ -7,7 +7,7 @@ from typing import Mapping, Sequence, Callable
 from wisent.core.synthetic.cleaners.methods.core.atoms import Deduper
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.errors import InvalidValueError, InvalidRangeError
-from wisent.core.constants import DEDUP_THRESHOLD_BITS, DEDUP_WORD_NGRAM, DEDUP_CHAR_NGRAM, DEDUP_NUM_BANDS, SIMHASH_BIT_WIDTH
+from wisent.core.constants import BLAKE2B_DIGEST_SIZE, DEDUP_WORD_NGRAM, DEDUP_CHAR_NGRAM, DEFAULT_LAYER_WEIGHT, SIMHASH_BIT_WIDTH, SIMHASH_DEFAULT_NUM_BANDS, SIMHASH_THRESHOLD_CONSERVATIVE
 
 __all__ = [
     "SimHashDeduper",
@@ -21,15 +21,15 @@ class SimHashDeduper(Deduper):
 
     def __init__(
         self,
-        threshold_bits: int = 3,
+        threshold_bits: int = SIMHASH_THRESHOLD_CONSERVATIVE,
         fields_to_hash: Sequence[str] = ("prompt",),
         field_weights: Mapping[str, float] | None = None,
         tokenizer: str = "auto",  # "auto" | "word" | "char"
-        word_ngram: int = 3,
-        char_ngram: int = 4,
+        word_ngram: int = DEDUP_WORD_NGRAM,
+        char_ngram: int = DEDUP_CHAR_NGRAM,
         strip_accents: bool = True,
         stopwords: set[str] | None = None,
-        num_bands: int = 8,  # 64 must be divisible by num_bands; band_size = 64/num_bands
+        num_bands: int = SIMHASH_DEFAULT_NUM_BANDS,  # 64 must be divisible by num_bands; band_size = 64/num_bands
         exact_keys: Sequence[str] = ("prompt", "positive", "negative"),
         key_fn: Callable[[Mapping[str, str]], str] | None = None,
     ) -> None:
@@ -147,7 +147,7 @@ class SimHashDeduper(Deduper):
         else:
             for field in self.fields_to_hash:
                 text = item.get(field, "") or ""
-                w = float(self.field_weights.get(field, 1.0))
+                w = float(self.field_weights.get(field, DEFAULT_LAYER_WEIGHT))
                 if not text or w == 0.0:
                     continue
                 f = self._extract_features(text)
@@ -284,7 +284,7 @@ class SimHashDeduper(Deduper):
             >>> SimHashDeduper()._hash64("wisent")
             TODO: actual value
         """
-        h = hashlib.blake2b(s.encode("utf-8"), digest_size=8)
+        h = hashlib.blake2b(s.encode("utf-8"), digest_size=BLAKE2B_DIGEST_SIZE)
         return int.from_bytes(h.digest(), "big", signed=False)
 
     def _hamming_distance(self, a: int, b: int) -> int:

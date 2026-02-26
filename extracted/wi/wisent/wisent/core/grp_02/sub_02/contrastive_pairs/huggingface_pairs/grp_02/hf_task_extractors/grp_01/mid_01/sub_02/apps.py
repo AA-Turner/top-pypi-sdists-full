@@ -9,6 +9,7 @@ from wisent.core.cli.cli_logger import setup_logger
 
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.huggingface_pairs.atoms import HuggingFaceBenchmarkExtractor
+from wisent.core.utils.core.hardware import subprocess_timeout_s
 
 __all__ = ["AppsExtractor"]
 
@@ -216,7 +217,7 @@ def run_solution(input_str):
         input=input_str,
         capture_output=True,
         text=True,
-        timeout=10
+        timeout={subprocess_timeout_s()}
     )
     if result.returncode != 0:
         raise RuntimeError(f"Solution failed: {{result.stderr}}")

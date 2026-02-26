@@ -15,6 +15,7 @@ from wisent.core.synthetic.generators.core.atoms import GenerationReport
 from wisent.core.synthetic.generators.diversities.core.core import Diversity
 
 from wisent.core.synthetic.cleaners.pairs_cleaner import PairsCleaner
+from wisent.core.constants import PARSER_DEFAULT_NUM_PAIRS_TRAIT, DISPLAY_TRUNCATION_SHORT, DISPLAY_TRUNCATION_MEDIUM, DISPLAY_TRUNCATION_LARGE, DISPLAY_TRUNCATION_COMPACT, PAIR_GEN_RETRY_MULTIPLIER, PROGRESS_LOG_INTERVAL_10
 
 __all__ = [
     "SyntheticContrastivePairsGenerator",
@@ -51,7 +52,7 @@ class SyntheticContrastivePairsGenerator:
 
     def generate(
         self,
-        num_pairs: int = 10,
+        num_pairs: int = PARSER_DEFAULT_NUM_PAIRS_TRAIT,
     ) -> tuple[ContrastivePairSet, GenerationReport]:
         """
         Generate synthetic contrastive pairs for the given topic and trait.
@@ -87,7 +88,7 @@ class SyntheticContrastivePairsGenerator:
 
         # Generate pairs one at a time, retry until we have num_pairs AFTER cleaning
         # With aggressive deduplication (~3% retention), need many more attempts
-        max_attempts = num_pairs * 50
+        max_attempts = num_pairs * PAIR_GEN_RETRY_MULTIPLIER
         attempts = 0
         total_retries_for_refusals = 0
 
@@ -113,7 +114,7 @@ class SyntheticContrastivePairsGenerator:
                 logger.warning(f"[GENERATE] Failed to generate prompt, retrying...")
                 continue
 
-            logger.info(f"[GENERATE] Prompt: {prompt[:100]}")
+            logger.info(f"[GENERATE] Prompt: {prompt[:DISPLAY_TRUNCATION_COMPACT]}")
 
             # 2) Generate positive response (exhibits the trait)
             positive_instruction = (
@@ -131,7 +132,7 @@ class SyntheticContrastivePairsGenerator:
                 logger.warning(f"[GENERATE] Failed to generate positive, retrying...")
                 continue
 
-            logger.info(f"[GENERATE] Positive: {positive[:100]}")
+            logger.info(f"[GENERATE] Positive: {positive[:DISPLAY_TRUNCATION_COMPACT]}")
 
             # 3) Generate negative response - using the opposite trait
             negative_instruction = (
@@ -149,7 +150,7 @@ class SyntheticContrastivePairsGenerator:
                 logger.warning(f"[GENERATE] Failed to generate negative, retrying...")
                 continue
 
-            logger.info(f"[GENERATE] Negative: {negative[:100]}")
+            logger.info(f"[GENERATE] Negative: {negative[:DISPLAY_TRUNCATION_COMPACT]}")
 
             # Create the pair
             cp = ContrastivePair(
@@ -163,7 +164,7 @@ class SyntheticContrastivePairsGenerator:
             logger.info(f"[GENERATE] Successfully added pair {len(parsed)}")
 
             # Check cleaned count every 10 pairs or when we think we might be close
-            if len(parsed) % 10 == 0 or len(parsed) >= num_pairs:
+            if len(parsed) % PROGRESS_LOG_INTERVAL_10 == 0 or len(parsed) >= num_pairs:
                 temp_cleaned, temp_stats = self.cleaner.clean(parsed)
                 cleaned_count = len(temp_cleaned)
                 refusaler_stats = temp_stats.step_stats.get("refusaler_cleaner")
@@ -225,7 +226,7 @@ class SyntheticContrastivePairsGenerator:
         logger.info(f"[PARSE DEBUG] Received {len(raw)} raw outputs to parse")
 
         for idx, r in enumerate(raw):
-            logger.info(f"[PARSE DEBUG] Raw output {idx}:\n{r[:500]}")
+            logger.info(f"[PARSE DEBUG] Raw output {idx}:\n{r[:DISPLAY_TRUNCATION_LARGE]}")
 
             # Split by ---PAIR--- markers (flexible with extra dashes)
             pair_blocks = re.split(r'-+PAIR-+', r)
@@ -240,7 +241,7 @@ class SyntheticContrastivePairsGenerator:
                 if not block:
                     continue
 
-                logger.info(f"[PARSE DEBUG] Processing block {block_idx}:\n{block[:200]}")
+                logger.info(f"[PARSE DEBUG] Processing block {block_idx}:\n{block[:DISPLAY_TRUNCATION_MEDIUM]}")
 
                 # Extract ALL occurrences - model generates ANY labels, not just PROMPT/POSITIVE/NEGATIVE
                 # Look for pattern: LABEL1: text1  LABEL2: text2  LABEL3: text3
@@ -296,4 +297,4 @@ class SyntheticContrastivePairsGenerator:
                         logger.warning(f"[PARSE DEBUG] Empty field(s) in triple")
                         continue
 
-                    logger.info(f"[PARSE DEBUG] Extracted - Prompt: {prompt[:50]}, Positive: {positive[:50]}, Negative: {negative[:50]}")
+                    logger.info(f"[PARSE DEBUG] Extracted - Prompt: {prompt[:DISPLAY_TRUNCATION_SHORT]}, Positive: {positive[:DISPLAY_TRUNCATION_SHORT]}, Negative: {negative[:DISPLAY_TRUNCATION_SHORT]}")

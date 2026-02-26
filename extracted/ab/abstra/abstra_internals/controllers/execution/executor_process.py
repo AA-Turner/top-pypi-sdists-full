@@ -21,7 +21,10 @@ from abstra_internals.controllers.execution.execution_client import (
 )
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
-from abstra_internals.controllers.execution.execution_conn import set_execution_conn
+from abstra_internals.controllers.execution.execution_conn import (
+    set_broadcast_publisher,
+    set_execution_conn,
+)
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution import ClientContext
 from abstra_internals.entities.execution_context import FormContext, HookContext
@@ -42,6 +45,7 @@ from abstra_internals.repositories.project.project import StageWithFile
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
+from abstra_internals.utils.stdio_broadcast import StdioBroadcastPublisher
 
 
 class ExecutorCommand(str, Enum):
@@ -188,6 +192,7 @@ def handle_execute(
         return
 
     rabbitmq_connection_to_close = None
+    actual_connection = None
     try:
         Settings.set_root_path(root_path)
         Settings.set_server_port(server_port, force=True)
@@ -207,6 +212,13 @@ def handle_execute(
 
         if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
             set_execution_conn(rabbitmq_connection_to_close)
+
+            if request.rabbitmq_params is not None:
+                broadcast_publisher = StdioBroadcastPublisher.get_or_create(
+                    request.rabbitmq_params.connection_uri
+                )
+                set_broadcast_publisher(broadcast_publisher)
+
             AbstraLogger.warning(
                 f"[Worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, will send execution logs via RabbitMQ "
                 f"(execution_id={rabbitmq_connection_to_close.execution_id})"
@@ -275,24 +287,31 @@ def handle_execute(
 
         # 2. Send execution:ended signal so the server knows to close the queue
         if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
+            ended_msg = {
+                "type": "execution:ended",
+                "execution_id": request.execution_id,
+            }
             try:
-                rabbitmq_connection_to_close.send(
-                    json.dumps(
-                        {
-                            "type": "execution:ended",
-                            "execution_id": request.execution_id,
-                        }
-                    )
+                rabbitmq_connection_to_close.send(json.dumps(ended_msg))
+            except Exception as e:
+                AbstraLogger.error(
+                    f"[Executor] Error sending execution:ended via queue: {e}"
                 )
-            except Exception:
-                pass
 
-        # 3. Close the RabbitMQ connection
+        # 3. Clear broadcast publisher
+        set_broadcast_publisher(None)
+
+        # 4. Close the connection (RabbitMQ or multiprocessing)
         if rabbitmq_connection_to_close is not None:
             try:
                 rabbitmq_connection_to_close.close()
             except Exception as e:
                 AbstraLogger.error(f"[Executor] Error closing RabbitMQ connection: {e}")
+        elif actual_connection is not None:
+            try:
+                actual_connection.close()
+            except Exception:
+                pass
 
 
 def executor_main(

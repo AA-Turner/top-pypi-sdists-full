@@ -171,7 +171,8 @@ class TestConsumeAndForwardBroadcastOnEnded(unittest.TestCase):
         "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
     )
     def test_execution_ended_with_id_broadcasts_execution_update(self, MockBroadcast):
-        """When execution:ended has execution_id, consume_and_forward should broadcast execution:update."""
+        """When execution:ended has execution_id, consume_and_forward should broadcast execution:update.
+        stdio is NOT broadcast here (fanout consumer handles it)."""
         import time
 
         from abstra_internals.repositories.producer import RabbitMQProducerRepository
@@ -185,15 +186,12 @@ class TestConsumeAndForwardBroadcastOnEnded(unittest.TestCase):
         repo.consume_and_forward(mock_conn, "stage-1")
         time.sleep(0.5)
 
-        # 2 broadcasts: stdio + execution:update
-        self.assertEqual(MockBroadcast.broadcast.call_count, 2)
+        # 1 broadcast: only execution:update (stdio is handled by fanout consumer)
+        self.assertEqual(MockBroadcast.broadcast.call_count, 1)
 
         msg1 = json.loads(MockBroadcast.broadcast.call_args_list[0][1]["msg"])
-        self.assertEqual(msg1["type"], "stdio")
-
-        msg2 = json.loads(MockBroadcast.broadcast.call_args_list[1][1]["msg"])
-        self.assertEqual(msg2["type"], "execution:update")
-        self.assertEqual(msg2["payload"]["execution_id"], "exec-789")
+        self.assertEqual(msg1["type"], "execution:update")
+        self.assertEqual(msg1["payload"]["execution_id"], "exec-789")
 
         mock_conn.close.assert_called()
 

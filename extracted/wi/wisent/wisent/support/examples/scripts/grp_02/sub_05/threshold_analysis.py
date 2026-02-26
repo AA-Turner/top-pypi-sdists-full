@@ -6,8 +6,13 @@ from dataclasses import asdict
 
 import numpy as np
 
+from wisent.core.constants import (
+    NULL_DISTRIBUTION_SAMPLES, THRESHOLD_HIDDEN_DIM_LARGE,
+    JSON_ARRAY_LIMIT, GAP_THRESHOLD_CANDIDATES,
+    SEPARATOR_WIDTH_WIDE, SEPARATOR_WIDTH_STANDARD, JSON_INDENT,
+)
 from wisent.examples.scripts.threshold_analysis_helpers import (
-    s3_upload_file,
+    gcs_upload_file,
     ThresholdAnalysisResult,
     generate_null_distribution,
     generate_synthetic_data,
@@ -24,9 +29,9 @@ def run_threshold_analysis(model_name: str):
     Args:
         model_name: Model to analyze
     """
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print("THRESHOLD ANALYSIS")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print(f"Model: {model_name}")
     
     output_dir = Path("/tmp/threshold_analysis")
@@ -42,7 +47,7 @@ def run_threshold_analysis(model_name: str):
     
     # 1. Generate null distribution
     print("\n1. Generating null distribution...")
-    null_knn, null_linear = generate_null_distribution(None, n_samples=100, hidden_dim=4096)
+    null_knn, null_linear = generate_null_distribution(None, n_samples=NULL_DISTRIBUTION_SAMPLES, hidden_dim=THRESHOLD_HIDDEN_DIM_LARGE)
     
     print(f"   Null kNN: mean={np.mean(null_knn):.3f}, std={np.std(null_knn):.3f}")
     print(f"   Null linear: mean={np.mean(null_linear):.3f}, std={np.std(null_linear):.3f}")
@@ -91,9 +96,9 @@ def run_threshold_analysis(model_name: str):
     sensitivity = run_sensitivity_analysis(results)
     
     print("\n   Diagnosis distribution (% of benchmarks):")
-    print("   " + "-" * 60)
+    print("   " + "-" * SEPARATOR_WIDTH_STANDARD)
     print(f"   {'Exist':>6} | {'Gap':>6} | {'LINEAR':>8} | {'NONLINEAR':>10} | {'NO_SIGNAL':>10}")
-    print("   " + "-" * 60)
+    print("   " + "-" * SEPARATOR_WIDTH_STANDARD)
     
     for exist_t, gap_data in sensitivity.items():
         for gap_t, diagnoses in gap_data.items():
@@ -102,12 +107,12 @@ def run_threshold_analysis(model_name: str):
     
     # 5. Save results
     analysis_result = ThresholdAnalysisResult(
-        existence_thresholds=thresholds[:100],  # Limit for JSON
-        existence_tpr=tpr[:100],
-        existence_fpr=fpr[:100],
+        existence_thresholds=thresholds[:JSON_ARRAY_LIMIT],  # Limit for JSON
+        existence_tpr=tpr[:JSON_ARRAY_LIMIT],
+        existence_fpr=fpr[:JSON_ARRAY_LIMIT],
         existence_auc=roc_auc,
         optimal_existence_threshold=float(optimal_exist),
-        gap_thresholds=[0.05, 0.10, 0.15, 0.20, 0.25],
+        gap_thresholds=GAP_THRESHOLD_CANDIDATES,
         gap_precision=[],  # Would need ground truth
         gap_recall=[],
         gap_f1=[],
@@ -123,15 +128,15 @@ def run_threshold_analysis(model_name: str):
     results_file = output_dir / f"{model_prefix}_threshold_analysis.json"
     
     with open(results_file, "w") as f:
-        json.dump(asdict(analysis_result), f, indent=2)
+        json.dump(asdict(analysis_result), f, indent=JSON_INDENT)
     
     print(f"\nResults saved to: {results_file}")
-    s3_upload_file(results_file, model_name)
+    gcs_upload_file(results_file, model_name)
     
     # Summary
-    print("\n" + "=" * 70)
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
     print("RECOMMENDATIONS")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print(f"\n1. Existence threshold: {optimal_exist:.2f}")
     print(f"   - Based on ROC analysis (AUC={roc_auc:.3f})")
     print(f"   - Null distribution: kNN={np.mean(null_knn):.3f} ± {np.std(null_knn):.3f}")

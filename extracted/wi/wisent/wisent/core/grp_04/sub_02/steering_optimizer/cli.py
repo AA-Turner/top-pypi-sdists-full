@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any
 from .optimizer import SteeringOptimizer
 from .auto import run_auto_steering_optimization
 from .types import SteeringOptimizationSummary
-from wisent.core.constants import DEFAULT_LIMIT
+from wisent.core.constants import DEFAULT_LIMIT, AUTO_MAX_TIME_MINUTES, PARSER_STRENGTH_RANGE_METHODS
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def run_steering_optimization(
     limit: int = DEFAULT_LIMIT,
     device: str = None,
     verbose: bool = False,
-    max_time_minutes: float = 60.0
+    max_time_minutes: float = AUTO_MAX_TIME_MINUTES
 ) -> Dict[str, Any]:
     """
     Run steering optimization with the specified type.
@@ -189,4 +189,4 @@ def _parse_strength_tuple(strength_range: List[float]) -> tuple:
     """Parse strength range to tuple."""
     if strength_range:
         return (min(strength_range), max(strength_range))
-    return (0.1, 2.0)
+    return PARSER_STRENGTH_RANGE_METHODS

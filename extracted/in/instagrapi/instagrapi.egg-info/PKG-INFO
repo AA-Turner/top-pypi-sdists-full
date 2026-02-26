@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.2.1
+Version: 2.3.0
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License: MIT
@@ -19,21 +19,21 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests==2.32.4
+Requires-Dist: requests==2.32.5
 Requires-Dist: PySocks==1.7.1
-Requires-Dist: pydantic==2.11.7
+Requires-Dist: pydantic==2.12.5
 Requires-Dist: moviepy==1.0.3
 Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: test
 Requires-Dist: flake8==7.3.0; extra == "test"
-Requires-Dist: Pillow==11.3.0; extra == "test"
-Requires-Dist: isort==6.0.1; extra == "test"
+Requires-Dist: Pillow==12.1.0; extra == "test"
+Requires-Dist: isort==7.0.0; extra == "test"
 Requires-Dist: bandit==1.8.6; extra == "test"
 Requires-Dist: mike==2.1.3; extra == "test"
 Requires-Dist: markdown-include==0.8.1; extra == "test"
-Requires-Dist: mkdocs-material==9.6.15; extra == "test"
+Requires-Dist: mkdocs-material==9.7.1; extra == "test"
 Requires-Dist: mkdocs-minify-html-plugin>=0.3.1; extra == "test"
-Requires-Dist: mkdocstrings==0.29.1; extra == "test"
+Requires-Dist: mkdocstrings==0.30.1; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest~=8.4.0; extra == "test"
 Dynamic: license-file

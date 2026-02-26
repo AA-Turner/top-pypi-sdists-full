@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Callable, Awaitable
 from .diagnose import AnalysisResult
 from wisent.core.errors import ImprovementMethodUnknownError, TrainingDataGenerationError
-from wisent.core.constants import AGENT_IMPROVEMENT_THRESHOLD
+from wisent.core.constants import AGENT_IMPROVEMENT_THRESHOLD, AGENT_SYNTH_PAIRS_PER_ISSUE
 
 
 @dataclass
@@ -195,7 +195,7 @@ Ensure your response avoids the types of errors shown in the correction examples
                 # Generate pairs for each issue type
                 synthetic_pairs = generator.generate_contrastive_pair_set(
                     trait_description=trait_description,
-                    num_pairs=5,  # Generate 5 pairs per issue
+                    num_pairs=AGENT_SYNTH_PAIRS_PER_ISSUE,  # Generate pairs per issue
                     name=f"steering_{issue}"
                 )
                 

@@ -1,7 +1,7 @@
 """
 ORCID_get_works
 
-Get the publication list (works) for a researcher by ORCID iD. Returns all works associated with ...
+Get list of publications and works for an ORCID researcher. Returns titles, publication types, da...
 """
 
 from typing import Any, Optional, Callable
@@ -9,19 +9,22 @@ from ._shared_client import get_shared_client
 
 
 def ORCID_get_works(
-    orcid_id: str,
+    operation: str,
+    orcid: str,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> list[Any]:
     """
-    Get the publication list (works) for a researcher by ORCID iD. Returns all works associated with ...
+    Get list of publications and works for an ORCID researcher. Returns titles, publication types, da...
 
     Parameters
     ----------
-    orcid_id : str
-        ORCID iD in format XXXX-XXXX-XXXX-XXXX (e.g., '0000-0001-9161-999X' for Jenni...
+    operation : str
+        Operation type
+    orcid : str
+        ORCID iD in format XXXX-XXXX-XXXX-XXXX
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -31,12 +34,15 @@ def ORCID_get_works(
 
     Returns
     -------
-    Any
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 
     return get_shared_client().run_one_function(
-        {"name": "ORCID_get_works", "arguments": {"orcid_id": orcid_id}},
+        {
+            "name": "ORCID_get_works",
+            "arguments": {"operation": operation, "orcid": orcid},
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

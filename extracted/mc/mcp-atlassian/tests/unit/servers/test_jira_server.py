@@ -340,6 +340,7 @@ def test_jira_mcp(mock_jira_fetcher, mock_base_jira_config):
         get_all_projects,
         get_board_issues,
         get_issue,
+        get_issue_images,
         get_link_types,
         get_project_components,
         get_project_issues,
@@ -375,6 +376,7 @@ def test_jira_mcp(mock_jira_fetcher, mock_base_jira_config):
     jira_sub_mcp.add_tool(get_transitions)
     jira_sub_mcp.add_tool(get_worklog)
     jira_sub_mcp.add_tool(download_attachments)
+    jira_sub_mcp.add_tool(get_issue_images)
     jira_sub_mcp.add_tool(get_agile_boards)
     jira_sub_mcp.add_tool(get_board_issues)
     jira_sub_mcp.add_tool(get_sprints_from_board)
@@ -1698,3 +1700,215 @@ async def test_update_issue_components_with_additional_fields(
     # Explicit components param should override additional_fields
     assert call_kwargs["components"] == ["Frontend", "API"]
     assert call_kwargs["labels"] == ["urgent"]
+
+
+# --- Tests for download_attachments 50 MB size limit ---
+
+
+@pytest.mark.anyio
+async def test_download_attachments_skips_oversized_at_server_layer(
+    jira_client, mock_jira_fetcher
+):
+    """Server-layer fallback: attachment data bytes > 50MB are caught."""
+    oversized_data = b"x" * (50 * 1024 * 1024 + 1)
+
+    mock_jira_fetcher.get_issue_attachment_contents.return_value = {
+        "success": True,
+        "issue_key": "TEST-123",
+        "total": 1,
+        "attachments": [
+            {
+                "filename": "huge.bin",
+                "content_type": "application/octet-stream",
+                "size": len(oversized_data),
+                "data": oversized_data,
+            }
+        ],
+        "failed": [],
+    }
+
+    response = await jira_client.call_tool(
+        "jira_download_attachments",
+        {"issue_key": "TEST-123"},
+    )
+
+    # The summary text should be first
+    summary = json.loads(response.content[0].text)
+    assert summary["success"] is True
+    # The oversized attachment should be in the failed list, not embedded
+    assert len(summary["failed"]) == 1
+    assert "50 MB" in summary["failed"][0]["error"]
+    # No EmbeddedResource should be returned for the oversized attachment
+    assert len(response.content) == 1  # Only the text summary, no resource
+
+
+@pytest.mark.anyio
+async def test_download_attachments_allows_normal_size(jira_client, mock_jira_fetcher):
+    """Normal-size attachments pass through fine at server layer."""
+    normal_data = b"normal content"
+
+    mock_jira_fetcher.get_issue_attachment_contents.return_value = {
+        "success": True,
+        "issue_key": "TEST-123",
+        "total": 1,
+        "attachments": [
+            {
+                "filename": "small.txt",
+                "content_type": "text/plain",
+                "size": len(normal_data),
+                "data": normal_data,
+            }
+        ],
+        "failed": [],
+    }
+
+    response = await jira_client.call_tool(
+        "jira_download_attachments",
+        {"issue_key": "TEST-123"},
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["success"] is True
+    assert summary["downloaded"] == 1
+    assert len(summary["failed"]) == 0
+    # Should have text summary + 1 embedded resource
+    assert len(response.content) == 2
+
+
+# ── jira_get_issue_images tests ──────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_get_issue_images_basic(jira_client, mock_jira_fetcher):
+    """Test with a mix of image and non-image attachments."""
+    from mcp_atlassian.models.jira import JiraAttachment
+
+    mock_jira_fetcher.get_issue_attachments.return_value = [
+        JiraAttachment(
+            id="1",
+            filename="photo.png",
+            size=1024,
+            content_type="image/png",
+            url="https://jira.example.com/att/1",
+        ),
+        JiraAttachment(
+            id="2",
+            filename="readme.txt",
+            size=100,
+            content_type="text/plain",
+            url="https://jira.example.com/att/2",
+        ),
+    ]
+    mock_jira_fetcher.fetch_attachment_content.return_value = b"\x89PNG"
+
+    response = await jira_client.call_tool(
+        "jira_get_issue_images", {"issue_key": "TEST-123"}
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["total_images"] == 1
+    assert summary["downloaded"] == 1
+    assert response.content[1].type == "image"
+    assert response.content[1].mimeType == "image/png"
+
+
+@pytest.mark.anyio
+async def test_get_issue_images_octet_stream_fallback(jira_client, mock_jira_fetcher):
+    """Test that application/octet-stream with image extension is detected."""
+    from mcp_atlassian.models.jira import JiraAttachment
+
+    mock_jira_fetcher.get_issue_attachments.return_value = [
+        JiraAttachment(
+            id="1",
+            filename="screenshot.jpg",
+            size=2048,
+            content_type="application/octet-stream",
+            url="https://jira.example.com/att/1",
+        ),
+    ]
+    mock_jira_fetcher.fetch_attachment_content.return_value = b"\xff\xd8\xff"
+
+    response = await jira_client.call_tool(
+        "jira_get_issue_images", {"issue_key": "TEST-123"}
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["total_images"] == 1
+    assert response.content[1].type == "image"
+    assert response.content[1].mimeType == "image/jpeg"
+
+
+@pytest.mark.anyio
+async def test_get_issue_images_no_images(jira_client, mock_jira_fetcher):
+    """Test when issue has no image attachments."""
+    from mcp_atlassian.models.jira import JiraAttachment
+
+    mock_jira_fetcher.get_issue_attachments.return_value = [
+        JiraAttachment(
+            id="1",
+            filename="doc.pdf",
+            size=5000,
+            content_type="application/pdf",
+            url="https://jira.example.com/att/1",
+        ),
+    ]
+
+    response = await jira_client.call_tool(
+        "jira_get_issue_images", {"issue_key": "TEST-123"}
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["total_images"] == 0
+    assert len(response.content) == 1  # Only summary, no images
+
+
+@pytest.mark.anyio
+async def test_get_issue_images_size_limit(jira_client, mock_jira_fetcher):
+    """Test that images exceeding 50 MB are skipped."""
+    from mcp_atlassian.models.jira import JiraAttachment
+
+    mock_jira_fetcher.get_issue_attachments.return_value = [
+        JiraAttachment(
+            id="1",
+            filename="huge.png",
+            size=60 * 1024 * 1024,
+            content_type="image/png",
+            url="https://jira.example.com/att/1",
+        ),
+    ]
+
+    response = await jira_client.call_tool(
+        "jira_get_issue_images", {"issue_key": "TEST-123"}
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["total_images"] == 1
+    assert summary["downloaded"] == 0
+    assert len(summary["failed"]) == 1
+    assert "50 MB" in summary["failed"][0]["error"]
+
+
+@pytest.mark.anyio
+async def test_get_issue_images_fetch_failure(jira_client, mock_jira_fetcher):
+    """Test graceful handling when fetch_attachment_content returns None."""
+    from mcp_atlassian.models.jira import JiraAttachment
+
+    mock_jira_fetcher.get_issue_attachments.return_value = [
+        JiraAttachment(
+            id="1",
+            filename="broken.png",
+            size=1024,
+            content_type="image/png",
+            url="https://jira.example.com/att/1",
+        ),
+    ]
+    mock_jira_fetcher.fetch_attachment_content.return_value = None
+
+    response = await jira_client.call_tool(
+        "jira_get_issue_images", {"issue_key": "TEST-123"}
+    )
+
+    summary = json.loads(response.content[0].text)
+    assert summary["downloaded"] == 0
+    assert len(summary["failed"]) == 1
+    assert "Fetch failed" in summary["failed"][0]["error"]

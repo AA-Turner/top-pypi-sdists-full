@@ -17,10 +17,11 @@ from wisent.core.geometry_runner import (
     analyze_with_nonsense_baseline,
 )
 from wisent.core.activations import ExtractionStrategy
+from wisent.core.constants import PAIR_COUNT_ABLATION_SERIES, SEPARATOR_WIDTH_WIDE, SEPARATOR_WIDTH_MEDIUM, JSON_INDENT
 from wisent.core.models.wisent_model import WisentModel
 from wisent.examples.scripts._discovery_utils import (
-    s3_sync_download,
-    s3_upload_file,
+    gcs_sync_download,
+    gcs_upload_file,
     load_categorized_benchmarks,
     load_category_directions,
     DiscoveryResults,
@@ -37,12 +38,12 @@ def run_discovery_for_model(model_name: str, output_dir: Path, with_nonsense_bas
     category_info = load_category_directions()
     search_space = GeometrySearchSpace()
     
-    print(f"\n{'=' * 70}")
+    print(f"\n{'=' * SEPARATOR_WIDTH_WIDE}")
     print(f"MODEL: {model_name}")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     
-    # Download existing results from S3 for resume
-    s3_sync_download(model_name, output_dir)
+    # Download existing results from GCS for resume
+    gcs_sync_download(model_name, output_dir)
     
     # Check which categories need work
     model_prefix = model_name.replace('/', '_')
@@ -90,9 +91,9 @@ def run_discovery_for_model(model_name: str, output_dir: Path, with_nonsense_bas
     # Run for each remaining category
     for cat_name in remaining:
         benchmarks = categories[cat_name]
-        print(f"\n{'-' * 50}")
+        print(f"\n{'-' * SEPARATOR_WIDTH_MEDIUM}")
         print(f"Category: {cat_name.upper()} ({len(benchmarks)} benchmarks)")
-        print("-" * 50)
+        print("-" * SEPARATOR_WIDTH_MEDIUM)
         
         info = category_info.get(cat_name, {})
         description = info.get("description", "")
@@ -172,7 +173,7 @@ def run_discovery_for_model(model_name: str, output_dir: Path, with_nonsense_bas
                         ablation = run_pairs_ablation(
                             runner, benchmark, mid_layer, 
                             ExtractionStrategy.CHAT_LAST,
-                            pair_counts=[10, 25, 50, 100, 200]
+                            pair_counts=list(PAIR_COUNT_ABLATION_SERIES)
                         )
                         if ablation:
                             pairs_ablation[benchmark] = ablation
@@ -201,8 +202,8 @@ def run_discovery_for_model(model_name: str, output_dir: Path, with_nonsense_bas
             results.save(str(cat_file))
             print(f"  Saved: {cat_file}")
             
-            # Upload to S3 immediately for durability
-            s3_upload_file(cat_file, model_name)
+            # Upload to GCS immediately for durability
+            gcs_upload_file(cat_file, model_name)
             
         except Exception as e:
             print(f"  ERROR: {e}")
@@ -225,10 +226,10 @@ def run_discovery_for_model(model_name: str, output_dir: Path, with_nonsense_bas
         json.dump({
             "model": model_name,
             "categories": all_categories
-        }, f, indent=2)
+        }, f, indent=JSON_INDENT)
     
-    # Upload summary to S3
-    s3_upload_file(summary_file, model_name)
+    # Upload summary to GCS
+    gcs_upload_file(summary_file, model_name)
     
     print(f"\n{model_results.summary()}")
     

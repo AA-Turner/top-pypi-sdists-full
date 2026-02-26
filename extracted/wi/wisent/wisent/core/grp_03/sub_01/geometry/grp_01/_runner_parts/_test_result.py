@@ -8,6 +8,7 @@ from wisent.core.constants import (
     SIGNAL_STRENGTH_THRESHOLD,
     SIGNAL_PROBE_ACCURACY_THRESHOLD,
     NONSENSE_BASELINE_ACCURACY,
+    SIGNAL_BASELINE_RATIO_DEFAULT,
 )
 
 
@@ -97,7 +98,7 @@ class GeometryTestResult:
     icd_top5_variance: float = 0.0
     # Nonsense baseline comparison
     nonsense_baseline_accuracy: float = NONSENSE_BASELINE_ACCURACY
-    signal_vs_baseline_ratio: float = 1.0
+    signal_vs_baseline_ratio: float = SIGNAL_BASELINE_RATIO_DEFAULT
     signal_above_baseline: float = 0.0
     has_real_signal: bool = False
 

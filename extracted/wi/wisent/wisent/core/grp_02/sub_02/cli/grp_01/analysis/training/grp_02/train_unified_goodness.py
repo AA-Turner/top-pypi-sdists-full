@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 import torch
 
+from wisent.core.constants import BENCHMARK_DISPLAY_LIMIT, SEPARATOR_WIDTH_WIDE
+
 
 def get_checkpoint_dir(output_path: str) -> Path:
     """Get checkpoint directory based on output path."""
@@ -93,12 +95,12 @@ def execute_train_unified_goodness(args):
 
     pipeline_start = time.time() if args.timing else None
 
-    print("\n" + "=" * 70)
+    print("\n" + "=" * SEPARATOR_WIDTH_WIDE)
     print("🎯 UNIFIED GOODNESS VECTOR TRAINING")
-    print("=" * 70)
+    print("=" * SEPARATOR_WIDTH_WIDE)
     print("Training a single steering vector that improves performance")
     print("across ALL benchmarks simultaneously.")
-    print("=" * 70 + "\n")
+    print("=" * SEPARATOR_WIDTH_WIDE + "\n")
 
     # Setup checkpointing
     checkpoint_dir = get_checkpoint_dir(args.output)
@@ -141,10 +143,10 @@ def execute_train_unified_goodness(args):
 
     print(f"   ✓ Selected {len(selected_benchmark_names)} benchmarks for training")
     if args.verbose:
-        for name in selected_benchmark_names[:20]:
+        for name in selected_benchmark_names[:BENCHMARK_DISPLAY_LIMIT]:
             print(f"      • {name}")
-        if len(selected_benchmark_names) > 20:
-            print(f"      ... and {len(selected_benchmark_names) - 20} more")
+        if len(selected_benchmark_names) > BENCHMARK_DISPLAY_LIMIT:
+            print(f"      ... and {len(selected_benchmark_names) - BENCHMARK_DISPLAY_LIMIT} more")
 
     # =========================================================================
     # Step 2: Load model

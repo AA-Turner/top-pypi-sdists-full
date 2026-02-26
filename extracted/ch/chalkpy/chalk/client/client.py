@@ -2073,6 +2073,7 @@ class ChalkClient:
         message_filepath: str | None = None,
         message_keys: list[str | None] | None = None,
         message_bodies: "list[str | bytes | BaseModel] | None" = None,
+        message_headers: list[list[tuple[str, bytes]]] | None = None,
         message_timestamps: list[str | datetime] | None = None,
         branch: BranchId | ellipsis = ...,
         environment: EnvironmentId | None = None,

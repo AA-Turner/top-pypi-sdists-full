@@ -4,7 +4,7 @@ import logging
 import os
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from enum import Enum
+from enum import StrEnum
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import (
@@ -54,7 +54,12 @@ _EXPORT_CALLBACKS = set(entry_points(group="qcodes.dataset.on_export"))
 ScalarResTypes: TypeAlias = (
     str | complex | np.integer | np.floating | np.complexfloating
 )
-ValuesType: TypeAlias = ScalarResTypes | npt.NDArray | Sequence[ScalarResTypes]
+ValuesType: TypeAlias = (
+    ScalarResTypes
+    | npt.NDArray
+    | Sequence[ScalarResTypes]
+    | Sequence[Sequence[ScalarResTypes]]
+)
 ResType: TypeAlias = "tuple[ParameterBase | str, ValuesType]"
 SetpointsType: TypeAlias = "Sequence[str | ParameterBase]"
 
@@ -550,6 +555,6 @@ class BaseDataSet(DataSetProtocol, Protocol):
         return tuple(self.description.interdeps.dependencies.keys())
 
 
-class DataSetType(str, Enum):
+class DataSetType(StrEnum):
     DataSet = "DataSet"
     DataSetInMem = "DataSetInMem"

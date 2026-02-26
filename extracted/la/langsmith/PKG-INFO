@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.7.6
+Version: 0.7.7
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -35,6 +35,8 @@ Provides-Extra: pytest
 Requires-Dist: pytest>=7.0.0; extra == 'pytest'
 Requires-Dist: rich>=13.9.4; extra == 'pytest'
 Requires-Dist: vcrpy>=7.0.0; extra == 'pytest'
+Provides-Extra: sandbox
+Requires-Dist: websockets>=15.0; extra == 'sandbox'
 Provides-Extra: vcr
 Requires-Dist: vcrpy>=7.0.0; extra == 'vcr'
 Description-Content-Type: text/markdown

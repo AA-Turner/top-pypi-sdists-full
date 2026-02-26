@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.errors import MissingParameterError
 from wisent.core.constants import (
-    DEFAULT_STRENGTH, TETNO_HYBRID_STRENGTH_FACTOR,
-    TETNO_GATE_TEMPERATURE_DEFAULT, TETNO_DYNAMIC_BASE_STRENGTH,
+    DEFAULT_STRENGTH, JSON_INDENT, TETNO_HYBRID_STRENGTH_FACTOR,
+    TETNO_GATE_TEMPERATURE, TETNO_DYNAMIC_BASE_STRENGTH,
 )
 from wisent.core.weight_modification.export._generic import (
     load_steered_model,
@@ -115,7 +115,7 @@ def export_tetno_model(
         "layer_order": list(tetno_result.behavior_vectors.keys()),
     }
     with open(config_path, 'w') as f:
-        json.dump(tetno_config, f, indent=2)
+        json.dump(tetno_config, f, indent=JSON_INDENT)
     log.info("Saved TETNO config")
     
     # Step 5: Save standalone loader
@@ -235,7 +235,7 @@ def load_tetno_model(
         # Add methods
         import torch.nn.functional as F
         
-        def compute_gate(hidden_state, temperature=TETNO_GATE_TEMPERATURE_DEFAULT):
+        def compute_gate(hidden_state, temperature=TETNO_GATE_TEMPERATURE):
             if hidden_state.dim() > 1:
                 hidden_state = hidden_state.reshape(-1, hidden_state.shape[-1]).mean(dim=0)
             h_norm = F.normalize(hidden_state, p=2, dim=-1)

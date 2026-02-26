@@ -18,6 +18,7 @@ from mcp_atlassian.utils.logging import (
 from mcp_atlassian.utils.oauth import configure_oauth_session
 from mcp_atlassian.utils.ssl import configure_ssl_verification
 
+from ..models.jira.adf import markdown_to_adf
 from .config import JiraConfig
 
 # Configure logging
@@ -239,26 +240,54 @@ class JiraClient:
         _ = self.config.url if hasattr(self, "config") else ""
         return self.preprocessor.clean_jira_text(text)
 
-    def _markdown_to_jira(self, markdown_text: str) -> str:
-        """
-        Convert Markdown syntax to Jira markup syntax.
+    def _markdown_to_jira(self, markdown_text: str) -> str | dict[str, Any]:
+        """Convert Markdown to Jira format (ADF for Cloud, wiki markup for Server).
 
         Args:
             markdown_text: Text in Markdown format
 
         Returns:
-            Text in Jira markup format
+            ADF dict for Cloud, wiki markup string for Server/DC
         """
         if not markdown_text:
-            return ""
+            return markdown_to_adf("") if self.config.is_cloud else ""
 
-        # Use the shared preprocessor if available
-        if hasattr(self, "preprocessor"):
+        if self.config.is_cloud:
+            try:
+                return markdown_to_adf(markdown_text)
+            except Exception as e:
+                logger.warning(f"Error converting markdown to ADF: {e}")
+                return {
+                    "version": 1,
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": markdown_text}],
+                        }
+                    ],
+                }
+
+        try:
             return self.preprocessor.markdown_to_jira(markdown_text)
+        except Exception as e:
+            logger.warning(f"Error converting markdown to Jira format: {str(e)}")
+            return markdown_text
 
-        # Otherwise create a temporary one
-        _ = self.config.url if hasattr(self, "config") else ""
-        return self.preprocessor.markdown_to_jira(markdown_text)
+    def _post_api3(self, resource: str, data: dict[str, Any]) -> Any:
+        """POST to Jira REST API v3 (required for ADF payloads on Cloud).
+
+        The atlassian-python-api library defaults to /rest/api/2/ which
+        expects description/body as plain strings. ADF dicts require v3.
+        Callers are responsible for choosing v2 vs v3 based on payload type.
+        """
+        url = self.jira.resource_url(resource, api_version="3")
+        return self.jira.post(url, data=data)
+
+    def _put_api3(self, resource: str, data: dict[str, Any]) -> Any:
+        """PUT to Jira REST API v3 (required for ADF payloads on Cloud)."""
+        url = self.jira.resource_url(resource, api_version="3")
+        return self.jira.put(url, data=data)
 
     def get_paged(
         self,

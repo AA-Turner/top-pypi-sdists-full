@@ -1,23 +1,20 @@
 Metadata-Version: 2.3
 Name: ciscoisesdk
-Version: 2.4.1
+Version: 2.4.2
 Summary: Cisco Identity Services Engine Platform SDK
 License: MIT
 Keywords: Cisco,Identity Services Engine,SDK
 Author: Jose Bogarin Solano
 Author-email: jbogarin@cloverhound.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.12,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: fastjsonschema (>=2.16.2,<3.0.0)
 Requires-Dist: requests (>=2.32.0,<3.0.0)
 Requires-Dist: requests-toolbelt (>=1.0.0,<2.0.0)
-Requires-Dist: xmltodict (==0.12.0)
+Requires-Dist: xmltodict (==1.0.2)
 Project-URL: Homepage, https://ciscoisesdk.readthedocs.io/en/latest/
 Project-URL: Repository, https://github.com/CiscoISE/ciscoisesdk
 Description-Content-Type: text/x-rst
@@ -46,9 +43,15 @@ Our goal is to make working with Cisco Identity Services Engine in Python a *nat
                                     base_url='https://198.18.133.27',
                                     version='3.3_patch_1',
                                     verify=True,
+                                    client_cert='/path/to/client.crt',
+                                    client_key='/path/to/client.key',
                                     debug=False,
                                     uses_csrf_token=False)
     # NOTE: This collection assumes that the ERS APIs and OpenAPIs are enabled.
+    # For mTLS, you can also set verify to a CA bundle path:
+    # verify='/path/to/ca-bundle.pem'
+    # If your ISE is configured for certificate-only API auth, you can omit
+    # username/password and encoded_auth when using client_cert/client_key.
 
     # Get allowed protocols (first page)
     search_result = api.allowed_protocols.get_all().response.SearchResult
@@ -165,7 +168,7 @@ The following table shows the supported versions.
    * - 3.3_patch_1
      - 2.3.1
    * - 3.5.0
-     - 2.4.1
+     - 2.4.x
 
 If your SDK is older please consider updating it first.
 

@@ -69,6 +69,32 @@ class Config(TypedDict, total=False):
     """
 
 
+class PostgresPoolStats(TypedDict, total=False):
+    """Postgres connection pool metrics. All keys optional for merge/partial results."""
+
+    pool_max: int
+    pool_size: int
+    pool_available: int
+    requests_queued: int
+    requests_errors: int
+
+
+class RedisPoolStats(TypedDict, total=False):
+    """Redis connection pool metrics. All keys optional for merge/partial results."""
+
+    idle_connections: int
+    in_use_connections: int
+    max_connections: int
+    max_connections_per_node: int
+
+
+class PoolStats(TypedDict, total=False):
+    """Top-level pool stats: optional postgres and/or redis sections."""
+
+    postgres: PostgresPoolStats
+    redis: RedisPoolStats
+
+
 class Checkpoint(TypedDict):
     thread_id: str
     checkpoint_ns: str

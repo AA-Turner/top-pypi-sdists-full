@@ -1,44 +1,53 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 5.4.1
+Version: 5.4.3
 Summary: MITRE ATT&CK python library
-License: Apache-2.0
-License-File: LICENSE.txt
-License-File: NOTICE.txt
 Author: MITRE ATT&CK
-Author-email: attack@mitre.org
-Requires-Python: >=3.11,<4.0
+Author-email: MITRE ATT&CK <attack@mitre.org>
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Security
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Security
-Requires-Dist: Markdown
-Requires-Dist: Pillow
-Requires-Dist: colour
-Requires-Dist: deepdiff
-Requires-Dist: drawsvg
-Requires-Dist: loguru
-Requires-Dist: numpy
-Requires-Dist: openpyxl
-Requires-Dist: pandas
-Requires-Dist: pooch
-Requires-Dist: python-dateutil
-Requires-Dist: requests
-Requires-Dist: rich
-Requires-Dist: stix2
-Requires-Dist: tabulate
-Requires-Dist: tqdm
-Requires-Dist: typer
-Requires-Dist: typing-extensions
-Requires-Dist: wheel
-Requires-Dist: xlsxwriter
-Project-URL: Documentation, https://mitreattack-python.readthedocs.io/
-Project-URL: Homepage, https://github.com/mitre-attack/mitreattack-python/
-Project-URL: Repository, https://github.com/mitre-attack/mitreattack-python/
+Requires-Dist: colour>=0.1.5
+Requires-Dist: deepdiff>=6.6.0
+Requires-Dist: drawsvg>=2.4.0
+Requires-Dist: loguru>=0.6.0
+Requires-Dist: markdown>=3.5
+Requires-Dist: numpy>=1.26.1
+Requires-Dist: openpyxl>=3.1.2
+Requires-Dist: pandas>=2.1.1
+Requires-Dist: pooch>=1.7.0
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: pillow>=10.1.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: rich>=13.6.0
+Requires-Dist: stix2>=3.0.1
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: tqdm>=4.66.1
+Requires-Dist: typer>=0.9.0
+Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: wheel>=0.41.2
+Requires-Dist: xlsxwriter>=3.1.8
+Requires-Dist: uv>=0.10.4 ; extra == 'ci'
+Requires-Dist: check-wheel-contents>=0.6.1 ; extra == 'dev'
+Requires-Dist: commitizen>=4.9.1 ; extra == 'dev'
+Requires-Dist: pre-commit>=4.0.0 ; extra == 'dev'
+Requires-Dist: pytest>=8.4.2 ; extra == 'dev'
+Requires-Dist: pytest-cov>=7.0.0 ; extra == 'dev'
+Requires-Dist: pytest-dotenv>=0.5.2 ; extra == 'dev'
+Requires-Dist: python-semantic-release>=10.5.0 ; extra == 'dev'
+Requires-Dist: responses>=0.25.8 ; extra == 'dev'
+Requires-Dist: ruff>=0.14.2 ; extra == 'dev'
+Requires-Dist: sphinx>=8.2.3 ; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme>=3.0.2 ; extra == 'docs'
+Requires-Python: >=3.11, <4.0
+Project-URL: documentation, https://mitreattack-python.readthedocs.io/
+Project-URL: homepage, https://github.com/mitre-attack/mitreattack-python/
+Project-URL: repository, https://github.com/mitre-attack/mitreattack-python/
+Provides-Extra: ci
+Provides-Extra: dev
+Provides-Extra: docs
 Description-Content-Type: text/markdown
 
 # mitreattack-python
@@ -93,4 +102,3 @@ STIX is designed to improve many capabilities, such as collaborative threat anal
 
 To contribute to this project, either through a bug report, feature request, or merge request,
 please see the [Contributors Guide](https://github.com/mitre-attack/mitreattack-python/blob/main/docs/CONTRIBUTING.md).
-

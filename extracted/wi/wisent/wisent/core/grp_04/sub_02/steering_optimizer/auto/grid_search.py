@@ -8,7 +8,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 
 import torch
-from wisent.core.constants import NORM_EPS, AUTO_EVAL_SUBSET, DEFAULT_MAX_NEW_TOKENS_ADAPTER
+from wisent.core.constants import NORM_EPS, AUTO_EVAL_SUBSET, BAR_CHART_SCALE
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ def run_grid_search(
             grid_results.append(result)
 
             if verbose:
-                bar = "" * int(score * 20)
+                bar = "" * int(score * BAR_CHART_SCALE)
                 print(f"   [{combo_idx:3d}/{total_combos}] L{layer:2d} S{strength:.2f}: {score:.3f} {bar}")
 
             if score > best_score:
@@ -167,7 +167,7 @@ def _evaluate_pairs(
         messages = [{"role": "user", "content": pair.prompt}]
         response = wisent_model.generate(
             [messages],
-            **get_generate_kwargs(max_new_tokens=DEFAULT_MAX_NEW_TOKENS_ADAPTER),
+            **get_generate_kwargs(),
         )[0]
 
         eval_kwargs = {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 import secrets
+import warnings
+
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.keywrap import (
@@ -30,6 +32,7 @@ from ..registry import HeaderParameter
 from ..errors import (
     InvalidKeyLengthError,
     DecodeError,
+    SecurityWarning,
 )
 
 
@@ -224,16 +227,28 @@ class ECDHESAlgKeyAgreement(JWEKeyAgreement):
         return derive_key_for_concat_kdf(shared_key, headers, enc.cek_size, self.key_size)
 
 
+def validate_p2c(value: int) -> None:
+    if not isinstance(value, int):
+        raise ValueError("must be an int")
+
+    # A minimum iteration count of 1000 is RECOMMENDED.
+    if value < 1000:
+        warnings.warn("A minimum iteration count of 1000 is RECOMMENDED", SecurityWarning)
+
+    max_value = 300000
+    if value > max_value:
+        raise ValueError(f"must be less than {max_value}")
+
+
 class PBES2HSAlgKeyEncryption(JWEKeyEncryption):
     # https://www.rfc-editor.org/rfc/rfc7518#section-4.8
     key_size: int
     more_header_registry = {
         "p2s": HeaderParameter("PBES2 Salt Input", "str", True),
-        "p2c": HeaderParameter("PBES2 Count", "int", True),
+        "p2c": HeaderParameter("PBES2 Count", validate_p2c, True),
     }
     key_types = ["oct"]
 
-    # A minimum iteration count of 1000 is RECOMMENDED.
     DEFAULT_P2C = 2048
 
     def __init__(self, hash_size: int, key_wrapping: JWEKeyWrapping):

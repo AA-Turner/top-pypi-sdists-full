@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.5.27
+Version: 0.5.28
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -33,7 +33,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.13,>=3.11
 Requires-Dist: blessed>=1.20.0
 Requires-Dist: fastmcp==2.13.3
@@ -154,7 +153,7 @@ response = await client.chat.completions.create(
 )
 ```
 
-Every call is traced at [hud.ai](https://hud.ai). → [Docs](https://docs.hud.ai/quick-links/gateway)
+Every call is traced at [hud.ai](https://hud.ai). → [Docs](https://docs.hud.ai/quick-links/models)
 
 ### Environments
 
@@ -208,7 +207,7 @@ async with env("solve-math", problem="What is 2+2?", answer=4, variants={"model"
     await ctx.submit(response.choices[0].message.content)
 ```
 
-**Variants** test configurations. **Groups** repeat for distribution. Results stream to [hud.ai](https://hud.ai). → [Docs](https://docs.hud.ai/quick-links/ab-testing)
+**Variants** test configurations. **Groups** repeat for distribution. Results stream to [hud.ai](https://hud.ai). → [Docs](https://docs.hud.ai/quick-links/evals)
 
 ### Deploy & Train
 

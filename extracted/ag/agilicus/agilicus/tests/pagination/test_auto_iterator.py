@@ -10,6 +10,7 @@ from agilicus.pagination.auto_iterator import (
 )
 from agilicus_api.exceptions import ApiException
 from agilicus import ListSSHResourcesResponse
+from agilicus import PageAtKey
 from agilicus_api.api_client import Endpoint
 
 
@@ -71,6 +72,9 @@ class MockListFunction:
     def __call__(
         self, page_on=None, page_at_key=None, limit=None, page_sort=None, **kwargs
     ):
+        if page_at_key is not None and not isinstance(page_at_key, list):
+            raise ValueError("page_at_key must be a list")
+
         if limit is None:
             limit = 1000
         if page_on is None:
@@ -81,6 +85,7 @@ class MockListFunction:
             page_on = [self.legacy_pagination_key]
             page_at_key = [kwargs["page_at_" + self.legacy_pagination_key]]
         if page_at_key and page_at_key[0] not in (None, ""):
+            page_at_key[0] = int(page_at_key[0])
             try:
                 start_index = len(self._all_items)
                 for idx, item in enumerate(self._all_items):
@@ -96,7 +101,11 @@ class MockListFunction:
 
         next_page_at_key = None
         if end_index < len(self._all_items):
-            next_page_at_key = [self._all_items[end_index - 1].id]
+            key = [str(self._all_items[end_index - 1].id)]
+            if self.legacy_pagination_key:
+                next_page_at_key = key
+            else:
+                next_page_at_key = PageAtKey(key)
 
         return MockResponse(
             current_items,

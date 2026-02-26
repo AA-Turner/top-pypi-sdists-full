@@ -13,6 +13,7 @@ from wisent.core.constants import (
     BLEND_DEFAULT,
     CLASSIFIER_BATCH_SIZE,
     CLASSIFIER_LAYER_RANGE_END,
+    COMPARISON_MAX_LENGTH,
     DEFAULT_LIMIT,
     DEFAULT_SCORE,
     KEEP_RECENT_HOURS_DEFAULT,
@@ -40,7 +41,7 @@ class _SteeringOptimizerClassifier:
         model,
         tokenizer,
         device: str,
-        max_length: int = 512,
+        max_length: int = COMPARISON_MAX_LENGTH,
         task_name: str = "gsm8k",
     ) -> Dict[str, Any]:
         """

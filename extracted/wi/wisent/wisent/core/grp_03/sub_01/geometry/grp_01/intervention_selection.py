@@ -19,6 +19,9 @@ from wisent.core.constants import (
     INTERVENTION_SCORE_FRAGMENTED_CAA_PENALTY, INTERVENTION_SCORE_SINGLE_CAA,
     INTERVENTION_SCORE_TRANSLATION_CAA,
     CONFIDENCE_UPPER_BOUND, CONFIDENCE_LOWER_BOUND,
+    MIN_PAIRS_CAA, MIN_PAIRS_OSTRZE, MIN_PAIRS_MLP,
+    MIN_PAIRS_TECZA, MIN_PAIRS_GROM,
+    Z_SCORE_SIGNIFICANCE,
 )
 
 
@@ -48,7 +51,7 @@ def rigorous_select_intervention(
     """
     Select intervention using z-scores from rigorous null tests.
 
-    All decisions based on statistical significance (z > 2 or z < -2).
+    All decisions based on statistical significance (z > Z_SCORE_SIGNIFICANCE or z < -Z_SCORE_SIGNIFICANCE).
 
     Args:
         signal_z: Z-score from signal vs null test
@@ -117,7 +120,7 @@ def rigorous_select_intervention(
     # Use geometry type z-scores if available
     if geometry_type_z:
         z_scores_used.update(geometry_type_z)
-        if geometry_type_z.get("translation_z", 0) > 2:
+        if geometry_type_z.get("translation_z", 0) > Z_SCORE_SIGNIFICANCE:
             reasoning.append("Significant translation structure")
             scores["CAA"] += INTERVENTION_SCORE_TRANSLATION_CAA
 
@@ -154,9 +157,9 @@ def rigorous_select_intervention(
 def get_method_requirements(method: str) -> Dict[str, any]:
     """Get requirements for a steering method."""
     return {
-        "CAA": {"min_pairs": 10, "assumes_linear": True, "assumes_single_concept": True},
-        "Ostrze": {"min_pairs": 20, "assumes_linear": True, "assumes_single_concept": True},
-        "MLP": {"min_pairs": 50, "assumes_linear": False, "assumes_single_concept": True},
-        "TECZA": {"min_pairs": 30, "assumes_linear": True, "assumes_single_concept": False},
-        "GROM": {"min_pairs": 100, "assumes_linear": False, "assumes_single_concept": False},
+        "CAA": {"min_pairs": MIN_PAIRS_CAA, "assumes_linear": True, "assumes_single_concept": True},
+        "Ostrze": {"min_pairs": MIN_PAIRS_OSTRZE, "assumes_linear": True, "assumes_single_concept": True},
+        "MLP": {"min_pairs": MIN_PAIRS_MLP, "assumes_linear": False, "assumes_single_concept": True},
+        "TECZA": {"min_pairs": MIN_PAIRS_TECZA, "assumes_linear": True, "assumes_single_concept": False},
+        "GROM": {"min_pairs": MIN_PAIRS_GROM, "assumes_linear": False, "assumes_single_concept": False},
     }.get(method, {})

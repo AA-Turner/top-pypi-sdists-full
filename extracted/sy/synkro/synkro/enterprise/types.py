@@ -34,7 +34,6 @@ class Policy(BaseModel):
     policy_text: str
     rules: list[dict] = Field(default_factory=list)
     rule_count: int = 0
-    score_threshold: float = 1.0
     is_active: bool = True
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 # from wisent.core.classifier.classifier import Classifier
 
 from wisent.core.contrastive_pairs import ContrastivePairSet
-from wisent.core.constants import DEFAULT_STRENGTH, BLEND_DEFAULT
+from wisent.core.constants import DEFAULT_STRENGTH, BLEND_DEFAULT, DISPLAY_TRUNCATION_COMPACT
 from .steering_method import CAA
 from wisent.core.errors import (
     MissingParameterError,
@@ -206,7 +206,7 @@ class SteeringMethod(SteeringLoggingMixin, SteeringOptimizationMixin, SteeringEv
             # Add text information
             result.update(
                 {
-                    "text": text[:100] + "..." if len(text) > 100 else text,
+                    "text": text[:DISPLAY_TRUNCATION_COMPACT] + "..." if len(text) > DISPLAY_TRUNCATION_COMPACT else text,
                     "text_length": len(text),
                     "layer_index": layer.index,
                 }
@@ -219,6 +219,6 @@ class SteeringMethod(SteeringLoggingMixin, SteeringOptimizationMixin, SteeringEv
                 "is_harmful": False,
                 "probability": 0.0,
                 "error": str(e),
-                "text": text[:100] + "..." if len(text) > 100 else text,
+                "text": text[:DISPLAY_TRUNCATION_COMPACT] + "..." if len(text) > DISPLAY_TRUNCATION_COMPACT else text,
             }
 

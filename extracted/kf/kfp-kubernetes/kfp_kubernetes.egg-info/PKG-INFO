@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-kubernetes
-Version: 2.15.2
+Version: 2.16.0
 Summary: Kubernetes platform configuration library and generated protos.
 Home-page: https://github.com/kubeflow/pipelines
 Author: google
@@ -12,7 +12,7 @@ Project-URL: Source, https://github.com/kubeflow/pipelines/tree/master/kubernete
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 Requires-Dist: protobuf<7.0,>=6.31.1
-Requires-Dist: kfp<3,>=2.14.5
+Requires-Dist: kfp<3,>=2.16.0
 Provides-Extra: dev
 Requires-Dist: docformatter==1.4; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"
@@ -325,6 +325,27 @@ def pipeline():
     task = simple_task()
     kubernetes.set_image_pull_policy(task, "Always")
 ```
+
+### SecurityContext: Set security context for the task's container
+```python
+from kfp import dsl
+from kfp import kubernetes
+
+@dsl.component
+def my_task():
+    print("running with custom security context")
+
+@dsl.pipeline
+def pipeline():
+    task = my_task()
+    kubernetes.set_security_context(
+        task,
+        run_as_user=1000,
+        run_as_group=3000,
+    )
+```
+
+**Note:** Cluster administrators can configure default `runAsUser` and `runAsGroup` values for all customer workload containers via the `pipeline-install-config` ConfigMap (`defaultSecurityContextRunAsUser` and `defaultSecurityContextRunAsGroup`). When admin defaults are configured, SDK-specified values for those fields are overridden.
 
 ### ImagePullSecrets: Set secrets to authenticate image pulls
 ```python

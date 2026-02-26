@@ -242,7 +242,7 @@ name = "daft"
 edition = "2024"
 name = "daft"
 publish = false
-version = "0.7.3"
+version = "0.7.4"
 exclude = ["tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.metadata.cargo-machete]
@@ -287,14 +287,14 @@ inherits = "dev"
 debug = true
 
 [target."cfg(not(target_env = \"msvc\"))".dependencies.libc]
-version = "^0.2.150"
-default-features = false
+workspace = true
 
 [target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemallocator]
 version = "0.6.0"
 features = ["disable_initial_exec_tls"]
 
 [workspace]
+members = ["src/arrow2", "src/common/daft-config", "src/common/display", "src/common/error", "src/common/io-config", "src/common/macros", "src/common/pattern", "src/common/partitioning", "src/common/scan-info", "src/common/system-info", "src/common/treenode", "src/common/metrics", "src/daft-ai", "src/daft-algebra", "src/daft-arrow", "src/daft-catalog", "src/daft-context", "src/daft-core", "src/daft-csv", "src/daft-dashboard", "src/daft-dsl", "src/daft-file", "src/daft-functions", "src/daft-functions-binary", "src/daft-functions-json", "src/daft-functions-list", "src/daft-functions-uri", "src/daft-functions-tokenize", "src/daft-functions-utf8", "src/daft-functions-temporal", "src/daft-hash", "src/daft-image", "src/daft-io", "src/daft-json", "src/daft-local-execution", "src/daft-local-plan", "src/daft-logical-plan", "src/daft-micropartition", "src/daft-parquet", "src/daft-runners", "src/daft-scan", "src/daft-session", "src/daft-shuffles", "src/daft-sketch", "src/daft-sql", "src/daft-recordbatch", "src/daft-warc", "src/daft-writers", "src/hyperloglog", "src/parquet2", "src/daft-cli"]
 
 [workspace.dependencies]
 arrow = "57.1.0"
@@ -324,6 +324,7 @@ hashbrown = "0.16"
 html-escape = "0.2.13"
 indexmap = "2.9.0"
 indicatif = "0.18"
+console = "0.16"
 itertools = "0.14"
 jaq-core = "2.2.1"
 jaq-std = "2.1.2"
@@ -485,6 +486,10 @@ default-features = false
 version = "1.1.3"
 features = ["serde_json"]
 
+[workspace.dependencies.opendal]
+version = "0.55"
+default-features = false
+
 [workspace.dependencies.opentelemetry]
 version = "0.31"
 features = ["trace", "metrics", "logs"]
@@ -542,6 +547,10 @@ features = ["v4"]
 [workspace.dependencies.xxhash-rust]
 version = "0.8.15"
 features = ["const_xxh3", "const_xxh64", "const_xxh32", "xxh64", "xxh3", "xxh32"]
+
+[workspace.dependencies.libc]
+version = "^0.2.150"
+default-features = false
 
 [workspace.dependencies.arrow2]
 features = ["serde_types"]
@@ -670,4 +679,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.3"
+version = "0.7.4"

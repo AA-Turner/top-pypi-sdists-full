@@ -124,13 +124,12 @@ class LocalTasksRepository(TasksRepository):
         )
 
         conn = get_execution_conn()
-        if conn is None:
-            return
-
-        try:
-            conn.send({"type": "task", "payload": task.dump()})
-        except Exception:
-            pass
+        if conn is not None:
+            try:
+                task_msg = {"type": "task", "payload": task.dump()}
+                conn.send(task_msg)
+            except Exception:
+                pass
 
     def clear(self):
         self.fs_storage.clear()

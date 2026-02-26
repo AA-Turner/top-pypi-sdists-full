@@ -1,6 +1,6 @@
+use ::line_index::LineIndex;
 use anyhow::{Context, Result};
 use etcetera::BaseStrategy;
-use line_index::LineIndex;
 use log::info;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
@@ -24,6 +24,7 @@ use lsp_types::{
     },
 };
 use rowan::TextRange;
+use salsa::Setter;
 use squawk_ide::completion::completion;
 use squawk_ide::document_symbols::{DocumentSymbolKind, document_symbols};
 use squawk_ide::find_references::find_references;
@@ -31,12 +32,13 @@ use squawk_ide::goto_definition::goto_definition;
 use squawk_ide::hover::hover;
 use squawk_ide::inlay_hints::inlay_hints;
 use squawk_ide::{builtins::BUILTINS_SQL, code_actions::code_actions};
-use squawk_syntax::SourceFile;
 use std::{collections::HashMap, fs, sync::OnceLock};
 
 use diagnostic::DIAGNOSTIC_NAME;
 
+use crate::db::{Database, File, line_index, parse};
 use crate::diagnostic::AssociatedDiagnosticData;
+mod db;
 mod diagnostic;
 mod ignore;
 mod lint;
@@ -60,7 +62,53 @@ fn builtins_url() -> Option<Url> {
 
 struct DocumentState {
     content: String,
+    #[allow(dead_code)]
     version: i32,
+}
+
+trait FileSystem {
+    fn db(&self) -> &Database;
+    fn file(&self, uri: &Url) -> Option<File>;
+    fn set(&mut self, uri: Url, state: DocumentState);
+    fn remove(&mut self, uri: &Url);
+}
+
+struct FileDatabase {
+    pub db: Database,
+    files: HashMap<Url, File>,
+}
+
+impl FileDatabase {
+    fn new() -> Self {
+        Self {
+            db: Database::default(),
+            files: HashMap::new(),
+        }
+    }
+}
+
+impl FileSystem for FileDatabase {
+    fn db(&self) -> &Database {
+        return &self.db;
+    }
+
+    fn file(&self, uri: &Url) -> Option<File> {
+        self.files.get(uri).copied()
+    }
+
+    fn set(&mut self, uri: Url, state: DocumentState) {
+        if let Some(file) = self.files.get(&uri).copied() {
+            file.set_content(&mut self.db).to(state.content);
+            file.set_version(&mut self.db).to(state.version);
+        } else {
+            let file = File::new(&self.db, state.content, state.version);
+            self.files.insert(uri, file);
+        }
+    }
+
+    fn remove(&mut self, uri: &Url) {
+        self.files.remove(uri);
+    }
 }
 
 pub fn run() -> Result<()> {
@@ -121,7 +169,7 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
     let client_name = init_params.client_info.map(|x| x.name);
     info!("Client name: {client_name:?}");
 
-    let mut documents: HashMap<Url, DocumentState> = HashMap::new();
+    let mut file_system = FileDatabase::new();
 
     for msg in &connection.receiver {
         match msg {
@@ -135,34 +183,34 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 
                 match req.method.as_ref() {
                     GotoDefinition::METHOD => {
-                        handle_goto_definition(&connection, req, &documents)?;
+                        handle_goto_definition(&connection, req, &file_system)?;
                     }
                     HoverRequest::METHOD => {
-                        handle_hover(&connection, req, &documents)?;
+                        handle_hover(&connection, req, &file_system)?;
                     }
                     CodeActionRequest::METHOD => {
-                        handle_code_action(&connection, req, &documents)?;
+                        handle_code_action(&connection, req, &file_system)?;
                     }
                     SelectionRangeRequest::METHOD => {
-                        handle_selection_range(&connection, req, &documents)?;
+                        handle_selection_range(&connection, req, &file_system)?;
                     }
                     InlayHintRequest::METHOD => {
-                        handle_inlay_hints(&connection, req, &documents)?;
+                        handle_inlay_hints(&connection, req, &file_system)?;
                     }
                     DocumentSymbolRequest::METHOD => {
-                        handle_document_symbol(&connection, req, &documents)?;
+                        handle_document_symbol(&connection, req, &file_system)?;
                     }
                     Completion::METHOD => {
-                        handle_completion(&connection, req, &documents)?;
+                        handle_completion(&connection, req, &file_system)?;
                     }
                     "squawk/syntaxTree" => {
-                        handle_syntax_tree(&connection, req, &documents)?;
+                        handle_syntax_tree(&connection, req, &file_system)?;
                     }
                     "squawk/tokens" => {
-                        handle_tokens(&connection, req, &documents)?;
+                        handle_tokens(&connection, req, &file_system)?;
                     }
                     References::METHOD => {
-                        handle_references(&connection, req, &documents)?;
+                        handle_references(&connection, req, &file_system)?;
                     }
                     _ => {
                         info!("Ignoring unhandled request: {}", req.method);
@@ -176,13 +224,13 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
                 info!("Received notification: method={}", notif.method);
                 match notif.method.as_ref() {
                     DidOpenTextDocument::METHOD => {
-                        handle_did_open(&connection, notif, &mut documents)?;
+                        handle_did_open(&connection, notif, &mut file_system)?;
                     }
                     DidChangeTextDocument::METHOD => {
-                        handle_did_change(&connection, notif, &mut documents)?;
+                        handle_did_change(&connection, notif, &mut file_system)?;
                     }
                     DidCloseTextDocument::METHOD => {
-                        handle_did_close(&connection, notif, &mut documents)?;
+                        handle_did_close(&connection, notif, &mut file_system)?;
                     }
                     _ => {
                         info!("Ignoring unhandled notification: {}", notif.method);
@@ -197,19 +245,19 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 fn handle_goto_definition(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
     let uri = params.text_document_position_params.text_document.uri;
     let position = params.text_document_position_params.position;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, position).unwrap();
 
-    let ranges = goto_definition(&file, offset)
+    let ranges = goto_definition(&parse.tree(), offset)
         .into_iter()
         .filter_map(|location| {
             debug_assert!(
@@ -249,19 +297,19 @@ fn handle_goto_definition(
 fn handle_hover(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: HoverParams = serde_json::from_value(req.params)?;
     let uri = params.text_document_position_params.text_document.uri;
     let position = params.text_document_position_params.position;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, position).unwrap();
 
-    let type_info = hover(&file, offset);
+    let type_info = hover(&parse.tree(), offset);
 
     let result = type_info.map(|type_str| Hover {
         contents: HoverContents::Scalar(MarkedString::LanguageString(LanguageString {
@@ -284,17 +332,18 @@ fn handle_hover(
 fn handle_inlay_hints(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: InlayHintParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
 
-    let hints = inlay_hints(&file);
+    // TODO: move this to a tracked function
+    let hints = inlay_hints(&parse.tree());
 
     let lsp_hints: Vec<InlayHint> = hints
         .into_iter()
@@ -359,17 +408,17 @@ fn handle_inlay_hints(
 fn handle_document_symbol(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: DocumentSymbolParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
 
-    let symbols = document_symbols(&file);
+    let symbols = document_symbols(&parse.tree());
 
     fn convert_symbol(
         sym: squawk_ide::document_symbols::DocumentSymbol,
@@ -443,15 +492,16 @@ fn handle_document_symbol(
 fn handle_selection_range(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: SelectionRangeParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
     let root = parse.syntax_node();
-    let line_index = LineIndex::new(content);
+    let line_index = line_index(db, file);
 
     let mut selection_ranges = vec![];
 
@@ -500,19 +550,19 @@ fn handle_selection_range(
 fn handle_references(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: ReferenceParams = serde_json::from_value(req.params)?;
     let uri = params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, position).unwrap();
 
-    let refs = find_references(&file, offset);
+    let refs = find_references(&parse.tree(), offset);
     let include_declaration = params.context.include_declaration;
 
     let locations: Vec<Location> = refs
@@ -547,16 +597,16 @@ fn handle_references(
 fn handle_completion(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: CompletionParams = serde_json::from_value(req.params)?;
     let uri = params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
 
     let Some(offset) = lsp_utils::offset(&line_index, position) else {
         let resp = Response {
@@ -568,7 +618,8 @@ fn handle_completion(
         return Ok(());
     };
 
-    let completion_items = completion(&file, offset)
+    // TODO: move this to a tracked function
+    let completion_items = completion(&parse.tree(), offset)
         .into_iter()
         .map(lsp_utils::completion_item)
         .collect();
@@ -588,20 +639,21 @@ fn handle_completion(
 fn handle_code_action(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: CodeActionParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
     let mut actions: CodeActionResponse = Vec::new();
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-    let parse = SourceFile::parse(content);
-    let file = parse.tree();
-    let line_index = LineIndex::new(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
+    let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, params.range.start).unwrap();
 
-    let ide_actions = code_actions(file, offset).unwrap_or_default();
+    // TODO: move this to a tracked function
+    let ide_actions = code_actions(parse.tree(), offset).unwrap_or_default();
 
     for action in ide_actions {
         let lsp_action = lsp_utils::code_action(&line_index, uri.clone(), action);
@@ -746,19 +798,19 @@ fn publish_diagnostics(
 fn handle_did_open(
     connection: &Connection,
     notif: lsp_server::Notification,
-    documents: &mut HashMap<Url, DocumentState>,
+    file_system: &mut impl FileSystem,
 ) -> Result<()> {
     let params: DidOpenTextDocumentParams = serde_json::from_value(notif.params)?;
     let uri = params.text_document.uri;
     let content = params.text_document.text;
     let version = params.text_document.version;
 
-    documents.insert(uri.clone(), DocumentState { content, version });
+    // TODO: move this to a tracked function
+    let diagnostics = lint::lint(&content);
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    file_system.set(uri.clone(), DocumentState { content, version });
 
     // TODO: we need a better setup for "run func when input changed"
-    let diagnostics = lint::lint(content);
     publish_diagnostics(connection, uri, version, diagnostics)?;
 
     Ok(())
@@ -767,22 +819,29 @@ fn handle_did_open(
 fn handle_did_change(
     connection: &Connection,
     notif: lsp_server::Notification,
-    documents: &mut HashMap<Url, DocumentState>,
+    file_system: &mut impl FileSystem,
 ) -> Result<()> {
     let params: DidChangeTextDocumentParams = serde_json::from_value(notif.params)?;
     let uri = params.text_document.uri;
     let version = params.text_document.version;
 
-    let Some(doc_state) = documents.get_mut(&uri) else {
-        return Ok(());
-    };
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let content = file.content(db);
 
-    doc_state.content =
-        lsp_utils::apply_incremental_changes(&doc_state.content, params.content_changes);
-    doc_state.version = version;
+    let updated_content = lsp_utils::apply_incremental_changes(content, params.content_changes);
 
-    let diagnostics = lint::lint(&doc_state.content);
-    publish_diagnostics(connection, uri, version, diagnostics)?;
+    // TODO: move this to a tracked function
+    let diagnostics = lint::lint(&updated_content);
+    publish_diagnostics(connection, uri.clone(), version, diagnostics)?;
+
+    file_system.set(
+        uri,
+        DocumentState {
+            content: updated_content,
+            version,
+        },
+    );
 
     Ok(())
 }
@@ -790,12 +849,12 @@ fn handle_did_change(
 fn handle_did_close(
     connection: &Connection,
     notif: lsp_server::Notification,
-    documents: &mut HashMap<Url, DocumentState>,
+    file_system: &mut impl FileSystem,
 ) -> Result<()> {
     let params: DidCloseTextDocumentParams = serde_json::from_value(notif.params)?;
     let uri = params.text_document.uri;
 
-    documents.remove(&uri);
+    file_system.remove(&uri);
 
     let publish_params = PublishDiagnosticsParams {
         uri,
@@ -824,16 +883,16 @@ struct SyntaxTreeParams {
 fn handle_syntax_tree(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: SyntaxTreeParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
     info!("Generating syntax tree for: {uri}");
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
-
-    let parse = SourceFile::parse(content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let parse = parse(db, file);
     let syntax_tree = format!("{:#?}", parse.syntax_node());
 
     let resp = Response {
@@ -855,15 +914,18 @@ struct TokensParams {
 fn handle_tokens(
     connection: &Connection,
     req: lsp_server::Request,
-    documents: &HashMap<Url, DocumentState>,
+    file_system: &impl FileSystem,
 ) -> Result<()> {
     let params: TokensParams = serde_json::from_value(req.params)?;
     let uri = params.text_document.uri;
 
     info!("Generating tokens for: {uri}");
 
-    let content = documents.get(&uri).map_or("", |doc| &doc.content);
+    let db = file_system.db();
+    let file = file_system.file(&uri).unwrap();
+    let content = file.content(db);
 
+    // TODO: move this to a tracked function
     let tokens = squawk_lexer::tokenize(content);
 
     let mut output = Vec::new();

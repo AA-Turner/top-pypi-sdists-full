@@ -1,17 +1,18 @@
 import random
+import secrets
 import time
 from uuid import uuid4
 
-from instagrapi.extractors import extract_user_short
-from instagrapi.types import UserShort
 from instagrapi.exceptions import (
+    AgeEligibilityError,
+    CaptchaChallengeRequired,
+    ClientError,
     EmailInvalidError,
     EmailNotAvailableError,
     EmailVerificationSendError,
-    AgeEligibilityError,
-    CaptchaChallengeRequired,
-    ClientError,  # Ensure ClientError is imported if not already
 )
+from instagrapi.extractors import extract_user_short
+from instagrapi.types import UserShort
 
 CHOICE_EMAIL = 1
 
@@ -35,18 +36,28 @@ class SignUpMixin:
         self.get_signup_config()
         check = self.check_email(email)
         if not check.get("valid"):
-            raise EmailInvalidError(f"Email not valid: {check.get('error_title', check)}")
+            raise EmailInvalidError(
+                f"Email not valid: {check.get('error_title', check)}"
+            )
         if not check.get("available"):
-            raise EmailNotAvailableError(f"Email not available: {check.get('feedback_message', check)}")
+            raise EmailNotAvailableError(
+                f"Email not available: {check.get('feedback_message', check)}"
+            )
         sent = self.send_verify_email(email)
         if not sent.get("email_sent"):
-            raise EmailVerificationSendError(f"Failed to send verification email: {sent}")
+            raise EmailVerificationSendError(
+                f"Failed to send verification email: {sent}"
+            )
 
         # Date of Birth (DOB) Age Eligibility Check
         if year and month and day:
             age_check_result = self.check_age_eligibility(year, month, day)
-            if not age_check_result.get("eligible"): # Assuming "eligible": True is success
-                raise AgeEligibilityError(f"Account not eligible based on age criteria: {age_check_result}")
+            if not age_check_result.get(
+                "eligible"
+            ):  # Assuming "eligible": True is success
+                raise AgeEligibilityError(
+                    f"Account not eligible based on age criteria: {age_check_result}"
+                )
 
         # send code confirmation
         code = ""
@@ -91,7 +102,7 @@ class SignUpMixin:
         return self.private_request(
             "users/check_email/",
             {
-                "android_device_id": self.device_id,
+                "android_device_id": self.android_device_id,
                 "login_nonce_map": "{}",
                 "login_nonces": "[]",
                 "email": email,
@@ -106,7 +117,7 @@ class SignUpMixin:
             "accounts/send_verify_email/",
             {
                 "phone_id": self.phone_id,
-                "device_id": self.device_id,
+                "device_id": self.android_device_id,
                 "email": email,
                 "waterfall_id": self.waterfall_id,
                 "auto_confirm_only": "false",
@@ -119,16 +130,17 @@ class SignUpMixin:
             "accounts/check_confirmation_code/",
             {
                 "code": code,
-                "device_id": self.device_id,
+                "device_id": self.android_device_id,
                 "email": email,
                 "waterfall_id": self.waterfall_id,
             },
         )
 
     def check_age_eligibility(self, year, month, day):
-        return self.private.post(
+        return self.private_request(
             "consent/check_age_eligibility/",
             data={"_csrftoken": self.token, "day": day, "year": year, "month": month},
+            with_signature=False,
         ).json()
 
     def accounts_create(
@@ -144,11 +156,12 @@ class SignUpMixin:
         **kwargs,
     ) -> dict:
         # timestamp = datetime.now().strftime("%s")  # Unused variable
-        # nonce = f'{username}|{timestamp}|\xb9F"\x8c\xa2I\xaaz|\xf6xz\x86\x92\x91Y\xa5\xaa#f*o%\x7f'  # Unused variable
         data = {
             "is_secondary_account_creation": "true",
             "jazoest": str(int(random.randint(22300, 22399))),  # "22341",
-            "suggestedUsername": "sn_result",
+            "tos_version": "row",
+            "suggestedUsername": "",
+            "sn_result": "",
             "do_not_auto_login_if_credentials_match": "false",
             "phone_id": self.phone_id,
             "enc_password": self.password_encrypt(password),
@@ -156,15 +169,24 @@ class SignUpMixin:
             "first_name": str(full_name),
             "adid": self.adid,
             "guid": self.uuid,
-            "device_id": self.device_id,
+            "day": day,
+            "month": month,
+            "year": year,
+            "device_id": self.android_device_id,
             "_uuid": self.uuid,
             "email": email,
             "force_sign_up_code": signup_code,
+            "qs_stamp": "",
+            "sn_nonce": bytes(
+                f"{email}|{str(int(time.time()))}|{secrets.token_bytes(24)}", "utf-8"
+            ),
             "waterfall_id": self.waterfall_id,
             "one_tap_opt_in": "true",
             **kwargs,
         }
-        return self.private_request("accounts/create/", data, domain="www.instagram.com")
+        return self.private_request(
+            "accounts/create/", data, domain="www.instagram.com"
+        )
 
     def challenge_flow(self, data):
         data = self.challenge_api(data)
@@ -181,31 +203,34 @@ class SignUpMixin:
 
     def challenge_api(self, data):
         resp = self.private.get(
-            f"https://i.instagram.com/api/v1{data['api_path']}",
+            "https://i.instagram.com/api/v1%s" % data["api_path"],
             params={
                 "guid": self.uuid,
-                "device_id": self.device_id,
+                "device_id": self.android_device_id,
                 "challenge_context": data["challenge_context"],
             },
         )
         return resp.json()
 
     def challenge_captcha(self, challenge_json_data):
-        api_path = challenge_json_data.get('api_path')
-        site_key = challenge_json_data.get('fields', {}).get('sitekey')
-        challenge_type = challenge_json_data.get('challengeType')  # For logging/context
+        api_path = challenge_json_data.get("api_path")
+        site_key = challenge_json_data.get("fields", {}).get("sitekey")
+        challenge_type = challenge_json_data.get("challengeType")  # For logging/context
 
         if not site_key or not api_path:
-            self.logger.error(f"Malformed captcha challenge data from Instagram: site_key={site_key}, api_path={api_path}")
-            raise ClientError("Malformed captcha challenge data from Instagram (missing site_key or api_path).")
+            self.logger.error(
+                f"Malformed captcha challenge data from Instagram: site_key={site_key}, api_path={api_path}"
+            )
+            raise ClientError(
+                "Malformed captcha challenge data from Instagram (missing site_key or api_path)."
+            )
 
-        challenge_post_url = f"https://i.instagram.com{api_path}"
-
+        challenge_post_url = "https://i.instagram.com%s" % api_path
         captcha_details_for_solver = {
-            'site_key': site_key,
-            'challenge_type': challenge_type,
-            'raw_challenge_json': challenge_json_data,
-            'page_url': 'https://www.instagram.com/accounts/emailsignup/', # Common page for signup captcha
+            "site_key": site_key,
+            "challenge_type": challenge_type,
+            "raw_challenge_json": challenge_json_data,
+            "page_url": "https://www.instagram.com/accounts/emailsignup/",  # Common page for signup captcha
         }
 
         try:
@@ -213,11 +238,18 @@ class SignUpMixin:
             # and is expected to raise CaptchaChallengeRequired if it cannot obtain a token.
             g_recaptcha_response = self.captcha_resolve(**captcha_details_for_solver)
         except CaptchaChallengeRequired:
-            self.logger.warning("Captcha solution was required by Instagram but not provided/resolved by any configured handler.")
+            self.logger.warning(
+                "Captcha solution was required by Instagram but not provided/resolved by any configured handler."
+            )
             raise  # Re-raise for the user of instagrapi to handle or be informed.
         except Exception as e:
-            self.logger.error(f"An unexpected error occurred during the captcha resolution process: {e}", exc_info=True)
-            raise ClientError(f"Captcha resolution process failed: {e}") # Wrap other errors
+            self.logger.error(
+                f"An unexpected error occurred during the captcha resolution process: {e}",
+                exc_info=True,
+            )
+            raise ClientError(
+                f"Captcha resolution process failed: {e}"
+            )  # Wrap other errors
 
         # Proceed to POST the g_recaptcha_response:
         resp = self.private.post(
@@ -229,7 +261,7 @@ class SignUpMixin:
     def challenge_submit_phone_number(self, data, phone_number):
         api_path = data.get("navigation", {}).get("forward")
         resp = self.private.post(
-            f"https://i.instagram.com{api_path}",
+            "https://i.instagram.com%s" % api_path,
             data={
                 "phone_number": phone_number,
                 "challenge_context": data["challenge_context"],
@@ -240,7 +272,7 @@ class SignUpMixin:
     def challenge_verify_sms_captcha(self, data, security_code):
         api_path = data.get("navigation", {}).get("forward")
         resp = self.private.post(
-            f"https://i.instagram.com{api_path}",
+            "https://i.instagram.com%s" % api_path,
             data={
                 "security_code": security_code,
                 "challenge_context": data["challenge_context"],

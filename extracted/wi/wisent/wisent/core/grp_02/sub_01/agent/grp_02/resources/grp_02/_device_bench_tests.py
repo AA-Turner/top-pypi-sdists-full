@@ -6,7 +6,8 @@ import subprocess
 import sys
 import torch
 from typing import Dict, Any, Optional
-from wisent.core.constants import DEFAULT_LAYER
+from wisent.core.constants import DEFAULT_LAYER, AGENT_BENCH_MIN_PAIRS_TRAINING, BENCH_TEST_SAMPLE_SIZE
+from wisent.core.utils.core.hardware import subprocess_timeout_s, subprocess_timeout_long_s
 from wisent.core.utils import resolve_default_device
 
 class DeviceBenchTestsMixin1:
@@ -42,11 +43,11 @@ except Exception as e:
             # Run with 2-minute timeout
             result = subprocess.run([
                 sys.executable, temp_script
-            ], capture_output=True, text=True, timeout=120)
-            
+            ], capture_output=True, text=True, timeout=subprocess_timeout_s())
+
             # Clean up
             os.unlink(temp_script)
-            
+
             # Parse result
             for line in result.stdout.split('\n'):
                 if line.startswith('BENCHMARK_RESULT:'):
@@ -82,19 +83,19 @@ try:
         task_name="truthfulqa_mc",
         model_name="meta-llama/Llama-3.1-8B-Instruct",
         layer="__LAYER__",  # Required parameter
-        limit=3,  # Minimum examples for timing
+        limit=__BENCH_SAMPLE__,  # Minimum examples for timing
         steering_mode=False,  # No steering for baseline timing
         verbose=False,
         allow_small_dataset=True,
         output_mode="likelihoods"
     )
     print("BENCHMARK_DEBUG: Task pipeline completed")
-    
+
     end_time = time.time()
     total_time = end_time - start_time
-    print(f"BENCHMARK_DEBUG: Total time: {total_time}s for 3 examples")
+    print(f"BENCHMARK_DEBUG: Total time: {total_time}s for __BENCH_SAMPLE__ examples")
     # Scale to per-100-examples
-    time_per_100 = (total_time / 3) * 100
+    time_per_100 = (total_time / __BENCH_SAMPLE__) * 100
     print(f"BENCHMARK_DEBUG: Scaled time per 100: {time_per_100}s")
     print(f"BENCHMARK_RESULT:{time_per_100}")
     
@@ -105,6 +106,7 @@ except Exception as e:
     raise
 '''
         test_script = test_script.replace("__LAYER__", str(DEFAULT_LAYER))
+        test_script = test_script.replace("__BENCH_SAMPLE__", str(BENCH_TEST_SAMPLE_SIZE))
         print("   🔧 DEBUG: Writing test script to temporary file...")
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -115,7 +117,7 @@ except Exception as e:
             print("   🔧 DEBUG: Running evaluation subprocess...")
             result = subprocess.run([
                 sys.executable, temp_script
-            ], capture_output=True, text=True, timeout=120)  # 2-minute timeout
+            ], capture_output=True, text=True, timeout=subprocess_timeout_s())
             
             print(f"   🔧 DEBUG: Subprocess completed with return code: {result.returncode}")
             print(f"   🔧 DEBUG: Stdout length: {len(result.stdout)} chars")
@@ -191,7 +193,7 @@ try:
     classifier = create_classifier_from_trait_description(
         model=model,
         trait_description="accuracy and truthfulness",
-        num_pairs=3  # Minimum needed for training
+        num_pairs=__BENCH_MIN_PAIRS__  # Minimum needed for training
     )
     classifier_time = time.time() - classifier_start
     print(f"BENCHMARK_DEBUG: Classifier created in {classifier_time}s")
@@ -224,7 +226,7 @@ except Exception as e:
             result = subprocess.run([
                 sys.executable,
                 temp_script,
-            ], capture_output=True, text=True, timeout=1200)
+            ], capture_output=True, text=True, timeout=subprocess_timeout_long_s())
 
             print(f"   🔧 DEBUG: Classifier subprocess completed with return code: {result.returncode}")
             print(f"   🔧 DEBUG: Stdout length: {len(result.stdout)} chars")

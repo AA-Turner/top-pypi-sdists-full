@@ -16,7 +16,7 @@ from wisent.core.activations.activations import Activations
 from wisent.core.classifier.classifier import Classifier
 from wisent.core.layer import Layer
 from wisent.core.model import Model
-from wisent.core.constants import AGENT_QUALITY_HIGH_THRESHOLD, AGENT_CONFIDENCE_HIGH_THRESHOLD, CLASSIFIER_DEFAULT_THRESHOLD, DEFAULT_LAYER
+from wisent.core.constants import AGENT_QUALITY_HIGH_THRESHOLD, AGENT_CONFIDENCE_HIGH_THRESHOLD, CLASSIFIER_THRESHOLD, DEFAULT_LAYER, QUALITY_CLASSIFIER_DEFAULT_LAYER, CHANCE_LEVEL_ACCURACY
 from wisent.core.errors import (
     ClassifierConfigRequiredError,
     ClassifierLoadError,
@@ -47,7 +47,7 @@ class ResponseDiagnostics:
             classifier_configs: List of classifier configurations with paths and layers
                 Example: [
                     {"path": "./models/hallucination_classifier.pt", "layer": DEFAULT_LAYER, "issue_type": "hallucination"},
-                    {"path": "./models/quality_classifier.pt", "layer": 20, "issue_type": "quality"}
+                    {"path": "./models/quality_classifier.pt", "layer": QUALITY_CLASSIFIER_DEFAULT_LAYER, "issue_type": "quality"}
                 ]
         """
         if not classifier_configs:
@@ -67,7 +67,7 @@ class ResponseDiagnostics:
                         "classifier": classifier,
                         "layer": Layer(index=config["layer"], type="transformer"),
                         "issue_type": config.get("issue_type", "unknown"),
-                        "threshold": config.get("threshold", CLASSIFIER_DEFAULT_THRESHOLD),
+                        "threshold": config.get("threshold", CLASSIFIER_THRESHOLD),
                     }
                 )
                 print(f"✅ Loaded classifier for {config['issue_type']} at layer {config['layer']}")
@@ -102,7 +102,7 @@ class ResponseDiagnostics:
             confidence = (
                 sum(result["confidence"] for result in classifier_results) / len(classifier_results)
                 if classifier_results
-                else 0.5
+                else CHANCE_LEVEL_ACCURACY
             )
         else:
             confidence = sum(confidence_scores) / len(confidence_scores)
@@ -251,7 +251,7 @@ class ResponseDiagnostics:
         # Low confidence - be conservative
         return False
 
-    def add_classifier(self, classifier_path: str, layer_index: int, issue_type: str, threshold: float = CLASSIFIER_DEFAULT_THRESHOLD):
+    def add_classifier(self, classifier_path: str, layer_index: int, issue_type: str, threshold: float = CLASSIFIER_THRESHOLD):
         """Add a new classifier to the diagnostic system."""
         classifier = Classifier()
         classifier.load_model(classifier_path)

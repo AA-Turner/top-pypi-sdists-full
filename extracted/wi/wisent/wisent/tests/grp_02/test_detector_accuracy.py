@@ -14,7 +14,7 @@ from wisent.core.models.wisent_model import WisentModel
 from wisent.core.activations.activations_collector import ActivationCollector
 from wisent.core.activations import ExtractionStrategy
 from wisent.core.contrastive_pairs.lm_eval_pairs.lm_extractor_registry import get_extractor
-from wisent.core.constants import NORM_EPS
+from wisent.core.constants import NORM_EPS, GEOMETRY_DEFAULT_NUM_COMPONENTS, DIAG_OPTIMIZATION_STEPS, PARSER_DEFAULT_NUM_PAIRS, TEST_DETECTOR_DEFAULT_LAYER, PROGRESS_LOG_INTERVAL_10
 from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
     detect_geometry_structure,
     GeometryAnalysisConfig,
@@ -26,8 +26,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", default="truthfulqa_gen")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-1B-Instruct")
-    parser.add_argument("--num-pairs", type=int, default=50)
-    parser.add_argument("--layer", type=int, default=6)
+    parser.add_argument("--num-pairs", type=int, default=PARSER_DEFAULT_NUM_PAIRS)
+    parser.add_argument("--layer", type=int, default=TEST_DETECTOR_DEFAULT_LAYER)
     args = parser.parse_args()
 
     print(f"Loading model {args.model}...")
@@ -55,7 +55,7 @@ def main():
         pos_activations.append(pos_vec)
         neg_activations.append(neg_vec)
         
-        if (i + 1) % 10 == 0:
+        if (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"  Processed {i + 1}/{len(pairs)} pairs")
 
     pos_tensor = torch.stack(pos_activations)
@@ -97,8 +97,8 @@ def main():
     print("="*70)
     
     config = GeometryAnalysisConfig(
-        num_components=5,
-        optimization_steps=50,
+        num_components=GEOMETRY_DEFAULT_NUM_COMPONENTS,
+        optimization_steps=DIAG_OPTIMIZATION_STEPS,
     )
     result = detect_geometry_structure(pos_tensor, neg_tensor, config)
     

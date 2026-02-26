@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
 
 [project]
 name = "linkml-runtime"
@@ -26,15 +26,13 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Healthcare Industry",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-include = ["linkml_runtime"]
-requires-python = ">=3.9"
-dynamic = []
+requires-python = ">=3.10"
+dynamic = ["version"]
 dependencies = [
     "click",
     "deprecated",
@@ -51,38 +49,33 @@ dependencies = [
     "pydantic >=1.10.2, <3.0.0",
     "isodate >=0.7.2, <1.0.0; python_version < '3.11'",
 ]
-version = "1.9.5"
+
+[dependency-groups]
+dev = [
+    "coverage >=6.2",
+    "requests-cache >=1.2.0",
+]
 
 [project.scripts]
 comparefiles = "linkml_runtime.utils.comparefiles:cli"
 linkml-normalize = "linkml_runtime.processing.referencevalidator:cli"
 
-[tool.poetry]
-requires-poetry = ">=2.0"
-
-[tool.poetry.dependencies]
-python = "^3.9"
-
-[tool.poetry.requires-plugins]
-poetry-dynamic-versioning = ">=1.8.2"
-
-[tool.poetry-dynamic-versioning]
-enable = false
-vcs = "git"
-style = "pep440"
-
-[tool.poetry.group.dev.dependencies]
-coverage = "^6.2"
-requests-cache = "^1.2.0"
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "requests-cache",
+]
 
 [tool.codespell]
 skip = [
   ".git", "*.pdf", "*.svg", "*.dill",
-  "poetry.lock",
+  "uv.lock",
+  "*.toml",
 ]
 # Ignore table where words could be split across rows
 ignore-regex = '(\|.*\|.*\|.*\||\[[A-Z][a-z]\][a-z][a-z])'
 ignore-words-list = [
+  "ClassE",
   "CrossReference",
   "ND",
   "MILIARY",
@@ -98,8 +91,7 @@ quiet-level = 3
 extend-exclude = []
 force-exclude = true
 line-length = 120
-# Assume Python 3.9
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 
@@ -180,26 +172,38 @@ ignore = [
     "E203",
     "E501",
     "ISC001",
+    "C901",  # complexity checks - runtime package has different conventions
+    "N801",  # invalid-class-name
+    "N802",  # invalid-function-name
+    "F821",  # undefined-name
+    "N818",  # error-suffix-on-exception-name
+    "E741",  # ambiguous-variable-name
+    "N816",  # mixed-case-variable-in-global-scope
+    "UP007", # non-pep604-annotation-union
+    "F811",  # redefined-while-unused
+    "F841",  # unused-variable
+    "E731",  # lambda-assignment
+    "E402",  # module-import-not-at-top-of-file
+    "E712",  # true-false-comparison
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101"] # use of assert
+"tests/**/*.py" = ["S101", "E402", "E501", "F811", "E741"] # use of assert, test files have different conventions
 
 [tool.ruff.lint.mccabe]
 # Flag errors (`C901`) whenever the complexity level exceeds 15.
 max-complexity = 15
 
-
 [tool.tox]
 requires = ["tox>=4"]
-env_list = ["lint", "py{39,310,311,312,313}"]
+env_list = ["lint", "py{310,311,312,313}"]
 
 [tool.tox.env_run_base]
-allowlist_externals = ["poetry"]
+allowlist_externals = ["uv"]
 deps = ["pytest"]
 commands = [
-  ["poetry", "install", "--no-root", "--sync", "--all-extras"],
-  ["poetry", "run", "pytest", "{posargs}"],
+  ["uv", "sync", "--all-extras", "--dev"],
+  ["uv", "run", "pytest", "{posargs}"],
 ]
 
 [tool.tox.env.codespell]
@@ -236,3 +240,17 @@ deps = ["ruff==0.11.13"]
 commands = [
   ["ruff", "check", "{posargs:.}"],
 ]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+fallback-version = "0.0.0"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/linkml_runtime"]
+
+[tool.hatch.build.targets.sdist]
+include = ["**/*"]

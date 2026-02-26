@@ -12,7 +12,8 @@ from wisent.core.activations import (
     extract_activation,
 )
 from wisent.core.errors import NoHiddenStatesError
-from wisent.core.constants import LOG_EPS, ACTIVATIONS_BATCH_SIZE, MAX_TOKENIZATION_LENGTH
+from wisent.core.constants import LOG_EPS, MAX_TOKENIZATION_LENGTH, PROGRESS_REPORT_INTERVAL
+from wisent.core.utils.core.hardware import default_batch_size
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -173,10 +174,12 @@ class ActivationCollector:
         texts: list[str],
         strategy: ExtractionStrategy = ExtractionStrategy.CHAT_LAST,
         layers: Sequence[LayerName] | None = None,
-        batch_size: int = ACTIVATIONS_BATCH_SIZE,
+        batch_size: int | None = None,
         show_progress: bool = True,
     ) -> list[dict[str, torch.Tensor]]:
         """Collect activations for multiple texts in batches."""
+        if batch_size is None:
+            batch_size = default_batch_size()
         self._ensure_eval_mode()
         results: list[dict[str, torch.Tensor]] = []
 
@@ -191,7 +194,7 @@ class ActivationCollector:
                 end = min(start + batch_size, len(texts))
                 batch_texts = texts[start:end]
 
-                if show_progress and batch_idx % 10 == 0:
+                if show_progress and batch_idx % PROGRESS_REPORT_INTERVAL == 0:
                     print(f"Processing batch {batch_idx + 1}/{num_batches}...", end='\r', flush=True)
 
                 encoded = tok(

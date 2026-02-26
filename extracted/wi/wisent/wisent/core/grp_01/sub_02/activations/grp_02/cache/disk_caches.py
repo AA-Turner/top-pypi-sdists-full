@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any
 import torch
 
 from wisent.core.activations import ExtractionStrategy
+from wisent.core.constants import HASH_DIGEST_PREFIX, JSON_INDENT
 from wisent.core.utils import resolve_default_device
 from .cached_activations import CachedActivations, get_strategy_text_family
 from .raw_cached_activations import RawCachedActivations, RawPairData
@@ -32,7 +33,7 @@ class RawActivationCache:
         key_str = f"{model_name}_{benchmark}_{text_family}_raw"
         if component != "residual_stream":
             key_str += f"_{component}"
-        return hashlib.md5(key_str.encode()).hexdigest()[:16]
+        return hashlib.md5(key_str.encode()).hexdigest()[:HASH_DIGEST_PREFIX]
 
     def _get_cache_path(self, cache_key: str) -> Path:
         return self.cache_dir / f"{cache_key}.pt"
@@ -135,7 +136,7 @@ class RawActivationCache:
                 "num_pairs": cached.num_pairs,
             }
             with open(self._get_metadata_path(key), "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=JSON_INDENT)
 
     def clear_memory(self) -> None:
         self._memory_cache.clear()
@@ -154,7 +155,7 @@ class ActivationCache:
         key_str = f"{model_name}_{benchmark}_{strategy.value}"
         if component != "residual_stream":
             key_str += f"_{component}"
-        return hashlib.md5(key_str.encode()).hexdigest()[:16]
+        return hashlib.md5(key_str.encode()).hexdigest()[:HASH_DIGEST_PREFIX]
 
     def _get_cache_path(self, cache_key: str) -> Path:
         return self.cache_dir / f"{cache_key}.pt"
@@ -225,7 +226,7 @@ class ActivationCache:
                 "num_pairs": cached.num_pairs,
             }
             with open(self._get_metadata_path(key), "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=JSON_INDENT)
 
     def clear_memory(self) -> None:
         self._memory_cache.clear()

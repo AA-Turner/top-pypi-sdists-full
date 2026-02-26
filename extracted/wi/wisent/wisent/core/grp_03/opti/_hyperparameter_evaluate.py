@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 from wisent.core.errors import NoActivationDataError, InsufficientDataError
+from wisent.core.constants import DEFAULT_NUM_HIDDEN_LAYERS, JSON_INDENT
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,11 @@ def detect_model_layers(model) -> int:
         if layer_count > 0:
             logger.info(f"Detected {layer_count} layers from module names")
             return layer_count
-        logger.warning("Could not detect layer count, using default of 32")
-        return 32
+        logger.warning("Could not detect layer count, using default of %d", DEFAULT_NUM_HIDDEN_LAYERS)
+        return DEFAULT_NUM_HIDDEN_LAYERS
     except Exception as e:
-        logger.warning(f"Error detecting layer count: {e}, using default of 32")
-        return 32
+        logger.warning(f"Error detecting layer count: {e}, using default of {DEFAULT_NUM_HIDDEN_LAYERS}")
+        return DEFAULT_NUM_HIDDEN_LAYERS
 
 
 def get_default_layer_range(total_layers: int, use_all: bool = True) -> List[int]:
@@ -253,5 +254,5 @@ class HyperparameterEvaluateMixin:
             'all_results': result.all_results
         }
         with open(filepath, 'w') as f:
-            json.dump(result_dict, f, indent=2)
+            json.dump(result_dict, f, indent=JSON_INDENT)
         logger.info(f"Optimization results saved to {filepath}")

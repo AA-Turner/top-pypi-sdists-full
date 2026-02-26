@@ -4,14 +4,14 @@ import json
 import sys
 import os
 from pathlib import Path
-from wisent.core.constants import DEFAULT_SCORE
+from wisent.core.constants import DEFAULT_SCORE, GEOMETRY_MAJORITY_PCT, GEOMETRY_MINORITY_PCT, DISPLAY_TOP_N_MEDIUM, SEPARATOR_WIDTH_STANDARD, SECONDS_PER_HOUR, SECONDS_PER_MINUTE
 
 
 def execute_geometry_search(args):
     """Execute the geometry-search command."""
-    print(f"\n{'='*60}")
+    print(f"\n{'='*SEPARATOR_WIDTH_STANDARD}")
     print("GEOMETRY SEARCH")
-    print(f"{'='*60}")
+    print(f"{'='*SEPARATOR_WIDTH_STANDARD}")
     print(f"Model: {args.model}")
     print(f"Output: {args.output}")
     print(f"Pairs per benchmark: {args.pairs_per_benchmark}")
@@ -83,12 +83,12 @@ def execute_geometry_search(args):
     print(f"\nResults saved to: {output_path}")
     
     # Print summary
-    print(f"\n{'='*60}")
+    print(f"\n{'='*SEPARATOR_WIDTH_STANDARD}")
     print("SUMMARY")
-    print(f"{'='*60}")
-    print(f"Total time: {results.total_time_seconds / 3600:.2f} hours")
-    print(f"  Extraction: {results.extraction_time_seconds / 3600:.2f} hours")
-    print(f"  Testing: {results.test_time_seconds / 60:.1f} minutes")
+    print(f"{'='*SEPARATOR_WIDTH_STANDARD}")
+    print(f"Total time: {results.total_time_seconds / SECONDS_PER_HOUR:.2f} hours")
+    print(f"  Extraction: {results.extraction_time_seconds / SECONDS_PER_HOUR:.2f} hours")
+    print(f"  Testing: {results.test_time_seconds / SECONDS_PER_MINUTE:.1f} minutes")
     print(f"Benchmarks tested: {results.benchmarks_tested}")
     print(f"Strategies tested: {results.strategies_tested}")
     print(f"Layer combos tested: {results.layer_combos_tested}")
@@ -109,13 +109,13 @@ def execute_geometry_search(args):
     # Summary by benchmark
     print(f"\nSummary by benchmark (avg linear score):")
     by_bench = results.get_summary_by_benchmark()
-    sorted_benches = sorted(by_bench.items(), key=lambda x: -x[1]['mean'])[:20]
+    sorted_benches = sorted(by_bench.items(), key=lambda x: -x[1]['mean'])[:DISPLAY_TOP_N_MEDIUM]
     for bench, stats in sorted_benches:
         print(f"  {bench}: mean={stats['mean']:.3f} max={stats['max']:.3f}")
     
-    print(f"\n{'='*60}")
+    print(f"\n{'='*SEPARATOR_WIDTH_STANDARD}")
     print("CONCLUSION")
-    print(f"{'='*60}")
+    print(f"{'='*SEPARATOR_WIDTH_STANDARD}")
     
     # Determine if unified direction exists
     dist = results.get_structure_distribution()
@@ -124,13 +124,13 @@ def execute_geometry_search(args):
     cone_pct = 100 * dist.get('cone', DEFAULT_SCORE) / total if total > 0 else 0
     orthogonal_pct = 100 * dist.get('orthogonal', DEFAULT_SCORE) / total if total > 0 else 0
     
-    if linear_pct > 50:
+    if linear_pct > GEOMETRY_MAJORITY_PCT:
         print(f"UNIFIED LINEAR DIRECTION EXISTS ({linear_pct:.1f}% linear)")
         print("Recommendation: Use CAA with the best layer/strategy combination")
-    elif cone_pct > 30:
+    elif cone_pct > GEOMETRY_MINORITY_PCT:
         print(f"CONE STRUCTURE DETECTED ({cone_pct:.1f}% cone)")
         print("Recommendation: Use TECZA with multi-directional steering")
-    elif orthogonal_pct > 50:
+    elif orthogonal_pct > GEOMETRY_MAJORITY_PCT:
         print(f"ORTHOGONAL STRUCTURE ({orthogonal_pct:.1f}% orthogonal)")
         print("Recommendation: No unified direction - use per-benchmark directions or GROM")
     else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mattersim
-Version: 1.2.0
+Version: 1.2.1
 Summary: MatterSim: A Deep Learning Atomistic Model Across Elements, Temperatures and Pressures.
 Author-email: Han Yang <hanyang@microsoft.com>, Hongxia Hao <hongxiahao@microsoft.com>, Jielan Li <jielanli@microsoft.com>, Ziheng Lu <zihenglu@microsoft.com>
 Project-URL: Homepage, https://github.com/microsoft/mattersim

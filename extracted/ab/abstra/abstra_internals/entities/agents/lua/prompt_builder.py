@@ -102,7 +102,7 @@ print(page)
 - `screenshot()` — get the current page state with interactive elements.
 - `wait({seconds = 2})` — wait for a page to load.
 - `list_downloads()` and `move_download({filename = "...", destination = "..."})` — manage files.
-- `run_javascript({code = "..."})` — run JS only if no other function can do what you need.
+- `run_javascript({script = "..."})` — run JS only if no other function can do what you need.
 - `hover({index = N})` — hover over an element to reveal hidden menus or tooltips.
 - `check_checkbox({index = N, checked = true/false})` — check or uncheck a checkbox.
 - `new_tab({url = "..."})` — open a URL in a new browser tab.

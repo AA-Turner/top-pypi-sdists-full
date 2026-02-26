@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping, Protocol, Sequence, overload
 
-from nominal_api import scout, scout_notebook_api, scout_template_api, scout_workbookcommon_api
+from nominal_api import scout, scout_layout_api, scout_notebook_api, scout_template_api, scout_workbookcommon_api
 from typing_extensions import Self
 
 from nominal.core._clientsbunch import HasScoutParams
@@ -89,6 +89,7 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
         title: str | None = None,
         description: str | None = None,
         run: Run | str,
+        is_draft: bool = False,
     ) -> Workbook: ...
 
     @overload
@@ -98,6 +99,7 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
         title: str | None = None,
         description: str | None = None,
         asset: Asset | str,
+        is_draft: bool = False,
     ) -> Workbook: ...
 
     def create_workbook(
@@ -107,6 +109,7 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
         description: str | None = None,
         run: Run | str | None = None,
         asset: Asset | str | None = None,
+        is_draft: bool = False,
     ) -> Workbook:
         """Create workbook from this workbook template
 
@@ -117,6 +120,7 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
                 NOTE: may not be provided alongside `asset`
             asset: Asset to visualize in the workbook
                 NOTE: may not be provided alongside `run`
+            is_draft: Whether to create the workbook in draft state. Defaults to False.
 
         NOTE: only supports singular `run` instead of a list of `runs` because workbook templates only support
               standard workbooks and not comparison workbooks.
@@ -135,7 +139,7 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
         request = scout_notebook_api.CreateNotebookRequest(
             title=f"Workbook from '{self.title}'" if title is None else title,
             description=self.description if description is None else description,
-            is_draft=False,
+            is_draft=is_draft,
             state_as_json="{}",
             data_scope=scout_notebook_api.NotebookDataScope(
                 run_rids=None if run is None else [rid_from_instance_or_string(run)],
@@ -154,6 +158,14 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
         raw_template = self._clients.template.get(self._clients.auth_header, self.rid)
         return raw_template.metadata.is_published
 
+    def archive(self) -> None:
+        """Archive this workbook template.
+        Archived workbook templates are not deleted, but are hidden from the UI.
+        """
+        self._clients.template.update_metadata(
+            self._clients.auth_header, scout_template_api.UpdateMetadataRequest(is_archived=True), self.rid
+        )
+
     @classmethod
     def _from_conjure(cls, clients: _Clients, template: scout_template_api.Template) -> Self:
         return cls._from_template_summary(
@@ -171,3 +183,51 @@ class WorkbookTemplate(HasRid, RefreshableMixin[scout_template_api.Template]):
             workbook_type=WorkbookType.COMPARISON_WORKBOOK,
             _clients=clients,
         )
+
+
+def _create_workbook_template_with_content_and_layout(
+    clients: WorkbookTemplate._Clients,
+    title: str,
+    layout: scout_layout_api.WorkbookLayout,
+    content: scout_workbookcommon_api.WorkbookContent,
+    workspace_rid: str,
+    *,
+    description: str | None = None,
+    labels: Sequence[str] | None = None,
+    properties: Mapping[str, str] | None = None,
+    commit_message: str | None = None,
+) -> WorkbookTemplate:
+    """Create a workbook template with specified content and layout.
+
+    This is a helper method that constructs and creates a workbook template
+    request with the provided parameters, including layout and content.  Method is considered experimental and may
+    change in future releases. The template is created in the target workspace and is not discoverable by default.
+
+    Args:
+        clients: The clients to use for API calls.
+        title: The title of the template.
+        layout: The workbook layout to use.
+        content: The workbook content to use.
+        workspace_rid: The resource ID of the workspace to create the template in.
+        description: The description of the template.
+        labels: List of labels to apply to the template.
+        properties: Dictionary of properties for the template.
+        commit_message: The commit message for the template creation.
+
+    Returns:
+        The newly created WorkbookTemplate.
+    """
+    request = scout_template_api.CreateTemplateRequest(
+        title=title,
+        description=description if description is not None else "",
+        labels=list(labels) if labels is not None else [],
+        properties=dict(properties) if properties is not None else {},
+        is_published=False,
+        layout=layout,
+        content=content,
+        message=commit_message if commit_message is not None else "",
+        workspace=workspace_rid,
+    )
+
+    template = clients.template.create(clients.auth_header, request)
+    return WorkbookTemplate._from_conjure(clients, template)

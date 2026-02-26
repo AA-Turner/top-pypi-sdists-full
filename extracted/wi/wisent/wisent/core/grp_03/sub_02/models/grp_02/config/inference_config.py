@@ -13,10 +13,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any
 
-from wisent.core.constants import (
-    DEFAULT_INFERENCE_TEMPERATURE, DEFAULT_TOP_P, DEFAULT_TOP_K,
-    DEFAULT_MAX_NEW_TOKENS_LONG, DEFAULT_REPETITION_PENALTY, DEFAULT_NO_REPEAT_NGRAM,
-)
+from wisent.core.constants import JSON_INDENT
 
 
 # Default config file location
@@ -29,12 +26,12 @@ class InferenceConfig:
     """Configuration for model inference/generation."""
 
     do_sample: bool = True
-    temperature: float = DEFAULT_INFERENCE_TEMPERATURE
-    top_p: float = DEFAULT_TOP_P
-    top_k: int = DEFAULT_TOP_K
-    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_LONG
-    repetition_penalty: float = DEFAULT_REPETITION_PENALTY
-    no_repeat_ngram_size: int = DEFAULT_NO_REPEAT_NGRAM
+    temperature: float = 0.7
+    top_p: float = 0.9
+    top_k: int = 50
+    max_new_tokens: int = 32768
+    repetition_penalty: float = 1.0
+    no_repeat_ngram_size: int = 0
     enable_thinking: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,7 +50,7 @@ class InferenceConfig:
             kwargs["top_p"] = self.top_p
             kwargs["top_k"] = self.top_k
 
-        if self.repetition_penalty != DEFAULT_REPETITION_PENALTY:
+        if self.repetition_penalty != 1.0:
             kwargs["repetition_penalty"] = self.repetition_penalty
 
         if self.no_repeat_ngram_size > 0:
@@ -74,7 +71,7 @@ class InferenceConfig:
         path = Path(path) if path else CONFIG_FILE
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(self.to_dict(), f, indent=JSON_INDENT)
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> "InferenceConfig":

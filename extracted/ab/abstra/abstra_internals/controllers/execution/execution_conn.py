@@ -7,6 +7,16 @@ from abstra_internals.controllers.execution.connection_protocol import (
 
 _current_conn: Optional[ConnectionProtocol] = None
 _stdio_buffer: Optional["StdioBuffer"] = None
+_broadcast_publisher: Optional[Any] = None
+
+
+def set_broadcast_publisher(publisher: Optional[Any]) -> None:
+    global _broadcast_publisher
+    _broadcast_publisher = publisher
+
+
+def get_broadcast_publisher() -> Optional[Any]:
+    return _broadcast_publisher
 
 
 class StdioBuffer:
@@ -43,8 +53,17 @@ class StdioBuffer:
             batch = self._buffer[:]
             self._buffer.clear()
 
+        message = {"type": "stdio_batch", "payload": batch}
+
         try:
-            self._conn.send({"type": "stdio_batch", "payload": batch})
+            self._conn.send(message)
+        except Exception:
+            pass  # Don't break execution if broadcast fails
+
+        try:
+            publisher = _broadcast_publisher
+            if publisher is not None:
+                publisher.publish(message)
         except Exception:
             pass  # Don't break execution if broadcast fails
 

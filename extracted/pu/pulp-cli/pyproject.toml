@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools<81"]
+requires = ["setuptools<83"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-cli"
-version = "0.37.0"
+version = "0.38.0"
 description = "Command line interface to talk to pulpcore's REST API."
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
-license = {text = "GPLv2+"}
+license = "GPL-2.0-or-later"
 authors = [
   {name = "Pulp Team", email = "pulp-list@redhat.com"},
 ]
@@ -16,14 +16,13 @@ classifiers=[
   "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: System Administrators",
-  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Topic :: System :: Software Distribution",
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue==0.37.0",
+  "pulp-glue==0.38.0",
   "click>=8.0.0,<8.4",  # Proven to not do semver.
   "PyYAML>=5.3,<6.1",
   "schema>=0.7.5,<0.8",
@@ -55,7 +54,7 @@ rpm = "pulpcore.cli.rpm"
 
 [tool.setuptools.packages.find]
 # This section is managed by the cookiecutter templates.
-where = ["."]
+where = ["src"]
 include = ["pulpcore.cli.*", "pulp_cli", "pytest_pulp_cli"]
 namespaces = true
 
@@ -68,6 +67,7 @@ namespaces = true
 # This section is co-managed by the cookiecutter templates.
 # Changes to existing keys should be preserved.
 app_label = ""
+src_layout = true
 repository = "https://github.com/pulp/pulp-cli"
 glue = true
 docs = true
@@ -75,10 +75,11 @@ translations = true
 main_package = "common"
 binary_dependencies = ""
 unittests = true
+paralleltests = true
 
 [tool.bumpversion]
 # This section is managed by the cookiecutter templates.
-current_version = "0.37.0"
+current_version = "0.38.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"
@@ -97,19 +98,19 @@ values = [
 
 [[tool.bumpversion.files]]
 # This section is managed by the cookiecutter templates.
-filename = "./pulp_cli/__init__.py"
+filename = "./src/pulp_cli/__init__.py"
 search = "__version__ = \"{current_version}\""
 replace = "__version__ = \"{new_version}\""
 
 [[tool.bumpversion.files]]
 # This section is managed by the cookiecutter templates.
-filename = "./pulp-glue/pulp_glue/common/__init__.py"
+filename = "./pulp-glue/src/pulp_glue/common/__init__.py"
 search = "__version__ = \"{current_version}\""
 replace = "__version__ = \"{new_version}\""
 
 [[tool.bumpversion.files]]
 # This section is managed by the cookiecutter templates.
-filename = "./pulpcore/cli/common/__init__.py"
+filename = "./src/pulpcore/cli/common/__init__.py"
 search = "__version__ = \"{current_version}\""
 replace = "__version__ = \"{new_version}\""
 
@@ -195,25 +196,20 @@ name = "Misc"
 showcontent = true
 
 
-[tool.black]
+[tool.ruff]
 # This section is managed by the cookiecutter templates.
 line-length = 100
-exclude = "cookiecutter"
+extend-exclude = ["cookiecutter"]
 
-[tool.isort]
+[tool.ruff.lint]
 # This section is managed by the cookiecutter templates.
-profile = "black"
-line_length = 100
-extend_skip = ["pulp-glue", "cookiecutter"]
+extend-select = ["I"]
 
-[tool.flake8]
+[tool.ruff.lint.isort]
 # This section is managed by the cookiecutter templates.
-exclude = ["./docs/*", "./cookiecutter/*"]
-ignore = ["W503", "Q000", "Q003", "D100", "D104", "D106", "D200", "D202", "D205", "D400", "D401", "D402"]
-# E203: whitespace before ':'; https://github.com/psf/black/issues/279
-# E401: multiple imports on one line
-extend-ignore = ["E203", "E401"]
-max-line-length = 100
+sections = { second-party = ["pulp_glue"] }
+section-order = ["future", "standard-library", "third-party", "second-party", "first-party", "local-folder"]
+
 
 [tool.pytest.ini_options]
 markers = [
@@ -234,7 +230,8 @@ markers = [
 strict = true
 warn_unused_ignores = false
 show_error_codes = true
-files = "pulpcore/**/*.py, tests/*.py, pulp_cli/**/*.py, pytest_pulp_cli/**/*.py"
+files = "src/**/*.py, tests/*.py"
+mypy_path = ["src", "pulp-glue/src"]
 namespace_packages = true
 explicit_package_bases = true
 

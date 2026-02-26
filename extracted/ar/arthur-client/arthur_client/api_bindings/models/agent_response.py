@@ -21,38 +21,38 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
-from arthur_client.api_bindings.models.data_source import DataSource
+from arthur_client.api_bindings.models.data_source_response import DataSourceResponse
 from arthur_client.api_bindings.models.infrastructure import Infrastructure
-from arthur_client.api_bindings.models.llm_model import LLMModel
+from arthur_client.api_bindings.models.llm_model_response import LLMModelResponse
 from arthur_client.api_bindings.models.rule_response import RuleResponse
-from arthur_client.api_bindings.models.sub_agent import SubAgent
-from arthur_client.api_bindings.models.tool import Tool
+from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
+from arthur_client.api_bindings.models.tool_response import ToolResponse
 from typing import Optional, Set
 from typing_extensions import Self
 
 class AgentResponse(BaseModel):
     """
-    AgentResponse
+    Response model for a registered agent.  Extends the structure of EnrichedTaskResponse with agent-specific fields and database-assigned IDs for nested entities.
     """ # noqa: E501
-    id: StrictStr = Field(description="ID of the agent.")
-    task_id: StrictStr = Field(description="ID of the task that created this agent.")
-    workspace_id: StrictStr = Field(description="ID of the workspace that contains this agent.")
-    data_plane_id: StrictStr = Field(description="ID of the data plane that contains this agent.")
-    model_id: Optional[StrictStr] = None
-    name: StrictStr = Field(description="Name of the agent.")
     created_at: datetime = Field(description="Timestamp when this agent was created.")
     updated_at: datetime = Field(description="Timestamp when this agent was last updated.")
-    last_fetched: Optional[datetime] = None
-    is_autocreated: StrictBool = Field(description="Whether this agent was auto-created.")
+    name: StrictStr = Field(description="Name of the agent.")
+    data_plane_id: StrictStr = Field(description="UUID of the data plane where this agent was detected.")
+    task_id: StrictStr = Field(description="UUID of the associated task.")
     creation_source: AgentCreationSource = Field(description="Information about how this agent was created.")
-    num_spans: StrictInt = Field(description="Number of spans associated with this agent.")
-    rules: List[RuleResponse] = Field(description="List of rules associated with this agent.")
-    tools: List[Tool] = Field(description="List of tools associated with this agent.")
-    sub_agents: List[SubAgent] = Field(description="List of sub-agents associated with this agent.")
-    models: List[LLMModel] = Field(description="List of llm models associated with this agent.")
-    data_sources: List[DataSource] = Field(description="List of data sources associated with this agent.")
-    infrastructure: Infrastructure = Field(description="Infrastructure of the data plane that contains this agent.")
-    __properties: ClassVar[List[str]] = ["id", "task_id", "workspace_id", "data_plane_id", "model_id", "name", "created_at", "updated_at", "last_fetched", "is_autocreated", "creation_source", "num_spans", "rules", "tools", "sub_agents", "models", "data_sources", "infrastructure"]
+    model_id: Optional[StrictStr] = None
+    num_spans: Optional[StrictInt] = Field(default=0, description="Number of spans associated with this agent.")
+    is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
+    rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
+    last_fetched: Optional[datetime] = None
+    id: StrictStr = Field(description="Agent ID.")
+    workspace_id: StrictStr = Field(description="UUID of the workspace this agent belongs to.")
+    tools: Optional[List[ToolResponse]] = Field(default=None, description="Tools used by this agent.")
+    sub_agents: Optional[List[SubAgentResponse]] = Field(default=None, description="Sub-agents used by this agent.")
+    llm_models: Optional[List[LLMModelResponse]] = Field(default=None, description="LLM models used by this agent.")
+    data_sources: Optional[List[DataSourceResponse]] = Field(default=None, description="Data sources used by this agent.")
+    infrastructure: Infrastructure = Field(description="Infrastructure where this agent is running (derived from creation_source).")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "id", "workspace_id", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,13 +117,13 @@ class AgentResponse(BaseModel):
                 if _item_sub_agents:
                     _items.append(_item_sub_agents.to_dict())
             _dict['sub_agents'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in models (list)
+        # override the default output from pydantic by calling `to_dict()` of each item in llm_models (list)
         _items = []
-        if self.models:
-            for _item_models in self.models:
-                if _item_models:
-                    _items.append(_item_models.to_dict())
-            _dict['models'] = _items
+        if self.llm_models:
+            for _item_llm_models in self.llm_models:
+                if _item_llm_models:
+                    _items.append(_item_llm_models.to_dict())
+            _dict['llm_models'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in data_sources (list)
         _items = []
         if self.data_sources:
@@ -153,23 +153,23 @@ class AgentResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "id": obj.get("id"),
-            "task_id": obj.get("task_id"),
-            "workspace_id": obj.get("workspace_id"),
-            "data_plane_id": obj.get("data_plane_id"),
-            "model_id": obj.get("model_id"),
-            "name": obj.get("name"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),
-            "last_fetched": obj.get("last_fetched"),
-            "is_autocreated": obj.get("is_autocreated"),
+            "name": obj.get("name"),
+            "data_plane_id": obj.get("data_plane_id"),
+            "task_id": obj.get("task_id"),
             "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,
-            "num_spans": obj.get("num_spans"),
+            "model_id": obj.get("model_id"),
+            "num_spans": obj.get("num_spans") if obj.get("num_spans") is not None else 0,
+            "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
-            "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
-            "models": [LLMModel.from_dict(_item) for _item in obj["models"]] if obj.get("models") is not None else None,
-            "data_sources": [DataSource.from_dict(_item) for _item in obj["data_sources"]] if obj.get("data_sources") is not None else None,
+            "last_fetched": obj.get("last_fetched"),
+            "id": obj.get("id"),
+            "workspace_id": obj.get("workspace_id"),
+            "tools": [ToolResponse.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
+            "sub_agents": [SubAgentResponse.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
+            "llm_models": [LLMModelResponse.from_dict(_item) for _item in obj["llm_models"]] if obj.get("llm_models") is not None else None,
+            "data_sources": [DataSourceResponse.from_dict(_item) for _item in obj["data_sources"]] if obj.get("data_sources") is not None else None,
             "infrastructure": obj.get("infrastructure")
         })
         return _obj

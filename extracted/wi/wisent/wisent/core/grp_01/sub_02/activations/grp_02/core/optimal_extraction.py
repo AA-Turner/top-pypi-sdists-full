@@ -32,7 +32,7 @@ Usage:
 from dataclasses import dataclass
 from typing import Tuple, List, Optional
 import torch
-from wisent.core.constants import NORM_EPS
+from wisent.core.constants import NORM_EPS, PCA_TOP_N_COMPONENTS
 
 
 @dataclass
@@ -170,11 +170,11 @@ def find_direction_from_all_tokens(
     # Compute explained variance ratios
     variance = S ** 2
     total_var = variance.sum()
-    explained_ratio = (variance / total_var).tolist()[:10]  # Top 10 components
+    explained_ratio = (variance / total_var).tolist()[:PCA_TOP_N_COMPONENTS]
     return PCADirectionResult(
         direction=direction,
         explained_variance_ratio=explained_ratio,
-        singular_values=S[:10],
+        singular_values=S[:PCA_TOP_N_COMPONENTS],
         n_tokens=n_tokens,
         n_pairs=len(pos_batch),
     )

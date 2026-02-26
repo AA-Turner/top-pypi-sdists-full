@@ -5,7 +5,8 @@ import os
 
 from wisent.core.cli.optimization.core.optimize_helpers import save_checkpoint
 from wisent.core.constants import (
-    DEFAULT_LAYER, DEFAULT_SCORE, DEFAULT_STRENGTH, RL_NUM_EPISODES, WELFARE_LIMIT,
+    DEFAULT_LAYER, DEFAULT_SCORE, DEFAULT_STRENGTH, DISPLAY_TRUNCATION_ERROR,
+    RL_NUM_EPISODES, WELFARE_LIMIT,
 )
 
 
@@ -91,7 +92,7 @@ def run_benchmark_steering(args, benchmarks, results):
         except Exception as e:
             error_msg = f"{benchmark}: {str(e)}"
             results["errors"].append(error_msg)
-            print(f"       Error: {str(e)[:80]}")
+            print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
             logger.exception(f"Error optimizing {benchmark}")
         
         save_checkpoint(args.model, results, phase=f"steering_benchmark_{bench_idx}")
@@ -157,7 +158,7 @@ def run_benchmark_steering(args, benchmarks, results):
             except Exception as e:
                 error_msg = f"trait:{trait}: {str(e)}"
                 results["errors"].append(error_msg)
-                print(f"       Error: {str(e)[:80]}")
-            
+                print(f"       Error: {str(e)[:DISPLAY_TRUNCATION_ERROR]}")
+
             save_checkpoint(args.model, results, phase=f"steering_personalization_{trait_idx}")
     

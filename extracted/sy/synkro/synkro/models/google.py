@@ -13,6 +13,7 @@ class Google(str, Enum):
     GEMINI_3_FLASH = "gemini/gemini-3-flash"
 
     GEMINI_25_FLASH = "gemini/gemini-2.5-flash"
+    GEMINI_25_FLASH_LITE = "gemini/gemini-2.5-flash-lite"
     GEMINI_25_PRO = "gemini/gemini-2.5-pro"
 
     GEMINI_2_FLASH = "gemini/gemini-2.0-flash"

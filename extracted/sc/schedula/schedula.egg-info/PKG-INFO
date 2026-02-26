@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: schedula
-Version: 1.6.3
+Version: 1.6.5
 Summary: Produce a plan that dispatches calls based on a graph of functions, satisfying data dependencies.
 Home-page: https://github.com/vinci1it2000/schedula
-Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.3
+Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.5
 Author: Vincenzo Arcidiacono
 Author-email: vinci1it2000@gmail.com
 License: EUPL 1.1+
@@ -81,6 +81,7 @@ Requires-Dist: flask_caching; extra == "form"
 Requires-Dist: filelock; extra == "form"
 Requires-Dist: jsonschema; extra == "form"
 Requires-Dist: flask-pymongo; extra == "form"
+Requires-Dist: fasteners; extra == "form"
 Requires-Dist: python-dateutil; extra == "form"
 Requires-Dist: stripe; extra == "form"
 Requires-Dist: sqlalchemy-file; extra == "form"
@@ -104,6 +105,7 @@ Requires-Dist: click; extra == "all"
 Requires-Dist: click_log; extra == "all"
 Requires-Dist: dill!=0.2.7; extra == "all"
 Requires-Dist: docutils; extra == "all"
+Requires-Dist: fasteners; extra == "all"
 Requires-Dist: filelock; extra == "all"
 Requires-Dist: flask; extra == "all"
 Requires-Dist: flask-admin; extra == "all"
@@ -143,6 +145,7 @@ Requires-Dist: click; extra == "dev"
 Requires-Dist: click_log; extra == "dev"
 Requires-Dist: dill!=0.2.7; extra == "dev"
 Requires-Dist: docutils; extra == "dev"
+Requires-Dist: fasteners; extra == "dev"
 Requires-Dist: filelock; extra == "dev"
 Requires-Dist: flask; extra == "dev"
 Requires-Dist: flask-admin; extra == "dev"

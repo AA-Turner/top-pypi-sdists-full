@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tiledb
-Version: 0.36.0
+Version: 0.36.1
 Summary: Pythonic interface to the TileDB array storage manager
 Author-Email: "TileDB, Inc." <help@tiledb.io>
 Maintainer-Email: "TileDB, Inc." <help@tiledb.io>
@@ -38,7 +38,7 @@ Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: hypothesis; extra == "test"
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: pyarrow; extra == "test"
-Requires-Dist: pandas; extra == "test"
+Requires-Dist: pandas<3; extra == "test"
 Requires-Dist: dask[distributed]; extra == "test"
 Description-Content-Type: text/markdown
 

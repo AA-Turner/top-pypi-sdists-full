@@ -142,6 +142,87 @@ class BackButton(Button):
         super().__init__("i18n_back_action")
 
 
+class ExitButton(Button):
+    """
+    Navigation button that terminates the form process immediately via sys.exit(0).
+
+    When pressed, ExitButton ends the entire Python process. No further code executes
+    after the form's `run()` call. This is useful for "Cancel" or "Exit" workflows where
+    the user wants to abandon the form entirely.
+
+    Unlike EndPageStep (which shows a final page with no buttons), ExitButton kills the
+    process immediately from any page without showing additional content.
+
+    ## How It Works
+
+    - When the user clicks ExitButton, the form process is terminated via `sys.exit(0)`
+    - No validation is performed on the current page (the user explicitly chose to exit)
+    - Any code after `run()` will NOT execute if ExitButton was clicked
+
+    ## Usage Pattern
+
+    ExitButton is returned alongside other buttons from a page function:
+
+    ```python
+    from abstra.forms import ExitButton, NextButton, TextInput, run
+
+    def page_with_exit(state):
+        return [
+            TextInput("Enter your email:", key="email"),
+        ], [ExitButton("Cancel"), NextButton()]
+
+    def next_page(state):
+        return [TextInput("More info:", key="info")]
+
+    state = run([page_with_exit, next_page])
+    # This line only runs if user completed the form normally (not via ExitButton)
+    print(f"Form completed with email: {state['email']}")
+    ```
+
+    If the user clicks "Cancel", the process terminates immediately.
+    If the user clicks "Next", the form proceeds normally to `next_page`.
+
+    ## Common Use Cases
+
+    - **Cancel flows**: Allow users to abandon a form at any point
+    - **Early exit**: Let users leave when they decide the form isn't relevant
+    - **Optional workflows**: Provide an escape hatch for non-mandatory processes
+
+    Args:
+        label (str): The text displayed on the button. Defaults to internationalized "Exit" text.
+
+    Examples:
+
+        # Add a cancel button to a multi-step form:
+        ```python
+        from abstra.forms import ExitButton, NextButton, TextInput, run
+
+        def page_with_exit(state):
+            return [
+                TextInput("Enter your email:", key="email"),
+            ], [ExitButton("Cancel"), NextButton()]
+
+        def confirmation(state):
+            return [
+                TextInput("Confirm your details:", key="confirmation"),
+            ]
+
+        state = run([page_with_exit, confirmation])
+        # This only executes if user completed the form (didn't click Cancel)
+        print(f"Form completed with email: {state['email']}")
+        ```
+    """
+
+    def __init__(self, label: str = "i18n_exit_action"):
+        """Initialize an ExitButton.
+
+        Args:
+            label (str): The text displayed on the button.
+                Defaults to internationalized "Exit" text.
+        """
+        super().__init__(label, key="i18n_exit_action")
+
+
 Template = List[Widget]
 TemplateWithButtons = Tuple[Template, Optional[List[Button]]]
 

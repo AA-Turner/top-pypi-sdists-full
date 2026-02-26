@@ -10,9 +10,9 @@ from sympy.parsing.latex.errors import LaTeXParsingError
 from wisent.core.errors import InvalidDataFormatError
 from typing import Dict as T_Dict
 from typing import Union as T_Union
-from wisent.core.constants import NORM_EPS, SYMPY_REL_TOL, MATH_PERCENT_REL_TOL
+from wisent.core.constants import NORM_EPS, SYMPY_REL_TOL, MATH_PERCENT_REL_TOL, DEFAULT_TIMEOUT_QUICK
 
-DEF_TIMEOUT: int = 5
+DEF_TIMEOUT: int = DEFAULT_TIMEOUT_QUICK
 DEF_N_PROC: int = os.cpu_count() // 2
 
 STRIP_STRS: List[str] = [

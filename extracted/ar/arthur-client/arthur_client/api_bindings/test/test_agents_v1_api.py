@@ -75,6 +75,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_put_agents(self) -> None:
+        """Test case for put_agents
+
+        Upsert Agents.
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

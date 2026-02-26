@@ -2,6 +2,7 @@ from typing import Iterable
 
 import django_filters
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Model
 from django.forms.widgets import SelectMultiple, TextInput
 from django.utils.http import urlencode
 from django_filters.fields import ModelChoiceField, ModelMultipleChoiceField
@@ -14,27 +15,37 @@ from wbcore.filters.mixins import WBCoreFilterMixin
 class ModelChoiceFilterMixin(WBCoreFilterMixin):
     MULTIPLE: bool = False
 
-    def _validate_initial_with_request(self, initial, request, name):
-        if request_default := request.GET.get(name):
-            return request_default.split(",")
-        return initial
+    def _parse_request_initial(self, request_initial):
+        return request_initial.split(",")
 
-    @classmethod
-    def get_parsed_values(cls, queryset, value_ids: int | str | Iterable[int]):
-        if isinstance(value_ids, str):
-            value_ids = value_ids.split(",")
-        elif isinstance(value_ids, int):
-            value_ids = [value_ids]
-
-        if isinstance(value_ids, list):
-            for value_id in value_ids:
+    def get_parsed_values(
+        self, queryset, values: int | Iterable[int] | Model | Iterable[Model]
+    ) -> list[dict] | dict | None:
+        if not isinstance(values, list):
+            values = [values]
+        parsed_values = []
+        for value in values:
+            if isinstance(value, int):
                 try:
-                    yield {
-                        "value": value_id,
-                        "label": str(queryset.get(id=value_id)),
-                    }
+                    parsed_values.append(
+                        {
+                            "value": value,
+                            "label": str(queryset.get(id=value)),
+                        }
+                    )
                 except ObjectDoesNotExist as e:
                     raise ParseError("Filter value invalid") from e
+            else:
+                parsed_values.append(
+                    {
+                        "value": value.id,
+                        "label": str(value),
+                    }
+                )
+        if self.MULTIPLE:
+            return parsed_values
+        elif parsed_values:
+            return parsed_values[0]
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)
@@ -65,9 +76,9 @@ class ModelChoiceFilterMixin(WBCoreFilterMixin):
             "label_key": label_key,
         }
 
-        if initial_ids := lookup_expr["input_properties"].get("initial", None):
-            values = self.get_parsed_values(queryset, initial_ids)
-            lookup_expr["input_properties"]["initial"] = list(values) if self.MULTIPLE else next(values)
+        if values := lookup_expr["input_properties"].get("initial", None):
+            # ensure given values are in the proper representation (we expect values to be a raw int, or directly a model or a iterable of either)
+            lookup_expr["input_properties"]["initial"] = self.get_parsed_values(queryset, values)
 
         return representation, lookup_expr
 

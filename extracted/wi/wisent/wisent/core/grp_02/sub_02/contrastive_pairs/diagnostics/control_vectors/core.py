@@ -10,7 +10,10 @@ import torch
 
 from wisent.core.activations.core.atoms import LayerActivations, RawActivationMap
 from ..base import DiagnosticsIssue, DiagnosticsReport, MetricReport
-from wisent.core.constants import NORM_EPS, MIN_NORM_THRESHOLD, NEAR_ZERO_TOL
+from wisent.core.constants import (
+    NORM_EPS, MIN_NORM_THRESHOLD, NEAR_ZERO_TOL,
+    CONTROL_VECTOR_MAX_ZERO_FRACTION,
+)
 
 __all__ = [
     "ControlVectorDiagnosticsConfig",
@@ -26,7 +29,7 @@ class ControlVectorDiagnosticsConfig:
     min_norm: float = MIN_NORM_THRESHOLD
     max_norm: float | None = None
     zero_value_threshold: float = NORM_EPS
-    max_zero_fraction: float = 0.999
+    max_zero_fraction: float = CONTROL_VECTOR_MAX_ZERO_FRACTION
     warn_on_missing: bool = True
 
 

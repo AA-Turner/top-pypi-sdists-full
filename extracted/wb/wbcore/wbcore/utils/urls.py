@@ -68,3 +68,10 @@ def base_domain() -> str:
 def new_mode(url: str) -> str:
     operator = "&" if "?" in url else "?"
     return url + f"{operator}new_mode=true"
+
+
+def get_multi_request_value(request, field_name: str, sep: str = ",") -> list:
+    if value := request.GET.get(field_name):
+        value = value[0] if isinstance(value, list) else value
+        return urllib.parse.unquote(value).split(sep)
+    return []

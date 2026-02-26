@@ -1,23 +1,23 @@
 Metadata-Version: 2.4
 Name: icalendar-searcher
-Version: 1.0.3
+Version: 1.0.5
 Summary: Search, filter and sort iCalendar components
-License-File: LICENSE.md
-Author: Tobias Brox
-Author-email: tobias@redpill-linpro.com
-Requires-Python: >=3.9,<4.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Provides-Extra: collation
-Requires-Dist: icalendar (>=6.0)
-Requires-Dist: recurring-ical-events (>=3.8.0)
-Project-URL: Issues, https://github.com/python-caldav/icalendar-searcher/issues
 Project-URL: Repository, https://github.com/python-caldav/icalendar-searcher
+Project-URL: Issues, https://github.com/python-caldav/icalendar-searcher/issues
+Author-email: Tobias Brox <tobias@redpill-linpro.com>
+License: AGPL-3.0-or-later
+License-File: LICENSE.md
+Requires-Python: <4.0,>=3.10
+Requires-Dist: icalendar>=6.0
+Requires-Dist: recurring-ical-events>=3.8.0
+Provides-Extra: collation
+Requires-Dist: pyicu; extra == 'collation'
+Provides-Extra: dev
+Requires-Dist: deptry>=0.24.0; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pyicu; extra == 'dev'
+Requires-Dist: pytest<10.0.0,>=8.0.0; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # icalendar-searcher
@@ -169,4 +169,3 @@ As for now I'm releasing this under the GNU Affero General Public License v.3.0.
 This also means that any contributor has to accept that the code is released under AGPL v3.0 and at some point in the future may be dual-licensed under some more permissive license, like the EUPL v1.1.
 
 I don't have very strong opinions on licenses.  If you have any issues in one way or another, please reach out.
-

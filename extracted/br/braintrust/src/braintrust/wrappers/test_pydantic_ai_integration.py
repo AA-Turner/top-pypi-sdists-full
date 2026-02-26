@@ -431,6 +431,15 @@ async def test_agent_with_tools(memory_logger):
     assert "weather" in str(agent_span["input"]).lower() or "paris" in str(agent_span["input"]).lower()
     _assert_metrics_are_valid(agent_span["metrics"], start, end)
 
+    tool_spans = [s for s in spans if s["span_attributes"].get("type") == SpanTypeAttribute.TOOL]
+    assert len(tool_spans) >= 1, f"Expected at least 1 TOOL span, got {len(tool_spans)}"
+
+    weather_tool_span = next((s for s in tool_spans if s["span_attributes"]["name"] == "get_weather"), None)
+    assert weather_tool_span is not None, "get_weather TOOL span not found"
+    assert "Paris" in str(weather_tool_span["input"]) or "paris" in str(weather_tool_span["input"]).lower()
+    assert "sunny" in str(weather_tool_span["output"]).lower()
+    assert weather_tool_span["span_parents"] == [agent_span["span_id"]], "tool span should be nested under agent_run"
+
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
@@ -1796,17 +1805,19 @@ async def test_agent_with_tool_execution(memory_logger):
     # Verify toolsets are NOT in metadata (following the principle: agent.run() accepts it)
     assert "toolsets" not in agent_span["metadata"], "toolsets should NOT be in metadata"
 
+    tool_spans = [s for s in spans if s["span_attributes"].get("type") == SpanTypeAttribute.TOOL]
+    assert len(tool_spans) >= 1, f"Expected at least 1 TOOL span, got {len(tool_spans)}"
+
+    calc_tool_span = next((s for s in tool_spans if s["span_attributes"]["name"] == "calculate"), None)
+    assert calc_tool_span is not None, "calculate TOOL span not found"
+    assert calc_tool_span["input"] is not None, "tool span should have input"
+    assert calc_tool_span["output"] is not None, "tool span should have output"
+    assert calc_tool_span["span_parents"] == [agent_span["span_id"]], "tool span should be nested under agent_run"
+
 
 @pytest.mark.vcr
 def test_tool_execution_creates_spans(memory_logger):
-    """Test that executing tools with agents works and creates traced spans.
-
-    Note: Tool-level span creation is not yet implemented in the wrapper.
-    This test verifies that agents with tools work correctly and produce agent/chat spans.
-
-    Future enhancement: Add automatic span creation for tool executions as children of
-    the chat span that requested them.
-    """
+    """Test that executing tools with agents works and creates traced spans."""
     assert not memory_logger.pop()
 
     start = time.time()
@@ -1853,9 +1864,16 @@ def test_tool_execution_creates_spans(memory_logger):
     tool_names = [t["name"] for t in tools if isinstance(t, dict)]
     assert "calculate" in tool_names, f"calculate tool should be in toolset, got: {tool_names}"
 
-    # TODO: Future enhancement - verify tool execution spans are created
-    # tool_spans = [s for s in spans if "calculate" in s["span_attributes"].get("name", "")]
-    # assert len(tool_spans) > 0, "Tool execution should create spans"
+    tool_spans = [s for s in spans if s["span_attributes"].get("type") == SpanTypeAttribute.TOOL]
+    assert len(tool_spans) >= 1, f"Expected at least 1 TOOL span, got {len(tool_spans)}"
+
+    calc_tool_span = next((s for s in tool_spans if s["span_attributes"]["name"] == "calculate"), None)
+    assert calc_tool_span is not None, "calculate TOOL span not found"
+    assert calc_tool_span["input"] is not None, "tool span should have input"
+    assert calc_tool_span["output"] is not None, "tool span should have output"
+    # Verify tool span is nested within the agent span tree
+    all_span_ids = {s["span_id"] for s in spans}
+    assert calc_tool_span["span_parents"][0] in all_span_ids, "tool span should be nested under a span in the agent tree"
 
 
 def test_agent_tool_metadata_extraction(memory_logger):
@@ -2573,6 +2591,46 @@ async def test_attachment_in_result_data(memory_logger):
     copied = bt_safe_deep_copy(result_data)
     assert copied["output_file"] is ext_attachment
     assert copied["success"] is True
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_no_model_agent_run(memory_logger):
+    """Agent created without a model should work when model is passed at runtime.
+
+    Reproduces https://github.com/braintrustdata/braintrust-sdk/issues/1324:
+    _ensure_model_wrapped() calls type(instance._model) without checking for None,
+    crashing with: AttributeError: type object 'NoneType' has no attribute 'request'
+    """
+    assert not memory_logger.pop()
+
+    agent = Agent(model_settings=ModelSettings(max_tokens=50))
+
+    start = time.time()
+    result = await agent.run(TEST_PROMPT, model=MODEL)
+    end = time.time()
+
+    assert result.output
+    assert "4" in str(result.output)
+
+    spans = memory_logger.pop()
+    assert len(spans) == 2, f"Expected 2 spans (agent_run + chat), got {len(spans)}"
+
+    agent_span = next((s for s in spans if "agent_run" in s["span_attributes"]["name"]), None)
+    chat_span = next((s for s in spans if "chat" in s["span_attributes"]["name"]), None)
+
+    assert agent_span is not None, "agent_run span not found"
+    assert chat_span is not None, "chat span not found"
+
+    assert agent_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert agent_span["metadata"]["model"] == "gpt-4o-mini"
+    assert agent_span["metadata"]["provider"] == "openai"
+    assert TEST_PROMPT in str(agent_span["input"])
+    assert "4" in str(agent_span["output"])
+
+    assert chat_span["span_parents"] == [agent_span["span_id"]]
+    assert chat_span["span_attributes"]["type"] == SpanTypeAttribute.LLM
+    assert chat_span["metadata"]["model"] == "gpt-4o-mini"
 
 
 class TestAutoInstrumentPydanticAI:

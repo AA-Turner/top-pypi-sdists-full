@@ -59,7 +59,7 @@ def setup_diagnose_vectors_parser(parser):
     parser.add_argument(
         '--max-clusters',
         type=int,
-        default=5,
+        default=_C.PARSER_DEFAULT_MAX_CLUSTERS,
         help='Maximum clusters to try for cluster detection (default: 5)'
     )
 

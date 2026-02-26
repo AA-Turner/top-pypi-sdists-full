@@ -1044,6 +1044,11 @@ class RunsStub(object):
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=core__api__pb2.RunStats.FromString,
                 _registered_method=True)
+        self.PoolStats = channel.unary_unary(
+                '/coreApi.Runs/PoolStats',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=core__api__pb2.ConnectionPoolStats.FromString,
+                _registered_method=True)
         self.Count = channel.unary_unary(
                 '/coreApi.Runs/Count',
                 request_serializer=core__api__pb2.CountRunsRequest.SerializeToString,
@@ -1139,6 +1144,13 @@ class RunsServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PoolStats(self, request, context):
+        """Get connection pool stats for metrics aggregation (internal method, no auth)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Count(self, request, context):
         """Count runs matching criteria (internal method, no auth)
         """
@@ -1218,6 +1230,11 @@ def add_RunsServicer_to_server(servicer, server):
                     servicer.Stats,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=core__api__pb2.RunStats.SerializeToString,
+            ),
+            'PoolStats': grpc.unary_unary_rpc_method_handler(
+                    servicer.PoolStats,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=core__api__pb2.ConnectionPoolStats.SerializeToString,
             ),
             'Count': grpc.unary_unary_rpc_method_handler(
                     servicer.Count,
@@ -1532,6 +1549,33 @@ class Runs(object):
             '/coreApi.Runs/Stats',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             core__api__pb2.RunStats.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PoolStats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Runs/PoolStats',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            core__api__pb2.ConnectionPoolStats.FromString,
             options,
             channel_credentials,
             insecure,

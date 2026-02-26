@@ -1,7 +1,11 @@
 import sys
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from abstra_internals.entities.forms.form_entity import FormEntity, Step
+from abstra_internals.entities.forms.form_entity import (
+    ExitNavigationAction,
+    FormEntity,
+    Step,
+)
 from abstra_internals.entities.forms.form_state import State
 from abstra_internals.environment import IS_DEVELOPMENT
 from abstra_internals.interface.contract import StepsInfo, ValidationResult
@@ -66,7 +70,9 @@ class FormSDKController:
             if response["type"] == "form:input":
                 form.handle_input(response)
             elif response["type"] == "form:navigation":
-                form.handle_navigation(response)
+                action = form.handle_navigation(response)
+                if action and isinstance(action, ExitNavigationAction):
+                    sys.exit(0)
             else:
                 raise ValueError(f"Invalid response type: {response['type']}")
 

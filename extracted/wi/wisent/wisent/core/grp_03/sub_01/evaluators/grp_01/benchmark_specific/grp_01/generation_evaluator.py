@@ -16,6 +16,7 @@ from wisent.core.constants import (
     COMPARE_TOL, EVAL_NLI_THRESHOLD, EVAL_NLI_CONF_CEILING,
     EVAL_NLI_CONF_BASE, EVAL_NLI_CONF_SCALE, EVAL_EMB_THRESHOLD,
     EVAL_EMB_CONF_CEILING, EVAL_EMB_CONF_BASE, EVAL_EMB_CONF_SCALE,
+    GEN_EVAL_HIGH_CONFIDENCE,
 )
 from wisent.core.evaluators.benchmark_specific._generation_evaluator_helpers import (
     GenerationEvaluatorHelpersMixin,
@@ -268,7 +269,7 @@ class GenerationEvaluator(GenerationEvaluatorHelpersMixin, BaseEvaluator):
             if extracted_norm == expected_norm:
                 return True, expected, 1.0
             if extracted_norm in expected_norm or expected_norm in extracted_norm:
-                return True, expected, 0.9
+                return True, expected, GEN_EVAL_HIGH_CONFIDENCE
 
         for expected in expected_list:
             expected_str = str(expected)

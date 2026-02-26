@@ -22,6 +22,7 @@ from dissect.target.loaders.dir import DirLoader
 from dissect.target.loaders.raw import RawLoader
 from dissect.target.loaders.vbox import VBoxLoader
 from dissect.target.target import DiskCollection, Event, Target, TargetLogAdapter, log
+from tests._utils import absolute_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -223,6 +224,7 @@ def mocked_win_volumes_fs() -> Iterator[tuple[Mock, Mock, Mock]]:
     mock_good_volume.drive_letter = "W"
 
     mock_good_fs = Mock(name="good-fs")
+    mock_good_fs.__type__ = "mock"
     mock_good_fs.iter_subfs.return_value = []
 
     def mock_filesystem_open(volume: Mock) -> Mock:
@@ -580,7 +582,9 @@ def test_empty_volume_log(target_bare: Target, caplog: pytest.LogCaptureFixture)
 @pytest.mark.parametrize("nr_of_fs", [1, 2])
 def test_fs_mount_others(target_unix: Target, nr_of_fs: int) -> None:
     for _ in range(nr_of_fs):
-        target_unix.filesystems.add(Mock())
+        fs = Mock()
+        fs.__type__ = "mock"
+        target_unix.filesystems.add(fs)
 
     target_unix._mount_others()
 
@@ -594,7 +598,9 @@ def test_fs_mount_others(target_unix: Target, nr_of_fs: int) -> None:
 @pytest.mark.parametrize("nr_of_fs", [1, 2])
 def test_fs_mount_already_there(target_unix: Target, nr_of_fs: int) -> None:
     for idx in range(nr_of_fs):
-        target_unix.filesystems.add(Mock())
+        fs = Mock()
+        fs.__type__ = "mock"
+        target_unix.filesystems.add(fs)
         target_unix._mount_others()
 
         assert f"/$fs$/fs{idx}" in target_unix.fs.mounts
@@ -771,6 +777,18 @@ def test_exception_invalid_path() -> None:
         match=r"Failed to find any loader for targets: \['smb://invalid'\]",
     ):
         next(Target.open_all("smb://invalid"))
+
+    # If no loader was found (eg. a loader was found but crashed),
+    # but the given path does exist, throw a sensible error message.
+    with (  # noqa: PT012
+        pytest.raises(
+            TargetError,
+            match=r"Failed to find any loader for targets:",
+        ),
+        patch("dissect.target.loaders.tar.TarLoader.map") as map,
+    ):
+        map.side_effect = Exception
+        next(Target.open_all(str(absolute_path("_data/loaders/tar/test-archive.tar"))))
 
 
 def test_list_children() -> None:

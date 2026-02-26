@@ -18,6 +18,7 @@ from .missing_packages_in_requirements import MissingPackagesInRequirements
 from .missing_task_schema_for_agent_target import MissingTaskSchemaForAgentTarget
 from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
+from .send_task_without_transition import SendTaskWithoutTransition
 from .syntax_errors import SyntaxErrors
 
 # from .type_checking import TypeCheckingRule
@@ -40,6 +41,7 @@ core_rules: List[LinterRule] = [
     BigPyFiles(),
     FileOutsideProjectRoot(),
     MissingTaskSchemaForAgentTarget(),
+    SendTaskWithoutTransition(),
     # TypeCheckingRule(),
 ]
 

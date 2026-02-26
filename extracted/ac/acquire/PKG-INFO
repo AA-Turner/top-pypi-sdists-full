@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acquire
-Version: 3.21
+Version: 3.22
 Summary: A tool to quickly gather forensic artifacts from disk images or a live system into a lightweight container
 Author-email: Dissect Team <dissect@fox-it.com>
 License-Expression: AGPL-3.0-or-later
@@ -22,7 +22,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT
 Requires-Dist: dissect.cstruct<5,>=4
-Requires-Dist: dissect.target<4,>=3.24
+Requires-Dist: dissect.target<4,>=3.25
 Provides-Extra: full
 Requires-Dist: minio; extra == "full"
 Requires-Dist: pycryptodome; extra == "full"
@@ -33,7 +33,7 @@ Requires-Dist: requests_toolbelt; extra == "full"
 Provides-Extra: dev
 Requires-Dist: acquire[full]; extra == "dev"
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
-Requires-Dist: dissect.target[dev]<4.0.dev,>=3.24.dev; extra == "dev"
+Requires-Dist: dissect.target[dev]<4.0.dev,>=3.25; extra == "dev"
 Dynamic: license-file
 
 # Acquire

@@ -46,6 +46,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.output import ColorDepth
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession
 import pymysql
+from pymysql.constants.CR import CR_SERVER_LOST
 from pymysql.constants.ER import ACCESS_DENIED_ERROR, HANDSHAKE_ERROR
 from pymysql.cursors import Cursor
 import sqlglot
@@ -85,7 +86,7 @@ sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None  # type: ignore[assignment]
 # Query tuples are used for maintaining history
 Query = namedtuple("Query", ["query", "successful", "mutating"])
 
-SUPPORT_INFO = "Home: http://mycli.net\nBug tracker: https://github.com/dbcli/mycli/issues"
+SUPPORT_INFO = "Home: https://mycli.net\nBug tracker: https://github.com/dbcli/mycli/issues"
 DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
 MIN_COMPLETION_TRIGGER = 1
@@ -299,30 +300,30 @@ class MyCli:
             self.sqlexecute.close()
 
     def register_special_commands(self) -> None:
-        special.register_special_command(self.change_db, "use", "\\u", "Change to a new database.", aliases=["\\u"])
+        special.register_special_command(self.change_db, "use", "use <database>", "Change to a new database.", aliases=["\\u"])
         special.register_special_command(
             self.manual_reconnect,
             "connect",
-            "\\r",
-            "Reconnect to the database. Optional database argument.",
+            "connect [database]",
+            "Reconnect to the server, optionally switching databases.",
             aliases=["\\r"],
             case_sensitive=True,
         )
         special.register_special_command(
-            self.refresh_completions, "rehash", "\\#", "Refresh auto-completions.", arg_type=ArgType.NO_QUERY, aliases=["\\#"]
+            self.refresh_completions, "rehash", "rehash", "Refresh auto-completions.", arg_type=ArgType.NO_QUERY, aliases=["\\#"]
         )
         special.register_special_command(
             self.change_table_format,
             "tableformat",
-            "\\T",
-            "Change the table format used to output results.",
+            "tableformat <format>",
+            "Change the table format used to output interactive results.",
             aliases=["\\T"],
             case_sensitive=True,
         )
         special.register_special_command(
             self.change_redirect_format,
             "redirectformat",
-            "\\Tr",
+            "redirectformat <format>",
             "Change the table format used to output redirected results.",
             aliases=["\\Tr"],
             case_sensitive=True,
@@ -330,7 +331,7 @@ class MyCli:
         special.register_special_command(
             self.disable_show_warnings,
             "nowarnings",
-            "\\w",
+            "nowarnings",
             "Disable automatic warnings display.",
             aliases=["\\w"],
             case_sensitive=True,
@@ -338,14 +339,16 @@ class MyCli:
         special.register_special_command(
             self.enable_show_warnings,
             "warnings",
-            "\\W",
+            "warnings",
             "Enable automatic warnings display.",
             aliases=["\\W"],
             case_sensitive=True,
         )
-        special.register_special_command(self.execute_from_file, "source", "\\. filename", "Execute commands from file.", aliases=["\\."])
         special.register_special_command(
-            self.change_prompt_format, "prompt", "\\R", "Change prompt format.", aliases=["\\R"], case_sensitive=True
+            self.execute_from_file, "source", "source <filename>", "Execute commands from file.", aliases=["\\."]
+        )
+        special.register_special_command(
+            self.change_prompt_format, "prompt", "prompt <string>", "Change prompt format.", aliases=["\\R"], case_sensitive=True
         )
 
     def manual_reconnect(self, arg: str = "", **_) -> Generator[SQLResult, None, None]:
@@ -434,7 +437,7 @@ class MyCli:
             message = "Missing required argument, format."
             return [SQLResult(status=message)]
 
-        self.prompt_format = self.get_prompt(arg)
+        self.prompt_format = arg
         return [SQLResult(status=f"Changed prompt format to {arg}")]
 
     def initialize_logging(self) -> None:
@@ -724,6 +727,16 @@ class MyCli:
                     )
                     connection_info["password"] = new_password
                     _connect(retry_password=True)
+                elif e1.args[0] == CR_SERVER_LOST:
+                    self.echo(
+                        (
+                            "Connection to server lost. If this error persists, it may be a mismatch between the server and "
+                            "client SSL configuration. To troubleshoot the issue, try --ssl-mode=off or --ssl-mode=on."
+                        ),
+                        err=True,
+                        fg='red',
+                    )
+                    raise e1
                 else:
                     raise e1
 
@@ -774,6 +787,7 @@ class MyCli:
     def handle_editor_command(
         self,
         text: str,
+        inputhook: Callable | None,
         loaded_message_fn: Callable,
     ) -> str:
         r"""Editor command is any query that is prefixed or suffixed by a '\e'.
@@ -798,9 +812,9 @@ class MyCli:
             while True:
                 try:
                     assert isinstance(self.prompt_app, PromptSession)
-                    # buglet: this prompt() invocation doesn't have an inputhook for keepalive pings
                     text = self.prompt_app.prompt(
                         default=sql,
+                        inputhook=inputhook,
                         message=loaded_message_fn,
                     )
                     break
@@ -1055,6 +1069,7 @@ class MyCli:
                 try:
                     text = self.handle_editor_command(
                         text,
+                        inputhook,
                         loaded_message_fn,
                     )
                 except RuntimeError as e:

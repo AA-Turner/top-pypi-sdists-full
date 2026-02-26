@@ -6,7 +6,7 @@
 tests=$(dirname $0)
 export PROJECT_ROOT=$(cd `dirname $tests` && pwd -P)
 export PROJECT_LIB="${PROJECT_ROOT}/ara"
-export LINTING_TARGETS=("${PROJECT_LIB}" "${PROJECT_ROOT}/tests" "${PROJECT_ROOT}/doc" "${PROJECT_ROOT}/setup.py" "${PROJECT_ROOT}/manage.py")
+export LINTING_TARGETS=("${PROJECT_LIB}" "${PROJECT_ROOT}/tests" "${PROJECT_ROOT}/doc" "${PROJECT_ROOT}/manage.py")
 ret=0
 
 function banner() {
@@ -27,7 +27,7 @@ if [ -z "${VIRTUAL_ENV}" ]; then
 fi
 
 banner black
-time black --config "${PROJECT_ROOT}/.black.toml" --diff --check "${LINTING_TARGETS[@]}"
+time black --diff --check "${LINTING_TARGETS[@]}"
 ret+=$?
 
 banner isort

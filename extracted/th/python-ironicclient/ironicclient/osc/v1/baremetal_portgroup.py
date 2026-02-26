@@ -204,6 +204,11 @@ class ListBaremetalPortGroup(command.Lister):
             dest='node',
             metavar='<node>',
             help=_("Only list port groups of this node (name or UUID)."))
+        parser.add_argument(
+            '--shards',
+            nargs='+',
+            metavar='<shard>',
+            help=_("Only list port groups of nodes in these shards."))
 
         display_group = parser.add_mutually_exclusive_group(required=False)
         display_group.add_argument(
@@ -230,7 +235,6 @@ class ListBaremetalPortGroup(command.Lister):
         client = self.app.client_manager.baremetal
 
         columns = res_fields.PORTGROUP_RESOURCE.fields
-        labels = res_fields.PORTGROUP_RESOURCE.labels
 
         params = {}
         if parsed_args.limit is not None and parsed_args.limit < 0:
@@ -243,17 +247,17 @@ class ListBaremetalPortGroup(command.Lister):
             params['address'] = parsed_args.address
         if parsed_args.node is not None:
             params['node'] = parsed_args.node
+        if parsed_args.shards:
+            params['shards'] = parsed_args.shards
 
         if parsed_args.detail:
             params['detail'] = parsed_args.detail
             columns = res_fields.PORTGROUP_DETAILED_RESOURCE.fields
-            labels = res_fields.PORTGROUP_DETAILED_RESOURCE.labels
         elif parsed_args.fields:
             params['detail'] = False
             fields = itertools.chain.from_iterable(parsed_args.fields)
             resource = res_fields.Resource(list(fields))
             columns = resource.fields
-            labels = resource.labels
             params['fields'] = columns
 
         self.log.debug("params(%s)", params)
@@ -261,7 +265,7 @@ class ListBaremetalPortGroup(command.Lister):
 
         data = oscutils.sort_items(data, parsed_args.sort)
 
-        return (labels,
+        return (columns,
                 (oscutils.get_item_properties(s, columns, formatters={
                     'Properties': utils.HashColumn},) for s in data))
 

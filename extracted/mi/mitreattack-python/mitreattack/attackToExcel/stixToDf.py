@@ -118,6 +118,7 @@ def techniquesToDf(src, domain):
     for tactic in tactics:
         x_mitre_shortname = tactic["x_mitre_shortname"]
         tactic_names[x_mitre_shortname] = tactic["name"]
+    missing_tactic_shortnames = set()
 
     all_sub_techniques = src.query(
         [
@@ -150,7 +151,14 @@ def techniquesToDf(src, domain):
 
         technique_tactic_names = []
         for shortname in tactic_shortnames:
-            tactic_display_name = tactic_names[shortname]
+            tactic_display_name = tactic_names.get(shortname)
+            if not tactic_display_name:
+                tactic_display_name = shortname.replace("-", " ").title()
+                if shortname not in missing_tactic_shortnames:
+                    logger.warning(
+                        f"Could not find x-mitre-tactic object for shortname '{shortname}', using '{tactic_display_name}'"
+                    )
+                    missing_tactic_shortnames.add(shortname)
             technique_tactic_names.append(tactic_display_name)
         row["tactics"] = ", ".join(sorted(technique_tactic_names))
 
@@ -376,6 +384,7 @@ def analyticsToDf(src):
         analytic_rows = []
         logsource_rows = []
         analytic_to_ds_rows = []
+        failed_by_data_component = {}
 
         # analytics to detection strategies
         analytic_to_ds_map = {}
@@ -388,6 +397,32 @@ def analyticsToDf(src):
                         "detection_strategy_name": ds.get("name", ""),
                     }
                 )
+
+        # Prints out errors where data components are not in the same domain as analytics
+        for analytic in tqdm(analytics, desc="parsing analytics"):
+            analytic_id = analytic.get("id")
+            for logsrc in analytic.get("x_mitre_log_source_references", []):
+                data_comp_id = logsrc.get("x_mitre_data_component_ref", "")
+                data_comp = src.get(data_comp_id)
+                try:
+                    data_comp_attack_id = data_comp["external_references"][0]["external_id"]
+                except (KeyError, TypeError, IndexError, AttributeError):
+                    if data_comp_id not in failed_by_data_component:
+                        failed_by_data_component[data_comp_id] = []
+                    failed_by_data_component[data_comp_id].append(analytic_id)
+
+        if failed_by_data_component:
+            lines = ["Failures grouped by data component:\n"]
+            for dc_id in sorted(failed_by_data_component):
+                analytic_ids = sorted(set(failed_by_data_component[dc_id]))
+                dc_obj = src.get(dc_id) or {}
+                dc_name = dc_obj.get("name", "")
+
+                lines.append(f"data_component={dc_id}" + (f" ({dc_name})" if dc_name else ""))
+                lines.extend([f"  - analytic={a}" for a in analytic_ids])
+                lines.append("")
+
+            raise RuntimeError("\n".join(lines))
 
         for analytic in tqdm(analytics, desc="parsing analytics"):
             analytic_rows.append(parseBaseStix(analytic))

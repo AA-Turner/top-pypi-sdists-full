@@ -64,6 +64,7 @@ if TYPE_CHECKING:
         IfNotExists,
         MetadataInput,
         MultitaskStrategy,
+        PoolStats,
         QueueStats,
         Run,
         RunSelectField,
@@ -716,6 +717,31 @@ class Runs(Authenticated):
                 else None
             ),
         }
+
+    @staticmethod
+    @grpc_error_guard
+    async def pool_stats() -> PoolStats:
+        """Get connection pool stats from the Core API (Go) for metrics aggregation."""
+        client = await get_shared_client()
+        response = await client.runs.PoolStats(Empty())
+        out = {}
+        if response.HasField("postgres"):
+            p = response.postgres
+            out["postgres"] = {
+                "pool_max": p.pool_max,
+                "pool_size": p.pool_size,
+                "pool_available": p.pool_available,
+                "requests_queued": p.requests_queued,
+                "requests_errors": p.requests_errors,
+            }
+        if response.HasField("redis"):
+            r = response.redis
+            out["redis"] = {
+                "idle_connections": r.idle_connections,
+                "in_use_connections": r.in_use_connections,
+                "max_connections": r.max_connections,
+            }
+        return out
 
     @staticmethod
     async def set_status(

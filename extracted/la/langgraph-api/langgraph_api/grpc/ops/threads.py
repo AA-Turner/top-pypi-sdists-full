@@ -245,6 +245,19 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
     if proto_thread.extracted_json:
         result["extracted"] = json_loads(proto_thread.extracted_json)
 
+    if proto_thread.HasField("ttl"):
+        ttl = proto_thread.ttl
+        strategy_map = {
+            pb.THREAD_TTL_STRATEGY_DELETE: "delete",
+            pb.THREAD_TTL_STRATEGY_KEEP_LATEST: "keep_latest",
+        }
+        result["ttl"] = {
+            "strategy": strategy_map.get(ttl.strategy, "delete"),
+            "ttl_minutes": ttl.ttl_minutes,
+            "expires_at": ttl.expires_at.ToDatetime(tzinfo=UTC)
+            if ttl.HasField("expires_at")
+            else None,
+        }
     return result
 
 
@@ -467,7 +480,7 @@ class Threads(Authenticated):
             filters: Additional auth filters to merge with auth context filters.
                      Accepts either raw dict filters (FilterType) or pre-processed
                      proto filters (list[pb.AuthFilter]).
-            include_ttl: Not yet supported in gRPC - parameter ignored.
+            include_ttl: When True, include TTL information in the response.
         """
         auth_filters = await Threads.handle_event(
             ctx, "read", {"thread_id": str(thread_id)}
@@ -485,6 +498,7 @@ class Threads(Authenticated):
         request = pb.GetThreadRequest(
             thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
             filters=auth_filters,
+            include_ttl=include_ttl if include_ttl else None,
         )
         client = await get_shared_client()
         response = await client.threads.Get(request)

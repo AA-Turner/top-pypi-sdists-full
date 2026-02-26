@@ -33,6 +33,9 @@ def check_rule(rule, checks_list):
     checks_list.append(check)
 
 
+LINTER_TYPE_PRIORITY = {"security": 0, "bug": 1, "warning": 2, "info": 3}
+
+
 class LocalLinterRepository(LinterRepository):
     def __init__(self):
         self.checks: List[LinterCheck] = []
@@ -85,6 +88,7 @@ class LocalLinterRepository(LinterRepository):
         for thread in threads:
             thread.join()
 
+        new_checks.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
         self.checks = new_checks
 
         return self.checks

@@ -2,12 +2,16 @@
 
 
 from glob import glob
+from itertools import product
 from os import environ
 from os.path import basename, dirname, join, exists
-from itertools import product
+
 import pytest
-import mip
-from mip import Model, OptimizationStatus, GUROBI, CBC
+
+import mip.gurobi
+import mip.highs
+from mip import Model, OptimizationStatus, CBC, GUROBI, HIGHS
+from util import skip_on, has_gurobi_license
 
 # for each MIP in test/data, best lower and upper bounds
 # to be used when checking optimization results
@@ -87,8 +91,10 @@ TOL = 1e-4
 MAX_NODES = 10
 
 SOLVERS = [CBC]
-if "GUROBI_HOME" in environ:
+if has_gurobi_license():
     SOLVERS += [GUROBI]
+if mip.highs.has_highs:
+    SOLVERS += [HIGHS]
 
 # check availability of test data
 DATA_DIR = join(join(dirname(mip.__file__)[0:-3], "test"), "data")
@@ -107,6 +113,7 @@ for exti in EXTS:
     INSTS = INSTS + glob(join(DATA_DIR, "*" + exti))
 
 
+@skip_on(NotImplementedError)
 @pytest.mark.parametrize("solver, instance", product(SOLVERS, INSTS))
 def test_mip_file(solver: str, instance: str):
     """Tests optimization of MIP models stored in .mps or .lp files"""
@@ -131,6 +138,9 @@ def test_mip_file(solver: str, instance: str):
     has_opt = abs(ub - lb) <= TOL
 
     max_dif = max(max(abs(ub), abs(lb)) * 0.01, TOL)
+
+    if solver == HIGHS and instance.endswith(".gz"):
+        pytest.skip("HiGHS does not support .gz files.")
 
     m.read(instance)
     if bas_file:

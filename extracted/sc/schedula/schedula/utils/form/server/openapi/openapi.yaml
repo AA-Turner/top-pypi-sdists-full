@@ -83,6 +83,18 @@ components:
           nullable: true
         sessionId:
           type: string
+    StripeCheckoutLineItemsPayload:
+      oneOf:
+        - type: array
+          items:
+            type: object
+            additionalProperties: true
+        - type: object
+          patternProperties:
+            "^\\d+$":
+              type: object
+              additionalProperties: true
+          additionalProperties: false
     StripeSessionStatusResponse:
       type: object
       properties:
@@ -132,6 +144,99 @@ components:
       properties:
         success:
           type: boolean
+    StripeCheckoutSessionStorageUpsertRequest:
+      type: object
+      required:
+        - payload_schema
+        - session_kw
+        - line_items
+      properties:
+        payload_schema:
+          type: object
+          additionalProperties: true
+        session_kw:
+          type: object
+          required:
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - payment
+                - subscription
+          additionalProperties: true
+        line_items:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        enabled:
+          type: boolean
+      additionalProperties: false
+    StripeCheckoutSessionStorageItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        payload_schema:
+          type: object
+          additionalProperties: true
+        session_kw:
+          type: object
+          additionalProperties: true
+        line_items:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        created_by:
+          type: string
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+    StripeCheckoutSessionStorageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StripeCheckoutSessionStorageItem'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        next_offset:
+          type: integer
+          nullable: true
+    StripeCheckoutSessionStorageGetResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        checkout_session:
+          $ref: '#/components/schemas/StripeCheckoutSessionStorageItem'
+    StripeCheckoutSessionStorageMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        checkout:
+          type: string
     NotificationCreateRequest:
       type: object
       required: [ event, targets, payload ]
@@ -651,30 +756,20 @@ components:
       properties:
         id:
           type: string
-        template_id:
-          type: string
-          nullable: true
         state:
           type: string
           nullable: true
         status:
           type: string
-        owner_id:
+        user_state:
           type: string
           nullable: true
-        context:
-          type: object
-          additionalProperties: true
-        states:
-          type: object
-          additionalProperties: true
-        local:
-          type: object
-          additionalProperties: true
         created_at:
           type: string
+          nullable: true
         updated_at:
           type: string
+          nullable: true
       additionalProperties: true
     ContractEventRequest:
       type: object
@@ -3208,7 +3303,7 @@ paths:
             schema:
               type: object
               additionalProperties: true
-  /stripe/balance:
+  /user/balance:
     get:
       operationId: get_stripe_balance
       tags:
@@ -3255,7 +3350,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /stripe/balance/{wallet_id}:
+  /user/balance/{wallet_id}:
     get:
       operationId: get_stripe_balance_by_wallet_id
       tags:
@@ -3309,16 +3404,17 @@ paths:
           required: true
           schema:
             type: integer
-  /stripe/create-checkout-session:
+  /stripe/create-checkout-session/{checkout}:
     post:
-      operationId: post_stripe_create_checkout_session
+      operationId: post_stripe_create_checkout_session_by_checkout
       tags:
         - Stripe
       summary: create-checkout-session
       description: >
-        Creates a Stripe Checkout session for purchasing credits. Requires
-        authentication and Stripe configuration. Returns a session id and
-        client secret when available.
+        Creates a Stripe Checkout session for a configured checkout key
+        (for example payment or subscription). Requires authentication and
+        Stripe configuration. Returns a session id and client secret when
+        available.
       responses:
         '200':
           description: OK
@@ -3356,13 +3452,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+      parameters:
+        - name: checkout
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: false
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/StripeCheckoutLineItemsPayload'
   /stripe/create-customer-portal-session:
     post:
       operationId: post_stripe_create_customer_portal_session
@@ -3523,7 +3624,198 @@ paths:
           required: true
           schema:
             type: string
-  /stripe/subscription:
+  /admin/stripe/checkout-sessions/:
+    get:
+      operationId: get_admin_stripe_checkout_sessions
+      tags:
+        - Stripe
+      summary: List checkout session configurations
+      description: >
+        Returns paginated checkout session definitions stored in Mongo.
+        Requires system admin permissions.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeCheckoutSessionStorageListResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: mq
+          in: query
+          required: false
+          schema:
+            type: string
+  /admin/stripe/checkout-sessions/{checkout}:
+    get:
+      operationId: get_admin_stripe_checkout_session_by_checkout
+      tags:
+        - Stripe
+      summary: Get checkout session configuration
+      description: Returns one checkout session definition by id.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeCheckoutSessionStorageGetResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: checkout
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      operationId: put_admin_stripe_checkout_session_by_checkout
+      tags:
+        - Stripe
+      summary: Upsert checkout session configuration
+      description: Creates or updates one checkout session definition.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeCheckoutSessionStorageMutationResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: checkout
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StripeCheckoutSessionStorageUpsertRequest'
+    delete:
+      operationId: delete_admin_stripe_checkout_session_by_checkout
+      tags:
+        - Stripe
+      summary: Delete checkout session configuration
+      description: Deletes one checkout session definition by id.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeCheckoutSessionStorageMutationResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+        - name: checkout
+          in: path
+          required: true
+          schema:
+            type: string
+  /user/subscription:
     get:
       operationId: get_stripe_subscription
       tags:
@@ -3570,7 +3862,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /stripe/subscription/{wallet_id}:
+  /user/subscription/{wallet_id}:
     get:
       operationId: get_stripe_subscription_by_wallet_id
       tags:
@@ -5345,6 +5637,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /contracts:
+    get:
+      operationId: get_contracts
+      tags:
+        - Contracts
+      summary: List contracts for current user
+      description: >
+        Returns paginated contracts where the authenticated user is present in
+        contract states. Supports mq filtering, sort and pagination.
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            description: 'Allowed fields: _id, created_at, updated_at, state, status. Prefix with - for descending.'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: mq
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON Mongo-like query merged with enforced user visibility filter (states.<current_user> exists).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContractDocument'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  next_offset:
+                    type: integer
+                    nullable: true
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /contracts/{id}:
     post:
       operationId: post_contracts_by_id
@@ -5373,6 +5739,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContractDocument'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Template not found
           content:
@@ -5404,31 +5776,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContractDocument'
-        '404':
-          description: Contract not found
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    delete:
-      operationId: delete_contracts_by_id
-      tags:
-        - Contracts
-      summary: Cancel contract
-      description: Marks contract status as CANCELED.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContractDocument'
         '404':
           description: Contract not found
           content:

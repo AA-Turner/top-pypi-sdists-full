@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.28.0
+Version: 0.29.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -36,7 +37,7 @@ Requires-Dist: transformers<5.0.0; extra == "judges"
 Provides-Extra: kernels
 Requires-Dist: kernels; extra == "kernels"
 Provides-Extra: liger
-Requires-Dist: liger-kernel>=0.6.4; extra == "liger"
+Requires-Dist: liger-kernel>=0.7.0; extra == "liger"
 Provides-Extra: peft
 Requires-Dist: peft>=0.8.0; extra == "peft"
 Provides-Extra: quality
@@ -71,7 +72,6 @@ Requires-Dist: deepspeed>=0.14.4; extra == "dev"
 Requires-Dist: openai>=1.23.2; extra == "dev"
 Requires-Dist: llm-blender>=0.0.2; extra == "dev"
 Requires-Dist: kernels; extra == "dev"
-Requires-Dist: liger-kernel>=0.6.4; extra == "dev"
 Requires-Dist: peft>=0.8.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
@@ -202,18 +202,13 @@ trainer.train()
 
 ```python
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import DPOConfig, DPOTrainer
+from trl import DPOTrainer
 
-model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train")
-training_args = DPOConfig(output_dir="Qwen2.5-0.5B-DPO")
+
 trainer = DPOTrainer(
-    model=model,
-    args=training_args,
+    model="Qwen3/Qwen-0.6B",
     train_dataset=dataset,
-    processing_class=tokenizer
 )
 trainer.train()
 ```

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 
 import torch
-from wisent.core.constants import CLASSIFIER_THRESHOLD, DEFAULT_SCORE, GROM_NUM_DIRECTIONS, TECZA_NUM_DIRECTIONS, GEOMETRY_CV_FOLDS
+from wisent.core.constants import CLASSIFIER_THRESHOLD, DEFAULT_SCORE, GROM_NUM_DIRECTIONS, TECZA_NUM_DIRECTIONS, GEOMETRY_CV_FOLDS, DEFAULT_METHOD_LAYER_RANGE_END, NUM_LAYERS_LARGE_MODEL, LAYER_SAMPLING_DIVISOR_TRAINING, METHOD_SELECTION_SAMPLE_SIZE, MIN_LAYER_ACTIVATIONS_FOR_GEOMETRY, SEPARATOR_WIDTH_STANDARD, PROGRESS_LOG_INTERVAL_10
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -18,11 +18,11 @@ def get_all_layers(model) -> List[str]:
     elif hasattr(model, 'config'):
         config = model.config
     else:
-        return [str(i) for i in range(1, 37)]
+        return [str(i) for i in range(1, DEFAULT_METHOD_LAYER_RANGE_END)]
 
     num_layers = getattr(config, 'num_hidden_layers', None) or \
                  getattr(config, 'n_layer', None) or \
-                 getattr(config, 'num_layers', None) or 36
+                 getattr(config, 'num_layers', None) or NUM_LAYERS_LARGE_MODEL
 
     return [str(i) for i in range(1, num_layers + 1)]
 
@@ -46,16 +46,16 @@ def auto_select_steering_method(
     )
 
     if verbose:
-        print("\n" + "=" * 60)
+        print("\n" + "=" * SEPARATOR_WIDTH_STANDARD)
         print("AUTO-SELECTING STEERING METHOD (zwiad)")
-        print("=" * 60)
+        print("=" * SEPARATOR_WIDTH_STANDARD)
         print("   Analyzing activation geometry...")
 
     collector = ActivationCollector(model=model)
-    sample_pairs = pairs[:min(50, len(pairs))]
+    sample_pairs = pairs[:min(METHOD_SELECTION_SAMPLE_SIZE, len(pairs))]
 
-    num_layers = model.num_layers if hasattr(model, 'num_layers') else 36
-    candidate_layers = list(range(0, num_layers, max(1, num_layers // 4)))
+    num_layers = model.num_layers if hasattr(model, 'num_layers') else NUM_LAYERS_LARGE_MODEL
+    candidate_layers = list(range(0, num_layers, max(1, num_layers // LAYER_SAMPLING_DIVISOR_TRAINING)))
     if (num_layers - 1) not in candidate_layers:
         candidate_layers.append(num_layers - 1)
     candidate_layer_strs = [str(l) for l in candidate_layers]
@@ -79,7 +79,7 @@ def auto_select_steering_method(
     # Pick the layer with the strongest signal
     best_lpa, best_metrics, best_layer = -1.0, None, candidate_layer_strs[0]
     for l in candidate_layer_strs:
-        if len(layer_pos[l]) < 10 or len(layer_neg[l]) < 10:
+        if len(layer_pos[l]) < MIN_LAYER_ACTIVATIONS_FOR_GEOMETRY or len(layer_neg[l]) < MIN_LAYER_ACTIVATIONS_FOR_GEOMETRY:
             continue
         pt = torch.stack(layer_pos[l])
         nt = torch.stack(layer_neg[l])
@@ -125,7 +125,7 @@ def auto_select_steering_method(
 
     if verbose:
         print(f"\n   Selected: {steering_method.upper()} / {modification_method}")
-        print("=" * 60 + "\n")
+        print("=" * SEPARATOR_WIDTH_STANDARD + "\n")
 
     return steering_method, modification_method, metrics
 
@@ -159,7 +159,7 @@ def train_grom_for_task(args, model: "WisentModel", pairs: List["ContrastivePair
     for i, pair in enumerate(pair_set.pairs):
         enriched_pair = collector.collect(pair, strategy=strategy, layers=layers)
         enriched_pairs.append(enriched_pair)
-        if args.verbose and (i + 1) % 10 == 0:
+        if args.verbose and (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"    Collected {i + 1}/{len(pair_set.pairs)} pairs")
 
     pair_set.pairs = enriched_pairs
@@ -206,7 +206,7 @@ def train_tetno_for_task(args, wisent_model: "WisentModel", pairs: List["Contras
     for i, pair in enumerate(pairs):
         enriched = collector.collect(pair, strategy=ExtractionStrategy.default(), layers=layers)
         enriched_pairs.append(enriched)
-        if args.verbose and (i + 1) % 10 == 0:
+        if args.verbose and (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"    Collected {i + 1}/{len(pairs)} pairs")
 
     pair_set = ContrastivePairSet(pairs=enriched_pairs, name="tetno_training")
@@ -252,7 +252,7 @@ def train_tecza_for_task(args, wisent_model: "WisentModel", pairs: List["Contras
     for i, pair in enumerate(pairs):
         enriched = collector.collect(pair, strategy=ExtractionStrategy.default(), layers=layers)
         enriched_pairs.append(enriched)
-        if args.verbose and (i + 1) % 10 == 0:
+        if args.verbose and (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"    Collected {i + 1}/{len(pairs)} pairs")
 
     pair_set = ContrastivePairSet(pairs=enriched_pairs, name="tecza_training")

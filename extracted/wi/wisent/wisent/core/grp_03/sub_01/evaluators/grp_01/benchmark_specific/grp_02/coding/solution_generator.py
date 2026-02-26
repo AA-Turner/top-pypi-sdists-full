@@ -15,6 +15,8 @@ from dataclasses import dataclass, asdict
 from wisent.core.evaluators.benchmark_specific.coding.providers.livecodebench.provider import LiveCodeBenchProvider
 from wisent.core.evaluators.benchmark_specific.coding.metrics.evaluator import CodingEvaluator, EvaluatorConfig
 from wisent.core.evaluators.benchmark_specific.coding.providers.core.atoms import CodingTask
+from wisent.core.constants import JSON_INDENT, PROGRESS_LOG_INTERVAL_10
+from wisent.core.utils.core.hardware import eval_time_limit_s, eval_cpu_limit_s, code_eval_mem_limit_mb
 
 
 @dataclass
@@ -70,9 +72,9 @@ class LiveCodeBenchSolutionGenerator:
         self.evaluator_config = evaluator_config or EvaluatorConfig(
             image="coding/sandbox:polyglot-1.0",
             self_repair=False,
-            time_limit_s=8,
-            cpu_limit_s=3,
-            mem_limit_mb=768,
+            time_limit_s=eval_time_limit_s(),
+            cpu_limit_s=eval_cpu_limit_s(),
+            mem_limit_mb=code_eval_mem_limit_mb(),
         )
 
         self.cache_file = self.cache_dir / "solutions.json"
@@ -121,7 +123,7 @@ class LiveCodeBenchSolutionGenerator:
         }
 
         with open(self.cache_file, 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=JSON_INDENT)
 
         print(f"Saved {len(solutions)} problem solutions to {self.cache_file}")
 
@@ -232,7 +234,7 @@ class LiveCodeBenchSolutionGenerator:
             problems_processed += 1
 
             # Save periodically
-            if problems_processed % 10 == 0:
+            if problems_processed % PROGRESS_LOG_INTERVAL_10 == 0:
                 self._save_cache(cached_solutions)
                 print(f"\nProgress: {problems_processed} processed, {problems_skipped} skipped")
 

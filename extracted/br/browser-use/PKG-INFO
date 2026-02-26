@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.11.13
+Version: 0.12.0
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -14,78 +14,78 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <4.0,>=3.11
-Requires-Dist: aiohttp>=3.13.3
-Requires-Dist: anthropic<1.0.0,>=0.72.1
-Requires-Dist: anyio>=4.9.0
-Requires-Dist: authlib>=1.6.0
-Requires-Dist: browser-use-sdk>=2.0.12
-Requires-Dist: bubus>=1.5.6
-Requires-Dist: cdp-use>=1.4.5
-Requires-Dist: click>=8.1.8
-Requires-Dist: cloudpickle>=3.1.1
-Requires-Dist: google-api-core>=2.25.0
-Requires-Dist: google-api-python-client>=2.174.0
-Requires-Dist: google-auth-oauthlib>=1.2.2
-Requires-Dist: google-auth>=2.40.3
-Requires-Dist: google-genai<2.0.0,>=1.50.0
-Requires-Dist: groq>=0.30.0
-Requires-Dist: httpx>=0.28.1
-Requires-Dist: inquirerpy>=0.3.4
-Requires-Dist: markdownify>=1.2.0
-Requires-Dist: mcp>=1.10.1
-Requires-Dist: ollama>=0.5.1
-Requires-Dist: openai<3.0.0,>=2.7.2
-Requires-Dist: pillow>=11.2.1
-Requires-Dist: portalocker<3.0.0,>=2.7.0
-Requires-Dist: posthog>=3.7.0
-Requires-Dist: psutil>=7.0.0
-Requires-Dist: pydantic>=2.11.5
-Requires-Dist: pyobjc>=11.0; platform_system == 'darwin'
-Requires-Dist: pyotp>=2.9.0
-Requires-Dist: pypdf>=5.7.0
-Requires-Dist: python-docx>=1.2.0
-Requires-Dist: python-dotenv>=1.0.1
-Requires-Dist: reportlab>=4.0.0
-Requires-Dist: requests>=2.32.3
-Requires-Dist: rich>=14.0.0
-Requires-Dist: screeninfo>=0.8.1; platform_system != 'darwin'
-Requires-Dist: typing-extensions>=4.12.2
-Requires-Dist: uuid7>=0.1.0
+Requires-Dist: aiohttp==3.13.3
+Requires-Dist: anthropic==0.76.0
+Requires-Dist: anyio==4.12.1
+Requires-Dist: authlib==1.6.6
+Requires-Dist: browser-use-sdk==2.0.15
+Requires-Dist: bubus==1.5.6
+Requires-Dist: cdp-use==1.4.5
+Requires-Dist: click==8.3.1
+Requires-Dist: cloudpickle==3.1.2
+Requires-Dist: google-api-core==2.29.0
+Requires-Dist: google-api-python-client==2.188.0
+Requires-Dist: google-auth-oauthlib==1.2.4
+Requires-Dist: google-auth==2.48.0
+Requires-Dist: google-genai==1.60.0
+Requires-Dist: groq==1.0.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: inquirerpy==0.3.4
+Requires-Dist: markdownify==1.2.2
+Requires-Dist: mcp==1.26.0
+Requires-Dist: ollama==0.6.1
+Requires-Dist: openai==2.16.0
+Requires-Dist: pillow==12.1.0
+Requires-Dist: portalocker==2.10.1
+Requires-Dist: posthog==7.7.0
+Requires-Dist: psutil==7.2.2
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: pyobjc==12.1; platform_system == 'darwin'
+Requires-Dist: pyotp==2.9.0
+Requires-Dist: pypdf==6.6.2
+Requires-Dist: python-docx==1.2.0
+Requires-Dist: python-dotenv==1.2.1
+Requires-Dist: reportlab==4.4.9
+Requires-Dist: requests==2.32.5
+Requires-Dist: rich==14.3.1
+Requires-Dist: screeninfo==0.8.1; platform_system != 'darwin'
+Requires-Dist: typing-extensions==4.15.0
+Requires-Dist: uuid7==0.1.0
 Provides-Extra: all
 Requires-Dist: agentmail==0.0.59; extra == 'all'
-Requires-Dist: boto3>=1.38.45; extra == 'all'
-Requires-Dist: botocore>=1.37.23; extra == 'all'
-Requires-Dist: imgcat>=0.6.0; extra == 'all'
-Requires-Dist: langchain-openai>=0.3.26; extra == 'all'
-Requires-Dist: oci>=2.126.4; extra == 'all'
-Requires-Dist: textual>=3.2.0; extra == 'all'
+Requires-Dist: boto3==1.42.37; extra == 'all'
+Requires-Dist: botocore==1.42.37; extra == 'all'
+Requires-Dist: imgcat==0.6.0; extra == 'all'
+Requires-Dist: langchain-openai==1.1.7; extra == 'all'
+Requires-Dist: oci==2.166.0; extra == 'all'
+Requires-Dist: textual==7.4.0; extra == 'all'
 Provides-Extra: aws
-Requires-Dist: boto3>=1.38.45; extra == 'aws'
+Requires-Dist: boto3==1.42.37; extra == 'aws'
 Provides-Extra: cli
-Requires-Dist: textual>=3.2.0; extra == 'cli'
+Requires-Dist: textual==7.4.0; extra == 'cli'
 Provides-Extra: cli-oci
-Requires-Dist: oci>=2.126.4; extra == 'cli-oci'
-Requires-Dist: textual>=3.2.0; extra == 'cli-oci'
+Requires-Dist: oci==2.166.0; extra == 'cli-oci'
+Requires-Dist: textual==7.4.0; extra == 'cli-oci'
 Provides-Extra: code
-Requires-Dist: matplotlib>=3.9.0; extra == 'code'
-Requires-Dist: numpy>=2.3.2; extra == 'code'
-Requires-Dist: pandas>=2.2.0; extra == 'code'
-Requires-Dist: tabulate>=0.9.0; extra == 'code'
+Requires-Dist: matplotlib==3.10.8; extra == 'code'
+Requires-Dist: numpy==2.4.1; extra == 'code'
+Requires-Dist: pandas==3.0.0; extra == 'code'
+Requires-Dist: tabulate==0.9.0; extra == 'code'
 Provides-Extra: eval
-Requires-Dist: anyio>=4.9.0; extra == 'eval'
-Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'eval'
+Requires-Dist: anyio==4.12.1; extra == 'eval'
+Requires-Dist: datamodel-code-generator==0.53.0; extra == 'eval'
 Requires-Dist: lmnr[all]==0.7.42; extra == 'eval'
-Requires-Dist: psutil>=7.0.0; extra == 'eval'
+Requires-Dist: psutil==7.2.2; extra == 'eval'
 Provides-Extra: examples
 Requires-Dist: agentmail==0.0.59; extra == 'examples'
-Requires-Dist: botocore>=1.37.23; extra == 'examples'
-Requires-Dist: imgcat>=0.6.0; extra == 'examples'
-Requires-Dist: langchain-openai>=0.3.26; extra == 'examples'
+Requires-Dist: botocore==1.42.37; extra == 'examples'
+Requires-Dist: imgcat==0.6.0; extra == 'examples'
+Requires-Dist: langchain-openai==1.1.7; extra == 'examples'
 Provides-Extra: oci
-Requires-Dist: oci>=2.126.4; extra == 'oci'
+Requires-Dist: oci==2.166.0; extra == 'oci'
 Provides-Extra: video
-Requires-Dist: imageio[ffmpeg]>=2.37.0; extra == 'video'
-Requires-Dist: numpy>=2.3.2; extra == 'video'
+Requires-Dist: imageio[ffmpeg]==2.37.2; extra == 'video'
+Requires-Dist: numpy==2.4.1; extra == 'video'
 Description-Content-Type: text/markdown
 
 <picture>

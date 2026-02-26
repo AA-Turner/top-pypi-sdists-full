@@ -1,11 +1,13 @@
 import base64
 import io
+import os
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pypdfium2 as pdfium
 
 from abstra_internals.cloud_api import get_session_path, get_tunnel_secret_key
+from abstra_internals.consts.filepaths import AI_UPLOADS_DIR_PATH
 from abstra_internals.contracts_generated import (
     AbstraLibApiAiStreamRequest,
     CloudApiCliAiV2StreamRequest,
@@ -20,6 +22,7 @@ from abstra_internals.settings import Settings
 from abstra_internals.utils.file import silent_traverse_code
 from abstra_internals.utils.packages import get_local_package_version
 from abstra_internals.utils.paths import get_relative_path
+from abstra_internals.utils.string import sanitize_filename
 
 RETRY_FLAG = "abstra__trigger__retry"
 
@@ -78,6 +81,35 @@ class AiController:
         self.controller = controller
         self.repos = controller.repositories
 
+    def _save_file_to_project(
+        self,
+        file_name: str,
+        file_content: str,
+        conversation_id: str,
+    ) -> Optional[str]:
+        """Save an uploaded file to .abstra/ai_uploads/{conversation_id}/.
+
+        Returns the relative path where the file was saved,
+        or None if saving failed.
+        """
+        try:
+            safe_file_name = os.path.basename(file_name)
+            safe_conversation_id = sanitize_filename(conversation_id)
+            relative_path = os.path.join(
+                AI_UPLOADS_DIR_PATH, safe_conversation_id, safe_file_name
+            )
+            full_path = Settings.root_path / relative_path
+
+            os.makedirs(full_path.parent, exist_ok=True)
+
+            file_bytes = base64.b64decode(file_content)
+            full_path.write_bytes(file_bytes)
+
+            return relative_path
+        except Exception as e:
+            print(f"[AiController] Failed to save uploaded file: {e}")
+            return None
+
     def _extract_pdf_images(self, pdf_bytes: bytes) -> List[bytes]:
         images = []
         pdf_io = io.BytesIO(pdf_bytes)
@@ -94,9 +126,12 @@ class AiController:
         return images
 
     def _process_pdf_content(
-        self, pdf_file: CloudApiCliAiV2StreamRequestContentItemAssistantFileInput
+        self,
+        pdf_file: CloudApiCliAiV2StreamRequestContentItemAssistantFileInput,
+        saved_path: Optional[str] = None,
     ) -> List[CloudApiCliAiV2StreamRequestContentItem]:
         processed_items = []
+        path_info = f" (saved to project at: {saved_path})" if saved_path else ""
         try:
             pdf_bytes = base64.b64decode(pdf_file.file_content)
             images = self._extract_pdf_images(pdf_bytes)
@@ -104,7 +139,7 @@ class AiController:
             processed_items.append(
                 CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
                     type="text",
-                    text=f"[PDF Document: {pdf_file.file_name} - {len(images)} page(s)]",
+                    text=f"[PDF Document: {pdf_file.file_name} - {len(images)} page(s)]{path_info}",
                 )
             )
 
@@ -122,7 +157,7 @@ class AiController:
             processed_items.append(
                 CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
                     type="text",
-                    text=f"[PDF Document: {pdf_file.file_name}]\nNote: Could not extract images from this PDF.",
+                    text=f"[PDF Document: {pdf_file.file_name}]{path_info}\nNote: Could not extract images from this PDF.",
                 )
             )
         return processed_items
@@ -166,24 +201,34 @@ class AiController:
     }
 
     def _try_decode_text_file(
-        self, item: CloudApiCliAiV2StreamRequestContentItemAssistantFileInput
+        self,
+        item: CloudApiCliAiV2StreamRequestContentItemAssistantFileInput,
+        saved_path: Optional[str] = None,
     ) -> CloudApiCliAiV2StreamRequestContentItem:
         """Decode base64 file content to plain text for text-based files."""
         name_lower = item.file_name.lower()
         ext = "." + name_lower.rsplit(".", 1)[-1] if "." in name_lower else ""
+        path_info = f" (saved to project at: {saved_path})" if saved_path else ""
         if ext not in self._TEXT_EXTENSIONS:
             return item
         try:
             text = base64.b64decode(item.file_content).decode("utf-8")
             return CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
                 type="text",
-                text=f"[File: {item.file_name}]\n{text}",
+                text=f"[File: {item.file_name}]{path_info}\n{text}",
             )
         except Exception:
+            if saved_path:
+                return CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
+                    type="text",
+                    text=f"[File: {item.file_name}]{path_info}",
+                )
             return item
 
     def _process_content(
-        self, content: List[CloudApiCliAiV2StreamRequestContentItem]
+        self,
+        content: List[CloudApiCliAiV2StreamRequestContentItem],
+        conversation_id: str,
     ) -> List[CloudApiCliAiV2StreamRequestContentItem]:
         processed_content = []
 
@@ -194,19 +239,37 @@ class AiController:
                 processed_content.append(item)
                 continue
 
+            saved_path = self._save_file_to_project(
+                item.file_name, item.file_content, conversation_id
+            )
+
             if not item.file_name.lower().endswith(".pdf"):
-                processed_content.append(self._try_decode_text_file(item))
+                processed = self._try_decode_text_file(item, saved_path)
+                if saved_path and isinstance(
+                    processed,
+                    CloudApiCliAiV2StreamRequestContentItemAssistantFileInput,
+                ):
+                    processed_content.append(
+                        CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
+                            type="text",
+                            text=f"[File: {item.file_name}] (saved to project at: {saved_path})",
+                        )
+                    )
+                processed_content.append(processed)
                 continue
 
             try:
-                processed_pdf_items = self._process_pdf_content(item)
+                processed_pdf_items = self._process_pdf_content(item, saved_path)
                 processed_content.extend(processed_pdf_items)
             except Exception as e:
                 print(f"Error extracting PDF images: {e}")
+                path_info = (
+                    f" (saved to project at: {saved_path})" if saved_path else ""
+                )
                 processed_content.append(
                     CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
                         type="text",
-                        text=f"[PDF Document: {item.file_name}]\nNote: Could not extract images from this PDF.",
+                        text=f"[PDF Document: {item.file_name}]{path_info}\nNote: Could not extract images from this PDF.",
                     )
                 )
 
@@ -217,7 +280,9 @@ class AiController:
         body: AbstraLibApiAiStreamRequest,
     ):
         try:
-            processed_content = self._process_content(body.content)
+            processed_content = self._process_content(
+                body.content, body.conversation_id
+            )
 
             yield from self.repos.ai.get_ai_messages(
                 CloudApiCliAiV2StreamRequest(

@@ -8,7 +8,7 @@ negative activation distributions without assuming linear separability.
 import torch
 import numpy as np
 from typing import Dict
-from wisent.core.constants import ZERO_THRESHOLD
+from wisent.core.constants import ZERO_THRESHOLD, DISPLAY_TOP_N_SMALL
 
 
 def compute_mmd_rbf(
@@ -144,7 +144,7 @@ def compute_fisher_per_dimension(
             fisher_gini = 0.0
         
         sorted_fishers = np.sort(fishers)[::-1]
-        top10_sum = sorted_fishers[:10].sum()
+        top10_sum = sorted_fishers[:DISPLAY_TOP_N_SMALL].sum()
         total_sum = fishers.sum() + ZERO_THRESHOLD
         fisher_top10_ratio = float(top10_sum / total_sum)
         

@@ -12,7 +12,7 @@ from setuptools.command.install import install
 from setuptools.command.sdist import sdist
 
 # NOTE: Version is replaced by a regex script.
-version = "0.7.5"
+version = "0.7.6"
 
 
 def _copy_native_code_to_setup():
@@ -209,10 +209,11 @@ https://github.com/interpretml/interpret
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
@@ -274,14 +275,12 @@ https://github.com/interpretml/interpret
         # Testing
         "testing": [
             "scipy>=0.18.1",
-            "scikit-learn>=1.0.0",
             "pytest>=4.3.0",
             "pytest-runner>=4.4",
             "pytest-xdist>=1.29",
             "nbconvert>=5.4.1",
             "selenium>=3.141.0",
             "pytest-cov>=2.6.1",
-            "ruff>=0.1.2",
             "jupyter>=1.0.0",
             "ipywidgets>=7.4.2",
         ],

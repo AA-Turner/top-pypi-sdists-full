@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.4
+Version: 2.5.5
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -490,6 +490,8 @@ Provides-Extra: agui
 Requires-Dist: ag-ui-protocol; extra == "agui"
 Provides-Extra: a2a
 Requires-Dist: a2a-sdk; extra == "a2a"
+Provides-Extra: slack
+Requires-Dist: slack_sdk>=3.40.0; extra == "slack"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: performance
@@ -601,6 +603,7 @@ Requires-Dist: agno[huggingface]; extra == "embedders"
 Requires-Dist: agno[vllm]; extra == "embedders"
 Provides-Extra: tests
 Requires-Dist: agno[a2a]; extra == "tests"
+Requires-Dist: agno[slack]; extra == "tests"
 Requires-Dist: agno[dev]; extra == "tests"
 Requires-Dist: agno[models]; extra == "tests"
 Requires-Dist: agno[tools]; extra == "tests"

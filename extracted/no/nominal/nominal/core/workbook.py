@@ -3,16 +3,21 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Mapping, Protocol, Sequence
+from typing import TYPE_CHECKING, Iterable, Mapping, Protocol, Sequence
 
-from nominal_api import scout, scout_notebook_api
+from nominal_api import scout, scout_notebook_api, scout_workbookcommon_api
 from typing_extensions import Self, deprecated
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableMixin
+from nominal.core._utils.pagination_tools import search_workbooks_paginated
+from nominal.core._utils.query_tools import create_search_workbooks_query
 from nominal.core.exceptions import NominalMethodRemovedError
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from nominal.core.workbook_template import WorkbookTemplate
 
 
 class WorkbookType(Enum):
@@ -59,6 +64,8 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
     class _Clients(HasScoutParams, Protocol):
         @property
         def notebook(self) -> scout.NotebookService: ...
+        @property
+        def template(self) -> scout.TemplateService: ...
 
     @property
     def nominal_url(self) -> str:
@@ -85,6 +92,7 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
         description: str | None = None,
         properties: Mapping[str, str] | None = None,
         labels: Sequence[str] | None = None,
+        is_draft: bool | None = None,
     ) -> Self:
         """Replace workbook metadata.
         Updates the current instance, and returns it.
@@ -109,6 +117,7 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
                 description=description,
                 labels=None if labels is None else [*labels],
                 properties=None if properties is None else {**properties},
+                is_draft=is_draft,
             ),
             self.rid,
         )
@@ -168,6 +177,12 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
         """Return whether or not the workbook is currently archived."""
         return self._get_latest_api().metadata.is_archived
 
+    def is_draft(self) -> bool:
+        """Return whether or not the workbook is currently a draft. Note that a workbook in draft state isn't visible
+        to other users and shows up as Private in the UI.
+        """
+        return self._get_latest_api().metadata.is_draft
+
     def lock(self) -> None:
         """Locks the workbook, preventing changes from being made to it.
 
@@ -209,6 +224,59 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
         """Delete the workbook permanently."""
         self._clients.notebook.delete(self._clients.auth_header, self.rid)
 
+    def _create_template_from_workbook(
+        self,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        labels: Sequence[str] | None = None,
+        properties: Mapping[str, str] | None = None,
+        workspace_rid: str | None = None,
+    ) -> WorkbookTemplate:
+        """Create a workbook template from this workbook.
+
+        Args:
+            title: Title for the new template. Defaults to "Template from {title}" (or "workbook" if empty).
+            description: Description for the new template. Defaults to the current workbook description.
+            labels: Labels for the new template. Defaults to the current workbook labels.
+            properties: Properties for the new template. Defaults to the current workbook properties.
+            workspace_rid: Workspace RID to create the template in. Defaults to the current workbook's workspace.
+
+        Returns:
+            The created WorkbookTemplate
+        """
+        from nominal.core.workbook_template import _create_workbook_template_with_content_and_layout
+
+        raw_workbook = self._get_latest_api()
+        content_v2 = raw_workbook.content_v2
+        if content_v2 is not None and not isinstance(content_v2, scout_workbookcommon_api.UnifiedWorkbookContent):
+            raise ValueError("Unexpected content_v2 type")
+        if self.workbook_type == WorkbookType.COMPARISON_WORKBOOK or (
+            content_v2 is not None and content_v2.comparison_workbook is not None
+        ):
+            raise ValueError("Comparison workbook types not yet supported")
+
+        content = (content_v2.workbook if content_v2 is not None else None) or raw_workbook.content
+        if content is None:
+            raise ValueError("Missing content for workbook")
+
+        workbook_title = raw_workbook.metadata.title or "workbook"
+        workspace_rid = workspace_rid or self._clients.workspace_rid
+        if workspace_rid is None:
+            raise ValueError("Workspace RID is required to create a workbook template")
+
+        return _create_workbook_template_with_content_and_layout(
+            self._clients,
+            title=title or f"Template from {workbook_title}",
+            layout=raw_workbook.layout,
+            content=content,
+            workspace_rid=workspace_rid,
+            description=description or raw_workbook.metadata.description,
+            labels=raw_workbook.metadata.labels if labels is None else [*labels],
+            properties=raw_workbook.metadata.properties if properties is None else {**properties},
+            commit_message="Initial version",
+        )
+
     @classmethod
     def _from_conjure(cls, clients: _Clients, notebook: scout_notebook_api.Notebook) -> Self:
         return cls._from_notebook_metadata(
@@ -227,3 +295,49 @@ class Workbook(HasRid, RefreshableMixin[scout_notebook_api.Notebook]):
             workbook_type=workbook_type,
             _clients=clients,
         )
+
+
+def _iter_search_workbooks(
+    clients: Workbook._Clients,
+    query: scout_notebook_api.SearchNotebooksQuery,
+    include_archived: bool,
+    include_drafts: bool,
+) -> Iterable[Workbook]:
+    for raw_workbook in search_workbooks_paginated(
+        clients.notebook, clients.auth_header, query, include_archived, include_drafts
+    ):
+        try:
+            yield Workbook._from_notebook_metadata(clients, raw_workbook)
+        except ValueError:
+            logger.exception("Failed to deserialize workbook metadata with rid %s: %s", raw_workbook.rid, raw_workbook)
+
+
+def _search_workbooks(
+    clients: Workbook._Clients,
+    *,
+    include_archived: bool = False,
+    exact_match: str | None = None,
+    search_text: str | None = None,
+    labels: Sequence[str] | None = None,
+    properties: Mapping[str, str] | None = None,
+    asset_rid: str | None = None,
+    exact_asset_rids: Sequence[str] | None = None,
+    author_rid: str | None = None,
+    run_rid: str | None = None,
+    workspace_rid: str | None = None,
+    archived: bool | None = None,
+    include_drafts: bool = False,
+) -> Sequence[Workbook]:
+    query = create_search_workbooks_query(
+        exact_match=exact_match,
+        search_text=search_text,
+        labels=labels,
+        properties=properties,
+        asset_rid=asset_rid,
+        exact_asset_rids=exact_asset_rids,
+        author_rid=author_rid,
+        run_rid=run_rid,
+        workspace_rid=workspace_rid,
+        archived=archived,
+    )
+    return list(_iter_search_workbooks(clients, query, include_archived, include_drafts))

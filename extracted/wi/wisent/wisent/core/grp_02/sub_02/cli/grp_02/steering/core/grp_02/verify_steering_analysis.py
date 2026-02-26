@@ -3,6 +3,11 @@ import torch
 from typing import Any, Dict, List, Optional
 from wisent.core.constants import (
     COMPARE_TOL,
+    DISPLAY_TRUNCATION_SHORT,
+    MAX_NEW_TOKENS_VERIFY_SINGLE,
+    SEPARATOR_WIDTH_MEDIUM_PLUS,
+    SEPARATOR_WIDTH_STANDARD,
+    SEPARATOR_WIDTH_WIDE,
     VERIFY_ALIGNMENT_THRESHOLD,
     VERIFY_GATE_ACTIVE_THRESHOLD,
     VERIFY_GATE_PARTIAL_THRESHOLD,
@@ -83,7 +88,7 @@ def _compare_activations(
             h.remove()
 
         # Compute alignments
-        prompt_result = {"prompt": prompt[:50], "layers": {}}
+        prompt_result = {"prompt": prompt[:DISPLAY_TRUNCATION_SHORT], "layers": {}}
 
         for layer_name, direction in steering_dirs.items():
             if layer_name in base_acts and layer_name in steered_acts:
@@ -125,7 +130,7 @@ def _compare_activations(
 
     # Print results
     print(f"\n{'Prompt':<40} {'Avg Alignment':<15} {'Status'}")
-    print("-" * 70)
+    print("-" * SEPARATOR_WIDTH_WIDE)
 
     for result in all_results:
         alignments = [v["alignment"] for v in result["layers"].values()]
@@ -134,10 +139,10 @@ def _compare_activations(
         print(f"{result['prompt']:<40} {avg:>12.4f}    {status}")
 
     if verbose:
-        print("\n" + "-" * 70)
+        print("\n" + "-" * SEPARATOR_WIDTH_WIDE)
         print("Per-Layer Alignment:")
         print(f"{'Layer':<10} {'Avg Alignment':<15} {'Min':<10} {'Max':<10} {'Status'}")
-        print("-" * 55)
+        print("-" * SEPARATOR_WIDTH_MEDIUM_PLUS)
 
         for layer_name in sorted(layer_alignments.keys(), key=lambda x: int(x) if x.isdigit() else 0):
             aligns = layer_alignments[layer_name]
@@ -183,18 +188,18 @@ def _check_gate_intensity(
         with torch.no_grad():
             _ = steered_model.generate(
                 **inputs,
-                max_new_tokens=1,
+                max_new_tokens=MAX_NEW_TOKENS_VERIFY_SINGLE,
                 do_sample=False,
                 pad_token_id=tokenizer.eos_token_id,
             )
 
         if check_gate:
             gate = hooks.get_current_gate()
-            gate_results.append({"prompt": prompt[:50], "gate": gate})
+            gate_results.append({"prompt": prompt[:DISPLAY_TRUNCATION_SHORT], "gate": gate})
 
         if check_intensity:
             intensities = hooks.get_current_intensities()
-            intensity_results.append({"prompt": prompt[:50], "intensities": intensities})
+            intensity_results.append({"prompt": prompt[:DISPLAY_TRUNCATION_SHORT], "intensities": intensities})
 
     hooks.remove()
 
@@ -202,7 +207,7 @@ def _check_gate_intensity(
     if gate_results:
         print(f"\nGate Values:")
         print(f"{'Prompt':<40} {'Gate':<10} {'Status'}")
-        print("-" * 60)
+        print("-" * SEPARATOR_WIDTH_STANDARD)
         for r in gate_results:
             gate = r["gate"]
             status = "ACTIVE" if gate > VERIFY_GATE_ACTIVE_THRESHOLD else ("PARTIAL" if gate > VERIFY_GATE_PARTIAL_THRESHOLD else "INACTIVE")

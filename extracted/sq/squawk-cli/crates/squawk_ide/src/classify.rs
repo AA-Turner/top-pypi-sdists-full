@@ -62,6 +62,7 @@ fn is_special_fn(kind: SyntaxKind) -> bool {
     matches!(
         kind,
         SyntaxKind::EXTRACT_FN
+            | SyntaxKind::COLLATION_FOR_FN
             | SyntaxKind::JSON_EXISTS_FN
             | SyntaxKind::JSON_ARRAY_FN
             | SyntaxKind::JSON_OBJECT_FN
@@ -129,6 +130,7 @@ pub(crate) fn classify_name_ref(name_ref: &ast::NameRef) -> Option<NameRefClass>
             .and_then(ast::FieldExpr::cast)
             .is_some();
 
+        let mut in_arg_list = false;
         let mut in_from_clause = false;
         let mut in_on_clause = false;
         let mut in_returning_clause = false;
@@ -136,6 +138,9 @@ pub(crate) fn classify_name_ref(name_ref: &ast::NameRef) -> Option<NameRefClass>
         let mut in_where_clause = false;
         let mut in_when_clause = false;
         for ancestor in parent.ancestors() {
+            if ast::ArgList::can_cast(ancestor.kind()) {
+                in_arg_list = true;
+            }
             if ast::OnClause::can_cast(ancestor.kind()) {
                 in_on_clause = true;
             }
@@ -190,7 +195,9 @@ pub(crate) fn classify_name_ref(name_ref: &ast::NameRef) -> Option<NameRefClass>
                     }
                 }
             }
-            if ast::Select::can_cast(ancestor.kind()) && (!in_from_clause || in_on_clause) {
+            if ast::Select::can_cast(ancestor.kind())
+                && (!in_from_clause || in_on_clause || in_arg_list)
+            {
                 if is_function_call || is_schema_table_col {
                     return Some(NameRefClass::Schema);
                 } else {
@@ -606,6 +613,9 @@ pub(crate) fn classify_name_ref(name_ref: &ast::NameRef) -> Option<NameRefClass>
                 return Some(NameRefClass::SelectFunctionCall);
             }
             if in_from_clause && !in_on_clause {
+                if in_arg_list {
+                    return Some(NameRefClass::SelectColumn);
+                }
                 return Some(NameRefClass::FromTable);
             }
             // Classify as SelectColumn for target list, WHERE, ORDER BY, GROUP BY, etc.

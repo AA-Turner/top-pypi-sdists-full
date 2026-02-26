@@ -40,7 +40,6 @@ from collections.abc import Iterable, Iterator, Mapping
 from collections.abc import Sequence as Sequence_
 from copy import deepcopy
 from functools import partial, wraps
-from io import BytesIO
 from math import ceil, floor
 from pathlib import Path
 from random import sample
@@ -59,6 +58,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.dataset as pds
 from fsspec.core import url_to_fs
 from huggingface_hub import (
     CommitInfo,
@@ -929,7 +929,7 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
     @classmethod
     def from_polars(
         cls,
-        df: "pl.DataFrame",
+        df: Union["pl.DataFrame", "pl.LazyFrame"],
         features: Optional[Features] = None,
         info: Optional[DatasetInfo] = None,
         split: Optional[NamedSplit] = None,
@@ -953,6 +953,8 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         >>> ds = Dataset.from_polars(df)
         ```
         """
+        import polars as pl
+
         if info is not None and features is not None and info.features != features:
             raise ValueError(
                 f"Features specified in `features` and `info.features` can't be different:\n{features}\n{info.features}"
@@ -963,6 +965,8 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         if info is None:
             info = DatasetInfo()
         info.features = features
+        if isinstance(df, pl.LazyFrame):
+            df = df.collect()
         table = InMemoryTable(df.to_arrow())
         if features is not None:
             # more expensive cast than InMemoryTable.from_polars(..., schema=features.arrow_schema)
@@ -1076,8 +1080,10 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         keep_in_memory: bool = False,
         num_proc: Optional[int] = None,
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create Dataset from CSV file(s).
+
+        Read the CSV files, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             path_or_paths (`path-like` or list of `path-like`):
@@ -1131,8 +1137,10 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         split: NamedSplit = Split.TRAIN,
         fingerprint: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create a Dataset from a generator.
+
+        Load the data from the generator, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             generator (:`Callable`):
@@ -1213,8 +1221,10 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         field: Optional[str] = None,
         num_proc: Optional[int] = None,
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create Dataset from JSON or JSON Lines file(s).
+
+        Read the JSON files, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             path_or_paths (`path-like` or list of `path-like`):
@@ -1269,9 +1279,14 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         keep_in_memory: bool = False,
         columns: Optional[list[str]] = None,
         num_proc: Optional[int] = None,
+        filters: Optional[Union[pds.Expression, list[tuple], list[list[tuple]]]] = None,
+        fragment_scan_options: Optional[pds.ParquetFragmentScanOptions] = None,
+        on_bad_files: Literal["error", "warn", "skip"] = "error",
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create Dataset from Parquet file(s).
+
+        Read the Parquet files, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             path_or_paths (`path-like` or list of `path-like`):
@@ -1293,6 +1308,23 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                 This is helpful if the dataset is made of multiple files. Multiprocessing is disabled by default.
 
                 <Added version="2.8.0"/>
+            filters (`Union[pyarrow.dataset.Expression, list[tuple], list[list[tuple]]]`, *optional*):
+                Return only the rows matching the filter.
+                If possible the predicate will be pushed down to exploit the partition information
+                or internal metadata found in the data source, e.g. Parquet statistics.
+                Otherwise filters the loaded RecordBatches before yielding them.
+            fragment_scan_options (`pyarrow.dataset.ParquetFragmentScanOptions`, *optional*)
+                Scan-specific options for Parquet fragments.
+                This is especially useful to configure buffering and caching.
+
+                <Added version="4.2.0"/>
+            on_bad_files (`Literal["error", "warn", "skip"]`, *optional*, defaults to "error")
+                Specify what to do upon encountering a bad file (a file that can't be read). Allowed values are :
+                * 'error', raise an Exception when a bad file is encountered.
+                * 'warn', raise a warning when a bad file is encountered and skip that file.
+                * 'skip', skip bad files without raising or warning when they are encountered.
+
+                <Added version="4.2.0"/>
             **kwargs (additional keyword arguments):
                 Keyword arguments to be passed to [`ParquetConfig`].
 
@@ -1303,6 +1335,19 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
 
         ```py
         >>> ds = Dataset.from_parquet('path/to/dataset.parquet')
+        ```
+
+        Load a subset of columns:
+
+        ```python
+        >>> ds = Dataset.from_parquet('path/to/dataset.parquet', columns=["col_0", "col_1"])
+        ```
+
+        Efficiently filter data, possibly skipping entire files or row groups:
+
+        ```python
+        >>> filters = [("col_0", "==", 0)]
+        >>> ds = Dataset.from_parquet(parquet_files_list, filters=filters)
         ```
         """
         # Dynamic import to avoid circular dependency
@@ -1316,6 +1361,9 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
             keep_in_memory=keep_in_memory,
             columns=columns,
             num_proc=num_proc,
+            filters=filters,
+            fragment_scan_options=fragment_scan_options,
+            on_bad_files=on_bad_files,
             **kwargs,
         ).read()
 
@@ -1327,9 +1375,13 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         cache_dir: str = None,
         keep_in_memory: bool = False,
         num_proc: Optional[int] = None,
+        keep_linebreaks: bool = False,
+        sample_by: Literal["line", "paragraph", "document"] = "line",
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create Dataset from text file(s).
+
+        Read the text files, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             path_or_paths (`path-like` or list of `path-like`):
@@ -1347,6 +1399,11 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                 This is helpful if the dataset is made of multiple files. Multiprocessing is disabled by default.
 
                 <Added version="2.8.0"/>
+            keep_linebreaks: (`bool`, defaults to False):
+                Whether to keep line breaks.
+            sample_by (`Literal["line", "paragraph", "document"]`, defaults to "line"):
+                Whether to load data per line, praragraph or document.
+                By default one row in the dataset = one line.
             **kwargs (additional keyword arguments):
                 Keyword arguments to be passed to [`TextConfig`].
 
@@ -1369,6 +1426,8 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
             cache_dir=cache_dir,
             keep_in_memory=keep_in_memory,
             num_proc=num_proc,
+            keep_linebreaks=keep_linebreaks,
+            sample_by=sample_by,
             **kwargs,
         ).read()
 
@@ -1382,8 +1441,10 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         working_dir: str = None,
         load_from_cache_file: bool = True,
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create a Dataset from Spark DataFrame. Dataset downloading is distributed over Spark workers.
+
+        Read the Spark DataFrame, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             df (`pyspark.sql.DataFrame`):
@@ -1442,8 +1503,10 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         cache_dir: str = None,
         keep_in_memory: bool = False,
         **kwargs,
-    ):
+    ) -> "Dataset":
         """Create Dataset from SQL query or database table.
+
+        Query the SQL database, cache the data in Arrow format on disk and return the Dataset from the memory-mapped Arrow data on disk.
 
         Args:
             sql (`str` or `sqlalchemy.sql.Selectable`):
@@ -3560,7 +3623,7 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                     ) from None
             if isinstance(inputs, Mapping) and isinstance(processed_inputs, Mapping):
                 # The .map() transform *updates* the dataset:
-                # the output dictionary contains both the the input data and the output data.
+                # the output dictionary contains both the input data and the output data.
                 # The output dictionary may contain Arrow values from `inputs_to_merge` so that we can re-write them efficiently.
                 return {**inputs_to_merge, **processed_inputs}
             else:
@@ -3652,10 +3715,6 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         # If `update_data` is True after processing the first example/batch, initialize these resources with `init_buffer_and_writer`
         buf_writer, writer, tmp_file = None, None, None
 
-        # Check if Polars is available and import it if so
-        if config.POLARS_AVAILABLE and "polars" in sys.modules:
-            import polars as pl
-
         # Optionally initialize the writer as a context manager
         with contextlib.ExitStack() as stack:
             try:
@@ -3681,12 +3740,13 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                                 writer.write_row(example)
                             elif isinstance(example, pd.DataFrame):
                                 writer.write_row(pa.Table.from_pandas(example))
-                            elif (
-                                config.POLARS_AVAILABLE
-                                and "polars" in sys.modules
-                                and isinstance(example, pl.DataFrame)
-                            ):
-                                writer.write_row(example.to_arrow())
+                            elif config.POLARS_AVAILABLE and "polars" in sys.modules:
+                                import polars as pl
+
+                                if isinstance(example, pl.DataFrame):
+                                    writer.write_row(example.to_arrow())
+                                else:
+                                    writer.write(example)
                             else:
                                 writer.write(example)
                         num_examples_progress_update += 1
@@ -3706,10 +3766,13 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                                 writer.write_table(batch)
                             elif isinstance(batch, pd.DataFrame):
                                 writer.write_table(pa.Table.from_pandas(batch))
-                            elif (
-                                config.POLARS_AVAILABLE and "polars" in sys.modules and isinstance(batch, pl.DataFrame)
-                            ):
-                                writer.write_table(batch.to_arrow())
+                            elif config.POLARS_AVAILABLE and "polars" in sys.modules:
+                                import polars as pl
+
+                                if isinstance(batch, pl.DataFrame):
+                                    writer.write_table(batch.to_arrow())
+                                else:
+                                    writer.write_batch(batch, try_original_type=try_original_type)
                             else:
                                 writer.write_batch(batch, try_original_type=try_original_type)
                         num_examples_progress_update += num_examples_in_batch
@@ -5538,7 +5601,6 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
 
         api = HfApi(endpoint=config.HF_ENDPOINT, token=token)
 
-        uploaded_size = 0
         additions: list[CommitOperationAdd] = []
         for index, shard in index_shards:
             if embed_external_files:
@@ -5552,19 +5614,23 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
                 )
                 shard = shard.with_format(**format)
             shard_path_in_repo = f"{data_dir}/{split}-{index:05d}-of-{num_shards:05d}.parquet"
-            buffer = BytesIO()
-            shard.to_parquet(buffer, batch_size=writer_batch_size)
-            parquet_content = buffer.getvalue()
-            uploaded_size += len(parquet_content)
-            del buffer
-            shard_addition = CommitOperationAdd(path_in_repo=shard_path_in_repo, path_or_fileobj=parquet_content)
-            api.preupload_lfs_files(
-                repo_id=repo_id,
-                additions=[shard_addition],
-                repo_type="dataset",
-                revision=revision,
-                create_pr=create_pr,
-            )
+            tmp_file = tempfile.NamedTemporaryFile(suffix=".parquet", delete=False)
+            try:
+                shard.to_parquet(tmp_file, batch_size=writer_batch_size)
+                tmp_file.close()
+                shard_addition = CommitOperationAdd(path_in_repo=shard_path_in_repo, path_or_fileobj=tmp_file.name)
+                api.preupload_lfs_files(
+                    repo_id=repo_id,
+                    additions=[shard_addition],
+                    repo_type="dataset",
+                    revision=revision,
+                    create_pr=create_pr,
+                )
+            except (Exception, KeyboardInterrupt):
+                tmp_file.close()
+                if Path(tmp_file.name).exists():
+                    Path(tmp_file.name).unlink()
+                raise
             additions.append(shard_addition)
             yield job_id, False, 1
 
@@ -5773,13 +5839,6 @@ class Dataset(DatasetInfoMixin, IndexableMixin, TensorflowDatasetMixin):
         >>> french_dataset = load_dataset("<organization>/<dataset_id>", "fr")
         ```
         """
-        if "Video(" in str(self.features):
-            raise NotImplementedError(
-                "push_to_hub is not implemented for video datasets, instead you should upload the video files "
-                "using e.g. the huggingface_hub library and optionally upload a metadata.csv or metadata.jsonl "
-                "file containing other information like video captions, features or labels. More information "
-                "at https://huggingface.co/docs/datasets/main/en/video_load#videofolder"
-            )
         if config_name == "data":
             raise ValueError("`config_name` cannot be 'data'. Please, choose another name for configuration.")
 
@@ -6635,10 +6694,30 @@ def _interleave_map_style_datasets(
     # if stopping_strategy is "first_exhausted", it is an undersampling situation whereas it is an oversampling situation if it is "all_exhausted"
     oversampling = stopping_strategy == "all_exhausted"
 
-    if probabilities is None and not oversampling:
+    if probabilities is None and stopping_strategy == "all_exhausted_without_replacement":
+        # Without replacement situation with cycling between each sources
+        # Example: If lengths of the datasets are [3, 4, 3]
+        # Then the resulting indices should be [0, 3, 7, 1, 4, 8, 2, 5, 9, 6]
+        # We cycle through datasets until all are exhausted, but skip exhausted datasets
+
+        # Reasoning behind the following operation: keeping the first indices of each dataset
+        # while offsetting in order to correspond to the right indices of the concatenated dataset
+        # and flattening to effectively interleave the datasets. Then we remove the exausted datasets
+        # and we continue with the following indices, until all datasets are exhausted
+        chunks_boundaries = [0] + sorted(set(lengths))
+        chunks = zip(chunks_boundaries[:-1], chunks_boundaries[1:])
+        indices_chunks = []
+        for start, end in chunks:
+            indices_chunks.append((np.array(offsets).reshape(1, -1) + np.arange(start, end).reshape(-1, 1)).flatten())
+            exhausted_indices = [i for i in range(len(lengths)) if lengths[i] == end]
+            lengths = np.delete(lengths, exhausted_indices).tolist()
+            offsets = np.delete(offsets, exhausted_indices)
+        indices = np.concatenate(indices_chunks).tolist()
+
+    elif probabilities is None and not oversampling:
         # Undersampling situation with cycling between each sources
         # Example:: If lengths of the datasets are [3, 4, 5]
-        # Then the resulting indices should be [0, 3, 7, 1, 4, 8, 2, 6, 9]
+        # Then the resulting indices should be [0, 3, 7, 1, 4, 8, 2, 5, 9]
         # Note that we only have 3 examples per dataset since the first dataset ran out of examples
 
         # Reasoning behind the following operation: keeping the min_length first indices of each dataset

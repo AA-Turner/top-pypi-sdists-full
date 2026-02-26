@@ -3953,6 +3953,7 @@ class CapacityBlockExtensionOfferingTypeDef(TypedDict):
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
     Tenancy: NotRequired[CapacityReservationTenancyType]
+    ZoneType: NotRequired[str]
 
 
 class CapacityBlockExtensionTypeDef(TypedDict):
@@ -3969,6 +3970,7 @@ class CapacityBlockExtensionTypeDef(TypedDict):
     CapacityBlockExtensionEndDate: NotRequired[datetime]
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
+    ZoneType: NotRequired[str]
 
 
 class CapacityBlockOfferingTypeDef(TypedDict):
@@ -3985,6 +3987,7 @@ class CapacityBlockOfferingTypeDef(TypedDict):
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
     CapacityBlockDurationMinutes: NotRequired[int]
+    ZoneType: NotRequired[str]
 
 
 class CapacityReservationStatusTypeDef(TypedDict):
@@ -11268,6 +11271,7 @@ class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
+    AllAvailabilityZones: NotRequired[bool]
 
 
 class DescribeFleetHistoryRequestTypeDef(TypedDict):
@@ -12260,6 +12264,7 @@ class DescribeCapacityBlockOfferingsRequestPaginateTypeDef(TypedDict):
     EndDateRange: NotRequired[TimestampTypeDef]
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
+    AllAvailabilityZones: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

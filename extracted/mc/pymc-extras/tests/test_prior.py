@@ -553,6 +553,26 @@ def test_equality_non_prior() -> None:
     assert dist != 1
 
 
+def test_equality_data_array() -> None:
+    da1 = DataArray([1, 2], dims="x")
+    da2 = DataArray([1, 2], dims="x")
+    da3 = DataArray([1, 3], dims="x")
+    da4 = DataArray([1, 2], dims="y")
+
+    p1 = Prior("Normal", mu=da1)
+    p2 = Prior("Normal", mu=da2)
+    p3 = Prior("Normal", mu=da3)
+    p4 = Prior("Normal", mu=da4)
+    p5 = Prior("StudentT", mu=da1)
+    p6 = Prior("Normal", mu=np.array([1, 2]))
+
+    assert p1 == p2
+    assert p1 != p3
+    assert p1 != p4
+    assert p1 != p5
+    assert p1 != p6
+
+
 def test_deepcopy_memo() -> None:
     memo = {}
     dist = Prior("Normal")
@@ -1307,3 +1327,25 @@ class TestXDist:
         # This is always invalid
         with pytest.raises(UnsupportedShapeError):
             p.dims = ()
+
+    @pytest.mark.parametrize(
+        "mu",
+        (
+            [10, 20],
+            np.array([10, 20]),
+            pt.as_tensor([10, 20]),
+        ),
+    )
+    def test_implicit_conversion_with_dims(self, mu):
+        # When xdist=True, list/numpy parameters should be converted to DataArray if dims are present
+        p_wo_dims = Prior("Normal", mu=mu, dims=None)
+        p_with_dims = Prior("Normal", mu=mu, dims=("test_dim",))
+
+        coords = {"test_dim": ["a", "b"]}
+        with pm.Model(coords=coords):
+            with pytest.warns(UserWarning, match="Implicit conversion"):
+                res = p_with_dims.create_variable("v", xdist=True)
+                assert res.dims == ("test_dim",)
+
+            with pytest.raises(ValueError, match="Cannot infer dims"):
+                p_wo_dims.create_variable("v", xdist=True)

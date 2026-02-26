@@ -475,6 +475,7 @@ class Repo(Protocol):
         ref: Optional[str] = None,
         include_globs: Optional[list[str]] = None,
         exclude_globs: Optional[list[str]] = None,
+        max_blob_size: Optional[int] = None,
         archive_prefix: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> Any:  # httpx.Response

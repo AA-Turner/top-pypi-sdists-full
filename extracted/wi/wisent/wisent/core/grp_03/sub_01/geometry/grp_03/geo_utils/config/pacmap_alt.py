@@ -9,15 +9,17 @@ import numpy as np
 from typing import Optional, Tuple
 from pynndescent import NNDescent
 from sklearn.decomposition import PCA
-from wisent.core.constants import (NORM_EPS, DEFAULT_RANDOM_SEED, PACMAP_INITIAL_SCALE,
+from wisent.core.constants import (NORM_EPS, DEFAULT_RANDOM_SEED, PACMAP_INITIAL_SCALE, SPECTRAL_N_NEIGHBORS_DEFAULT,
     PACMAP_W_NEAR, PACMAP_W_MID, PACMAP_W_FAR, PACMAP_PHASE_1_END, PACMAP_PHASE_2_END,
     PACMAP_P1_NEAR, PACMAP_P1_MID, PACMAP_P1_FAR, PACMAP_P2_NEAR, PACMAP_P2_MID,
-    PACMAP_P2_FAR, PACMAP_P3_NEAR, PACMAP_P3_MID, PACMAP_P3_FAR, PACMAP_FAR_REPULSE_EPS)
+    PACMAP_P2_FAR, PACMAP_P3_NEAR, PACMAP_P3_MID, PACMAP_P3_FAR, PACMAP_FAR_REPULSE_EPS,
+    PACMAP_ALT_NUM_ITERS, PACMAP_LEARNING_RATE_DEFAULT, PACMAP_N_MID_PAIRS,
+    PACMAP_N_FAR_PAIRS, N_COMPONENTS_2D, PACMAP_PCA_DIM_THRESHOLD, N_JOBS_SINGLE)
 
 
 def find_neighbors(
     X: np.ndarray,
-    n_neighbors: int = 10,
+    n_neighbors: int = SPECTRAL_N_NEIGHBORS_DEFAULT,
 ) -> np.ndarray:
     """Find k-nearest neighbors using pynndescent."""
     n_samples = X.shape[0]
@@ -27,7 +29,7 @@ def find_neighbors(
         X,
         n_neighbors=n_neighbors + 1,
         metric='euclidean',
-        n_jobs=1,
+        n_jobs=N_JOBS_SINGLE,
         random_state=DEFAULT_RANDOM_SEED,
     )
     neighbors, _ = index.neighbor_graph
@@ -37,8 +39,8 @@ def find_neighbors(
 def create_pairs(
     X: np.ndarray,
     neighbors: np.ndarray,
-    n_mid: int = 5,
-    n_far: int = 2,
+    n_mid: int = PACMAP_N_MID_PAIRS,
+    n_far: int = PACMAP_N_FAR_PAIRS,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Create near, mid, and far pairs for PaCMAP optimization."""
     n_samples = X.shape[0]
@@ -84,10 +86,10 @@ def create_pairs(
 
 def pacmap_embedding(
     X: np.ndarray,
-    n_components: int = 2,
-    n_neighbors: int = 10,
-    num_iters: int = 100,
-    learning_rate: float = 1.0,
+    n_components: int = N_COMPONENTS_2D,
+    n_neighbors: int = SPECTRAL_N_NEIGHBORS_DEFAULT,
+    num_iters: int = PACMAP_ALT_NUM_ITERS,
+    learning_rate: float = PACMAP_LEARNING_RATE_DEFAULT,
     random_state: int = DEFAULT_RANDOM_SEED,
 ) -> np.ndarray:
     """
@@ -108,8 +110,8 @@ def pacmap_embedding(
     rng = np.random.RandomState(random_state)
 
     # Reduce dimensions with PCA if needed for speed
-    if n_features > 50:
-        pca = PCA(n_components=min(50, n_samples - 1), random_state=random_state)
+    if n_features > PACMAP_PCA_DIM_THRESHOLD:
+        pca = PCA(n_components=min(PACMAP_PCA_DIM_THRESHOLD, n_samples - 1), random_state=random_state)
         X_reduced = pca.fit_transform(X)
     else:
         X_reduced = X
@@ -177,8 +179,8 @@ def pacmap_embedding(
 def plot_pacmap_alt(
     pos_activations: np.ndarray,
     neg_activations: np.ndarray,
-    n_neighbors: int = 10,
-    num_iters: int = 100,
+    n_neighbors: int = SPECTRAL_N_NEIGHBORS_DEFAULT,
+    num_iters: int = PACMAP_ALT_NUM_ITERS,
     title: str = "PaCMAP Projection",
 ) -> dict:
     """
@@ -206,7 +208,7 @@ def plot_pacmap_alt(
 
     embedding = pacmap_embedding(
         X,
-        n_components=2,
+        n_components=N_COMPONENTS_2D,
         n_neighbors=n_neighbors,
         num_iters=num_iters,
     )

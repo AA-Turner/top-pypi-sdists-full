@@ -50,7 +50,7 @@ def detect_multiple_concepts(
 def split_by_concepts(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
-    n_concepts: int = 2,
+    n_concepts: int = _C.CONCEPT_DETECTION_DEFAULT_N,
 ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
     """Split activations into separate concepts using SpectralClustering."""
     try:
@@ -161,7 +161,7 @@ def compute_concept_coherence(
 def compute_concept_stability(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
-    n_bootstrap: int = 20,
+    n_bootstrap: int = _C.CONCEPT_STABILITY_N_BOOTSTRAP,
 ) -> float:
     """Compute stability of concept direction across bootstrap samples."""
     try:
@@ -202,7 +202,7 @@ def decompose_into_concepts(
     return {
         "n_concepts": len(concepts),
         "concepts": concepts,
-        "independence": independence.get("independence", 0.5),
+        "independence": independence.get("independence", _C.CLASSIFIER_THRESHOLD),
         "coherences": coherences,
         "mean_coherence": float(np.mean(coherences)) if coherences else 0.0,
     }

@@ -49,6 +49,7 @@ from abstra_internals.repositories.project.project import AgentPermission
 MAX_OUTPUT_LEN = 10_000
 MAX_FINISH_REJECTIONS = 3
 MAX_FORCE_FINISH_REPEATS = 5
+MAX_EMPTY_CODE_RETRIES = 3
 
 ACTION_EXECUTE = "execute"
 ACTION_FINISH_SUCCESS = "finish_success"
@@ -124,6 +125,7 @@ class LuaExecutor:
         self._tool_handlers = tool_handlers
         self._send_task_handlers: List[SendTaskHandler] = []
         self._finish_rejection_count = 0
+        self._consecutive_empty_code = 0
         self._secret_manager = secret_manager
         self._memory_manager = memory_manager
         self._memory_reducer = memory_reducer
@@ -154,6 +156,7 @@ class LuaExecutor:
         """Run the ReAct loop: think -> execute Lua or finish -> observe."""
         steps: List[LuaStep] = []
         self._finish_rejection_count = 0
+        self._consecutive_empty_code = 0
         self._base_dir = kwargs.get("base_dir")
 
         # Load secrets from environment if a secret manager is available
@@ -273,12 +276,35 @@ class LuaExecutor:
 
                 # --- execute ---
                 if not step.code.strip():
+                    self._consecutive_empty_code += 1
+                    if self._consecutive_empty_code >= MAX_EMPTY_CODE_RETRIES:
+                        error = (
+                            f"Agent stuck: produced empty code "
+                            f"{self._consecutive_empty_code} times consecutively."
+                        )
+                        print(f"[AGENT] {error}")
+                        return AgentExecutionResult(
+                            success=False,
+                            output="",
+                            tasks_to_send=self._collect_sent_tasks(),
+                            error=error,
+                        )
+                    tool_names = [
+                        lua_safe_name(h.name)
+                        for h in self._tool_handlers
+                        if h.name != "finish"
+                    ]
                     step.output = (
-                        "Error: empty code. Write a Lua script that calls "
-                        "the available functions."
+                        "Error: empty code. You MUST write a Lua script.\n"
+                        f"Available functions: {', '.join(tool_names)}\n"
+                        f'Example: navigate({{url = "https://example.com"}})\n'
+                        f"Attempt {self._consecutive_empty_code}/{MAX_EMPTY_CODE_RETRIES} "
+                        f"before forced failure."
                     )
                     print(f"[AGENT] Output: {step.output}")
                     continue
+
+                self._consecutive_empty_code = 0
 
                 # Unmask secrets in the Lua code before execution
                 code_to_run = step.code

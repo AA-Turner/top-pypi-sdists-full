@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-core
-Version: 0.1.17
+Version: 0.1.18
 Summary: Core functionality for Cua including telemetry and shared utilities
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.12
@@ -9,13 +9,10 @@ Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "otel"
-Provides-Extra: sentry
-Requires-Dist: sentry-sdk>=1.39.0; extra == "sentry"
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "telemetry"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "telemetry"
-Requires-Dist: sentry-sdk>=1.39.0; extra == "telemetry"
 Description-Content-Type: text/markdown
 
 <div align="center">
