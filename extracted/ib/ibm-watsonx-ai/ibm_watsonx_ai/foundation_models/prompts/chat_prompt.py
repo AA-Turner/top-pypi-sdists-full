@@ -25,8 +25,8 @@ class ChatPrompt(BasePrompt):
     :param name: name of the prompt, defaults to None.
     :type name: str, optional
 
-    :param model_id: ID of the foundation model, defaults to None.
-    :type model_id: ModelTypes | str | None, optional
+    :param model_id: ID of the foundation model, can be retrieved using TextModels property, defaults to None.
+    :type model_id: str | None, optional
 
     :param model_params: parameters of the model, defaults to None.
     :type model_params: dict, optional

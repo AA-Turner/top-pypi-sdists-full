@@ -43,7 +43,16 @@ from .commands import (
     ExtraGroup,
     LazyGroup,
 )
-from .config import ConfigFormat, ConfigOption, NO_CONFIG, NoConfigOption
+from .config import (
+    ConfigFormat,
+    ConfigOption,
+    DEFAULT_SUBCOMMANDS_KEY,
+    NO_CONFIG,
+    NoConfigOption,
+    PREPEND_SUBCOMMANDS_KEY,
+    ValidateConfigOption,
+    VCS,
+)
 from .decorators import (  # type: ignore[no-redef]
     argument,
     color_option,
@@ -55,6 +64,7 @@ from .decorators import (  # type: ignore[no-redef]
     no_config_option,
     option,
     show_params_option,
+    validate_config_option,
     table_format_option,
     telemetry_option,
     timer_option,
@@ -119,6 +129,7 @@ __all__ = [  # noqa: F405
     "ConstraintMixin",
     "Context",
     "DateTime",
+    "DEFAULT_SUBCOMMANDS_KEY",
     "dir_path",
     "echo",
     "echo_via_pager",
@@ -181,6 +192,7 @@ __all__ = [  # noqa: F405
     "Path",
     "path",
     "pause",
+    "PREPEND_SUBCOMMANDS_KEY",
     "print_table",
     "progressbar",
     "prompt",
@@ -207,6 +219,9 @@ __all__ = [  # noqa: F405
     "unstyle",
     "UsageError",
     "UUID",
+    "validate_config_option",
+    "ValidateConfigOption",
+    "VCS",
     "verbose_option",
     "VerboseOption",
     "verbosity_option",
@@ -227,7 +242,7 @@ __all__ = [  # noqa: F405
 """
 
 
-__version__ = "7.5.3"
+__version__ = "7.6.0"
 
 
 def __getattr__(name: str) -> object:

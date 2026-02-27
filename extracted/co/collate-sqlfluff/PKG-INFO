@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqlfluff
-Version: 3.3.6
+Version: 3.3.7
 Summary: The SQL Linter for Humans
 Author: open-metadata
 License: MIT License
@@ -27,11 +27,11 @@ License: MIT License
         
 Project-URL: Homepage, https://www.sqlfluff.com
 Project-URL: Documentation, https://docs.sqlfluff.com
-Project-URL: Source, https://github.com/sqlfluff/sqlfluff
-Project-URL: Changes, https://github.com/sqlfluff/sqlfluff/blob/main/CHANGELOG.md
-Project-URL: Issue Tracker, https://github.com/sqlfluff/sqlfluff/issues
+Project-URL: Source, https://github.com/open-metadata/collate-sqlfluff
+Project-URL: Changes, https://github.com/open-metadata/collate-sqlfluff/blob/main/CHANGELOG.md
+Project-URL: Issue Tracker, https://github.com/open-metadata/collate-sqlfluff/issues
 Project-URL: Twitter, https://twitter.com/SQLFluff
-Project-URL: Chat, https://github.com/sqlfluff/sqlfluff#sqlfluff-on-slack
+Project-URL: Chat, https://github.com/open-metadata/collate-sqlfluff#sqlfluff-on-slack
 Keywords: sqlfluff,sql,linter,formatter,athena,bigquery,clickhouse,databricks,db2,duckdb,exasol,greenplum,hive,impala,materialize,mariadb,mysql,postgres,redshift,snowflake,soql,sparksql,sqlite,starrocks,teradata,trino,tsql,vertica,dbt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console

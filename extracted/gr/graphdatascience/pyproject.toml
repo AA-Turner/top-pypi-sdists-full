@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Database",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
@@ -31,7 +32,7 @@ dependencies = [
     "neo4j >= 4.4.12, < 7.0",
     "numpy < 2.4",
     "pandas >= 1.0, < 3.0",
-    "pyarrow >= 17.0, < 23.0",
+    "pyarrow >= 18.0, < 24.0",
     "textdistance >= 4.0, < 5.0",
     "tqdm >= 4.0, < 5.0",
     "typing-extensions >= 4.0, < 5.0",
@@ -67,8 +68,8 @@ dev-base = [
     "mypy == 1.19.1",
     "pandas-stubs == 2.2.3.241009",
     "tox == 4.34.1",
-    "types-setuptools == 75.8.0.20250110",
-    "enum-tools[sphinx] == 0.12.0",
+    "types-setuptools == 80.9.0.20251223",
+    "enum-tools[sphinx]==0.13.0",
     "autodoc_pydantic",
     "types-requests",
     "types-tqdm",
@@ -86,7 +87,7 @@ test = [
 
 docs-ci = [
     "sphinx == 7.3.7",
-    "enum-tools[sphinx] == 0.12.0",
+    "enum-tools[sphinx]==0.13.0",
     "autodoc_pydantic",
 ]
 notebook-base = [
@@ -95,7 +96,10 @@ notebook-base = [
     "nbclient==0.10.4",
     "ipykernel==7.1.0",
 ]
-notebook-aura-ci = [{ include-group = "notebook-base" }, "python-dotenv==1.2.1"]
+notebook-aura-ci = [
+    { include-group = "notebook-base" },
+    "python-dotenv==1.2.1"
+]
 notebook-ci = [
     { include-group = "notebook-base" },
     "scipy == 1.14.0",
@@ -106,7 +110,6 @@ notebook-ci = [
 ]
 
 publish = ["build", "twine"]
-
 
 [tool.setuptools]
 include-package-data = true

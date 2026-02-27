@@ -14,6 +14,9 @@ TEST_TOKENS = [["This", "is", "a", "test", "."], ["Another", "sentence", "."], [
 
 @pytest.fixture(scope="module")
 def foundation_cache():
+    # the test suite sometimes winds up holding on to GPU memory for too long,
+    # resulting in an OOM error
+    # occasionally calling gc.collect() will help
     gc.collect()
     return FoundationCache()
 
@@ -57,5 +60,5 @@ def test_sorted_two_batch(foundation_cache):
     check_results(doc)
 
 def test_get_constituents(foundation_cache):
-    pipe = stanza.Pipeline("en", processors="tokenize,pos,constituency", foundation_cache=foundation_cache, download_method=None)
+    pipe = stanza.Pipeline("en", model_dir=TEST_MODELS_DIR, processors="tokenize,pos,constituency", foundation_cache=foundation_cache, download_method=None)
     assert "SBAR" in pipe.processors["constituency"].get_constituents()

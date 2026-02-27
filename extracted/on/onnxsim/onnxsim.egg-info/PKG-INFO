@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxsim
-Version: 0.6.1
+Version: 0.6.2
 Summary: Simplify your ONNX model
 Home-page: https://github.com/daquexian/onnx-simplifier
 Author: ONNX Simplifier Authors

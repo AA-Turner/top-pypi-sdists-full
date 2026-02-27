@@ -8,13 +8,16 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::Serialize;
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::time::error::Elapsed;
 use tracing::instrument;
 use uuid::Uuid;
 
-use crate::config::{PathWithContents, TimeoutsConfig};
+use crate::config::{
+    PathWithContents, TimeoutsConfig, UninitializedVariantConfig, UninitializedVariantInfo,
+};
+use crate::cost::CostConfig;
 use crate::embeddings::EmbeddingModelTable;
 use crate::endpoints::inference::InferenceIds;
 use crate::endpoints::inference::{InferenceClients, InferenceModels, InferenceParams};
@@ -67,6 +70,13 @@ pub struct VariantInfo {
 impl VariantInfo {
     pub fn set_weight(&mut self, weight: Option<f64>) {
         self.inner.set_weight(weight);
+    }
+
+    pub fn as_uninitialized(&self) -> UninitializedVariantInfo {
+        UninitializedVariantInfo {
+            inner: self.inner.as_uninitialized(),
+            timeouts: Some(self.timeouts.clone()),
+        }
     }
 }
 
@@ -210,6 +220,8 @@ pub struct ModelUsedInfo {
     pub model_inference_id: Uuid,
     /// Raw response entries from failed provider attempts during model-level fallback.
     pub failed_raw_response: Vec<RawResponseEntry>,
+    /// Cost configuration from the provider, for computing cost after streaming completes.
+    pub cost_config: Option<CostConfig>,
 }
 
 pub trait Variant {
@@ -278,6 +290,77 @@ impl VariantConfig {
             VariantConfig::Dicl(params) => params.set_weight(weight),
             VariantConfig::MixtureOfN(params) => params.set_weight(weight),
             VariantConfig::ChainOfThought(params) => params.inner.set_weight(weight),
+        }
+    }
+
+    pub fn as_uninitialized(&self) -> UninitializedVariantConfig {
+        match self {
+            VariantConfig::ChatCompletion(c) => {
+                UninitializedVariantConfig::ChatCompletion(c.as_uninitialized())
+            }
+            VariantConfig::BestOfNSampling(c) => {
+                UninitializedVariantConfig::BestOfNSampling(c.as_uninitialized())
+            }
+            VariantConfig::Dicl(c) => UninitializedVariantConfig::Dicl(c.as_uninitialized()),
+            VariantConfig::MixtureOfN(c) => {
+                UninitializedVariantConfig::MixtureOfN(c.as_uninitialized())
+            }
+            VariantConfig::ChainOfThought(c) => {
+                UninitializedVariantConfig::ChainOfThought(c.as_uninitialized())
+            }
+        }
+    }
+
+    /// Returns the model names directly used by this variant.
+    /// For BestOfN/MixtureOfN, this returns the evaluator/fuser model (not the candidate variant models,
+    /// which are validated separately through experimentation).
+    pub fn direct_model_names(&self) -> Vec<&Arc<str>> {
+        match self {
+            VariantConfig::ChatCompletion(c) => vec![c.model()],
+            VariantConfig::Dicl(c) => vec![c.model()],
+            VariantConfig::ChainOfThought(c) => vec![c.inner.model()],
+            VariantConfig::BestOfNSampling(c) => vec![c.evaluator().inner.model()],
+            VariantConfig::MixtureOfN(c) => vec![c.fuser().inner.model()],
+        }
+    }
+
+    /// Returns the names of candidate variants referenced by this variant.
+    /// Only BestOfN and MixtureOfN have candidates; other variants return an empty slice.
+    pub fn candidate_variant_names(&self) -> &[String] {
+        match self {
+            VariantConfig::BestOfNSampling(c) => c.candidates(),
+            VariantConfig::MixtureOfN(c) => c.candidates(),
+            _ => &[],
+        }
+    }
+
+    /// Returns all model names used by this variant, recursively including models from
+    /// candidate variants (for BestOfN/MixtureOfN).
+    pub fn all_model_names<'a>(
+        &'a self,
+        all_variants: &'a HashMap<String, Arc<VariantInfo>>,
+    ) -> Vec<&'a Arc<str>> {
+        let mut models = Vec::new();
+        let mut visited = HashSet::new();
+        self.collect_model_names_recursive(all_variants, &mut models, &mut visited);
+        models
+    }
+
+    fn collect_model_names_recursive<'a>(
+        &'a self,
+        all_variants: &'a HashMap<String, Arc<VariantInfo>>,
+        models: &mut Vec<&'a Arc<str>>,
+        visited: &mut HashSet<String>,
+    ) {
+        models.extend(self.direct_model_names());
+        for candidate_name in self.candidate_variant_names() {
+            if visited.insert(candidate_name.clone())
+                && let Some(candidate_info) = all_variants.get(candidate_name)
+            {
+                candidate_info
+                    .inner
+                    .collect_model_names_recursive(all_variants, models, visited);
+            }
         }
     }
 }
@@ -837,7 +920,7 @@ async fn infer_model_request(
     if include_raw_response && !retry_errors.is_empty() {
         let mut retry_entries = Vec::new();
         for err in &retry_errors {
-            if let Some(entries) = err.extract_raw_response_entries() {
+            if let Some(entries) = err.extract_raw_response() {
                 retry_entries.extend(entries);
             }
         }
@@ -896,6 +979,7 @@ async fn infer_model_request_stream<'request>(
                 cached,
                 model_inference_id,
                 mut failed_raw_response,
+                cost_config,
             },
         messages: input_messages,
     } = match result {
@@ -915,7 +999,7 @@ async fn infer_model_request_stream<'request>(
     if include_raw_response && !retry_errors.is_empty() {
         let mut retry_entries = Vec::new();
         for err in &retry_errors {
-            if let Some(entries) = err.extract_raw_response_entries() {
+            if let Some(entries) = err.extract_raw_response() {
                 retry_entries.extend(entries);
             }
         }
@@ -938,6 +1022,7 @@ async fn infer_model_request_stream<'request>(
         cached,
         model_inference_id,
         failed_raw_response,
+        cost_config,
     };
     let config_type = function.config_type();
     let stream =
@@ -1303,6 +1388,7 @@ mod tests {
             relay: None,
             include_raw_usage: false,
             include_raw_response: false,
+            include_aggregated_response: false,
         };
         let templates = Arc::new(get_test_template_config().await);
         let inference_params = InferenceParams::default();
@@ -1379,10 +1465,13 @@ mod tests {
                     extra_headers: Default::default(),
                     timeouts: Default::default(),
                     discard_unknown_chunks: false,
+                    cost: None,
+                    batch_cost: None,
                 },
             )]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         };
         let retry_config = Box::leak(Box::new(RetryConfig::default()));
 
@@ -1407,6 +1496,7 @@ mod tests {
             Usage {
                 input_tokens: Some(10),
                 output_tokens: Some(1),
+                cost: None,
             }
         );
         match inference_result {
@@ -1492,10 +1582,13 @@ mod tests {
                     extra_headers: Default::default(),
                     timeouts: Default::default(),
                     discard_unknown_chunks: false,
+                    cost: None,
+                    batch_cost: None,
                 },
             )]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         };
 
         // Create the arguments struct
@@ -1519,6 +1612,7 @@ mod tests {
             Usage {
                 input_tokens: Some(10),
                 output_tokens: Some(1),
+                cost: None,
             }
         );
         match inference_result {
@@ -1559,10 +1653,13 @@ mod tests {
                     extra_headers: Default::default(),
                     timeouts: Default::default(),
                     discard_unknown_chunks: false,
+                    cost: None,
+                    batch_cost: None,
                 },
             )]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         };
 
         // Create the arguments struct
@@ -1619,6 +1716,7 @@ mod tests {
             relay: None,
             include_raw_usage: false,
             include_raw_response: false,
+            include_aggregated_response: false,
         };
         let templates = Arc::new(get_test_template_config().await);
         let inference_params = InferenceParams::default();
@@ -1701,6 +1799,8 @@ mod tests {
                         extra_headers: Default::default(),
                         timeouts: Default::default(),
                         discard_unknown_chunks: false,
+                        cost: None,
+                        batch_cost: None,
                     },
                 ),
                 (
@@ -1712,11 +1812,14 @@ mod tests {
                         extra_headers: Default::default(),
                         timeouts: Default::default(),
                         discard_unknown_chunks: false,
+                        cost: None,
+                        batch_cost: None,
                     },
                 ),
             ]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         };
         let retry_config = Box::leak(Box::new(RetryConfig::default()));
 
@@ -1741,6 +1844,7 @@ mod tests {
             Usage {
                 input_tokens: Some(10),
                 output_tokens: Some(1),
+                cost: None,
             }
         );
         match inference_result {
@@ -1794,6 +1898,7 @@ mod tests {
             relay: None,
             include_raw_usage: false,
             include_raw_response: false,
+            include_aggregated_response: false,
         };
         let retry_config = RetryConfig::default();
         // Create a dummy function config (chat completion)
@@ -1832,10 +1937,13 @@ mod tests {
                     extra_headers: Default::default(),
                     timeouts: Default::default(),
                     discard_unknown_chunks: false,
+                    cost: None,
+                    batch_cost: None,
                 },
             )]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         }));
 
         // Prepare the model inference request
@@ -1957,6 +2065,7 @@ mod tests {
             relay: None,
             include_raw_usage: false,
             include_raw_response: false,
+            include_aggregated_response: false,
         };
         let inference_params = InferenceParams::default();
 
@@ -2023,6 +2132,8 @@ mod tests {
                         extra_headers: Default::default(),
                         timeouts: Default::default(),
                         discard_unknown_chunks: false,
+                        cost: None,
+                        batch_cost: None,
                     },
                 ),
                 (
@@ -2034,11 +2145,14 @@ mod tests {
                         extra_headers: Default::default(),
                         timeouts: Default::default(),
                         discard_unknown_chunks: false,
+                        cost: None,
+                        batch_cost: None,
                     },
                 ),
             ]),
             timeouts: Default::default(),
             skip_relay: false,
+            namespace: None,
         }));
         let retry_config = RetryConfig::default();
 

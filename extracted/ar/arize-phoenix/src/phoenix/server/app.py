@@ -68,6 +68,7 @@ from phoenix.config import (
     get_env_grpc_interceptor_paths,
     get_env_grpc_port,
     get_env_host,
+    get_env_log_sql,
     get_env_max_spans_queue_size,
     get_env_port,
     get_env_support_email,
@@ -917,7 +918,7 @@ def create_engine_and_run_migrations(
         return create_engine(
             connection_str=database_url,
             migrate=not Settings.disable_migrations,
-            log_to_stdout=False,
+            log_to_stdout=get_env_log_sql(),
         )
     except PhoenixMigrationError as e:
         msg = (
@@ -927,7 +928,7 @@ def create_engine_and_run_migrations(
             "revert any partial migrations and run `alembic stamp` to reset the migration state,\n"
             "then try starting Phoenix again.\n\n"
             "If issues persist, please reach out for support in the Arize community Slack:\n"
-            "https://arize-ai.slack.com\n\n"
+            "https://join.slack.com/t/arize-ai/shared_invite/zt-3r07iavnk-ammtATWSlF0pSrd1DsMW7g\n\n"
             "You can also refer to the Alembic documentation for more information:\n"
             "https://alembic.sqlalchemy.org/en/latest/tutorial.html\n\n"
             ""
@@ -1165,8 +1166,12 @@ def create_app(
         app.include_router(create_auth_router(ldap_enabled=ldap_config is not None))
         app.include_router(oauth2_router)
     app.add_middleware(GZipMiddleware)
-    web_manifest_path = SERVER_DIR / "static" / ".vite" / "manifest.json"
-    if serve_ui and web_manifest_path.is_file():
+    static_dir = SERVER_DIR / "static"
+    web_manifest_path = static_dir / ".vite" / "manifest.json"
+    has_built_ui = web_manifest_path.is_file()
+    if dev:
+        static_dir.mkdir(parents=True, exist_ok=True)
+    if serve_ui and (dev or has_built_ui):
         oauth2_idps = [
             OAuth2Idp(name=config.idp_name, displayName=config.idp_display_name)
             for config in oauth2_client_configs or []
@@ -1177,7 +1182,7 @@ def create_app(
         app.mount(
             "/",
             app=Static(
-                directory=SERVER_DIR / "static",
+                directory=static_dir,
                 app_config=AppConfig(
                     is_development=dev,
                     authentication_enabled=authentication_enabled,

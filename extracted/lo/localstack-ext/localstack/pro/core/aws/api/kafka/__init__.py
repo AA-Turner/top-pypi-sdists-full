@@ -76,6 +76,11 @@ class KafkaVersionStatus(StrEnum):
     DEPRECATED = "DEPRECATED"
 
 
+class NetworkType(StrEnum):
+    IPV4 = "IPV4"
+    DUAL = "DUAL"
+
+
 class NodeType(StrEnum):
     BROKER = "BROKER"
 
@@ -158,6 +163,87 @@ class ForbiddenException(ServiceException):
     code: str = "ForbiddenException"
     sender_fault: bool = False
     status_code: int = 403
+    InvalidParameter: _string | None
+
+
+class TopicExistsException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "TopicExistsException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class ClusterConnectivityException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "ClusterConnectivityException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class KafkaTimeoutException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "KafkaTimeoutException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class UnknownTopicOrPartitionException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "UnknownTopicOrPartitionException"
+    sender_fault: bool = False
+    status_code: int = 404
+    InvalidParameter: _string | None
+
+
+class ControllerMovedException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "ControllerMovedException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class NotControllerException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "NotControllerException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class ReassignmentInProgressException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "ReassignmentInProgressException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class GroupSubscribedToTopicException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "GroupSubscribedToTopicException"
+    sender_fault: bool = False
+    status_code: int = 409
+    InvalidParameter: _string | None
+
+
+class KafkaRequestException(ServiceException):
+    """Returns information about an error."""
+
+    code: str = "KafkaRequestException"
+    sender_fault: bool = False
+    status_code: int = 400
     InvalidParameter: _string | None
 
 
@@ -350,6 +436,7 @@ class ConnectivityInfo(TypedDict, total=False):
 
     PublicAccess: PublicAccess | None
     VpcConnectivity: VpcConnectivity | None
+    NetworkType: NetworkType | None
 
 
 class EBSStorageInfo(TypedDict, total=False):
@@ -542,6 +629,14 @@ class ClusterInfo(TypedDict, total=False):
     CustomerActionStatus: CustomerActionStatus | None
 
 
+class ServerlessConnectivityInfo(TypedDict, total=False):
+    """Describes the cluster's connectivity information, such as its network
+    type, which is IPv4 or DUAL.
+    """
+
+    NetworkType: NetworkType | None
+
+
 class VpcConfig(TypedDict, total=False):
     """The configuration of the Amazon VPCs for the cluster."""
 
@@ -557,6 +652,7 @@ class Serverless(TypedDict, total=False):
 
     VpcConfigs: _listOfVpcConfig
     ClientAuthentication: ServerlessClientAuthentication | None
+    ConnectivityInfo: ServerlessConnectivityInfo | None
 
 
 class NodeExporterInfo(TypedDict, total=False):
@@ -958,6 +1054,44 @@ class CreateVpcConnectionResponse(TypedDict, total=False):
     Tags: _mapOf__string | None
 
 
+class CreateTopicRequest(ServiceRequest):
+    ClusterArn: _string
+    TopicName: _string
+    PartitionCount: _integerMin1
+    ReplicationFactor: _integerMin1
+    Configs: _string | None
+
+
+class CreateTopicResponse(TypedDict, total=False):
+    TopicArn: _string | None
+    TopicName: _string | None
+    Status: TopicState | None
+
+
+class DeleteTopicRequest(ServiceRequest):
+    ClusterArn: _string
+    TopicName: _string
+
+
+class DeleteTopicResponse(TypedDict, total=False):
+    TopicArn: _string | None
+    TopicName: _string | None
+    Status: TopicState | None
+
+
+class UpdateTopicRequest(ServiceRequest):
+    ClusterArn: _string
+    TopicName: _string
+    Configs: _string | None
+    PartitionCount: _integer | None
+
+
+class UpdateTopicResponse(TypedDict, total=False):
+    TopicArn: _string | None
+    TopicName: _string | None
+    Status: TopicState | None
+
+
 class VpcConnectionInfoServerless(TypedDict, total=False):
     """Description of the VPC connection."""
 
@@ -970,6 +1104,8 @@ class VpcConnectionInfoServerless(TypedDict, total=False):
 class ClusterOperationV2Serverless(TypedDict, total=False):
     """Returns information about a serverless cluster operation."""
 
+    SourceClusterInfo: ServerlessConnectivityInfo | None
+    TargetClusterInfo: ServerlessConnectivityInfo | None
     VpcConnectionInfo: VpcConnectionInfoServerless | None
 
 
@@ -1264,6 +1400,10 @@ class GetBootstrapBrokersResponse(TypedDict, total=False):
     BootstrapBrokerStringVpcConnectivityTls: _string | None
     BootstrapBrokerStringVpcConnectivitySaslScram: _string | None
     BootstrapBrokerStringVpcConnectivitySaslIam: _string | None
+    BootstrapBrokerStringIpv6: _string | None
+    BootstrapBrokerStringTlsIpv6: _string | None
+    BootstrapBrokerStringSaslScramIpv6: _string | None
+    BootstrapBrokerStringSaslIamIpv6: _string | None
 
 
 class GetCompatibleKafkaVersionsRequest(ServiceRequest):
@@ -1913,6 +2053,44 @@ class KafkaApi:
         """
         raise NotImplementedError
 
+    @handler("CreateTopic")
+    def create_topic(
+        self,
+        context: RequestContext,
+        cluster_arn: _string,
+        topic_name: _string,
+        partition_count: _integerMin1,
+        replication_factor: _integerMin1,
+        configs: _string | None = None,
+        **kwargs,
+    ) -> CreateTopicResponse:
+        """Creates a topic in the specified MSK cluster.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param topic_name: The name of the topic to create.
+        :param partition_count: The number of partitions for the topic.
+        :param replication_factor: The replication factor for the topic.
+        :param configs: Topic configurations encoded as a Base64 string.
+        :returns: CreateTopicResponse
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises UnauthorizedException:
+        :raises ForbiddenException:
+        :raises ServiceUnavailableException:
+        :raises TooManyRequestsException:
+        :raises ConflictException:
+        :raises TopicExistsException:
+        :raises ClusterConnectivityException:
+        :raises KafkaTimeoutException:
+        :raises UnknownTopicOrPartitionException:
+        :raises ControllerMovedException:
+        :raises NotControllerException:
+        :raises ReassignmentInProgressException:
+        :raises GroupSubscribedToTopicException:
+        :raises KafkaRequestException:
+        """
+        raise NotImplementedError
+
     @handler("CreateVpcConnection")
     def create_vpc_connection(
         self,
@@ -2016,6 +2194,30 @@ class KafkaApi:
         :raises NotFoundException:
         :raises ServiceUnavailableException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteTopic")
+    def delete_topic(
+        self, context: RequestContext, cluster_arn: _string, topic_name: _string, **kwargs
+    ) -> DeleteTopicResponse:
+        """Deletes a topic in the specified MSK cluster.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param topic_name: The name of the topic to delete.
+        :returns: DeleteTopicResponse
+        :raises NotFoundException:
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises ClusterConnectivityException:
+        :raises KafkaTimeoutException:
+        :raises UnknownTopicOrPartitionException:
+        :raises ControllerMovedException:
+        :raises NotControllerException:
+        :raises ReassignmentInProgressException:
+        :raises GroupSubscribedToTopicException:
+        :raises KafkaRequestException:
         """
         raise NotImplementedError
 
@@ -3025,5 +3227,39 @@ class KafkaApi:
         :raises NotFoundException:
         :raises ServiceUnavailableException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateTopic")
+    def update_topic(
+        self,
+        context: RequestContext,
+        cluster_arn: _string,
+        topic_name: _string,
+        configs: _string | None = None,
+        partition_count: _integer | None = None,
+        **kwargs,
+    ) -> UpdateTopicResponse:
+        """Updates the configuration of the specified topic.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) that uniquely identifies the cluster.
+        :param topic_name: The name of the topic to update configuration for.
+        :param configs: The new topic configurations encoded as a Base64 string.
+        :param partition_count: The new total number of partitions for the topic.
+        :returns: UpdateTopicResponse
+        :raises BadRequestException:
+        :raises UnauthorizedException:
+        :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        :raises ServiceUnavailableException:
+        :raises ClusterConnectivityException:
+        :raises KafkaTimeoutException:
+        :raises UnknownTopicOrPartitionException:
+        :raises ControllerMovedException:
+        :raises NotControllerException:
+        :raises ReassignmentInProgressException:
+        :raises GroupSubscribedToTopicException:
+        :raises KafkaRequestException:
         """
         raise NotImplementedError

@@ -120,7 +120,7 @@ class LocalstackSession:
 	def close(A):
 		try:files.rm_rf(A.volume_dir)
 		except Exception as B:LOG.warning('could not delete temporary localstack volume dir %s: %s',A.volume_dir,B)
-	def _create_localstack_server(A)->Server:B=A.persistence_mode==LocalstackPersistenceMode.snapshot;C={**A.env_vars,'PERSISTENCE':'1'if B else'0'};return LocalstackDevContainerServer(volume_dir=A.volume_dir,port=A.port,env=C,bind_host=A.bind_host)
+	def _create_localstack_server(A)->Server:B=A.persistence_mode==LocalstackPersistenceMode.snapshot;C={**A.env_vars,'PERSISTENCE':'1'if B else'0'};return LocalstackDevContainerServer(volume_dir=A.volume_dir,port=A.port,env=C,bind_host=A.bind_host,shutdown_timeout=60)
 class PersistenceSession:
 	validations:dict[str,PersistenceValidations];validations_items:dict[str,PersistenceValidationsItem]
 	def __init__(A):A.validations={};A.validations_items={};A.config=_A;A.session=_A;(A.localstack_session):LocalstackSession|_A=_A;A.default_localstack_timeout=120
@@ -137,9 +137,9 @@ class PersistenceSession:
 		if(B:=A.localstack_session):B.close()
 class LocalstackDevContainerServer(Server):
 	entrypoint:str=textwrap.dedent('\n        #!/bin/bash\n\n        # we re-use the extension venv to install coverage lazily (TODO: use a python package and lpm)\n        .venv/bin/python -m localstack.pro.core.bootstrap.extensions init\n        /var/lib/localstack/lib/extensions/python_venv/bin/pip install coverage[toml]\n\n        # then we run a single localstack runtime process wrapped with coverage\n        .venv/bin/python -m coverage run --source localstack_ext -m localstack.runtime.main\n        ')
-	def __init__(A,volume_dir:str,port:int=constants.DEFAULT_PORT_EDGE,env:dict[str,str]|_A=_A,container_client:ContainerClient=DOCKER_CLIENT,mount_source_files:bool|_A=_A,mount_dependencies:bool|_A=_A,bind_host:str|_A=_A)->_A:C=mount_dependencies;B=mount_source_files;super().__init__(port);A.container_name=f"ls-dev-{short_uid()}";A.volume_dir=volume_dir;A.env=env or{};A.bind_host=bind_host or'127.0.0.1';A.container_client=container_client;A.container_config=ContainerConfiguration('localstack/localstack-pro',volumes=VolumeMappings(),ports=PortMappings(A.bind_host),env_vars={});(A._container):RunningContainer|_A=_A;A.mount_source_files=B if B is not _A else config.is_env_not_false(ENV_TEST_CONTAINER_MOUNT_SOURCES);A.mount_dependencies=C if C is not _A else config.is_env_true(ENV_TEST_CONTAINER_MOUNT_DEPENDENCIES)
+	def __init__(A,volume_dir:str,port:int=constants.DEFAULT_PORT_EDGE,env:dict[str,str]|_A=_A,container_client:ContainerClient=DOCKER_CLIENT,mount_source_files:bool|_A=_A,mount_dependencies:bool|_A=_A,bind_host:str|_A=_A,shutdown_timeout:int=10)->_A:C=mount_dependencies;B=mount_source_files;super().__init__(port);A.container_name=f"ls-dev-{short_uid()}";A.volume_dir=volume_dir;A.env=env or{};A.bind_host=bind_host or'127.0.0.1';A.container_client=container_client;A.container_config=ContainerConfiguration('localstack/localstack-pro',volumes=VolumeMappings(),ports=PortMappings(A.bind_host),env_vars={});(A._container):RunningContainer|_A=_A;A.mount_source_files=B if B is not _A else config.is_env_not_false(ENV_TEST_CONTAINER_MOUNT_SOURCES);A.mount_dependencies=C if C is not _A else config.is_env_true(ENV_TEST_CONTAINER_MOUNT_DEPENDENCIES);A.shutdown_timeout=shutdown_timeout
 	def _get_container_configurators(A)->list[ContainerConfigurator]:
-		F='GITHUB_API_TOKEN';E='STATE_SERIALIZATION_BACKEND';D='LOCALSTACK_AUTH_TOKEN';C=HostPaths(workspace_dir=os.path.abspath(os.path.join(constants.LOCALSTACK_VENV_FOLDER,'..','..')),volume_dir=A.volume_dir);B=[ContainerConfigurators.env_vars({D:os.getenv(D,'test'),E:os.getenv(E,''),'ACTIVATE_PRO':'1','EKS_PERSIST_CLUSTER_CONTENTS':'1',_E:f"/var/lib/localstack/{COVERAGE_FILE_NAME}",'RDS_MYSQL_DOCKER':'1','MSSQL_ACCEPT_EULA':'Y','LAMBDA_INIT_POST_INVOKE_WAIT_MS':'50',F:os.getenv(F),'GATEWAY_LISTEN':f":{A.port},:4566,:443"if A.port!=4566 else':4566,:443'}),ContainerConfigurators.container_name(A.container_name),ContainerConfigurators.debug,ContainerConfigurators.port(A.port),ContainerConfigurators.service_port_range,ContainerConfigurators.mount_localstack_volume(A.volume_dir),ContainerConfigurators.mount_docker_socket,CustomEntryPointConfigurator(A.entrypoint),ContainerConfigurators.env_vars(A.env)]
+		F='GITHUB_API_TOKEN';E='STATE_SERIALIZATION_BACKEND';D='LOCALSTACK_AUTH_TOKEN';C=HostPaths(workspace_dir=os.path.abspath(os.path.join(constants.LOCALSTACK_VENV_FOLDER,'..','..')),volume_dir=A.volume_dir);B=[ContainerConfigurators.env_vars({D:os.getenv(D,'test'),E:os.getenv(E,''),'ACTIVATE_PRO':'1','EKS_PERSIST_CLUSTER_CONTENTS':'1',_E:f"/var/lib/localstack/{COVERAGE_FILE_NAME}",'RDS_MYSQL_DOCKER':'1','MSSQL_ACCEPT_EULA':'Y','MSSQL_IMAGE':'mcr.microsoft.com/mssql/server:2022-latest','LAMBDA_INIT_POST_INVOKE_WAIT_MS':'50',F:os.getenv(F),'GATEWAY_LISTEN':f":{A.port},:4566,:443"if A.port!=4566 else':4566,:443'}),ContainerConfigurators.container_name(A.container_name),ContainerConfigurators.debug,ContainerConfigurators.port(A.port),ContainerConfigurators.service_port_range,ContainerConfigurators.mount_localstack_volume(A.volume_dir),ContainerConfigurators.mount_docker_socket,CustomEntryPointConfigurator(A.entrypoint),ContainerConfigurators.env_vars(A.env)]
 		if A.mount_source_files:B.append(SourceVolumeMountConfigurator(host_paths=C,pro=_B));B.append(EntryPointMountConfigurator(host_paths=C,pro=_B))
 		if A.mount_dependencies:B.append(DependencyMountConfigurator(host_paths=C,pro=_B))
 		return B
@@ -153,7 +153,7 @@ class LocalstackDevContainerServer(Server):
 		if not A._container:return _C
 		return A._container.is_running()
 	def do_shutdown(A):
-		try:A._terminate_coverage();A._container.shutdown(timeout=10)
+		try:A._terminate_coverage();A._container.shutdown(timeout=A.shutdown_timeout)
 		except ContainerException:pass
 	def is_up(A)->bool:
 		if not A.is_container_running():return _C

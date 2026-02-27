@@ -18,19 +18,18 @@ see :mod:`numpydantic.validation.dtype`
 """
 
 import sys
-from typing import Tuple, Union
 
 if sys.version_info.minor >= 10:
     from typing import TypeAlias
 else:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 import numpy as np
 
 ShapeExpression: TypeAlias = str
 StructureExpression: TypeAlias = str
-DType: TypeAlias = Union[np.generic, StructureExpression, Tuple["DType"]]
-ShapeTuple: TypeAlias = Tuple[int, ...]
+DType: TypeAlias = np.generic | StructureExpression | tuple["DType"]
+ShapeTuple: TypeAlias = tuple[int, ...]
 
 Bool = np.bool_
 Obj = np.object_  # Obj is a common abbreviation and should be usable.

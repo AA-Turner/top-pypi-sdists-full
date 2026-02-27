@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-e
-Version: 4.8.1
+Version: 4.8.2
 Summary: A data-structure parameterization system written for embedding context in JSON objects
 Home-page: https://json-e.js.org
 Author: Dustin J. Mitchell

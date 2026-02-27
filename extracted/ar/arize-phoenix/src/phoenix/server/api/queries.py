@@ -1440,11 +1440,12 @@ class Query:
 
         gql_configs: list[ClassificationEvaluatorConfig] = []
         for config in pydantic_configs:
-            optimization_direction = (
-                OptimizationDirection.MAXIMIZE
-                if config.optimization_direction == "maximize"
-                else OptimizationDirection.MINIMIZE
-            )
+            if config.optimization_direction == "maximize":
+                optimization_direction = OptimizationDirection.MAXIMIZE
+            elif config.optimization_direction == "minimize":
+                optimization_direction = OptimizationDirection.MINIMIZE
+            else:
+                optimization_direction = OptimizationDirection.NONE
 
             gql_messages: list[PromptMessage] = []
             for msg in config.messages:
@@ -1658,7 +1659,7 @@ class Query:
             try:
                 variables = apply_input_mapping(
                     input_schema=input_schema,
-                    input_mapping=input_mapping,
+                    input_mapping=input_mapping.to_orm(),
                     context=variables,
                 )
             except ValueError as error:
@@ -1718,6 +1719,40 @@ class Query:
             messages.append(PromptMessage(role=PromptMessageRole(msg.role), content=content_parts))
 
         return PromptChatTemplate(messages=messages)
+
+    @strawberry.field
+    async def project_count(self, info: Info[Context, None]) -> int:
+        stmt = select(func.count(models.Project.id))
+        stmt = exclude_experiment_projects(stmt)
+        stmt = exclude_dataset_evaluator_projects(stmt)
+        async with info.context.db() as session:
+            return await session.scalar(stmt) or 0
+
+    @strawberry.field
+    async def dataset_count(self, info: Info[Context, None]) -> int:
+        async with info.context.db() as session:
+            return await session.scalar(select(func.count(models.Dataset.id))) or 0
+
+    @strawberry.field
+    async def prompt_count(self, info: Info[Context, None]) -> int:
+        async with info.context.db() as session:
+            return await session.scalar(select(func.count(models.Prompt.id))) or 0
+
+    @strawberry.field
+    async def evaluator_count(self, info: Info[Context, None]) -> int:
+        has_dataset_association = exists(
+            select(models.DatasetEvaluators.id).where(
+                models.DatasetEvaluators.evaluator_id == models.Evaluator.id
+            )
+        )
+        stmt = select(func.count(models.Evaluator.id)).where(
+            or_(
+                models.Evaluator.kind != "BUILTIN",
+                has_dataset_association,
+            )
+        )
+        async with info.context.db() as session:
+            return await session.scalar(stmt) or 0
 
 
 def _consolidate_sqlite_db_table_stats(

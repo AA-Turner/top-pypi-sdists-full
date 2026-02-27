@@ -497,7 +497,6 @@ def get_branch_config(key, default=None):
 
     return env_config.get(key, default)
 
-
 def get_flow_configs():
     """
     Get flow-specific configs for current environment.
@@ -723,9 +722,19 @@ def pyproject_cmd(flag):
     else:
         return []
 
+def get_env_resolver_from_config(config):
+    return config.get("dependencies", {}).get("environment", "fast-bakery")
+
+def get_package_suffixes_from_config(config):
+    return config.get("dependencies", {}).get("package_suffixes", ".html")
 
 def deploy_flows(flows):
-    project_config = os.path.abspath("obproject.toml")
+    project_config_loc = os.path.abspath("obproject.toml")
+    project_conf = read_toml_config(project_config_loc)
+
+    env_resolver = get_env_resolver_from_config(project_conf)
+    package_suffixes = get_package_suffixes_from_config(project_conf)
+    
     project_spec = os.path.abspath(PROJECT_SPEC)
 
     # Get flow-specific configs from [environments.<env>.flow_configs]
@@ -749,9 +758,9 @@ def deploy_flows(flows):
             project_spec,
             "--config",
             "project_config",
-            project_config,
-            "--package-suffixes=.html",
-            "--environment=fast-bakery",
+            project_config_loc,
+            "--package-suffixes=" + package_suffixes,
+            "--environment=" + env_resolver,
         ]
 
         # Only add configs that this flow declares

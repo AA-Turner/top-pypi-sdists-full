@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gget
-Version: 0.30.2
+Version: 0.30.3
 Summary: Efficient querying of genomic databases.
 Home-page: https://github.com/pachterlab/gget
 Author: Laura Luebbert
@@ -25,16 +25,6 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.17.2
-Requires-Dist: pandas>=1.0.0
-Requires-Dist: requests>=2.22.0
-Requires-Dist: ipython
-Requires-Dist: matplotlib
-Requires-Dist: mysql-connector-python>=8.0.32
-Requires-Dist: beautifulsoup4>=4.10.0
-Requires-Dist: ipywidgets
-Requires-Dist: tqdm
-Requires-Dist: lxml
 
 # gget
 [![pypi version](https://img.shields.io/pypi/v/gget)](https://pypi.org/project/gget)

@@ -1306,7 +1306,11 @@ class InconsistentReturnVariableViolation(ASTViolation):
 @final
 class WalrusViolation(ASTViolation):
     """
-    Forbid the use of the walrus operator (`:=`) outside of comprehensions.
+    Forbid the use of the walrus operator (`:=`) in most cases.
+
+    Walrus operator is allowed inside:
+        - comprehensions
+        - top level ``while`` conditions
 
     Reasoning:
         Code with ``:=`` is hardly readable.
@@ -1315,7 +1319,8 @@ class WalrusViolation(ASTViolation):
         Python is not expression-based.
 
     Solution:
-        Avoid using the walrus operator outside comprehensions.
+        Avoid using the walrus operator outside of specific places where it
+        fits.
         Stick to traditional assignment statements for clarity.
 
     Example::
@@ -1335,7 +1340,7 @@ class WalrusViolation(ASTViolation):
 
     """
 
-    error_template = 'Found walrus operator outside a comprehension'
+    error_template = 'Found improper use of a walrus operator'
     code = 332
 
 
@@ -2081,11 +2086,15 @@ class ConsecutiveYieldsViolation(ASTViolation):
         It can be easily changed to ``yield from (...)`` format.
 
     .. versionadded:: 0.13.0
+    .. versionchanged:: 1.6.0
+       No longer produced, kept here for historic reasons.
+       It is inconsistent with async code.
 
     """
 
     error_template = 'Found consecutive `yield` expressions'
     code = 354
+    disabled_since = '1.6.0'
 
 
 @final
@@ -2460,3 +2469,50 @@ class SimplifiableMatchViolation(ASTViolation):
         'Found simplifiable `match` statement that can be just `if`'
     )
     code = 365
+
+
+@final
+class MeaninglessBooleanOperationViolation(ASTViolation):
+    """
+    Forbid meaningless boolean operations.
+
+    Reasoning:
+        Some parts of a boolean expression may be redundant,
+        making the logic difficult to understand.
+
+    Explanation:
+        - comparison of constants can be replaced with a single constant
+        - comparison with ``True``/``False`` can be removed or replaced
+            with ``True`` or ``False`` constant
+        - comparison with constants in the ``and`` operator can lead to
+            an implicit conditional assignment, which is better done explicitly
+        - comparison with false-like constants in the ``or`` operator
+            can be removed
+        - everything after the first true-like constant in ``or`` operator
+            can be removed
+        - comparison of duplicated variables can be reduced
+
+    Solution:
+        Remove useless operations.
+
+    Example::
+
+        # Correct:
+        cond = condition or -1
+        cond = condition1 or condition2
+        cond = condition1 and condition2 and condition3
+        cond = condition or -condition
+
+        # Wrong:
+        cond = 10 and 'value'
+        cond = condition and 10
+        cond = condition or True
+        cond = condition or 'value' or 0
+        cond = condition and condition
+
+    .. versionadded:: 1.6.0
+
+    """
+
+    error_template = 'Found meaningless boolean operation'
+    code = 366

@@ -134,6 +134,29 @@ def is_streaming(rel: relation_proto.Relation) -> bool:
         return False
 
 
+def _is_agg_function_with_single_row_result(rel: relation_proto.Relation) -> bool:
+    """
+    Detect a Spark Connect relation corresponding to a global aggregate.
+
+    A Spark Connect `aggregate` relation with *no* grouping expressions corresponds to a global
+    aggregation (e.g. `df.agg(...)` / `df.groupBy().agg(...)`). This always produces exactly one
+    output row (even if the input is empty), regardless of the specific aggregate functions used.
+    """
+    try:
+        if rel.WhichOneof("rel_type") != "aggregate":
+            return False
+
+        agg = rel.aggregate
+        if len(agg.grouping_expressions) != 0:
+            return False
+
+        # an "aggregate" with no aggregate expressions is not meaningful.
+        return len(agg.aggregate_expressions) > 0
+    except Exception:
+        # if we can't prove it is a global aggregate, keep the default path.
+        return False
+
+
 def pandas_to_arrow_batches_bytes(pandas_df: pandas.DataFrame) -> bytes:
     """
     Serialize a pandas DataFrame as Pyarrow encoded bytes.

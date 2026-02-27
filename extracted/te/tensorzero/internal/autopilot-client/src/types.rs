@@ -144,6 +144,7 @@ pub enum AutopilotStatus {
     ServerSideProcessing,
     WaitingForToolCallAuthorization,
     WaitingForToolExecution,
+    WaitingForUserQuestionsAnswers,
     WaitingForRetry,
     Failed,
 }
@@ -401,6 +402,7 @@ pub struct AutopilotToolResult {
 pub enum ToolCallDecisionSource {
     Ui,
     Automatic,
+    Whitelist,
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
@@ -768,6 +770,9 @@ pub struct ListEventsResponse {
     /// All EventPayloads in these Events should be of type ToolCall.
     #[serde(default)]
     pub pending_tool_calls: Vec<Event>,
+    /// All user_questions events that do not have a matching user_questions_answers event.
+    #[serde(default)]
+    pub pending_user_questions: Vec<Event>,
 }
 
 /// Response from listing events as seen by gateway consumers.
@@ -788,6 +793,9 @@ pub struct GatewayListEventsResponse {
     /// All EventPayloads in these Events should be of type ToolCall.
     #[serde(default)]
     pub pending_tool_calls: Vec<GatewayEvent>,
+    /// All user_questions events that do not have a matching user_questions_answers event.
+    #[serde(default)]
+    pub pending_user_questions: Vec<GatewayEvent>,
 }
 
 /// Response from listing sessions.
@@ -843,6 +851,32 @@ pub struct ApproveAllToolCallsResponse {
     pub event_ids: Vec<Uuid>,
     /// Event IDs of the tool calls that were approved.
     pub tool_call_event_ids: Vec<Uuid>,
+}
+
+// =============================================================================
+// S3 Upload Types
+// =============================================================================
+
+/// Request body for initiating an S3 upload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct S3UploadRequest {
+    pub tool_call_event_id: Uuid,
+}
+
+/// Response from initiating an S3 upload, containing temporary credentials.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct S3UploadResponse {
+    pub bucket: String,
+    pub key: String,
+    pub region: String,
+    pub endpoint: Option<String>,
+    pub virtual_hosted_style_request: Option<bool>,
+    pub allow_http: Option<bool>,
+    // Credentials can be null when running locally
+    pub access_key_id: Option<String>,
+    pub secret_access_key: Option<String>,
+    pub session_token: Option<String>,
+    pub credential_expiration: DateTime<Utc>,
 }
 
 // =============================================================================

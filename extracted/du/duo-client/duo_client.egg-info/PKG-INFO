@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duo_client
-Version: 5.5.0
+Version: 5.6.1
 Summary: Reference client for Duo Security APIs
 Home-page: https://github.com/duosecurity/duo_client_python
 Author: Duo Security, Inc.
@@ -44,6 +44,7 @@ Dynamic: summary
 * 3.9
 * 3.10
 * 3.11
+* 3.12
 
 ## Requirements
 Duo_client_python supports Python 3.7 and higher
@@ -79,7 +80,7 @@ See the `examples` folder for how to use this library.
 
 To run an example query, execute a command like the following from the repo root:
 ```
-$ python examples/report_users_and_phones.py
+$ python examples/Admin/report_users_and_phones.py
 ```
 
 # Testing

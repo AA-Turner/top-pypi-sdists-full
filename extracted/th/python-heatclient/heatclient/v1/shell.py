@@ -1684,10 +1684,13 @@ def do_snapshot_list(hc, args):
     except exc.HTTPNotFound:
         raise exc.CommandError(_('Stack not found: %s') % args.id)
     else:
-        fields = ['id', 'name', 'status', 'status_reason', 'creation_time']
+        fields = [
+            'id', 'name', 'action', 'status', 'status_reason', 'creation_time'
+        ]
         formatters = {
             'id': lambda x: x['id'],
             'name': lambda x: x['name'],
+            'action': lambda x: x['action'],
             'status': lambda x: x['status'],
             'status_reason': lambda x: x['status_reason'],
             'creation_time': lambda x: x['creation_time'],

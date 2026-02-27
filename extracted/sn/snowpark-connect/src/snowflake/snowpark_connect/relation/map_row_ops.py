@@ -11,8 +11,9 @@ from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentExc
 import snowflake.snowpark_connect.relation.utils as utils
 from snowflake import snowpark
 from snowflake.snowpark._internal.error_message import SnowparkClientExceptionMessages
-from snowflake.snowpark.functions import col, expr as snowpark_expr, lit
+from snowflake.snowpark.functions import col, expr as snowpark_expr, lit, to_binary
 from snowflake.snowpark.types import (
+    BinaryType,
     BooleanType,
     ByteType,
     DecimalType,
@@ -20,15 +21,14 @@ from snowflake.snowpark.types import (
     FloatType,
     IntegerType,
     LongType,
-    NullType,
     ShortType,
+    StringType,
     StructField,
     StructType,
     _IntegralType,
 )
 from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
-    schema_getter,
     set_schema_getter,
 )
 from snowflake.snowpark_connect.config import global_config
@@ -38,6 +38,9 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.expression.literal import get_literal_field_and_name
 from snowflake.snowpark_connect.expression.map_expression import (
     map_single_column_expression,
+)
+from snowflake.snowpark_connect.expression.map_unresolved_function import (
+    _find_common_type,
 )
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.relation.map_relation import map_relation
@@ -76,11 +79,9 @@ def cast_columns(
         col_name = field.name
         current_type = field.datatype
         target_type = target_dtypes[i]
-
-        if current_type != target_type:
-            new_columns.append(df[col_name].cast(target_type).alias(col_name))
-        else:
-            new_columns.append(df[col_name])
+        new_columns.append(
+            _cast_column_if_needed(df, col_name, current_type, target_type)
+        )
 
     new_df = df.select(new_columns)
     return DataFrameContainer.create_with_column_mapping(
@@ -106,6 +107,111 @@ def get_schema_from_result(
         return result.cached_schema_getter()
     else:
         return result.dataframe.schema
+
+
+def _cast_column_if_needed(
+    df: snowpark.DataFrame,
+    col_name: str,
+    current_type: snowpark.types.DataType,
+    target_type: snowpark.types.DataType,
+) -> snowpark.Column:
+    """
+    Cast a column to target type if needed, handling special cases like StringType to BinaryType.
+
+    Returns the column expression (cast if types differ, unchanged otherwise).
+    """
+    if isinstance(current_type, StringType) and isinstance(target_type, BinaryType):
+        return to_binary(df[col_name], "utf-8").alias(col_name)
+    elif current_type != target_type:
+        return df[col_name].cast(target_type).alias(col_name)
+    else:
+        return df[col_name]
+
+
+def _cast_df_columns_by_name(
+    df: snowpark.DataFrame,
+    type_map: dict[str, snowpark.types.DataType],
+) -> snowpark.DataFrame:
+    """
+    Cast DataFrame columns based on a name-to-type mapping.
+
+    Returns new_df with updated types and set_schema_getter called to PatchedDataFrame.
+    """
+    if not type_map:
+        return df
+
+    new_fields: list[StructField] = []
+    select_cols = []
+    for field in df.schema.fields:
+        target_type = type_map.get(field.name)
+        current_type = field.datatype
+        if target_type is not None:
+            select_cols.append(
+                _cast_column_if_needed(df, field.name, current_type, target_type)
+            )
+            new_fields.append(StructField(field.name, target_type, field.nullable))
+        else:
+            select_cols.append(df[field.name])
+            new_fields.append(field)
+
+    new_df = df.select(select_cols)
+    set_schema_getter(new_df, lambda: StructType(new_fields))
+    return new_df
+
+
+def _coerce_set_op_types(
+    left_df: DataFrameContainer,
+    right_df: DataFrameContainer,
+    operation_name: str,
+) -> tuple[DataFrameContainer, DataFrameContainer]:
+    """
+    Coerce types for set operations (UNION, INTERSECT, EXCEPT).
+
+    Validates column counts match and casts both sides to common types when needed.
+
+    Returns updated (left_result, right_result).
+    """
+    left_dtypes = [field.datatype for field in get_schema_from_result(left_df).fields]
+    right_dtypes = [field.datatype for field in get_schema_from_result(right_df).fields]
+
+    if left_dtypes != right_dtypes:
+        if len(left_dtypes) != len(right_dtypes):
+            exception = AnalysisException(
+                f"{operation_name}: the number of columns must match"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        target_dtypes = []
+        for left_type, right_type in zip(left_dtypes, right_dtypes):
+            try:
+                target_dtypes.append(
+                    _find_common_type(
+                        [left_type, right_type],
+                        narrow_string=global_config.spark_sql_ansi_enabled,
+                    )
+                )
+            except AnalysisException as exception:
+                if "DATATYPE_MISMATCH.DATA_DIFF_TYPES" in exception.message:
+                    exception = AnalysisException(
+                        f"""[INCOMPATIBLE_COLUMN_TYPE] {operation_name} can only be performed on tables with compatible column types. "{str(left_type)}" type which is not compatible with "{str(right_type)}". """
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
+
+        left_df = cast_columns(
+            left_df,
+            left_dtypes,
+            target_dtypes,
+            left_df.column_map,
+        )
+        right_df = cast_columns(
+            right_df,
+            right_dtypes,
+            target_dtypes,
+            right_df.column_map,
+        )
+
+    return left_df, right_df
 
 
 def map_deduplicate(
@@ -373,127 +479,18 @@ def map_union(
     right_df = right_result.dataframe
     allow_missing_columns = bool(rel.set_op.allow_missing_columns)
 
-    # workaround for unstructured type vs structured type
-    # Use cached schema if available to avoid triggering extra queries
-    left_schema = get_schema_from_result(left_result)
-    right_schema = get_schema_from_result(right_result)
-
-    left_dtypes = [field.datatype for field in left_schema.fields]
-    right_dtypes = [field.datatype for field in right_schema.fields]
-
-    spark_sql_ansi_enabled = global_config.spark_sql_ansi_enabled
-    if left_dtypes != right_dtypes and not rel.set_op.by_name:
-        if len(left_dtypes) != len(right_dtypes):
-            exception = AnalysisException("UNION: the number of columns must match")
-            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-            raise exception
-        target_left_dtypes, target_right_dtypes = [], []
-        for left_type, right_type in zip(left_dtypes, right_dtypes):
-            match (left_type, right_type):
-                case (snowpark.types.ArrayType(), snowpark.types.ArrayType()):
-                    # Up casting unstructured array to structured array
-                    common_type = snowpark.types.ArrayType(
-                        left_type.element_type or right_type.element_type
-                    )
-                    target_left_dtypes.append(common_type)
-                    target_right_dtypes.append(common_type)
-                case (snowpark.types.ArrayType(), snowpark.types.StringType()) | (
-                    snowpark.types.StringType(),
-                    snowpark.types.ArrayType(),
-                ):
-                    # workaround for Null array. The NULL in SQL has StringType as the default type.
-                    # TODO: seems like for Map, we can't cast the StringType to MapType using snowpark_fn.cast
-                    common_type = (
-                        right_type
-                        if isinstance(left_type, snowpark.types.StringType)
-                        else left_type
-                    )
-                    target_left_dtypes.append(common_type)
-                    target_right_dtypes.append(common_type)
-                case (other_t, NullType()) | (NullType(), other_t):
-                    # Union of any type with null type is of the other type
-                    target_left_dtypes.append(other_t)
-                    target_right_dtypes.append(other_t)
-                case (snowpark.types.DecimalType(), snowpark.types.DecimalType()):
-                    # Widen decimal types to accommodate both sides
-                    # Calculate the maximum scale and maximum integer digits
-                    left_integer_digits = left_type.precision - left_type.scale
-                    right_integer_digits = right_type.precision - right_type.scale
-
-                    # The common type needs to accommodate:
-                    # - The maximum number of digits after the decimal point (scale)
-                    # - The maximum number of digits before the decimal point (integer digits)
-                    common_scale = max(left_type.scale, right_type.scale)
-                    common_integer_digits = max(
-                        left_integer_digits, right_integer_digits
-                    )
-                    common_precision = min(38, common_scale + common_integer_digits)
-
-                    # Ensure scale doesn't exceed precision
-                    common_scale = min(common_scale, common_precision)
-
-                    common_type = snowpark.types.DecimalType(
-                        common_precision, common_scale
-                    )
-                    target_left_dtypes.append(common_type)
-                    target_right_dtypes.append(common_type)
-                case (snowpark.types.BooleanType(), _) | (
-                    _,
-                    snowpark.types.BooleanType(),
-                ):
-                    if left_type != right_type and (
-                        not spark_sql_ansi_enabled
-                        or snowpark.types.StringType() not in [left_type, right_type]
-                    ):  # In ansi mode , string type union boolean type is acceptable
-                        exception = AnalysisException(
-                            f"""[INCOMPATIBLE_COLUMN_TYPE] UNION can only be performed on tables with compatible column types. "{str(left_type)}" type which is not compatible with "{str(right_type)}". """
-                        )
-                        attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
-                        raise exception
-                    target_left_dtypes.append(left_type)
-                    target_right_dtypes.append(right_type)
-                case (
-                    snowpark.types.TimestampType()
-                    | snowpark.types.DateType()
-                    | snowpark.types._NumericType(),
-                    snowpark.types.StringType(),
-                ) | (
-                    snowpark.types.StringType(),
-                    snowpark.types.TimestampType()
-                    | snowpark.types.DateType()
-                    | snowpark.types._NumericType(),
-                ) if not spark_sql_ansi_enabled:
-                    common_type = snowpark.types.StringType()
-                    target_left_dtypes.append(common_type)
-                    target_right_dtypes.append(common_type)
-                case _:
-                    target_left_dtypes.append(left_type)
-                    target_right_dtypes.append(right_type)
-
-        left_result = cast_columns(
-            left_result,
-            left_dtypes,
-            target_left_dtypes,
-            left_result.column_map,
-        )
-        right_result = cast_columns(
-            right_result,
-            right_dtypes,
-            target_right_dtypes,
-            right_result.column_map,
+    if not rel.set_op.by_name:
+        left_result, right_result = _coerce_set_op_types(
+            left_result, right_result, "UNION"
         )
         left_df = left_result.dataframe
         right_df = right_result.dataframe
-
-    # Save the column names so that we can restore them after the union.
-    left_df_columns = left_result.dataframe.columns
 
     if rel.set_op.by_name:
         # To use unionByName, we need to have the same column names.
         # We rename the columns back to their originals using the map
         left_column_map = left_result.column_map
         left_table_name = left_result.table_name
-        left_schema_getter = schema_getter(left_df)
         right_column_map = right_result.column_map
         columns_to_restore: dict[str, tuple[str, str]] = {}
 
@@ -527,40 +524,46 @@ def map_union(
             )
         set_schema_getter(left_df, lambda: StructType(left_renamed_fields))
 
+        left_type_map = {f.name: f.datatype for f in left_renamed_fields}
+        right_type_map = {f.name: f.datatype for f in right_renamed_fields}
+        shared_columns = set(left_type_map) & set(right_type_map)
+
+        common_type_map = {}
+        for col_name in shared_columns:
+            if left_type_map[col_name] != right_type_map[col_name]:
+                common_type_map[col_name] = _find_common_type(
+                    [left_type_map[col_name], right_type_map[col_name]],
+                    narrow_string=global_config.spark_sql_ansi_enabled,
+                )
+
+        left_df = _cast_df_columns_by_name(left_df, common_type_map)
+        right_df = _cast_df_columns_by_name(right_df, common_type_map)
         result = _union_by_name_optimized(left_df, right_df, allow_missing_columns)
 
-        if allow_missing_columns:
-            spark_columns = []
-            snowpark_columns = []
+        spark_columns = []
+        snowpark_columns = []
 
-            for col_ in result.columns:
-                spark_col_to_restore, snowpark_col_to_restore = columns_to_restore[
-                    col_.upper()
-                ]
-                result = result.withColumnRenamed(col_, snowpark_col_to_restore)
+        snowpark_column_types = [f.datatype for f in result.schema.fields]
+        for col_ in result.columns:
+            spark_col_to_restore, snowpark_col_to_restore = columns_to_restore[
+                col_.upper()
+            ]
+            result = result.withColumnRenamed(col_, snowpark_col_to_restore)
 
-                spark_columns.append(spark_col_to_restore)
-                snowpark_columns.append(snowpark_col_to_restore)
+            spark_columns.append(spark_col_to_restore)
+            snowpark_columns.append(snowpark_col_to_restore)
 
-            left_df_col_metadata = left_column_map.column_metadata or {}
-            right_df_col_metadata = right_column_map.column_metadata or {}
-            merged_column_metadata = left_df_col_metadata | right_df_col_metadata
+        left_df_col_metadata = left_column_map.column_metadata or {}
+        right_df_col_metadata = right_column_map.column_metadata or {}
+        merged_column_metadata = left_df_col_metadata | right_df_col_metadata
 
-            return DataFrameContainer.create_with_column_mapping(
-                result,
-                spark_column_names=spark_columns,
-                snowpark_column_names=snowpark_columns,
-                column_metadata=merged_column_metadata,
-            )
-
-        for i in range(len(left_df_columns)):
-            result = result.withColumnRenamed(result.columns[i], left_df_columns[i])
-
-        return DataFrameContainer(
+        return DataFrameContainer.create_with_column_mapping(
             result,
-            column_map=left_column_map,
+            spark_column_names=spark_columns,
+            snowpark_column_types=snowpark_column_types,
+            snowpark_column_names=snowpark_columns,
+            column_metadata=merged_column_metadata,
             table_name=left_table_name,
-            cached_schema_getter=left_schema_getter,
         )
     elif rel.set_op.is_all:
         result = left_df.unionAll(right_df)
@@ -616,6 +619,10 @@ def map_intersect(
     """
     left_result = without_internal_columns(map_relation(rel.set_op.left_input))
     right_result = without_internal_columns(map_relation(rel.set_op.right_input))
+
+    left_result, right_result = _coerce_set_op_types(
+        left_result, right_result, "INTERSECT"
+    )
     left_df = left_result.dataframe
     right_df = right_result.dataframe
 
@@ -679,50 +686,12 @@ def map_except(
     """
     left_result = without_internal_columns(map_relation(rel.set_op.left_input))
     right_result = without_internal_columns(map_relation(rel.set_op.right_input))
+
+    left_result, right_result = _coerce_set_op_types(
+        left_result, right_result, "EXCEPT"
+    )
     left_df = left_result.dataframe
     right_df = right_result.dataframe
-
-    # workaround for unstructured type vs structured type
-    # Use cached schema if available to avoid triggering extra queries
-    left_schema = get_schema_from_result(left_result)
-    right_schema = get_schema_from_result(right_result)
-
-    left_dtypes = [field.datatype for field in left_schema.fields]
-    right_dtypes = [field.datatype for field in right_schema.fields]
-
-    if left_dtypes != right_dtypes and not rel.set_op.by_name:
-        if len(left_dtypes) != len(right_dtypes):
-            exception = AnalysisException("UNION: the number of columns must match")
-            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-            raise exception
-        target_left_dtypes, target_right_dtypes = [], []
-        for left_type, right_type in zip(left_dtypes, right_dtypes):
-            match (left_type, right_type):
-                case (snowpark.types._NumericType(), snowpark.types.StringType()) | (
-                    snowpark.types.StringType(),
-                    snowpark.types._NumericType(),
-                ):
-                    common_type = snowpark.types.StringType()
-                    target_left_dtypes.append(common_type)
-                    target_right_dtypes.append(common_type)
-                case _:
-                    target_left_dtypes.append(left_type)
-                    target_right_dtypes.append(right_type)
-
-        left_result = cast_columns(
-            left_result,
-            left_dtypes,
-            target_left_dtypes,
-            left_result.column_map,
-        )
-        right_result = cast_columns(
-            right_result,
-            right_dtypes,
-            target_right_dtypes,
-            right_result.column_map,
-        )
-        left_df = left_result.dataframe
-        right_df = right_result.dataframe
 
     if rel.set_op.is_all:
         # Snowflake except removes all duplicated rows. In order to handle the case,

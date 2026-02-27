@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cua-computer
-Version: 0.5.15
+Version: 0.5.16
 Summary: Computer-Use Interface (CUI) framework powering Cua
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.12

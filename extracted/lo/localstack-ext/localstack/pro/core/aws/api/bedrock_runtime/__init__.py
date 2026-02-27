@@ -301,6 +301,10 @@ class ImageFormat(StrEnum):
     webp = "webp"
 
 
+class OutputFormatType(StrEnum):
+    json_schema = "json_schema"
+
+
 class PerformanceConfigLatency(StrEnum):
     standard = "standard"
     optimized = "optimized"
@@ -1543,6 +1547,35 @@ class ConverseOutput(TypedDict, total=False):
     message: Message | None
 
 
+class JsonSchemaDefinition(TypedDict, total=False):
+    """JSON schema structured output format options."""
+
+    schema: String
+    name: String | None
+    description: String | None
+
+
+class OutputFormatStructure(TypedDict, total=False):
+    """The structure that the model's output must adhere to."""
+
+    jsonSchema: JsonSchemaDefinition | None
+
+
+class OutputFormat(TypedDict, total=False):
+    type: OutputFormatType
+    structure: OutputFormatStructure
+
+
+class OutputConfig(TypedDict, total=False):
+    """Output configuration for a model response in a call to
+    `Converse <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html>`__
+    or
+    `ConverseStream <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStream.html>`__.
+    """
+
+    textFormat: OutputFormat | None
+
+
 class ServiceTier(TypedDict, total=False):
     type: ServiceTierType
 
@@ -1637,6 +1670,7 @@ class ToolSpecification(TypedDict, total=False):
     name: ToolName
     description: NonEmptyString | None
     inputSchema: ToolInputSchema
+    strict: Boolean | None
 
 
 class Tool(TypedDict, total=False):
@@ -1716,6 +1750,7 @@ class ConverseRequest(ServiceRequest):
     requestMetadata: RequestMetadata | None
     performanceConfig: PerformanceConfiguration | None
     serviceTier: ServiceTier | None
+    outputConfig: OutputConfig | None
 
 
 class PromptRouterTrace(TypedDict, total=False):
@@ -1857,6 +1892,7 @@ class ConverseStreamRequest(ServiceRequest):
     requestMetadata: RequestMetadata | None
     performanceConfig: PerformanceConfiguration | None
     serviceTier: ServiceTier | None
+    outputConfig: OutputConfig | None
 
 
 class ConverseStreamResponse(TypedDict, total=False):
@@ -2101,6 +2137,7 @@ class BedrockRuntimeApi:
         request_metadata: RequestMetadata | None = None,
         performance_config: PerformanceConfiguration | None = None,
         service_tier: ServiceTier | None = None,
+        output_config: OutputConfig | None = None,
         **kwargs,
     ) -> ConverseResponse:
         """Sends messages to the specified Amazon Bedrock model. ``Converse``
@@ -2177,6 +2214,7 @@ class BedrockRuntimeApi:
         :param performance_config: Model performance settings for the request.
         :param service_tier: Specifies the processing tier configuration used for serving the
         request.
+        :param output_config: Output configuration for a model response.
         :returns: ConverseResponse
         :raises AccessDeniedException:
         :raises ThrottlingException:
@@ -2207,6 +2245,7 @@ class BedrockRuntimeApi:
         request_metadata: RequestMetadata | None = None,
         performance_config: PerformanceConfiguration | None = None,
         service_tier: ServiceTier | None = None,
+        output_config: OutputConfig | None = None,
         **kwargs,
     ) -> ConverseStreamResponse:
         """Sends messages to the specified Amazon Bedrock model and returns the
@@ -2291,6 +2330,7 @@ class BedrockRuntimeApi:
         :param performance_config: Model performance settings for the request.
         :param service_tier: Specifies the processing tier configuration used for serving the
         request.
+        :param output_config: Output configuration for a model response.
         :returns: ConverseStreamResponse
         :raises AccessDeniedException:
         :raises ThrottlingException:

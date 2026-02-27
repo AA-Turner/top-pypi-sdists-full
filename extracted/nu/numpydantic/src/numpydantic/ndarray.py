@@ -13,7 +13,7 @@ Extension of nptyping NDArray for pydantic that allows for JSON-Schema serializa
 
 """
 
-from typing import TYPE_CHECKING, Any, Literal, Tuple, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Union, get_origin
 
 import numpy as np
 from pydantic import GetJsonSchemaHandler
@@ -40,12 +40,12 @@ from numpydantic.vendor.nptyping.typing_ import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from nptyping.base_meta_classes import SubscriptableMeta
     from pydantic._internal._schema_generation_shared import (
         CallbackGetCoreSchemaHandler,
     )
 
     from numpydantic import Shape
+    from numpydantic.vendor.nptyping.base_meta_classes import SubscriptableMeta
 
 
 class NDArrayMeta(_NDArrayMeta, implementation="NDArray"):
@@ -176,29 +176,47 @@ class NDArray(NPTypingType, metaclass=NDArrayMeta):
         - https://docs.pydantic.dev/latest/usage/types/custom/#handling-third-party-types
     """
 
-    __args__: Tuple[ShapeType, DtypeType] = (Any, Any)
+    __args__: tuple[ShapeType, DtypeType] = (Any, Any)
 
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        _source_type: "NDArray",
+        _source_type: Union["NDArray", Any],
         _handler: "CallbackGetCoreSchemaHandler",
     ) -> core_schema.CoreSchema:
-        shape, dtype = _source_type.__args__
+        shape, dtype = cls.__args__
         shape: ShapeType
         dtype: DtypeType
+
+        serialization = core_schema.plain_serializer_function_ser_schema(
+            jsonize_array, when_used="json", info_arg=True
+        )
 
         # make core schema for json schema, store it and any model definitions
         # so that we can use them when rendering json schema
         json_schema = make_json_schema(shape, dtype, _handler)
 
-        return core_schema.with_info_plain_validator_function(
-            get_validate_interface(shape, dtype),
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                jsonize_array, when_used="json", info_arg=True
-            ),
-            metadata=json_schema,
-        )
+        if (
+            not hasattr(_source_type, "__class__")
+            or _source_type.__class__ is not NDArrayMeta
+        ):
+            return core_schema.chain_schema(
+                [
+                    core_schema.is_instance_schema(_source_type),
+                    core_schema.with_info_plain_validator_function(
+                        get_validate_interface(shape, dtype)
+                    ),
+                ],
+                serialization=serialization,
+                metadata=json_schema,
+            )
+        else:
+
+            return core_schema.with_info_plain_validator_function(
+                get_validate_interface(shape, dtype),
+                serialization=serialization,
+                metadata=json_schema,
+            )
 
     @classmethod
     def __get_pydantic_json_schema__(

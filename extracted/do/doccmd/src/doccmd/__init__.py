@@ -36,7 +36,15 @@ from sybil.document import Document
 from sybil.example import Example
 from sybil.parsers.abstract.lexers import LexingException
 from sybil_extras.evaluators.multi import MultiEvaluator
-from sybil_extras.evaluators.shell_evaluator import ShellCommandEvaluator
+from sybil_extras.evaluators.shell_evaluator import (
+    ShellCommandEvaluator,
+)
+from sybil_extras.evaluators.shell_evaluator.result_transformer import (
+    PyconResultTransformer,
+)
+from sybil_extras.evaluators.shell_evaluator.source_preparer import (
+    PyconSourcePreparer,
+)
 from sybil_extras.languages import (
     DJOT,
     MARKDOWN,
@@ -57,7 +65,6 @@ except PackageNotFoundError:  # pragma: no cover
     # for example in a PyInstaller binary,
     # we write the file ``_setuptools_scm_version.py`` on ``pip install``.
     from ._setuptools_scm_version import __version__
-
 T = TypeVar("T")
 
 
@@ -357,6 +364,7 @@ def _validate_file_suffix_overlaps(
                 raise click.UsageError(message=message)
 
 
+@beartype
 @unique
 class _UsePty(Enum):
     """Choices for the use of a pseudo-terminal."""
@@ -464,6 +472,7 @@ def _get_skip_directives(markers: Iterable[str]) -> Iterable[str]:
 
 @beartype
 def _get_temporary_file_extension(
+    *,
     language: str,
     given_file_extension: str | None,
 ) -> str:
@@ -547,6 +556,7 @@ class _GroupModifiedError(Exception):
         return message
 
 
+@beartype
 @dataclass
 class _CollectedError:
     """Error collected during continue-on-error mode."""
@@ -555,6 +565,7 @@ class _CollectedError:
     exit_code: int
 
 
+@beartype
 class _FatalProcessingError(Exception):
     """
     Error raised when processing a document requires exiting
@@ -588,6 +599,7 @@ def _process_file_path(
     suffix_map: Mapping[str, MarkupLanguage],
     args: Sequence[str | Path],
     languages: Sequence[str],
+    pycon_languages: Sequence[str],
     pad_file: bool,
     write_to_file: bool,
     pad_groups: bool,
@@ -639,6 +651,7 @@ def _process_file_path(
         sybil = _get_sybil(
             args=args,
             code_block_languages=[code_block_language],
+            pycon_languages=pycon_languages,
             pad_temporary_file=pad_file,
             write_to_file=write_to_file,
             pad_groups=pad_groups,
@@ -663,6 +676,7 @@ def _process_file_path(
         sybil = _get_sybil(
             args=args,
             code_block_languages=[],
+            pycon_languages=pycon_languages,
             pad_temporary_file=pad_file,
             write_to_file=write_to_file,
             pad_groups=pad_groups,
@@ -787,6 +801,7 @@ def _get_sybil(
     encoding: str,
     args: Sequence[str | Path],
     code_block_languages: Sequence[str],
+    pycon_languages: Sequence[str],
     temporary_file_extension: str,
     temporary_file_name_prefix: str,
     temporary_file_name_template: str,
@@ -846,6 +861,21 @@ def _get_sybil(
         on_modify=_raise_group_modified,
     )
 
+    pycon_shell_evaluator = ShellCommandEvaluator(
+        args=args,
+        temp_file_path_maker=temp_file_path_maker,
+        pad_file=pad_temporary_file,
+        write_to_file=write_to_file,
+        newline=newline,
+        use_pty=use_pty,
+        encoding=encoding,
+        source_preparer=PyconSourcePreparer(),
+        result_transformer=PyconResultTransformer(),
+    )
+    pycon_evaluator = MultiEvaluator(
+        evaluators=[*log_command_evaluators, pycon_shell_evaluator],
+    )
+
     evaluator = MultiEvaluator(
         evaluators=[*log_command_evaluators, shell_command_evaluator],
     )
@@ -887,6 +917,11 @@ def _get_sybil(
         # - Blocks without the attribute are processed individually
         code_block_parsers = []
         for code_block_language in code_block_languages:
+            parser_evaluator = (
+                pycon_evaluator
+                if code_block_language in pycon_languages
+                else evaluator
+            )
             code_block_parser = markup_language.code_block_parser_cls(
                 language=code_block_language,
             )
@@ -896,7 +931,7 @@ def _get_sybil(
                     evaluator=group_evaluator,
                     attribute_name=group_mdx_by_attribute,
                     pad_groups=pad_groups,
-                    ungrouped_evaluator=evaluator,
+                    ungrouped_evaluator=parser_evaluator,
                 )
             )
         group_all_parsers = []
@@ -904,7 +939,11 @@ def _get_sybil(
         code_block_parsers = [
             markup_language.code_block_parser_cls(
                 language=code_block_language,
-                evaluator=evaluator,
+                evaluator=(
+                    pycon_evaluator
+                    if code_block_language in pycon_languages
+                    else evaluator
+                ),
             )
             for code_block_language in code_block_languages
         ]
@@ -969,6 +1008,30 @@ def _get_sybil(
             "`--sphinx-jinja2` is given."
         ),
         multiple=True,
+        callback=multi_callback(
+            callbacks=[
+                _deduplicate,
+                sequence_validator(validator=_validate_no_empty_string),
+            ]
+        ),
+    ),
+    cloup.option(
+        "--pycon-language",
+        "pycon_languages",
+        type=str,
+        help=(
+            "Treat code blocks for this language as pycon (Python interactive "
+            "console) blocks, stripping ``>>>`` and ``...`` prompts before "
+            "passing the code to the command and restoring them afterward. "
+            "Give this multiple times to use pycon stripping for multiple "
+            "languages. "
+            "To disable pycon stripping for all languages, "
+            "including the default, "
+            "use `--pycon-language=.`."
+        ),
+        multiple=True,
+        default=("pycon",),
+        show_default=True,
         callback=multi_callback(
             callbacks=[
                 _deduplicate,
@@ -1412,6 +1475,7 @@ def _get_sybil(
 def main(
     *,
     languages: Sequence[str],
+    pycon_languages: Sequence[str],
     command: str,
     document_paths: Sequence[Path],
     temporary_file_extension: str | None,
@@ -1523,6 +1587,7 @@ def main(
                         suffix_map=suffix_map,
                         args=args,
                         languages=languages,
+                        pycon_languages=pycon_languages,
                         pad_file=pad_file,
                         write_to_file=write_to_file,
                         pad_groups=pad_groups,
@@ -1554,6 +1619,7 @@ def main(
                     suffix_map=suffix_map,
                     args=args,
                     languages=languages,
+                    pycon_languages=pycon_languages,
                     pad_file=pad_file,
                     write_to_file=write_to_file,
                     pad_groups=pad_groups,

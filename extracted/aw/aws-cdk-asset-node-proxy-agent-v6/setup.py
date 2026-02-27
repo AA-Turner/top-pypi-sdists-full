@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.asset-node-proxy-agent-v6",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "description": "@aws-cdk/asset-node-proxy-agent-v6",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/awscdk-asset-node-proxy-agent#readme",
@@ -15,7 +15,7 @@ kwargs = json.loads(
         "universal": true
     },
     "project_urls": {
-        "Source": "https://github.com/aws/asset-node-proxy-agent-v6.git"
+        "Source": "https://github.com/cdklabs/awscdk-asset-node-proxy-agent.git"
     },
     "package_dir": {
         "": "src"
@@ -25,21 +25,20 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.asset_node_proxy_agent_v6._jsii": [
-            "asset-node-proxy-agent-v6@2.1.0.jsii.tgz"
+            "asset-node-proxy-agent-v6@2.1.1.jsii.tgz"
         ]
     },
-    "python_requires": "~=3.8",
+    "python_requires": "~=3.9",
     "install_requires": [
-        "jsii>=1.103.1, <2.0.0",
+        "jsii>=1.126.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<5.0.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

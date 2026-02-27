@@ -61,12 +61,19 @@ def test_lookup_multiple_records():
 
     lookup = Lookup(df=df, field="name", keep="first").lookup()
     assert lookup.experiment.value == "value1"
+    assert type(lookup.experiment).__name__ == "MyTuple"
 
     lookup = Lookup(df=df, field="name", keep="last").lookup()
     assert lookup.experiment.value == "value2"
+    assert type(lookup.experiment).__name__ == "MyTuple"
 
     lookup = Lookup(df=df, field="name", keep=False).lookup()
     assert len(lookup.experiment) == 2
+    assert type(lookup.experiment).__name__ == "_ListValueWrapper"
+
+    lookup = Lookup(df=df, field="name", keep="first").lookup(return_field="value")
+    assert lookup.experiment == "value1"
+    assert type(lookup.experiment) is str
 
 
 def test_lookup_keyword_field():

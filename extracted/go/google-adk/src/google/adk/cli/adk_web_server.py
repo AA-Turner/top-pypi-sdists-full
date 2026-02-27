@@ -68,6 +68,7 @@ from ..auth.credential_service.base_credential_service import BaseCredentialServ
 from ..errors.already_exists_error import AlreadyExistsError
 from ..errors.input_validation_error import InputValidationError
 from ..errors.not_found_error import NotFoundError
+from ..errors.session_not_found_error import SessionNotFoundError
 from ..evaluation.base_eval_service import InferenceConfig
 from ..evaluation.base_eval_service import InferenceRequest
 from ..evaluation.constants import MISSING_EVAL_DEPENDENCIES_MESSAGE
@@ -204,7 +205,7 @@ class RunAgentRequest(common.BaseModel):
   app_name: str
   user_id: str
   session_id: str
-  new_message: types.Content
+  new_message: Optional[types.Content] = None
   streaming: bool = False
   state_delta: Optional[dict[str, Any]] = None
   # for resume long-running functions
@@ -793,6 +794,11 @@ class AdkWebServer:
       if event_dict is None:
         raise HTTPException(status_code=404, detail="Trace not found")
       return event_dict
+
+    @app.get("/apps/{app_name}")
+    async def get_app_info(app_name: str) -> Any:
+      runner = await self.get_runner_async(app_name)
+      return runner.app
 
     @app.get("/debug/trace/session/{session_id}", tags=[TAG_DEBUG])
     async def get_session_trace(session_id: str) -> Any:
@@ -1553,52 +1559,60 @@ class AdkWebServer:
 
     @app.post("/run", response_model_exclude_none=True)
     async def run_agent(req: RunAgentRequest) -> list[Event]:
-      session = await self.session_service.get_session(
-          app_name=req.app_name, user_id=req.user_id, session_id=req.session_id
-      )
-      if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
       runner = await self.get_runner_async(req.app_name)
-      async with Aclosing(
-          runner.run_async(
-              user_id=req.user_id,
-              session_id=req.session_id,
-              new_message=req.new_message,
-              state_delta=req.state_delta,
-              invocation_id=req.invocation_id,
-          )
-      ) as agen:
-        events = [event async for event in agen]
+      try:
+        async with Aclosing(
+            runner.run_async(
+                user_id=req.user_id,
+                session_id=req.session_id,
+                new_message=req.new_message,
+                state_delta=req.state_delta,
+                invocation_id=req.invocation_id,
+            )
+        ) as agen:
+          events = [event async for event in agen]
+      except SessionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
       logger.info("Generated %s events in agent run", len(events))
       logger.debug("Events generated: %s", events)
       return events
 
     @app.post("/run_sse")
     async def run_agent_sse(req: RunAgentRequest) -> StreamingResponse:
-      # SSE endpoint
-      session = await self.session_service.get_session(
-          app_name=req.app_name, user_id=req.user_id, session_id=req.session_id
-      )
-      if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+      stream_mode = StreamingMode.SSE if req.streaming else StreamingMode.NONE
+      runner = await self.get_runner_async(req.app_name)
+
+      # Validate session existence before starting the stream.
+      # We check directly here instead of eagerly advancing the
+      # runner's async generator with anext(), because splitting
+      # generator consumption across two asyncio Tasks (request
+      # handler vs StreamingResponse) breaks OpenTelemetry context
+      # detachment.
+      if not runner.auto_create_session:
+        session = await self.session_service.get_session(
+            app_name=req.app_name,
+            user_id=req.user_id,
+            session_id=req.session_id,
+        )
+        if not session:
+          raise HTTPException(
+              status_code=404,
+              detail=f"Session not found: {req.session_id}",
+          )
 
       # Convert the events to properly formatted SSE
       async def event_generator():
-        try:
-          stream_mode = (
-              StreamingMode.SSE if req.streaming else StreamingMode.NONE
-          )
-          runner = await self.get_runner_async(req.app_name)
-          async with Aclosing(
-              runner.run_async(
-                  user_id=req.user_id,
-                  session_id=req.session_id,
-                  new_message=req.new_message,
-                  state_delta=req.state_delta,
-                  run_config=RunConfig(streaming_mode=stream_mode),
-                  invocation_id=req.invocation_id,
-              )
-          ) as agen:
+        async with Aclosing(
+            runner.run_async(
+                user_id=req.user_id,
+                session_id=req.session_id,
+                new_message=req.new_message,
+                state_delta=req.state_delta,
+                run_config=RunConfig(streaming_mode=stream_mode),
+                invocation_id=req.invocation_id,
+            )
+        ) as agen:
+          try:
             async for event in agen:
               # ADK Web renders artifacts from `actions.artifactDelta`
               # during part processing *and* during action processing
@@ -1625,9 +1639,9 @@ class AdkWebServer:
                     "Generated event in agent run streaming: %s", sse_event
                 )
                 yield f"data: {sse_event}\n\n"
-        except Exception as e:
-          logger.exception("Error in event_generator: %s", e)
-          yield f"data: {json.dumps({'error': str(e)})}\n\n"
+          except Exception as e:
+            logger.exception("Error in event_generator: %s", e)
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
       # Returns a streaming response with the proper media type for SSE
       return StreamingResponse(

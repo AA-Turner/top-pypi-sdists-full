@@ -6,6 +6,7 @@ from localstack.aws.api import RequestContext, ServiceRequest, handler
 from localstack.aws.api import ServiceException as ServiceException
 
 AccountID = str
+AdditionalFlexibleNetworkInterfaces = int
 AddressMaxResults = int
 AllocationId = str
 AllowedInstanceType = str
@@ -109,6 +110,9 @@ DescribePrincipalIdFormatMaxResults = int
 DescribeReplaceRootVolumeTasksMaxResults = int
 DescribeRouteTablesMaxResults = int
 DescribeScheduledInstanceAvailabilityMaxResults = int
+DescribeSecondaryInterfacesMaxResults = int
+DescribeSecondaryNetworksMaxResults = int
+DescribeSecondarySubnetsMaxResults = int
 DescribeSecurityGroupRulesMaxResults = int
 DescribeSecurityGroupVpcAssociationsMaxResults = int
 DescribeSecurityGroupsMaxResults = int
@@ -224,6 +228,7 @@ IpamPrefixListResolverTargetId = str
 IpamResourceDiscoveryAssociationId = str
 IpamResourceDiscoveryId = str
 IpamScopeId = str
+Ipv4AddressesPerSecondaryInterface = int
 Ipv4PoolCoipId = str
 Ipv4PoolEc2Id = str
 Ipv6Address = str
@@ -269,6 +274,7 @@ MaximumEnaQueueCount = int
 MaximumEnaQueueCountPerInterface = int
 MaximumIops = int
 MaximumNetworkCards = int
+MaximumSecondaryNetworkInterfaces = int
 MaximumThroughputInMBps = float
 MediaDeviceCount = int
 MediaDeviceManufacturerName = str
@@ -307,6 +313,7 @@ Period = int
 PlacementGroupArn = str
 PlacementGroupId = str
 PlacementGroupName = str
+PlacementGroupNameWithResolver = str
 PoolMaxResults = int
 Port = int
 PrefixListMaxResults = int
@@ -345,6 +352,12 @@ RunInstancesUserData = str
 S3StorageUploadPolicy = str
 S3StorageUploadPolicySignature = str
 ScheduledInstanceId = str
+SecondaryInterfaceId = str
+SecondaryNetworkCidrAssociationId = str
+SecondaryNetworkId = str
+SecondaryNetworkSupportedFlag = bool
+SecondarySubnetCidrAssociationId = str
+SecondarySubnetId = str
 SecretArn = str
 SecurityGroupId = str
 SecurityGroupName = str
@@ -2661,6 +2674,93 @@ class InstanceType(StrEnum):
     c8a_48xlarge = "c8a.48xlarge"
     c8a_metal_24xl = "c8a.metal-24xl"
     c8a_metal_48xl = "c8a.metal-48xl"
+    c8gb_12xlarge = "c8gb.12xlarge"
+    c8gb_16xlarge = "c8gb.16xlarge"
+    c8gb_24xlarge = "c8gb.24xlarge"
+    c8gb_2xlarge = "c8gb.2xlarge"
+    c8gb_4xlarge = "c8gb.4xlarge"
+    c8gb_8xlarge = "c8gb.8xlarge"
+    c8gb_large = "c8gb.large"
+    c8gb_medium = "c8gb.medium"
+    c8gb_metal_24xl = "c8gb.metal-24xl"
+    c8gb_xlarge = "c8gb.xlarge"
+    c8gb_48xlarge = "c8gb.48xlarge"
+    c8gb_metal_48xl = "c8gb.metal-48xl"
+    m8gb_12xlarge = "m8gb.12xlarge"
+    m8gb_16xlarge = "m8gb.16xlarge"
+    m8gb_24xlarge = "m8gb.24xlarge"
+    m8gb_2xlarge = "m8gb.2xlarge"
+    m8gb_4xlarge = "m8gb.4xlarge"
+    m8gb_8xlarge = "m8gb.8xlarge"
+    m8gb_large = "m8gb.large"
+    m8gb_medium = "m8gb.medium"
+    m8gb_xlarge = "m8gb.xlarge"
+    m8gb_48xlarge = "m8gb.48xlarge"
+    m8gb_metal_24xl = "m8gb.metal-24xl"
+    m8gb_metal_48xl = "m8gb.metal-48xl"
+    m8gn_12xlarge = "m8gn.12xlarge"
+    m8gn_16xlarge = "m8gn.16xlarge"
+    m8gn_24xlarge = "m8gn.24xlarge"
+    m8gn_2xlarge = "m8gn.2xlarge"
+    m8gn_48xlarge = "m8gn.48xlarge"
+    m8gn_4xlarge = "m8gn.4xlarge"
+    m8gn_8xlarge = "m8gn.8xlarge"
+    m8gn_large = "m8gn.large"
+    m8gn_medium = "m8gn.medium"
+    m8gn_xlarge = "m8gn.xlarge"
+    m8gn_metal_24xl = "m8gn.metal-24xl"
+    m8gn_metal_48xl = "m8gn.metal-48xl"
+    x8aedz_12xlarge = "x8aedz.12xlarge"
+    x8aedz_24xlarge = "x8aedz.24xlarge"
+    x8aedz_3xlarge = "x8aedz.3xlarge"
+    x8aedz_6xlarge = "x8aedz.6xlarge"
+    x8aedz_large = "x8aedz.large"
+    x8aedz_metal_12xl = "x8aedz.metal-12xl"
+    x8aedz_metal_24xl = "x8aedz.metal-24xl"
+    x8aedz_xlarge = "x8aedz.xlarge"
+    m8azn_medium = "m8azn.medium"
+    m8azn_large = "m8azn.large"
+    m8azn_xlarge = "m8azn.xlarge"
+    m8azn_3xlarge = "m8azn.3xlarge"
+    m8azn_6xlarge = "m8azn.6xlarge"
+    m8azn_12xlarge = "m8azn.12xlarge"
+    m8azn_24xlarge = "m8azn.24xlarge"
+    m8azn_metal_12xl = "m8azn.metal-12xl"
+    m8azn_metal_24xl = "m8azn.metal-24xl"
+    x8i_large = "x8i.large"
+    x8i_xlarge = "x8i.xlarge"
+    x8i_2xlarge = "x8i.2xlarge"
+    x8i_4xlarge = "x8i.4xlarge"
+    x8i_8xlarge = "x8i.8xlarge"
+    x8i_12xlarge = "x8i.12xlarge"
+    x8i_16xlarge = "x8i.16xlarge"
+    x8i_24xlarge = "x8i.24xlarge"
+    x8i_32xlarge = "x8i.32xlarge"
+    x8i_48xlarge = "x8i.48xlarge"
+    x8i_64xlarge = "x8i.64xlarge"
+    x8i_96xlarge = "x8i.96xlarge"
+    x8i_metal_48xl = "x8i.metal-48xl"
+    x8i_metal_96xl = "x8i.metal-96xl"
+    mac_m4max_metal = "mac-m4max.metal"
+    g7e_2xlarge = "g7e.2xlarge"
+    g7e_4xlarge = "g7e.4xlarge"
+    g7e_8xlarge = "g7e.8xlarge"
+    g7e_12xlarge = "g7e.12xlarge"
+    g7e_24xlarge = "g7e.24xlarge"
+    g7e_48xlarge = "g7e.48xlarge"
+    r8id_large = "r8id.large"
+    r8id_xlarge = "r8id.xlarge"
+    r8id_2xlarge = "r8id.2xlarge"
+    r8id_4xlarge = "r8id.4xlarge"
+    r8id_8xlarge = "r8id.8xlarge"
+    r8id_12xlarge = "r8id.12xlarge"
+    r8id_16xlarge = "r8id.16xlarge"
+    r8id_24xlarge = "r8id.24xlarge"
+    r8id_32xlarge = "r8id.32xlarge"
+    r8id_48xlarge = "r8id.48xlarge"
+    r8id_96xlarge = "r8id.96xlarge"
+    r8id_metal_48xl = "r8id.metal-48xl"
+    r8id_metal_96xl = "r8id.metal-96xl"
 
 
 class InstanceTypeHypervisor(StrEnum):
@@ -3314,6 +3414,11 @@ class NatGatewayState(StrEnum):
     deleted = "deleted"
 
 
+class NestedVirtualizationSpecification(StrEnum):
+    enabled = "enabled"
+    disabled = "disabled"
+
+
 class NetworkInterfaceAttribute(StrEnum):
     description = "description"
     groupSet = "groupSet"
@@ -3706,6 +3811,9 @@ class ResourceType(StrEnum):
     ipam_prefix_list_resolver = "ipam-prefix-list-resolver"
     ipam_policy = "ipam-policy"
     ipam_prefix_list_resolver_target = "ipam-prefix-list-resolver-target"
+    secondary_interface = "secondary-interface"
+    secondary_network = "secondary-network"
+    secondary_subnet = "secondary-subnet"
     capacity_manager_data_export = "capacity-manager-data-export"
     vpn_concentrator = "vpn-concentrator"
 
@@ -3828,6 +3936,55 @@ class SSEType(StrEnum):
 
 class Schedule(StrEnum):
     hourly = "hourly"
+
+
+class SecondaryInterfaceStatus(StrEnum):
+    available = "available"
+    in_use = "in-use"
+
+
+class SecondaryInterfaceType(StrEnum):
+    secondary = "secondary"
+
+
+class SecondaryNetworkCidrBlockAssociationState(StrEnum):
+    associating = "associating"
+    associated = "associated"
+    association_failed = "association-failed"
+    disassociating = "disassociating"
+    disassociated = "disassociated"
+    disassociation_failed = "disassociation-failed"
+
+
+class SecondaryNetworkState(StrEnum):
+    create_in_progress = "create-in-progress"
+    create_complete = "create-complete"
+    create_failed = "create-failed"
+    delete_in_progress = "delete-in-progress"
+    delete_complete = "delete-complete"
+    delete_failed = "delete-failed"
+
+
+class SecondaryNetworkType(StrEnum):
+    rdma = "rdma"
+
+
+class SecondarySubnetCidrBlockAssociationState(StrEnum):
+    associating = "associating"
+    associated = "associated"
+    association_failed = "association-failed"
+    disassociating = "disassociating"
+    disassociated = "disassociated"
+    disassociation_failed = "disassociation-failed"
+
+
+class SecondarySubnetState(StrEnum):
+    create_in_progress = "create-in-progress"
+    create_complete = "create-complete"
+    create_failed = "create-failed"
+    delete_in_progress = "delete-in-progress"
+    delete_complete = "delete-complete"
+    delete_failed = "delete-failed"
 
 
 class SecurityGroupReferencingSupportValue(StrEnum):
@@ -4032,6 +4189,7 @@ class SummaryStatus(StrEnum):
 
 class SupportedAdditionalProcessorFeature(StrEnum):
     amd_sev_snp = "amd-sev-snp"
+    nested_virtualization = "nested-virtualization"
 
 
 class TargetCapacityUnitType(StrEnum):
@@ -6208,6 +6366,20 @@ class AuthorizeSecurityGroupIngressResult(TypedDict, total=False):
     SecurityGroupRules: SecurityGroupRuleList | None
 
 
+class AvailabilityZoneSubGeography(TypedDict, total=False):
+    Name: String | None
+
+
+AvailabilityZoneSubGeographyList = list[AvailabilityZoneSubGeography]
+
+
+class AvailabilityZoneGeography(TypedDict, total=False):
+    Name: String | None
+
+
+AvailabilityZoneGeographyList = list[AvailabilityZoneGeography]
+
+
 class AvailabilityZoneMessage(TypedDict, total=False):
     Message: String | None
 
@@ -6227,6 +6399,8 @@ class AvailabilityZone(TypedDict, total=False):
     ParentZoneName: String | None
     ParentZoneId: String | None
     GroupLongName: String | None
+    Geography: AvailabilityZoneGeographyList | None
+    SubGeography: AvailabilityZoneSubGeographyList | None
     State: AvailabilityZoneState | None
 
 
@@ -7442,12 +7616,14 @@ class CpuOptions(TypedDict, total=False):
     CoreCount: Integer | None
     ThreadsPerCore: Integer | None
     AmdSevSnp: AmdSevSnpSpecification | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
 
 
 class CpuOptionsRequest(TypedDict, total=False):
     CoreCount: Integer | None
     ThreadsPerCore: Integer | None
     AmdSevSnp: AmdSevSnpSpecification | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
 
 
 class CreateCapacityManagerDataExportRequest(ServiceRequest):
@@ -8723,6 +8899,30 @@ class OperatorRequest(TypedDict, total=False):
     Principal: String | None
 
 
+class SecondaryInterfacePrivateIpAddressSpecificationRequest(TypedDict, total=False):
+    PrivateIpAddress: String | None
+
+
+SecondaryInterfacePrivateIpAddressSpecificationListRequest = list[
+    SecondaryInterfacePrivateIpAddressSpecificationRequest
+]
+
+
+class LaunchTemplateInstanceSecondaryInterfaceSpecificationRequest(TypedDict, total=False):
+    DeleteOnTermination: Boolean | None
+    DeviceIndex: Integer | None
+    PrivateIpAddresses: SecondaryInterfacePrivateIpAddressSpecificationListRequest | None
+    PrivateIpAddressCount: Integer | None
+    SecondarySubnetId: SecondarySubnetId | None
+    InterfaceType: SecondaryInterfaceType | None
+    NetworkCardIndex: Integer | None
+
+
+LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestList = list[
+    LaunchTemplateInstanceSecondaryInterfaceSpecificationRequest
+]
+
+
 class LaunchTemplateNetworkPerformanceOptionsRequest(TypedDict, total=False):
     BandwidthWeighting: InstanceBandwidthWeighting | None
 
@@ -8769,6 +8969,7 @@ class LaunchTemplateCpuOptionsRequest(TypedDict, total=False):
     CoreCount: Integer | None
     ThreadsPerCore: Integer | None
     AmdSevSnp: AmdSevSnpSpecification | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
 
 
 class CreditSpecificationRequest(TypedDict, total=False):
@@ -8963,6 +9164,7 @@ class RequestLaunchTemplateData(TypedDict, total=False):
     DisableApiStop: Boolean | None
     Operator: OperatorRequest | None
     NetworkPerformanceOptions: LaunchTemplateNetworkPerformanceOptionsRequest | None
+    SecondaryInterfaces: LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestList | None
 
 
 class CreateLaunchTemplateRequest(ServiceRequest):
@@ -9014,6 +9216,30 @@ class CreateLaunchTemplateVersionRequest(ServiceRequest):
     ResolveAlias: Boolean | None
 
 
+class SecondaryInterfacePrivateIpAddressSpecification(TypedDict, total=False):
+    PrivateIpAddress: String | None
+
+
+SecondaryInterfacePrivateIpAddressSpecificationList = list[
+    SecondaryInterfacePrivateIpAddressSpecification
+]
+
+
+class LaunchTemplateInstanceSecondaryInterfaceSpecification(TypedDict, total=False):
+    DeleteOnTermination: Boolean | None
+    DeviceIndex: Integer | None
+    PrivateIpAddresses: SecondaryInterfacePrivateIpAddressSpecificationList | None
+    PrivateIpAddressCount: Integer | None
+    SecondarySubnetId: SecondarySubnetId | None
+    InterfaceType: SecondaryInterfaceType | None
+    NetworkCardIndex: Integer | None
+
+
+LaunchTemplateInstanceSecondaryInterfaceSpecificationList = list[
+    LaunchTemplateInstanceSecondaryInterfaceSpecification
+]
+
+
 class LaunchTemplateNetworkPerformanceOptions(TypedDict, total=False):
     BandwidthWeighting: InstanceBandwidthWeighting | None
 
@@ -9061,6 +9287,7 @@ class LaunchTemplateCpuOptions(TypedDict, total=False):
     CoreCount: Integer | None
     ThreadsPerCore: Integer | None
     AmdSevSnp: AmdSevSnpSpecification | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
 
 
 class CreditSpecification(TypedDict, total=False):
@@ -9246,6 +9473,7 @@ class ResponseLaunchTemplateData(TypedDict, total=False):
     DisableApiStop: Boolean | None
     Operator: OperatorResponse | None
     NetworkPerformanceOptions: LaunchTemplateNetworkPerformanceOptions | None
+    SecondaryInterfaces: LaunchTemplateInstanceSecondaryInterfaceSpecificationList | None
 
 
 class LaunchTemplateVersion(TypedDict, total=False):
@@ -9843,6 +10071,7 @@ class CreatePlacementGroupRequest(ServiceRequest):
     TagSpecifications: TagSpecificationList | None
     SpreadLevel: SpreadLevel | None
     LinkedGroupId: PlacementGroupId | None
+    Operator: OperatorRequest | None
     DryRun: Boolean | None
     GroupName: String | None
     Strategy: PlacementStrategy | None
@@ -9858,6 +10087,7 @@ class PlacementGroup(TypedDict, total=False):
     GroupArn: String | None
     SpreadLevel: SpreadLevel | None
     LinkedGroupId: PlacementGroupId | None
+    Operator: OperatorResponse | None
 
 
 class CreatePlacementGroupResult(TypedDict, total=False):
@@ -10116,6 +10346,79 @@ class RouteTable(TypedDict, total=False):
 
 class CreateRouteTableResult(TypedDict, total=False):
     RouteTable: RouteTable | None
+    ClientToken: String | None
+
+
+class CreateSecondaryNetworkRequest(ServiceRequest):
+    ClientToken: String | None
+    DryRun: Boolean | None
+    Ipv4CidrBlock: String
+    NetworkType: SecondaryNetworkType
+    TagSpecifications: TagSpecificationList | None
+
+
+class SecondaryNetworkIpv4CidrBlockAssociation(TypedDict, total=False):
+    AssociationId: SecondaryNetworkCidrAssociationId | None
+    CidrBlock: String | None
+    State: SecondaryNetworkCidrBlockAssociationState | None
+    StateReason: String | None
+
+
+SecondaryNetworkIpv4CidrBlockAssociationList = list[SecondaryNetworkIpv4CidrBlockAssociation]
+
+
+class SecondaryNetwork(TypedDict, total=False):
+    SecondaryNetworkId: SecondaryNetworkId | None
+    SecondaryNetworkArn: String | None
+    OwnerId: String | None
+    Type: SecondaryNetworkType | None
+    State: SecondaryNetworkState | None
+    StateReason: String | None
+    Ipv4CidrBlockAssociations: SecondaryNetworkIpv4CidrBlockAssociationList | None
+    Tags: TagList | None
+
+
+class CreateSecondaryNetworkResult(TypedDict, total=False):
+    SecondaryNetwork: SecondaryNetwork | None
+    ClientToken: String | None
+
+
+class CreateSecondarySubnetRequest(ServiceRequest):
+    ClientToken: String | None
+    AvailabilityZone: AvailabilityZoneName | None
+    AvailabilityZoneId: AvailabilityZoneId | None
+    DryRun: Boolean | None
+    Ipv4CidrBlock: String
+    SecondaryNetworkId: SecondaryNetworkId
+    TagSpecifications: TagSpecificationList | None
+
+
+class SecondarySubnetIpv4CidrBlockAssociation(TypedDict, total=False):
+    AssociationId: SecondarySubnetCidrAssociationId | None
+    CidrBlock: String | None
+    State: SecondarySubnetCidrBlockAssociationState | None
+    StateReason: String | None
+
+
+SecondarySubnetIpv4CidrBlockAssociationList = list[SecondarySubnetIpv4CidrBlockAssociation]
+
+
+class SecondarySubnet(TypedDict, total=False):
+    SecondarySubnetId: SecondarySubnetId | None
+    SecondarySubnetArn: String | None
+    SecondaryNetworkId: SecondaryNetworkId | None
+    SecondaryNetworkType: SecondaryNetworkType | None
+    OwnerId: String | None
+    AvailabilityZoneId: AvailabilityZoneId | None
+    AvailabilityZone: AvailabilityZoneName | None
+    Ipv4CidrBlockAssociations: SecondarySubnetIpv4CidrBlockAssociationList | None
+    State: SecondarySubnetState | None
+    StateReason: String | None
+    Tags: TagList | None
+
+
+class CreateSecondarySubnetResult(TypedDict, total=False):
+    SecondarySubnet: SecondarySubnet | None
     ClientToken: String | None
 
 
@@ -12131,7 +12434,7 @@ class DeleteNetworkInterfaceRequest(ServiceRequest):
 
 class DeletePlacementGroupRequest(ServiceRequest):
     DryRun: Boolean | None
-    GroupName: PlacementGroupName
+    GroupName: PlacementGroupNameWithResolver
 
 
 class DeletePublicIpv4PoolRequest(ServiceRequest):
@@ -12215,6 +12518,28 @@ class DeleteRouteServerResult(TypedDict, total=False):
 class DeleteRouteTableRequest(ServiceRequest):
     DryRun: Boolean | None
     RouteTableId: RouteTableId
+
+
+class DeleteSecondaryNetworkRequest(ServiceRequest):
+    ClientToken: String | None
+    DryRun: Boolean | None
+    SecondaryNetworkId: SecondaryNetworkId
+
+
+class DeleteSecondaryNetworkResult(TypedDict, total=False):
+    SecondaryNetwork: SecondaryNetwork | None
+    ClientToken: String | None
+
+
+class DeleteSecondarySubnetRequest(ServiceRequest):
+    ClientToken: String | None
+    DryRun: Boolean | None
+    SecondarySubnetId: SecondarySubnetId
+
+
+class DeleteSecondarySubnetResult(TypedDict, total=False):
+    SecondarySubnet: SecondarySubnet | None
+    ClientToken: String | None
 
 
 class DeleteSecurityGroupRequest(ServiceRequest):
@@ -14464,6 +14789,7 @@ class NetworkCardInfo(TypedDict, total=False):
     NetworkCardIndex: NetworkCardIndex | None
     NetworkPerformance: NetworkPerformance | None
     MaximumNetworkInterfaces: MaxNetworkInterfaces | None
+    AdditionalFlexibleNetworkInterfaces: AdditionalFlexibleNetworkInterfaces | None
     BaselineBandwidthInGbps: BaselineBandwidthInGbps | None
     PeakBandwidthInGbps: PeakBandwidthInGbps | None
     DefaultEnaQueueCountPerInterface: DefaultEnaQueueCountPerInterface | None
@@ -14490,6 +14816,9 @@ class NetworkInfo(TypedDict, total=False):
     EnaSrdSupported: EnaSrdSupported | None
     BandwidthWeightings: BandwidthWeightingTypeList | None
     FlexibleEnaQueuesSupport: FlexibleEnaQueuesSupport | None
+    SecondaryNetworkSupported: SecondaryNetworkSupportedFlag | None
+    MaximumSecondaryNetworkInterfaces: MaximumSecondaryNetworkInterfaces | None
+    Ipv4AddressesPerSecondaryInterface: Ipv4AddressesPerSecondaryInterface | None
 
 
 class EbsCardInfo(TypedDict, total=False):
@@ -14629,6 +14958,38 @@ class DescribeInstancesRequest(ServiceRequest):
 
 class Monitoring(TypedDict, total=False):
     State: MonitoringState | None
+
+
+class InstanceSecondaryInterfacePrivateIpAddress(TypedDict, total=False):
+    PrivateIpAddress: String | None
+
+
+InstanceSecondaryInterfacePrivateIpAddressList = list[InstanceSecondaryInterfacePrivateIpAddress]
+
+
+class InstanceSecondaryInterfaceAttachment(TypedDict, total=False):
+    AttachTime: MillisecondDateTime | None
+    AttachmentId: String | None
+    DeleteOnTermination: Boolean | None
+    DeviceIndex: Integer | None
+    Status: AttachmentStatus | None
+    NetworkCardIndex: Integer | None
+
+
+class InstanceSecondaryInterface(TypedDict, total=False):
+    Attachment: InstanceSecondaryInterfaceAttachment | None
+    MacAddress: String | None
+    SecondaryInterfaceId: SecondaryInterfaceId | None
+    OwnerId: String | None
+    PrivateIpAddresses: InstanceSecondaryInterfacePrivateIpAddressList | None
+    SourceDestCheck: Boolean | None
+    Status: SecondaryInterfaceStatus | None
+    SecondarySubnetId: SecondarySubnetId | None
+    SecondaryNetworkId: SecondaryNetworkId | None
+    InterfaceType: SecondaryInterfaceType | None
+
+
+InstanceSecondaryInterfaceList = list[InstanceSecondaryInterface]
 
 
 class InstanceNetworkPerformanceOptions(TypedDict, total=False):
@@ -14828,6 +15189,7 @@ class Instance(TypedDict, total=False):
     CurrentInstanceBootMode: InstanceBootModeValues | None
     NetworkPerformanceOptions: InstanceNetworkPerformanceOptions | None
     Operator: OperatorResponse | None
+    SecondaryInterfaces: InstanceSecondaryInterfaceList | None
     InstanceId: String | None
     ImageId: String | None
     State: InstanceState | None
@@ -15737,8 +16099,16 @@ class DescribeRegionsRequest(ServiceRequest):
     Filters: FilterList | None
 
 
+class RegionGeography(TypedDict, total=False):
+    Name: String | None
+
+
+RegionGeographyList = list[RegionGeography]
+
+
 class Region(TypedDict, total=False):
     OptInStatus: String | None
+    Geography: RegionGeographyList | None
     RegionName: String | None
     Endpoint: String | None
 
@@ -16116,6 +16486,99 @@ ScheduledInstanceSet = list[ScheduledInstance]
 class DescribeScheduledInstancesResult(TypedDict, total=False):
     NextToken: String | None
     ScheduledInstanceSet: ScheduledInstanceSet | None
+
+
+SecondaryInterfaceIdList = list[SecondaryInterfaceId]
+
+
+class DescribeSecondaryInterfacesRequest(ServiceRequest):
+    DryRun: Boolean | None
+    Filters: FilterList | None
+    MaxResults: DescribeSecondaryInterfacesMaxResults | None
+    NextToken: String | None
+    SecondaryInterfaceIds: SecondaryInterfaceIdList | None
+
+
+class SecondaryInterfaceIpv4Address(TypedDict, total=False):
+    PrivateIpAddress: String | None
+
+
+SecondaryInterfaceIpv4AddressList = list[SecondaryInterfaceIpv4Address]
+
+
+class SecondaryInterfaceAttachment(TypedDict, total=False):
+    AttachmentId: String | None
+    AttachTime: MillisecondDateTime | None
+    DeleteOnTermination: Boolean | None
+    DeviceIndex: Integer | None
+    InstanceId: String | None
+    InstanceOwnerId: String | None
+    NetworkCardIndex: Integer | None
+    Status: AttachmentStatus | None
+
+
+class SecondaryInterface(TypedDict, total=False):
+    AvailabilityZone: AvailabilityZoneName | None
+    AvailabilityZoneId: AvailabilityZoneId | None
+    Attachment: SecondaryInterfaceAttachment | None
+    MacAddress: String | None
+    OwnerId: String | None
+    PrivateIpv4Addresses: SecondaryInterfaceIpv4AddressList | None
+    SecondaryInterfaceId: SecondaryInterfaceId | None
+    SecondaryInterfaceArn: String | None
+    SecondaryInterfaceType: SecondaryInterfaceType | None
+    SecondarySubnetId: SecondarySubnetId | None
+    SecondaryNetworkId: SecondaryNetworkId | None
+    SecondaryNetworkType: SecondaryNetworkType | None
+    SourceDestCheck: Boolean | None
+    Status: SecondaryInterfaceStatus | None
+    Tags: TagList | None
+
+
+SecondaryInterfaceList = list[SecondaryInterface]
+
+
+class DescribeSecondaryInterfacesResult(TypedDict, total=False):
+    SecondaryInterfaces: SecondaryInterfaceList | None
+    NextToken: String | None
+
+
+SecondaryNetworkIdList = list[SecondaryNetworkId]
+
+
+class DescribeSecondaryNetworksRequest(ServiceRequest):
+    DryRun: Boolean | None
+    Filters: FilterList | None
+    MaxResults: DescribeSecondaryNetworksMaxResults | None
+    NextToken: String | None
+    SecondaryNetworkIds: SecondaryNetworkIdList | None
+
+
+SecondaryNetworkList = list[SecondaryNetwork]
+
+
+class DescribeSecondaryNetworksResult(TypedDict, total=False):
+    SecondaryNetworks: SecondaryNetworkList | None
+    NextToken: String | None
+
+
+SecondarySubnetIdList = list[SecondarySubnetId]
+
+
+class DescribeSecondarySubnetsRequest(ServiceRequest):
+    DryRun: Boolean | None
+    Filters: FilterList | None
+    MaxResults: DescribeSecondarySubnetsMaxResults | None
+    NextToken: String | None
+    SecondarySubnetIds: SecondarySubnetIdList | None
+
+
+SecondarySubnetList = list[SecondarySubnet]
+
+
+class DescribeSecondarySubnetsResult(TypedDict, total=False):
+    SecondarySubnets: SecondarySubnetList | None
+    NextToken: String | None
 
 
 GroupIds = list[SecurityGroupId]
@@ -20270,6 +20733,30 @@ class InstanceNetworkPerformanceOptionsRequest(TypedDict, total=False):
     BandwidthWeighting: InstanceBandwidthWeighting | None
 
 
+class InstanceSecondaryInterfacePrivateIpAddressRequest(TypedDict, total=False):
+    PrivateIpAddress: String
+
+
+InstanceSecondaryInterfacePrivateIpAddressListRequest = list[
+    InstanceSecondaryInterfacePrivateIpAddressRequest
+]
+
+
+class InstanceSecondaryInterfaceSpecificationRequest(TypedDict, total=False):
+    DeleteOnTermination: Boolean | None
+    DeviceIndex: Integer | None
+    PrivateIpAddresses: InstanceSecondaryInterfacePrivateIpAddressListRequest | None
+    PrivateIpAddressCount: Integer | None
+    SecondarySubnetId: SecondarySubnetId | None
+    InterfaceType: SecondaryInterfaceType | None
+    NetworkCardIndex: Integer | None
+
+
+InstanceSecondaryInterfaceSpecificationListRequest = list[
+    InstanceSecondaryInterfaceSpecificationRequest
+]
+
+
 class InstanceStateChange(TypedDict, total=False):
     InstanceId: String | None
     CurrentState: InstanceState | None
@@ -20637,8 +21124,9 @@ class ModifyInstanceConnectEndpointResult(TypedDict, total=False):
 
 class ModifyInstanceCpuOptionsRequest(ServiceRequest):
     InstanceId: InstanceId
-    CoreCount: Integer
-    ThreadsPerCore: Integer
+    CoreCount: Integer | None
+    ThreadsPerCore: Integer | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
     DryRun: Boolean | None
 
 
@@ -20646,6 +21134,7 @@ class ModifyInstanceCpuOptionsResult(TypedDict, total=False):
     InstanceId: InstanceId | None
     CoreCount: Integer | None
     ThreadsPerCore: Integer | None
+    NestedVirtualization: NestedVirtualizationSpecification | None
 
 
 class ModifyInstanceCreditSpecificationRequest(ServiceRequest):
@@ -22366,6 +22855,7 @@ class RunInstancesRequest(ServiceRequest):
     EnablePrimaryIpv6: Boolean | None
     NetworkPerformanceOptions: InstanceNetworkPerformanceOptionsRequest | None
     Operator: OperatorRequest | None
+    SecondaryInterfaces: InstanceSecondaryInterfaceSpecificationListRequest | None
     DryRun: Boolean | None
     DisableApiTermination: Boolean | None
     InstanceInitiatedShutdownBehavior: ShutdownBehavior | None
@@ -22515,6 +23005,7 @@ class SearchTransitGatewayRoutesRequest(ServiceRequest):
     Filters: FilterList
     MaxResults: TransitGatewayMaxResults | None
     DryRun: Boolean | None
+    NextToken: String | None
 
 
 TransitGatewayRouteList = list[TransitGatewayRoute]
@@ -22523,6 +23014,7 @@ TransitGatewayRouteList = list[TransitGatewayRoute]
 class SearchTransitGatewayRoutesResult(TypedDict, total=False):
     Routes: TransitGatewayRouteList | None
     AdditionalRoutesAvailable: Boolean | None
+    NextToken: String | None
 
 
 class SecurityGroupRuleDescription(TypedDict, total=False):
@@ -24260,6 +24752,7 @@ class Ec2Api:
         tag_specifications: TagSpecificationList | None = None,
         spread_level: SpreadLevel | None = None,
         linked_group_id: PlacementGroupId | None = None,
+        operator: OperatorRequest | None = None,
         dry_run: Boolean | None = None,
         group_name: String | None = None,
         strategy: PlacementStrategy | None = None,
@@ -24395,6 +24888,34 @@ class Ec2Api:
         dry_run: Boolean | None = None,
         **kwargs,
     ) -> CreateRouteTableResult:
+        raise NotImplementedError
+
+    @handler("CreateSecondaryNetwork")
+    def create_secondary_network(
+        self,
+        context: RequestContext,
+        ipv4_cidr_block: String,
+        network_type: SecondaryNetworkType,
+        client_token: String | None = None,
+        dry_run: Boolean | None = None,
+        tag_specifications: TagSpecificationList | None = None,
+        **kwargs,
+    ) -> CreateSecondaryNetworkResult:
+        raise NotImplementedError
+
+    @handler("CreateSecondarySubnet")
+    def create_secondary_subnet(
+        self,
+        context: RequestContext,
+        ipv4_cidr_block: String,
+        secondary_network_id: SecondaryNetworkId,
+        client_token: String | None = None,
+        availability_zone: AvailabilityZoneName | None = None,
+        availability_zone_id: AvailabilityZoneId | None = None,
+        dry_run: Boolean | None = None,
+        tag_specifications: TagSpecificationList | None = None,
+        **kwargs,
+    ) -> CreateSecondarySubnetResult:
         raise NotImplementedError
 
     @handler("CreateSecurityGroup")
@@ -25440,7 +25961,7 @@ class Ec2Api:
     def delete_placement_group(
         self,
         context: RequestContext,
-        group_name: PlacementGroupName,
+        group_name: PlacementGroupNameWithResolver,
         dry_run: Boolean | None = None,
         **kwargs,
     ) -> None:
@@ -25518,6 +26039,28 @@ class Ec2Api:
         dry_run: Boolean | None = None,
         **kwargs,
     ) -> None:
+        raise NotImplementedError
+
+    @handler("DeleteSecondaryNetwork")
+    def delete_secondary_network(
+        self,
+        context: RequestContext,
+        secondary_network_id: SecondaryNetworkId,
+        client_token: String | None = None,
+        dry_run: Boolean | None = None,
+        **kwargs,
+    ) -> DeleteSecondaryNetworkResult:
+        raise NotImplementedError
+
+    @handler("DeleteSecondarySubnet")
+    def delete_secondary_subnet(
+        self,
+        context: RequestContext,
+        secondary_subnet_id: SecondarySubnetId,
+        client_token: String | None = None,
+        dry_run: Boolean | None = None,
+        **kwargs,
+    ) -> DeleteSecondarySubnetResult:
         raise NotImplementedError
 
     @handler("DeleteSecurityGroup")
@@ -27545,6 +28088,45 @@ class Ec2Api:
         slot_start_time_range: SlotStartTimeRangeRequest | None = None,
         **kwargs,
     ) -> DescribeScheduledInstancesResult:
+        raise NotImplementedError
+
+    @handler("DescribeSecondaryInterfaces")
+    def describe_secondary_interfaces(
+        self,
+        context: RequestContext,
+        dry_run: Boolean | None = None,
+        filters: FilterList | None = None,
+        max_results: DescribeSecondaryInterfacesMaxResults | None = None,
+        next_token: String | None = None,
+        secondary_interface_ids: SecondaryInterfaceIdList | None = None,
+        **kwargs,
+    ) -> DescribeSecondaryInterfacesResult:
+        raise NotImplementedError
+
+    @handler("DescribeSecondaryNetworks")
+    def describe_secondary_networks(
+        self,
+        context: RequestContext,
+        dry_run: Boolean | None = None,
+        filters: FilterList | None = None,
+        max_results: DescribeSecondaryNetworksMaxResults | None = None,
+        next_token: String | None = None,
+        secondary_network_ids: SecondaryNetworkIdList | None = None,
+        **kwargs,
+    ) -> DescribeSecondaryNetworksResult:
+        raise NotImplementedError
+
+    @handler("DescribeSecondarySubnets")
+    def describe_secondary_subnets(
+        self,
+        context: RequestContext,
+        dry_run: Boolean | None = None,
+        filters: FilterList | None = None,
+        max_results: DescribeSecondarySubnetsMaxResults | None = None,
+        next_token: String | None = None,
+        secondary_subnet_ids: SecondarySubnetIdList | None = None,
+        **kwargs,
+    ) -> DescribeSecondarySubnetsResult:
         raise NotImplementedError
 
     @handler("DescribeSecurityGroupReferences")
@@ -30177,8 +30759,9 @@ class Ec2Api:
         self,
         context: RequestContext,
         instance_id: InstanceId,
-        core_count: Integer,
-        threads_per_core: Integer,
+        core_count: Integer | None = None,
+        threads_per_core: Integer | None = None,
+        nested_virtualization: NestedVirtualizationSpecification | None = None,
         dry_run: Boolean | None = None,
         **kwargs,
     ) -> ModifyInstanceCpuOptionsResult:
@@ -31683,6 +32266,7 @@ class Ec2Api:
         enable_primary_ipv6: Boolean | None = None,
         network_performance_options: InstanceNetworkPerformanceOptionsRequest | None = None,
         operator: OperatorRequest | None = None,
+        secondary_interfaces: InstanceSecondaryInterfaceSpecificationListRequest | None = None,
         dry_run: Boolean | None = None,
         disable_api_termination: Boolean | None = None,
         instance_initiated_shutdown_behavior: ShutdownBehavior | None = None,
@@ -31743,6 +32327,7 @@ class Ec2Api:
         filters: FilterList,
         max_results: TransitGatewayMaxResults | None = None,
         dry_run: Boolean | None = None,
+        next_token: String | None = None,
         **kwargs,
     ) -> SearchTransitGatewayRoutesResult:
         raise NotImplementedError

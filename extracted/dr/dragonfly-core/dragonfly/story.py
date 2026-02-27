@@ -896,6 +896,19 @@ using-multipliers-zone-and-or-window.html
         return Room2D.generate_alignment_axes(
             self._room_2ds, distance, direction, angle_tolerance)
 
+    def snap_axes(self, axes, distance):
+        """Snap a set of LineSegment2Ds to the Room2Ds of this story.
+
+        Args:
+            axes: A set of LineSegment2Ds to be snapped to this story.
+            distance: A number for the maximum distance that the axes will be
+                moved in order to snap them to this story.
+
+            Returns:
+                A list of the input axes snapped to this story.
+        """
+        return Room2D.snap_axes_to_room_2ds(axes, self._room_2ds, distance)
+
     def align_room_2ds(self, line_ray, distance):
         """Move Room2D vertices within a given distance of a line to be on that line.
 
@@ -937,6 +950,51 @@ using-multipliers-zone-and-or-window.html
         self.align_room_2ds(line_ray, distance)
         if self.roof is not None:
             self.roof.align(line_ray, distance, tolerance)
+
+    def pull_to_story(self, base_story, distance, coordinate_vertices=True,
+                      constrain_edges=False, tolerance=0.01):
+        """Pull the Room2Ds of this story to a base story.
+
+        This includes both an alignment to the base story Room2D's segments as well
+        as an optional snapping to the vertices. Furthermore, if
+        coordinate_vertices is True, any vertices of the neighboring input room_2d
+        that are within the specified distance but cannot be matched to a vertex
+        on this Room2D within the tolerance will be inserted into this Room2D,
+        splitting the wall segment in the process.
+
+        Args:
+            base_story: A Story to which this story's Room2D vertices will be pulled.
+            distance: The maximum distance between a Room2D vertex and the other
+                Room2D where the vertex will be moved to lie on the other Room2D.
+                Vertices beyond this distance will be left as they are.
+            coordinate_vertices: A boolean to note whether Room2D vertices that are
+                close to the other Room2D vertices within the distance should be snapped
+                to the Room2D vertex instead of simply being aligned to the nearest
+                Room2D segment. Additionally, any vertices of the neighboring room_2d
+                that are within the specified distance but cannot be matched to a vertex
+                on this Room2D within the tolerance will be inserted into this Room2D,
+                splitting the wall segment in the process. (Default: True).
+            constrain_edges: A boolean to note whether all axes of the edges that
+                were not pulled to the Room2D should be preserved. This is
+                accomplished by evaluating the changed vertices after all pulling
+                operations are performed and identifying stretches of vertices
+                that changed. For each stretch of changed vertices, the start and end
+                points of this stretch will be moved to the intersection between
+                the new pulled room segment and the adjacent original room
+                segment whose axis is to be preserved. (Default: False).
+            tolerance: The minimum difference between the coordinate values at
+                which they are considered co-located. (Default: 0.01,
+                suitable for objects in meters).
+        """
+        for room in self.room_2ds:
+            p_poly = room.floor_geometry.boundary_polygon2d
+            for b_room in base_story.room_2ds:
+                b_poly = b_room.floor_geometry.boundary_polygon2d
+                if Polygon2D.overlapping_bounding_rect(p_poly, b_poly, distance):
+                    room.pull_to_room_2d(
+                        b_room, distance, coordinate_vertices,
+                        constrain_edges, tolerance
+                    )
 
     def remove_room_2d_duplicate_vertices(self, tolerance=0.01, delete_degenerate=False):
         """Remove duplicate vertices from all Room2Ds in this Story.

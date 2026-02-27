@@ -3,7 +3,7 @@ Type annotations for securityhub service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -4314,6 +4314,7 @@ class ProductV2TypeDef(TypedDict):
     IntegrationV2Types: NotRequired[list[IntegrationV2TypeType]]
     MarketplaceUrl: NotRequired[str]
     ActivationUrl: NotRequired[str]
+    MarketplaceProductId: NotRequired[str]
 
 
 class DescribeStandardsControlsRequestTypeDef(TypedDict):

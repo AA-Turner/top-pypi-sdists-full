@@ -148,9 +148,9 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
     """
 
     def __init__(self):
-        self.alarm_scheduler: AlarmScheduler = None
         self.store = None
         self.cloudwatch_database = CloudwatchDatabase()
+        self.alarm_scheduler = AlarmScheduler()
 
     @staticmethod
     def get_store(account_id: str, region: str) -> CloudWatchStore:
@@ -164,21 +164,21 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         ROUTER.add(PATH_GET_RAW_METRICS, self.get_raw_metrics)
 
     def on_before_start(self):
-        self.start_alarm_scheduler()
+        self.alarm_scheduler.start()
 
     def on_before_state_reset(self):
-        self.shutdown_alarm_scheduler()
+        self.alarm_scheduler.shutdown()
         self.cloudwatch_database.clear_tables()
 
     def on_after_state_reset(self):
         self.cloudwatch_database = CloudwatchDatabase()
-        self.start_alarm_scheduler()
+        self.alarm_scheduler.start()
 
     def on_before_state_load(self):
-        self.shutdown_alarm_scheduler()
+        self.alarm_scheduler.shutdown()
 
     def on_after_state_load(self):
-        self.start_alarm_scheduler()
+        self.alarm_scheduler.start()
 
         def restart_alarms(*args):
             poll_condition(lambda: SERVICE_PLUGINS.is_running("cloudwatch"))
@@ -187,18 +187,7 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         start_worker_thread(restart_alarms)
 
     def on_before_stop(self):
-        self.shutdown_alarm_scheduler()
-
-    def start_alarm_scheduler(self):
-        if not self.alarm_scheduler:
-            LOG.debug("starting cloudwatch scheduler")
-            self.alarm_scheduler = AlarmScheduler()
-
-    def shutdown_alarm_scheduler(self):
-        if self.alarm_scheduler:
-            LOG.debug("stopping cloudwatch scheduler")
-            self.alarm_scheduler.shutdown_scheduler()
-            self.alarm_scheduler = None
+        self.alarm_scheduler.shutdown()
 
     def delete_alarms(self, context: RequestContext, alarm_names: AlarmNames, **kwargs) -> None:
         """
@@ -659,7 +648,9 @@ class CloudwatchProvider(CloudwatchApi, ServiceLifecycleHook):
         ]
         aliases_list = PaginatedList(metrics)
         page, nxt = aliases_list.get_page(
-            lambda metric: f"{metric.get('Namespace')}-{metric.get('MetricName')}-{metric.get('Dimensions')}",
+            lambda metric: (
+                f"{metric.get('Namespace')}-{metric.get('MetricName')}-{metric.get('Dimensions')}"
+            ),
             next_token=next_token,
             page_size=LIST_METRICS_MAX_RESULTS,
         )

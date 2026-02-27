@@ -1046,13 +1046,15 @@ def _validate_schema_and_get_writer(
 
     _validate_schema_for_append(table_schema, input_df.schema, snowpark_table_name)
 
-    # if table exists and case sensitivity is not enabled, we need to rename the columns to match existing table schema
+    # If table exists, rename/cast columns to match the existing table schema using a
+    # single select() instead of per-column withColumnRenamed/withColumn to avoid
+    # generating deeply nested SQL.
     if auto_uppercase_column_identifiers():
-
+        select_cols = []
+        needs_rewrite = False
         for field in input_df.schema.fields:
-            # Find the matching field in the table schema (case-insensitive)
             col_name = field.name
-            renamed = col_name
+            # Find the matching field in the table schema (case-insensitive)
             matching_field = next(
                 (
                     f
@@ -1062,23 +1064,38 @@ def _validate_schema_and_get_writer(
                 ),
                 None,
             )
-            if matching_field is not None and matching_field != col_name:
-                renamed = matching_field.name
-                input_df = input_df.withColumnRenamed(col_name, renamed)
-                # Cast column if type does not match
+            target_name = (
+                matching_field.name
+                if matching_field is not None and matching_field.name != col_name
+                else col_name
+            )
+            needs_cast = (
+                matching_field is not None and field.datatype != matching_field.datatype
+            )
 
-            if field.datatype != matching_field.datatype:
+            if needs_cast:
                 if isinstance(matching_field.datatype, StructType):
-                    input_df = input_df.withColumn(
-                        renamed,
-                        col(renamed).cast(matching_field.datatype, rename_fields=True),
+                    select_cols.append(
+                        col(col_name)
+                        .cast(matching_field.datatype, rename_fields=True)
+                        .alias(target_name)
                     )
                 else:
-                    input_df = input_df.withColumn(
-                        renamed, col(renamed).cast(matching_field.datatype)
+                    select_cols.append(
+                        col(col_name).cast(matching_field.datatype).alias(target_name)
                     )
+                needs_rewrite = True
+            elif target_name != col_name:
+                select_cols.append(col(col_name).alias(target_name))
+                needs_rewrite = True
+            else:
+                select_cols.append(col(col_name))
+        if needs_rewrite:
+            input_df = input_df.select(select_cols)
     else:
         # Case-sensitive mode: only cast to VariantType (other type mismatches handled by Snowflake)
+        select_cols = []
+        needs_rewrite = False
         for field in input_df.schema.fields:
             col_name = field.name
             matching_field = next(
@@ -1094,9 +1111,14 @@ def _validate_schema_and_get_writer(
                 and field.datatype != matching_field.datatype
                 and isinstance(matching_field.datatype, VariantType)
             ):
-                input_df = input_df.withColumn(
-                    col_name, col(col_name).cast(matching_field.datatype)
+                select_cols.append(
+                    col(col_name).cast(matching_field.datatype).alias(col_name)
                 )
+                needs_rewrite = True
+            else:
+                select_cols.append(col(col_name))
+        if needs_rewrite:
+            input_df = input_df.select(select_cols)
     return input_df.write
 
 

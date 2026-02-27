@@ -110,19 +110,19 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 class BandwidthRateLimitIntervalOutputTypeDef(TypedDict):
-    DaysOfWeek: list[int]
-    EndHourOfDay: int
-    EndMinuteOfHour: int
     StartHourOfDay: int
+    EndHourOfDay: int
     StartMinuteOfHour: int
+    EndMinuteOfHour: int
+    DaysOfWeek: list[int]
     AverageUploadRateLimitInBitsPerSec: NotRequired[int]
 
 class BandwidthRateLimitIntervalTypeDef(TypedDict):
-    DaysOfWeek: Sequence[int]
-    EndHourOfDay: int
-    EndMinuteOfHour: int
     StartHourOfDay: int
+    EndHourOfDay: int
     StartMinuteOfHour: int
+    EndMinuteOfHour: int
+    DaysOfWeek: Sequence[int]
     AverageUploadRateLimitInBitsPerSec: NotRequired[int]
 
 class TagTypeDef(TypedDict):
@@ -164,21 +164,21 @@ class HypervisorDetailsTypeDef(TypedDict):
     Host: NotRequired[str]
     HypervisorArn: NotRequired[str]
     KmsKeyArn: NotRequired[str]
-    LastSuccessfulMetadataSyncTime: NotRequired[datetime]
-    LatestMetadataSyncStatus: NotRequired[SyncMetadataStatusType]
-    LatestMetadataSyncStatusMessage: NotRequired[str]
-    LogGroupArn: NotRequired[str]
     Name: NotRequired[str]
+    LogGroupArn: NotRequired[str]
     State: NotRequired[HypervisorStateType]
+    LastSuccessfulMetadataSyncTime: NotRequired[datetime]
+    LatestMetadataSyncStatusMessage: NotRequired[str]
+    LatestMetadataSyncStatus: NotRequired[SyncMetadataStatusType]
 
 class GetHypervisorPropertyMappingsInputTypeDef(TypedDict):
     HypervisorArn: str
 
 class VmwareToAwsTagMappingTypeDef(TypedDict):
-    AwsTagKey: str
-    AwsTagValue: str
     VmwareCategory: str
     VmwareTagName: str
+    AwsTagKey: str
+    AwsTagValue: str
 
 class GetVirtualMachineInputTypeDef(TypedDict):
     ResourceArn: str
@@ -214,17 +214,17 @@ class ListVirtualMachinesInputTypeDef(TypedDict):
 class VirtualMachineTypeDef(TypedDict):
     HostName: NotRequired[str]
     HypervisorId: NotRequired[str]
-    LastBackupDate: NotRequired[datetime]
     Name: NotRequired[str]
     Path: NotRequired[str]
     ResourceArn: NotRequired[str]
+    LastBackupDate: NotRequired[datetime]
 
 class PutMaintenanceStartTimeInputTypeDef(TypedDict):
     GatewayArn: str
     HourOfDay: int
     MinuteOfHour: int
-    DayOfMonth: NotRequired[int]
     DayOfWeek: NotRequired[int]
+    DayOfMonth: NotRequired[int]
 
 class StartVirtualMachinesMetadataSyncInputTypeDef(TypedDict):
     HypervisorArn: str
@@ -232,8 +232,8 @@ class StartVirtualMachinesMetadataSyncInputTypeDef(TypedDict):
 class TestHypervisorConfigurationInputTypeDef(TypedDict):
     GatewayArn: str
     Host: str
-    Password: NotRequired[str]
     Username: NotRequired[str]
+    Password: NotRequired[str]
 
 class UntagResourceInputTypeDef(TypedDict):
     ResourceARN: str
@@ -249,15 +249,15 @@ class UpdateGatewaySoftwareNowInputTypeDef(TypedDict):
 class UpdateHypervisorInputTypeDef(TypedDict):
     HypervisorArn: str
     Host: NotRequired[str]
-    LogGroupArn: NotRequired[str]
-    Name: NotRequired[str]
-    Password: NotRequired[str]
     Username: NotRequired[str]
+    Password: NotRequired[str]
+    Name: NotRequired[str]
+    LogGroupArn: NotRequired[str]
 
 class VmwareTagTypeDef(TypedDict):
     VmwareCategory: NotRequired[str]
-    VmwareTagDescription: NotRequired[str]
     VmwareTagName: NotRequired[str]
+    VmwareTagDescription: NotRequired[str]
 
 class AssociateGatewayToServerOutputTypeDef(TypedDict):
     GatewayArn: str
@@ -320,8 +320,8 @@ class UpdateHypervisorOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetBandwidthRateLimitScheduleOutputTypeDef(TypedDict):
-    BandwidthRateLimitIntervals: list[BandwidthRateLimitIntervalOutputTypeDef]
     GatewayArn: str
+    BandwidthRateLimitIntervals: list[BandwidthRateLimitIntervalOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 BandwidthRateLimitIntervalUnionTypeDef = Union[
@@ -335,12 +335,12 @@ class CreateGatewayInputTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ImportHypervisorConfigurationInputTypeDef(TypedDict):
-    Host: str
     Name: str
-    KmsKeyArn: NotRequired[str]
-    Password: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
+    Host: str
     Username: NotRequired[str]
+    Password: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     ResourceArn: str
@@ -360,6 +360,8 @@ class GatewayDetailsTypeDef(TypedDict):
     MaintenanceStartTime: NotRequired[MaintenanceStartTimeTypeDef]
     NextUpdateAvailabilityTime: NotRequired[datetime]
     VpcEndpoint: NotRequired[str]
+    DeprecationDate: NotRequired[datetime]
+    SoftwareVersion: NotRequired[str]
 
 class ListGatewaysOutputTypeDef(TypedDict):
     Gateways: list[GatewayTypeDef]
@@ -372,14 +374,14 @@ class GetHypervisorOutputTypeDef(TypedDict):
 
 class GetHypervisorPropertyMappingsOutputTypeDef(TypedDict):
     HypervisorArn: str
-    IamRoleArn: str
     VmwareToAwsTagMappings: list[VmwareToAwsTagMappingTypeDef]
+    IamRoleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutHypervisorPropertyMappingsInputTypeDef(TypedDict):
     HypervisorArn: str
-    IamRoleArn: str
     VmwareToAwsTagMappings: Sequence[VmwareToAwsTagMappingTypeDef]
+    IamRoleArn: str
 
 class ListHypervisorsOutputTypeDef(TypedDict):
     Hypervisors: list[HypervisorTypeDef]
@@ -404,15 +406,15 @@ class ListVirtualMachinesOutputTypeDef(TypedDict):
 class VirtualMachineDetailsTypeDef(TypedDict):
     HostName: NotRequired[str]
     HypervisorId: NotRequired[str]
-    LastBackupDate: NotRequired[datetime]
     Name: NotRequired[str]
     Path: NotRequired[str]
     ResourceArn: NotRequired[str]
+    LastBackupDate: NotRequired[datetime]
     VmwareTags: NotRequired[list[VmwareTagTypeDef]]
 
 class PutBandwidthRateLimitScheduleInputTypeDef(TypedDict):
-    BandwidthRateLimitIntervals: Sequence[BandwidthRateLimitIntervalUnionTypeDef]
     GatewayArn: str
+    BandwidthRateLimitIntervals: Sequence[BandwidthRateLimitIntervalUnionTypeDef]
 
 class GetGatewayOutputTypeDef(TypedDict):
     Gateway: GatewayDetailsTypeDef

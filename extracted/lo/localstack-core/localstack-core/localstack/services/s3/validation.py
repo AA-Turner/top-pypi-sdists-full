@@ -15,6 +15,7 @@ from localstack.aws.api.s3 import (
     BucketName,
     ChecksumAlgorithm,
     CORSConfiguration,
+    EncodingType,
     Grant,
     Grantee,
     Grants,
@@ -467,13 +468,11 @@ def validate_sse_c(
         raise InvalidArgument(
             "Requests specifying Server Side Encryption with Customer provided keys must provide a valid encryption algorithm.",
             ArgumentName="x-amz-server-side-encryption",
-            ArgumentValue="null",
         )
     elif not encryption_key and algorithm:
         raise InvalidArgument(
             "Requests specifying Server Side Encryption with Customer provided keys must provide an appropriate secret key.",
             ArgumentName="x-amz-server-side-encryption",
-            ArgumentValue="null",
         )
 
     if algorithm != "AES256":
@@ -488,7 +487,6 @@ def validate_sse_c(
         raise InvalidArgument(
             "The secret key was invalid for the specified algorithm.",
             ArgumentName="x-amz-server-side-encryption",
-            ArgumentValue="null",
         )
 
     sse_customer_key_md5 = base64.b64encode(hashlib.md5(sse_customer_key).digest()).decode("utf-8")
@@ -497,7 +495,6 @@ def validate_sse_c(
             "The calculated MD5 hash of the key did not match the hash that was provided.",
             # weirdly, the argument name is wrong, it should be `x-amz-server-side-encryption-customer-key-MD5`
             ArgumentName="x-amz-server-side-encryption",
-            ArgumentValue="null",
         )
 
 
@@ -520,3 +517,12 @@ def validate_checksum_value(checksum_value: str, checksum_algorithm: ChecksumAlg
             valid_length = 0
 
     return len(checksum) == valid_length
+
+
+def validate_encoding_type(encoding_type: EncodingType):
+    if encoding_type is not None and not encoding_type == EncodingType.url:
+        raise InvalidArgument(
+            "Invalid Encoding Method specified in Request",
+            ArgumentName="encoding-type",
+            ArgumentValue=encoding_type,
+        )

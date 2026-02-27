@@ -5,7 +5,13 @@ from . import utils
 from . import app_config
 from . import code_package
 from . import exceptions
-from .deployer import AppDeployer, bake_image, package_code, DeployedApp
+from .deployer import (
+    AppDeployer,
+    bake_image,
+    package_code,
+    load_code_package,
+    DeployedApp,
+)
 from .config import BakedImage, PackagedCode
 from .config.typed_configs import (
     ReplicaConfigDict,

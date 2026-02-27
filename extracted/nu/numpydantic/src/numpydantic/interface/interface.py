@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from operator import attrgetter
-from typing import Any, Generic, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Generic, TypeVar, Union
 
 import numpy as np
 from pydantic import BaseModel, SerializationInfo, ValidationError
@@ -37,7 +37,7 @@ class InterfaceMark(BaseModel):
     name: str
     version: str
 
-    def is_valid(self, cls: Type["Interface"], raise_on_error: bool = False) -> bool:
+    def is_valid(self, cls: type["Interface"], raise_on_error: bool = False) -> bool:
         """
         Check that a given interface matches the mark.
 
@@ -62,7 +62,7 @@ class InterfaceMark(BaseModel):
             )
         return valid
 
-    def match_by_name(self) -> Optional[Type["Interface"]]:
+    def match_by_name(self) -> type["Interface"] | None:
         """
         Try to find a matching interface by its name, returning it if found,
         or None if not found.
@@ -124,7 +124,7 @@ class JsonDict(BaseModel):
             return False
 
     @classmethod
-    def handle_input(cls: Type[U], value: Union[dict, U, W]) -> Union[V, W]:
+    def handle_input(cls: type[U], value: dict | U | W) -> V | W:
         """
         Handle input that is the json serialized roundtrip version
         (from :func:`~pydantic.BaseModel.model_dump` with ``round_trip=True``)
@@ -164,14 +164,14 @@ class MarkedJson(BaseModel):
     """
 
     interface: InterfaceMark
-    value: Union[list, dict]
+    value: list | dict
     """
     Inner value of the array, we don't validate for JsonDict here, 
     that should be downstream from us for performance reasons 
     """
 
     @classmethod
-    def try_cast(cls, value: Union[V, dict]) -> Union[V, "MarkedJson"]:
+    def try_cast(cls, value: V | dict) -> Union[V, "MarkedJson"]:
         """
         Try to cast to MarkedJson if applicable, otherwise return input
         """
@@ -189,8 +189,8 @@ class Interface(ABC, Generic[T]):
     Abstract parent class for interfaces to different array formats
     """
 
-    input_types: Tuple[Any, ...]
-    return_type: Type[T]
+    input_types: tuple[Any, ...]
+    return_type: type[T]
     priority: int = 0
 
     def __init__(self, shape: ShapeType = Any, dtype: DtypeType = Any) -> None:
@@ -255,7 +255,7 @@ class Interface(ABC, Generic[T]):
 
         return array
 
-    def deserialize(self, array: Any) -> Union[V, Any]:
+    def deserialize(self, array: Any) -> V | Any:
         """
         If given a JSON serialized version of the array,
         deserialize it first.
@@ -333,13 +333,13 @@ class Interface(ABC, Generic[T]):
         """
         return array
 
-    def get_shape(self, array: NDArrayType) -> Tuple[int, ...]:
+    def get_shape(self, array: NDArrayType) -> tuple[int, ...]:
         """
         Get the shape from the array as a tuple of integers
         """
         return array.shape
 
-    def validate_shape(self, shape: Tuple[int, ...]) -> bool:
+    def validate_shape(self, shape: tuple[int, ...]) -> bool:
         """
         Validate the shape of the given array against the shape
         specifier, returning ``True`` if valid, ``False`` if not.
@@ -351,7 +351,7 @@ class Interface(ABC, Generic[T]):
 
         return validate_shape(shape, self.shape)
 
-    def raise_for_shape(self, valid: bool, shape: Tuple[int, ...]) -> None:
+    def raise_for_shape(self, valid: bool, shape: tuple[int, ...]) -> None:
         """
         Raise a ShapeError if the shape is invalid.
 
@@ -405,14 +405,14 @@ class Interface(ABC, Generic[T]):
 
     @classmethod
     @abstractmethod
-    def to_json(cls, array: Type[T], info: SerializationInfo) -> Union[list, JsonDict]:
+    def to_json(cls, array: type[T], info: SerializationInfo) -> list | JsonDict:
         """
         Convert an array of :attr:`.return_type` to a JSON-compatible format using
         base python types
         """
 
     @classmethod
-    def mark_json(cls, array: Union[list, dict]) -> dict:
+    def mark_json(cls, array: list | dict) -> dict:
         """
         When using ``model_dump_json`` with ``mark_interface: True`` in the ``context``,
         add additional annotations that would allow the serialized array to be
@@ -434,7 +434,7 @@ class Interface(ABC, Generic[T]):
     @classmethod
     def interfaces(
         cls, with_disabled: bool = False, sort: bool = True
-    ) -> Tuple[Type["Interface"], ...]:
+    ) -> tuple[type["Interface"], ...]:
         """
         Enabled interface subclasses
 
@@ -466,12 +466,12 @@ class Interface(ABC, Generic[T]):
         return tuple(subclasses)
 
     @classmethod
-    def return_types(cls) -> Tuple[NDArrayType, ...]:
+    def return_types(cls) -> tuple[NDArrayType, ...]:
         """Return types for all enabled interfaces"""
         return tuple([i.return_type for i in cls.interfaces()])
 
     @classmethod
-    def input_types(cls) -> Tuple[Any, ...]:
+    def input_types(cls) -> tuple[Any, ...]:
         """Input types for all enabled interfaces"""
         in_types = []
         for iface in cls.interfaces():
@@ -483,7 +483,7 @@ class Interface(ABC, Generic[T]):
         return tuple(in_types)
 
     @classmethod
-    def match_mark(cls, array: Any) -> Optional[Type["Interface"]]:
+    def match_mark(cls, array: Any) -> type["Interface"] | None:
         """
         Match a marked JSON dump of this array to the interface that it indicates.
 
@@ -505,7 +505,7 @@ class Interface(ABC, Generic[T]):
         return None
 
     @classmethod
-    def match(cls, array: Any, fast: bool = False) -> Type["Interface"]:
+    def match(cls, array: Any, fast: bool = False) -> type["Interface"]:
         """
         Find the interface that should be used for this array based on its input type
 
@@ -556,7 +556,7 @@ class Interface(ABC, Generic[T]):
             return matches[0]
 
     @classmethod
-    def match_output(cls, array: Any) -> Type["Interface"]:
+    def match_output(cls, array: Any) -> type["Interface"]:
         """
         Find the interface that should be used based on the output type -
         in the case that the output type differs from the input type, eg.

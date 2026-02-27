@@ -211,6 +211,7 @@ from localstack.aws.api.s3 import (
     SSECustomerKeyMD5,
     StartAfter,
     StorageClass,
+    Tag,
     Tagging,
     Token,
     TransitionDefaultMinimumObjectSize,
@@ -275,6 +276,10 @@ from localstack.services.s3.utils import (
     base_64_content_md5_to_etag,
     create_redirect_for_post_request,
     create_s3_kms_managed_key_for_region,
+    decode_continuation_token,
+    decode_user_metadata,
+    encode_continuation_token,
+    encode_user_metadata,
     etag_to_base_64_content_md5,
     extract_bucket_key_version_id_from_copy_source,
     generate_safe_version_id,
@@ -293,6 +298,8 @@ from localstack.services.s3.utils import (
     get_s3_checksum_algorithm_from_trailing_headers,
     get_system_metadata_from_request,
     get_unique_key_id,
+    get_url_encoded_object_location,
+    header_name_from_capitalized_param,
     is_bucket_name_valid,
     is_version_older_than_other,
     parse_copy_source_range_header,
@@ -316,6 +323,7 @@ from localstack.services.s3.validation import (
     validate_canned_acl,
     validate_checksum_value,
     validate_cors_configuration,
+    validate_encoding_type,
     validate_inventory_configuration,
     validate_lifecycle_configuration,
     validate_object_key,
@@ -454,19 +462,20 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 f"The value of the expected bucket owner parameter must be an AWS Account ID... [{expected_bucket_owner}]",
             )
 
-        store = self.get_store(context.account_id, context.region)
-        if not (s3_bucket := store.buckets.get(bucket_name)):
-            if not (account_id := store.global_bucket_map.get(bucket_name)):
+        request_store = self.get_store(context.account_id, context.region)
+        if not (s3_bucket := request_store.buckets.get(bucket_name)):
+            if not (bucket_account_id := request_store.global_bucket_map.get(bucket_name)):
                 raise NoSuchBucket("The specified bucket does not exist", BucketName=bucket_name)
 
-            store = self.get_store(account_id, context.region)
-            if not (s3_bucket := store.buckets.get(bucket_name)):
+            bucket_account_store = self.get_store(bucket_account_id, context.region)
+            if not (s3_bucket := bucket_account_store.buckets.get(bucket_name)):
                 raise NoSuchBucket("The specified bucket does not exist", BucketName=bucket_name)
 
         if expected_bucket_owner and s3_bucket.bucket_account_id != expected_bucket_owner:
             raise AccessDenied("Access Denied")
 
-        return store, s3_bucket
+        regional_bucket_store = self.get_store(s3_bucket.bucket_account_id, s3_bucket.bucket_region)
+        return regional_bucket_store, s3_bucket
 
     @staticmethod
     def get_store(account_id: str, region_name: str) -> S3Store:
@@ -496,7 +505,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         create_bucket_configuration = request.get("CreateBucketConfiguration") or {}
 
-        bucket_tags = create_bucket_configuration.get("Tags")
+        bucket_tags = create_bucket_configuration.get("Tags", [])
         if bucket_tags:
             validate_tag_set(bucket_tags, type_set="create-bucket")
 
@@ -524,8 +533,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                     BucketName=bucket_name,
                 )
             else:
+                existing_bucket = store.buckets[bucket_name]
                 # CreateBucket is idempotent in us-east-1
-                return CreateBucketOutput(Location=f"/{bucket_name}")
+                return CreateBucketOutput(
+                    Location=f"/{bucket_name}",
+                    BucketArn=existing_bucket.bucket_arn,
+                )
 
         if (
             object_ownership := request.get("ObjectOwnership")
@@ -545,16 +558,15 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             owner=owner,
             acl=acl,
             object_ownership=request.get("ObjectOwnership"),
-            object_lock_enabled_for_bucket=request.get("ObjectLockEnabledForBucket"),
+            object_lock_enabled_for_bucket=request.get("ObjectLockEnabledForBucket") or False,
             location_constraint=location_constraint,
         )
 
         store.buckets[bucket_name] = s3_bucket
         store.global_bucket_map[bucket_name] = s3_bucket.bucket_account_id
         if bucket_tags:
-            store.TAGS.tag_resource(
-                arn=s3_bucket.bucket_arn,
-                tags=bucket_tags,
+            store.tags.update_tags(
+                s3_bucket.bucket_arn, {tag["Key"]: tag["Value"] for tag in bucket_tags}
             )
         self._cors_handler.invalidate_cache()
         self._storage_backend.create_bucket(bucket_name)
@@ -565,7 +577,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             if bucket_region == "us-east-1"
             else get_full_default_bucket_location(bucket_name)
         )
-        response = CreateBucketOutput(Location=location)
+        response = CreateBucketOutput(Location=location, BucketArn=s3_bucket.bucket_arn)
         return response
 
     def delete_bucket(
@@ -594,6 +606,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         self._preconditions_locks.pop(bucket, None)
         # clean up the storage backend
         self._storage_backend.delete_bucket(bucket)
+        store.tags.delete_all_tags(s3_bucket.bucket_arn)
 
     def list_buckets(
         self,
@@ -643,6 +656,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 Name=bucket.name,
                 CreationDate=bucket.creation_date,
                 BucketRegion=bucket.bucket_region,
+                BucketArn=bucket.bucket_arn,
             )
             buckets.append(output_bucket)
             count += 1
@@ -681,7 +695,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         # TODO: this call is also used to check if the user has access/authorization for the bucket
         #  it can return 403
-        return HeadBucketOutput(BucketRegion=s3_bucket.bucket_region)
+        return HeadBucketOutput(
+            BucketRegion=s3_bucket.bucket_region, BucketArn=s3_bucket.bucket_arn
+        )
 
     def get_bucket_location(
         self,
@@ -702,17 +718,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         """
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
 
-        # TODO: Remove usage of getattr once persistence mechanism is updated.
-        # If the stored constraint is None the bucket was made before the storage of location_constraint.
-        # The EU location constraint wasn't supported before this point so we can safely default to the region.
-        location_constraint = getattr(s3_bucket, "location_constraint", None)
-        if location_constraint is None:
-            location_constraint = (
-                s3_bucket.bucket_region if s3_bucket.bucket_region != "us-east-1" else ""
-            )
-
         return GetBucketLocationOutput(
-            LocationConstraint=get_bucket_location_xml(location_constraint)
+            LocationConstraint=get_bucket_location_xml(s3_bucket.location_constraint)
         )
 
     @handler("PutObject", expand=False)
@@ -759,6 +766,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         system_metadata = get_system_metadata_from_request(request)
         if not system_metadata.get("ContentType"):
             system_metadata["ContentType"] = "binary/octet-stream"
+
+        user_metadata = decode_user_metadata(request.get("Metadata"))
 
         version_id = generate_version_id(s3_bucket.versioning_status)
         if version_id != "null":
@@ -810,7 +819,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             version_id=version_id,
             storage_class=storage_class,
             expires=request.get("Expires"),
-            user_metadata=request.get("Metadata"),
+            user_metadata=user_metadata,
             system_metadata=system_metadata,
             checksum_algorithm=checksum_algorithm,
             checksum_value=checksum_value,
@@ -897,9 +906,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         # in case we are overriding an object, delete the tags entry
         key_id = get_unique_key_id(bucket_name, key, version_id)
-        store.TAGS.tags.pop(key_id, None)
+        store.tags.delete_all_tags(key_id)
         if tagging:
-            store.TAGS.tags[key_id] = tagging
+            store.tags.update_tags(key_id, tagging)
 
         # RequestCharged: Optional[RequestCharged]  # TODO
         response = PutObjectOutput(
@@ -910,14 +919,14 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         if s3_object.checksum_algorithm:
             response[f"Checksum{s3_object.checksum_algorithm}"] = s3_object.checksum_value
-            response["ChecksumType"] = getattr(s3_object, "checksum_type", ChecksumType.FULL_OBJECT)
+            response["ChecksumType"] = s3_object.checksum_type
 
         if s3_bucket.lifecycle_rules:
             if expiration_header := self._get_expiration_header(
                 s3_bucket.lifecycle_rules,
                 bucket_name,
                 s3_object,
-                store.TAGS.tags.get(key_id, {}),
+                store.tags.get_tags(key_id),
             ):
                 # TODO: we either apply the lifecycle to existing objects when we set the new rules, or we need to
                 #  apply them everytime we get/head an object
@@ -963,15 +972,13 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             validate_kms_key_id(kms_key=s3_object.kms_key_id, bucket=s3_bucket)
 
         sse_c_key_md5 = request.get("SSECustomerKeyMD5")
-        # we're using getattr access because when restoring, the field might not exist
-        # TODO: cleanup at next major release
-        if sse_key_hash := getattr(s3_object, "sse_key_hash", None):
-            if sse_key_hash and not sse_c_key_md5:
+        if s3_object.sse_key_hash:
+            if s3_object.sse_key_hash and not sse_c_key_md5:
                 raise InvalidRequest(
                     "The object was stored using a form of Server Side Encryption. "
                     "The correct parameters must be provided to retrieve the object."
                 )
-            elif sse_key_hash != sse_c_key_md5:
+            elif s3_object.sse_key_hash != sse_c_key_md5:
                 raise AccessDenied(
                     "Requests specifying Server Side Encryption with Customer provided keys must provide the correct secret key."
                 )
@@ -1015,7 +1022,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             **s3_object.get_system_metadata_fields(),
         )
         if s3_object.user_metadata:
-            response["Metadata"] = s3_object.user_metadata
+            response["Metadata"] = encode_user_metadata(s3_object.user_metadata)
 
         if s3_object.parts and request.get("PartNumber"):
             response["PartsCount"] = len(s3_object.parts)
@@ -1034,7 +1041,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if checksum_algorithm := s3_object.checksum_algorithm:
             if (request.get("ChecksumMode") or "").upper() == "ENABLED":
                 checksum_value = s3_object.checksum_value
-                checksum_type = getattr(s3_object, "checksum_type", ChecksumType.FULL_OBJECT)
+                checksum_type = s3_object.checksum_type
 
         if range_data:
             s3_stored_object.seek(range_data.begin)
@@ -1046,7 +1053,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["StatusCode"] = 206
             if checksum_value:
                 if s3_object.parts and part_number and checksum_type == ChecksumType.COMPOSITE:
-                    part_data = s3_object.parts[part_number]
+                    part_data = s3_object.parts[str(part_number)]
                     checksum_key = f"Checksum{checksum_algorithm.upper()}"
                     response[checksum_key] = part_data.get(checksum_key)
                     response["ChecksumType"] = ChecksumType.COMPOSITE
@@ -1064,11 +1071,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         add_encryption_to_response(response, s3_object=s3_object)
 
-        if object_tags := store.TAGS.tags.get(
-            get_unique_key_id(bucket_name, object_key, version_id)
-        ):
-            response["TagCount"] = len(object_tags)
+        object_tags = store.tags.get_tags(get_unique_key_id(bucket_name, object_key, version_id))
 
+        if tag_count := len(object_tags):
+            response["TagCount"] = tag_count
         if s3_object.is_current and s3_bucket.lifecycle_rules:
             if expiration_header := self._get_expiration_header(
                 s3_bucket.lifecycle_rules,
@@ -1097,6 +1103,17 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         for request_param, response_param in ALLOWED_HEADER_OVERRIDES.items():
             if request_param_value := request.get(request_param):
+                if isinstance(request_param_value, str):
+                    try:
+                        request_param_value.encode("latin-1")
+                    except UnicodeEncodeError:
+                        raise InvalidArgument(
+                            "Header value cannot be represented using ISO-8859-1.",
+                            ArgumentName=header_name_from_capitalized_param(request_param),
+                            ArgumentValue=request_param_value,
+                            HostId=S3_HOST_ID,
+                        )
+
                 response[response_param] = request_param_value
 
         return response
@@ -1143,14 +1160,14 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             **s3_object.get_system_metadata_fields(),
         )
         if s3_object.user_metadata:
-            response["Metadata"] = s3_object.user_metadata
+            response["Metadata"] = encode_user_metadata(s3_object.user_metadata)
 
         checksum_value = None
         checksum_type = None
         if checksum_algorithm := s3_object.checksum_algorithm:
             if (request.get("ChecksumMode") or "").upper() == "ENABLED":
                 checksum_value = s3_object.checksum_value
-                checksum_type = getattr(s3_object, "checksum_type", ChecksumType.FULL_OBJECT)
+                checksum_type = s3_object.checksum_type
 
         if s3_object.parts and request.get("PartNumber"):
             response["PartsCount"] = len(s3_object.parts)
@@ -1180,7 +1197,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["StatusCode"] = 206
             if checksum_value:
                 if s3_object.parts and part_number and checksum_type == ChecksumType.COMPOSITE:
-                    part_data = s3_object.parts[part_number]
+                    part_data = s3_object.parts[str(part_number)]
                     checksum_key = f"Checksum{checksum_algorithm.upper()}"
                     response[checksum_key] = part_data.get(checksum_key)
                     response["ChecksumType"] = ChecksumType.COMPOSITE
@@ -1195,11 +1212,11 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["ChecksumType"] = checksum_type
 
         add_encryption_to_response(response, s3_object=s3_object)
-        object_tags = store.TAGS.tags.get(
+        object_tags = store.tags.get_tags(
             get_unique_key_id(bucket_name, object_key, s3_object.version_id)
         )
-        if object_tags:
-            response["TagCount"] = len(object_tags)
+        if tag_count := len(object_tags):
+            response["TagCount"] = tag_count
 
         # if you specify the VersionId, AWS won't return the Expiration header, even if that's the current version
         if not version_id and s3_bucket.lifecycle_rules:
@@ -1285,7 +1302,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             if found_object:
                 self._storage_backend.remove(bucket, found_object)
                 self._notify(context, s3_bucket=s3_bucket, s3_object=found_object)
-                store.TAGS.tags.pop(get_unique_key_id(bucket, key, version_id), None)
+                store.tags.delete_all_tags(get_unique_key_id(bucket, key, version_id))
 
             return DeleteObjectOutput()
 
@@ -1323,7 +1340,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["DeleteMarker"] = True
         else:
             self._storage_backend.remove(bucket, s3_object)
-            store.TAGS.tags.pop(get_unique_key_id(bucket, key, version_id), None)
+            store.tags.delete_all_tags(get_unique_key_id(bucket, key, version_id))
         self._notify(context, s3_bucket=s3_bucket, s3_object=s3_object)
 
         if key not in s3_bucket.objects:
@@ -1383,7 +1400,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 if found_object:
                     to_remove.append(found_object)
                     self._notify(context, s3_bucket=s3_bucket, s3_object=found_object)
-                    store.TAGS.tags.pop(get_unique_key_id(bucket, object_key, version_id), None)
+                    store.tags.delete_all_tags(get_unique_key_id(bucket, object_key, version_id))
                 # small hack to not create a fake object for nothing
                 elif s3_bucket.notification_configuration:
                     # DeleteObjects is a bit weird, even if the object didn't exist, S3 will trigger a notification
@@ -1461,7 +1478,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 to_remove.append(found_object)
 
             self._notify(context, s3_bucket=s3_bucket, s3_object=found_object)
-            store.TAGS.tags.pop(get_unique_key_id(bucket, object_key, version_id), None)
+            store.tags.delete_all_tags(get_unique_key_id(bucket, object_key, version_id))
 
         for versioned_key in versioned_keys:
             # we clean up keys that do not have any object versions in them anymore
@@ -1488,6 +1505,25 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         # request_payer: RequestPayer = None,  # TODO:
         dest_bucket = request["Bucket"]
         dest_key = request["Key"]
+
+        if_match = request.get("IfMatch")
+        if_none_match = request.get("IfNoneMatch")
+
+        if if_none_match and if_match:
+            raise NotImplementedException(
+                "A header you provided implies functionality that is not implemented",
+                Header="If-Match,If-None-Match",
+                additionalMessage="Multiple conditional request headers present in the request",
+            )
+
+        elif (if_none_match and if_none_match != "*") or (if_match and if_match == "*"):
+            header_name = "If-None-Match" if if_none_match else "If-Match"
+            raise NotImplementedException(
+                "A header you provided implies functionality that is not implemented",
+                Header=header_name,
+                additionalMessage=f"We don't accept the provided value of {header_name} header for this API",
+            )
+
         validate_object_key(dest_key)
         store, dest_s3_bucket = self._get_cross_account_bucket(context, dest_bucket)
 
@@ -1581,7 +1617,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             tagging = parse_tagging_header(tagging)
 
         if metadata_directive == "REPLACE":
-            user_metadata = request.get("Metadata")
+            user_metadata = decode_user_metadata(request.get("Metadata"))
             system_metadata = get_system_metadata_from_request(request)
             if not system_metadata.get("ContentType"):
                 system_metadata["ContentType"] = "binary/octet-stream"
@@ -1590,6 +1626,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             system_metadata = src_s3_object.system_metadata
 
         dest_version_id = generate_version_id(dest_s3_bucket.versioning_status)
+        if dest_version_id != "null":
+            # if we are in a versioned bucket, we need to lock around the full key (all the versions)
+            # because object versions have locks per version
+            precondition_lock = self._preconditions_locks[dest_bucket][dest_key]
+        else:
+            precondition_lock = contextlib.nullcontext()
 
         encryption_parameters = get_encryption_parameters_from_request_and_bucket(
             request,
@@ -1629,12 +1671,25 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             owner=dest_s3_bucket.owner,
         )
 
-        with self._storage_backend.copy(
-            src_bucket=src_bucket,
-            src_object=src_s3_object,
-            dest_bucket=dest_bucket,
-            dest_object=s3_object,
-        ) as s3_stored_object:
+        with (
+            precondition_lock,
+            self._storage_backend.copy(
+                src_bucket=src_bucket,
+                src_object=src_s3_object,
+                dest_bucket=dest_bucket,
+                dest_object=s3_object,
+            ) as s3_stored_object,
+        ):
+            # Check destination write preconditions inside the lock to prevent race conditions.
+            if if_none_match and object_exists_for_precondition_write(dest_s3_bucket, dest_key):
+                raise PreconditionFailed(
+                    "At least one of the pre-conditions you specified did not hold",
+                    Condition="If-None-Match",
+                )
+
+            elif if_match:
+                verify_object_equality_precondition_write(dest_s3_bucket, dest_key, if_match)
+
             s3_object.checksum_value = s3_stored_object.checksum or src_s3_object.checksum_value
             s3_object.etag = s3_stored_object.etag or src_s3_object.etag
 
@@ -1643,11 +1698,13 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         dest_key_id = get_unique_key_id(dest_bucket, dest_key, dest_version_id)
 
         if (request.get("TaggingDirective")) == "REPLACE":
-            store.TAGS.tags[dest_key_id] = tagging or {}
+            store.tags.delete_all_tags(dest_key_id)
+            store.tags.update_tags(dest_key_id, tagging or {})
         else:
             src_key_id = get_unique_key_id(src_bucket, src_key, src_s3_object.version_id)
-            src_tags = store.TAGS.tags.get(src_key_id, {})
-            store.TAGS.tags[dest_key_id] = copy.copy(src_tags)
+            src_tags = store.tags.get_tags(src_key_id)
+            store.tags.delete_all_tags(dest_key_id)
+            store.tags.update_tags(dest_key_id, src_tags)
 
         copy_object_result = CopyObjectResult(
             ETag=s3_object.quoted_etag,
@@ -1657,6 +1714,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             copy_object_result[f"Checksum{s3_object.checksum_algorithm.upper()}"] = (
                 s3_object.checksum_value
             )
+            copy_object_result["ChecksumType"] = s3_object.checksum_type
 
         response = CopyObjectOutput(
             CopyObjectResult=copy_object_result,
@@ -1700,6 +1758,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         **kwargs,
     ) -> ListObjectsOutput:
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
+        validate_encoding_type(encoding_type)
 
         common_prefixes = set()
         count = 0
@@ -1708,7 +1767,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         max_keys = max_keys or 1000
         prefix = prefix or ""
         delimiter = delimiter or ""
-        if encoding_type:
+        if encoding_type == EncodingType.url:
             prefix = urlparse.quote(prefix)
             delimiter = urlparse.quote(delimiter)
 
@@ -1755,9 +1814,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
                 if s3_object.checksum_algorithm:
                     object_data["ChecksumAlgorithm"] = [s3_object.checksum_algorithm]
-                    object_data["ChecksumType"] = getattr(
-                        s3_object, "checksum_type", ChecksumType.FULL_OBJECT
-                    )
+                    object_data["ChecksumType"] = s3_object.checksum_type
 
                 s3_objects.append(object_data)
 
@@ -1819,6 +1876,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 "The continuation token provided is incorrect",
                 ArgumentName="continuation-token",
             )
+        validate_encoding_type(encoding_type)
 
         common_prefixes = set()
         count = 0
@@ -1827,14 +1885,14 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         max_keys = max_keys or 1000
         prefix = prefix or ""
         delimiter = delimiter or ""
-        if encoding_type:
+        start_after = start_after or ""
+        decoded_continuation_token = decode_continuation_token(continuation_token)
+
+        if encoding_type == EncodingType.url:
             prefix = urlparse.quote(prefix)
             delimiter = urlparse.quote(delimiter)
-        decoded_continuation_token = (
-            to_str(base64.urlsafe_b64decode(continuation_token.encode()))
-            if continuation_token
-            else None
-        )
+            start_after = urlparse.quote(start_after)
+            decoded_continuation_token = urlparse.quote(decoded_continuation_token)
 
         s3_objects: list[Object] = []
 
@@ -1870,7 +1928,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             # After skipping all entries, verify we're not over the MaxKeys before adding a new entry
             if count >= max_keys:
                 is_truncated = True
-                next_continuation_token = to_str(base64.urlsafe_b64encode(s3_object.key.encode()))
+                next_continuation_token = encode_continuation_token(s3_object.key)
                 break
 
             # if we found a new CommonPrefix, add it to the CommonPrefixes
@@ -1892,9 +1950,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
                 if s3_object.checksum_algorithm:
                     object_data["ChecksumAlgorithm"] = [s3_object.checksum_algorithm]
-                    object_data["ChecksumType"] = getattr(
-                        s3_object, "checksum_type", ChecksumType.FULL_OBJECT
-                    )
+                    object_data["ChecksumType"] = s3_object.checksum_type
 
                 s3_objects.append(object_data)
 
@@ -1953,6 +2009,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 ArgumentName="version-id-marker",
                 ArgumentValue=version_id_marker,
             )
+        validate_encoding_type(encoding_type)
 
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
         common_prefixes = set()
@@ -1963,7 +2020,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         max_keys = max_keys or 1000
         prefix = prefix or ""
         delimiter = delimiter or ""
-        if encoding_type:
+        if encoding_type == EncodingType.url:
             prefix = urlparse.quote(prefix)
             delimiter = urlparse.quote(delimiter)
         version_key_marker_found = False
@@ -2044,9 +2101,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
                 if version.checksum_algorithm:
                     object_version["ChecksumAlgorithm"] = [version.checksum_algorithm]
-                    object_version["ChecksumType"] = getattr(
-                        version, "checksum_type", ChecksumType.FULL_OBJECT
-                    )
+                    object_version["ChecksumType"] = version.checksum_type
 
                 object_versions.append(object_version)
 
@@ -2123,7 +2178,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         object_attrs = request.get("ObjectAttributes", [])
         response = GetObjectAttributesOutput()
-        object_checksum_type = getattr(s3_object, "checksum_type", ChecksumType.FULL_OBJECT)
+        object_checksum_type = s3_object.checksum_type
         if "ETag" in object_attrs:
             response["ETag"] = s3_object.etag
         if "StorageClass" in object_attrs:
@@ -2159,17 +2214,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 max_parts = request.get("MaxParts") or 1000
 
                 parts = []
-                all_parts = sorted(s3_object.parts.items())
+                all_parts = sorted(
+                    (int(part_number), part) for part_number, part in s3_object.parts.items()
+                )
                 last_part_number, last_part = all_parts[-1]
-
-                # TODO: remove this backward compatibility hack needed for state created with <= 4.5
-                #  the parts would only be a tuple and would not store the proper state for 4.5 and earlier, so we need
-                #  to return early
-                if isinstance(last_part, tuple):
-                    response["ObjectParts"] = GetObjectAttributesParts(
-                        TotalPartsCount=len(s3_object.parts)
-                    )
-                    return response
 
                 for part_number, part in all_parts:
                     if part_number <= part_number_marker:
@@ -2284,10 +2332,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         if not system_metadata.get("ContentType"):
             system_metadata["ContentType"] = "binary/octet-stream"
 
+        user_metadata = decode_user_metadata(request.get("Metadata"))
+
         checksum_algorithm = request.get("ChecksumAlgorithm")
         if checksum_algorithm and checksum_algorithm not in CHECKSUM_ALGORITHMS:
             raise InvalidRequest(
-                "Checksum algorithm provided is unsupported. Please try again with any of the valid types: [CRC32, CRC32C, SHA1, SHA256]"
+                "Checksum algorithm provided is unsupported. Please try again with any of the valid types: [CRC32, CRC32C, CRC64NVME, SHA1, SHA256]"
             )
 
         if not (checksum_type := request.get("ChecksumType")) and checksum_algorithm:
@@ -2332,12 +2382,16 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         acl = get_access_control_policy_for_new_resource_request(request, owner=s3_bucket.owner)
 
-        # validate encryption values
+        initiator = get_owner_for_account_id(context.account_id)
+        # This is weird, but for all other operations, AWS does not return a DisplayName anymore except for the
+        # `initiator` field in Multipart related operation. We will probably remove this soon once AWS changes that
+        initiator["DisplayName"] = "webfile"
+
         s3_multipart = S3Multipart(
             key=key,
             storage_class=storage_class,
             expires=request.get("Expires"),
-            user_metadata=request.get("Metadata"),
+            user_metadata=user_metadata,
             system_metadata=system_metadata,
             checksum_algorithm=checksum_algorithm,
             checksum_type=checksum_type,
@@ -2351,7 +2405,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             website_redirect_location=request.get("WebsiteRedirectLocation"),
             expiration=None,  # TODO, from lifecycle, or should it be updated with config?
             acl=acl,
-            initiator=get_owner_for_account_id(context.account_id),
+            initiator=initiator,
             tagging=tagging,
             owner=s3_bucket.owner,
             precondition=object_exists_for_precondition_write(s3_bucket, key),
@@ -2516,7 +2570,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                         CalculatedDigest=calculated_md5,
                     )
 
-            s3_multipart.parts[part_number] = s3_part
+            s3_multipart.parts[str(part_number)] = s3_part
 
         response = UploadPartOutput(
             ETag=s3_part.quoted_etag,
@@ -2617,7 +2671,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         stored_multipart = self._storage_backend.get_multipart(dest_bucket, s3_multipart)
         stored_multipart.copy_from_object(s3_part, src_bucket, src_s3_object, range_data)
 
-        s3_multipart.parts[part_number] = s3_part
+        s3_multipart.parts[str(part_number)] = s3_part
 
         # TODO: return those fields
         #     RequestCharged: Optional[RequestCharged]
@@ -2728,7 +2782,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             )
 
         mpu_checksum_algorithm = s3_multipart.checksum_algorithm
-        mpu_checksum_type = getattr(s3_multipart, "checksum_type", None)
+        mpu_checksum_type = s3_multipart.checksum_type
 
         if checksum_type and checksum_type != mpu_checksum_type:
             raise InvalidRequest(
@@ -2779,7 +2833,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         stored_multipart = self._storage_backend.get_multipart(bucket, s3_multipart)
         stored_multipart.complete_multipart(
-            [s3_multipart.parts.get(part_number) for part_number in parts_numbers]
+            [s3_multipart.parts.get(str(part_number)) for part_number in parts_numbers]
         )
         if not s3_multipart.checksum_algorithm and s3_multipart.object.checksum_algorithm:
             with self._storage_backend.open(
@@ -2797,9 +2851,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         s3_bucket.multiparts.pop(s3_multipart.id, None)
 
         key_id = get_unique_key_id(bucket, key, version_id)
-        store.TAGS.tags.pop(key_id, None)
+        store.tags.delete_all_tags(key_id)
         if s3_multipart.tagging:
-            store.TAGS.tags[key_id] = s3_multipart.tagging
+            store.tags.update_tags(key_id, s3_multipart.tagging)
 
         # RequestCharged: Optional[RequestCharged] TODO
 
@@ -2807,7 +2861,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             Bucket=bucket,
             Key=key,
             ETag=s3_object.quoted_etag,
-            Location=f"{get_full_default_bucket_location(bucket)}{key}",
+            Location=get_url_encoded_object_location(bucket, key),
         )
 
         if s3_object.version_id:
@@ -2890,7 +2944,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         max_parts = max_parts or 1000
 
         parts = []
-        all_parts = sorted(s3_multipart.parts.items())
+        all_parts = sorted(
+            (int(part_number), part) for part_number, part in s3_multipart.parts.items()
+        )
         last_part_number = all_parts[-1][0] if all_parts else None
         for part_number, part in all_parts:
             if part_number <= part_number_marker:
@@ -2916,7 +2972,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             Key=key,
             UploadId=upload_id,
             Initiator=s3_multipart.initiator,
-            Owner=s3_multipart.initiator,
+            Owner=s3_multipart.object.owner,
             StorageClass=s3_multipart.object.storage_class,
             IsTruncated=is_truncated,
             MaxParts=max_parts,
@@ -2932,7 +2988,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["PartNumberMarker"] = part_number_marker
         if s3_multipart.checksum_algorithm:
             response["ChecksumAlgorithm"] = s3_multipart.object.checksum_algorithm
-            response["ChecksumType"] = getattr(s3_multipart, "checksum_type", None)
+            response["ChecksumType"] = s3_multipart.checksum_type
 
         #     AbortDate: Optional[AbortDate] TODO: lifecycle
         #     AbortRuleId: Optional[AbortRuleId] TODO: lifecycle
@@ -2955,6 +3011,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         **kwargs,
     ) -> ListMultipartUploadsOutput:
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
+        validate_encoding_type(encoding_type)
 
         common_prefixes = set()
         count = 0
@@ -2962,7 +3019,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         max_uploads = max_uploads or 1000
         prefix = prefix or ""
         delimiter = delimiter or ""
-        if encoding_type:
+        if encoding_type == EncodingType.url:
             prefix = urlparse.quote(prefix)
             delimiter = urlparse.quote(delimiter)
         upload_id_marker_found = False
@@ -3031,12 +3088,12 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                     Key=multipart.object.key,
                     Initiated=multipart.initiated,
                     StorageClass=multipart.object.storage_class,
-                    Owner=multipart.initiator,  # TODO: check the difference
+                    Owner=multipart.object.owner,
                     Initiator=multipart.initiator,
                 )
                 if multipart.checksum_algorithm:
                     multipart_upload["ChecksumAlgorithm"] = multipart.checksum_algorithm
-                    multipart_upload["ChecksumType"] = getattr(multipart, "checksum_type", None)
+                    multipart_upload["ChecksumType"] = multipart.checksum_type
 
                 uploads.append(multipart_upload)
 
@@ -3232,8 +3289,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         validate_tag_set(tag_set, type_set="bucket")
 
         # remove the previous tags before setting the new ones, it overwrites the whole TagSet
-        store.TAGS.tags.pop(s3_bucket.bucket_arn, None)
-        store.TAGS.tag_resource(s3_bucket.bucket_arn, tags=tag_set)
+        store.tags.delete_all_tags(s3_bucket.bucket_arn)
+        store.tags.update_tags(s3_bucket.bucket_arn, {tag["Key"]: tag["Value"] for tag in tag_set})
 
     def get_bucket_tagging(
         self,
@@ -3243,7 +3300,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         **kwargs,
     ) -> GetBucketTaggingOutput:
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
-        tag_set = store.TAGS.list_tags_for_resource(s3_bucket.bucket_arn, root_name="Tags")["Tags"]
+        tags = store.tags.get_tags(s3_bucket.bucket_arn)
+        tag_set = [{"Key": key, "Value": value} for key, value in dict(tags).items()]
         if not tag_set:
             raise NoSuchTagSet(
                 "The TagSet does not exist",
@@ -3261,7 +3319,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
     ) -> None:
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
 
-        store.TAGS.tags.pop(s3_bucket.bucket_arn, None)
+        # This operation doesn't remove the tags from the store like deleting a resource does
+        # it just sets them as empty.
+        store.tags.delete_all_tags(s3_bucket.bucket_arn)
+        store.tags.update_tags(s3_bucket.bucket_arn, {})
 
     def put_object_tagging(
         self,
@@ -3288,8 +3349,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         key_id = get_unique_key_id(bucket, key, s3_object.version_id)
         # remove the previous tags before setting the new ones, it overwrites the whole TagSet
-        store.TAGS.tags.pop(key_id, None)
-        store.TAGS.tag_resource(key_id, tags=tag_set)
+        store.tags.delete_all_tags(key_id)
+        store.tags.update_tags(key_id, {tag["Key"]: tag["Value"] for tag in tag_set})
         response = PutObjectTaggingOutput()
         if s3_object.version_id:
             response["VersionId"] = s3_object.version_id
@@ -3309,7 +3370,6 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         **kwargs,
     ) -> GetObjectTaggingOutput:
         store, s3_bucket = self._get_cross_account_bucket(context, bucket)
-
         try:
             s3_object = s3_bucket.get_object(key=key, version_id=version_id)
         except NoSuchKey as e:
@@ -3333,10 +3393,10 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             e.Key = f"{bucket}/{key}"
             raise e
 
-        tag_set = store.TAGS.list_tags_for_resource(
-            get_unique_key_id(bucket, key, s3_object.version_id)
-        )["Tags"]
-        response = GetObjectTaggingOutput(TagSet=tag_set)
+        object_tags = store.tags.get_tags(get_unique_key_id(bucket, key, s3_object.version_id))
+        response = GetObjectTaggingOutput(
+            TagSet=[Tag(Key=key, Value=value) for key, value in object_tags.items()]
+        )
         if s3_object.version_id:
             response["VersionId"] = s3_object.version_id
 
@@ -3355,7 +3415,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         s3_object = s3_bucket.get_object(key=key, version_id=version_id, http_method="DELETE")
 
-        store.TAGS.tags.pop(get_unique_key_id(bucket, key, s3_object.version_id), None)
+        store.tags.delete_all_tags(get_unique_key_id(bucket, key, s3_object.version_id))
         response = DeleteObjectTaggingOutput()
         if s3_object.version_id:
             response["VersionId"] = s3_object.version_id
@@ -3425,12 +3485,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         return GetBucketLifecycleConfigurationOutput(
             Rules=s3_bucket.lifecycle_rules,
-            # TODO: remove for next major version, safe access to new attribute
-            TransitionDefaultMinimumObjectSize=getattr(
-                s3_bucket,
-                "transition_default_minimum_object_size",
-                TransitionDefaultMinimumObjectSize.all_storage_classes_128K,
-            ),
+            TransitionDefaultMinimumObjectSize=s3_bucket.transition_default_minimum_object_size,
         )
 
     def put_bucket_lifecycle_configuration(
@@ -4471,7 +4526,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
         system_metadata = {}
         for system_metadata_field in post_system_settable_headers:
             if field_value := form.get(system_metadata_field):
-                system_metadata[system_metadata_field.replace("-", "")] = field_value
+                system_key = system_metadata_field.replace("-", "")
+                system_metadata[system_key] = field_value
 
         if not system_metadata.get("ContentType"):
             system_metadata["ContentType"] = "binary/octet-stream"
@@ -4548,9 +4604,9 @@ class S3Provider(S3Api, ServiceLifecycleHook):
 
         # in case we are overriding an object, delete the tags entry
         key_id = get_unique_key_id(bucket, object_key, version_id)
-        store.TAGS.tags.pop(key_id, None)
+        store.tags.delete_all_tags(key_id)
         if tagging:
-            store.TAGS.tags[key_id] = tagging
+            store.tags.update_tags(key_id, tagging)
 
         response = PostResponse()
         # hacky way to set the etag in the headers as well: two locations for one value
@@ -4577,7 +4633,8 @@ class S3Provider(S3Api, ServiceLifecycleHook):
             response["StatusCode"] = 204
 
         response["LocationHeader"] = response.get(
-            "LocationHeader", f"{get_full_default_bucket_location(bucket)}{object_key}"
+            "LocationHeader",
+            get_url_encoded_object_location(bucket, object_key),
         )
 
         if s3_bucket.versioning_status == "Enabled":
@@ -4592,7 +4649,7 @@ class S3Provider(S3Api, ServiceLifecycleHook):
                 s3_bucket.lifecycle_rules,
                 bucket,
                 s3_object,
-                store.TAGS.tags.get(key_id, {}),
+                store.tags.get_tags(key_id),
             ):
                 # TODO: we either apply the lifecycle to existing objects when we set the new rules, or we need to
                 #  apply them everytime we get/head an object
@@ -4862,7 +4919,7 @@ def get_part_range(s3_object: S3Object, part_number: PartNumber) -> ObjectRange:
             content_length=s3_object.size,
             content_range=f"bytes 0-{s3_object.size - 1}/{s3_object.size}",
         )
-    elif not (part_data := s3_object.parts.get(part_number)):
+    elif not (part_data := s3_object.parts.get(str(part_number))):
         raise InvalidPartNumber(
             "The requested partnumber is not satisfiable",
             PartNumberRequested=part_number,

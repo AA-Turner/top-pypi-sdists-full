@@ -5,8 +5,8 @@ from typing import Any
 
 from pandas import DataFrame
 
+from graphdatascience.graph.v2.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.base_result import BaseResult
-from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 
@@ -132,8 +132,6 @@ class BFSEndpoints(ABC):
     ) -> BFSStatsResult:
         """
         Runs the Breadth First Search (BFS) algorithm and returns result statistics without storing the results.
-
-        BFS is a graph traversal algorithm that starts at a source node and explores all of its neighbors at the current depth before moving on to the neighbors at the next depth level.
 
         Parameters
         ----------

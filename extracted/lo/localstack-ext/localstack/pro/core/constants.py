@@ -23,9 +23,6 @@ ASSETS_DIRECTORY = "assets"
 # Filename for pickled (persisted) Moto BackendDict
 MOTO_BACKEND_STATE_FILE = "backend.state"
 
-# Filename for persisted BaseBackend with Avro
-MOTO_BACKEND_AVRO_FILE = "backend.state.avro"
-
 # Filename for pickled (persisted) provider AccountRegionBundle
 STORE_STATE_FILE = "store.state"
 

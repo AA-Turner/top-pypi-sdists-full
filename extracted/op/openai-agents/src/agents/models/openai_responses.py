@@ -5,11 +5,11 @@ import contextlib
 import inspect
 import json
 import weakref
-from collections.abc import AsyncIterator, Awaitable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, Union, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import httpx
 from openai import AsyncOpenAI, NotGiven, Omit, omit
@@ -119,6 +119,106 @@ class _WebsocketRequestTimeouts:
     connect: float | None
     send: float | None
     recv: float | None
+
+
+class _ResponseStreamWithRequestId:
+    """Wrap an SDK event stream and retain the originating request ID."""
+
+    _TERMINAL_EVENT_TYPES = {
+        "response.completed",
+        "response.failed",
+        "response.incomplete",
+        "response.error",
+    }
+
+    def __init__(
+        self,
+        stream: AsyncIterator[ResponseStreamEvent],
+        *,
+        request_id: str | None,
+        cleanup: Callable[[], Awaitable[object]],
+    ) -> None:
+        self._stream = stream
+        self.request_id = request_id
+        self._cleanup = cleanup
+        self._closed = False
+        self._stream_close_complete = False
+        self._cleanup_complete = False
+        self._yielded_terminal_event = False
+
+    def __aiter__(self) -> _ResponseStreamWithRequestId:
+        return self
+
+    async def __anext__(self) -> ResponseStreamEvent:
+        if self._closed:
+            raise StopAsyncIteration
+
+        try:
+            event = await self._stream.__anext__()
+        except StopAsyncIteration:
+            self._closed = True
+            await self._cleanup_after_exhaustion()
+            raise
+
+        self._attach_request_id(event)
+        event_type = getattr(event, "type", None)
+        if event_type in self._TERMINAL_EVENT_TYPES:
+            self._yielded_terminal_event = True
+        return event
+
+    async def aclose(self) -> None:
+        self._closed = True
+        try:
+            await self._close_stream_once()
+        finally:
+            await self._cleanup_once()
+
+    async def close(self) -> None:
+        await self.aclose()
+
+    def _attach_request_id(self, event: ResponseStreamEvent) -> None:
+        if self.request_id is None:
+            return
+
+        response = getattr(event, "response", None)
+        if response is None:
+            return
+
+        try:
+            response._request_id = self.request_id
+        except Exception:
+            return
+
+    async def _cleanup_once(self) -> None:
+        if self._cleanup_complete:
+            return
+        self._cleanup_complete = True
+        await self._cleanup()
+
+    async def _cleanup_after_exhaustion(self) -> None:
+        try:
+            await self._cleanup_once()
+        except Exception as exc:
+            if self._yielded_terminal_event:
+                logger.debug(f"Ignoring stream cleanup error after terminal event: {exc}")
+                return
+            raise
+
+    async def _close_stream_once(self) -> None:
+        if self._stream_close_complete:
+            return
+        self._stream_close_complete = True
+
+        aclose = getattr(self._stream, "aclose", None)
+        if callable(aclose):
+            await aclose()
+            return
+
+        close = getattr(self._stream, "close", None)
+        if callable(close):
+            close_result = close()
+            if inspect.isawaitable(close_result):
+                await close_result
 
 
 class ResponsesWebSocketError(RuntimeError):
@@ -269,6 +369,7 @@ class OpenAIResponsesModel(Model):
             output=response.output,
             usage=usage,
             response_id=response.id,
+            request_id=getattr(response, "_request_id", None),
         )
 
     async def stream_response(
@@ -400,21 +501,46 @@ class OpenAIResponsesModel(Model):
         stream: Literal[True] | Literal[False] = False,
         prompt: ResponsePromptParam | None = None,
     ) -> Response | AsyncIterator[ResponseStreamEvent]:
-        response = await self._client.responses.create(
-            **self._build_response_create_kwargs(
-                system_instructions=system_instructions,
-                input=input,
-                model_settings=model_settings,
-                tools=tools,
-                output_schema=output_schema,
-                handoffs=handoffs,
-                previous_response_id=previous_response_id,
-                conversation_id=conversation_id,
-                stream=stream,
-                prompt=prompt,
-            )
+        create_kwargs = self._build_response_create_kwargs(
+            system_instructions=system_instructions,
+            input=input,
+            model_settings=model_settings,
+            tools=tools,
+            output_schema=output_schema,
+            handoffs=handoffs,
+            previous_response_id=previous_response_id,
+            conversation_id=conversation_id,
+            stream=stream,
+            prompt=prompt,
         )
-        return cast(Union[Response, AsyncIterator[ResponseStreamEvent]], response)
+
+        if not stream:
+            response = await self._client.responses.create(**create_kwargs)
+            return cast(Response, response)
+
+        streaming_response = getattr(self._client.responses, "with_streaming_response", None)
+        stream_create = getattr(streaming_response, "create", None)
+        if not callable(stream_create):
+            # Some tests and custom clients only implement `responses.create()`. Fall back to the
+            # older path in that case and simply omit request IDs for streamed calls.
+            response = await self._client.responses.create(**create_kwargs)
+            return cast(AsyncIterator[ResponseStreamEvent], response)
+
+        # Keep the raw API response open while callers consume the SSE stream so we can expose
+        # its request ID on terminal response payloads before cleanup closes the transport.
+        api_response_cm = stream_create(**create_kwargs)
+        api_response = await api_response_cm.__aenter__()
+        try:
+            stream_response = await api_response.parse()
+        except BaseException as exc:
+            await api_response_cm.__aexit__(type(exc), exc, exc.__traceback__)
+            raise
+
+        return _ResponseStreamWithRequestId(
+            cast(AsyncIterator[ResponseStreamEvent], stream_response),
+            request_id=getattr(api_response, "request_id", None),
+            cleanup=lambda: api_response_cm.__aexit__(None, None, None),
+        )
 
     def _build_response_create_kwargs(
         self,
@@ -601,7 +727,8 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
 
     The websocket transport currently sends `response.create` frames and always streams events.
     `get_response()` is implemented by consuming the streamed events until a terminal response
-    event is received.
+    event is received. Successful websocket responses do not currently expose a request ID, so
+    `ModelResponse.request_id` remains `None` on this transport.
     """
 
     def __init__(
@@ -785,6 +912,9 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
                             received_any_event = True
                             raise ResponsesWebSocketError(payload)
 
+                        # Successful websocket frames currently expose no per-request ID.
+                        # Unlike the HTTP transport, the websocket upgrade response does not
+                        # include `x-request-id`, and success events carry no equivalent field.
                         event = _construct_response_stream_event_from_payload(payload)
                         received_any_event = True
                         is_terminal_event = event_type in {

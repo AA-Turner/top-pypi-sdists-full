@@ -1,5 +1,4 @@
 import sys
-from typing import Union
 
 import numpy as np
 from pydantic import BaseModel
@@ -23,7 +22,7 @@ if sys.version_info.minor >= 10:
 
     YES_PIPE = True
 else:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     YES_PIPE = False
 
@@ -45,7 +44,7 @@ class SubClass(BasicModel):
 # --------------------------------------------------
 
 RGB_UNION = (("*", "*"), ("*", "*", 3), ("*", "*", 3, 4))
-UNION_TYPE: TypeAlias = Union[np.uint32, np.float32]
+UNION_TYPE: TypeAlias = np.uint32 | np.float32
 
 SHAPE_CASES = (
     ValidationCase(shape=(10, 10, 2, 2), passes=True, id="valid shape"),

@@ -23,6 +23,7 @@ Id = str
 InstanceAccessControlAttributeConfigurationStatusReason = str
 InstanceArn = str
 InternalFailureMessage = str
+IsPrimaryRegion = bool
 JMESPath = str
 KmsKeyArn = str
 ListApplicationAccessScopesRequestMaxResultsInteger = int
@@ -38,6 +39,7 @@ PermissionSetName = str
 PermissionSetPolicyDocument = str
 PrincipalId = str
 Reason = str
+RegionName = str
 RelayState = str
 ResourceNotFoundMessage = str
 ResourceServerScope = str
@@ -132,6 +134,12 @@ class ProvisionTargetType(StrEnum):
 class ProvisioningStatus(StrEnum):
     LATEST_PERMISSION_SET_PROVISIONED = "LATEST_PERMISSION_SET_PROVISIONED"
     LATEST_PERMISSION_SET_NOT_PROVISIONED = "LATEST_PERMISSION_SET_NOT_PROVISIONED"
+
+
+class RegionStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ADDING = "ADDING"
+    REMOVING = "REMOVING"
 
 
 class ResourceNotFoundExceptionReason(StrEnum):
@@ -336,6 +344,15 @@ class ActorPolicyDocument(TypedDict, total=False):
     pass
 
 
+class AddRegionRequest(ServiceRequest):
+    InstanceArn: InstanceArn
+    RegionName: RegionName
+
+
+class AddRegionResponse(TypedDict, total=False):
+    Status: RegionStatus | None
+
+
 class SignInOptions(TypedDict, total=False):
     """A structure that describes the sign-in options for an application
     portal.
@@ -368,6 +385,7 @@ class Application(TypedDict, total=False):
     PortalOptions: PortalOptions | None
     Description: Description | None
     CreatedDate: Date | None
+    CreatedFrom: RegionName | None
 
 
 class ApplicationAssignment(TypedDict, total=False):
@@ -819,6 +837,7 @@ class DescribeApplicationResponse(TypedDict, total=False):
     PortalOptions: PortalOptions | None
     Description: Description | None
     CreatedDate: Date | None
+    CreatedFrom: RegionName | None
 
 
 class DescribeInstanceAccessControlAttributeConfigurationRequest(ServiceRequest):
@@ -886,6 +905,18 @@ class DescribePermissionSetRequest(ServiceRequest):
 
 class DescribePermissionSetResponse(TypedDict, total=False):
     PermissionSet: PermissionSet | None
+
+
+class DescribeRegionRequest(ServiceRequest):
+    InstanceArn: InstanceArn
+    RegionName: RegionName
+
+
+class DescribeRegionResponse(TypedDict, total=False):
+    RegionName: RegionName | None
+    Status: RegionStatus | None
+    AddedDate: Date | None
+    IsPrimaryRegion: IsPrimaryRegion | None
 
 
 class DescribeTrustedTokenIssuerRequest(ServiceRequest):
@@ -1343,6 +1374,32 @@ class ListPermissionSetsResponse(TypedDict, total=False):
     NextToken: Token | None
 
 
+class ListRegionsRequest(ServiceRequest):
+    InstanceArn: InstanceArn
+    MaxResults: MaxResults | None
+    NextToken: Token | None
+
+
+class RegionMetadata(TypedDict, total=False):
+    """Contains information about an enabled Region of an IAM Identity Center
+    instance, including the Region name, status, date added, and whether it
+    is the primary Region.
+    """
+
+    RegionName: RegionName | None
+    Status: RegionStatus | None
+    AddedDate: Date | None
+    IsPrimaryRegion: IsPrimaryRegion | None
+
+
+RegionMetadataList = list[RegionMetadata]
+
+
+class ListRegionsResponse(TypedDict, total=False):
+    Regions: RegionMetadataList | None
+    NextToken: Token | None
+
+
 class ListTagsForResourceRequest(ServiceRequest):
     InstanceArn: InstanceArn | None
     ResourceArn: TaggableResourceArn
@@ -1454,6 +1511,15 @@ class PutPermissionsBoundaryToPermissionSetResponse(TypedDict, total=False):
     pass
 
 
+class RemoveRegionRequest(ServiceRequest):
+    InstanceArn: InstanceArn
+    RegionName: RegionName
+
+
+class RemoveRegionResponse(TypedDict, total=False):
+    Status: RegionStatus | None
+
+
 TagKeyList = list[TagKey]
 
 
@@ -1550,6 +1616,42 @@ class UpdateTrustedTokenIssuerResponse(TypedDict, total=False):
 class SsoAdminApi:
     service: str = "sso-admin"
     version: str = "2020-07-20"
+
+    @handler("AddRegion")
+    def add_region(
+        self, context: RequestContext, instance_arn: InstanceArn, region_name: RegionName, **kwargs
+    ) -> AddRegionResponse:
+        """Adds a Region to an IAM Identity Center instance. This operation
+        initiates an asynchronous workflow to replicate the IAM Identity Center
+        instance to the target Region. The Region status is set to ADDING at
+        first and changes to ACTIVE when the workflow completes.
+
+        To use this operation, your IAM Identity Center instance and the target
+        Region must meet the requirements described in the `IAM Identity Center
+        User
+        Guide <https://docs.aws.amazon.com/singlesignon/latest/userguide/multi-region-iam-identity-center.html#multi-region-prerequisites>`__.
+
+        The following actions are related to ``AddRegion``:
+
+        -  `RemoveRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_RemoveRegion.html>`__
+
+        -  `DescribeRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_DescribeRegion.html>`__
+
+        -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance to
+        replicate to the target Region.
+        :param region_name: The name of the Amazon Web Services Region to add to the IAM Identity
+        Center instance.
+        :returns: AddRegionResponse
+        :raises ServiceQuotaExceededException:
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
 
     @handler("AttachCustomerManagedPolicyReferenceToPermissionSet")
     def attach_customer_managed_policy_reference_to_permission_set(
@@ -2367,6 +2469,36 @@ class SsoAdminApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeRegion")
+    def describe_region(
+        self, context: RequestContext, instance_arn: InstanceArn, region_name: RegionName, **kwargs
+    ) -> DescribeRegionResponse:
+        """Retrieves details about a specific Region enabled in an IAM Identity
+        Center instance. Details include the Region name, current status
+        (ACTIVE, ADDING, or REMOVING), the date when the Region was added, and
+        whether it is the primary Region. The request must be made from one of
+        the enabled Regions of the IAM Identity Center instance.
+
+        The following actions are related to ``DescribeRegion``:
+
+        -  `AddRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_AddRegion.html>`__
+
+        -  `RemoveRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_RemoveRegion.html>`__
+
+        -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance.
+        :param region_name: The name of the Amazon Web Services Region to retrieve information
+        about.
+        :returns: DescribeRegionResponse
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
     @handler("DescribeTrustedTokenIssuer")
     def describe_trusted_token_issuer(
         self, context: RequestContext, trusted_token_issuer_arn: TrustedTokenIssuerArn, **kwargs
@@ -3081,6 +3213,38 @@ class SsoAdminApi:
         """
         raise NotImplementedError
 
+    @handler("ListRegions")
+    def list_regions(
+        self,
+        context: RequestContext,
+        instance_arn: InstanceArn,
+        max_results: MaxResults | None = None,
+        next_token: Token | None = None,
+        **kwargs,
+    ) -> ListRegionsResponse:
+        """Lists all enabled Regions of an IAM Identity Center instance, including
+        those that are being added or removed. This operation returns Regions
+        with ACTIVE, ADDING, or REMOVING status.
+
+        The following actions are related to ``ListRegions``:
+
+        -  `AddRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_AddRegion.html>`__
+
+        -  `RemoveRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_RemoveRegion.html>`__
+
+        -  `DescribeRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_DescribeRegion.html>`__
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance.
+        :param max_results: The maximum number of results to return in a single call.
+        :param next_token: The pagination token for the list API.
+        :returns: ListRegionsResponse
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
     @handler("ListTagsForResource")
     def list_tags_for_resource(
         self,
@@ -3400,6 +3564,39 @@ class SsoAdminApi:
         :param permission_set_arn: The ARN of the ``PermissionSet``.
         :param permissions_boundary: The permissions boundary that you want to attach to a ``PermissionSet``.
         :returns: PutPermissionsBoundaryToPermissionSetResponse
+        :raises ThrottlingException:
+        :raises InternalServerException:
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("RemoveRegion")
+    def remove_region(
+        self, context: RequestContext, instance_arn: InstanceArn, region_name: RegionName, **kwargs
+    ) -> RemoveRegionResponse:
+        """Removes an additional Region from an IAM Identity Center instance. This
+        operation initiates an asynchronous workflow to clean up IAM Identity
+        Center resources in the specified additional Region. The Region status
+        is set to REMOVING and the Region record is deleted when the workflow
+        completes. The request must be made from the primary Region. The target
+        Region cannot be the primary Region, and no other add or remove Region
+        workflows can be in progress.
+
+        The following actions are related to ``RemoveRegion``:
+
+        -  `AddRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_AddRegion.html>`__
+
+        -  `DescribeRegion <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_DescribeRegion.html>`__
+
+        -  `ListRegions <https://docs.aws.amazon.com/singlesignon/latest/APIReference/API_ListRegions.html>`__
+
+        :param instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance.
+        :param region_name: The name of the Amazon Web Services Region to remove from the IAM
+        Identity Center instance.
+        :returns: RemoveRegionResponse
         :raises ThrottlingException:
         :raises InternalServerException:
         :raises ResourceNotFoundException:

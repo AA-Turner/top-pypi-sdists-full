@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblocks-contrib
-Version: 0.10.2
+Version: 0.11.0
 Summary: core xblocks
 Home-page: https://github.com/openedx/xblocks-contrib
 Author: Open edX Project
@@ -39,8 +39,8 @@ Dynamic: summary
 xblocks-contrib
 ===============
 
-This repository is the new home for XBlocks, a core component of the Open edX ecosystem.
-This project involves the extraction of XBlocks from the edx-platform.
+This repository is the new home for XBlocks which are part of the base openedx-platform
+installation.
 
 Project Overview
 =======================
@@ -58,6 +58,7 @@ These are the XBlocks being moved here, and each of their statuses:
 * ``word_cloud`` -- Ready to Use
 * ``annotatable`` -- Ready to Use
 * ``lti`` -- In Development
+* ``pdf`` -- Done
 * ``html`` -- Ready to Use
 * ``discussion`` -- Placeholder
 * ``problem`` -- In Development
@@ -70,6 +71,19 @@ The possible XBlock statuses are:
 * Ready to Use: You can try this on your site using the Waffle flag.
 * Done The built-in block has been removed. The setup.py entrypoint has been removed from edx-platform and added to xblock-contrib.
 
+
+Additional XBlocks that belong here
+***********************************
+
+Over time, more XBlocks may be moved here. An XBlock belongs here if and only if both of the following are true:
+
+1. **It needs to be part of the out-of-the-box Open edX experience, as agreed upon by the
+   Product Working Group.** Otherwise, perhaps the block belongs in `xblocks-extra <https://github.com/openedx/xblocks-extra>`_,
+   or it belongs in a community repository outside of the openedx GitHub organization.
+
+2. **The maintainers of this repository have capacity to maintain the additional block.**
+   Otherwise, perhaps the block belongs in its own repository with a separate dedicated maintainer,
+   such as `ora2 <https://github.com/openedx/edx-ora2>`_.
 
 Developing a new XBlock
 =======================
@@ -245,6 +259,14 @@ Change Log
 
 Unreleased
 **********
+0.11.0 - 2026-01-26
+**********************************************
+
+Added
+=====
+
+* Implemented PDF Block, extracted from third party plugin.
+
 0.6.0 – 2025-08-13
 **********************************************
 

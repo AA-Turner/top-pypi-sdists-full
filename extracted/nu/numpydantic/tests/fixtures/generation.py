@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Tuple, Union
 
 import numpy as np
 import pytest
@@ -13,11 +13,11 @@ from numpydantic.testing.interfaces import HDF5Case, HDF5CompoundCase, VideoCase
 @pytest.fixture(scope="function")
 def hdf5_array(
     request, tmp_output_dir_func
-) -> Callable[[Tuple[int, ...], Union[np.dtype, type]], H5ArrayPath]:
+) -> Callable[[tuple[int, ...], np.dtype | type], H5ArrayPath]:
 
     def _hdf5_array(
-        shape: Tuple[int, ...] = (10, 10),
-        dtype: Union[np.dtype, type] = float,
+        shape: tuple[int, ...] = (10, 10),
+        dtype: np.dtype | type = float,
         compound: bool = False,
     ) -> H5ArrayPath:
         if compound:
@@ -50,7 +50,7 @@ def zarr_array(tmp_output_dir_func) -> Path:
 
 
 @pytest.fixture(scope="function")
-def avi_video(tmp_output_dir_func) -> Callable[[Tuple[int, int], int, bool], Path]:
+def avi_video(tmp_output_dir_func) -> Callable[[tuple[int, int], int, bool], Path]:
 
     def _make_video(shape=(100, 50), frames=10, is_color=True) -> Path:
         shape = (frames, *shape)

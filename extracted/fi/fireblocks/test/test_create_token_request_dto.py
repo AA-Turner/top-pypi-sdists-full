@@ -44,7 +44,9 @@ class TestCreateTokenRequestDto(unittest.TestCase):
                 display_name = '',
                 use_gasless = False,
                 fee = '2000',
-                fee_level = 'MEDIUM'
+                fee_level = 'MEDIUM',
+                tx_note = 'Token creation transaction for new stablecoin',
+                external_id = '0192e4f5-924e-7bb9-8e5b-c748270feb38'
             )
         else:
             return CreateTokenRequestDto(

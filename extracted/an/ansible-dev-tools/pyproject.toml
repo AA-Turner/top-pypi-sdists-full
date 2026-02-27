@@ -23,16 +23,17 @@ classifiers = [
 ]
 dependencies = [
   "ansible-builder>=3.1.1",
-  "ansible-compat>=25.12.0",
-  "ansible-creator>=25.12.0",
-  "ansible-dev-environment>=25.12.2",
-  "ansible-lint>=26.1.0",
-  "ansible-navigator>=26.1.1",
-  "ansible-sign>=0.1.3",
-  "molecule>=25.12.0",
-  "pytest-ansible>=25.12.0",
+  "ansible-compat>=25.12.1",
+  "ansible-creator>=26.2.0",
+  "ansible-dev-environment>=26.2.0",
+  "ansible-lint>=26.2.0",
+  "ansible-navigator>=26.1.3",
+  "ansible-sign>=0.1.5",
+  "chardet<6.0.0",  # https://github.com/chardet/chardet/issues/321 (indirect via tox)
+  "molecule>=26.2.0",
+  "pytest-ansible>=26.2.0",
   "setuptools>=65.5.1",
-  "tox-ansible>=25.12.0",
+  "tox-ansible>=26.2.1",  # hhttps://github.com/ansible/tox-ansible/pull/531
 ]
 dynamic = ["version"]
 
@@ -46,8 +47,10 @@ repository = "https://github.com/ansible/ansible-dev-tools"
 adt = "ansible_dev_tools.cli:main"
 
 [project.optional-dependencies]
-# https://github.com/ansible/pylibssh/issues/699
 container = ["ansible-pylibssh==1.3.0; platform_system == 'Linux'"]
+# https://github.com/ansible/pylibssh/issues/699
+# 'container' not included in all because pylibssh still causes build issues
+full = ["ansible-dev-tools[server,test]"]
 server = ["django>4.1,<6.0", "gunicorn>=23.0.0", "openapi-core>=0.19.1"]
 test = [
   "ansible-dev-tools[server]",
@@ -58,24 +61,18 @@ test = [
 
 [dependency-groups]
 dev = [
+  "ansible-dev-tools[full]",  # see https://github.com/astral-sh/uv/issues/8607#issuecomment-2540156984
   "black>=25.1.0",
   "coverage[toml]>=7.10.5",
   "django-stubs>=5.2.2",
   "libtmux>=0.46.2",
-  "mypy>=1.17.1",
   "pip>=25.2",
-  "pre-commit>=4.3.0",
-  "pydoclint>=0.6.10",
-  "pylint>=3.3.8",
   "pytest>=8.4.1",
   "pytest-instafail>=0.5.0",
   "pytest-xdist>=3.8.0",
   "requests>=2.32.5",
-  "ruff>=0.12.11",
-  "toml-sort>=0.24.2",
-  "tox>=4.28.4",
-  "types-pyyaml>=6.0.12.20250822",
-  "types-requests>=2.32.4.20250809"
+  "tox>=4.46.0",
+  "tox-uv>=1.32.0",
 ]
 docs = [
   "mkdocs-ansible>=25.5.0",
@@ -83,15 +80,20 @@ docs = [
   "pymdown-extensions>=10.16.1"
 ]
 ee = [
-  "ansible-builder>=3.1.0",
+  "ansible-builder>=3.1.1",
   "build>=1.3.0",
   "mk>=3.0.0",
   "setuptools>=65.5.1"
 ]
 lint = [
-  "pre-commit>=4.1",
-  "pre-commit-uv>=4.1.4",
+  "mypy>=1.17.1",
+  "prek>=0.3.3",
+  "pydoclint>=0.6.10",
+  "pylint>=3.3.8",
+  "ruff>=0.12.11",
   "tombi>=0.6.35",
+  "types-pyyaml>=6.0.12.20250822",
+  "types-requests>=2.32.4.20250809",
 ]
 pkg = ["build>=0.9", "pip>=25.2", "pipx>=1.7.1", "twine>=4.0.2"]
 
@@ -101,17 +103,6 @@ requires = [
   "setuptools >= 65.3.0",  # required by pyproject+setuptools_scm integration and editable installs
 ]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml"]
-
-[tool.black]
-enable-unstable-feature = ["string_processing"]
-line-length = 100
-preview = true
 
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "pragma: no cover"]
@@ -400,13 +391,19 @@ disable = [
 enable = ["useless-suppression"]
 fail-on = ["useless-suppression"]
 
-[tool.pytest.ini_options]
-addopts = "-ra --showlocals --durations=10 -p no:pytest-ansible"
+[tool.pytest]
+addopts = [
+  "--durations=10",
+  "--showlocals",
+  "-p no:pytest-ansible",
+  "-p no:xdist",
+  "-ra"
+]
 cache_dir = "./.cache/.pytest"
 junit_family = "xunit2"  # see https://docs.codecov.com/docs/test-analytics
 log_cli = true
 log_cli_level = "WARNING"
-testpaths = "src/ansible_dev_tools/tests"
+testpaths = ["src/ansible_dev_tools/tests"]
 tmp_path_retention_policy = "failed"
 verbosity_assertions = 2
 
@@ -445,6 +442,12 @@ required-imports = ["from __future__ import annotations"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml"]
+
 [tool.setuptools_scm]
 # To prevent accidental pick of mobile version tags such 'v6'
 git_describe_command = [
@@ -476,13 +479,18 @@ env_list = [
   "devspaces",
   "devel"
 ]
-requires = ["tox>=4.30.2", "tox-extra>=2.2", "tox-uv>=1.28"]
+requires = [
+  "tox>=4.46.0",
+  "tox-extra>=2.2",
+  "tox-uv>=1.32.0",
+  "chardet<6.0.0",  # https://github.com/chardet/chardet/issues/321
+]
 skip_missing_interpreters = false
 
 [tool.tox.env.deps]
 commands = [
   [
-    "pre-commit",
+    "prek",
     "run",
     "--all-files",
     "--show-diff-on-failure",
@@ -490,7 +498,7 @@ commands = [
     "manual",
     "deps"
   ],
-  ["pre-commit", "autoupdate"],
+  ["prek", "autoupdate"],
   ["tox", "-e", "lint"]
 ]
 commands_post = []
@@ -519,13 +527,16 @@ uv_sync_locked = false
 
 [tool.tox.env.devspaces]
 commands = [
-  [
-    "./tools/devspaces.sh",
-    { default = [], extend = true, replace = "posargs" }
-  ]
+  { extend = true, replace = "ref", of = [
+    "tool",
+    "tox",
+    "env",
+    "pkg",
+    "commands"
+  ] },
+  ["./tools/devspaces.sh"],
 ]
 commands_post = [["./tools/cleanup.sh"]]
-commands_pre = []
 dependency_groups = ["ee", "dev"]
 description = "Build devspaces container image for current architecture"
 extras = ["server"]
@@ -556,8 +567,18 @@ editable = true
 extras = ["server"]
 skip_install = false
 
+[tool.tox.env.selenium]
+commands = [["python", "-m", "build", "--version"], ["./tools/selenium.sh"]]
+commands_post = [["./tools/cleanup.sh"]]
+commands_pre = []
+dependency_groups = ["ee", "dev"]
+description = "Build the selenium-adt container image"
+editable = true
+extras = ["server"]
+skip_install = false
+
 [tool.tox.env.lint]
-commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
+commands = [["prek", "run", "--all-files", "--show-diff-on-failure"]]
 commands_post = []
 commands_pre = []
 dependency_groups = ["lint"]
@@ -578,14 +599,7 @@ uv_sync_locked = false
 [tool.tox.env.pkg]
 commands = [
   ["rm", "-rf", "{tox_root}/dist/"],
-  [
-    "python",
-    "-m",
-    "build",
-    "--outdir",
-    "{tox_root}/dist/",
-    "{tox_root}"
-  ],
+  ["uv", "build", "--out-dir={tox_root}/dist/", "{tox_root}"],
   ["sh", "-c", "python -m twine check --strict {tox_root}/dist/*"]
 ]
 commands_post = []
@@ -603,7 +617,8 @@ allowlist_externals = [
   "sh",
   "./tools/cleanup.sh",
   "./tools/devspaces.sh",
-  "./tools/ee.sh"
+  "./tools/ee.sh",
+  "./tools/selenium.sh"
 ]
 commands = [
   ["sh", "-c", "ansible --version | head -n 1"],
@@ -619,8 +634,6 @@ commands = [
     "pytest",
     { default = [
       "-ra",
-      "-n",
-      "auto",
       "--showlocals",
       "--doctest-modules",
       "--durations=10",
@@ -679,7 +692,7 @@ PRE_COMMIT_COLOR = "always"
 TERM = "xterm-256color"
 
 [tool.uv]
-default-groups = ["dev", "docs", "lint", "pkg"]
+default-groups = "all"
 # incompatible with Windows
 environments = ["platform_system != 'Windows'"]
 package = true

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langgraph-checkpoint-aws
-Version: 1.0.5
+Version: 1.0.6
 Summary: A LangChain checkpointer implementation that uses Bedrock Session Management Service and ElastiCache Valkey to enable stateful and resumable LangGraph agents.
 Keywords: aws,bedrock,langchain,langgraph,checkpointer,dynamodb,elasticache,valkey
 License: MIT
@@ -77,7 +77,7 @@ from langgraph_checkpoint_aws import AgentCoreMemorySaver
 
 REGION = "us-west-2"
 MEMORY_ID = "YOUR_MEMORY_ID"
-MODEL_ID = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
 # Initialize checkpointer for state persistence. No additional setup required.
 # Sessions will be saved and persisted for actor_id/session_id combinations
@@ -121,7 +121,7 @@ from langgraph_checkpoint_aws import (
 
 REGION = "us-west-2"
 MEMORY_ID = "YOUR_MEMORY_ID"
-MODEL_ID = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 
 # Initialize store for saving and searching over long term memories
 # such as preferences and facts across sessions

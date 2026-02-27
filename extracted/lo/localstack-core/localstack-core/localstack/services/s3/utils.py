@@ -77,6 +77,7 @@ from localstack.services.s3.exceptions import (
     InvalidRequest,
     MalformedXML,
 )
+from localstack.services.s3.headers import decode_header_rfc2047, encode_header_rfc2047
 from localstack.utils.aws import arns
 from localstack.utils.aws.arns import parse_arn
 from localstack.utils.objects import singleton_factory
@@ -145,7 +146,6 @@ def get_owner_for_account_id(account_id: str):
     :return: the Owner object containing the DisplayName and owner ID
     """
     return Owner(
-        DisplayName="webfile",  # only in certain regions, see above
         ID="75aa57f09aa0c8caeab4f8c24e99d10f8e7faeebf76c078efc7c6caea54ba06a",
     )
 
@@ -462,6 +462,10 @@ def get_full_default_bucket_location(bucket_name: BucketName) -> str:
         return f"{config.get_protocol()}://{bucket_name}.s3.{host_definition.host_and_port()}/"
 
 
+def get_url_encoded_object_location(bucket_name: BucketName, object_key: str) -> str:
+    return f"{get_full_default_bucket_location(bucket_name)}{urlparser.quote(object_key)}"
+
+
 def etag_to_base_64_content_md5(etag: ETag) -> str:
     """
     Convert an ETag, representing a MD5 hexdigest (might be quoted), to its base64 encoded representation
@@ -560,6 +564,20 @@ def get_system_metadata_from_request(request: dict) -> Metadata:
     return metadata
 
 
+def encode_user_metadata(metadata: Metadata) -> Metadata:
+    """Encode the user metadata in the RFC 2047 format if necessary so that it can be returned in HTTP headers"""
+    return {k: encode_header_rfc2047(v) for k, v in metadata.items()}
+
+
+def decode_user_metadata(metadata: Metadata | None) -> Metadata:
+    """Decode the user metadata if provided in the RFC2047 format, or leave as is if not. AWS also lowercase the
+    metadata key"""
+    if not metadata:
+        return {}
+
+    return {k.lower(): decode_header_rfc2047(v) for k, v in metadata.items()}
+
+
 def extract_bucket_name_and_key_from_headers_and_path(
     headers: dict[str, str], path: str
 ) -> tuple[str | None, str | None]:
@@ -616,6 +634,10 @@ def get_bucket_and_key_from_presign_url(presign_url: str) -> tuple[str, str]:
 
 def capitalize_header_name_from_snake_case(header_name: str) -> str:
     return "-".join([part.capitalize() for part in header_name.split("-")])
+
+
+def header_name_from_capitalized_param(param_name: str) -> str:
+    return "-".join(re.findall("[A-Z][^A-Z]*", param_name)).lower()
 
 
 def get_kms_key_arn(kms_key: str, account_id: str, bucket_region: str) -> str | None:
@@ -1150,3 +1172,23 @@ def get_bucket_location_xml(location_constraint: str) -> str:
         '<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"'
         + ("/>" if not location_constraint else f">{location_constraint}</LocationConstraint>")
     )
+
+
+def encode_continuation_token(value: str) -> str:
+    """
+    :param value: a string value to be encoded
+    :return: a base64 encoded S3 ContinuationMarker
+    """
+    return base64.b64encode(value.encode(), altchars=b"._").decode("ascii")
+
+
+def decode_continuation_token(value: str | None) -> str:
+    """
+    Pendant to ``encode_continuation_token``, will decode the value back to its original form
+    :param value: a ContinuationMarker value
+    :return: a string from the base64 decoded value
+    """
+    if value is None:
+        return ""
+
+    return base64.b64decode(value, altchars=b"._").decode("ascii")

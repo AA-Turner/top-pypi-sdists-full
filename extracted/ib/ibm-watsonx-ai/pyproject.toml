@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.2"
+version = "1.5.3"
 requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
@@ -166,7 +166,7 @@ dev_autoai_rt24_1 = [
 dev_autoai_rt25_1 = [
     { include-group = "dev_common" },
     { include-group = "test_core" },
-    "autoai-libs==3.0.*; python_version == '3.12'",
+    "autoai-libs>=3.0.8,<3.1; python_version == '3.12'",
     "autoai-ts-libs==5.0.*; python_version == '3.12'",
     "beautifulsoup4; python_version == '3.12'",
     "joblib==1.4.*; python_version == '3.12'",
@@ -187,6 +187,7 @@ dev_autoai_rt25_1 = [
     "snapml==1.16.*; python_version == '3.12'",
     "timeout-decorator; python_version == '3.12'",
     "xgboost==2.1.*; python_version == '3.12'",
+    "xlrd==2.0.*; python_version == '3.12'",
 ]
 dev_autoai_rag_genai_25a = [
     { include-group = "dev_common" },

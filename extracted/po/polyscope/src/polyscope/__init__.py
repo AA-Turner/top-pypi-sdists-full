@@ -28,6 +28,7 @@ from polyscope_bindings import (
     VolumeMeshElement,  # noqa F401
     VolumeGridElement,  # noqa F401
     SparseVolumeGridElement,  # noqa F401
+    SparseVolumeGridRenderMode,  # noqa F401
     PointRenderMode,  # noqa F401
     FilterMode,  # noqa F401
     ImageOrigin,  # noqa F401
@@ -56,4 +57,5 @@ from polyscope.volume_mesh import *  # noqa F403
 from polyscope.volume_grid import *  # noqa F403
 from polyscope.sparse_volume_grid import *  # noqa F403
 from polyscope.camera_view import *  # noqa F403
+from polyscope.gaussian_particles import *  # noqa F403
 from polyscope.global_floating_quantity_structure import *  # noqa F403

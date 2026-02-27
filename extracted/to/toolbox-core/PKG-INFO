@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-core
-Version: 0.5.9
+Version: 0.5.10
 Summary: Python Base SDK for interacting with the Toolbox service
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-core
@@ -25,7 +25,7 @@ Requires-Dist: google-auth<3.0.0,>=2.0.0
 Requires-Dist: requests<3.0.0,>=2.19.0
 Provides-Extra: test
 Requires-Dist: black[jupyter]==26.1.0; extra == "test"
-Requires-Dist: isort==7.0.0; extra == "test"
+Requires-Dist: isort==8.0.0; extra == "test"
 Requires-Dist: mypy==1.19.1; extra == "test"
 Requires-Dist: pytest==9.0.2; extra == "test"
 Requires-Dist: pytest-aioresponses==0.3.0; extra == "test"
@@ -339,7 +339,7 @@ async def main():
     async with ToolboxClient("http://127.0.0.1:5000") as toolbox:
         tools = await toolbox.load_toolset()
         wrapped_tools = [StructuredTool.from_function(tool, parse_docstring=True) for tool in tools]
-        model_with_tools = ChatVertexAI(model="gemini-2.5-flash").bind_tools(wrapped_tools)
+        model_with_tools = ChatVertexAI(model="gemini-3-flash-preview").bind_tools(wrapped_tools)
         tool_node = ToolNode(wrapped_tools)
 
         def call_agent(state: State):

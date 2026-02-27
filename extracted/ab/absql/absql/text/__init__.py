@@ -1,8 +1,17 @@
 import re
-from flatdict import FlatDict
 from sql_metadata import Parser
 from colorama import Fore
 
+
+def _flatten(d, parent_key=""):
+    items = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}.{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.update(_flatten(v, new_key))
+        else:
+            items[new_key] = v
+    return items
 
 def clean_spacing(text):
     text = re.sub("\\{\\{", "{{ ", text)
@@ -19,10 +28,8 @@ def create_replacements(**kwargs):
         replacements.update(replacement)
     return replacements
 
-
 def flatten_inputs(**kwargs):
-    flattened = FlatDict(kwargs, delimiter=".")
-    return flattened
+    return _flatten(kwargs)
 
 
 def pretty_encode_sql(

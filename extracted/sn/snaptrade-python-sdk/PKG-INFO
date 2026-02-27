@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 11.0.163
+Version: 11.0.164
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v11.0.163-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.163)
+[![PyPI](https://img.shields.io/badge/PyPI-v11.0.164-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.164)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -114,7 +114,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==11.0.163
+pip install snaptrade-python-sdk==11.0.164
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -688,9 +688,11 @@ get_user_holdings_response = snaptrade.account_information.get_user_holdings(
 
 Returns all brokerage accounts across all connections known to SnapTrade for the authenticated user.
 
+Please note that this data is cached and only refreshed once a day.
+
 Check your API key on the [Customer Dashboard billing page](https://dashboard.snaptrade.com/settings/billing) to see if you have real-time data access:
-  - If you do, this endpoint returns real-time data.
-  - If you don't, the data is cached and refreshed once a day. If you need real-time, use the [manual refresh](/reference/Connections/Connections_refreshBrokerageAuthorization) endpoint.
+  - If you do, real-time data can be fetched using the [update account details endpoint](/reference/Account%20Information/AccountInformation_getUserAccountDetails).
+  - If you don't, the data is cached and refreshed once a day. If you need real-time, use the [manual refresh endpoint](/reference/Connections/Connections_refreshBrokerageAuthorization).
 
 
 #### 🛠️ Usage<a id="🛠️-usage"></a>

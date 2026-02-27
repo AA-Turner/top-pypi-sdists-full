@@ -61,7 +61,7 @@ dependencies = [
   "fastapi",
   "pydantic>=2.1.0", # exclude 2.0.* since it does not support the `json_encoders` configuration setting
   "authlib",
-  "arize-phoenix-client>=1.29.0",
+  "arize-phoenix-client>=1.29.1",
   "email-validator",
   "python-dateutil",
   "prometheus_client",
@@ -100,7 +100,6 @@ dev = [
   "grpcio",
   "httpx",
   "httpx-ws",
-  "hypothesis-jsonschema>=0.23.1",
   "jsonpath-ng",
   "ldap3",
   "litellm>1.61.15",
@@ -157,6 +156,7 @@ dev = [
   "types-protobuf",
   "types-psutil",
   "types-python-dateutil",
+  "types-PyYAML",
   "types-requests",
   "types-setuptools",
   "types-tabulate",
@@ -164,6 +164,13 @@ dev = [
   "typing-extensions",
   "uvloop; platform_system != 'Windows'",
   "vcrpy",
+  "jupyter>=1.1.1",
+  "ruff>=0.15.2",
+  "libcst>=1.8.6",
+  "datamodel-code-generator==0.32.0",
+  "grpcio-tools>=1.78.0",
+  "mypy-protobuf>=5.0.0",
+  "jinja2>=3.1.6",
 ]
 
 [project.optional-dependencies]
@@ -282,6 +289,10 @@ pypi = [
 [tool.mypy]
 plugins = ["strawberry.ext.mypy_plugin", "pydantic.mypy"]
 strict = true
+files = [
+  "src/",
+  "tests/",
+]
 exclude = [
   "api_reference",
   "dist/",
@@ -330,6 +341,7 @@ exclude = [
   "*_pb2.py*",
   "*.pyi",
   "docs/",
+  "src/phoenix/trace/v1/evaluation_pb2.py*",
 ]
 line-length = 100
 target-version = "py310"
@@ -347,6 +359,9 @@ force-single-line = false
 
 [tool.ruff.format]
 line-ending = "native"
+
+[tool.alembic]
+script_location = "src/phoenix/db/migrations"  # enables `uv run alembic <command>`
 
 [tool.uv]
 required-version = "==0.9.18"  # When updating this version, also update the `backend-builder` image in the Dockerfile

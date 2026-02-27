@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-20T21:41:16.058199                                                            #
+# MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-27T00:13:09.843525                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.datastore.content_addressed_store
+    import typing
 
 
 DATASTORE_SYSROOT_S3: None
@@ -96,6 +96,37 @@ class CodePackager(object, metaclass=type):
         Tuple[str, str]
             A tuple containing (package_url, package_key) that identifies the location
             and content-addressed key of the stored package.
+        """
+        ...
+    def load(self, key: str, target_dir: str) -> str:
+        """
+        Load and extract a code package from the ContentAddressedStore.
+        
+        This is the mirror operation of store(). It retrieves the package
+        by its content-addressed key and extracts the tarball into the
+        target directory.
+        
+        Parameters
+        ----------
+        key : str
+            The content-addressed key identifying the package (as returned
+            by store() or PackagedCode.key).
+        target_dir : str
+            The directory to extract the package into. Will be created
+            if it does not exist.
+        
+        Returns
+        -------
+        str
+            The absolute path to the directory where the package was extracted.
+        
+        Raises
+        ------
+        ValueError
+            If the key is empty or None.
+        CodePackagingException
+            If no package is found for the given key or extraction fails.
+            (imported at call-site to avoid circular imports)
         """
         ...
     @staticmethod

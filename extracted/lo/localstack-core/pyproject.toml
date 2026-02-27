@@ -51,9 +51,9 @@ Issues = "https://github.com/localstack/localstack/issues"
 # minimal required to actually run localstack on the host for services natively implemented in python
 base-runtime = [
     # pinned / updated by ASF update action
-    "boto3==1.42.34",
+    "boto3==1.42.54",
     # pinned / updated by ASF update action
-    "botocore==1.42.34",
+    "botocore==1.42.54",
     # transitive dependency of botocore, added to avoid specific version
     "awscrt>=0.13.14,!=0.27.1",
     "cbor2>=5.5.0",
@@ -64,26 +64,25 @@ base-runtime = [
     "jsonpointer>=3.0.0",
     "jsonschema>=4.25.1",
     "hypercorn>=0.14.4",
-    "localstack-twisted>=23.0",
+    "localstack-twisted>=25.0",
     "openapi-core>=0.19.2",
     "pydantic>=2.11.9",
     "pyopenssl>=23.0.0",
     "python-dateutil>=2.9.0",
     "readerwriterlock>=1.0.7",
     "requests-aws4auth>=1.0",
-    "typing-extensions>=4.15.0",
     # explicitly set urllib3 to force its usage / ensure compatibility
     "urllib3>=2.0.7",
     "Werkzeug>=3.1.3",
     "xmltodict>=0.13.0",
-    "rolo>=0.7",
+    "rolo>=0.8.1",
 ]
 
 # required to actually run localstack on the host
 runtime = [
     "localstack-core[base-runtime]",
     # pinned / updated by ASF update action
-    "awscli==1.44.24",
+    "awscli==1.44.44",
     "airspeed-ext>=0.6.3",
     # antlr4-python3-runtime: exact pin because antlr4 runtime is tightly coupled to the generated parser code
     "antlr4-python3-runtime==4.13.2",
@@ -99,7 +98,7 @@ runtime = [
     "jsonpath-rw>=1.4.0",
     # version that has a built wheel
     "kclpy-ext>=3.0.0",
-    "moto-ext[all]>=5.1.12.post22,!=5.1.19.post44,!=5.1.19.post57,!=5.1.19.post61",
+    "moto-ext[all]>=5.1.22",
     "opensearch-py>=2.4.1",
     "pymongo>=4.2.0",
     "pyopenssl>=23.0.0",
@@ -139,6 +138,7 @@ dev = [
     "ruff>=0.3.3",
     "rstr>=3.2.0",
     "mypy",
+    "watchdog>=6",
 ]
 
 # not strictly necessary for development, but provides type hint support for a better developer experience
@@ -154,8 +154,6 @@ include-package-data = false
 # TODO using this is discouraged by setuptools, `project.scripts` should be used instead
 # However, `project.scripts` does not support non-python scripts.
 script-files = [
-    "bin/localstack",
-    "bin/localstack.bat",
     "bin/localstack-supervisor",
 ]
 package-dir = { "" = "localstack-core" }
@@ -185,7 +183,7 @@ exclude = ["tests*"]
 
 [tool.ruff]
 # Generate code compatible with version defined in .python-version
-target-version = "py311"
+target-version = "py313"
 line-length = 100
 src = ["localstack-core", "tests"]
 exclude = [
@@ -210,6 +208,7 @@ exclude = [
 "localstack-core/localstack/constants.py" = "py310"
 "localstack-core/localstack/utils/**" = "py310"  # imported by CLI tests
 "localstack-core/localstack/testing/pytest/**" = "py310" # imported by CLI tests
+"localstack-core/localstack/aws/connect.py" = "py310" # imported by CLI tests
 
 [tool.deptry]
 known_first_party = [

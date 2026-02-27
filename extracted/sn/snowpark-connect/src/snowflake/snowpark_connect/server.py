@@ -107,6 +107,7 @@ from snowflake.snowpark_connect.utils.context import (
     set_spark_session_id,
     set_spark_version,
 )
+from snowflake.snowpark_connect.utils.env_utils import get_int_from_env
 from snowflake.snowpark_connect.utils.external_udxf_cache import (
     clear_external_udxf_cache,
 )
@@ -1058,9 +1059,10 @@ def _serve(
             return
 
         server_options = _get_default_grpc_options()
+        max_workers = get_int_from_env("SPARK_CONNECT_SERVER_GRPC_MAX_WORKERS", 10)
 
         # cProfile doesn't work correctly with multiple threads
-        max_workers = 1 if PROFILING_ENABLED else 10
+        max_workers = 1 if PROFILING_ENABLED else max_workers
 
         server = grpc.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),

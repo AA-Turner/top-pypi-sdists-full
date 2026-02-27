@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isolate
-Version: 0.24.1
+Version: 0.25.1
 Summary: Managed isolated environments for Python
 Author-email: Features & Labels <hello@fal.ai>
 Project-URL: Issues, https://github.com/fal-ai/isolate/issues

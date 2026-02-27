@@ -690,18 +690,9 @@ class Models(WMLResource):
 
         return metadata
 
-    def _publish_from_object(
-        self,
-        model: MLModelType,
-        meta_props: dict[str, Any],
-        training_data: TrainingDataType | None = None,
-        training_target: TrainingTargetType | None = None,
-        pipeline: PipelineType = None,
-        feature_names: FeatureNamesArrayType | None = None,
-        label_column_names: LabelColumnNamesType | None = None,
-    ) -> dict[str, Any]:
-        """Store model from object in memory into Watson Machine Learning repository on Cloud."""
-
+    def _validate_meta_props_for_publish_from_object(
+        self, meta_props: dict[str, Any]
+    ) -> None:
         self._validate_meta_prop(
             meta_props, self.ConfigurationMetaNames.NAME, str, True
         )
@@ -721,6 +712,20 @@ class Models(WMLResource):
                 "Instead, please use SOFTWARE_SPEC_ID."
             )
             warn(runtime_id_deprecated_warning, category=DeprecationWarning)
+
+    def _publish_from_object(
+        self,
+        model: MLModelType,
+        meta_props: dict[str, Any],
+        training_data: TrainingDataType | None = None,
+        training_target: TrainingTargetType | None = None,
+        pipeline: PipelineType = None,
+        feature_names: FeatureNamesArrayType | None = None,
+        label_column_names: LabelColumnNamesType | None = None,
+    ) -> dict[str, Any]:
+        """Store model from object in memory into Watson Machine Learning repository on Cloud."""
+
+        self._validate_meta_props_for_publish_from_object(meta_props)
 
         try:
             if "pyspark.ml.pipeline.PipelineModel" in str(type(model)):
@@ -767,25 +772,7 @@ class Models(WMLResource):
     ) -> dict[str, Any]:
         """Store model from object in memory into Watson Machine Learning repository on Cloud asynchronously."""
 
-        self._validate_meta_prop(
-            meta_props, self.ConfigurationMetaNames.NAME, str, True
-        )
-
-        if (
-            self.ConfigurationMetaNames.SOFTWARE_SPEC_ID not in meta_props
-            and self.ConfigurationMetaNames.RUNTIME_ID not in meta_props
-        ):
-            raise WMLClientError(
-                "Invalid input. It is mandatory to provide RUNTIME_ID or "
-                "SOFTWARE_SPEC_ID in meta_props. RUNTIME_ID is deprecated"
-            )
-
-        if self.ConfigurationMetaNames.RUNTIME_ID in meta_props:
-            runtime_id_deprecated_warning = (
-                "RUNTIME_ID is deprecated and will be removed in future. "
-                "Instead, please use SOFTWARE_SPEC_ID."
-            )
-            warn(runtime_id_deprecated_warning, category=DeprecationWarning)
+        self._validate_meta_props_for_publish_from_object(meta_props)
 
         try:
             if "pyspark.ml.pipeline.PipelineModel" in str(type(model)):
@@ -865,6 +852,47 @@ class Models(WMLResource):
                 "Please check the status of training run. "
                 "Training should be completed successfully to store the model."
             )
+
+    def _build_request_json(
+        self,
+        is_onnx: bool,
+        meta_props: dict[str, Any],
+        request_str: str,
+        details: dict[str, Any],
+        model_meta: dict[str, Any],
+    ) -> dict[str, Any]:
+        request_json: dict[str, Any]
+        if is_onnx:
+            request_json = copy.copy(meta_props)
+        else:
+            request_json = json.loads(request_str)
+        request_json["name"] = meta_props[self.ConfigurationMetaNames.NAME]
+        request_json["content_location"]["connection"] = details["entity"][
+            "results_reference"
+        ].get("connection", details["entity"]["results_reference"])
+
+        if "space_id" in model_meta:
+            request_json["space_id"] = model_meta["space_id"]
+        else:
+            request_json["project_id"] = model_meta["project_id"]
+
+        if "label_column" in model_meta:
+            request_json["label_column"] = model_meta["label_column"]
+        if "pipeline" in request_json and not is_onnx:
+            request_json.pop("pipeline")  # not needed for other space
+        if "training_data_references" in request_json:
+            request_json.pop("training_data_references")
+        if "software_spec" in request_json:
+            request_json.pop("software_spec")
+            request_json["software_spec"] = {
+                "id": meta_props[self.ConfigurationMetaNames.SOFTWARE_SPEC_ID]
+            }
+
+        if is_onnx and isinstance(
+            (val := request_json.get(self.ConfigurationMetaNames.PIPELINE_ID)), str
+        ):
+            request_json[self.ConfigurationMetaNames.PIPELINE_ID] = {"id": val}
+        return request_json
 
     def _publish_from_training(
         self,
@@ -951,6 +979,7 @@ class Models(WMLResource):
             details["entity"]["results_reference"]["location"]["assets_path"]
             + f"/{model_dir}/resources/wml_model/request.json"
         )
+        request_str = ""
         if is_onnx:
             pass
         elif self._client.ICP_PLATFORM_SPACES:
@@ -1003,40 +1032,11 @@ class Models(WMLResource):
             with open("request.json", "r", encoding="utf-8") as f:
                 request_str = f.read()
 
-        request_json: dict[str, Any]
-        if is_onnx:
-            request_json = copy.copy(meta_props)
-        else:
-            request_json = json.loads(request_str)
-        request_json["name"] = meta_props[self.ConfigurationMetaNames.NAME]
-        request_json["content_location"]["connection"] = details["entity"][
-            "results_reference"
-        ].get("connection", details["entity"]["results_reference"])
+        request_json = self._build_request_json(
+            is_onnx, meta_props, request_str, details, model_meta
+        )
 
-        if "space_id" in model_meta:
-            request_json["space_id"] = model_meta["space_id"]
-        else:
-            request_json["project_id"] = model_meta["project_id"]
-
-        if "label_column" in model_meta:
-            request_json["label_column"] = model_meta["label_column"]
-        if "pipeline" in request_json and not is_onnx:
-            request_json.pop("pipeline")  # not needed for other space
-        if "training_data_references" in request_json:
-            request_json.pop("training_data_references")
-        if "software_spec" in request_json:
-            request_json.pop("software_spec")
-            request_json["software_spec"] = {
-                "id": meta_props[self.ConfigurationMetaNames.SOFTWARE_SPEC_ID]
-            }
-
-        if is_onnx and isinstance(
-            (val := request_json.get(self.ConfigurationMetaNames.PIPELINE_ID)), str
-        ):
-            request_json[self.ConfigurationMetaNames.PIPELINE_ID] = {"id": val}
-
-        params = {}
-        params["version"] = self._client.version_param
+        params = {"version": self._client.version_param}
         creation_response = self._client.httpx_client.post(
             url=self._client._href_definitions.get_published_models_href(),
             headers=self._client._get_headers(),
@@ -1137,6 +1137,7 @@ class Models(WMLResource):
             + f"/{model_dir}/resources/wml_model/request.json"
         )
 
+        request_str = ""
         if is_onnx:
             pass
         elif self._client.ICP_PLATFORM_SPACES:
@@ -1193,37 +1194,9 @@ class Models(WMLResource):
             with open("request.json", "r", encoding="utf-8") as f:
                 request_str = f.read()
 
-        request_json: dict[str, Any]
-        if is_onnx:
-            request_json = copy.copy(meta_props)
-        else:
-            request_json = json.loads(request_str)
-        request_json["name"] = meta_props[self.ConfigurationMetaNames.NAME]
-        request_json["content_location"]["connection"] = details["entity"][
-            "results_reference"
-        ].get("connection", details["entity"]["results_reference"])
-
-        if "space_id" in model_meta:
-            request_json["space_id"] = model_meta["space_id"]
-        else:
-            request_json["project_id"] = model_meta["project_id"]
-
-        if "label_column" in model_meta:
-            request_json["label_column"] = model_meta["label_column"]
-        if "pipeline" in request_json and not is_onnx:
-            request_json.pop("pipeline")  # not needed for other space
-        if "training_data_references" in request_json:
-            request_json.pop("training_data_references")
-        if "software_spec" in request_json:
-            request_json.pop("software_spec")
-            request_json["software_spec"] = {
-                "id": meta_props[self.ConfigurationMetaNames.SOFTWARE_SPEC_ID]
-            }
-
-        if is_onnx and isinstance(
-            (val := request_json.get(self.ConfigurationMetaNames.PIPELINE_ID)), str
-        ):
-            request_json[self.ConfigurationMetaNames.PIPELINE_ID] = {"id": val}
+        request_json = self._build_request_json(
+            is_onnx, meta_props, request_str, details, model_meta
+        )
 
         params = {"version": self._client.version_param}
         creation_response = await self._client.async_httpx_client.post(
@@ -1256,14 +1229,13 @@ class Models(WMLResource):
 
         return model_details
 
-    def _store_auto_ai_model(
+    def _build_payload_for_storing_autoai_model(
         self,
         model_path: str,
         meta_props: dict[str, Any],
         feature_names: FeatureNamesArrayType | None = None,
         label_column_names: LabelColumnNamesType | None = None,
     ) -> dict[str, Any]:
-        """Store trained model from object storage into Watson Machine Learning repository on IBM Cloud."""
         model_meta = self.ConfigurationMetaNames._generate_resource_metadata(
             meta_props, client=self._client
         )
@@ -1282,6 +1254,20 @@ class Models(WMLResource):
 
         if label_column_names:
             input_payload["label_column"] = label_column_names[0]
+
+        return input_payload
+
+    def _store_auto_ai_model(
+        self,
+        model_path: str,
+        meta_props: dict[str, Any],
+        feature_names: FeatureNamesArrayType | None = None,
+        label_column_names: LabelColumnNamesType | None = None,
+    ) -> dict[str, Any]:
+        """Store trained model from object storage into Watson Machine Learning repository on IBM Cloud."""
+        input_payload = self._build_payload_for_storing_autoai_model(
+            model_path, meta_props, feature_names, label_column_names
+        )
 
         params = {"version": self._client.version_param}
 
@@ -1324,24 +1310,9 @@ class Models(WMLResource):
         label_column_names: LabelColumnNamesType | None = None,
     ) -> dict[str, Any]:
         """Store trained model from object storage into Watson Machine Learning repository on IBM Cloud asynchronously."""
-        model_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, client=self._client
+        input_payload = self._build_payload_for_storing_autoai_model(
+            model_path, meta_props, feature_names, label_column_names
         )
-
-        # For V4 cloud prepare the metadata
-        if "autoai_sdk" in model_path:
-            input_payload = meta_props
-        else:
-            input_payload = copy.deepcopy(
-                self._create_cloud_model_payload(
-                    model_meta,
-                    feature_names=feature_names,
-                    label_column_names=label_column_names,
-                )
-            )
-
-        if label_column_names:
-            input_payload["label_column"] = label_column_names[0]
 
         params = {"version": self._client.version_param}
 
@@ -1936,18 +1907,41 @@ class Models(WMLResource):
 
         return await self.aget_details(model_id)
 
-    def _publish_from_object_cloud(
-        self,
-        model: MLModelType,
-        meta_props: dict[str, Any],
-        training_data: TrainingDataType | None = None,
-        training_target: TrainingTargetType | None = None,
-        pipeline: PipelineType | None = None,
-        feature_names: FeatureNamesArrayType | None = None,
-        label_column_names: LabelColumnNamesType | None = None,
-        project_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Store model from object in memory into Watson Machine Learning repository on Cloud."""
+    def _create_spark_pipeline_metadata(
+        self, name: str, model_definition_id: str
+    ) -> dict:
+        # create a pipeline for model definition
+        return {
+            self._client.pipelines.ConfigurationMetaNames.NAME: name
+            + "_"
+            + uid_generate(8),
+            self._client.pipelines.ConfigurationMetaNames.DOCUMENT: {
+                "doc_type": "pipeline",
+                "version": "2.0",
+                "primary_pipeline": "dlaas_only",
+                "pipelines": [
+                    {
+                        "id": "dlaas_only",
+                        "runtime_ref": "spark",
+                        "nodes": [
+                            {
+                                "id": "repository",
+                                "type": "model_node",
+                                "inputs": [],
+                                "outputs": [],
+                                "parameters": {
+                                    "model_definition": {"id": model_definition_id}
+                                },
+                            }
+                        ],
+                    }
+                ],
+            },
+        }
+
+    def _validate_meta_props_for_publish_from_object_cloud(
+        self, meta_props: dict[str, Any]
+    ) -> None:
         self._validate_meta_prop(
             meta_props, self.ConfigurationMetaNames.NAME, str, True
         )
@@ -1967,6 +1961,21 @@ class Models(WMLResource):
             raise WMLClientError(
                 "Invalid input. It is mandatory to provide SOFTWARE_SPEC_ID in meta_props."
             )
+
+    def _publish_from_object_cloud(
+        self,
+        model: MLModelType,
+        meta_props: dict[str, Any],
+        training_data: TrainingDataType | None = None,
+        training_target: TrainingTargetType | None = None,
+        pipeline: PipelineType | None = None,
+        feature_names: FeatureNamesArrayType | None = None,
+        label_column_names: LabelColumnNamesType | None = None,
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Store model from object in memory into Watson Machine Learning repository on Cloud."""
+
+        self._validate_meta_props_for_publish_from_object_cloud(meta_props)
 
         try:
             if "pyspark.ml.pipeline.PipelineModel" in str(type(model)):
@@ -1991,36 +2000,9 @@ class Models(WMLResource):
                 model_definition_id = self._client.model_definitions.get_id(
                     model_definition_details
                 )
-                # create a pipeline for model definition
-                pipeline_metadata = {
-                    self._client.pipelines.ConfigurationMetaNames.NAME: name
-                    + "_"
-                    + uid_generate(8),
-                    self._client.pipelines.ConfigurationMetaNames.DOCUMENT: {
-                        "doc_type": "pipeline",
-                        "version": "2.0",
-                        "primary_pipeline": "dlaas_only",
-                        "pipelines": [
-                            {
-                                "id": "dlaas_only",
-                                "runtime_ref": "spark",
-                                "nodes": [
-                                    {
-                                        "id": "repository",
-                                        "type": "model_node",
-                                        "inputs": [],
-                                        "outputs": [],
-                                        "parameters": {
-                                            "model_definition": {
-                                                "id": model_definition_id
-                                            }
-                                        },
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                }
+                pipeline_metadata = self._create_spark_pipeline_metadata(
+                    name, model_definition_id
+                )
 
                 pipeline_save = self._client.pipelines.store(pipeline_metadata)
                 pipeline_id = self._client.pipelines.get_id(pipeline_save)
@@ -2117,25 +2099,7 @@ class Models(WMLResource):
         project_id: str | None = None,
     ) -> dict[str, Any]:
         """Store model from object in memory into Watson Machine Learning repository on Cloud asynchronously."""
-        self._validate_meta_prop(
-            meta_props, self.ConfigurationMetaNames.NAME, str, True
-        )
-
-        if (
-            self.ConfigurationMetaNames.RUNTIME_ID in meta_props
-            and self.ConfigurationMetaNames.SOFTWARE_SPEC_ID not in meta_props
-        ):
-            raise WMLClientError(
-                "Invalid input. RUNTIME_ID is no longer supported, instead of that "
-                "provide SOFTWARE_SPEC_ID in meta_props."
-            )
-        elif (
-            self.ConfigurationMetaNames.SOFTWARE_SPEC_ID not in meta_props
-            and self.ConfigurationMetaNames.RUNTIME_ID not in meta_props
-        ):
-            raise WMLClientError(
-                "Invalid input. It is mandatory to provide SOFTWARE_SPEC_ID in meta_props."
-            )
+        self._validate_meta_props_for_publish_from_object_cloud(meta_props)
 
         try:
             if "pyspark.ml.pipeline.PipelineModel" in str(type(model)):
@@ -2160,36 +2124,9 @@ class Models(WMLResource):
                 model_definition_id = self._client.model_definitions.get_id(
                     model_definition_details
                 )
-                # create a pipeline for model definition
-                pipeline_metadata = {
-                    self._client.pipelines.ConfigurationMetaNames.NAME: name
-                    + "_"
-                    + uid_generate(8),
-                    self._client.pipelines.ConfigurationMetaNames.DOCUMENT: {
-                        "doc_type": "pipeline",
-                        "version": "2.0",
-                        "primary_pipeline": "dlaas_only",
-                        "pipelines": [
-                            {
-                                "id": "dlaas_only",
-                                "runtime_ref": "spark",
-                                "nodes": [
-                                    {
-                                        "id": "repository",
-                                        "type": "model_node",
-                                        "inputs": [],
-                                        "outputs": [],
-                                        "parameters": {
-                                            "model_definition": {
-                                                "id": model_definition_id
-                                            }
-                                        },
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                }
+                pipeline_metadata = self._create_spark_pipeline_metadata(
+                    name, model_definition_id
+                )
 
                 pipeline_save = await self._client.pipelines.astore(pipeline_metadata)
                 pipeline_id = self._client.pipelines.get_id(pipeline_save)
@@ -3017,6 +2954,81 @@ class Models(WMLResource):
         run_metrics = await self._client.training.aget_metrics(training_id=training_id)
         return get_from_json(run_metrics[-1], ["context", "intermediate_model", "name"])
 
+    def _regenerate_meta_props(
+        self,
+        meta_props: dict[str, Any] | None,
+        experiment_metadata: dict[str, Any] | None,
+        training_id: str | None,
+        request_json: dict[str, Any],
+        new_meta_props: dict[str, Any],
+        schema: dict[str, dict],
+        pipeline_details: dict[str, Any],
+        run_params: dict[str, Any],
+    ) -> dict[str, Any]:
+        if request_json:
+            for key in ("schemas", "hybrid_pipeline_software_specs"):
+                if key in request_json:
+                    new_meta_props[key] = request_json[key]
+
+        if experiment_metadata:
+            prediction_column = experiment_metadata.get("prediction_column")
+            if prediction_column is not None:
+                new_meta_props[self._client.repository.ModelMetaNames.LABEL_FIELD] = (
+                    prediction_column
+                )
+
+            if "training_data_references" in experiment_metadata:
+                training_data_refs: list[dict[str, Any]] = [
+                    e._to_dict() if isinstance(e, DataConnection) else e
+                    for e in experiment_metadata.get("training_data_references", [])
+                ]
+                new_meta_props[
+                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
+                ] = training_data_refs
+
+                if training_data_refs:
+                    training_data_refs[0]["schema"] = schema
+
+            if "test_data_references" in experiment_metadata:
+                test_data_refs: list[dict[str, Any]] = [
+                    e._to_dict() if isinstance(e, DataConnection) else e
+                    for e in experiment_metadata.get("test_data_references", [])
+                ]
+                new_meta_props[
+                    self._client.repository.ModelMetaNames.TEST_DATA_REFERENCES
+                ] = test_data_refs
+        elif training_id:
+            label_column = None
+            for node in pipeline_details["entity"]["document"]["pipelines"][0]["nodes"]:
+                if "automl" in node["id"] or "autoai" in node["id"]:
+                    label_column = get_from_json(
+                        node, ["parameters", "optimization", "label"]
+                    )
+
+            if label_column is not None:
+                new_meta_props[self._client.repository.ModelMetaNames.LABEL_FIELD] = (
+                    label_column
+                )
+
+            # TODO Is training_data_references and test_data_references needed in meta props??
+            if "training_data_references" in run_params["entity"]:
+                new_meta_props[
+                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
+                ] = run_params["entity"]["training_data_references"]
+
+            if "test_data_references" in run_params["entity"]:
+                new_meta_props[
+                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
+                ] = run_params["entity"]["test_data_references"]
+
+        if pipeline_id := get_from_json(run_params, ["entity", "pipeline", "id"]):
+            new_meta_props[self._client.repository.ModelMetaNames.PIPELINE_ID] = (
+                pipeline_id
+            )
+
+        new_meta_props.update(meta_props or {})
+        return new_meta_props
+
     def _store_from_object(
         self,
         model: MLModelType,
@@ -3101,72 +3113,16 @@ class Models(WMLResource):
             api_client=self._client,
             results_reference=results_reference,
         )
-        if request_json:
-            if "schemas" in request_json:
-                new_meta_props["schemas"] = request_json["schemas"]
-            if "hybrid_pipeline_software_specs" in request_json:
-                new_meta_props["hybrid_pipeline_software_specs"] = request_json[
-                    "hybrid_pipeline_software_specs"
-                ]
-
-        if experiment_metadata:
-            if "prediction_column" in experiment_metadata:
-                prediction_column = experiment_metadata.get("prediction_column")
-                if prediction_column is not None:
-                    new_meta_props[
-                        self._client.repository.ModelMetaNames.LABEL_FIELD
-                    ] = prediction_column
-
-            if "training_data_references" in experiment_metadata:
-                training_data_refs: list[dict[str, Any]] = [
-                    e._to_dict() if isinstance(e, DataConnection) else e
-                    for e in experiment_metadata.get("training_data_references", [])
-                ]
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = training_data_refs
-
-                if training_data_refs:
-                    training_data_refs[0]["schema"] = schema
-
-            if "test_data_references" in experiment_metadata:
-                test_data_refs: list[dict[str, Any]] = [
-                    e._to_dict() if isinstance(e, DataConnection) else e
-                    for e in experiment_metadata.get("test_data_references", [])
-                ]
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TEST_DATA_REFERENCES
-                ] = test_data_refs
-        elif training_id:
-            label_column = None
-            for node in pipeline_details["entity"]["document"]["pipelines"][0]["nodes"]:
-                if "automl" in node["id"] or "autoai" in node["id"]:
-                    label_column = get_from_json(
-                        node, ["parameters", "optimization", "label"]
-                    )
-
-            if label_column is not None:
-                new_meta_props[self._client.repository.ModelMetaNames.LABEL_FIELD] = (
-                    label_column
-                )
-
-            # TODO Is training_data_references and test_data_references needed in meta props??
-            if "training_data_references" in run_params["entity"]:
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = run_params["entity"]["training_data_references"]
-
-            if "test_data_references" in run_params["entity"]:
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = run_params["entity"]["test_data_references"]
-
-        if pipeline_id := get_from_json(run_params, ["entity", "pipeline", "id"]):
-            new_meta_props[self._client.repository.ModelMetaNames.PIPELINE_ID] = (
-                pipeline_id
-            )
-
-        new_meta_props.update(meta_props or {})
+        self._regenerate_meta_props(
+            meta_props,
+            experiment_metadata,
+            training_id,
+            request_json,
+            new_meta_props,
+            schema,
+            pipeline_details,
+            run_params,
+        )
 
         return self.store(model=artifact_name, meta_props=new_meta_props)
 
@@ -3254,72 +3210,16 @@ class Models(WMLResource):
             api_client=self._client,
             results_reference=results_reference,
         )
-        if request_json:
-            if "schemas" in request_json:
-                new_meta_props["schemas"] = request_json["schemas"]
-            if "hybrid_pipeline_software_specs" in request_json:
-                new_meta_props["hybrid_pipeline_software_specs"] = request_json[
-                    "hybrid_pipeline_software_specs"
-                ]
-
-        if experiment_metadata:
-            if "prediction_column" in experiment_metadata:
-                prediction_column = experiment_metadata.get("prediction_column")
-                if prediction_column is not None:
-                    new_meta_props[
-                        self._client.repository.ModelMetaNames.LABEL_FIELD
-                    ] = prediction_column
-
-            if "training_data_references" in experiment_metadata:
-                training_data_refs: list[dict[str, Any]] = [
-                    e._to_dict() if isinstance(e, DataConnection) else e
-                    for e in experiment_metadata.get("training_data_references", [])
-                ]
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = training_data_refs
-
-                if training_data_refs:
-                    training_data_refs[0]["schema"] = schema
-
-            if "test_data_references" in experiment_metadata:
-                test_data_refs: list[dict[str, Any]] = [
-                    e._to_dict() if isinstance(e, DataConnection) else e
-                    for e in experiment_metadata.get("test_data_references", [])
-                ]
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TEST_DATA_REFERENCES
-                ] = test_data_refs
-        elif training_id:
-            label_column = None
-            for node in pipeline_details["entity"]["document"]["pipelines"][0]["nodes"]:
-                if "automl" in node["id"] or "autoai" in node["id"]:
-                    label_column = get_from_json(
-                        node, ["parameters", "optimization", "label"]
-                    )
-
-            if label_column is not None:
-                new_meta_props[self._client.repository.ModelMetaNames.LABEL_FIELD] = (
-                    label_column
-                )
-
-            # TODO Is training_data_references and test_data_references needed in meta props??
-            if "training_data_references" in run_params["entity"]:
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = run_params["entity"]["training_data_references"]
-
-            if "test_data_references" in run_params["entity"]:
-                new_meta_props[
-                    self._client.repository.ModelMetaNames.TRAINING_DATA_REFERENCES
-                ] = run_params["entity"]["test_data_references"]
-
-        if pipeline_id := get_from_json(run_params, ["entity", "pipeline", "id"]):
-            new_meta_props[self._client.repository.ModelMetaNames.PIPELINE_ID] = (
-                pipeline_id
-            )
-
-        new_meta_props.update(meta_props or {})
+        self._regenerate_meta_props(
+            meta_props,
+            experiment_metadata,
+            training_id,
+            request_json,
+            new_meta_props,
+            schema,
+            pipeline_details,
+            run_params,
+        )
 
         return await self.astore(model=artifact_name, meta_props=new_meta_props)
 

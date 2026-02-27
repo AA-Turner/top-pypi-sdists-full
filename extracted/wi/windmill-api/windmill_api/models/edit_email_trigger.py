@@ -25,6 +25,10 @@ class EditEmailTrigger:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, EditEmailTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditEmailTriggerRetry]): Retry configuration for failed module executions
+        email (Union[Unset, str]): Email of the user who triggered jobs run as. Used during deployment to preserve the
+            original trigger owner.
+        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
+            the original email value instead of overwriting it.
     """
 
     path: str
@@ -35,6 +39,8 @@ class EditEmailTrigger:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditEmailTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditEmailTriggerRetry"] = UNSET
+    email: Union[Unset, str] = UNSET
+    preserve_email: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,6 +57,9 @@ class EditEmailTrigger:
         retry: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
+
+        email = self.email
+        preserve_email = self.preserve_email
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -71,6 +80,10 @@ class EditEmailTrigger:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if email is not UNSET:
+            field_dict["email"] = email
+        if preserve_email is not UNSET:
+            field_dict["preserve_email"] = preserve_email
 
         return field_dict
 
@@ -106,6 +119,10 @@ class EditEmailTrigger:
         else:
             retry = EditEmailTriggerRetry.from_dict(_retry)
 
+        email = d.pop("email", UNSET)
+
+        preserve_email = d.pop("preserve_email", UNSET)
+
         edit_email_trigger = cls(
             path=path,
             script_path=script_path,
@@ -115,6 +132,8 @@ class EditEmailTrigger:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
+            email=email,
+            preserve_email=preserve_email,
         )
 
         edit_email_trigger.additional_properties = d

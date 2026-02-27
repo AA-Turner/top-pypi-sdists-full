@@ -3,9 +3,10 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
+from graphdatascience.graph.v2.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+from graphdatascience.procedure_surface.api.pathfinding import MaxFlowMinCostEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints import (
     MaxFlowEndpoints,
     MaxFlowMutateResult,
@@ -13,6 +14,9 @@ from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints impor
     MaxFlowWriteResult,
 )
 from graphdatascience.procedure_surface.cypher.estimation_utils import estimate_algorithm
+from graphdatascience.procedure_surface.cypher.pathfinding.max_flow_min_cost_cypher_endpoints import (
+    MaxFlowMinCostCypherEndpoints,
+)
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 from graphdatascience.query_runner.query_runner import QueryRunner
 
@@ -21,9 +25,15 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
     def __init__(self, query_runner: QueryRunner):
         self._query_runner = query_runner
 
+    @property
+    def min_cost(self) -> MaxFlowMinCostEndpoints:
+        return MaxFlowMinCostCypherEndpoints(self._query_runner)
+
     def mutate(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         mutate_property: str,
         mutate_relationship_type: str,
         *,
@@ -34,9 +44,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> MaxFlowMutateResult:
         config = ConfigConverter.convert_to_gds_config(
@@ -49,9 +57,9 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
             logProgress=log_progress,
             nodeLabels=node_labels,
             relationshipTypes=relationship_types,
-            sourceNodes=source_nodes or [],
+            sourceNodes=source_nodes,
             sudo=sudo,
-            targetNodes=target_nodes or [],
+            targetNodes=target_nodes,
             username=username,
         )
 
@@ -67,6 +75,8 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
     def stats(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
@@ -75,9 +85,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> MaxFlowStatsResult:
         config = ConfigConverter.convert_to_gds_config(
@@ -88,9 +96,9 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
             logProgress=log_progress,
             nodeLabels=node_labels,
             relationshipTypes=relationship_types,
-            sourceNodes=source_nodes or [],
+            sourceNodes=source_nodes,
             sudo=sudo,
-            targetNodes=target_nodes or [],
+            targetNodes=target_nodes,
             username=username,
         )
 
@@ -111,6 +119,8 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
     def stream(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
@@ -119,9 +129,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> DataFrame:
         config = ConfigConverter.convert_to_gds_config(
@@ -132,9 +140,9 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
             logProgress=log_progress,
             nodeLabels=node_labels,
             relationshipTypes=relationship_types,
-            sourceNodes=source_nodes or [],
+            sourceNodes=source_nodes,
             sudo=sudo,
-            targetNodes=target_nodes or [],
+            targetNodes=target_nodes,
             username=username,
         )
 
@@ -146,6 +154,8 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
     def write(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         write_property: str,
         write_relationship_type: str,
         *,
@@ -156,9 +166,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
         write_concurrency: int | None = None,
     ) -> MaxFlowWriteResult:
@@ -172,9 +180,9 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
             logProgress=log_progress,
             nodeLabels=node_labels,
             relationshipTypes=relationship_types,
-            sourceNodes=source_nodes or [],
+            sourceNodes=source_nodes,
             sudo=sudo,
-            targetNodes=target_nodes or [],
+            targetNodes=target_nodes,
             username=username,
             writeConcurrency=write_concurrency,
         )
@@ -191,14 +199,14 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
     def estimate(
         self,
         G: GraphV2 | dict[str, Any],
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
         concurrency: int | None = None,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
-        target_nodes: list[int] | None = None,
     ) -> EstimationResult:
         algo_config = ConfigConverter.convert_to_gds_config(
             relationshipTypes=relationship_types,
@@ -206,8 +214,8 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
             capacityProperty=capacity_property,
             nodeCapacityProperty=node_capacity_property,
             concurrency=concurrency,
-            sourceNodes=source_nodes or [],
-            targetNodes=target_nodes or [],
+            sourceNodes=source_nodes,
+            targetNodes=target_nodes,
         )
         return estimate_algorithm(
             endpoint="gds.maxFlow.stats.estimate", query_runner=self._query_runner, G=G, algo_config=algo_config

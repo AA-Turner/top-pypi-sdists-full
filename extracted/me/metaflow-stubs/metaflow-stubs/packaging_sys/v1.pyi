@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19                                                                                #
-# Generated on 2026-02-09T14:58:07.182448                                                            #
+# MF version: 2.19.20                                                                                #
+# Generated on 2026-02-26T21:59:51.278040                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.packaging_sys
+    import typing
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_decorators.user_flow_decorator import FlowMutatorMeta as FlowMutatorMeta

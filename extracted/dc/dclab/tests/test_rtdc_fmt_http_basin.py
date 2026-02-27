@@ -107,7 +107,7 @@ def test_basin_as_dict_netloc_vs_hostname(tmp_path):
 
 
 @pytest.mark.parametrize("url", [
-    "https://example.com/nonexistentbucket/nonexistentkey",
+    "http://example.com/nonexistentbucket/nonexistentkey",
     f"https://objectstore.hpccloud.mpcdf.mpg.de/noexist-{uuid.uuid4()}/key",
 ])
 def test_basin_not_available(url):
@@ -137,7 +137,7 @@ def test_basin_not_available(url):
         _ = ds["index"]
 
     # Also test that on a lower level
-    bn = HTTPBasin("https://example.com/nonexistentbucket/nonexistentkey")
+    bn = HTTPBasin("http://example.com/nonexistentbucket/nonexistentkey")
     assert not bn.is_available()
     with pytest.raises(BasinNotAvailableError, match="is not available"):
         _ = bn.ds
@@ -169,6 +169,7 @@ def test_create_basin_file_non_matching_identifier(tmp_path):
         # ...but it is actually not, since the run identifier does not match
         # and therefore dclab does not allow the user to access it.
         with (pytest.warns(UserWarning, match="but I cannot get its data"),
+              pytest.warns(UserWarning, match="does not match hoolahoop"),
               pytest.raises(KeyError, match="deform")):
             _ = ds["deform"]
 

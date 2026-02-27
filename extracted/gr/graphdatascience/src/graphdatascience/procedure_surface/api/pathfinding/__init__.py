@@ -1,4 +1,15 @@
 from graphdatascience.procedure_surface.api.pathfinding.all_shortest_path_endpoints import AllShortestPathEndpoints
+from graphdatascience.procedure_surface.api.pathfinding.bfs_endpoints import (
+    BFSEndpoints,
+    BFSMutateResult,
+    BFSStatsResult,
+)
+from graphdatascience.procedure_surface.api.pathfinding.dag_endpoints import DagEndpoints
+from graphdatascience.procedure_surface.api.pathfinding.dfs_endpoints import (
+    DFSEndpoints,
+    DFSMutateResult,
+    DFSStatsResult,
+)
 from graphdatascience.procedure_surface.api.pathfinding.dijkstra_endpoints import (
     DijkstraEndpoints,
     DijkstraMutateResult,
@@ -8,6 +19,19 @@ from graphdatascience.procedure_surface.api.pathfinding.dijkstra_endpoints impor
 from graphdatascience.procedure_surface.api.pathfinding.k_spanning_tree_endpoints import (
     KSpanningTreeEndpoints,
     KSpanningTreeWriteResult,
+)
+from graphdatascience.procedure_surface.api.pathfinding.longest_path_endpoints import LongestPathEndpoints
+from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints import (
+    MaxFlowEndpoints,
+    MaxFlowMutateResult,
+    MaxFlowStatsResult,
+    MaxFlowWriteResult,
+)
+from graphdatascience.procedure_surface.api.pathfinding.max_flow_min_cost_endpoints import (
+    MaxFlowMinCostEndpoints,
+    MaxFlowMinCostMutateResult,
+    MaxFlowMinCostStatsResult,
+    MaxFlowMinCostWriteResult,
 )
 from graphdatascience.procedure_surface.api.pathfinding.prize_steiner_tree_endpoints import (
     PrizeSteinerTreeEndpoints,
@@ -63,9 +87,16 @@ __all__ = [
     "AllShortestPathEndpoints",
     "AStarMutateResult",
     "AStarWriteResult",
+    "BFSEndpoints",
+    "BFSMutateResult",
+    "BFSStatsResult",
+    "DFSEndpoints",
+    "DFSStatsResult",
+    "DFSMutateResult",
     "BellmanFordMutateResult",
     "BellmanFordStatsResult",
     "BellmanFordWriteResult",
+    "DagEndpoints",
     "DeltaSteppingMutateResult",
     "DeltaSteppingStatsResult",
     "DeltaSteppingWriteResult",
@@ -75,6 +106,15 @@ __all__ = [
     "DijkstraWriteResult",
     "KSpanningTreeEndpoints",
     "KSpanningTreeWriteResult",
+    "LongestPathEndpoints",
+    "MaxFlowEndpoints",
+    "MaxFlowWriteResult",
+    "MaxFlowStatsResult",
+    "MaxFlowMutateResult",
+    "MaxFlowMinCostEndpoints",
+    "MaxFlowMinCostWriteResult",
+    "MaxFlowMinCostStatsResult",
+    "MaxFlowMinCostMutateResult",
     "PrizeSteinerTreeEndpoints",
     "PrizeSteinerTreeMutateResult",
     "PrizeSteinerTreeStatsResult",

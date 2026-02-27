@@ -4,14 +4,18 @@ from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.remote_write_back_client import RemoteWriteBackClient
-from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
+from graphdatascience.graph.v2.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+from graphdatascience.procedure_surface.api.pathfinding import MaxFlowMinCostEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints import (
     MaxFlowEndpoints,
     MaxFlowMutateResult,
     MaxFlowStatsResult,
     MaxFlowWriteResult,
+)
+from graphdatascience.procedure_surface.arrow.pathfinding.max_flow_min_cost_arrow_endpoints import (
+    MaxFlowMinCostArrowEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper import RelationshipEndpointsHelper
 from graphdatascience.procedure_surface.arrow.stream_result_mapper import (
@@ -26,13 +30,22 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
         write_back_client: RemoteWriteBackClient | None = None,
         show_progress: bool = True,
     ):
+        self._min_cost_endpoints = MaxFlowMinCostArrowEndpoints(
+            arrow_client, write_back_client, show_progress=show_progress
+        )
         self._relationship_endpoints = RelationshipEndpointsHelper(
             arrow_client, write_back_client, show_progress=show_progress
         )
 
+    @property
+    def min_cost(self) -> MaxFlowMinCostEndpoints:
+        return self._min_cost_endpoints
+
     def mutate(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         mutate_property: str,
         mutate_relationship_type: str,
         *,
@@ -43,9 +56,7 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> MaxFlowMutateResult:
         config = self._relationship_endpoints.create_base_config(
@@ -75,6 +86,8 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
     def stats(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
@@ -83,9 +96,7 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> MaxFlowStatsResult:
         config = self._relationship_endpoints.create_base_config(
@@ -110,6 +121,8 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
     def stream(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
@@ -118,9 +131,7 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
     ) -> DataFrame:
         config = self._relationship_endpoints.create_base_config(
@@ -132,9 +143,9 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
             logProgress=log_progress,
             nodeLabels=node_labels,
             relationshipTypes=relationship_types,
-            sourceNodes=source_nodes or [],
+            sourceNodes=source_nodes,
             sudo=sudo,
-            targetNodes=target_nodes or [],
+            targetNodes=target_nodes,
             username=username,
         )
 
@@ -145,6 +156,8 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
     def write(
         self,
         G: GraphV2,
+        source_nodes: list[int],
+        target_nodes: list[int],
         write_property: str,
         write_relationship_type: str,
         *,
@@ -155,9 +168,7 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
         log_progress: bool = True,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
         sudo: bool = False,
-        target_nodes: list[int] | None = None,
         username: str | None = None,
         write_concurrency: int | None = None,
     ) -> MaxFlowWriteResult:
@@ -191,14 +202,14 @@ class MaxFlowArrowEndpoints(MaxFlowEndpoints):
     def estimate(
         self,
         G: GraphV2 | dict[str, Any],
+        source_nodes: list[int],
+        target_nodes: list[int],
         *,
         capacity_property: str | None = None,
         node_capacity_property: str | None = None,
         concurrency: int | None = None,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,
-        source_nodes: list[int] | None = None,
-        target_nodes: list[int] | None = None,
     ) -> EstimationResult:
         config = self._relationship_endpoints.create_estimate_config(
             capacityProperty=capacity_property,

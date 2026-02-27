@@ -23,6 +23,7 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.execute_plan.utils import (
+    _is_agg_function_with_single_row_result,
     arrow_table_to_arrow_bytes,
     pandas_empty_table_to_arrow_bytes,
     pandas_to_arrow_batches_bytes,
@@ -77,11 +78,13 @@ SKIP_LEVELS_TWO = (
 
 # TODO: SNOW-2039432 use to_arrow_batches once it is fixed in sproc-python-connector
 # TODO: SNOW-2057291 remove once df.to_arrow() starts accepting to_iter parameter
-def to_arrow_batch_iter(result_df: snowpark.DataFrame) -> Iterator[Table]:
-    return result_df.session._conn.execute(
+def to_arrow_batch_iter(
+    result_df: snowpark.DataFrame, *, to_iter: bool = True
+) -> Iterator[Table]:
+    result = result_df.session._conn.execute(
         result_df._plan,
         to_pandas=False,
-        to_iter=True,
+        to_iter=to_iter,
         to_arrow=True,
         block=True,
         _statement_params=create_or_update_statement_params_with_query_tag(
@@ -93,11 +96,18 @@ def to_arrow_batch_iter(result_df: snowpark.DataFrame) -> Iterator[Table]:
             ),
         ),
     )
+    if to_iter:
+        return result
+    else:
+        # when to_iter is false, a single pyarrow table is returned, to not break downstream logic
+        # an iterator of list of result is returned
+        return iter([result])
 
 
 def map_execution_root(
     request: proto_base.ExecutePlanRequest,
 ) -> Iterator[proto_base.ExecutePlanResponse | QueryResult]:
+    to_iter = not _is_agg_function_with_single_row_result(request.plan.root)
     result: DataFrameContainer | pandas.DataFrame = map_relation(request.plan.root)
     if isinstance(result, pandas.DataFrame):
         pandas_df = result
@@ -130,7 +140,9 @@ def map_execution_root(
             second_batch = False
             first_arrow_table = None
             with filtered_result_df.session.query_history() as qh:
-                for arrow_table in to_arrow_batch_iter(filtered_result_df):
+                for arrow_table in to_arrow_batch_iter(
+                    filtered_result_df, to_iter=to_iter
+                ):
                     if second_batch:
                         is_large_result = True
                         break
@@ -171,7 +183,7 @@ def map_execution_root(
                     spark_schema.SerializeToString(),
                 )
         else:
-            arrow_table_iter = to_arrow_batch_iter(filtered_result_df)
+            arrow_table_iter = to_arrow_batch_iter(filtered_result_df, to_iter=to_iter)
             batch_count = 0
             for arrow_table in arrow_table_iter:
                 if arrow_table.num_rows > 0:

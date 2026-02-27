@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pylxd
-Version: 2.3.7
+Version: 2.3.8
 Summary: python library for LXD
 Home-page: https://ubuntu.com/lxd
 Author: Paul Hummer and others (see CONTRIBUTORS.rst)

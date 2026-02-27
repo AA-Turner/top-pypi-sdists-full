@@ -492,7 +492,7 @@ class JobModel(BaseModel):
     waiting_master_job: Mapped[Optional[bool]] = mapped_column(Boolean)
 
 
-class GatewayModel(BaseModel):
+class GatewayModel(PipelineModelMixin, BaseModel):
     __tablename__ = "gateways"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -508,20 +508,23 @@ class GatewayModel(BaseModel):
     status: Mapped[GatewayStatus] = mapped_column(EnumAsString(GatewayStatus, 100))
     status_message: Mapped[Optional[str]] = mapped_column(Text)
     last_processed_at: Mapped[datetime] = mapped_column(NaiveDateTime)
+    to_be_deleted: Mapped[bool] = mapped_column(Boolean, server_default=false())
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     project: Mapped["ProjectModel"] = relationship(foreign_keys=[project_id])
     backend_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("backends.id", ondelete="CASCADE"))
-    backend: Mapped["BackendModel"] = relationship(lazy="selectin")
+    backend: Mapped["BackendModel"] = relationship()
 
     gateway_compute_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("gateway_computes.id", ondelete="CASCADE")
     )
-    gateway_compute: Mapped[Optional["GatewayComputeModel"]] = relationship(lazy="joined")
+    gateway_compute: Mapped[Optional["GatewayComputeModel"]] = relationship()
 
     runs: Mapped[List["RunModel"]] = relationship(back_populates="gateway")
 
     __table_args__ = (UniqueConstraint("project_id", "name", name="uq_gateways_project_id_name"),)
+
+    # TODO: Add pipeline index ("ix_gateways_pipeline_fetch_q") if gateways become soft-deleted.
 
 
 class GatewayComputeModel(BaseModel):
@@ -729,7 +732,7 @@ class InstanceHealthCheckModel(BaseModel):
     response: Mapped[str] = mapped_column(Text)
 
 
-class VolumeModel(BaseModel):
+class VolumeModel(PipelineModelMixin, BaseModel):
     __tablename__ = "volumes"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -750,6 +753,7 @@ class VolumeModel(BaseModel):
     last_job_processed_at: Mapped[Optional[datetime]] = mapped_column(NaiveDateTime)
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(NaiveDateTime)
+    to_be_deleted: Mapped[bool] = mapped_column(Boolean, server_default=false())
 
     # NOTE: `status` must be changed only via `switch_volume_status()`
     status: Mapped[VolumeStatus] = mapped_column(EnumAsString(VolumeStatus, 100), index=True)
@@ -757,11 +761,22 @@ class VolumeModel(BaseModel):
 
     configuration: Mapped[str] = mapped_column(Text)
     volume_provisioning_data: Mapped[Optional[str]] = mapped_column(Text)
+    # auto_cleanup_enabled is set for all new models but old models may not have it.
+    auto_cleanup_enabled: Mapped[Optional[bool]] = mapped_column(Boolean)
 
     attachments: Mapped[List["VolumeAttachmentModel"]] = relationship(back_populates="volume")
 
     # Deprecated in favor of VolumeAttachmentModel.attachment_data
     volume_attachment_data: Mapped[Optional[str]] = mapped_column(Text)
+
+    __table_args__ = (
+        Index(
+            "ix_volumes_pipeline_fetch_q",
+            last_processed_at.asc(),
+            postgresql_where=deleted == false(),
+            sqlite_where=deleted == false(),
+        ),
+    )
 
 
 class VolumeAttachmentModel(BaseModel):

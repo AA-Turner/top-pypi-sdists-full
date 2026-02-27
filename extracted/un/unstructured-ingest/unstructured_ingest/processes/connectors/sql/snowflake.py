@@ -96,8 +96,10 @@ class SnowflakeConnectionConfig(SQLConnectionConfig):
         try:
             yield connection
         finally:
-            connection.commit()
-            connection.close()
+            try:
+                connection.commit()
+            finally:
+                connection.close()
 
     @contextmanager
     def get_cursor(self) -> Generator["SnowflakeCursor", None, None]:
@@ -143,7 +145,11 @@ class SnowflakeDownloader(SQLDownloader):
                 table_name=table_name,
                 id_column=id_column,
                 fields=(
-                    ",".join(self.download_config.fields) if self.download_config.fields else "*"
+                    ",".join(
+                        list(dict.fromkeys([id_column] + self.download_config.fields))
+                    )
+                    if self.download_config.fields
+                    else "*"
                 ),
                 values=",".join([self.values_delimiter for _ in ids]),
             )

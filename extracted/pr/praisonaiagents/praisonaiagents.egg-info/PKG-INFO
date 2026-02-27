@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.5.15
+Version: 1.5.16
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -46,6 +46,8 @@ Requires-Dist: PyJWT>=2.8.0; extra == "auth"
 Requires-Dist: passlib[bcrypt]>=1.7.4; extra == "auth"
 Requires-Dist: python-jose[cryptography]>=3.3.0; extra == "auth"
 Requires-Dist: python-multipart>=0.0.6; extra == "auth"
+Provides-Extra: autonomy
+Requires-Dist: ast-grep-cli>=0.30.0; extra == "autonomy"
 Provides-Extra: all
 Requires-Dist: praisonaiagents[memory]; extra == "all"
 Requires-Dist: praisonaiagents[knowledge]; extra == "all"

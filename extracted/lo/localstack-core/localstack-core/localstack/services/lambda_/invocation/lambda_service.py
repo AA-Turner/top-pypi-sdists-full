@@ -56,7 +56,7 @@ from localstack.services.lambda_.invocation.lambda_models import (
     VersionAlias,
     VersionState,
 )
-from localstack.services.lambda_.invocation.models import lambda_stores
+from localstack.services.lambda_.invocation.models import LambdaStore, lambda_stores
 from localstack.services.lambda_.invocation.version_manager import LambdaVersionManager
 from localstack.services.lambda_.lambda_utils import HINT_LOG
 from localstack.utils.archives import get_unzipped_size, is_zip_file
@@ -196,6 +196,66 @@ class LambdaService:
     def publish_version_async(self, function_version: FunctionVersion):
         self.task_executor.submit(self.publish_version, function_version)
 
+    def delete_function_version_async(
+        self, function: Function, version: FunctionVersion, qualifier: str
+    ):
+        """
+        Simulates async function cleanup after function deletion API is called
+        by introducing a small delay before actually removing the function from the store
+        to allow for getting the function details after deletion.
+        """
+
+        def _cleanup():
+            time.sleep(0.5)
+            function.versions.pop(qualifier, None)
+
+        new_state = VersionState(state=State.Deleting)
+        new_last_status = UpdateStatus(status=LastUpdateStatus.InProgress)
+        function.versions[version.id.qualifier] = dataclasses.replace(
+            version,
+            config=dataclasses.replace(
+                version.config, state=new_state, last_update=new_last_status
+            ),
+        )
+        destroy_code_if_not_used(code=version.config.code, function=function)
+
+        self.task_executor.submit(_cleanup)
+
+    def delete_function_async(self, store: LambdaStore, function_name: str):
+        """
+        Simulates async function version cleanup after function deletion API is called
+        by introducing a small delay before actually removing the function from the store
+        to allow for getting the function version details after deletion.
+        """
+
+        def _cleanup():
+            time.sleep(0.5)
+            store.functions.pop(function_name)
+
+        # set each version of the function to deleting state first, to allow for getting the function version details after deletion
+        function = store.functions.get(function_name)
+        if function:
+            for version in function.versions.values():
+                new_state = VersionState(state=State.Deleting)
+                new_last_status = UpdateStatus(status=LastUpdateStatus.InProgress)
+                previous_revision_id = version.config.revision_id
+
+                function.versions[version.id.qualifier] = dataclasses.replace(
+                    version,
+                    config=dataclasses.replace(
+                        version.config, state=new_state, last_update=new_last_status
+                    ),
+                )
+                # Seems the revision id doesn't change when deleting a function right after it has been created (even though state has changed)
+                # reassign revision id to avoid dataclass replace removing it, since it's init=False
+                object.__setattr__(
+                    function.versions[version.id.qualifier].config,
+                    "revision_id",
+                    previous_revision_id,
+                )
+
+        self.task_executor.submit(_cleanup)
+
     def publish_version(self, function_version: FunctionVersion):
         """
         Synchronously create a function version (manager)
@@ -212,7 +272,7 @@ class LambdaService:
         # Without this hack, test_latest_published_update_config fails at get_function_response_postpublish
         # and test_lifecycle_invoke is flaky, sometimes not triggering the ResourceConflictException
         # Increasing this sleep too much (e.g., 10s) shouldn't cause any side effects apart from slow responsiveness
-        if function_version.config.CapacityProviderConfig:
+        if function_version.config.capacity_provider_config:
             time.sleep(0.1)
         with self.lambda_version_manager_lock:
             qualified_arn = function_version.id.qualified_arn()
@@ -317,10 +377,10 @@ class LambdaService:
         # Not considering provisioned concurrency for such early errors
         initialization_type = (
             FunctionInitializationType.lambda_managed_instances
-            if version.config.CapacityProviderConfig
+            if version.config.capacity_provider_config
             else FunctionInitializationType.on_demand
         )
-        if version.config.CapacityProviderConfig and qualifier == "$LATEST":
+        if version.config.capacity_provider_config and qualifier == "$LATEST":
             if function.versions.get("$LATEST.PUBLISHED"):
                 raise InvalidParameterValueException(
                     "Functions configured with capacity provider configuration can't be invoked with $LATEST qualifier. To invoke this function, specify a published version qualifier or $LATEST.PUBLISHED.",
@@ -444,9 +504,14 @@ class LambdaService:
 
         :param new_version: New version (with the same qualifier as an older one)
         """
+        if new_version.config.capacity_provider_config:
+            # simulate AWS behavior with a slight delay after update_function_configuration,
+            # so we can observe LastUpdateStatus transitioning to InProgress before it becomes Successful
+            time.sleep(0.5)
+
         if (
             new_version.qualified_arn not in self.lambda_running_versions
-            and not new_version.config.CapacityProviderConfig
+            and not new_version.config.capacity_provider_config
         ):
             raise ValueError(
                 f"Version {new_version.qualified_arn} cannot be updated if an old one is not running"
@@ -493,7 +558,7 @@ class LambdaService:
                     self.task_executor.submit(new_version_manager.stop)
                 elif (
                     new_state.state == State.ActiveNonInvocable
-                    and function_version.config.CapacityProviderConfig
+                    and function_version.config.capacity_provider_config
                 ):
                     update_status = UpdateStatus(status=LastUpdateStatus.Successful)
                 else:

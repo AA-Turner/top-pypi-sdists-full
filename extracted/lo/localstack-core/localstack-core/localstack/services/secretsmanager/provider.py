@@ -319,7 +319,8 @@ class SecretsmanagerProvider(SecretsmanagerApi):
         secret_binary = request.get("SecretBinary")
         if not secret_binary and not secret_string:
             raise InvalidRequestException("You must provide either SecretString or SecretBinary.")
-
+        if secret_binary:
+            secret_binary = base64.b64encode(secret_binary)
         version_stages = request.get("VersionStages", ["AWSCURRENT"])
         if not isinstance(version_stages, list):
             version_stages = [version_stages]
@@ -402,6 +403,8 @@ class SecretsmanagerProvider(SecretsmanagerApi):
         secret_id = request["SecretId"]
         secret_string = request.get("SecretString")
         secret_binary = request.get("SecretBinary")
+        if secret_binary:
+            secret_binary = base64.b64encode(secret_binary)
         description = request.get("Description")
         kms_key_id = request.get("KmsKeyId")
         client_req_token = request.get("ClientRequestToken")
@@ -612,6 +615,32 @@ def backend_update_secret(
         resp["VersionId"] = version_id_t1
 
     return json.dumps(resp)
+
+
+@patch(SecretsManagerBackend.tag_resource)
+def backend_tag_resource(fn, self, secret_id, tags):
+    if secret_id not in self.secrets:
+        raise SecretNotFoundException()
+
+    if self.secrets[secret_id].is_deleted():
+        raise InvalidRequestException(
+            "You can't perform this operation on the secret because it was marked for deletion."
+        )
+
+    return fn(self, secret_id, tags)
+
+
+@patch(SecretsManagerBackend.untag_resource)
+def backend_untag_resource(fn, self, secret_id, tag_keys):
+    if secret_id not in self.secrets:
+        raise SecretNotFoundException()
+
+    if self.secrets[secret_id].is_deleted():
+        raise InvalidRequestException(
+            "You can't perform this operation on the secret because it was marked for deletion."
+        )
+
+    return fn(self, secret_id, tag_keys)
 
 
 @patch(SecretsManagerResponse.update_secret, pass_target=False)

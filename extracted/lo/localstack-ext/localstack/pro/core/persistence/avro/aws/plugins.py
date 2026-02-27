@@ -1,4 +1,8 @@
 from localstack.pro.core import config
 from localstack.runtime import hooks
+_REGISTERED=False
 @hooks.on_infra_start(should_load=config.ACTIVATE_PRO)
-def register_aws_avro_plugins():import py_avro_schema as B;from localstack.pro.core.persistence.avro.aws import base_store as A;from localstack.pro.core.persistence.avro.codec import AvroDecoder as C,AvroEncoder as D;from localstack.pro.core.persistence.avro.serialization import ObjectDeserializer as E,ObjectSerializer as F;B.register_schema(A.BaseStoreSchema,priority=-1);E.register_default_deserializer(A.BaseStoreDeserializer());F.register_default_serializer(A.BaseStoreSerializer());C.register_decoder(A.BaseStoreDecoderHandler());D.register_metadata_handler(A.BaseStoreMetadataHandler())
+def register_aws_avro_plugins():
+	global _REGISTERED
+	if _REGISTERED:return
+	import py_avro_schema as B;from localstack.pro.core.persistence.avro.aws import base_store as A;from localstack.pro.core.persistence.avro.codec import AvroDecoder as C,AvroEncoder as D;from localstack.pro.core.persistence.avro.serialization import ObjectDeserializer as E,ObjectSerializer as F;B.register_schema(A.BaseStoreSchema,priority=-1);E.register_default_deserializer(A.BaseStoreDeserializer());F.register_default_serializer(A.BaseStoreSerializer());C.register_decoder(A.BaseStoreDecoderHandler());D.register_metadata_handler(A.BaseStoreMetadataHandler());_REGISTERED=True

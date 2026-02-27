@@ -3,7 +3,7 @@ Type annotations for marketplace-entitlement service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_entitlement/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -74,6 +74,7 @@ class EntitlementTypeDef(TypedDict):
     CustomerAWSAccountId: NotRequired[str]
     Value: NotRequired[EntitlementValueTypeDef]
     ExpirationDate: NotRequired[datetime]
+    LicenseArn: NotRequired[str]
 
 
 class GetEntitlementsRequestPaginateTypeDef(TypedDict):

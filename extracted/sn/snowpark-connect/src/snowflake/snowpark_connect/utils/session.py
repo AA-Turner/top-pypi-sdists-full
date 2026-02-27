@@ -10,7 +10,7 @@ from typing import Any
 
 from snowflake import snowpark
 from snowflake.connector.description import PLATFORM
-from snowflake.snowpark.exceptions import SnowparkClientException
+from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLException
 from snowflake.snowpark.session import _get_active_session
 from snowflake.snowpark_connect.constants import DEFAULT_CONNECTION_NAME
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -110,6 +110,9 @@ def configure_snowpark_session(session: snowpark.Session):
     session.connection.arrow_number_to_decimal_setter = True
     session.custom_package_usage_config["enabled"] = True
 
+    # TODO(SNOW-3122222): Remove this once 10.6 is fully rolled out
+    session._has_structured_try_cast = False
+
     # Scoped temp objects may not be accessible in stored procedure and cause "object does not exist" error. So disable
     # _use_scoped_temp_objects here and use temp table instead.
     session._use_scoped_temp_objects = False
@@ -157,6 +160,21 @@ def configure_snowpark_session(session: snowpark.Session):
         session.sql(
             f"ALTER SESSION SET {', '.join([f'{k} = {v}' for k, v in session_params.items()])}"
         ).collect()
+        # TODO(SNOW-3122222): Move this to the `session_params` dict and remove the session variable
+        # once 10.6 is fully rolled out
+        try:
+            result = session.sql(
+                "ALTER SESSION SET ENABLE_TRY_CAST_STRUCTURED_TYPES = true"
+            ).collect()
+            session._has_structured_try_cast = (
+                len(result) == 1
+                and hasattr(result[0], "status")
+                and result[0].status == "Statement executed successfully."
+            )
+        except SnowparkSQLException:
+            # If the query failed, that means the parameter is not available, and we cannot use TRY_CAST
+            # in JSON casting operations.
+            pass
     else:
         session_param_names = ", ".join(session_params.keys())
         logger.info(

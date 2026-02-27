@@ -1174,6 +1174,10 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
             self._patch_stage_response(stage)
             if not stage.get("description"):
                 stage.pop("description", None)
+        if deployment_id:
+            response["item"] = [
+                s for s in response["item"] if s.get("deploymentId") == deployment_id
+            ]
         return Stages(**response)
 
     @handler("UpdateStage")
@@ -1551,6 +1555,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
             rest_api_container.documentation_parts.clear()
             for doc_part in documentation["documentationParts"]:
                 entity_id = short_uid()[:6]
+                doc_part["properties"] = json.dumps(doc_part.get("properties", ""))
                 rest_api_container.documentation_parts[entity_id] = DocumentationPart(
                     id=entity_id, **doc_part
                 )

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ckzg
-Version: 2.1.5
+Version: 2.1.6
 Summary: Python bindings for C-KZG-4844
 Home-page: https://github.com/ethereum/c-kzg-4844
 Author: Ethereum Foundation
@@ -8,6 +8,14 @@ Author-email: security@ethereum.org
 License: Apache-2.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 # Python Bindings for the C-KZG Library
 

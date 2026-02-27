@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ABSQL
-Version: 0.6.2
+Version: 0.6.3
 Summary: A rendering engine for templated SQL
 Home-page: https://github.com/pipeline-tools/ABSQL
 Author: Chris Cardillo
@@ -12,13 +12,22 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: colorama
-Requires-Dist: flatdict
 Requires-Dist: Jinja2
 Requires-Dist: jupytext
 Requires-Dist: pendulum
 Requires-Dist: PyYaml
 Requires-Dist: SQLAlchemy
 Requires-Dist: sql-metadata
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![logo](https://raw.githubusercontent.com/pipeline-tools/absql/main/images/logo_centered.svg?raw=true)
 

@@ -1,10 +1,24 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.2.24.1
-Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub
-Author-email: Mehdi Abaakouk <sileht@mergify.com>
+Version: 2026.2.26.1
+Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
+Project-URL: Homepage, https://mergify.com
+Project-URL: Documentation, https://docs.mergify.com
+Project-URL: Repository, https://github.com/Mergifyio/mergify-cli
+Project-URL: Issues, https://github.com/Mergifyio/mergify-cli/issues
+Project-URL: Changelog, https://github.com/Mergifyio/mergify-cli/releases
+Author-email: Mergify Team <hello@mergify.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
+Keywords: ci,git,github,merge,pull-request,stacked-pr
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Version Control :: Git
+Classifier: Typing :: Typed
 Requires-Python: >=3.13
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: click==8.3.1
@@ -20,25 +34,49 @@ Description-Content-Type: text/markdown
 
 # Mergify CLI
 
-## Introduction
+Mergify CLI is a tool that automates the creation and management of stacked
+pull requests on GitHub as well as handling CI results upload.
 
-Mergify CLI is a powerful tool designed to simplify and automate the creation
-and management of stacked pull requests on GitHub as well as handling CI
-results upload.
+## Features
 
-### Stacks
+### Stacked Pull Requests
 
-Before diving into its functionalities, let's grasp the concept of stacked pull
-requests and why they matter in the
+Create and manage stacked pull requests to break down large changes into
+smaller, reviewable pieces. Learn more in the
 [documentation](https://docs.mergify.com/stacks/).
 
-### CI
+### CI Insights
 
-You can learn more about [CI Insights in the
+Upload and analyze CI results to get better visibility into your CI pipeline.
+Learn more about [CI Insights in the
 documentation](https://docs.mergify.com/ci-insights/).
+
+## Installation
+
+```shell
+pip install mergify-cli
+```
+
+## Usage
+
+```shell
+# Show available commands
+mergify --help
+
+# Manage stacked pull requests
+mergify stack --help
+
+# Upload CI results
+mergify ci --help
+```
 
 ## Contributing
 
 We welcome and appreciate contributions from the open-source community to make
 this project better. Whether you're a developer, designer, tester, or just
 someone with a good idea, we encourage you to get involved.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the
+[LICENSE](LICENSE) file for details.

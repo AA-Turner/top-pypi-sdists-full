@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scvi-tools
-Version: 1.4.1
+Version: 1.4.2
 Summary: Deep probabilistic analysis of single-cell omics data.
 Project-URL: Documentation, https://scvi-tools.org
 Project-URL: Source, https://github.com/scverse/scvi-tools
@@ -9,7 +9,7 @@ Author: The scvi-tools development team
 Maintainer-email: The scvi-tools development team <ori.kronfeld@weizmann.ac.il>
 License: BSD 3-Clause License
         
-        Copyright (c) 2025, Yosef Lab, Weizmann Institute of Science
+        Copyright (c) 2026, Yosef Lab, Weizmann Institute of Science
         
         All rights reserved.
         
@@ -50,7 +50,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.11
-Requires-Dist: anndata>=0.11
+Requires-Dist: anndata
 Requires-Dist: docrep>=0.3.2
 Requires-Dist: lightning>=2.0
 Requires-Dist: ml-collections
@@ -100,6 +100,7 @@ Requires-Dist: muon; extra == 'all'
 Requires-Dist: myst-nb; extra == 'all'
 Requires-Dist: myst-parser; extra == 'all'
 Requires-Dist: numpyro; extra == 'all'
+Requires-Dist: nvidia-ml-py; extra == 'all'
 Requires-Dist: optax; extra == 'all'
 Requires-Dist: plotnine; extra == 'all'
 Requires-Dist: pooch; extra == 'all'
@@ -114,12 +115,12 @@ Requires-Dist: scib-metrics; extra == 'all'
 Requires-Dist: scrublet; extra == 'all'
 Requires-Dist: seaborn; extra == 'all'
 Requires-Dist: shap; extra == 'all'
-Requires-Dist: sphinx; extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'all'
 Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'all'
 Requires-Dist: sphinx-copybutton; extra == 'all'
 Requires-Dist: sphinx-design; extra == 'all'
 Requires-Dist: sphinx-hoverxref; extra == 'all'
+Requires-Dist: sphinx<9; extra == 'all'
 Requires-Dist: sphinxcontrib-bibtex; extra == 'all'
 Requires-Dist: sphinxext-opengraph; extra == 'all'
 Requires-Dist: squidpy>=1.6.0; extra == 'all'
@@ -132,6 +133,7 @@ Requires-Dist: ray[tune]; extra == 'autotune'
 Requires-Dist: scib-metrics; extra == 'autotune'
 Provides-Extra: cuda
 Requires-Dist: jax[cuda12]; extra == 'cuda'
+Requires-Dist: mlx[cuda]; extra == 'cuda'
 Requires-Dist: torchaudio; extra == 'cuda'
 Requires-Dist: torchvision; extra == 'cuda'
 Provides-Extra: dataloaders
@@ -163,6 +165,7 @@ Requires-Dist: leidenalg; extra == 'dev'
 Requires-Dist: mlflow; extra == 'dev'
 Requires-Dist: muon; extra == 'dev'
 Requires-Dist: numpyro; extra == 'dev'
+Requires-Dist: nvidia-ml-py; extra == 'dev'
 Requires-Dist: optax; extra == 'dev'
 Requires-Dist: pooch; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
@@ -180,12 +183,12 @@ Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8; extra == 'docs'
 Requires-Dist: ipython; extra == 'docs'
 Requires-Dist: myst-nb; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
 Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx-hoverxref; extra == 'docs'
+Requires-Dist: sphinx<9; extra == 'docs'
 Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
 Requires-Dist: sphinxext-opengraph; extra == 'docs'
 Provides-Extra: docsbuild
@@ -198,6 +201,7 @@ Requires-Dist: hyperopt>=0.2; extra == 'docsbuild'
 Requires-Dist: ipython; extra == 'docsbuild'
 Requires-Dist: jax; extra == 'docsbuild'
 Requires-Dist: jaxlib; extra == 'docsbuild'
+Requires-Dist: mlx; extra == 'docsbuild'
 Requires-Dist: muon; extra == 'docsbuild'
 Requires-Dist: myst-nb; extra == 'docsbuild'
 Requires-Dist: myst-parser; extra == 'docsbuild'
@@ -205,12 +209,12 @@ Requires-Dist: numpyro; extra == 'docsbuild'
 Requires-Dist: optax; extra == 'docsbuild'
 Requires-Dist: ray[tune]; extra == 'docsbuild'
 Requires-Dist: scib-metrics; extra == 'docsbuild'
-Requires-Dist: sphinx; extra == 'docsbuild'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docsbuild'
 Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'docsbuild'
 Requires-Dist: sphinx-copybutton; extra == 'docsbuild'
 Requires-Dist: sphinx-design; extra == 'docsbuild'
 Requires-Dist: sphinx-hoverxref; extra == 'docsbuild'
+Requires-Dist: sphinx<9; extra == 'docsbuild'
 Requires-Dist: sphinxcontrib-bibtex; extra == 'docsbuild'
 Requires-Dist: sphinxext-opengraph; extra == 'docsbuild'
 Provides-Extra: editing
@@ -237,11 +241,13 @@ Requires-Dist: numpyro; extra == 'jax'
 Requires-Dist: optax; extra == 'jax'
 Provides-Extra: metal
 Requires-Dist: jax-metal; extra == 'metal'
+Requires-Dist: mlx-metal; extra == 'metal'
 Requires-Dist: torchaudio; extra == 'metal'
 Requires-Dist: torchvision; extra == 'metal'
 Provides-Extra: mlflow
 Requires-Dist: gputil; extra == 'mlflow'
 Requires-Dist: mlflow; extra == 'mlflow'
+Requires-Dist: nvidia-ml-py; extra == 'mlflow'
 Requires-Dist: psutil; extra == 'mlflow'
 Provides-Extra: optional
 Requires-Dist: biopython>=1.81; extra == 'optional'
@@ -264,6 +270,7 @@ Requires-Dist: leidenalg; extra == 'optional'
 Requires-Dist: mlflow; extra == 'optional'
 Requires-Dist: muon; extra == 'optional'
 Requires-Dist: numpyro; extra == 'optional'
+Requires-Dist: nvidia-ml-py; extra == 'optional'
 Requires-Dist: optax; extra == 'optional'
 Requires-Dist: pooch; extra == 'optional'
 Requires-Dist: psutil; extra == 'optional'
@@ -301,6 +308,7 @@ Requires-Dist: leidenalg; extra == 'test'
 Requires-Dist: mlflow; extra == 'test'
 Requires-Dist: muon; extra == 'test'
 Requires-Dist: numpyro; extra == 'test'
+Requires-Dist: nvidia-ml-py; extra == 'test'
 Requires-Dist: optax; extra == 'test'
 Requires-Dist: pooch; extra == 'test'
 Requires-Dist: psutil; extra == 'test'
@@ -334,6 +342,7 @@ Requires-Dist: leidenalg; extra == 'tests'
 Requires-Dist: mlflow; extra == 'tests'
 Requires-Dist: muon; extra == 'tests'
 Requires-Dist: numpyro; extra == 'tests'
+Requires-Dist: nvidia-ml-py; extra == 'tests'
 Requires-Dist: optax; extra == 'tests'
 Requires-Dist: pooch; extra == 'tests'
 Requires-Dist: psutil; extra == 'tests'
@@ -345,6 +354,8 @@ Requires-Dist: readfcs; extra == 'tests'
 Requires-Dist: scib-metrics; extra == 'tests'
 Requires-Dist: shap; extra == 'tests'
 Requires-Dist: zarr; extra == 'tests'
+Provides-Extra: tpu
+Requires-Dist: torch-xla[tpu]; extra == 'tpu'
 Provides-Extra: tutorials
 Requires-Dist: biomart; extra == 'tutorials'
 Requires-Dist: biopython>=1.81; extra == 'tutorials'
@@ -371,6 +382,7 @@ Requires-Dist: matplotlib; extra == 'tutorials'
 Requires-Dist: mlflow; extra == 'tutorials'
 Requires-Dist: muon; extra == 'tutorials'
 Requires-Dist: numpyro; extra == 'tutorials'
+Requires-Dist: nvidia-ml-py; extra == 'tutorials'
 Requires-Dist: optax; extra == 'tutorials'
 Requires-Dist: plotnine; extra == 'tutorials'
 Requires-Dist: pooch; extra == 'tutorials'
@@ -502,7 +514,7 @@ professional services, travel, workshops, and a variety of other needs.
 </a>
 </div>
 
-Copyright (c) 2025, Yosef Lab, Weizmann Institute of Science
+Copyright (c) 2026, Yosef Lab, Weizmann Institute of Science
 
 [anndata]: https://anndata.readthedocs.io/en/latest/
 [build-badge]: https://github.com/scverse/scvi-tools/actions/workflows/build.yml/badge.svg

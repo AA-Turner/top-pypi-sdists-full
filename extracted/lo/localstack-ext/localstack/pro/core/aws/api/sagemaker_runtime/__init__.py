@@ -7,6 +7,7 @@ CustomAttributesHeader = str
 EnableExplanationsHeader = str
 EndpointName = str
 ErrorCode = str
+FilenameHeader = str
 Header = str
 InferenceComponentHeader = str
 InferenceId = str
@@ -16,6 +17,7 @@ LogStreamArn = str
 Message = str
 NewSessionResponseHeader = str
 RequestTTLSecondsHeader = int
+S3OutputPathExtensionHeader = str
 SessionIdHeader = str
 SessionIdOrNewSessionConstantHeader = str
 StatusCode = int
@@ -121,6 +123,8 @@ class InvokeEndpointAsyncInput(ServiceRequest):
     CustomAttributes: CustomAttributesHeader | None
     InferenceId: InferenceId | None
     InputLocation: InputLocationHeader
+    S3OutputPathExtension: S3OutputPathExtensionHeader | None
+    Filename: FilenameHeader | None
     RequestTTLSeconds: RequestTTLSecondsHeader | None
     InvocationTimeoutSeconds: InvocationTimeoutSecondsHeader | None
 
@@ -291,6 +295,8 @@ class SagemakerRuntimeApi:
         accept: Header | None = None,
         custom_attributes: CustomAttributesHeader | None = None,
         inference_id: InferenceId | None = None,
+        s3_output_path_extension: S3OutputPathExtensionHeader | None = None,
+        filename: FilenameHeader | None = None,
         request_ttl_seconds: RequestTTLSecondsHeader | None = None,
         invocation_timeout_seconds: InvocationTimeoutSecondsHeader | None = None,
         **kwargs,
@@ -327,6 +333,9 @@ class SagemakerRuntimeApi:
         :param custom_attributes: Provides additional information about a request for an inference
         submitted to a model hosted at an Amazon SageMaker AI endpoint.
         :param inference_id: The identifier for the inference request.
+        :param s3_output_path_extension: The path extension that is appended to the Amazon S3 output path where
+        the inference response payload is stored.
+        :param filename: The filename for the inference response payload stored in Amazon S3.
         :param request_ttl_seconds: Maximum age in seconds a request can be in the queue before it is marked
         as expired.
         :param invocation_timeout_seconds: Maximum amount of time in seconds a request can be processed before it

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protobuf
-Version: 6.33.5
+Version: 7.34.0
 Summary: Protocol Buffers
 Home-page: https://developers.google.com/protocol-buffers/
 Download-URL: https://github.com/protocolbuffers/protobuf/releases
@@ -10,12 +10,12 @@ License: BSD-3-Clause
 Project-URL: Source, https://github.com/protocolbuffers/protobuf
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Dynamic: classifier
 Dynamic: description

@@ -41,7 +41,10 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation import jdbc_utils
-from snowflake.snowpark_connect.relation.neo4j_utils import validate_cypher_identifier
+from snowflake.snowpark_connect.relation.neo4j_utils import (
+    validate_and_normalize_neo4j_labels,
+    validate_cypher_identifier,
+)
 from snowflake.snowpark_connect.relation.read.utils import (
     DATA_SOURCE_SQL_COMMENT,
     Connection,
@@ -357,6 +360,17 @@ class JdbcDataFrameReader(DataFrameReader):
                     upper_bound,
                     num_partitions,
                 )
+
+                # When using partitioned reads, disable fetch_size batching to avoid
+                # potential deadlocks between partition threads and upload threads.
+                # Each partition will fetch all its data at once.
+                if len(partitioned_queries) > 1 and fetch_size > 0:
+                    logger.debug(
+                        f"Disabling fetch_size ({fetch_size}) for partitioned read "
+                        f"with {len(partitioned_queries)} partitions"
+                    )
+                    fetch_size = 0
+
             with tempfile.TemporaryDirectory() as tmp_dir:
                 # TODO: Creating temp table and temp stage can be done in parallel, and
                 # could be done earlier.
@@ -766,24 +780,33 @@ def _task_fetch_from_data_source_generator(
     """
     conn = None
     try:
+        logger.debug(f"Partition {partitioned_query_index}: starting fetch generator")
+
         # Ensure dialects are registered (needed since this runs in a worker thread)
         register_all_supported_jdbc_dialect()
+        logger.debug(f"Partition {partitioned_query_index}: dialects registered")
 
         # TODO: This should use connection pooling.
+        logger.debug(
+            f"Partition {partitioned_query_index}: creating JDBC connection..."
+        )
         conn = create_connection(jdbc_options)
+        logger.debug(f"Partition {partitioned_query_index}: JDBC connection created")
+
         # this is specified to pyodbc, need other way to manage timeout on other drivers
         conn.timeout = query_timeout
         cursor = conn.cursor()
 
-        # Set fetch size on the cursor if the driver supports it.
-        # This provides a hint to JDBC drivers for optimal data transfer.
-        # Some JDBC drivers use this internally for memory optimization.
-        if fetch_size > 0:
-            url = jdbc_options.get("url", "")
-            jdbc_dialect = get_jdbc_dialect(url)
-            jdbc_dialect.set_fetch_size_on_cursor(cursor, fetch_size)
+        # Note: We intentionally do NOT set JDBC Statement.setFetchSize() here.
+        # When using Python's cursor.fetchmany() for batched reading, setting
+        # JDBC's setFetchSize() can cause hangs on Linux with certain JDBC drivers
+        # (e.g., Oracle) due to conflicts between JDBC's internal buffering and
+        # Python's fetchmany() behavior. Python's fetchmany() alone is sufficient
+        # to control batch sizes for memory optimization.
 
+        logger.debug(f"Partition {partitioned_query_index}: executing query...")
         cursor.execute(query)
+        logger.debug(f"Partition {partitioned_query_index}: query executed")
 
         columns = [col[0] for col in schema]
 
@@ -809,7 +832,13 @@ def _task_fetch_from_data_source_generator(
             has_data = False
 
             while True:
+                logger.debug(
+                    f"Partition {partitioned_query_index}: fetching batch {batch_index}..."
+                )
                 rows = cursor.fetchmany(fetch_size)
+                logger.debug(
+                    f"Partition {partitioned_query_index}: fetched {len(rows) if rows else 0} rows"
+                )
 
                 if not rows:
                     # No more data
@@ -822,6 +851,9 @@ def _task_fetch_from_data_source_generator(
                     tmp_dir,
                     f"data_{partitioned_query_index}_batch_{batch_index}.parquet",
                 )
+                logger.debug(
+                    f"Partition {partitioned_query_index}: writing batch {batch_index} to parquet..."
+                )
                 df.to_parquet(path)
                 logger.debug(
                     f"Partition {partitioned_query_index}: wrote batch {batch_index} "
@@ -829,8 +861,14 @@ def _task_fetch_from_data_source_generator(
                 )
                 batch_index += 1
                 # Yield immediately so upload can start while we fetch the next batch
+                logger.debug(
+                    f"Partition {partitioned_query_index}: yielding batch {batch_index - 1}"
+                )
                 yield path
 
+            logger.debug(
+                f"Partition {partitioned_query_index}: closing cursor after {batch_index} batches"
+            )
             cursor.close()
 
             # If no data and not the first partition, don't yield anything
@@ -910,6 +948,7 @@ def _task_fetch_from_data_source(
 
 # Hold all registered JDBC Dialects
 jdbc_dialects: List["JdbcDialect"] = []
+_jdbc_dialects_lock = threading.Lock()
 
 
 class SnowflakeJdbcDialect(JdbcDialect):
@@ -1091,9 +1130,9 @@ class Neo4jJdbcDialect(JdbcDialect):
             )
             return f"{query_no_limit} LIMIT 0"
         elif table is not None:
-            # For Neo4j, "table" is a node label - validate to prevent injection
-            validate_cypher_identifier(table, "label")
-            return f"MATCH (n:{table}) RETURN n LIMIT 0"
+            # For Neo4j, "table" maps to labels and can be a label chain.
+            labels = validate_and_normalize_neo4j_labels(table)
+            return f"MATCH (n:{labels}) RETURN n LIMIT 0"
         else:
             raise ValueError("table or query is not specified")
 
@@ -1129,14 +1168,14 @@ class Neo4jJdbcDialect(JdbcDialect):
         :param placeholders: List of placeholders (e.g., ['?', '?'])
         :return: Cypher CREATE statement
         """
-        # Validate label and property names to prevent Cypher injection
-        validate_cypher_identifier(table, "label")
+        # Validate labels and property names to prevent Cypher injection.
+        labels = validate_and_normalize_neo4j_labels(table)
         for col in columns:
             validate_cypher_identifier(col, "property name")
 
         # Build property map: {prop1: ?, prop2: ?, ...}
         props = ", ".join([f"{col}: ?" for col in columns])
-        return f"CREATE (n:{table} {{{props}}})"
+        return f"CREATE (n:{labels} {{{props}}})"
 
     def get_create_table_statement(
         self, table: str, columns_with_types: list[tuple[str, str]]
@@ -1158,8 +1197,8 @@ class Neo4jJdbcDialect(JdbcDialect):
         :param table: Node label
         :return: Cypher DELETE statement
         """
-        validate_cypher_identifier(table, "label")
-        return f"MATCH (n:{table}) DETACH DELETE n"
+        labels = validate_and_normalize_neo4j_labels(table)
+        return f"MATCH (n:{labels}) DETACH DELETE n"
 
     def get_table_exists_query(self, table: str) -> str:
         """
@@ -1167,8 +1206,8 @@ class Neo4jJdbcDialect(JdbcDialect):
         :param table: Node label
         :return: Cypher query
         """
-        validate_cypher_identifier(table, "label")
-        return f"MATCH (n:{table}) RETURN n LIMIT 0"
+        labels = validate_and_normalize_neo4j_labels(table)
+        return f"MATCH (n:{labels}) RETURN n LIMIT 0"
 
     def resolve_query(
         self, conn: "Connection", jdbc_options: dict[str, str]
@@ -1198,8 +1237,8 @@ class Neo4jJdbcDialect(JdbcDialect):
         """
         Discover property keys for a node label using an existing connection.
         """
-        validate_cypher_identifier(label, "label")
-        discover_query = f"MATCH (n:{label}) RETURN keys(n) AS props LIMIT 1"
+        labels = validate_and_normalize_neo4j_labels(label)
+        discover_query = f"MATCH (n:{labels}) RETURN keys(n) AS props LIMIT 1"
 
         try:
             cursor = conn.cursor()
@@ -1214,7 +1253,7 @@ class Neo4jJdbcDialect(JdbcDialect):
                 return []
             return []
         except Exception as e:
-            logger.warning(f"Failed to discover properties for label '{label}': {e}")
+            logger.warning(f"Failed to discover properties for label '{labels}': {e}")
             return []
 
     def _discover_relationship_properties(
@@ -1246,15 +1285,15 @@ class Neo4jJdbcDialect(JdbcDialect):
 
     def _build_node_query(self, label: str, properties: list[str]) -> str:
         """Build a Cypher query that returns node properties as columns."""
-        validate_cypher_identifier(label, "label")
+        labels = validate_and_normalize_neo4j_labels(label)
         for prop in properties:
             validate_cypher_identifier(prop, "property name")
 
         if not properties:
-            return f"MATCH (n:{label}) RETURN elementId(n) AS _id"
+            return f"MATCH (n:{labels}) RETURN elementId(n) AS _id"
 
         return_parts = [f"n.{prop} AS {prop}" for prop in properties]
-        return f"MATCH (n:{label}) RETURN {', '.join(return_parts)}"
+        return f"MATCH (n:{labels}) RETURN {', '.join(return_parts)}"
 
     def _build_relationship_query(self, rel_type: str, properties: list[str]) -> str:
         """Build a Cypher query that returns relationship properties as columns."""
@@ -1279,17 +1318,20 @@ def register_jdbc_dialect(dialect) -> None:
 
 def register_all_supported_jdbc_dialect() -> None:
     """
-    Register all supported JDBC datasources
+    Register all supported JDBC datasources.
+    Thread-safe: uses a lock to prevent race conditions when multiple
+    partition threads call this simultaneously.
     """
-    if len(jdbc_dialects) == 0:
-        register_jdbc_dialect(DerbyJdbcDialect("derby"))
-        register_jdbc_dialect(MySqlJdbcDialect("mysql"))
-        register_jdbc_dialect(PostgresqlJdbcDialect("postgresql"))
-        register_jdbc_dialect(SnowflakeJdbcDialect("snowflake"))
-        register_jdbc_dialect(SqlserverJdbcDialect("sqlserver"))
-        register_jdbc_dialect(Neo4jJdbcDialect("neo4j"))
-        # Register this at last
-        register_jdbc_dialect(JdbcDialect("default"))
+    with _jdbc_dialects_lock:
+        if len(jdbc_dialects) == 0:
+            register_jdbc_dialect(DerbyJdbcDialect("derby"))
+            register_jdbc_dialect(MySqlJdbcDialect("mysql"))
+            register_jdbc_dialect(PostgresqlJdbcDialect("postgresql"))
+            register_jdbc_dialect(SnowflakeJdbcDialect("snowflake"))
+            register_jdbc_dialect(SqlserverJdbcDialect("sqlserver"))
+            register_jdbc_dialect(Neo4jJdbcDialect("neo4j"))
+            # Register this at last
+            register_jdbc_dialect(JdbcDialect("default"))
 
 
 def get_jdbc_dialect(url: str) -> JdbcDialect:

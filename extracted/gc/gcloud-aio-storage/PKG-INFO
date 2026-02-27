@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcloud-aio-storage
-Version: 9.6.3
+Version: 9.6.4
 Summary: Python Client for Google Cloud Storage
 License: MIT
 License-File: LICENSE
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Requires-Dist: aiofiles (>=0.6.0,<26.0.0)
-Requires-Dist: gcloud-aio-auth (>=5.3.0,<6.0.0)
+Requires-Dist: gcloud-aio-auth (>=5.4.4,<6.0.0)
 Requires-Dist: pyasn1-modules (>=0.2.1,<0.5.0)
 Requires-Dist: rsa (>=3.1.4,<5.0.0)
 Project-URL: Repository, https://github.com/talkiq/gcloud-aio

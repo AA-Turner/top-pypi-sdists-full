@@ -43,6 +43,7 @@ class ProviderArgs:
                  use_oidc: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Provider resource.
+
         :param pulumi.Input[_builtins.str] ado_pipeline_service_connection_id: The Azure DevOps Pipeline Service Connection ID.
         :param pulumi.Input[_builtins.str] client_certificate: Base64 encoded PKCS#12 certificate bundle to use when authenticating as a Service Principal using a Client Certificate
         :param pulumi.Input[_builtins.str] client_certificate_password: The password to decrypt the Client Certificate. For use when authenticating as a Service Principal using a Client Certificate
@@ -51,6 +52,7 @@ class ProviderArgs:
         :param pulumi.Input[_builtins.str] client_id_file_path: The path to a file containing the Client ID which should be used for service principal authentication
         :param pulumi.Input[_builtins.str] client_secret: The application password to use when authenticating as a Service Principal using a Client Secret
         :param pulumi.Input[_builtins.str] client_secret_file_path: The path to a file containing the application password to use when authenticating as a Service Principal using a Client Secret
+        :param pulumi.Input[_builtins.bool] disable_terraform_partner_id: Disable the Terraform Partner ID, which is used if a custom `partner_id` isn't specified
         :param pulumi.Input[_builtins.str] environment: The cloud environment which should be used. Possible values are: `global` (also `public`), `usgovernmentl4` (also `usgovernment`), `usgovernmentl5` (also `dod`), and `china`. Defaults to `global`. Not used and should not be specified when `metadata_host` is specified.
         :param pulumi.Input[_builtins.str] metadata_host: The Hostname which should be used for the Azure Metadata Service.
         :param pulumi.Input[_builtins.str] msi_endpoint: The path to a custom endpoint for Managed Identity - in most circumstances this should be detected automatically
@@ -215,6 +217,9 @@ class ProviderArgs:
     @_builtins.property
     @pulumi.getter(name="disableTerraformPartnerId")
     def disable_terraform_partner_id(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Disable the Terraform Partner ID, which is used if a custom `partner_id` isn't specified
+        """
         return pulumi.get(self, "disable_terraform_partner_id")
 
     @disable_terraform_partner_id.setter
@@ -413,6 +418,7 @@ class Provider(pulumi.ProviderResource):
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] ado_pipeline_service_connection_id: The Azure DevOps Pipeline Service Connection ID.
@@ -423,6 +429,7 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[_builtins.str] client_id_file_path: The path to a file containing the Client ID which should be used for service principal authentication
         :param pulumi.Input[_builtins.str] client_secret: The application password to use when authenticating as a Service Principal using a Client Secret
         :param pulumi.Input[_builtins.str] client_secret_file_path: The path to a file containing the application password to use when authenticating as a Service Principal using a Client Secret
+        :param pulumi.Input[_builtins.bool] disable_terraform_partner_id: Disable the Terraform Partner ID, which is used if a custom `partner_id` isn't specified
         :param pulumi.Input[_builtins.str] environment: The cloud environment which should be used. Possible values are: `global` (also `public`), `usgovernmentl4` (also `usgovernment`), `usgovernmentl5` (also `dod`), and `china`. Defaults to `global`. Not used and should not be specified when `metadata_host` is specified.
         :param pulumi.Input[_builtins.str] metadata_host: The Hostname which should be used for the Azure Metadata Service.
         :param pulumi.Input[_builtins.str] msi_endpoint: The path to a custom endpoint for Managed Identity - in most circumstances this should be detected automatically
@@ -448,6 +455,7 @@ class Provider(pulumi.ProviderResource):
         settings, however an explicit `Provider` instance may be created and passed during resource
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
+
 
         :param str resource_name: The name of the resource.
         :param ProviderArgs args: The arguments to use to populate this resource's properties.

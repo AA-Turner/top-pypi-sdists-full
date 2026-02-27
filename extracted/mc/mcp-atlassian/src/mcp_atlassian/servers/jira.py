@@ -27,8 +27,9 @@ _ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
 # Regex patterns for Jira key validation.
 # Per Atlassian docs, Cloud project keys are 2-10 chars. Server/Data Center
 # allows longer keys (configurable). We accept any length to support both.
-ISSUE_KEY_PATTERN = r"^[A-Z][A-Z0-9]+-\d+$"
-PROJECT_KEY_PATTERN = r"^[A-Z][A-Z0-9]+$"
+# Underscores are also allowed to support non-standard project key formats
+ISSUE_KEY_PATTERN = r"^[A-Z][A-Z0-9_]+-\d+$"
+PROJECT_KEY_PATTERN = r"^[A-Z][A-Z0-9_]+$"
 
 jira_mcp = FastMCP(
     name="Jira MCP Service",
@@ -101,7 +102,7 @@ def _parse_additional_fields(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_users"},
     annotations={"title": "Get User Profile", "readOnlyHint": True},
 )
 async def get_user_profile(
@@ -162,7 +163,134 @@ async def get_user_profile(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_watchers"},
+    annotations={"title": "Get Issue Watchers", "readOnlyHint": True},
+)
+async def get_issue_watchers(
+    ctx: Context,
+    issue_key: Annotated[
+        str,
+        Field(
+            description="Jira issue key (e.g., 'PROJ-123')",
+            pattern=ISSUE_KEY_PATTERN,
+        ),
+    ],
+) -> str:
+    """Get the list of watchers for a Jira issue.
+
+    Args:
+        ctx: The FastMCP context.
+        issue_key: Jira issue key.
+
+    Returns:
+        JSON string with watcher count and list of watchers.
+
+    Raises:
+        ValueError: If the Jira client is not configured or available.
+    """
+    jira = await get_jira_fetcher(ctx)
+    result = jira.get_issue_watchers(issue_key)
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(
+    tags={"jira", "write", "toolset:jira_watchers"},
+    annotations={
+        "title": "Add Issue Watcher",
+        "readOnlyHint": False,
+    },
+)
+@check_write_access
+async def add_watcher(
+    ctx: Context,
+    issue_key: Annotated[
+        str,
+        Field(
+            description="Jira issue key (e.g., 'PROJ-123')",
+            pattern=ISSUE_KEY_PATTERN,
+        ),
+    ],
+    user_identifier: Annotated[
+        str,
+        Field(
+            description=(
+                "User to add as watcher. For Jira Cloud, use the"
+                " account ID. For Jira Server/DC, use the username."
+            ),
+        ),
+    ],
+) -> str:
+    """Add a user as a watcher to a Jira issue.
+
+    Args:
+        ctx: The FastMCP context.
+        issue_key: Jira issue key.
+        user_identifier: Account ID (Cloud) or username (Server/DC).
+
+    Returns:
+        JSON string with success confirmation.
+
+    Raises:
+        ValueError: If the Jira client is not configured or available.
+    """
+    jira = await get_jira_fetcher(ctx)
+    result = jira.add_watcher(issue_key, user_identifier)
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(
+    tags={"jira", "write", "toolset:jira_watchers"},
+    annotations={
+        "title": "Remove Issue Watcher",
+        "readOnlyHint": False,
+    },
+)
+@check_write_access
+async def remove_watcher(
+    ctx: Context,
+    issue_key: Annotated[
+        str,
+        Field(
+            description="Jira issue key (e.g., 'PROJ-123')",
+            pattern=ISSUE_KEY_PATTERN,
+        ),
+    ],
+    username: Annotated[
+        str | None,
+        Field(
+            description=("Username to remove (for Jira Server/DC)."),
+            default=None,
+        ),
+    ] = None,
+    account_id: Annotated[
+        str | None,
+        Field(
+            description=("Account ID to remove (for Jira Cloud)."),
+            default=None,
+        ),
+    ] = None,
+) -> str:
+    """Remove a user from watching a Jira issue.
+
+    Args:
+        ctx: The FastMCP context.
+        issue_key: Jira issue key.
+        username: Username to remove (Server/DC).
+        account_id: Account ID to remove (Cloud).
+
+    Returns:
+        JSON string with success confirmation.
+
+    Raises:
+        ValueError: If the Jira client is not configured or available.
+    """
+    jira = await get_jira_fetcher(ctx)
+    result = jira.remove_watcher(issue_key, username=username, account_id=account_id)
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(
+    tags={"jira", "read", "toolset:jira_issues"},
     annotations={"title": "Get Issue", "readOnlyHint": True},
 )
 async def get_issue(
@@ -254,7 +382,7 @@ async def get_issue(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_issues"},
     annotations={"title": "Search Issues", "readOnlyHint": True},
 )
 async def search(
@@ -344,7 +472,7 @@ async def search(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_fields"},
     annotations={"title": "Search Fields", "readOnlyHint": True},
 )
 async def search_fields(
@@ -381,7 +509,7 @@ async def search_fields(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_fields"},
     annotations={"title": "Get Field Options", "readOnlyHint": True},
 )
 async def get_field_options(
@@ -449,7 +577,7 @@ async def get_field_options(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_issues"},
     annotations={"title": "Get Project Issues", "readOnlyHint": True},
 )
 async def get_project_issues(
@@ -490,7 +618,7 @@ async def get_project_issues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_transitions"},
     annotations={"title": "Get Transitions", "readOnlyHint": True},
 )
 async def get_transitions(
@@ -519,7 +647,7 @@ async def get_transitions(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_worklog"},
     annotations={"title": "Get Worklog", "readOnlyHint": True},
 )
 async def get_worklog(
@@ -548,7 +676,7 @@ async def get_worklog(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_attachments"},
     annotations={"title": "Download Attachments", "readOnlyHint": True},
 )
 async def download_attachments(
@@ -651,7 +779,7 @@ async def download_attachments(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read", "attachments"},
+    tags={"jira", "read", "attachments", "toolset:jira_attachments"},
     annotations={"title": "Get Issue Images", "readOnlyHint": True},
 )
 async def get_issue_images(
@@ -784,7 +912,7 @@ async def get_issue_images(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_agile"},
     annotations={"title": "Get Agile Boards", "readOnlyHint": True},
 )
 async def get_agile_boards(
@@ -841,7 +969,7 @@ async def get_agile_boards(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_agile"},
     annotations={"title": "Get Board Issues", "readOnlyHint": True},
 )
 async def get_board_issues(
@@ -921,7 +1049,7 @@ async def get_board_issues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_agile"},
     annotations={"title": "Get Sprints from Board", "readOnlyHint": True},
 )
 async def get_sprints_from_board(
@@ -961,7 +1089,7 @@ async def get_sprints_from_board(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_agile"},
     annotations={"title": "Get Sprint Issues", "readOnlyHint": True},
 )
 async def get_sprint_issues(
@@ -1012,7 +1140,7 @@ async def get_sprint_issues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_links"},
     annotations={"title": "Get Link Types", "readOnlyHint": True},
 )
 async def get_link_types(
@@ -1047,7 +1175,7 @@ async def get_link_types(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_issues"},
     annotations={"title": "Create Issue", "destructiveHint": True},
 )
 @check_write_access
@@ -1155,7 +1283,7 @@ async def create_issue(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_issues"},
     annotations={"title": "Batch Create Issues", "destructiveHint": True},
 )
 @check_write_access
@@ -1227,7 +1355,7 @@ async def batch_create_issues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_issues"},
     annotations={"title": "Batch Get Changelogs", "readOnlyHint": True},
 )
 async def batch_get_changelogs(
@@ -1308,7 +1436,7 @@ async def batch_get_changelogs(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_issues"},
     annotations={"title": "Update Issue", "destructiveHint": True},
 )
 @check_write_access
@@ -1437,7 +1565,7 @@ async def update_issue(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_issues"},
     annotations={"title": "Delete Issue", "destructiveHint": True},
 )
 @check_write_access
@@ -1471,7 +1599,7 @@ async def delete_issue(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_comments"},
     annotations={"title": "Add Comment", "destructiveHint": True},
 )
 @check_write_access
@@ -1513,7 +1641,7 @@ async def add_comment(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_comments"},
     annotations={"title": "Edit Comment", "destructiveHint": True},
 )
 @check_write_access
@@ -1559,7 +1687,7 @@ async def edit_comment(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_worklog"},
     annotations={"title": "Add Worklog", "destructiveHint": True},
 )
 @check_write_access
@@ -1635,7 +1763,7 @@ async def add_worklog(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_links"},
     annotations={"title": "Link to Epic", "destructiveHint": True},
 )
 @check_write_access
@@ -1679,7 +1807,7 @@ async def link_to_epic(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_links"},
     annotations={"title": "Create Issue Link", "destructiveHint": True},
 )
 @check_write_access
@@ -1763,7 +1891,7 @@ async def create_issue_link(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_links"},
     annotations={"title": "Create Remote Issue Link", "destructiveHint": True},
 )
 @check_write_access
@@ -1851,7 +1979,7 @@ async def create_remote_issue_link(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_links"},
     annotations={"title": "Remove Issue Link", "destructiveHint": True},
 )
 @check_write_access
@@ -1880,7 +2008,7 @@ async def remove_issue_link(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_transitions"},
     annotations={"title": "Transition Issue", "destructiveHint": True},
 )
 @check_write_access
@@ -1960,7 +2088,7 @@ async def transition_issue(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_agile"},
     annotations={"title": "Create Sprint", "destructiveHint": True},
 )
 @check_write_access
@@ -2008,7 +2136,7 @@ async def create_sprint(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_agile"},
     annotations={"title": "Update Sprint", "destructiveHint": True},
 )
 @check_write_access
@@ -2069,7 +2197,7 @@ async def update_sprint(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_projects"},
     annotations={"title": "Get Project Versions", "readOnlyHint": True},
 )
 async def get_project_versions(
@@ -2089,7 +2217,7 @@ async def get_project_versions(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_projects"},
     annotations={"title": "Get Project Components", "readOnlyHint": True},
 )
 async def get_project_components(
@@ -2109,7 +2237,7 @@ async def get_project_components(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_projects"},
     annotations={"title": "Get All Projects", "readOnlyHint": True},
 )
 async def get_all_projects(
@@ -2177,7 +2305,7 @@ async def get_all_projects(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_service_desk"},
     annotations={
         "title": "Get Service Desk For Project",
         "readOnlyHint": True,
@@ -2218,7 +2346,7 @@ async def get_service_desk_for_project(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_service_desk"},
     annotations={"title": "Get Service Desk Queues", "readOnlyHint": True},
 )
 async def get_service_desk_queues(
@@ -2264,7 +2392,7 @@ async def get_service_desk_queues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_service_desk"},
     annotations={"title": "Get Queue Issues", "readOnlyHint": True},
 )
 async def get_queue_issues(
@@ -2315,7 +2443,7 @@ async def get_queue_issues(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_projects"},
     annotations={"title": "Create Version", "destructiveHint": True},
 )
 @check_write_access
@@ -2373,7 +2501,7 @@ async def create_version(
 
 @jira_mcp.tool(
     name="batch_create_versions",
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_projects"},
     annotations={"title": "Batch Create Versions", "destructiveHint": True},
 )
 @check_write_access
@@ -2456,7 +2584,7 @@ async def batch_create_versions(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_forms"},
     annotations={"title": "Get Issue Forms", "readOnlyHint": True},
 )
 async def get_issue_proforma_forms(
@@ -2511,7 +2639,7 @@ async def get_issue_proforma_forms(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read"},
+    tags={"jira", "read", "toolset:jira_forms"},
     annotations={"title": "Get Form Details", "readOnlyHint": True},
 )
 async def get_proforma_form_details(
@@ -2581,7 +2709,7 @@ async def get_proforma_form_details(
 
 
 @jira_mcp.tool(
-    tags={"jira", "write"},
+    tags={"jira", "write", "toolset:jira_forms"},
     annotations={"title": "Update Form Answers", "destructiveHint": True},
 )
 @check_write_access
@@ -2711,7 +2839,7 @@ async def update_proforma_form_answers(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read", "metrics"},
+    tags={"jira", "read", "metrics", "toolset:jira_metrics"},
     annotations={"title": "Get Issue Dates", "readOnlyHint": True},
 )
 async def get_issue_dates(
@@ -2768,7 +2896,7 @@ async def get_issue_dates(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read", "metrics", "sla"},
+    tags={"jira", "read", "metrics", "sla", "toolset:jira_metrics"},
     annotations={"title": "Get Issue SLA", "readOnlyHint": True},
 )
 async def get_issue_sla(
@@ -2849,7 +2977,7 @@ async def get_issue_sla(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read", "development"},
+    tags={"jira", "read", "development", "toolset:jira_development"},
     annotations={"title": "Get Issue Development Info", "readOnlyHint": True},
 )
 async def get_issue_development_info(
@@ -2909,7 +3037,7 @@ async def get_issue_development_info(
 
 
 @jira_mcp.tool(
-    tags={"jira", "read", "development"},
+    tags={"jira", "read", "development", "toolset:jira_development"},
     annotations={"title": "Get Issues Development Info", "readOnlyHint": True},
 )
 async def get_issues_development_info(

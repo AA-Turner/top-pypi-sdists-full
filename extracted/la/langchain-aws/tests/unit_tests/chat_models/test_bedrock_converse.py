@@ -28,6 +28,8 @@ from langchain_aws.chat_models.bedrock_converse import (
     _camel_to_snake_keys,
     _convert_tool_blocks_to_text,
     _extract_response_metadata,
+    _format_data_content_block,
+    _format_tools,
     _has_tool_use_or_result_blocks,
     _lc_content_to_bedrock,
     _messages_to_bedrock,
@@ -2821,6 +2823,103 @@ def test_bind_tools_formats_custom_tools_to_dicts() -> None:
     assert tool_def["function"].get("name") == "my_custom_tool"
 
 
+def test_bind_tools_strict_true() -> None:
+    """Test that strict=True sets the flag and applies schema transforms."""
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+    chat_model_with_tools = chat_model.bind_tools([GetWeather], strict=True)
+
+    bound_kwargs = cast(RunnableBinding, chat_model_with_tools).kwargs
+    tools = bound_kwargs["tools"]
+    assert len(tools) == 1
+
+    func = tools[0]["function"]
+    assert func["strict"] is True
+    assert "location" in func["parameters"]["required"]
+    assert func["parameters"]["additionalProperties"] is False
+
+
+def test_bind_tools_strict_none_default() -> None:
+    """Test that default strict=None does not include strict key in tool definition."""
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+    chat_model_with_tools = chat_model.bind_tools([GetWeather])
+
+    bound_kwargs = cast(RunnableBinding, chat_model_with_tools).kwargs
+    func = bound_kwargs["tools"][0]["function"]
+    assert "strict" not in func
+
+
+def test_bind_tools_strict_false() -> None:
+    """Test that strict=False explicitly sets strict to False."""
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+    chat_model_with_tools = chat_model.bind_tools([GetWeather], strict=False)
+
+    bound_kwargs = cast(RunnableBinding, chat_model_with_tools).kwargs
+    func = bound_kwargs["tools"][0]["function"]
+    assert func["strict"] is False
+
+
+def test_format_tools_preserves_strict() -> None:
+    """Test that _format_tools preserves strict when converting to Bedrock toolSpec."""
+    openai_tool = {
+        "type": "function",
+        "function": {
+            "name": "GetWeather",
+            "description": "Get the current weather in a given location",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state",
+                    }
+                },
+                "required": ["location"],
+                "additionalProperties": False,
+            },
+        },
+    }
+    result = _format_tools([openai_tool])
+    assert len(result) == 1
+    tool_spec = result[0]["toolSpec"]
+    assert tool_spec["strict"] is True
+    assert tool_spec["name"] == "GetWeather"
+    assert "inputSchema" in tool_spec
+
+
+def test_bind_tools_strict_with_tool_choice() -> None:
+    """Test that strict and tool_choice work together without interference."""
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+    chat_model_with_tools = chat_model.bind_tools(
+        [GetWeather], strict=True, tool_choice="auto"
+    )
+
+    bound_kwargs = cast(RunnableBinding, chat_model_with_tools).kwargs
+    assert bound_kwargs["tool_choice"] == {"auto": {}}
+    func = bound_kwargs["tools"][0]["function"]
+    assert func["strict"] is True
+
+
+def test_with_structured_output_passes_strict_to_bind_tools() -> None:
+    """Test that with_structured_output passes strict through to bind_tools."""
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+    structured = chat_model.with_structured_output(GetWeather, strict=True)
+    llm = structured.first  # type: ignore[attr-defined]
+    bound_kwargs = cast(RunnableBinding, llm).kwargs
+    func = bound_kwargs["tools"][0]["function"]
+    assert func["strict"] is True
+
+
 def test_reasoning_config_validation_accepts_strings() -> None:
     """Test that reasoning config validation accepts string values."""
     # Should not raise an error with string values
@@ -3195,11 +3294,11 @@ def test_service_tier_passed_to_converse_stream() -> None:
 
 def test_additional_model_request_fields_merge_no_duplicate_keys() -> None:
     """Test that additional_model_request_fields from constructor and invoke are merged
-    correctly without duplicate keys in different cases.
+    correctly when both use the same key.
 
     This test ensures that when additional_model_request_fields is provided both
     at initialization and at invocation, the final request contains only one
-    correctly cased field (snake_case), not both reasoning_effort and reasoningEffort.
+    field and the invoke value wins.
     """
     mocked_client = mock.MagicMock()
     mocked_client.converse.return_value = {
@@ -3231,7 +3330,7 @@ def test_additional_model_request_fields_merge_no_duplicate_keys() -> None:
     additional_fields = call_kwargs["additionalModelRequestFields"]
     assert isinstance(additional_fields, dict)
 
-    # Verify that the field is in snake_case (not camelCase)
+    # Verify the key is passed through exactly as provided
     assert "reasoning_effort" in additional_fields
     assert "reasoningEffort" not in additional_fields
 
@@ -3296,60 +3395,6 @@ def test_additional_model_request_fields_merge_invoke_only() -> None:
     assert additional_fields["reasoning_effort"] == "high"
 
 
-def test_additional_model_request_fields_camel_constructor_snake_invoke() -> None:
-    """Test camelCase at constructor and snake_case at invoke merge correctly."""
-    mocked_client = mock.MagicMock()
-    mocked_client.converse.return_value = {
-        "output": {"message": {"content": [{"text": "Hello!"}]}},
-        "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
-    }
-
-    llm = ChatBedrockConverse(
-        client=mocked_client,
-        model="openai.gpt-oss-120b-1:0",
-        region_name="us-west-2",
-        additional_model_request_fields={"reasoningEffort": "low"},
-    )
-
-    llm.invoke(
-        [HumanMessage(content="Hi")],
-        additional_model_request_fields={"reasoning_effort": "medium"},
-    )
-
-    call_kwargs = mocked_client.converse.call_args[1]
-    additional_fields = call_kwargs["additionalModelRequestFields"]
-
-    assert list(additional_fields.keys()) == ["reasoning_effort"]
-    assert additional_fields["reasoning_effort"] == "medium"
-
-
-def test_additional_model_request_fields_snake_constructor_camel_invoke() -> None:
-    """Test snake_case at constructor and camelCase at invoke merge correctly."""
-    mocked_client = mock.MagicMock()
-    mocked_client.converse.return_value = {
-        "output": {"message": {"content": [{"text": "Hello!"}]}},
-        "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
-    }
-
-    llm = ChatBedrockConverse(
-        client=mocked_client,
-        model="openai.gpt-oss-120b-1:0",
-        region_name="us-west-2",
-        additional_model_request_fields={"reasoning_effort": "low"},
-    )
-
-    llm.invoke(
-        [HumanMessage(content="Hi")],
-        additional_model_request_fields={"reasoningEffort": "high"},
-    )
-
-    call_kwargs = mocked_client.converse.call_args[1]
-    additional_fields = call_kwargs["additionalModelRequestFields"]
-
-    assert list(additional_fields.keys()) == ["reasoning_effort"]
-    assert additional_fields["reasoning_effort"] == "high"
-
-
 def test_additional_model_request_fields_invoke_overrides_constructor() -> None:
     """Test that invoke values take priority over constructor values for same key.
 
@@ -3382,6 +3427,109 @@ def test_additional_model_request_fields_invoke_overrides_constructor() -> None:
     # Verify invoke value takes priority over constructor value
     assert additional_fields["reasoning_effort"] == "invoke_value"
     assert additional_fields["reasoning_effort"] != "constructor_value"
+
+
+def test_additional_model_request_fields_camel_keys_passthrough() -> None:
+    """Test additional_model_request_fields keys are not transformed."""
+    mocked_client = mock.MagicMock()
+    mocked_client.converse.return_value = {
+        "output": {"message": {"content": [{"text": "Hello!"}]}},
+        "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
+    }
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="amazon.nova-pro-v1:0",
+        region_name="us-west-2",
+    )
+
+    llm.invoke(
+        [HumanMessage(content="Hi")],
+        additional_model_request_fields={
+            "inferenceConfig": {"topK": 50},
+        },
+    )
+
+    call_kwargs = mocked_client.converse.call_args[1]
+    additional_fields = call_kwargs["additionalModelRequestFields"]
+
+    assert "inferenceConfig" in additional_fields
+    assert "inference_config" not in additional_fields
+    assert additional_fields["inferenceConfig"] == {"topK": 50}
+
+
+def test_additional_model_request_fields_keys_passthrough_stream() -> None:
+    """Test that additional_model_request_fields keys are not transformed
+    when streaming."""
+    mocked_client = mock.MagicMock()
+    mock_stream = mock.MagicMock()
+    mock_stream.__iter__ = mock.Mock(
+        return_value=iter(
+            [
+                {"messageStart": {"role": "assistant"}},
+                {
+                    "contentBlockDelta": {
+                        "delta": {"text": "Hi"},
+                        "contentBlockIndex": 0,
+                    }
+                },
+                {"messageStop": {"stopReason": "end_turn"}},
+            ]
+        )
+    )
+    mocked_client.converse_stream.return_value = {"stream": mock_stream}
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="amazon.nova-pro-v1:0",
+        region_name="us-west-2",
+    )
+
+    list(
+        llm.stream(
+            [HumanMessage(content="Hi")],
+            additional_model_request_fields={
+                "inferenceConfig": {"topK": 50},
+            },
+        )
+    )
+
+    call_kwargs = mocked_client.converse_stream.call_args[1]
+    additional_fields = call_kwargs["additionalModelRequestFields"]
+
+    assert "inferenceConfig" in additional_fields
+    assert "inference_config" not in additional_fields
+    assert additional_fields["inferenceConfig"] == {"topK": 50}
+
+
+def test_additional_model_request_fields_mixed_formats() -> None:
+    """Test that both camelCase and snake_case keys coexist without transformation."""
+    mocked_client = mock.MagicMock()
+    mocked_client.converse.return_value = {
+        "output": {"message": {"content": [{"text": "Hello!"}]}},
+        "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
+    }
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="amazon.nova-pro-v1:0",
+        region_name="us-west-2",
+    )
+
+    llm.invoke(
+        [HumanMessage(content="Hi")],
+        additional_model_request_fields={
+            "inferenceConfig": {"topK": 50},
+            "custom_param": "value",
+        },
+    )
+
+    call_kwargs = mocked_client.converse.call_args[1]
+    additional_fields = call_kwargs["additionalModelRequestFields"]
+
+    assert additional_fields["inferenceConfig"] == {"topK": 50}
+    assert additional_fields["custom_param"] == "value"
+    assert "inference_config" not in additional_fields
 
 
 def test_stream_closes_event_stream() -> None:
@@ -3714,3 +3862,71 @@ def test_streaming_tool_use_round_trip() -> None:
     tool_use_block = bedrock_content[0]["toolUse"]
     assert isinstance(tool_use_block["input"], dict)
     assert tool_use_block["input"] == {"city": "Paris"}
+
+
+def test__format_data_content_block_video_base64() -> None:
+    """Test that _format_data_content_block handles video blocks with base64 data."""
+    video_data = base64.b64encode(b"video_test_data").decode("utf-8")
+    block = {
+        "type": "video",
+        "base64": video_data,
+        "mimeType": "video/mp4",
+    }
+    result = _format_data_content_block(block)
+    assert result == {
+        "video": {
+            "format": "mp4",
+            "source": {"bytes": base64.b64decode(video_data.encode("utf-8"))},
+        }
+    }
+
+
+def test__format_data_content_block_video_source_type() -> None:
+    """Test that _format_data_content_block handles video blocks with sourceType."""
+    video_data = base64.b64encode(b"video_test_data").decode("utf-8")
+    block = {
+        "type": "video",
+        "sourceType": "base64",
+        "mimeType": "video/mp4",
+        "data": video_data,
+    }
+    result = _format_data_content_block(block)
+    assert result == {
+        "video": {
+            "format": "mp4",
+            "source": {"bytes": base64.b64decode(video_data.encode("utf-8"))},
+        }
+    }
+
+
+def test__format_data_content_block_video_missing_mime_type() -> None:
+    """Test _format_data_content_block raises for video without mimeType."""
+    block = {
+        "type": "video",
+        "base64": base64.b64encode(b"video_test_data").decode("utf-8"),
+    }
+    with pytest.raises(ValueError, match="mime_type key is required"):
+        _format_data_content_block(block)
+
+
+def test__format_data_content_block_video_no_base64() -> None:
+    """Test _format_data_content_block raises for video without base64."""
+    block = {
+        "type": "video",
+        "mimeType": "video/mp4",
+    }
+    with pytest.raises(
+        ValueError, match="Video data only supported through in-line base64 format"
+    ):
+        _format_data_content_block(block)
+
+
+def test__format_data_content_block_unsupported_type() -> None:
+    """Test that _format_data_content_block raises ValueError for unsupported types."""
+    block = {
+        "type": "audio",
+        "base64": base64.b64encode(b"audio_data").decode("utf-8"),
+        "mimeType": "audio/mp3",
+    }
+    with pytest.raises(ValueError, match="Unsupported data content block type"):
+        _format_data_content_block(block)

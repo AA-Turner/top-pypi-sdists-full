@@ -1,3 +1,5 @@
+from openapi_schema_validator._dialects import OAS31_BASE_DIALECT_ID
+from openapi_schema_validator._dialects import OAS32_BASE_DIALECT_ID
 from openapi_schema_validator._format import oas30_format_checker
 from openapi_schema_validator._format import oas30_strict_format_checker
 from openapi_schema_validator._format import oas31_format_checker
@@ -12,7 +14,7 @@ from openapi_schema_validator.validators import OAS32Validator
 
 __author__ = "Artur Maciag"
 __email__ = "maciag.artur@gmail.com"
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 __url__ = "https://github.com/python-openapi/openapi-schema-validator"
 __license__ = "3-clause BSD License"
 
@@ -28,4 +30,6 @@ __all__ = [
     "oas31_format_checker",
     "OAS32Validator",
     "oas32_format_checker",
+    "OAS31_BASE_DIALECT_ID",
+    "OAS32_BASE_DIALECT_ID",
 ]

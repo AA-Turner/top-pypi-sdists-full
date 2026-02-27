@@ -81,6 +81,10 @@ class Financials:
             return None
         return self.xb.statements.cashflow_statement(include_dimensions=include_dimensions, view=view)
 
+    def cash_flow_statement(self, **kwargs):
+        """Alias for cashflow_statement()."""
+        return self.cashflow_statement(**kwargs)
+
     def statement_of_equity(self, include_dimensions: bool = None, view: ViewType = None):
         """
         Get the statement of equity.
@@ -360,6 +364,39 @@ class Financials:
             r'Net Income.*Shareholders',       # Net income attributable to shareholders  
             r'Profit.*Loss',                   # International variations
             r'Net Earnings'                    # Alternative terminology
+        ]
+        return self._get_standardized_concept_value('income', patterns, period_offset)
+
+    def get_operating_income(self, period_offset: int = 0) -> Optional[Union[int, float]]:
+        """
+        Get operating income from the income statement using standardized XBRL concepts.
+
+        Args:
+            period_offset: Which period to get (0=most recent, 1=previous, etc.)
+
+        Returns:
+            Operating income value if found, None otherwise
+
+        Example:
+            >>> company = Company('AAPL')
+            >>> financials = company.get_financials()
+            >>> operating_income = financials.get_operating_income()
+        """
+        # First try concept-based search using standardization mappings
+        result = self._get_standardized_concept_by_xbrl(
+            'income',
+            ['Operating Income'],
+            period_offset
+        )
+        if result is not None:
+            return result
+
+        # Fallback to label-based search for edge cases
+        patterns = [
+            r'Operating Income$',
+            r'^Operating Income',
+            r'Income.*Operations',
+            r'Operating.*Income.*Loss',
         ]
         return self._get_standardized_concept_value('income', patterns, period_offset)
 
@@ -663,6 +700,7 @@ class Financials:
 
         # Income Statement Metrics
         metrics['revenue'] = self.get_revenue()
+        metrics['operating_income'] = self.get_operating_income()
         metrics['net_income'] = self.get_net_income()
 
         # Balance Sheet Metrics  
@@ -761,6 +799,7 @@ class Financials:
             "",
             "QUICK METRICS (returns value or None):",
             "  financials.get_revenue()",
+            "  financials.get_operating_income()",
             "  financials.get_net_income()",
             "  financials.get_total_assets()",
             "  financials.get_stockholders_equity()",
@@ -802,6 +841,10 @@ class MultiFinancials:
 
     def cashflow_statement(self, view: ViewType = None) -> Optional[StitchedStatement]:
         return self.xbs.statements.cashflow_statement(view=view)
+
+    def cash_flow_statement(self, **kwargs):
+        """Alias for cashflow_statement()."""
+        return self.cashflow_statement(**kwargs)
 
     def __rich__(self):
         return self.xbs.__rich__()

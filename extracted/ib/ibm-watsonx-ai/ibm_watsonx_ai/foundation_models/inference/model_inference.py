@@ -113,9 +113,16 @@ class ModelInference(WMLResource):
         from ibm_watsonx_ai.foundation_models import ModelInference
         from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
         from ibm_watsonx_ai.foundation_models.utils.enums import (
-            ModelTypes,
             DecodingMethods,
         )
+        from ibm_watsonx_ai import APIClient
+
+        # Client initialization
+        credentials = Credentials(
+            api_key="<USER API KEY>", url="https://us-south.ml.cloud.ibm.com"
+        )
+        project_id = "<USER PROJECT ID>"
+        api_client = APIClient(credentials=credentials, project_id=project_id)
 
         # To display example params enter
         GenParams().get_example_values()
@@ -123,12 +130,10 @@ class ModelInference(WMLResource):
         generate_params = {GenParams.MAX_NEW_TOKENS: 25}
 
         model_inference = ModelInference(
-            model_id=ModelTypes.FLAN_UL2,
+            api_client.foundation_models.TextModels.GRANITE_3_2_8B_INSTRUCT,
             params=generate_params,
-            credentials=Credentials(
-                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
-            ),
-            project_id="*****",
+            credentials=credentials,
+            project_id=project_id,
         )
 
     .. code-block:: python
@@ -1243,10 +1248,18 @@ class ModelInference(WMLResource):
             from langchain.chains import LLMChain
             from ibm_watsonx_ai import Credentials
             from ibm_watsonx_ai.foundation_models import ModelInference
-            from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes
+
+            from ibm_watsonx_ai import APIClient
+
+            # Client initialization
+            credentials = Credentials(
+                api_key="<USER API KEY>", url="https://us-south.ml.cloud.ibm.com"
+            )
+            project_id = "<USER PROJECT ID>"
+            api_client = APIClient(credentials=credentials, project_id=project_id)
 
             flan_ul2_model = ModelInference(
-                model_id=ModelTypes.FLAN_UL2,
+                api_client.foundation_models.TextModels.FLAN_UL2,
                 credentials=Credentials(
                     api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
                 ),
@@ -1267,7 +1280,6 @@ class ModelInference(WMLResource):
             from langchain.chains import LLMChain
             from ibm_watsonx_ai import Credentials
             from ibm_watsonx_ai.foundation_models import ModelInference
-            from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes
 
             deployed_model = ModelInference(
                 deployment_id="<ID of deployed model>",

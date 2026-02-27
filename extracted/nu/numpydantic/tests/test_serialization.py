@@ -4,8 +4,8 @@ applied across every interface (use test_interface/test_interfaces for that
 """
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import h5py
 import numpy as np

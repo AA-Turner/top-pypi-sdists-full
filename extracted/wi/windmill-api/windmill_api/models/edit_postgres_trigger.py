@@ -32,6 +32,10 @@ class EditPostgresTrigger:
         error_handler_args (Union[Unset, EditPostgresTriggerErrorHandlerArgs]): The arguments to pass to the script or
             flow
         retry (Union[Unset, EditPostgresTriggerRetry]): Retry configuration for failed module executions
+        email (Union[Unset, str]): Email of the user who triggered jobs run as. Used during deployment to preserve the
+            original trigger owner.
+        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
+            the original email value instead of overwriting it.
     """
 
     replication_slot_name: str
@@ -45,6 +49,8 @@ class EditPostgresTrigger:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditPostgresTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditPostgresTriggerRetry"] = UNSET
+    email: Union[Unset, str] = UNSET
+    preserve_email: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -71,6 +77,9 @@ class EditPostgresTrigger:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        email = self.email
+        preserve_email = self.preserve_email
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -93,6 +102,10 @@ class EditPostgresTrigger:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if email is not UNSET:
+            field_dict["email"] = email
+        if preserve_email is not UNSET:
+            field_dict["preserve_email"] = preserve_email
 
         return field_dict
 
@@ -145,6 +158,10 @@ class EditPostgresTrigger:
         else:
             retry = EditPostgresTriggerRetry.from_dict(_retry)
 
+        email = d.pop("email", UNSET)
+
+        preserve_email = d.pop("preserve_email", UNSET)
+
         edit_postgres_trigger = cls(
             replication_slot_name=replication_slot_name,
             publication_name=publication_name,
@@ -157,6 +174,8 @@ class EditPostgresTrigger:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
+            email=email,
+            preserve_email=preserve_email,
         )
 
         edit_postgres_trigger.additional_properties = d

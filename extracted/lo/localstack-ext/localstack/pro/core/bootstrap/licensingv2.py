@@ -51,7 +51,6 @@ class LicensingError(Exception):
 
             - Please check that your credentials are set up correctly and that you have an active license.
               You can find your credentials in our webapp at https://app.localstack.cloud.
-            - If you want to continue using LocalStack without pro features you can set `ACTIVATE_PRO=0`.
             """)
 	def get_user_friendly_cli(A):B=''.join(textwrap.fill(str(A))).strip();return f"""
 =============================================

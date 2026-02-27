@@ -155,8 +155,8 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves a list of specifications for a deployed foundation model.
 
-        :param model_id: id of the model, defaults to None (all models specifications are returned)
-        :type model_id: str or ModelTypes, optional
+        :param model_id: id of the model, can be retrieved using TextModels property, defaults to None(all models specifications are returned)
+        :type model_id: str, optional
 
         :param limit: limit number of fetched records
         :type limit: int, optional
@@ -405,8 +405,8 @@ class FoundationModelsManager(WMLResource):
         """
         Operations to retrieve the list of text generation foundation models specifications.
 
-        :param model_id: id of the model, defaults to None (all models specifications are returned)
-        :type model_id: str or ModelTypes, optional
+        :param model_id: id of the model, can be retrieved using TextModels property, defaults to None (all models specifications are returned)
+        :type model_id: str, optional
 
         :param limit: limit number of fetched records
         :type limit: int, optional

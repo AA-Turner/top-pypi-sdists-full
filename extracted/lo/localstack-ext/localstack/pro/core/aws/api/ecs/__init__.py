@@ -4636,13 +4636,13 @@ class EcsApi:
         :param tags: The metadata that you apply to the capacity provider to categorize and
         organize them more conveniently.
         :returns: CreateCapacityProviderResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises LimitExceededException:
+        :raises ServerException:
         :raises UpdateInProgressException:
-        :raises UnsupportedFeatureException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -4684,10 +4684,10 @@ class EcsApi:
         :param default_capacity_provider_strategy: The capacity provider strategy to set as the default for the cluster.
         :param service_connect_defaults: Use this parameter to set a default Service Connect namespace.
         :returns: CreateClusterResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises NamespaceNotFoundException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -4745,12 +4745,12 @@ class EcsApi:
         and organize it.
         :returns: CreateExpressGatewayServiceResponse
         :raises AccessDeniedException:
+        :raises PlatformUnknownException:
+        :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
-        :raises PlatformUnknownException:
         :raises PlatformTaskDefinitionIncompatibilityException:
-        :raises ServerException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5036,15 +5036,15 @@ class EcsApi:
         volume that is configured at launch time.
         :param vpc_lattice_configurations: The VPC Lattice configuration for the service being created.
         :returns: CreateServiceResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises UnsupportedFeatureException:
-        :raises PlatformUnknownException:
-        :raises PlatformTaskDefinitionIncompatibilityException:
         :raises AccessDeniedException:
+        :raises PlatformUnknownException:
         :raises NamespaceNotFoundException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises PlatformTaskDefinitionIncompatibilityException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -5104,17 +5104,17 @@ class EcsApi:
         :param tags: The metadata that you apply to the task set to help you categorize and
         organize them.
         :returns: CreateTaskSetResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises UnsupportedFeatureException:
-        :raises PlatformUnknownException:
-        :raises PlatformTaskDefinitionIncompatibilityException:
         :raises AccessDeniedException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
+        :raises PlatformUnknownException:
         :raises NamespaceNotFoundException:
+        :raises ServiceNotActiveException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
+        :raises PlatformTaskDefinitionIncompatibilityException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -5133,8 +5133,8 @@ class EcsApi:
         :param principal_arn: The Amazon Resource Name (ARN) of the principal.
         :returns: DeleteAccountSettingResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5152,9 +5152,9 @@ class EcsApi:
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
         contains the resource to delete attributes.
         :returns: DeleteAttributesResponse
-        :raises ClusterNotFoundException:
         :raises TargetNotFoundException:
         :raises InvalidParameterException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -5191,10 +5191,10 @@ class EcsApi:
         :param cluster: The name of the cluster that contains the capacity provider to delete.
         :returns: DeleteCapacityProviderResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
-        :raises UnsupportedFeatureException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -5217,15 +5217,15 @@ class EcsApi:
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster to
         delete.
         :returns: DeleteClusterResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises ClusterContainsCapacityProviderException:
         :raises ClusterContainsContainerInstancesException:
         :raises ClusterContainsServicesException:
+        :raises ClusterContainsCapacityProviderException:
         :raises ClusterContainsTasksException:
+        :raises ServerException:
         :raises UpdateInProgressException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -5248,12 +5248,12 @@ class EcsApi:
         :param service_arn: The Amazon Resource Name (ARN) of the Express service to delete.
         :returns: DeleteExpressGatewayServiceResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
-        :raises ServerException:
-        :raises ServiceNotFoundException:
         :raises ServiceNotActiveException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5299,10 +5299,10 @@ class EcsApi:
         down to zero tasks.
         :returns: DeleteServiceResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
+        :raises ClientException:
         :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -5343,9 +5343,9 @@ class EcsApi:
         Resource Name (ARN) of the task definition to delete.
         :returns: DeleteTaskDefinitionsResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5374,15 +5374,15 @@ class EcsApi:
         :param force: If ``true``, you can delete a task set even if it hasn't been scaled
         down to zero.
         :returns: DeleteTaskSetResponse
+        :raises AccessDeniedException:
+        :raises ServiceNotActiveException:
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises TaskSetNotFoundException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
         :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
-        :raises AccessDeniedException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
-        :raises TaskSetNotFoundException:
         """
         raise NotImplementedError
 
@@ -5420,8 +5420,8 @@ class EcsApi:
         :param force: Forces the container instance to be deregistered.
         :returns: DeregisterContainerInstanceResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -5458,8 +5458,8 @@ class EcsApi:
         Resource Name (ARN) of the task definition to deregister.
         :returns: DeregisterTaskDefinitionResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5488,10 +5488,10 @@ class EcsApi:
         the results exceeded the value of that parameter.
         :returns: DescribeCapacityProvidersResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
-        :raises UnsupportedFeatureException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -5515,8 +5515,8 @@ class EcsApi:
         in the response.
         :returns: DescribeClustersResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5540,8 +5540,8 @@ class EcsApi:
         instance.
         :returns: DescribeContainerInstancesResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -5569,11 +5569,11 @@ class EcsApi:
         :param include: Specifies additional information to include in the response.
         :returns: DescribeExpressGatewayServiceResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         :raises ResourceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5592,11 +5592,11 @@ class EcsApi:
         :param service_deployment_arns: The ARN of the service deployment.
         :returns: DescribeServiceDeploymentsResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5619,11 +5619,11 @@ class EcsApi:
         :param service_revision_arns: The ARN of the service revision.
         :returns: DescribeServiceRevisionsResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5645,8 +5645,8 @@ class EcsApi:
         :param include: Determines whether you want to see the resource tags for the service.
         :returns: DescribeServicesResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -5674,8 +5674,8 @@ class EcsApi:
         :param include: Determines whether to see the resource tags for the task definition.
         :returns: DescribeTaskDefinitionResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5702,14 +5702,14 @@ class EcsApi:
         :param task_sets: The ID or full Amazon Resource Name (ARN) of task sets to describe.
         :param include: Specifies whether to see the resource tags for the task set.
         :returns: DescribeTaskSetsResponse
+        :raises AccessDeniedException:
+        :raises ServiceNotActiveException:
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
         :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
-        :raises AccessDeniedException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
         """
         raise NotImplementedError
 
@@ -5738,8 +5738,8 @@ class EcsApi:
         :param include: Specifies whether you want to see the resource tags for the task.
         :returns: DescribeTasksResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -5798,12 +5798,12 @@ class EcsApi:
         running in.
         :param container: The name of the container to execute the command on.
         :returns: ExecuteCommandResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises AccessDeniedException:
-        :raises ClusterNotFoundException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises TargetNotConnectedException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -5818,11 +5818,11 @@ class EcsApi:
         :param tasks: A list of up to 100 task IDs or full ARN entries.
         :returns: GetTaskProtectionResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         :raises ResourceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -5852,8 +5852,8 @@ class EcsApi:
         ``ListAccountSettings`` in paginated output.
         :returns: ListAccountSettingsResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5889,8 +5889,8 @@ class EcsApi:
         :param max_results: The maximum number of cluster results that ``ListAttributes`` returned
         in paginated output.
         :returns: ListAttributesResponse
-        :raises ClusterNotFoundException:
         :raises InvalidParameterException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -5911,8 +5911,8 @@ class EcsApi:
         paginated output.
         :returns: ListClustersResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -5946,8 +5946,8 @@ class EcsApi:
         :param status: Filters the container instances by status.
         :returns: ListContainerInstancesResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -5986,9 +5986,9 @@ class EcsApi:
         ``ListServiceDeployments`` returned in paginated output.
         :returns: ListServiceDeploymentsResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises ServiceNotFoundException:
         :raises UnsupportedFeatureException:
         """
@@ -6023,8 +6023,8 @@ class EcsApi:
         ``ListServices`` results.
         :returns: ListServicesResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -6054,10 +6054,10 @@ class EcsApi:
         :param max_results: The maximum number of service results that ``ListServicesByNamespace``
         returns in paginated output.
         :returns: ListServicesByNamespaceResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
         :raises NamespaceNotFoundException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6071,9 +6071,9 @@ class EcsApi:
         tags for.
         :returns: ListTagsForResourceResponse
         :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         """
         raise NotImplementedError
 
@@ -6107,8 +6107,8 @@ class EcsApi:
         ``ListTaskDefinitionFamilies`` returned in paginated output.
         :returns: ListTaskDefinitionFamiliesResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6138,8 +6138,8 @@ class EcsApi:
         ``ListTaskDefinitions`` returned in paginated output.
         :returns: ListTaskDefinitionsResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6181,10 +6181,10 @@ class EcsApi:
         :param launch_type: The launch type to use when filtering the ``ListTasks`` results.
         :returns: ListTasksResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
+        :raises ClientException:
         :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -6211,8 +6211,8 @@ class EcsApi:
         :param principal_arn: The ARN of the principal, which can be a user, role, or the root user.
         :returns: PutAccountSettingResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6228,8 +6228,8 @@ class EcsApi:
         :param value: The account setting value for the specified principal ARN.
         :returns: PutAccountSettingDefaultResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6253,10 +6253,10 @@ class EcsApi:
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
         contains the resource to apply attributes.
         :returns: PutAttributesResponse
-        :raises ClusterNotFoundException:
         :raises TargetNotFoundException:
         :raises AttributeLimitExceededException:
         :raises InvalidParameterException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -6300,11 +6300,11 @@ class EcsApi:
         :param default_capacity_provider_strategy: The capacity provider strategy to use by default for the cluster.
         :returns: PutClusterCapacityProvidersResponse
         :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises ResourceInUseException:
         :raises UpdateInProgressException:
+        :raises InvalidParameterException:
+        :raises ResourceInUseException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -6344,8 +6344,8 @@ class EcsApi:
         categorize and organize them.
         :returns: RegisterContainerInstanceResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6428,8 +6428,8 @@ class EcsApi:
         containers.
         :returns: RegisterTaskDefinitionResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6552,16 +6552,16 @@ class EcsApi:
         :param client_token: An identifier that you provide to ensure the idempotency of the request.
         :param volume_configurations: The details of the volume that was ``configuredAtLaunch``.
         :returns: RunTaskResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises UnsupportedFeatureException:
-        :raises PlatformUnknownException:
-        :raises PlatformTaskDefinitionIncompatibilityException:
-        :raises AccessDeniedException:
-        :raises BlockedException:
         :raises ConflictException:
+        :raises AccessDeniedException:
+        :raises PlatformUnknownException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises BlockedException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
+        :raises PlatformTaskDefinitionIncompatibilityException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -6630,8 +6630,8 @@ class EcsApi:
         :param volume_configurations: The details of the volume that was ``configuredAtLaunch``.
         :returns: StartTaskResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
@@ -6662,11 +6662,11 @@ class EcsApi:
         :param service_deployment_arn: The ARN of the service deployment that you want to stop.
         :param stop_type: How you want Amazon ECS to stop the service.
         :returns: StopServiceDeploymentResponse
-        :raises AccessDeniedException:
-        :raises ClientException:
         :raises ConflictException:
-        :raises InvalidParameterException:
+        :raises AccessDeniedException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
         :raises ServiceDeploymentNotFoundException:
         :raises UnsupportedFeatureException:
         """
@@ -6709,8 +6709,8 @@ class EcsApi:
         :param reason: An optional message specified when a task is stopped.
         :returns: StopTaskResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -6732,10 +6732,10 @@ class EcsApi:
         :param cluster: The short name or full ARN of the cluster that hosts the container
         instance the attachment belongs to.
         :returns: SubmitAttachmentStateChangesResponse
-        :raises ServerException:
-        :raises ClientException:
         :raises AccessDeniedException:
+        :raises ServerException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6768,9 +6768,9 @@ class EcsApi:
         :param reason: The reason for the state change request.
         :param network_bindings: The network bindings of the container.
         :returns: SubmitContainerStateChangeResponse
+        :raises AccessDeniedException:
         :raises ServerException:
         :raises ClientException:
-        :raises AccessDeniedException:
         """
         raise NotImplementedError
 
@@ -6807,10 +6807,10 @@ class EcsApi:
         :param pull_stopped_at: The Unix timestamp for the time when the container image pull completed.
         :param execution_stopped_at: The Unix timestamp for the time when the task execution stopped.
         :returns: SubmitTaskStateChangeResponse
-        :raises ServerException:
-        :raises ClientException:
         :raises AccessDeniedException:
+        :raises ServerException:
         :raises InvalidParameterException:
+        :raises ClientException:
         """
         raise NotImplementedError
 
@@ -6826,11 +6826,11 @@ class EcsApi:
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to add tags to.
         :param tags: The tags to add to the resource.
         :returns: TagResourceResponse
+        :raises ResourceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises ResourceNotFoundException:
-        :raises InvalidParameterException:
         """
         raise NotImplementedError
 
@@ -6843,11 +6843,11 @@ class EcsApi:
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to delete tags from.
         :param tag_keys: The keys of the tags to be removed.
         :returns: UntagResourceResponse
+        :raises ResourceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises ResourceNotFoundException:
-        :raises InvalidParameterException:
         """
         raise NotImplementedError
 
@@ -6873,10 +6873,10 @@ class EcsApi:
         :param managed_instances_provider: The updated configuration for the Amazon ECS Managed Instances provider.
         :returns: UpdateCapacityProviderResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
-        :raises UnsupportedFeatureException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
+        :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
 
@@ -6897,11 +6897,11 @@ class EcsApi:
         :param configuration: The execute command configuration for the cluster.
         :param service_connect_defaults: Use this parameter to set a default Service Connect namespace.
         :returns: UpdateClusterResponse
+        :raises NamespaceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
-        :raises NamespaceNotFoundException:
         """
         raise NotImplementedError
 
@@ -6915,9 +6915,9 @@ class EcsApi:
         :param settings: The setting to use by default for a cluster.
         :returns: UpdateClusterSettingsResponse
         :raises ServerException:
+        :raises InvalidParameterException:
         :raises ClientException:
         :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         """
         raise NotImplementedError
 
@@ -6960,13 +6960,13 @@ class EcsApi:
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that
         your container instance is running on.
         :returns: UpdateContainerAgentResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises UpdateInProgressException:
         :raises NoUpdateAvailableException:
         :raises MissingVersionException:
+        :raises ServerException:
+        :raises UpdateInProgressException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         """
         raise NotImplementedError
 
@@ -7041,8 +7041,8 @@ class EcsApi:
         hosts the container instance to update.
         :returns: UpdateContainerInstancesStateResponse
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises ClientException:
         :raises ClusterNotFoundException:
         """
         raise NotImplementedError
@@ -7086,12 +7086,12 @@ class EcsApi:
         :param scaling_target: The auto-scaling configuration for the Express service.
         :returns: UpdateExpressGatewayServiceResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
-        :raises ServerException:
-        :raises ServiceNotFoundException:
         :raises ServiceNotActiveException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -7298,16 +7298,16 @@ class EcsApi:
         :param vpc_lattice_configurations: An object representing the VPC Lattice configuration for the service
         being updated.
         :returns: UpdateServiceResponse
-        :raises ServerException:
-        :raises ClientException:
-        :raises InvalidParameterException:
-        :raises ClusterNotFoundException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
-        :raises PlatformUnknownException:
-        :raises PlatformTaskDefinitionIncompatibilityException:
         :raises AccessDeniedException:
+        :raises PlatformUnknownException:
         :raises NamespaceNotFoundException:
+        :raises ServiceNotActiveException:
+        :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
+        :raises ClusterNotFoundException:
+        :raises PlatformTaskDefinitionIncompatibilityException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -7336,15 +7336,15 @@ class EcsApi:
         :param primary_task_set: The short name or full Amazon Resource Name (ARN) of the task set to set
         as the primary task set in the deployment.
         :returns: UpdateServicePrimaryTaskSetResponse
+        :raises AccessDeniedException:
+        :raises ServiceNotActiveException:
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises TaskSetNotFoundException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
         :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
-        :raises TaskSetNotFoundException:
-        :raises AccessDeniedException:
         """
         raise NotImplementedError
 
@@ -7399,11 +7399,11 @@ class EcsApi:
         duration for task protection in minutes.
         :returns: UpdateTaskProtectionResponse
         :raises AccessDeniedException:
-        :raises ClientException:
-        :raises ClusterNotFoundException:
-        :raises InvalidParameterException:
         :raises ResourceNotFoundException:
         :raises ServerException:
+        :raises InvalidParameterException:
+        :raises ClientException:
+        :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError
@@ -7433,14 +7433,14 @@ class EcsApi:
         :param scale: A floating-point percentage of the desired number of tasks to place and
         keep running in the task set.
         :returns: UpdateTaskSetResponse
+        :raises AccessDeniedException:
+        :raises ServiceNotActiveException:
         :raises ServerException:
-        :raises ClientException:
         :raises InvalidParameterException:
+        :raises TaskSetNotFoundException:
+        :raises ClientException:
+        :raises ServiceNotFoundException:
         :raises ClusterNotFoundException:
         :raises UnsupportedFeatureException:
-        :raises AccessDeniedException:
-        :raises ServiceNotFoundException:
-        :raises ServiceNotActiveException:
-        :raises TaskSetNotFoundException:
         """
         raise NotImplementedError

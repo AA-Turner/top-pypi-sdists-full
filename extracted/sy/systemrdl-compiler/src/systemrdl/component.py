@@ -264,9 +264,6 @@ class AddressableComponent(Component):
         #------------------------------
         # Array Properties
         #------------------------------
-        #: If true, then ``array_dimensions`` and ``array_stride`` are valid.
-        self.is_array: bool = False
-
         #: List of sizes for each array dimension.
         #: Last item in the list iterates the most frequently.
         self.array_dimensions: Optional[List[int]] = None
@@ -279,7 +276,6 @@ class AddressableComponent(Component):
         result = super()._copy_for_inst(memo, recursive)
         result.addr_offset = self.addr_offset
         result.addr_align = self.addr_align
-        result.is_array = self.is_array
         result.array_dimensions = copy(self.array_dimensions)
         result.array_stride = self.array_stride
         return result
@@ -330,18 +326,11 @@ class VectorComponent(Component):
         #: Bit position of least significant bit
         self.lsb: int = None # type: ignore
 
-        #: High index of bit range
-        self.high: int = None # type: ignore
-        #: Low index of bit range
-        self.low: int = None # type: ignore
-
     def _copy_for_inst(self: 'VectorComponentClass', memo: Dict[int, Any], recursive: bool = False) -> 'VectorComponentClass':
         result = super()._copy_for_inst(memo, recursive)
         result.width = self.width
         result.msb = self.msb
         result.lsb = self.lsb
-        result.high = self.high
-        result.low = self.low
         return result
 
 
@@ -381,8 +370,6 @@ class Signal_PreStructuralElab(Signal):
     width: Optional[int] # type: ignore
     msb: Optional[int] # type: ignore
     lsb: Optional[int] # type: ignore
-    high: Optional[int] # type: ignore
-    low: Optional[int] # type: ignore
 
 class Field(VectorComponent):
     original_def: Optional['Field']
@@ -408,8 +395,6 @@ class Field_PreStructuralElab(Field):
     width: Optional[int] # type: ignore
     msb: Optional[int] # type: ignore
     lsb: Optional[int] # type: ignore
-    high: Optional[int] # type: ignore
-    low: Optional[int] # type: ignore
 
 class Reg(AddressableComponent):
     original_def: Optional['Reg']

@@ -1,6 +1,6 @@
 [project]
 name = "cuga"
-version = "0.2.9"
+version = "0.2.10"
 description = "CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features."
 readme = "README.md"
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ dependencies = [
     "httpx",
     "docker",
     "langgraph",
-    "html2text",
+    "markdownify",
     "uvicorn",
     "fastapi[standard]",
     "langfuse",
@@ -31,9 +31,15 @@ dependencies = [
     "pyyaml>=6.0.3",
     "pymilvus[milvus-lite,model]>=2.6.4",
     "langchain-groq>=0.3.8",
+    "langchain-litellm",
+    "litellm>=1.0.0",
     "tavily-python",
     "torch>=2.2.2",
     "sentence-transformers>=5.1.2",
+    "a2a-sdk[http-server]>=0.3.22",
+    "sqlite-vec>=0.1.6",
+    "pgvector>=0.4.2",
+    "asyncpg>=0.30",
 ]
 
 [project.optional-dependencies]
@@ -92,6 +98,7 @@ code = "evaluation.code_generator:main"
 exp = "scripts.eval_gui:main"
 digital_sales_mcp = "scripts.commands:run_digital_sales_mcp"
 digital_sales_openapi = "scripts.commands:run_digital_sales_openapi"
+test_llm = "scripts.commands:test_llm"
 
 [dependency-groups]
 dev = [

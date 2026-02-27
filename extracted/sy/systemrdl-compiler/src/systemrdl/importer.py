@@ -170,19 +170,15 @@ class RDLImporter:
         """
         assert isinstance(comp_def, comp.Field)
         comp_inst = self._instantiate(comp_def, inst_name, src_ref)
-        comp_inst.low = bit_offset
-        comp_inst.high = bit_offset + bit_width - 1
-        comp_inst.lsb = comp_inst.low
-        comp_inst.msb = comp_inst.high
+        comp_inst.lsb = bit_offset
+        comp_inst.msb = bit_offset + bit_width - 1
         comp_inst.width = bit_width
         return comp_inst
 
     def _instantiate_addressable(self, comp_def: "AddressableComponentClass", inst_name: str, addr_offset: int, array_dimensions: Optional[List[int]] = None, array_stride: Optional[int] = None, src_ref: Optional[SourceRefBase] = None) -> "AddressableComponentClass":
-
         comp_inst = self._instantiate(comp_def, inst_name, src_ref)
         comp_inst.addr_offset = addr_offset
         if array_dimensions:
-            comp_inst.is_array = True
             comp_inst.array_dimensions = array_dimensions
             comp_inst.array_stride = array_stride
         return comp_inst

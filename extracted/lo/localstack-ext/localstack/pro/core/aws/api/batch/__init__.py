@@ -5,6 +5,7 @@ from localstack.aws.api import RequestContext, ServiceException, ServiceRequest,
 
 Boolean = bool
 ClientRequestToken = str
+Double = float
 Float = float
 ImageIdOverride = str
 ImageType = str
@@ -239,10 +240,14 @@ class ArrayProperties(TypedDict, total=False):
     size: Integer | None
 
 
+Long = int
+
+
 class ArrayPropertiesDetail(TypedDict, total=False):
     """An object that represents the array properties of a job."""
 
     statusSummary: ArrayJobStatusSummary | None
+    statusSummaryLastUpdatedAt: Long | None
     size: Integer | None
     index: Integer | None
 
@@ -252,6 +257,8 @@ class ArrayPropertiesSummary(TypedDict, total=False):
 
     size: Integer | None
     index: Integer | None
+    statusSummary: ArrayJobStatusSummary | None
+    statusSummaryLastUpdatedAt: Long | None
 
 
 class NetworkInterface(TypedDict, total=False):
@@ -304,7 +311,6 @@ class AttemptEcsTaskDetails(TypedDict, total=False):
 
 
 ListAttemptEcsTaskDetails = list[AttemptEcsTaskDetails]
-Long = int
 
 
 class AttemptDetail(TypedDict, total=False):
@@ -1782,6 +1788,18 @@ class LatestServiceJobAttempt(TypedDict, total=False):
     serviceResourceId: ServiceResourceId | None
 
 
+class ServiceJobCapacityUsageDetail(TypedDict, total=False):
+    """The capacity usage for a service job, including the unit of measure and
+    quantity of resources being consumed.
+    """
+
+    capacityUnit: String | None
+    quantity: Double | None
+
+
+ServiceJobCapacityUsageDetailList = list[ServiceJobCapacityUsageDetail]
+
+
 class ServiceJobAttemptDetail(TypedDict, total=False):
     """Detailed information about an attempt to run a service job."""
 
@@ -1796,6 +1814,7 @@ ServiceJobAttemptDetails = list[ServiceJobAttemptDetail]
 
 class DescribeServiceJobResponse(TypedDict, total=False):
     attempts: ServiceJobAttemptDetails | None
+    capacityUsage: ServiceJobCapacityUsageDetailList | None
     createdAt: Long | None
     isTerminated: Boolean | None
     jobArn: String | None
@@ -1804,6 +1823,7 @@ class DescribeServiceJobResponse(TypedDict, total=False):
     jobQueue: String
     latestAttempt: LatestServiceJobAttempt | None
     retryStrategy: ServiceJobRetryStrategy | None
+    scheduledAt: Long | None
     schedulingPriority: Integer | None
     serviceRequestPayload: String | None
     serviceJobType: ServiceJobType
@@ -1884,6 +1904,37 @@ class EksPropertiesOverride(TypedDict, total=False):
     podProperties: EksPodPropertiesOverride | None
 
 
+class FairshareCapacityUsage(TypedDict, total=False):
+    """The capacity usage for a fairshare scheduling job queue."""
+
+    capacityUnit: String | None
+    quantity: Double | None
+
+
+FairshareCapacityUsageList = list[FairshareCapacityUsage]
+
+
+class FairshareCapacityUtilization(TypedDict, total=False):
+    """The capacity utilization for a specific share in a fairshare scheduling
+    job queue, including the share identifier and its current usage.
+    """
+
+    shareIdentifier: String | None
+    capacityUsage: FairshareCapacityUsageList | None
+
+
+FairshareCapacityUtilizationList = list[FairshareCapacityUtilization]
+
+
+class FairshareUtilizationDetail(TypedDict, total=False):
+    """The fairshare utilization for a job queue, including the number of
+    active shares and top capacity utilization.
+    """
+
+    activeShareCount: Long | None
+    topCapacityUtilization: FairshareCapacityUtilizationList | None
+
+
 class FrontOfQueueJobSummary(TypedDict, total=False):
     """An object that represents summary details for the first 100 ``RUNNABLE``
     jobs in a job queue.
@@ -1909,8 +1960,43 @@ class GetJobQueueSnapshotRequest(ServiceRequest):
     jobQueue: String
 
 
+class QueueSnapshotCapacityUsage(TypedDict, total=False):
+    """The configured capacity usage for a job queue snapshot, including the
+    unit of measure and quantity of resources being used.
+    """
+
+    capacityUnit: String | None
+    quantity: Double | None
+
+
+QueueSnapshotCapacityUsageList = list[QueueSnapshotCapacityUsage]
+
+
+class QueueSnapshotUtilizationDetail(TypedDict, total=False):
+    """The job queue utilization at a specific point in time, including total
+    capacity usage and fairshare utilization breakdown.
+    """
+
+    totalCapacityUsage: QueueSnapshotCapacityUsageList | None
+    fairshareUtilization: FairshareUtilizationDetail | None
+    lastUpdatedAt: Long | None
+
+
 class GetJobQueueSnapshotResponse(TypedDict, total=False):
     frontOfQueue: FrontOfQueueDetail | None
+    queueUtilization: QueueSnapshotUtilizationDetail | None
+
+
+class JobCapacityUsageSummary(TypedDict, total=False):
+    """The capacity usage for a job, including the unit of measure and quantity
+    of resources being used.
+    """
+
+    capacityUnit: String | None
+    quantity: Double | None
+
+
+JobCapacityUsageSummaryList = list[JobCapacityUsageSummary]
 
 
 class NodePropertiesSummary(TypedDict, total=False):
@@ -1929,7 +2015,10 @@ class JobSummary(TypedDict, total=False):
     jobArn: String | None
     jobId: String
     jobName: String
+    capacityUsage: JobCapacityUsageSummaryList | None
     createdAt: Long | None
+    scheduledAt: Long | None
+    shareIdentifier: String | None
     status: JobStatus | None
     statusReason: String | None
     startedAt: Long | None
@@ -2052,14 +2141,28 @@ class ListServiceJobsRequest(ServiceRequest):
     filters: ListJobsFilterList | None
 
 
+class ServiceJobCapacityUsageSummary(TypedDict, total=False):
+    """The capacity usage for a service job, including the unit of measure and
+    quantity of resources being used.
+    """
+
+    capacityUnit: String | None
+    quantity: Double | None
+
+
+ServiceJobCapacityUsageSummaryList = list[ServiceJobCapacityUsageSummary]
+
+
 class ServiceJobSummary(TypedDict, total=False):
     """Summary information about a service job."""
 
     latestAttempt: LatestServiceJobAttempt | None
+    capacityUsage: ServiceJobCapacityUsageSummaryList | None
     createdAt: Long | None
     jobArn: String | None
     jobId: String
     jobName: String
+    scheduledAt: Long | None
     serviceJobType: ServiceJobType
     shareIdentifier: String | None
     status: ServiceJobStatus | None
@@ -2776,7 +2879,8 @@ class BatchApi:
         self, context: RequestContext, job_queue: String, **kwargs
     ) -> GetJobQueueSnapshotResponse:
         """Provides a list of the first 100 ``RUNNABLE`` jobs associated to a
-        single job queue.
+        single job queue and includes capacity utilization, including total
+        usage and breakdown by share for fairshare scheduling job queues.
 
         :param job_queue: The job queue’s name or full queue Amazon Resource Name (ARN).
         :returns: GetJobQueueSnapshotResponse
@@ -2830,10 +2934,6 @@ class BatchApi:
         -  A multi-node parallel job ID to return a list of nodes for that job
 
         -  An array job ID to return a list of the children for that job
-
-        You can filter the results by job status with the ``jobStatus``
-        parameter. If you don't specify a status, only ``RUNNING`` jobs are
-        returned.
 
         :param job_queue: The name or full Amazon Resource Name (ARN) of the job queue used to
         list jobs.
@@ -2913,7 +3013,7 @@ class BatchApi:
         """Returns a list of service jobs for a specified job queue.
 
         :param job_queue: The name or ARN of the job queue with which to list service jobs.
-        :param job_status: The job status with which to filter service jobs.
+        :param job_status: The job status used to filter service jobs in the specified queue.
         :param max_results: The maximum number of results returned by ``ListServiceJobs`` in
         paginated output.
         :param next_token: The ``nextToken`` value returned from a previous paginated

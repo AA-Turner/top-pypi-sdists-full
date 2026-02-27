@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 7.5.3
+Version: 7.6.0
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,cli,cloup,colorization,configuration,console,hjson,ini,json,json5,jsonc,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
 Author: Kevin Deldycke
@@ -64,7 +64,7 @@ Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.5.3
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.6.0
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra

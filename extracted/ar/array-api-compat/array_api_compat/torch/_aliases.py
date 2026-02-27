@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from functools import reduce as _reduce, wraps as _wraps
 from builtins import all as _builtin_all, any as _builtin_any
 from typing import Any, Literal
+import math
 
 import torch
 
@@ -220,7 +221,6 @@ def min(x: Array, /, *, axis: int | tuple[int, ...] |None = None, keepdims: bool
         return torch.clone(x)
     return torch.amin(x, axis, keepdims=keepdims)
 
-clip = get_xp(torch)(_aliases.clip)
 unstack = get_xp(torch)(_aliases.unstack)
 cumulative_sum = get_xp(torch)(_aliases.cumulative_sum)
 cumulative_prod = get_xp(torch)(_aliases.cumulative_prod)
@@ -573,6 +573,10 @@ def count_nonzero(
 
 # "repeat" is torch.repeat_interleave;  also the dim argument
 def repeat(x: Array, repeats: int | Array, /, *, axis: int | None = None) -> Array:
+    if isinstance(repeats, torch.Tensor) and repeats.dtype in (torch.int8, torch.int16):
+        # torch rejects short integers for the `repeat` argument:
+        # https://github.com/pytorch/pytorch/issues/151311
+        repeats = repeats.to(torch.int32)
     return torch.repeat_interleave(x, repeats, axis)
 
 
@@ -690,9 +694,24 @@ def triu(x: Array, /, *, k: int = 0) -> Array:
     return torch.triu(x, k)
 
 # Functions that aren't in torch https://github.com/pytorch/pytorch/issues/58742
-def expand_dims(x: Array, /, *, axis: int = 0) -> Array:
-    return torch.unsqueeze(x, axis)
+def expand_dims(x: Array, /, axis: int | tuple[int, ...]) -> Array:
+    if isinstance(axis, int):
+        return torch.unsqueeze(x, axis)
+    else:
+        # follow https://github.com/numpy/numpy/blob/maintenance/2.4.x/numpy/lib/_shape_base_impl.py#L596-L602
+        y_ndim = x.ndim + len(axis)
 
+        # normalize
+        n_axis = tuple(ax + y_ndim if ax < 0 else ax for ax in axis)
+        if (len(n_axis) != len(set(n_axis)) or
+            _builtin_any(ax < 0 or ax >= y_ndim for ax in n_axis)
+        ):
+            raise ValueError(f"{axis=} not allowed for {x.shape = }")
+
+        shape_it = iter(x.shape)
+        shape = [1 if ax in n_axis else next(shape_it) for ax in range(y_ndim)]
+
+        return torch.reshape(x, shape)
 
 def astype(
     x: Array,
@@ -707,9 +726,9 @@ def astype(
     return x.to(dtype=dtype, copy=copy)
 
 
-def broadcast_arrays(*arrays: Array) -> list[Array]:
+def broadcast_arrays(*arrays: Array) -> tuple[Array, ...]:
     shape = torch.broadcast_shapes(*[a.shape for a in arrays])
-    return [torch.broadcast_to(a, shape) for a in arrays]
+    return tuple(torch.broadcast_to(a, shape) for a in arrays)
 
 # Note that these named tuples aren't actually part of the standard namespace,
 # but I don't see any issue with exporting the names here regardless.
@@ -835,6 +854,49 @@ def take_along_axis(x: Array, indices: Array, /, *, axis: int = -1) -> Array:
     )
 
 
+def clip(
+    x: Array,
+    /,
+    min: int | float | Array | None = None,
+    max: int | float | Array | None = None,
+    **kwargs
+) -> Array:
+    def _isscalar(a: object):
+        return isinstance(a, int | float) or a is None
+
+    # cf clip in common/_aliases.py
+    if not x.is_floating_point():
+        if type(min) is int and min <= torch.iinfo(x.dtype).min:
+            min = None
+        if type(max) is int and max >= torch.iinfo(x.dtype).max:
+            max = None
+
+    if min is None and max is None:
+        return torch.clone(x)
+
+    min_is_scalar = _isscalar(min)
+    max_is_scalar = _isscalar(max)
+
+    if min_is_scalar and max_is_scalar:
+        if (min is not None and math.isnan(min)) or (max is not None and math.isnan(max)):
+            # edge case: torch.clamp(torch.zeros(1), float('nan')) -> tensor(0.)
+            # https://github.com/pytorch/pytorch/issues/172067
+            return torch.full_like(x, fill_value=torch.nan)
+        return torch.clamp(x, min, max, **kwargs)
+
+    # pytorch has (tensor, tensor, tensor) and (tensor, scalar, scalar) signatures,
+    # but does not accept (tensor, scalar, tensor)
+    a_min = min
+    if min is not None and min_is_scalar:
+        a_min = torch.as_tensor(min, dtype=x.dtype, device=x.device)
+
+    a_max = max
+    if max is not None and max_is_scalar:
+        a_max = torch.as_tensor(max, dtype=x.dtype, device=x.device)
+
+    return torch.clamp(x, a_min, a_max, **kwargs)
+
+
 def sign(x: Array, /) -> Array:
     # torch sign() does not support complex numbers and does not propagate
     # nans. See https://github.com/data-apis/array-api-compat/issues/136
@@ -850,10 +912,11 @@ def sign(x: Array, /) -> Array:
         return out
 
 
-def meshgrid(*arrays: Array, indexing: Literal['xy', 'ij'] = 'xy') -> list[Array]:
-    # enforce the default of 'xy'
-    # TODO: is the return type a list or a tuple
-    return list(torch.meshgrid(*arrays, indexing=indexing))
+def meshgrid(*arrays: Array, indexing: Literal['xy', 'ij'] = 'xy') -> tuple[Array, ...]:
+    # torch <= 2.9 emits a UserWarning: "torch.meshgrid: in an upcoming release, it
+    # will be required to pass the indexing argument."
+    # Thus always pass it explicitly.
+    return torch.meshgrid(*arrays, indexing=indexing)
 
 
 __all__ = ['asarray', 'result_type', 'can_cast',

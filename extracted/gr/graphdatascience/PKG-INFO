@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphdatascience
-Version: 1.19
+Version: 1.20
 Summary: A Python client for the Neo4j Graph Data Science (GDS) library
 Author-email: Neo4j <team-gds@neo4j.org>
 License-Expression: Apache-2.0
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
@@ -29,7 +30,7 @@ Requires-Dist: multimethod<3.0,>=1.0
 Requires-Dist: neo4j<7.0,>=4.4.12
 Requires-Dist: numpy<2.4
 Requires-Dist: pandas<3.0,>=1.0
-Requires-Dist: pyarrow<23.0,>=17.0
+Requires-Dist: pyarrow<24.0,>=18.0
 Requires-Dist: textdistance<5.0,>=4.0
 Requires-Dist: tqdm<5.0,>=4.0
 Requires-Dist: typing-extensions<5.0,>=4.0

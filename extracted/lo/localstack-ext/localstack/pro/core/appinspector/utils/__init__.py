@@ -14,7 +14,6 @@ from localstack.pro.core.appinspector.utils.utils import (
     parse_request_json,
     parse_request_model,
 )
-from localstack.pro.core.appinspector.utils.write_operations import check_if_write_operation
 
 __all__ = [
     "APPINSPECTOR_LOG",
@@ -29,5 +28,4 @@ __all__ = [
     "AppInspectorJSONEncoder",
     "create_error_response",
     "create_success_response",
-    "check_if_write_operation",
 ]

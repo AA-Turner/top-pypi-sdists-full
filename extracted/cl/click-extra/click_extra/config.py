@@ -49,12 +49,13 @@ import json
 import logging
 import os
 import sys
+from collections import ChainMap
 from collections.abc import Iterable
 from configparser import ConfigParser, ExtendedInterpolation
 from enum import Enum
 from functools import cached_property, partial
 from gettext import gettext as _
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import requests
 from boltons.iterutils import flatten, unique
@@ -67,6 +68,7 @@ from wcmatch import fnmatch, glob
 
 from . import (
     UNPROCESSED,
+    Path as ClickPath,
     ParameterSource,
     echo,
     get_app_dir,
@@ -138,6 +140,19 @@ except ImportError:
     )
 
 
+VCS_DIRS = (".git", ".hg", ".svn", ".bzr", "CVS", ".darcs")
+"""VCS directory names used to identify version control system roots.
+
+Includes:
+- ``.git`` — Git
+- ``.hg`` — Mercurial
+- ``.svn`` — Subversion
+- ``.bzr`` — Bazaar
+- ``CVS`` — CVS (note: uppercase, no leading dot)
+- ``.darcs`` — Darcs
+"""
+
+
 class ConfigFormat(Enum):
     """All configuration formats, associated to their support status.
 
@@ -159,17 +174,23 @@ class ConfigFormat(Enum):
         / `hujson <https://github.com/tailscale/hujson>`_ format?
     """
 
-    TOML = (("*.toml",), True)
-    YAML = (("*.yaml", "*.yml"), yaml_support)
-    JSON = (("*.json",), True)
-    JSON5 = (("*.json5",), json5_support)
-    JSONC = (("*.jsonc",), jsonc_support)
-    HJSON = (("*.hjson",), hjson_support)
-    INI = (("*.ini",), True)
-    XML = (("*.xml",), xml_support)
+    TOML = (("*.toml",), True, "TOML")
+    YAML = (("*.yaml", "*.yml"), yaml_support, "YAML")
+    JSON = (("*.json",), True, "JSON")
+    JSON5 = (("*.json5",), json5_support, "JSON5")
+    JSONC = (("*.jsonc",), jsonc_support, "JSONC")
+    HJSON = (("*.hjson",), hjson_support, "Hjson")
+    INI = (("*.ini",), True, "INI")
+    XML = (("*.xml",), xml_support, "XML")
+    PYPROJECT_TOML = (("pyproject.toml",), True, "pyproject.toml")
 
     def __str__(self) -> str:
-        return self.name.lower()
+        return self.label
+
+    @property
+    def label(self) -> str:
+        """Human-friendly name of the format for display in messages."""
+        return self.value[2]  # type: ignore[no-any-return]
 
     @property
     def enabled(self) -> bool:
@@ -210,6 +231,58 @@ Defaults to:
 """
 
 
+DEFAULT_SUBCOMMANDS_KEY = "_default_subcommands"
+"""Reserved configuration key for specifying default subcommands.
+
+When a group is invoked without explicit subcommands on the CLI, the subcommands
+listed under this key execute automatically in order. CLI always wins: if the user
+names subcommands explicitly, the config is ignored.
+
+Example TOML configuration:
+
+.. code-block:: toml
+
+    [my-cli]
+    _default_subcommands = ["backup", "sync"]
+
+    [my-cli.backup]
+    path = "/home"
+"""
+
+PREPEND_SUBCOMMANDS_KEY = "_prepend_subcommands"
+"""Reserved configuration key for prepending subcommands to every invocation.
+
+Unlike ``_default_subcommands`` which only fires when no subcommands are given on the
+CLI, ``_prepend_subcommands`` always prepends the listed subcommands. This is useful
+for always injecting a ``debug`` subcommand on a dev machine, for example.
+
+Only works with ``chain=True`` groups (non-chained groups resolve exactly one
+subcommand, so prepending would break the user's intended command).
+
+Example TOML configuration:
+
+.. code-block:: toml
+
+    [my-cli]
+    _prepend_subcommands = ["debug"]
+"""
+
+_RESERVED_CONFIG_KEYS = frozenset({DEFAULT_SUBCOMMANDS_KEY, PREPEND_SUBCOMMANDS_KEY})
+"""Configuration keys with special meaning that should not be treated as parameters."""
+
+
+def _strip_reserved_keys(conf: dict, keys: frozenset[str] | None = None) -> dict:
+    """Recursively return a copy of *conf* with reserved keys removed at every level."""
+    if keys is None:
+        keys = _RESERVED_CONFIG_KEYS
+    cleaned: dict = {}
+    for k, v in conf.items():
+        if k in keys:
+            continue
+        cleaned[k] = _strip_reserved_keys(v, keys) if isinstance(v, dict) else v
+    return cleaned
+
+
 class Sentinel(Enum):
     """Enum used to define sentinel values.
 
@@ -221,6 +294,7 @@ class Sentinel(Enum):
     """
 
     NO_CONFIG = object()
+    VCS = object()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}.{self.name}"
@@ -228,6 +302,9 @@ class Sentinel(Enum):
 
 NO_CONFIG = Sentinel.NO_CONFIG
 """Sentinel used to indicate that no configuration file must be used at all."""
+
+VCS = Sentinel.VCS
+"""Sentinel used to stop parent directory walking at the nearest VCS root."""
 
 
 class ConfigOption(ExtraOption, ParamStructure):
@@ -257,12 +334,15 @@ class ConfigOption(ExtraOption, ParamStructure):
             glob.GLOBSTAR
             | glob.FOLLOW
             | glob.DOTGLOB
+            | glob.BRACE
             | glob.SPLIT
             | glob.GLOBTILDE
             | glob.NODIR
         ),
         search_parents: bool = False,
+        stop_at: Path | str | Literal[Sentinel.VCS] | None = Sentinel.VCS,
         excluded_params: Iterable[str] | None = None,
+        included_params: Iterable[str] | None = None,
         strict: bool = False,
         **kwargs,
     ) -> None:
@@ -283,6 +363,10 @@ class ConfigOption(ExtraOption, ParamStructure):
           file, will be ignored and not applied to the CLI. Items are expected to be the
           fully-qualified ID of the parameter, as produced in the output of
           ``--show-params``. Will default to the value of ``DEFAULT_EXCLUDED_PARAMS``.
+
+        - ``included_params`` is the inverse of ``excluded_params``: only the listed
+          parameters will be loaded from the configuration file. Cannot be used together
+          with ``excluded_params``.
         """
         logger = logging.getLogger("click_extra")
 
@@ -367,6 +451,11 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         kwargs.setdefault("default", self.default_pattern)
 
+        # Force BRACE to ensure multi-format default patterns expand correctly.
+        if not search_pattern_flags & glob.BRACE:
+            logger.warning("Forcing BRACE flag for search patterns.")
+            search_pattern_flags |= glob.BRACE
+
         # Force NODIR to optimize search for files only.
         if not search_pattern_flags & glob.NODIR:
             logger.warning("Forcing NODIR flag for search patterns.")
@@ -378,6 +467,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         Applies to both the default pattern and any user-provided pattern.
 
         .. important::
+            The ``BRACE`` flag is always forced, so that multi-format default
+            patterns using ``{pat1,pat2,...}`` syntax expand correctly.
+
             The ``NODIR`` flag is always forced, to optimize the search for files only.
         """
 
@@ -386,10 +478,28 @@ class ConfigOption(ExtraOption, ParamStructure):
         configuration files.
         """
 
+        self.stop_at = stop_at
+        """Boundary for parent directory walking.
+
+        - ``None`` — walk up to filesystem root.
+        - ``VCS`` — stop at the nearest VCS root (``.git`` or ``.hg``) (default).
+        - A ``Path`` or ``str`` — stop at that directory.
+        """
+
+        if excluded_params is not None and included_params is not None:
+            msg = "excluded_params and included_params are mutually exclusive."
+            raise ValueError(msg)
+
         # If the user provided its own excluded params, freeze them now and store it
         # to prevent the dynamic default property to be called.
         if excluded_params is not None:
             self.excluded_params = frozenset(excluded_params)
+
+        # Freeze and store included_params. The resolution into
+        # excluded_params happens in params_objects.
+        self.included_params: frozenset[str] | None = (
+            frozenset(included_params) if included_params is not None else None
+        )
 
         self.strict = strict
         """Defines the strictness of the configuration loading.
@@ -410,6 +520,93 @@ class ConfigOption(ExtraOption, ParamStructure):
             expose_value=expose_value,
             **kwargs,
         )
+
+        self._check_pattern_sanity()
+
+    def _check_pattern_sanity(self) -> None:
+        """Emit DEBUG-level logs for common ``ConfigOption`` misconfigurations.
+
+        The checks help developers catch suboptimal patterns early when running
+        with debug logging enabled. Four categories are covered:
+
+        1. Broad glob + narrow (all-literal) format patterns.
+        2. Literal default whose filename doesn't match any format pattern.
+        3. Format/extension mismatch (unconditional).
+        4. Dotfile referenced without ``DOTGLOB`` in ``search_pattern_flags``.
+        """
+        logger = logging.getLogger("click_extra")
+
+        # --- Check 3 (unconditional): format/extension mismatch ---
+        # Build a reverse map: extension → canonical ConfigFormats.
+        ext_to_formats: dict[str, set[ConfigFormat]] = {}
+        for fmt in ConfigFormat:
+            for pat in fmt.patterns:
+                ext = PurePosixPath(pat).suffix
+                if ext:
+                    ext_to_formats.setdefault(ext, set()).add(fmt)
+
+        for fmt, patterns in self.file_format_patterns.items():
+            for pat in patterns:
+                ext = PurePosixPath(pat).suffix
+                if ext and ext in ext_to_formats:
+                    canonical = ext_to_formats[ext]
+                    if fmt not in canonical:
+                        canonical_names = ", ".join(sorted(f.name for f in canonical))
+                        logger.debug(
+                            f"Format pattern {pat!r} mapped to {fmt.name} but "
+                            f"extension {ext!r} is canonically associated with "
+                            f"{canonical_names}."
+                        )
+
+        # --- Checks 1, 2, 4 require an explicit default ---
+        if not isinstance(self.default, str):
+            return
+
+        file_part = PurePosixPath(self.default).name
+        default_is_magic = glob.is_magic(
+            self.default.replace("\\", "/"), flags=self.search_pattern_flags
+        )
+        all_format_patterns = tuple(flatten(self.file_format_patterns.values()))
+
+        # Check 1: broad glob + all-literal format patterns
+        if default_is_magic:
+            all_literal = all(
+                not glob.is_magic(p.replace("\\", "/"), flags=self.search_pattern_flags)
+                for p in all_format_patterns
+            )
+            if all_literal:
+                logger.debug(
+                    f"Broad search pattern {self.default!r} with literal format "
+                    f"patterns {all_format_patterns!r}. The glob may scan many "
+                    f"files only to discard most of them."
+                )
+
+        # Check 2: literal default that never matches any format pattern
+        if not default_is_magic:
+            pattern_str = "|".join(all_format_patterns)
+            if not fnmatch.fnmatch(
+                file_part, pattern_str, flags=self.file_pattern_flags
+            ):
+                logger.debug(
+                    f"Literal search pattern {self.default!r} does not match "
+                    f"any format pattern ({pattern_str!r}). No config will ever "
+                    f"be found."
+                )
+
+        # Check 4: dotfile without DOTGLOB
+        if not (self.search_pattern_flags & glob.DOTGLOB):
+            dotfiles: list[str] = []
+            if file_part.startswith("."):
+                dotfiles.append(self.default)
+            for pat in all_format_patterns:
+                if PurePosixPath(pat).name.startswith("."):
+                    dotfiles.append(pat)
+            if dotfiles:
+                logger.debug(
+                    f"Dotfile(s) {dotfiles!r} referenced but DOTGLOB is not set "
+                    f"in search_pattern_flags. Hidden files may be skipped by "
+                    f"glob."
+                )
 
     @cached_property
     def excluded_params(self) -> frozenset[str]:  # type: ignore[override]
@@ -432,21 +629,26 @@ class ConfigOption(ExtraOption, ParamStructure):
     def file_pattern(self) -> str:
         """Compile all file patterns from the supported formats.
 
-        Use ``|`` split notation to combine multiple patterns.
+        Uses ``,`` (comma) notation to combine multiple patterns, suitable for
+        ``wcmatch`` brace expansion (``{pat1,pat2,...}``).
 
         Returns a single pattern string.
         """
         patterns = unique(flatten(self.file_format_patterns.values()))
-        return "|".join(patterns)
+        return ",".join(patterns)
 
     def default_pattern(self) -> str:
         """Returns the default pattern used to search for the configuration file.
 
-        Defaults to ``<app_dir>/*.toml|*.json|*.ini``. Where ``<app_dir>`` is produced by
-        the `clickget_app_dir() method
+        Defaults to ``<app_dir>/{*.toml,*.json,*.ini}``. Where ``<app_dir>`` is
+        produced by the `click.get_app_dir() method
         <https://click.palletsprojects.com/en/stable/api/#click.get_app_dir>`_.
         The result depends on OS and is influenced by the ``roaming`` and
         ``force_posix`` properties.
+
+        Multiple file format patterns are wrapped with ``{…}`` brace-expansion
+        syntax so that ``wcmatch.glob`` correctly applies the directory prefix
+        to every sub-pattern.
 
         .. todo::
             Use `platformdirs <https://github.com/tox-dev/platformdirs>`_ for more
@@ -459,7 +661,10 @@ class ConfigOption(ExtraOption, ParamStructure):
         app_dir = Path(
             get_app_dir(cli_name, roaming=self.roaming, force_posix=self.force_posix),
         ).resolve()
-        return f"{app_dir}{os.path.sep}{self.file_pattern}"
+        fp = self.file_pattern
+        # Wrap multi-pattern with braces for BRACE expansion.
+        suffix = f"{{{fp}}}" if "," in fp else fp
+        return f"{app_dir}{os.path.sep}{suffix}"
 
     def get_help_extra(self, ctx: click.Context) -> click.types.OptionHelpExtra:
         """Replaces the default value of the configuration option.
@@ -468,13 +673,13 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         .. code-block:: text
 
-            ~/folder/my_cli/*.toml|*.json|*.ini
+            ~/folder/my_cli/{*.toml,*.json,*.ini}
 
         Instead of the full absolute path:
 
         .. code-block:: text
 
-            /home/user/folder/my_cli/*.toml|*.json|*.ini
+            /home/user/folder/my_cli/{*.toml,*.json,*.ini}
 
         .. caution::
             This only applies when the ``GLOBTILDE`` flag is set in ``search_pattern_flags``.
@@ -484,41 +689,125 @@ class ConfigOption(ExtraOption, ParamStructure):
         if default is NO_CONFIG:
             extra["default"] = "disabled"
         elif self.search_pattern_flags & glob.GLOBTILDE:
-            extra["default"] = shrinkuser(Path(default))
+            # When the default already starts with ``~`` (user-supplied tilde
+            # pattern), use it as-is.  Passing through ``Path()`` would
+            # normalise forward slashes to backslashes on Windows.
+            default_str = str(default)
+            extra["default"] = (
+                default_str
+                if default_str.startswith("~")
+                else shrinkuser(Path(default))
+            )
         else:
             extra["default"] = str(default)
         return extra
 
-    def parent_patterns(self, pattern: str) -> Iterable[str]:
-        """Generate patterns for parent directories lookup.
+    @staticmethod
+    def _find_vcs_root(start: Path) -> Path | None:
+        """Walk up from ``start`` looking for a VCS root directory.
 
-        Yields patterns for each parent directory of the given ``pattern``.
-
-        The first yielded pattern is the original one.
-
-        Stops when reaching the root folder.
+        Returns the directory containing one of the VCS directories defined in
+        ``VCS_DIRS``, or ``None`` if no VCS root is found before reaching the
+        filesystem root.
         """
-        # Return the original pattern as-is.
-        yield pattern
+        current = start if start.is_dir() else start.parent
+        for directory in (current, *current.parents):
+            if any((directory / vcs_dir).exists() for vcs_dir in VCS_DIRS):
+                return directory
+        return None
 
-        # No parent search requested, stop here.
+    def _resolve_stop_at(self, start_dir: Path) -> Path | None:
+        """Resolve the ``stop_at`` value to an absolute ``Path`` or ``None``.
+
+        - ``None`` → ``None`` (no boundary).
+        - ``VCS`` → calls ``_find_vcs_root(start_dir)``.
+        - ``Path`` or other ``str`` → resolves to absolute.
+        """
+        if self.stop_at is None:
+            return None
+        if self.stop_at is VCS:
+            return self._find_vcs_root(start_dir)
+        # Mypy cannot narrow ``Literal[Sentinel.VCS]`` via the ``is`` check above.
+        assert isinstance(self.stop_at, (str, Path))
+        return Path(self.stop_at).resolve()
+
+    @staticmethod
+    def _should_stop_walking(directory: Path, stop_at: Path | None) -> bool:
+        """Return ``True`` if the parent-directory walk should stop.
+
+        Stops when:
+        - ``stop_at`` is set and ``directory`` is not equal to or a child of it.
+        - The directory exists but is not readable.
+        """
+        if stop_at is not None:
+            try:
+                directory.relative_to(stop_at)
+            except ValueError:
+                return True
+        return bool(directory.exists() and not os.access(directory, os.R_OK))
+
+    def parent_patterns(self, pattern: str) -> Iterable[tuple[str | None, str]]:
+        """Generate ``(root_dir, file_pattern)`` pairs for searching.
+
+        Each yielded pair can be passed directly to
+        ``glob.iglob(file_pattern, root_dir=root_dir)`` so that every
+        sub-pattern (whether from ``BRACE`` or ``SPLIT`` expansion) is
+        correctly scoped to the same directory.
+
+        ``root_dir`` is ``None`` for entirely magic patterns that will be
+        evaluated relative to the current working directory.
+
+        Stops when reaching the root folder, the ``stop_at`` boundary, or an
+        inaccessible directory.
+        """
+        logger = logging.getLogger("click_extra")
+
+        # Normalize path separators for magic detection: on Windows, backslashes
+        # in paths are mistaken for glob escape characters by wcmatch.
+        def is_magic(p: str) -> bool:
+            return glob.is_magic(p.replace("\\", "/"), flags=self.search_pattern_flags)
+
+        # Split pattern into non-magic directory prefix (root_dir) and magic
+        # file suffix (file_pattern).
+        root_dir: Path | None
+        if not is_magic(pattern):
+            resolved = Path(pattern).resolve()
+            if resolved.is_file():
+                root_dir = resolved.parent
+                file_pattern = resolved.name
+            else:
+                root_dir = resolved
+                file_pattern = ""
+        else:
+            parts = Path(pattern).parts
+            magic_idx = next(i for i, part in enumerate(parts) if is_magic(part))
+            if magic_idx == 0:
+                # Entirely magic (e.g., "{*.toml,*.yaml}").
+                root_dir = None
+                file_pattern = pattern
+            else:
+                root_dir = Path(*parts[:magic_idx]).resolve()
+                file_pattern = str(Path(*parts[magic_idx:]))
+
+        # Yield the original location.
+        root_str = str(root_dir) if root_dir is not None else None
+        yield root_str, file_pattern
+
         if not self.search_parents:
             return
 
-        logger = logging.getLogger("click_extra")
-        logger.debug("Parent search enabled.")
-
-        # The pattern is a regular path: no magic is involved. Simply walk up.
-        if not glob.is_magic(pattern, flags=self.search_pattern_flags):
-            search_path = Path(pattern).resolve()
-            if search_path.is_file():
-                search_path = search_path.parent
-
-            yield from map(str, (search_path, *search_path.parents))
+        if root_dir is None:
+            logger.debug("Entirely magic pattern, skipping parent search.")
             return
 
-        # Magic patterns needs special handling for parent search.
-        raise NotImplementedError("Parent search for magic patterns not implemented.")
+        logger.debug("Parent search enabled.")
+        stop_at = self._resolve_stop_at(root_dir)
+
+        for parent in root_dir.parents:
+            if self._should_stop_walking(parent, stop_at):
+                logger.debug(f"Stopped walking at {parent}")
+                return
+            yield str(parent), file_pattern
 
     def search_and_read_file(self, pattern: str) -> Iterable[tuple[Path | URL, str]]:
         """Search filesystem or URL for files matching the ``pattern``.
@@ -568,10 +857,15 @@ class ConfigOption(ExtraOption, ParamStructure):
                 pattern = str(win_path.as_posix())
                 logger.debug(f"Windows pattern converted from {win_path} to {pattern}")
 
-            for search_pattern in self.parent_patterns(pattern):
-                for file in glob.iglob(search_pattern, flags=self.search_pattern_flags):
-                    logger.debug(f"Found candidate: {file}")
-                    file_path = Path(file).resolve()
+            for root_dir, file_pattern in self.parent_patterns(pattern):
+                for file in glob.iglob(
+                    file_pattern,
+                    root_dir=root_dir,
+                    flags=self.search_pattern_flags,
+                ):
+                    base = Path(root_dir) if root_dir else Path()
+                    file_path = (base / file).resolve()
+                    logger.debug(f"Found candidate: {file_path}")
                     if not file_path.is_file():
                         logger.debug(f"Skipping non-file {file_path}")
                         continue
@@ -620,6 +914,9 @@ class ConfigOption(ExtraOption, ParamStructure):
                         conf = self.load_ini_config(content)
                     case ConfigFormat.XML:
                         conf = xmltodict.parse(content)
+                    case ConfigFormat.PYPROJECT_TOML:
+                        full_conf = tomllib.loads(content)
+                        conf = full_conf.get("tool", {})
 
             except Exception as ex:
                 logger.debug(f"{fmt} parsing failed: {ex}")
@@ -673,6 +970,16 @@ class ConfigOption(ExtraOption, ParamStructure):
                 if fnmatch.fnmatch(filename, patterns, flags=self.file_pattern_flags)
             )
 
+            # PYPROJECT_TOML is a specialization of TOML that unwraps [tool].
+            # When both match, drop generic TOML so [tool] unwrapping takes effect.
+            if (
+                ConfigFormat.PYPROJECT_TOML in matching_formats
+                and ConfigFormat.TOML in matching_formats
+            ):
+                matching_formats = tuple(
+                    f for f in matching_formats if f is not ConfigFormat.TOML
+                )
+
             if not matching_formats:
                 logger.debug(f"{location} does not match {self.file_pattern}.")
                 continue
@@ -706,8 +1013,8 @@ class ConfigOption(ExtraOption, ParamStructure):
             for option_id in ini_config.options(section_id):
                 # Fetch the expected type of the CLI parameter.
                 try:
-                    target_types = self.get_tree_value(
-                        self.params_types, section_id, option_id
+                    target_params = self.get_tree_value(
+                        self.params_objects, section_id, option_id
                     )
                 # The item in the INI config file does not correspond to any existing
                 # parameter in the CLI structure.
@@ -718,9 +1025,10 @@ class ConfigOption(ExtraOption, ParamStructure):
                 else:
                     # Because one variable name can be shared by multiple options, we
                     # need to fetch all of those we detected in the CLI structure.
-                    assert isinstance(target_types, list)
+                    assert isinstance(target_params, list)
                     # We deduplicate them to simplify the next steps. If we are lucky,
                     # all options sharing the same name also share the same type.
+                    target_types = [self.get_param_type(p) for p in target_params]
                     dedup_types = set(target_types)
 
                     # XXX This case is tricky and not even covered in Click unittests.
@@ -772,17 +1080,24 @@ class ConfigOption(ExtraOption, ParamStructure):
         Merge the user configuration into the pre-computed template structure, which
         will filter out all unrecognized options not supported by the command. Then
         cleans up blank values and update the context's ``default_map``.
+
+        Uses a `~collections.ChainMap` so each config source keeps its own layer.
+        The first layer wins on key lookup, which makes parameter-source precedence
+        explicit and future-proofs for multi-file config loading.
         """
-        filtered_conf = _recursive_update(self.params_template, user_conf, self.strict)
+        filtered_conf = _recursive_update(
+            self.params_template, _strip_reserved_keys(user_conf), self.strict
+        )
 
         # Clean-up the conf by removing all blank values left-over by the template
         # structure.
         clean_conf = _remove_blanks(filtered_conf, remove_str=False)
 
-        # Update the default_map.
-        if ctx.default_map is None:
-            ctx.default_map = {}
-        ctx.default_map.update(clean_conf.get(ctx.find_root().command.name, {}))
+        # Layer the config values on top of any existing default_map via ChainMap.
+        # Click only calls .get() on default_map, which ChainMap supports with
+        # first-match-wins semantics.
+        local_conf = clean_conf.get(ctx.find_root().command.name, {})
+        ctx.default_map = ChainMap(local_conf, ctx.default_map or {})
 
     def load_conf(
         self,
@@ -833,6 +1148,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         if isinstance(path_pattern, Path):
             # Normalize the path without checking for its existence.
             path_pattern = str(path_pattern.resolve(strict=False))
+        # NO_CONFIG was handled above with an early return. Help mypy see that.
+        assert isinstance(path_pattern, str)
         message = f"Load configuration matching {path_pattern}"
         if explicit_conf:
             info_msg(message)
@@ -859,9 +1176,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         # couldn't be parsed, so we can just log it and continue.
         else:
             if user_conf is None:
+                formats = list(map(str, self.file_format_patterns))
                 message = (
-                    "Error parsing file as "
-                    f"{', '.join(map(str, self.file_format_patterns))}."
+                    f"Error parsing file as {', '.join(formats[:-1])} or {formats[-1]}."
                 )
                 if explicit_conf:
                     logger.critical(message)
@@ -939,3 +1256,81 @@ class NoConfigOption(ExtraOption):
                 f"{'/'.join(param.opts)} {self.__class__.__name__} must be used "
                 f"alongside {ConfigOption.__name__}."
             )
+
+
+class ValidateConfigOption(ExtraOption):
+    """A pre-configured option adding ``--validate-config CONFIG_PATH``.
+
+    Loads the config file at the given path, validates it against the CLI's
+    parameter structure in strict mode, reports results, and exits.
+    """
+
+    def __init__(
+        self,
+        param_decls=None,
+        type=ClickPath(exists=True, dir_okay=False, resolve_path=True),
+        is_eager=True,
+        expose_value=False,
+        help=_("Validate the configuration file and exit."),
+        **kwargs,
+    ):
+        if not param_decls:
+            param_decls = ("--validate-config",)
+
+        kwargs.setdefault("callback", self.validate_config)
+
+        super().__init__(
+            param_decls=param_decls,
+            type=type,
+            is_eager=is_eager,
+            expose_value=expose_value,
+            help=help,
+            **kwargs,
+        )
+
+    def validate_config(self, ctx, param, value):
+        """Load, parse, and validate the configuration file, then exit."""
+        if not value:
+            return
+
+        info_msg = partial(echo, err=True)
+
+        # Find the sibling ConfigOption to reuse its parsing machinery.
+        config_option = search_params(ctx.command.params, ConfigOption)
+        if config_option is None:
+            raise RuntimeError(
+                f"{'/'.join(param.opts)} {self.__class__.__name__} must be "
+                f"used alongside {ConfigOption.__name__}."
+            )
+
+        # Read and parse the config file.
+        try:
+            conf_path, user_conf = config_option.read_and_parse_conf(value)
+        except FileNotFoundError:
+            info_msg(f"Configuration file not found: {value}")
+            ctx.exit(2)
+            return
+
+        if user_conf is None:
+            formats = list(map(str, config_option.file_format_patterns))
+            info_msg(
+                f"Error parsing {value} as {', '.join(formats[:-1])} or {formats[-1]}."
+            )
+            ctx.exit(2)
+            return
+
+        # Validate in strict mode — _recursive_update raises ValueError
+        # on unrecognized keys.
+        try:
+            _recursive_update(
+                config_option.params_template,
+                _strip_reserved_keys(user_conf),
+                strict=True,
+            )
+        except ValueError as exc:
+            info_msg(f"Configuration validation error: {exc}")
+            ctx.exit(1)
+            return
+
+        info_msg(f"Configuration file {value} is valid.")
+        ctx.exit(0)

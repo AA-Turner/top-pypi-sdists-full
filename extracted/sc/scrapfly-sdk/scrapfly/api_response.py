@@ -3,7 +3,7 @@ import binascii
 import hashlib
 import hmac
 import re
-import logging as logger
+import logging
 import shutil
 
 from base64 import b64decode
@@ -35,7 +35,7 @@ from .errors import ErrorFactory, ScreenshotAPIError, ExtractionAPIError, Encode
     ExtraUsageForbidden, WebhookSignatureMissMatch, ContentError
 from .frozen_dict import FrozenDict
 
-logger.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -55,7 +55,7 @@ def _date_parser(value):
                     value[k] = v
             else:
                 value[k] = v
-        elif isinstance(v, Iterable):
+        elif isinstance(v, (Dict, list)):
             value[k] = _date_parser(v)
         else:
             value[k] = v
@@ -87,8 +87,9 @@ class ResponseBodyHandler:
                 pass
 
         try:
-            import zstd
-            self.SUPPORTED_COMPRESSION.append('zstd')
+            from urllib3.response import HAS_ZSTD
+            if HAS_ZSTD and 'zstd' not in self.SUPPORTED_COMPRESSION:
+                self.SUPPORTED_COMPRESSION.append('zstd')
         except ImportError:
             pass
 
@@ -141,8 +142,12 @@ class ResponseBodyHandler:
             import brotli
             content = brotli.decompress(content)
         elif content_encoding == 'zstd':
-            import zstd
-            content = zstd.decompress(content)
+            try:
+                from compression import zstd as _zstd  # Python 3.14+
+                content = _zstd.decompress(content)
+            except ImportError:
+                import zstandard
+                content = zstandard.decompress(content)
 
         if self._signing_secret is not None and signature is not None:
             if not self.verify(content, signature):
@@ -312,7 +317,7 @@ class ScrapeApiResponse(ApiResponse):
                 'result': {
                     'request_headers': {},
                     'status': 'DONE',
-                    'success': 200 >= self.response.status_code < 300,
+                    'success': 200 <= self.response.status_code < 300,
                     'response_headers': self.response.headers,
                     'status_code': self.response.status_code,
                     'reason': self.response.reason,
@@ -380,7 +385,7 @@ class ScrapeApiResponse(ApiResponse):
         """
             Success means Scrapfly api reply correctly to the call, but the scrape can be unsuccessful if the upstream reply with error status code
         """
-        return 200 >= self.response.status_code <= 299
+        return 200 <= self.response.status_code <= 299
 
     @property
     def scrape_success(self) -> bool:
@@ -397,7 +402,7 @@ class ScrapeApiResponse(ApiResponse):
             return None
 
         if self.scrape_success is False:
-            return self.scrape_result['error']
+            return self.scrape_result.get('error')
 
     @property
     def upstream_status_code(self) -> Optional[int]:

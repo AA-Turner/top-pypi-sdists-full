@@ -22,7 +22,7 @@ import logging
 import re
 import subprocess
 from contextlib import nullcontext
-from functools import partial
+from functools import cached_property, partial
 from textwrap import indent
 from unittest.mock import patch
 
@@ -150,18 +150,34 @@ We need to collect them to help us identify which extra parameters passed to
 """
 
 
+class ExtraResult(click.testing.Result):
+    """A ``Result`` subclass with automatic traceback formatting.
+
+    Enhances ``__repr__`` so that pytest assertion failures show the full
+    traceback instead of just the exception type.
+    """
+
+    @cached_property
+    def formatted_exception(self) -> str | None:
+        """Full formatted traceback, or ``None`` if no exception occurred."""
+        if self.exception is None:
+            return None
+        if self.exc_info:
+            return ExceptionInfo.from_exc_info(*self.exc_info).get_formatted()
+        return f"Exception occurred: {self.exception}"
+
+    def __repr__(self) -> str:
+        if self.formatted_exception:
+            return f"<{type(self).__name__}\n{self.formatted_exception}>"
+        exc_str = repr(self.exception) if self.exception else "okay"
+        return f"<{type(self).__name__} {exc_str}>"
+
+
 class ExtraCliRunner(click.testing.CliRunner):
     """Augment :class:`click.testing.CliRunner` with extra features and bug fixes."""
 
     force_color: bool = False
-    """Global class attribute to override the ``color`` parameter in ``invoke``.
-
-    .. note::
-        This was initially developed to force the initialization of the runner during
-        the setup of Sphinx new directives (:func:`click_extra.sphinx.setup`). This
-        was the only way we found, as to patch some code we had to operate at the class
-        level.
-    """
+    """Global class attribute to override the ``color`` parameter in ``invoke``."""
 
     def invoke(  # type: ignore[override]
         self,
@@ -172,7 +188,7 @@ class ExtraCliRunner(click.testing.CliRunner):
         catch_exceptions: bool = True,
         color: bool | Literal["forced"] | None = None,
         **extra: Any,
-    ) -> click.testing.Result:
+    ) -> ExtraResult:
         """Same as ``click.testing.CliRunner.invoke()`` with extra features.
 
         - The first positional parameter is the CLI to invoke. The remaining positional
@@ -220,8 +236,8 @@ class ExtraCliRunner(click.testing.CliRunner):
             extra = {}
 
         # Pop out the ``args`` parameter from ``extra`` and append it to the positional
-        # arguments. This situation append when the ``args`` parameter is passed as a
-        # keyword argument in ``click_extra.sphinx.ClickRunner.invoke()``.
+        # arguments. This handles the case where ``args`` is passed as a keyword
+        # argument, as in vanilla Click's ``CliRunner.invoke()`` API.
         cli_args = list(args)
         if "args" in extra:
             cli_args.extend(extra.pop("args"))
@@ -273,26 +289,26 @@ class ExtraCliRunner(click.testing.CliRunner):
                 **extra,
             )
 
+        # Upgrade the result to our subclass for automatic traceback formatting.
+        result.__class__ = ExtraResult
+        extra_result: ExtraResult = result  # type: ignore[assignment]
+
         # ``color`` has been explicitly set to ``False``, so strip all ANSI codes.
         if color is False:
-            result.stdout_bytes = strip_ansi(result.stdout_bytes)  # type: ignore[assignment,arg-type]
-            result.stderr_bytes = strip_ansi(result.stderr_bytes)  # type: ignore[assignment,arg-type]
-            result.output_bytes = strip_ansi(result.output_bytes)  # type: ignore[assignment,arg-type]
+            extra_result.stdout_bytes = strip_ansi(extra_result.stdout_bytes)  # type: ignore[assignment,arg-type]
+            extra_result.stderr_bytes = strip_ansi(extra_result.stderr_bytes)  # type: ignore[assignment,arg-type]
+            extra_result.output_bytes = strip_ansi(extra_result.output_bytes)  # type: ignore[assignment,arg-type]
 
         print_cli_run(
             [self.get_default_prog_name(cli), *clean_args],
-            result,
+            extra_result,
             env=env,
         )
 
-        if result.exception:
-            if result.exc_info:
-                msg = ExceptionInfo.from_exc_info(*result.exc_info).get_formatted()
-            else:
-                msg = f"Exception occurred: {result.exception}"
-            print(msg)
+        if extra_result.formatted_exception:
+            print(extra_result.formatted_exception)
 
-        return result
+        return extra_result
 
 
 def unescape_regex(text: str) -> str:

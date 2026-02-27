@@ -59,6 +59,8 @@ class AMITypes(StrEnum):
     WINDOWS_FULL_2019_x86_64 = "WINDOWS_FULL_2019_x86_64"
     WINDOWS_CORE_2022_x86_64 = "WINDOWS_CORE_2022_x86_64"
     WINDOWS_FULL_2022_x86_64 = "WINDOWS_FULL_2022_x86_64"
+    WINDOWS_CORE_2025_x86_64 = "WINDOWS_CORE_2025_x86_64"
+    WINDOWS_FULL_2025_x86_64 = "WINDOWS_FULL_2025_x86_64"
     AL2023_x86_64_STANDARD = "AL2023_x86_64_STANDARD"
     AL2023_ARM_64_STANDARD = "AL2023_ARM_64_STANDARD"
     AL2023_x86_64_NEURON = "AL2023_x86_64_NEURON"
@@ -426,6 +428,7 @@ class UpdateType(StrEnum):
     RemoteNetworkConfigUpdate = "RemoteNetworkConfigUpdate"
     DeletionProtectionUpdate = "DeletionProtectionUpdate"
     ControlPlaneScalingConfigUpdate = "ControlPlaneScalingConfigUpdate"
+    VendedLogsUpdate = "VendedLogsUpdate"
 
 
 class VersionStatus(StrEnum):
@@ -1919,6 +1922,7 @@ class CreatePodIdentityAssociationRequest(ServiceRequest):
     tags: TagMap | None
     disableSessionTags: BoxedBoolean | None
     targetRoleArn: String | None
+    policy: String | None
 
 
 class PodIdentityAssociation(TypedDict, total=False):
@@ -1940,6 +1944,7 @@ class PodIdentityAssociation(TypedDict, total=False):
     disableSessionTags: BoxedBoolean | None
     targetRoleArn: String | None
     externalId: String | None
+    policy: String | None
 
 
 class CreatePodIdentityAssociationResponse(TypedDict, total=False):
@@ -2725,6 +2730,7 @@ class UpdatePodIdentityAssociationRequest(ServiceRequest):
     clientRequestToken: String | None
     disableSessionTags: BoxedBoolean | None
     targetRoleArn: String | None
+    policy: String | None
 
 
 class UpdatePodIdentityAssociationResponse(TypedDict, total=False):
@@ -3003,10 +3009,11 @@ class EksApi:
         its own set of Amazon EC2 instances.
 
         The cluster control plane is provisioned across multiple Availability
-        Zones and fronted by an ELB Network Load Balancer. Amazon EKS also
-        provisions elastic network interfaces in your VPC subnets to provide
-        connectivity from the control plane instances to the nodes (for example,
-        to support ``kubectl exec``, ``logs``, and ``proxy`` data flows).
+        Zones and fronted by an Elastic Load Balancing Network Load Balancer.
+        Amazon EKS also provisions elastic network interfaces in your VPC
+        subnets to provide connectivity from the control plane instances to the
+        nodes (for example, to support ``kubectl exec``, ``logs``, and ``proxy``
+        data flows).
 
         Amazon EKS nodes run in your Amazon Web Services account and connect to
         your cluster's control plane over the Kubernetes API server endpoint and
@@ -3286,6 +3293,7 @@ class EksApi:
         tags: TagMap | None = None,
         disable_session_tags: BoxedBoolean | None = None,
         target_role_arn: String | None = None,
+        policy: String | None = None,
         **kwargs,
     ) -> CreatePodIdentityAssociationResponse:
         """Creates an EKS Pod Identity association between a service account in an
@@ -3339,6 +3347,9 @@ class EksApi:
         Identity.
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
         the service account.
+        :param policy: An optional IAM policy in JSON format (as an escaped string) that
+        applies additional restrictions to this pod identity association beyond
+        the IAM policies attached to the IAM role.
         :returns: CreatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:
@@ -3428,11 +3439,12 @@ class EksApi:
     ) -> DeleteClusterResponse:
         """Deletes an Amazon EKS cluster control plane.
 
-        If you have active services in your cluster that are associated with a
-        load balancer, you must delete those services before deleting the
-        cluster so that the load balancers are deleted properly. Otherwise, you
-        can have orphaned resources in your VPC that prevent you from being able
-        to delete the VPC. For more information, see `Deleting a
+        If you have active services and ingress resources in your cluster that
+        are associated with a load balancer, you must delete those services
+        before deleting the cluster so that the load balancers are deleted
+        properly. Otherwise, you can have orphaned resources in your VPC that
+        prevent you from being able to delete the VPC. For more information, see
+        `Deleting a
         cluster <https://docs.aws.amazon.com/eks/latest/userguide/delete-cluster.html>`__
         in the *Amazon EKS User Guide*.
 
@@ -4778,6 +4790,7 @@ class EksApi:
         client_request_token: String | None = None,
         disable_session_tags: BoxedBoolean | None = None,
         target_role_arn: String | None = None,
+        policy: String | None = None,
         **kwargs,
     ) -> UpdatePodIdentityAssociationResponse:
         """Updates a EKS Pod Identity association. In an update, you can change the
@@ -4814,6 +4827,9 @@ class EksApi:
         Identity.
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with
         the service account.
+        :param policy: An optional IAM policy in JSON format (as an escaped string) that
+        applies additional restrictions to this pod identity association beyond
+        the IAM policies attached to the IAM role.
         :returns: UpdatePodIdentityAssociationResponse
         :raises ServerException:
         :raises ResourceNotFoundException:

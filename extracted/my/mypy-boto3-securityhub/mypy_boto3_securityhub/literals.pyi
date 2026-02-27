@@ -3,7 +3,7 @@ Type annotations for securityhub service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -194,6 +194,7 @@ GroupByFieldType = Literal[
     "finding_info.types",
     "metadata.product.name",
     "metadata.product.uid",
+    "metadata.product.vendor_name",
     "resources.type",
     "resources.uid",
     "severity",
@@ -208,6 +209,7 @@ IntegrationTypeType = Literal[
     "UPDATE_FINDINGS_IN_SECURITY_HUB",
 ]
 IntegrationV2TypeType = Literal[
+    "EXTENDED_PLAN",
     "RECEIVE_FINDINGS_FROM_SECURITY_HUB",
     "SEND_FINDINGS_TO_SECURITY_HUB",
     "UPDATE_FINDINGS_IN_SECURITY_HUB",
@@ -585,16 +587,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -634,7 +635,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -809,6 +809,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -850,6 +851,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

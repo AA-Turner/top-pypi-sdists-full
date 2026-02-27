@@ -18,6 +18,8 @@ CertificateId = str
 ConnectorErrorMessage = str
 ConnectorId = str
 ConnectorSecurityPolicyName = str
+CustomHttpHeaderKeyType = str
+CustomHttpHeaderValueType = str
 CustomStepTarget = str
 CustomStepTimeoutSeconds = int
 DeleteId = str
@@ -233,6 +235,7 @@ class MapType(StrEnum):
 class MdnResponse(StrEnum):
     SYNC = "SYNC"
     NONE = "NONE"
+    ASYNC = "ASYNC"
 
 
 class MdnSigningAlg(StrEnum):
@@ -430,6 +433,18 @@ class ThrottlingException(ServiceException):
 
 
 AddressAllocationIds = list[AddressAllocationId]
+As2AsyncMdnServerIds = list[ServerId]
+
+
+class As2AsyncMdnConnectorConfig(TypedDict, total=False):
+    """Contains the configuration details for asynchronous Message Disposition
+    Notification (MDN) responses in AS2 connectors. This configuration
+    specifies where asynchronous MDN responses should be sent and which
+    servers should handle them.
+    """
+
+    Url: Url | None
+    ServerIds: As2AsyncMdnServerIds | None
 
 
 class As2ConnectorConfig(TypedDict, total=False):
@@ -448,6 +463,7 @@ class As2ConnectorConfig(TypedDict, total=False):
     MdnResponse: MdnResponse | None
     BasicAuthSecretId: As2ConnectorSecretId | None
     PreserveContentType: PreserveContentType | None
+    AsyncMdnConfig: As2AsyncMdnConnectorConfig | None
 
 
 As2Transports = list[As2Transport]
@@ -947,6 +963,16 @@ class CreateWorkflowResponse(TypedDict, total=False):
     WorkflowId: WorkflowId
 
 
+class CustomHttpHeader(TypedDict, total=False):
+    """Represents a custom HTTP header that can be included in AS2 messages.
+    Each header consists of a key-value pair.
+    """
+
+    Key: CustomHttpHeaderKeyType | None
+    Value: CustomHttpHeaderValueType | None
+
+
+CustomHttpHeaders = list[CustomHttpHeader]
 DateImported = datetime
 
 
@@ -1873,6 +1899,7 @@ class StartFileTransferRequest(ServiceRequest):
     RetrieveFilePaths: FilePaths | None
     LocalDirectoryPath: FilePath | None
     RemoteDirectoryPath: FilePath | None
+    CustomHttpHeaders: CustomHttpHeaders | None
 
 
 class StartFileTransferResponse(TypedDict, total=False):
@@ -3557,6 +3584,7 @@ class TransferApi:
         retrieve_file_paths: FilePaths | None = None,
         local_directory_path: FilePath | None = None,
         remote_directory_path: FilePath | None = None,
+        custom_http_headers: CustomHttpHeaders | None = None,
         **kwargs,
     ) -> StartFileTransferResponse:
         """Begins a file transfer between local Amazon Web Services storage and a
@@ -3588,6 +3616,8 @@ class TransferApi:
         :param remote_directory_path: For an outbound transfer, the ``RemoteDirectoryPath`` specifies the
         destination for one or more files that are transferred to the partner's
         SFTP server.
+        :param custom_http_headers: An array of key-value pairs that represent custom HTTP headers to
+        include in AS2 messages.
         :returns: StartFileTransferResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:

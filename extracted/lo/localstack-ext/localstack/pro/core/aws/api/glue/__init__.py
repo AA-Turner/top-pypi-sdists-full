@@ -48,6 +48,7 @@ ConfigValueString = str
 ConnectionName = str
 ConnectionSchemaVersion = int
 ConnectionString = str
+ConnectorPropertyKey = str
 ContextKey = str
 ContextValue = str
 ContinuousSync = bool
@@ -69,6 +70,7 @@ DataQualityRulesetString = str
 DatabaseName = str
 DatabrewCondition = str
 DatabrewConditionValue = str
+DefaultValue = str
 Description = str
 DescriptionString = str
 DescriptionStringRemovable = str
@@ -79,6 +81,7 @@ EnclosedInStringProperty = str
 EnclosedInStringPropertyWithQuote = str
 EncryptedKeyMetadataString = str
 EncryptionKeyIdString = str
+EntityConfigurationMapKeyString = str
 EntityDescription = str
 EntityFieldName = str
 EntityLabel = str
@@ -90,6 +93,7 @@ EventQueueArn = str
 ExecutionTime = int
 ExtendedString = str
 FederationIdentifier = str
+FieldDefinitionMapKeyString = str
 FieldDescription = str
 FieldLabel = str
 FieldType = str
@@ -122,6 +126,7 @@ IsParentEntity = bool
 IsVersionValid = bool
 JobName = str
 JsonPath = str
+JsonPathString = str
 JsonValue = str
 JwtToken = str
 KeyString = str
@@ -178,6 +183,7 @@ ParameterValue = str
 ParametersMapValue = str
 Password = str
 Path = str
+PathString = str
 PolicyJsonString = str
 PositiveInteger = int
 PreProcessingQueryString = str
@@ -544,6 +550,17 @@ class ConnectionType(StrEnum):
     VERTICA = "VERTICA"
 
 
+class ConnectorOAuth2GrantType(StrEnum):
+    CLIENT_CREDENTIALS = "CLIENT_CREDENTIALS"
+    JWT_BEARER = "JWT_BEARER"
+    AUTHORIZATION_CODE = "AUTHORIZATION_CODE"
+
+
+class ContentType(StrEnum):
+    APPLICATION_JSON = "APPLICATION_JSON"
+    URL_ENCODED = "URL_ENCODED"
+
+
 class CrawlState(StrEnum):
     RUNNING = "RUNNING"
     CANCELLING = "CANCELLING"
@@ -698,6 +715,8 @@ class FieldDataType(StrEnum):
     SHORT = "SHORT"
     DOUBLE = "DOUBLE"
     STRUCT = "STRUCT"
+    BINARY = "BINARY"
+    UNION = "UNION"
 
 
 class FieldFilterOperator(StrEnum):
@@ -768,6 +787,11 @@ class GlueRecordType(StrEnum):
     DOUBLE = "DOUBLE"
 
 
+class HTTPMethod(StrEnum):
+    GET = "GET"
+    POST = "POST"
+
+
 class HudiTargetCompressionType(StrEnum):
     gzip = "gzip"
     lzo = "lzo"
@@ -827,6 +851,10 @@ class IntegrationStatus(StrEnum):
     DELETING = "DELETING"
     SYNCING = "SYNCING"
     NEEDS_ATTENTION = "NEEDS_ATTENTION"
+
+
+class IntegrationType(StrEnum):
+    REST = "REST"
 
 
 class JDBCConnectionType(StrEnum):
@@ -1036,6 +1064,13 @@ class PrincipalType(StrEnum):
     USER = "USER"
     ROLE = "ROLE"
     GROUP = "GROUP"
+
+
+class PropertyLocation(StrEnum):
+    HEADER = "HEADER"
+    BODY = "BODY"
+    QUERY_PARAM = "QUERY_PARAM"
+    PATH = "PATH"
 
 
 class PropertyType(StrEnum):
@@ -1971,6 +2006,8 @@ class Property(TypedDict, total=False):
     PropertyTypes: PropertyTypes
     AllowedValues: AllowedValues | None
     DataOperationScopes: DataOperations | None
+    KeyOverride: String | None
+    PropertyLocation: PropertyLocation | None
 
 
 PropertiesMap = dict[PropertyName, Property]
@@ -2127,6 +2164,30 @@ class BackfillError(TypedDict, total=False):
 
 
 BackfillErrors = list[BackfillError]
+ListOfString = list[String]
+
+
+class ConnectorProperty(TypedDict, total=False):
+    """Defines a property configuration for connection types, default values,
+    and where the property should be used in requests.
+    """
+
+    Name: PropertyName
+    KeyOverride: ConnectorPropertyKey | None
+    Required: Bool
+    DefaultValue: String | None
+    AllowedValues: ListOfString | None
+    PropertyLocation: PropertyLocation | None
+    PropertyType: PropertyType
+
+
+class BasicAuthenticationProperties(TypedDict, total=False):
+    """Basic authentication configuration that defines the username and
+    password properties for HTTP Basic authentication.
+    """
+
+    Username: ConnectorProperty | None
+    Password: ConnectorProperty | None
 
 
 class BasicCatalogTarget(TypedDict, total=False):
@@ -5167,6 +5228,21 @@ class Classifier(TypedDict, total=False):
 
 
 ClassifierList = list[Classifier]
+ConnectorPropertyList = list[ConnectorProperty]
+
+
+class ClientCredentialsProperties(TypedDict, total=False):
+    """OAuth2 client credentials configuration that defines the properties
+    needed for the Client Credentials grant type flow.
+    """
+
+    TokenUrl: ConnectorProperty | None
+    RequestMethod: HTTPMethod | None
+    ContentType: ContentType | None
+    ClientId: ConnectorProperty | None
+    ClientSecret: ConnectorProperty | None
+    Scope: ConnectorProperty | None
+    TokenUrlParameters: ConnectorPropertyList | None
 
 
 class CloudWatchEncryption(TypedDict, total=False):
@@ -5390,7 +5466,6 @@ class ColumnStatisticsTaskSettings(TypedDict, total=False):
     LastExecutionAttempt: ExecutionAttempt | None
 
 
-ListOfString = list[String]
 PropertyNameOverrides = dict[PropertyName, PropertyName]
 
 
@@ -5524,10 +5599,19 @@ class ConnectionPasswordEncryption(TypedDict, total=False):
     AwsKmsKeyId: NameString | None
 
 
+class ConnectionPropertiesConfiguration(TypedDict, total=False):
+    """Configuration that defines the base URL and additional request
+    parameters needed during connection creation.
+    """
+
+    Url: ConnectorProperty | None
+    AdditionalRequestParameters: ConnectorPropertyList | None
+
+
 class ConnectionTypeVariant(TypedDict, total=False):
-    """Represents a variant of a connection type in Glue Data Catalog.
-    Connection type variants provide specific configurations and behaviors
-    for different implementations of the same general connection type.
+    """Represents a variant of a connection type in Glue. Connection type
+    variants provide specific configurations and behaviors for different
+    implementations of the same general connection type.
     """
 
     ConnectionTypeVariantName: DisplayName | None
@@ -5555,6 +5639,67 @@ class ConnectionTypeBrief(TypedDict, total=False):
 
 
 ConnectionTypeList = list[ConnectionTypeBrief]
+
+
+class CustomAuthenticationProperties(TypedDict, total=False):
+    """Custom authentication configuration that allows for flexible
+    authentication mechanisms beyond standard Basic and OAuth2 flows.
+    """
+
+    AuthenticationParameters: ConnectorPropertyList
+
+
+class ConnectorAuthorizationCodeProperties(TypedDict, total=False):
+    """OAuth2 authorization code configuration that defines the properties
+    needed for the Authorization Code grant type flow.
+    """
+
+    AuthorizationCodeUrl: ConnectorProperty | None
+    AuthorizationCode: ConnectorProperty | None
+    RedirectUri: ConnectorProperty | None
+    TokenUrl: ConnectorProperty | None
+    RequestMethod: HTTPMethod | None
+    ContentType: ContentType | None
+    ClientId: ConnectorProperty | None
+    ClientSecret: ConnectorProperty | None
+    Scope: ConnectorProperty | None
+    Prompt: ConnectorProperty | None
+    TokenUrlParameters: ConnectorPropertyList | None
+
+
+class JWTBearerProperties(TypedDict, total=False):
+    """JWT bearer token configuration that defines the properties needed for
+    the JWT Bearer grant type flow.
+    """
+
+    TokenUrl: ConnectorProperty | None
+    RequestMethod: HTTPMethod | None
+    ContentType: ContentType | None
+    JwtToken: ConnectorProperty | None
+    TokenUrlParameters: ConnectorPropertyList | None
+
+
+class ConnectorOAuth2Properties(TypedDict, total=False):
+    """OAuth2 configuration container that defines the authentication
+    properties and flow-specific configurations for OAuth2-based
+    connections.
+    """
+
+    OAuth2GrantType: ConnectorOAuth2GrantType
+    ClientCredentialsProperties: ClientCredentialsProperties | None
+    JWTBearerProperties: JWTBearerProperties | None
+    AuthorizationCodeProperties: ConnectorAuthorizationCodeProperties | None
+
+
+class ConnectorAuthenticationConfiguration(TypedDict, total=False):
+    """Configuration that defines the supported authentication types and
+    required properties for the connection type.
+    """
+
+    AuthenticationTypes: AuthenticationTypes
+    OAuth2Properties: ConnectorOAuth2Properties | None
+    BasicAuthenticationProperties: BasicAuthenticationProperties | None
+    CustomAuthenticationProperties: CustomAuthenticationProperties | None
 
 
 class CrawlerHistory(TypedDict, total=False):
@@ -6580,6 +6725,35 @@ class CreateWorkflowResponse(TypedDict, total=False):
     Name: NameString | None
 
 
+class ResponseExtractionMapping(TypedDict, total=False):
+    """Configuration that defines how to extract values from HTTP response
+    content or headers for use in subsequent requests or parameter mapping.
+    """
+
+    ContentPath: JsonPathString | None
+    HeaderKey: ConnectorPropertyKey | None
+
+
+class ExtractedParameter(TypedDict, total=False):
+    """Parameter extraction configuration that defines how to extract and map
+    values from API responses to request parameters.
+    """
+
+    Key: ConnectorPropertyKey | None
+    DefaultValue: DefaultValue | None
+    PropertyLocation: PropertyLocation | None
+    Value: ResponseExtractionMapping | None
+
+
+class CursorConfiguration(TypedDict, total=False):
+    """Cursor-based pagination configuration that defines how to handle
+    pagination using cursor tokens or next page identifiers.
+    """
+
+    NextPage: ExtractedParameter
+    LimitParameter: ExtractedParameter | None
+
+
 CustomProperties = dict[String, String]
 
 
@@ -6784,6 +6958,14 @@ class DeleteConnectionRequest(ServiceRequest):
 
 
 class DeleteConnectionResponse(TypedDict, total=False):
+    pass
+
+
+class DeleteConnectionTypeRequest(ServiceRequest):
+    ConnectionType: NameString
+
+
+class DeleteConnectionTypeResponse(TypedDict, total=False):
     pass
 
 
@@ -7059,6 +7241,82 @@ class DescribeConnectionTypeRequest(ServiceRequest):
     ConnectionType: NameString
 
 
+class FieldDefinition(TypedDict, total=False):
+    """Defines a field in an entity schema for REST connector data sources,
+    specifying the field name and data type.
+    """
+
+    Name: String
+    FieldDataType: FieldDataType
+
+
+FieldDefinitionMap = dict[FieldDefinitionMapKeyString, FieldDefinition]
+
+
+class OffsetConfiguration(TypedDict, total=False):
+    """Offset-based pagination configuration that defines how to handle
+    pagination using numeric offsets and limits.
+    """
+
+    OffsetParameter: ExtractedParameter
+    LimitParameter: ExtractedParameter
+
+
+class PaginationConfiguration(TypedDict, total=False):
+    """Configuration that defines how to handle paginated responses from REST
+    APIs, supporting different pagination strategies used by various
+    services.
+    """
+
+    CursorConfiguration: CursorConfiguration | None
+    OffsetConfiguration: OffsetConfiguration | None
+
+
+class ResponseConfiguration(TypedDict, total=False):
+    """Configuration that defines how to parse JSON responses from REST API
+    calls, including paths to result data and error information.
+    """
+
+    ResultPath: JsonPathString
+    ErrorPath: JsonPathString | None
+
+
+class SourceConfiguration(TypedDict, total=False):
+    """Configuration that defines how to make requests to endpoints, including
+    request methods, paths, parameters, and response handling.
+    """
+
+    RequestMethod: HTTPMethod | None
+    RequestPath: PathString | None
+    RequestParameters: ConnectorPropertyList | None
+    ResponseConfiguration: ResponseConfiguration | None
+    PaginationConfiguration: PaginationConfiguration | None
+
+
+class EntityConfiguration(TypedDict, total=False):
+    """Configuration that defines how to interact with a specific data entity
+    through the REST API, including its access patterns and schema
+    definition.
+    """
+
+    SourceConfiguration: SourceConfiguration | None
+    Schema: FieldDefinitionMap | None
+
+
+EntityConfigurationMap = dict[EntityConfigurationMapKeyString, EntityConfiguration]
+
+
+class RestConfiguration(TypedDict, total=False):
+    """Configuration that defines HTTP request and response handling,
+    validation endpoints, and entity configurations for REST API
+    interactions.
+    """
+
+    GlobalSourceConfiguration: SourceConfiguration | None
+    ValidationEndpointConfiguration: SourceConfiguration | None
+    EntityConfigurations: EntityConfigurationMap | None
+
+
 class DescribeConnectionTypeResponse(TypedDict, total=False):
     ConnectionType: NameString | None
     Description: Description | None
@@ -7071,6 +7329,7 @@ class DescribeConnectionTypeResponse(TypedDict, total=False):
     AthenaConnectionProperties: PropertiesMap | None
     PythonConnectionProperties: PropertiesMap | None
     SparkConnectionProperties: PropertiesMap | None
+    RestConfiguration: RestConfiguration | None
 
 
 class DescribeEntityRequest(ServiceRequest):
@@ -9387,6 +9646,24 @@ class QuerySchemaVersionMetadataResponse(TypedDict, total=False):
     MetadataInfoMap: MetadataInfoMap | None
     SchemaVersionId: SchemaVersionIdString | None
     NextToken: SchemaRegistryTokenString | None
+
+
+class RegisterConnectionTypeRequest(ServiceRequest):
+    ConnectionType: NameString
+    IntegrationType: IntegrationType
+    Description: Description | None
+    ConnectionProperties: ConnectionPropertiesConfiguration
+    ConnectorAuthenticationConfiguration: ConnectorAuthenticationConfiguration
+    RestConfiguration: RestConfiguration
+    Tags: TagsMap | None
+
+
+class RegisterConnectionTypeResponse(TypedDict, total=False):
+    """Contains the Amazon Resource Name (ARN) of the newly registered
+    connection type.
+    """
+
+    ConnectionTypeArn: GlueResourceArn | None
 
 
 class RegisterSchemaVersionInput(ServiceRequest):
@@ -11897,6 +12174,28 @@ class GlueApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteConnectionType")
+    def delete_connection_type(
+        self, context: RequestContext, connection_type: NameString, **kwargs
+    ) -> DeleteConnectionTypeResponse:
+        """Deletes a custom connection type in Glue.
+
+        The connection type must exist and be registered before it can be
+        deleted. This operation supports cleanup of connection type resources
+        and helps maintain proper lifecycle management of custom connection
+        types.
+
+        :param connection_type: The name of the connection type to delete.
+        :returns: DeleteConnectionTypeResponse
+        :raises EntityNotFoundException:
+        :raises InvalidInputException:
+        :raises OperationTimeoutException:
+        :raises InternalServiceException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        """
+        raise NotImplementedError
+
     @handler("DeleteCrawler")
     def delete_crawler(
         self, context: RequestContext, name: NameString, **kwargs
@@ -12454,7 +12753,13 @@ class GlueApi:
         self, context: RequestContext, connection_type: NameString, **kwargs
     ) -> DescribeConnectionTypeResponse:
         """The ``DescribeConnectionType`` API provides full details of the
-        supported options for a given connection type in Glue.
+        supported options for a given connection type in Glue. The response
+        includes authentication configuration details that show supported
+        authentication types and properties, and RestConfiguration for custom
+        REST-based connection types registered via ``RegisterConnectionType``.
+
+        See also: ``ListConnectionTypes``, ``RegisterConnectionType``,
+        ``DeleteConnectionType``
 
         :param connection_type: The name of the connection type to be described.
         :returns: DescribeConnectionTypeResponse
@@ -14456,9 +14761,13 @@ class GlueApi:
         """The ``ListConnectionTypes`` API provides a discovery mechanism to learn
         available connection types in Glue. The response contains a list of
         connection types with high-level details of what is supported for each
-        connection type. The connection types listed are the set of supported
-        options for the ``ConnectionType`` value in the ``CreateConnection``
-        API.
+        connection type, including both built-in connection types and custom
+        connection types registered via ``RegisterConnectionType``. The
+        connection types listed are the set of supported options for the
+        ``ConnectionType`` value in the ``CreateConnection`` API.
+
+        See also: ``DescribeConnectionType``, ``RegisterConnectionType``,
+        ``DeleteConnectionType``
 
         :param max_results: The maximum number of results to return.
         :param next_token: A continuation token, if this is a continuation call.
@@ -15274,6 +15583,56 @@ class GlueApi:
         :raises InvalidInputException:
         :raises AccessDeniedException:
         :raises EntityNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("RegisterConnectionType")
+    def register_connection_type(
+        self,
+        context: RequestContext,
+        connection_type: NameString,
+        integration_type: IntegrationType,
+        connection_properties: ConnectionPropertiesConfiguration,
+        connector_authentication_configuration: ConnectorAuthenticationConfiguration,
+        rest_configuration: RestConfiguration,
+        description: Description | None = None,
+        tags: TagsMap | None = None,
+        **kwargs,
+    ) -> RegisterConnectionTypeResponse:
+        """Registers a custom connection type in Glue based on the configuration
+        provided. This operation enables customers to configure custom
+        connectors for any data source with REST-based APIs, eliminating the
+        need for building custom Lambda connectors.
+
+        The registered connection type stores details about how requests and
+        responses are interpreted by REST sources, including connection
+        properties, authentication configuration, and REST configuration with
+        entity definitions. Once registered, customers can create connections
+        using this connection type and work with them the same way as natively
+        supported Glue connectors.
+
+        Supports multiple authentication types including Basic, OAuth2 (Client
+        Credentials, JWT Bearer, Authorization Code), and Custom Auth
+        configurations.
+
+        :param connection_type: The name of the connection type.
+        :param integration_type: The integration type for the connection.
+        :param connection_properties: Defines the base URL and additional request parameters needed during
+        connection creation for this connection type.
+        :param connector_authentication_configuration: Defines the supported authentication types and required properties for
+        this connection type, including Basic, OAuth2, and Custom authentication
+        methods.
+        :param rest_configuration: Defines the HTTP request and response configuration, validation
+        endpoint, and entity configurations for REST API interactions.
+        :param description: A description of the connection type.
+        :param tags: The tags you assign to the connection type.
+        :returns: RegisterConnectionTypeResponse
+        :raises InvalidInputException:
+        :raises OperationTimeoutException:
+        :raises ResourceNumberLimitExceededException:
+        :raises InternalServiceException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
         """
         raise NotImplementedError
 

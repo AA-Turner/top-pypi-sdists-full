@@ -4,6 +4,7 @@
 import io
 import json
 import re
+from datetime import timedelta
 from json import JSONDecodeError
 
 import numpy as np
@@ -156,6 +157,103 @@ def map_pylist_cell_to_python_object(cell, type: pa.lib.DataType):
             return cell
 
 
+def _ymi_total_months_to_string(total_months: int) -> str:
+    sign = ""
+    if total_months < 0:
+        sign = "-"
+        total_months = abs(total_months)
+    years = total_months // 12
+    months = total_months % 12
+    return f"{sign}{years}-{months}"
+
+
+def _dti_total_us_to_string(total_us: int) -> str:
+    sign = ""
+    if total_us < 0:
+        sign = "-"
+        total_us = abs(total_us)
+    days = total_us // 86_400_000_000
+    remaining = total_us % 86_400_000_000
+    hours = remaining // 3_600_000_000
+    remaining %= 3_600_000_000
+    minutes = remaining // 60_000_000
+    remaining %= 60_000_000
+    seconds = remaining // 1_000_000
+    microseconds = remaining % 1_000_000
+    time_part = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    if microseconds:
+        time_part += f".{microseconds:06d}"
+    return f"{sign}{days} {time_part}"
+
+
+def _convert_interval_to_string(cell, snowpark_type):
+    """Convert Arrow-deserialized interval values to the string format
+    that Snowflake can parse when casting to interval types.
+
+    Arrow serializes intervals as:
+      - YearMonthIntervalType: int32 (total months) from Scala client
+      - DayTimeIntervalType: int64 (total microseconds) from Scala client,
+        or pa.duration[us] -> timedelta from PySpark client
+
+    Snowflake accepts these string formats for interval casting:
+      - YMI: "Y-M" (e.g. "1-2" for 1 year 2 months)
+      - DTI: "D HH:MM:SS[.ffffff]" (e.g. "1 00:00:01")
+    """
+    if cell is None:
+        return cell
+
+    if isinstance(snowpark_type, snowpark.types.YearMonthIntervalType):
+        if isinstance(cell, (int, float)):
+            return _ymi_total_months_to_string(int(cell))
+
+    elif isinstance(snowpark_type, snowpark.types.DayTimeIntervalType):
+        if isinstance(cell, (int, float)):
+            return _dti_total_us_to_string(int(cell))
+        elif isinstance(cell, timedelta):
+            return _dti_total_us_to_string(int(cell / timedelta(microseconds=1)))
+
+    return cell
+
+
+def _convert_arrow_table_intervals(
+    table: pa.Table, snowpark_schema: StructType
+) -> pa.Table:
+    """Convert interval columns in an Arrow table to string columns.
+
+    The PyArrow path passes the Arrow table directly to Snowpark's
+    create_dataframe, which writes it to a stage and reads it back.
+    Arrow duration[us] columns become numeric in Snowflake. A direct
+    CAST(numeric AS INTERVAL) fails, but CAST(varchar AS INTERVAL)
+    works. This function converts interval columns to string arrays
+    so the subsequent .cast(IntervalType()) produces a valid string→interval cast.
+    """
+    if not isinstance(snowpark_schema, StructType):
+        return table
+
+    new_columns = []
+    changed = False
+    for i, field in enumerate(snowpark_schema.fields):
+        if i >= table.num_columns:
+            break
+        if isinstance(
+            field.datatype,
+            (snowpark.types.YearMonthIntervalType, snowpark.types.DayTimeIntervalType),
+        ):
+            pylist = table.column(i).to_pylist()
+            str_values = [
+                _convert_interval_to_string(v, field.datatype) for v in pylist
+            ]
+            new_columns.append(pa.array(str_values, type=pa.string()))
+            changed = True
+        else:
+            new_columns.append(table.column(i))
+
+    if not changed:
+        return table
+
+    return pa.table(dict(zip(table.column_names, new_columns)))
+
+
 def map_pandas_cell_to_python_object(cell):
     match cell:
         case arr if isinstance(arr, np.ndarray):
@@ -294,6 +392,8 @@ def map_local_relation(
         )
 
         if use_pyarrow:
+            table = _convert_arrow_table_intervals(table, snowpark_schema)
+
             snowpark_df: snowpark.DataFrame = session.create_dataframe(
                 # Rename the columns to match the Snowpark schema before creating.
                 data=table.rename_columns([unquote_if_quoted(c) for c in new_columns]),
@@ -319,16 +419,24 @@ def map_local_relation(
                 list(row)
                 for row in zip(*(col.to_pylist() for col in table.itercolumns()))
             ]
+            schema_fields = (
+                snowpark_schema.fields
+                if isinstance(snowpark_schema, StructType)
+                else []
+            )
             data_for_snowpark = [
                 snowpark.Row(
                     **dict(
                         zip(
                             new_columns,
                             [
-                                (
+                                _convert_interval_to_string(
                                     map_pylist_cell_to_python_object(
                                         cell, table.schema.types[i]
-                                    )
+                                    ),
+                                    schema_fields[i].datatype
+                                    if i < len(schema_fields)
+                                    else None,
                                 )
                                 for i, cell in enumerate(row)
                             ],

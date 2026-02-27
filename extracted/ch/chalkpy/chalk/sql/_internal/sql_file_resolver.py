@@ -164,6 +164,7 @@ class CommentDict(BaseModel):
     type: Optional[str]
     timeout: Optional[str]
     fields: Optional[Dict[str, str]]
+    field_types: Optional[Dict[str, str]]
     unique_on: Optional[List[str]]
     partitioned_by: Optional[List[str]]
     skip_sql_validation: Optional[bool]
@@ -704,6 +705,7 @@ def get_sql_file_resolver(
                     fields_root_fqn=query_fields,
                     incremental_settings=incremental_settings,
                     params_to_root_fqn=glot_result.args,
+                    field_types=parsed.comment_dict.field_types or {},
                 ),
                 postprocessing=sql_string_result.postprocessing_expr,
             )
@@ -1758,6 +1760,7 @@ def make_sql_file_resolver(
     owner: str | None = None,
     machine_type: MachineType | None = None,
     fields: dict[str, str | FeatureReference] | None = None,
+    field_types: dict[str, str] | None = None,
     environment: Environments | None = None,
     tags: Tags | None = None,
     unique_on: Collection[FeatureReference] | None = None,
@@ -1864,6 +1867,13 @@ def make_sql_file_resolver(
         If we have a SQL query like `SELECT txn_id from transactions`,
         we can map the `txn_id` to our Chalk feature with the mapping
         `txn_id: id`.
+    field_types
+        An optional mapping from SQL column to database-specific type.
+        Used to generate CAST expressions for query parameters to ensure proper type matching.
+        For example, `field_types={"user_id": "uuid"}` will wrap parameters for the `user_id`
+        column with `CAST($1 AS uuid)` in PostgreSQL or `CAST(? AS uuid)` in MySQL.
+        This is particularly useful for database types that don't auto-cast from text,
+        such as PostgreSQL's UUID, INET, or MySQL's BINARY types.
     unique_on
         A list of features that must be unique for each row of the output.
         This enables unique optimizations in the resolver execution.
@@ -1932,6 +1942,7 @@ def make_sql_file_resolver(
         cron=cron,
         owner=owner,
         fields=None if fields is None else {k: str(v) for k, v in fields.items()},
+        field_types=None if field_types is None else {k: str(v) for k, v in field_types.items()},
         environment=(
             None if environment is None else [environment] if isinstance(environment, str) else list(environment)
         ),

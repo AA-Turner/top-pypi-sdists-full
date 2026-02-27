@@ -9,6 +9,7 @@ Boolean = bool
 EncryptionConfigurationKmsKeyArnString = str
 ErrorMessage = str
 IAMRole = str
+Integer = int
 ListNamespacesLimit = int
 ListNamespacesRequestPrefixString = str
 ListTableBucketsLimit = int
@@ -39,6 +40,16 @@ class IcebergCompactionStrategy(StrEnum):
     binpack = "binpack"
     sort = "sort"
     z_order = "z-order"
+
+
+class IcebergNullOrder(StrEnum):
+    nulls_first = "nulls-first"
+    nulls_last = "nulls-last"
+
+
+class IcebergSortDirection(StrEnum):
+    asc = "asc"
+    desc = "desc"
 
 
 class JobStatus(StrEnum):
@@ -236,7 +247,52 @@ class CreateTableBucketResponse(TypedDict, total=False):
 TableProperties = dict[String, String]
 
 
+class IcebergSortField(TypedDict, total=False):
+    """Defines a single sort field in an Iceberg sort order specification."""
+
+    sourceId: Integer
+    transform: String
+    direction: IcebergSortDirection
+    nullOrder: IcebergNullOrder
+
+
+IcebergSortFieldList = list[IcebergSortField]
+
+
+class IcebergSortOrder(TypedDict, total=False):
+    """Defines the sort order for data within an Iceberg table. Sorting data
+    can improve query performance by enabling more efficient data skipping.
+    """
+
+    orderId: Integer
+    fields: IcebergSortFieldList
+
+
+class IcebergPartitionField(TypedDict, total=False):
+    """Defines a single partition field in an Iceberg partition specification."""
+
+    sourceId: Integer
+    transform: String
+    name: String
+    fieldId: Integer | None
+
+
+IcebergPartitionFieldList = list[IcebergPartitionField]
+
+
+class IcebergPartitionSpec(TypedDict, total=False):
+    """Defines how data in an Iceberg table is partitioned. Partitioning helps
+    optimize query performance by organizing data into separate files based
+    on field values. Each partition field specifies a transform to apply to
+    a source field.
+    """
+
+    fields: IcebergPartitionFieldList
+    specId: Integer | None
+
+
 class SchemaField(TypedDict, total=False):
+    id: Integer | None
     name: String
     type: String
     required: Boolean | None
@@ -255,6 +311,8 @@ class IcebergMetadata(TypedDict, total=False):
     """Contains details about the metadata for an Iceberg table."""
 
     schema: IcebergSchema
+    partitionSpec: IcebergPartitionSpec | None
+    writeOrder: IcebergSortOrder | None
     properties: TableProperties | None
 
 

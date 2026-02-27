@@ -4,17 +4,12 @@ Helper functions for validation of dtype.
 For literal dtypes intended for use by end-users, see :mod:`numpydantic.dtype`
 """
 
-import sys
+from types import UnionType
 from typing import Any, Union, get_args, get_origin
 
 import numpy as np
 
 from numpydantic.types import DtypeType
-
-if sys.version_info >= (3, 10):
-    from types import UnionType
-else:
-    UnionType = None
 
 
 def validate_dtype(dtype: Any, target: DtypeType) -> bool:

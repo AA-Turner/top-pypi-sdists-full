@@ -30,9 +30,9 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/asset-node-proxy-agent-v6",
-    "2.1.0",
+    "2.1.1",
     __name__[0:-6],
-    "asset-node-proxy-agent-v6@2.1.0.jsii.tgz",
+    "asset-node-proxy-agent-v6@2.1.1.jsii.tgz",
 )
 
 __all__ = [

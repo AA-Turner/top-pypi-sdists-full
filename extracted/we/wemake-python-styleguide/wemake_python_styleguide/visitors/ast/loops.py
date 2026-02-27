@@ -114,6 +114,7 @@ class WrongLoopVisitor(base.BaseNodeVisitor):
         ast.Raise,
         # We only check for `try/except`, not `try/finally`:
         ast.ExceptHandler,
+        ast.Await,
     )
 
     _containers: ClassVar[_ContainerSpec] = {
@@ -171,6 +172,9 @@ class WrongLoopVisitor(base.BaseNodeVisitor):
             return
 
         if loops.has_break(node, break_nodes=self._can_break_loop):
+            return
+
+        if loops.is_in_try_except(node):
             return
 
         with suppress(ValueError):

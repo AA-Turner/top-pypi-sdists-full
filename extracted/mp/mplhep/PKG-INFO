@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mplhep
-Version: 1.1.0
+Version: 1.1.2
 Summary: Matplotlib styles for HEP
 Project-URL: Homepage, https://github.com/scikit-hep/mplhep
 Author-email: andrzejnovak <novak5andrzej@gmail.com>

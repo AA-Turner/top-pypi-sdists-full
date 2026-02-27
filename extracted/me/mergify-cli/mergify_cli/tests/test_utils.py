@@ -1,5 +1,5 @@
 #
-#  Copyright © 2021-2024 Mergify SAS
+#  Copyright © 2021-2026 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -127,7 +127,8 @@ def test_get_github_event_success(
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_file))
     name, event = utils.get_github_event()
     assert name == "pull_request"
-    assert event == event_data
+    assert event.pull_request is not None
+    assert event.pull_request.number == 123
 
 
 def test_get_github_event_not_found(monkeypatch: pytest.MonkeyPatch) -> None:

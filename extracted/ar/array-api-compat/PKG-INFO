@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: array-api-compat
-Version: 1.13.0
+Version: 1.14.0
 Summary: A wrapper around NumPy and other array libraries to make them compatible with the Array API standard
 Author: Consortium for Python Data API Standards
 License-Expression: MIT

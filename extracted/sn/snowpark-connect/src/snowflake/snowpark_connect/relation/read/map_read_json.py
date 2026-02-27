@@ -124,6 +124,41 @@ def _parse_json_snowpark_options(
     return file_format_options
 
 
+def _infer_json_schema_from_rows(
+    df: snowpark.DataFrame,
+    initial_schema: StructType,
+    rows_to_infer_schema: int,
+    drop_field_if_all_null: bool,
+) -> StructType:
+    """
+    Infer JSON schema by iterating rows from a DataFrame.
+    """
+    inferred_schema = copy.deepcopy(initial_schema)
+    columns_with_valid_contents = set()
+    string_nodes_finalized = set[str]()
+
+    schema_inference_df = (
+        df if rows_to_infer_schema == -1 else df.limit(rows_to_infer_schema)
+    )
+    for row in schema_inference_df.to_local_iterator():
+        inferred_schema = merge_row_schema(
+            inferred_schema,
+            row,
+            columns_with_valid_contents,
+            string_nodes_finalized,
+            drop_field_if_all_null,
+        )
+
+    if drop_field_if_all_null:
+        inferred_schema.fields = [
+            sf
+            for sf in inferred_schema.fields
+            if unquote_if_quoted(sf.name) in columns_with_valid_contents
+        ]
+
+    return inferred_schema
+
+
 def _get_schema_for_copy_into_json(
     session: snowpark.Session,
     schema: StructType | None,
@@ -131,7 +166,7 @@ def _get_schema_for_copy_into_json(
     snowpark_options: dict,
     raw_options: dict,
     rows_to_infer_schema: int,
-    dropFieldIfAllNull: bool,
+    drop_field_if_all_null: bool,
 ) -> StructType:
     """
     Get schema for COPY INTO operation by reading the first file.
@@ -147,7 +182,7 @@ def _get_schema_for_copy_into_json(
         snowpark_options: Snowpark options for reading.
         raw_options: Raw options from the read request.
         rows_to_infer_schema: Number of rows to use for schema inference.
-        dropFieldIfAllNull: Whether to drop fields that are all null.
+        drop_field_if_all_null: Whether to drop fields that are all null.
 
     Returns:
         StructType schema to use for COPY INTO.
@@ -162,30 +197,12 @@ def _get_schema_for_copy_into_json(
     )
     df = reader.json(first_path)
 
-    inferred_schema = copy.deepcopy(df.schema)
-    infer_row_counts = 0
-
-    columns_with_valid_contents = set()
-    string_nodes_finalized = set[str]()
-
-    for row in df.to_local_iterator():
-        infer_row_counts += 1
-        if rows_to_infer_schema != -1 and infer_row_counts > rows_to_infer_schema:
-            break
-        inferred_schema = merge_row_schema(
-            inferred_schema,
-            row,
-            columns_with_valid_contents,
-            string_nodes_finalized,
-            dropFieldIfAllNull,
-        )
-
-    if dropFieldIfAllNull:
-        inferred_schema.fields = [
-            sf
-            for sf in inferred_schema.fields
-            if unquote_if_quoted(sf.name) in columns_with_valid_contents
-        ]
+    inferred_schema = _infer_json_schema_from_rows(
+        df=df,
+        initial_schema=df.schema,
+        rows_to_infer_schema=rows_to_infer_schema,
+        drop_field_if_all_null=drop_field_if_all_null,
+    )
 
     validated_schema, _ = validate_and_update_schema(inferred_schema)
     return validated_schema
@@ -220,12 +237,14 @@ def map_read_json(
         snowpark_options["infer_schema"] = True
 
         rows_to_infer_schema = snowpark_options.pop("rowstoinferschema", 1000)
-        dropFieldIfAllNull = snowpark_options.pop("dropfieldifallnull", False)
+        drop_field_if_all_null = snowpark_options.pop("dropfieldifallnull", False)
         use_bulk = snowpark_options.pop("processinbulk", False)
         batch_size = snowpark_options.pop("batchsize", 1000)
-        process_single_bz2_file = snowpark_options.pop("bz2fileparallelloading", False)
+        parallel_load_json_file = snowpark_options.pop("jsonfileparallelloading", False)
+        compression = snowpark_options.get("compression", "auto")
         split_size_mb = snowpark_options.pop("splitsizemb", 2)
         additional_padding_mb = snowpark_options.pop("additionalpaddingmb", 2)
+        mode = snowpark_options.pop("mode", "PERMISSIVE")
 
         apply_metadata_exclusion_pattern(snowpark_options)
 
@@ -234,7 +253,7 @@ def map_read_json(
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
         result_can_be_cached = True
-        if process_single_bz2_file:
+        if parallel_load_json_file and compression in ("auto", "AUTO", "none", "NONE"):
             # TODO: SNOW-3022765 Add read partitioned files support for reading bz2 file
             df = read_single_bz2_file(
                 session,
@@ -243,7 +262,9 @@ def map_read_json(
                 additional_padding_mb,
                 schema,
                 rows_to_infer_schema,
-                dropFieldIfAllNull,
+                drop_field_if_all_null,
+                mode,
+                compression not in ("none", "NONE"),
             )
         else:
             # Determine if COPY INTO will be used (to set can_be_cached flag)
@@ -259,7 +280,7 @@ def map_read_json(
                 snowpark_options,
                 raw_options,
                 rows_to_infer_schema,
-                dropFieldIfAllNull,
+                drop_field_if_all_null,
                 use_bulk,
                 batch_size,
                 schema,
@@ -288,7 +309,9 @@ def read_single_bz2_file(
     additional_padding_mb: int,
     schema: StructType | None,
     rows_to_infer_schema: int,
-    dropFieldIfAllNull: bool,
+    drop_field_if_all_null: bool,
+    mode: str,
+    compressed: bool,
 ) -> snowpark.DataFrame:
     # Read the single bz2 file, not support metadata population for now
     stage_name, file_path = separate_stage_and_file_from_path(paths[0])
@@ -298,6 +321,8 @@ def read_single_bz2_file(
         file_path,
         split_size_mb=split_size_mb,
         additional_padding_mb=additional_padding_mb,
+        mode=mode,
+        compressed=compressed,
     )
     if len(paths) > 1:
         for p in paths[1:]:
@@ -309,35 +334,20 @@ def read_single_bz2_file(
                     file_path,
                     split_size_mb=split_size_mb,
                     additional_padding_mb=additional_padding_mb,
+                    mode=mode,
+                    compressed=compressed,
                 )
             )
     df = df.select(LINE_CONTENT)
 
     if schema is None:
         schema = StructType([StructField(LINE_CONTENT, StructType([]))])
-        infer_row_counts = 0
-
-        columns_with_valid_contents = set()
-        string_nodes_finalized = set[str]()
-
-        for row in df.to_local_iterator():
-            infer_row_counts += 1
-            if rows_to_infer_schema != -1 and infer_row_counts > rows_to_infer_schema:
-                break
-            schema = merge_row_schema(
-                schema,
-                row,
-                columns_with_valid_contents,
-                string_nodes_finalized,
-                dropFieldIfAllNull,
-            )
-
-        if dropFieldIfAllNull:
-            schema.fields = [
-                sf
-                for sf in schema.fields
-                if unquote_if_quoted(sf.name) in columns_with_valid_contents
-            ]
+        schema = _infer_json_schema_from_rows(
+            df=df,
+            initial_schema=schema,
+            rows_to_infer_schema=rows_to_infer_schema,
+            drop_field_if_all_null=drop_field_if_all_null,
+        )
 
         real_schema = StructType([])
         for sf in schema.fields[0].datatype.fields:
@@ -360,7 +370,7 @@ def read_normal_json_files(
     snowpark_options: dict,
     raw_options: dict,
     rows_to_infer_schema: int,
-    dropFieldIfAllNull: bool,
+    drop_field_if_all_null: bool,
     use_bulk: bool,
     batch_size: int,
     schema: StructType | None,
@@ -426,7 +436,7 @@ def read_normal_json_files(
                     snowpark_options=snowpark_options,
                     raw_options=raw_options,
                     rows_to_infer_schema=rows_to_infer_schema,
-                    dropFieldIfAllNull=dropFieldIfAllNull,
+                    drop_field_if_all_null=drop_field_if_all_null,
                 )
                 if len(stage_files) == 1:
                     stage_file_paths = []
@@ -447,29 +457,12 @@ def read_normal_json_files(
 
     # Original schema inference and processing path (for single file or with metadata)
     if schema is None:
-        schema = copy.deepcopy(df.schema)
-        infer_row_counts = 0
-
-        columns_with_valid_contents = set()
-        string_nodes_finalized = set[str]()
-        for row in df.to_local_iterator():
-            infer_row_counts += 1
-            if rows_to_infer_schema != -1 and infer_row_counts > rows_to_infer_schema:
-                break
-            schema = merge_row_schema(
-                schema,
-                row,
-                columns_with_valid_contents,
-                string_nodes_finalized,
-                dropFieldIfAllNull,
-            )
-
-        if dropFieldIfAllNull:
-            schema.fields = [
-                sf
-                for sf in schema.fields
-                if unquote_if_quoted(sf.name) in columns_with_valid_contents
-            ]
+        schema = _infer_json_schema_from_rows(
+            df=df,
+            initial_schema=df.schema,
+            rows_to_infer_schema=rows_to_infer_schema,
+            drop_field_if_all_null=drop_field_if_all_null,
+        )
 
     new_schema, fields_changed = validate_and_update_schema(schema)
     if fields_changed:
@@ -571,7 +564,7 @@ def merge_json_schema(
     schema: StructType | None,
     trace_stack: str,
     string_nodes_finalized: set[str],
-    dropFieldIfAllNull: bool = False,
+    drop_field_if_all_null: bool = False,
 ) -> DataType:
     """
     Merge the JSON content's schema into an existing schema structure.
@@ -586,7 +579,7 @@ def merge_json_schema(
         trace_stack: A string representing the current position in the schema hierarchy,
                           used for tracking/debugging nested structures.
         string_nodes_finalized: A set of strings representing the nodes that have been finalized as strings.
-        dropFieldIfAllNull: If True, fields that only contain null values will be excluded
+        drop_field_if_all_null: If True, fields that only contain null values will be excluded
                           from the resulting schema. Defaults to False.
 
     Returns:
@@ -622,10 +615,12 @@ def merge_json_schema(
                 existed_data_type,
                 _append_node_in_trace_stack(trace_stack, col_name),
                 string_nodes_finalized,
-                dropFieldIfAllNull,
+                drop_field_if_all_null,
             )
 
-            if not dropFieldIfAllNull or not isinstance(next_level_schema, NullType):
+            if not drop_field_if_all_null or not isinstance(
+                next_level_schema, NullType
+            ):
                 # Drop field if it's always null
                 if col_name in existed_schema:
                     existed_schema[col_name] = next_level_schema
@@ -638,7 +633,7 @@ def merge_json_schema(
             for sf in schema.fields:
                 col_name = f'"{unquote_if_quoted(sf.name)}"'
                 if (
-                    not dropFieldIfAllNull
+                    not drop_field_if_all_null
                     or existed_schema.get(col_name, NullType()) != NullType()
                 ):
                     current_schema.add(
@@ -670,12 +665,12 @@ def merge_json_schema(
                         inner_schema,
                         next_level_trace_stack,
                         string_nodes_finalized,
-                        dropFieldIfAllNull,
+                        drop_field_if_all_null,
                     )
                     if isinstance(inner_schema, StringType):
                         string_nodes_finalized.add(next_level_trace_stack)
                         break
-            if isinstance(inner_schema, NullType) and dropFieldIfAllNull:
+            if isinstance(inner_schema, NullType) and drop_field_if_all_null:
                 return NullType()
         current_schema = ArrayType(inner_schema)
     else:
@@ -703,7 +698,7 @@ def merge_row_schema(
     row: Row,
     columns_with_valid_contents: set[str],
     string_nodes_finalized: set[str],
-    dropFieldIfAllNull: bool = False,
+    drop_field_if_all_null: bool = False,
 ) -> StructType | NullType:
     """
     Merge the schema inferred from a single row with the existing schema.
@@ -717,7 +712,7 @@ def merge_row_schema(
         row: A single row of data to examine
         columns_with_valid_contents: Set to track columns that have non-null values
         string_nodes_finalized: Set to track nodes that have been finalized as strings
-        dropFieldIfAllNull: If True, fields that are always null will be dropped
+        drop_field_if_all_null: If True, fields that are always null will be dropped
 
     Returns:
         The merged schema as a StructType, or NullType if the row is None and no schema exists
@@ -749,7 +744,7 @@ def merge_row_schema(
                         else sf.datatype,
                         next_level_trace_stack,
                         string_nodes_finalized,
-                        dropFieldIfAllNull,
+                        drop_field_if_all_null,
                     )
                 else:
                     sf.datatype = StringType()
@@ -782,7 +777,7 @@ def merge_row_schema(
                                 inner_schema,
                                 next_level_trace_stack,
                                 string_nodes_finalized,
-                                dropFieldIfAllNull,
+                                drop_field_if_all_null,
                             )
                             if isinstance(inner_schema, StringType):
                                 string_nodes_finalized.add(next_level_trace_stack)
@@ -839,27 +834,36 @@ def construct_dataframe_by_schema_bulk(
 
     # Step 3: Generate SELECT with CAST expressions
     select_exprs = []
+    use_structured_try_cast = session._has_structured_try_cast
+    f_generate_json_path_reference = (
+        _generate_json_path_reference
+        if use_structured_try_cast
+        else _generate_json_path_reference_legacy
+    )
     for field in schema.fields:
-        # Generate Snowflake type signature for casting
-        sf_type_sig = _generate_snowflake_type_signature(field.datatype)
-
         # Use _generate_json_path_reference to handle NULL values for missing/empty fields
         if root_column_name is not None:
-            json_path_expr = _generate_json_path_reference(
+            json_path_expr = f_generate_json_path_reference(
                 f"{root_column_name}:{field.name}", field.datatype
             )
         else:
-            json_path_expr = _generate_json_path_reference(
+            json_path_expr = f_generate_json_path_reference(
                 field.name, field.datatype, is_root=True
             )
-        if isinstance(field.datatype, StringType):
-            select_exprs.append(f"TO_VARCHAR({json_path_expr}) AS {field.name}")
-        elif not isinstance(field.datatype, (StructType, ArrayType, MapType)):
-            select_exprs.append(
-                f"TRY_CAST(TO_VARCHAR({json_path_expr}) AS {sf_type_sig}) AS {field.name}"
-            )
+        # TODO(SNOW-3122222): Remove the legacy `else` branch once 10.6 is fully rolled out
+        if use_structured_try_cast:
+            select_exprs.append(f"{json_path_expr} AS {field.name}")
         else:
-            select_exprs.append(f"{json_path_expr}::{sf_type_sig} AS {field.name}")
+            # Generate Snowflake type signature for casting
+            sf_type_sig = _generate_snowflake_type_signature(field.datatype)
+            if isinstance(field.datatype, StringType):
+                select_exprs.append(f"TO_VARCHAR({json_path_expr}) AS {field.name}")
+            elif not isinstance(field.datatype, (StructType, ArrayType, MapType)):
+                select_exprs.append(
+                    f"TRY_CAST(TO_VARCHAR({json_path_expr}) AS {sf_type_sig}) AS {field.name}"
+                )
+            else:
+                select_exprs.append(f"{json_path_expr}::{sf_type_sig} AS {field.name}")
 
     # Step 4: Apply select expression and copy into target table
     sql_query = f"""
@@ -944,6 +948,43 @@ def _generate_json_path_reference(
     """
     Generate a JSON path reference with appropriate casting for nested fields.
 
+    This function performs permissive casting on structured types (STRUCT, ARRAY, MAP).
+
+    TRY_CAST returns NULL on errors that prevent parsing the entire structure.
+
+    Examples:
+        Simple field: "field_name:a.b.field"
+        Integer field: "field_name:a.b.field::INT"
+        Array field: "TRY_CAST(field_name:a.b.tags AS ARRAY(TEXT) PERMISSIVE)"
+        Map field: "TRY_CAST(field_name:a.b.metadata AS MAP(TEXT, TEXT) PERMISSIVE)"
+        Nested struct: "TRY_CAST(field_name:a.b.field1 AS OBJECT(<type information here>))"
+
+    Args:
+        json_path: The JSON path to the field (e.g., "field_name:a.b.field")
+        data_type: The DataType of the field
+    """
+    if isinstance(data_type, (StructType, ArrayType, MapType)):
+        return f"TRY_CAST({json_path} AS {_generate_snowflake_type_signature(data_type)} PERMISSIVE)"
+    elif isinstance(data_type, StringType):
+        return f"TO_VARCHAR({json_path})"
+    else:
+        return (
+            json_path
+            if is_root
+            else f"TRY_CAST(TO_VARCHAR({json_path}) AS {_generate_snowflake_type_signature(data_type)})"
+        )
+
+
+def _generate_json_path_reference_legacy(
+    json_path: str, data_type: DataType, is_root: bool = False
+) -> str:
+    """
+    Generate a JSON path reference with appropriate casting for nested fields.
+
+    This is a legacy function necessary to support casting recursive fields of a parsed values
+    prior to the availability of TRY_CAST(... PERMISSIVE) on the server side.
+    TODO(SNOW-3122222): This function should be removed once the rollout of 10.6 is fully confirmed.
+
     This function recursively builds OBJECT_CONSTRUCT_KEEP_NULL expressions for
     nested structures, with proper casting for arrays and maps.
 
@@ -966,7 +1007,9 @@ def _generate_json_path_reference(
         for field in data_type.fields:
             field_name = unquote_if_quoted(field.name)
             nested_col_name = json_path + (":" if is_root else ".") + field.name
-            nested_expr = _generate_json_path_reference(nested_col_name, field.datatype)
+            nested_expr = _generate_json_path_reference_legacy(
+                nested_col_name, field.datatype
+            )
             field_exprs.append(f"'{field_name}', {nested_expr}")
 
         return f"OBJECT_CONSTRUCT_KEEP_NULL({', '.join(field_exprs)}){variant_suffix}"

@@ -100,7 +100,6 @@ class DistributedDataParallelConfig:
       The follwoing will be the expected number of SM usage for various cases.
       (Note that this is just a reference number and the number of SM usage could vary 
       on message size, communication domain size and nccl version.)
-      ----------------------------------------------------------
       | Communication domain | use_sharp | SM usage of "AG/RS" |
       |----------------------|-----------|---------------------|
       | NVL                  | N/A       | 4 / 5               |
@@ -108,7 +107,6 @@ class DistributedDataParallelConfig:
       | NVL+IB               | True      | 6 / 6               |
       | IB                   | False     | 1 / 4               |
       | IB                   | True      | 1 / 1               |
-      ----------------------------------------------------------
     """
 
     fsdp_double_buffer: bool = False
@@ -129,6 +127,14 @@ class DistributedDataParallelConfig:
     """If true, disable symmetric (window) registration for NCCL userbuffer registration.
       This option will force to use conventional (local) userbuffer registration 
       when nccl_ub is set.
+    """
+
+    fsdp_manual_registration: bool = False
+    """If true, manually register the FSDP communication buffers to NCCL user buffer.
+      This option is only effective when use_megatron_fsdp and nccl_ub is set.
+      For symmetric registration with large models, the registration itself can take 
+      a significant amount of time. This option minimizes the number of registration calls
+      to minimize the registration time.
     """
 
     def __post_init__(self):

@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: lamin_utils
-Version: 0.16.3
+Version: 0.16.4
 Summary: Lamin Utils.
 Author-email: Lamin Labs <laminlabs@gmail.com>
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
 Requires-Dist: pandas ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"

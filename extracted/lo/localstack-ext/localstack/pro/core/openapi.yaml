@@ -862,6 +862,12 @@ paths:
                 type: integer
         '400':
           description: Bad request.
+        '422':
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: The pod state is incompatible with the current LocalStack version.
   /_localstack/pods/environment:
     get:
       description: |
@@ -1146,6 +1152,12 @@ paths:
           content:
             application/x-ndjson: {}
           description: "The response is a sequence of JSON events, according to the schema, separated by a newline"
+        "422":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: The pod state is incompatible with the current LocalStack version
       tags: [pro, pods]
   /_localstack/pods/{name}/versions:
     get:

@@ -332,6 +332,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
     "snowpark.connect.csv.continueOnError",
+    "spark.sql.parquet.inferTimestampNTZ.enabled",
 }
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
@@ -371,6 +372,7 @@ class SessionConfig:
         "spark.sql.sources.partitionOverwriteMode": "static",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
         "snowpark.connect.csv.continueOnError": "false",
+        "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
     }
 
     def __init__(self) -> None:

@@ -1,6 +1,6 @@
 from importlib.util import find_spec
 import typing as t
-from enum import Enum
+import pytest
 from tests.utils import EnumTypeMixin, try_convert
 from django.test import TestCase
 from tests.djenum.models import EnumTester
@@ -8,6 +8,7 @@ from django.urls import reverse
 from bs4 import BeautifulSoup as Soup
 from django.test import Client
 from django.http import QueryDict
+from django.db import connection
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
@@ -679,6 +680,10 @@ class TestRequests(EnumTypeMixin, TestCase):
             self.do_test_django_filter(reverse(f"{self.NAMESPACE}:enum-filter"))
             self.do_test_django_filter(reverse(f"{self.NAMESPACE}:enum-filter-viewset"))
 
+        @pytest.mark.skipif(
+            connection.vendor == "oracle",
+            reason="strict NULL behavior on Oracle >21c breaks exclude filter tests",
+        )
         def test_django_filter_exclude(self):
             self.do_test_django_filter(
                 reverse(f"{self.NAMESPACE}:enum-filter-viewset-exclude"), exclude=True
@@ -689,6 +694,10 @@ class TestRequests(EnumTypeMixin, TestCase):
                 reverse(f"{self.NAMESPACE}:enum-filter-multiple"), multi=True
             )
 
+        @pytest.mark.skipif(
+            connection.vendor == "oracle",
+            reason="strict NULL behavior on Oracle >21c breaks exclude filter tests",
+        )
         def test_django_filter_multiple_exclude(self):
             self.do_test_django_filter(
                 reverse(f"{self.NAMESPACE}:enum-filter-multiple-exclude"),

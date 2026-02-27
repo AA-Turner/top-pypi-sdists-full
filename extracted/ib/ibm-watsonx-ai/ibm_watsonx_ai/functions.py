@@ -52,6 +52,40 @@ class Functions(WMLResource):
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
 
+    def _validate_and_prepare_store_inputs(
+        self, function: str | Path | Callable, meta_props: str | dict[str, Any]
+    ) -> tuple[Path | Callable, dict[str, Any]]:
+        Functions._validate_type(
+            function, "function", [str, Path, types.FunctionType], True, True
+        )
+        if isinstance(function, str):
+            function = Path(function)
+        Functions._validate_type(meta_props, "meta_props", [dict, str], True, True)
+
+        if isinstance(meta_props, str):
+            meta_props = {self.ConfigurationMetaNames.NAME: meta_props}
+
+        self.ConfigurationMetaNames._validate(meta_props)
+
+        return function, meta_props
+
+    def _prepare_function_metadata(self, meta_props: dict[str, Any]) -> dict[str, Any]:
+        function_metadata = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props, with_validation=True, client=self._client
+        )
+
+        if self._client.default_space_id is not None:
+            function_metadata["space_id"] = self._client.default_space_id
+        elif self._client.default_project_id is not None:
+            function_metadata["project_id"] = self._client.default_project_id
+        else:
+            raise WMLClientError(
+                "It is mandatory to set the space/project id. "
+                "Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
+            )
+
+        return function_metadata
+
     def store(
         self, function: str | Path | Callable, meta_props: str | dict[str, Any]
     ) -> dict:
@@ -115,34 +149,14 @@ class Functions(WMLResource):
         """
         self._client._check_if_either_is_set()
 
-        Functions._validate_type(
-            function, "function", [str, Path, types.FunctionType], True, True
+        function, meta_props = self._validate_and_prepare_store_inputs(
+            function, meta_props
         )
-        if isinstance(function, str):
-            function = Path(function)
-        Functions._validate_type(meta_props, "meta_props", [dict, str], True, True)
-
-        if isinstance(meta_props, str):
-            meta_props = {self.ConfigurationMetaNames.NAME: meta_props}
-
-        self.ConfigurationMetaNames._validate(meta_props)
 
         content_path, _, archive_name = self._prepare_function_content(function)
 
         try:
-            function_metadata = self.ConfigurationMetaNames._generate_resource_metadata(
-                meta_props, with_validation=True, client=self._client
-            )
-
-            if self._client.default_space_id is not None:
-                function_metadata["space_id"] = self._client.default_space_id
-            elif self._client.default_project_id is not None:
-                function_metadata["project_id"] = self._client.default_project_id
-            else:
-                raise WMLClientError(
-                    "It is mandatory to set the space/project id. "
-                    "Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
-                )
+            function_metadata = self._prepare_function_metadata(meta_props)
 
             response_post = self._client.httpx_client.post(
                 url=self._client._href_definitions.get_functions_href(),
@@ -248,34 +262,14 @@ class Functions(WMLResource):
         """
         self._client._check_if_either_is_set()
 
-        Functions._validate_type(
-            function, "function", [str, Path, types.FunctionType], True, True
+        function, meta_props = self._validate_and_prepare_store_inputs(
+            function, meta_props
         )
-        if isinstance(function, str):
-            function = Path(function)
-        Functions._validate_type(meta_props, "meta_props", [dict, str], True, True)
-
-        if isinstance(meta_props, str):
-            meta_props = {self.ConfigurationMetaNames.NAME: meta_props}
-
-        self.ConfigurationMetaNames._validate(meta_props)
 
         content_path, _, archive_name = self._prepare_function_content(function)
 
         try:
-            function_metadata = self.ConfigurationMetaNames._generate_resource_metadata(
-                meta_props, with_validation=True, client=self._client
-            )
-
-            if self._client.default_space_id is not None:
-                function_metadata["space_id"] = self._client.default_space_id
-            elif self._client.default_project_id is not None:
-                function_metadata["project_id"] = self._client.default_project_id
-            else:
-                raise WMLClientError(
-                    "It is mandatory to set the space/project id. "
-                    "Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
-                )
+            function_metadata = self._prepare_function_metadata(meta_props)
 
             response_post = await self._client.async_httpx_client.post(
                 url=self._client._href_definitions.get_functions_href(),
@@ -313,6 +307,33 @@ class Functions(WMLResource):
         )
 
         return details
+
+    def _validate_update_inputs(
+        self,
+        function_id: str,
+        changes: dict | None,
+        update_function: str | Path | Callable | None,
+    ) -> Path | Callable | None:
+        self._validate_type(function_id, "function_id", str, True)
+        self._validate_type(changes, "changes", dict, False)
+        self._validate_type(
+            update_function,
+            "update_function",
+            [str, Path, types.FunctionType],
+            False,
+            True,
+        )
+
+        if changes is None and update_function is None:
+            raise InvalidMultipleArguments(
+                params_names_list=["changes", "update_function"],
+                reason="None of the arguments were provided.",
+            )
+
+        if isinstance(update_function, str):
+            update_function = Path(update_function)
+
+        return update_function
 
     def update(
         self,
@@ -355,21 +376,9 @@ class Functions(WMLResource):
 
         self._client._check_if_either_is_set()
 
-        self._validate_type(function_id, "function_id", str, True)
-        self._validate_type(changes, "changes", dict, False)
-        self._validate_type(
-            update_function,
-            "update_function",
-            [str, Path, types.FunctionType],
-            False,
-            True,
+        update_function = self._validate_update_inputs(
+            function_id, changes, update_function
         )
-
-        if changes is None and update_function is None:
-            raise InvalidMultipleArguments(
-                params_names_list=["changes", "update_function"],
-                reason="None of the arguments were provided.",
-            )
 
         updated_details: dict[str, Any] = {}
 
@@ -390,8 +399,6 @@ class Functions(WMLResource):
             updated_details = self._handle_response(200, "function patch", response)
 
         if update_function is not None:
-            if isinstance(update_function, str):
-                update_function = Path(update_function)
             updated_details_content = self._update_function_content(
                 function_id, update_function
             )
@@ -439,21 +446,9 @@ class Functions(WMLResource):
 
         self._client._check_if_either_is_set()
 
-        self._validate_type(function_id, "function_id", str, True)
-        self._validate_type(changes, "changes", dict, mandatory=False)
-        self._validate_type(
-            update_function,
-            "update_function",
-            [str, Path, types.FunctionType],
-            False,
-            True,
+        update_function = self._validate_update_inputs(
+            function_id, changes, update_function
         )
-
-        if changes is None and update_function is None:
-            raise InvalidMultipleArguments(
-                params_names_list=["changes", "update_function"],
-                reason="None of the arguments were provided.",
-            )
 
         updated_details: dict[str, Any] = {}
 
@@ -474,8 +469,6 @@ class Functions(WMLResource):
             updated_details = self._handle_response(200, "function patch", response)
 
         if update_function is not None:
-            if isinstance(update_function, str):
-                update_function = Path(update_function)
             updated_details_content = await self._aupdate_function_content(
                 function_id, update_function
             )
@@ -554,6 +547,47 @@ class Functions(WMLResource):
             except Exception:
                 pass
 
+    def _validate_and_prepare_download(
+        self, function_id: str, filename: str | Path
+    ) -> tuple[Path, str, str]:
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        if filename.is_file():
+            raise WMLClientError(f"File with name: '{filename}' already exists.")
+
+        Functions._validate_type(function_id, "function_id", str, True)
+        Functions._validate_type(filename, "filename", [str, Path], True, True)
+
+        artifact_url = self._client._href_definitions.get_function_href(function_id)
+        artifact_content_url = self._client._href_definitions.get_function_code_href(
+            function_id
+        )
+
+        return filename, artifact_url, artifact_content_url
+
+    def _prepare_download_params(self, rev_id: str | None) -> dict[str, Any]:
+        params = self._client._params()
+
+        if rev_id is not None:
+            rev_param_key = (
+                "rev" if self._client.CLOUD_PLATFORM_SPACES else "revision_id"
+            )
+            params[rev_param_key] = rev_id
+
+        return params
+
+    def _save_downloaded_content(self, filename: Path, downloaded_model: bytes) -> str:
+        try:
+            filename.write_bytes(downloaded_model)
+            print(f"Successfully saved function content to file: '{filename}'")
+            return str(Path.cwd() / filename)
+        except IOError as e:
+            raise WMLClientError(
+                f"Saving function content with artifact_url: '{filename}' failed.",
+                str(e),
+            )
+
     def download(
         self,
         function_id: str | None = None,
@@ -582,8 +616,6 @@ class Functions(WMLResource):
             client._functions.download(function_id, "my_func.tar.gz")
 
         """
-        if isinstance(filename, str):
-            filename = Path(filename)
 
         function_id = _get_id_from_deprecated_uid(kwargs, function_id, "function")
         rev_id = _get_id_from_deprecated_uid(kwargs, rev_id, "rev", can_be_none=True)
@@ -594,26 +626,12 @@ class Functions(WMLResource):
 
         self._client._check_if_either_is_set()
 
-        if filename.is_file():
-            raise WMLClientError(f"File with name: '{filename}' already exists.")
-
-        Functions._validate_type(function_id, "function_id", str, True)
-        Functions._validate_type(filename, "filename", [str, Path], True, True)
-
-        artifact_url = self._client._href_definitions.get_function_href(function_id)
-
-        artifact_content_url = self._client._href_definitions.get_function_code_href(
-            function_id
+        filename, artifact_url, artifact_content_url = (
+            self._validate_and_prepare_download(function_id, filename)
         )
 
         try:
-            params = self._client._params()
-
-            if rev_id is not None:
-                rev_param_key = (
-                    "rev" if self._client.CLOUD_PLATFORM_SPACES else "revision_id"
-                )
-                params[rev_param_key] = rev_id
+            params = self._prepare_download_params(rev_id)
 
             response = self._client.httpx_client.get(
                 url=artifact_content_url,
@@ -638,15 +656,7 @@ class Functions(WMLResource):
                 str(e),
             )
 
-        try:
-            filename.write_bytes(downloaded_model)
-            print(f"Successfully saved function content to file: '{filename}'")
-            return str(Path.cwd() / filename)
-        except IOError as e:
-            raise WMLClientError(
-                f"Saving function content with artifact_url: '{filename}' failed.",
-                str(e),
-            )
+        return self._save_downloaded_content(filename, downloaded_model)
 
     async def adownload(
         self,
@@ -672,31 +682,15 @@ class Functions(WMLResource):
             await client._functions.adownload(function_id, "my_func.tar.gz")
 
         """
-        if isinstance(filename, str):
-            filename = Path(filename)
 
         self._client._check_if_either_is_set()
 
-        if filename.is_file():
-            raise WMLClientError(f"File with name: '{filename}' already exists.")
-
-        Functions._validate_type(function_id, "function_id", str, True)
-        Functions._validate_type(filename, "filename", [str, Path], True, True)
-
-        artifact_url = self._client._href_definitions.get_function_href(function_id)
-
-        artifact_content_url = self._client._href_definitions.get_function_code_href(
-            function_id
+        filename, artifact_url, artifact_content_url = (
+            self._validate_and_prepare_download(function_id, filename)
         )
 
         try:
-            params = self._client._params()
-
-            if rev_id is not None:
-                rev_param_key = (
-                    "rev" if self._client.CLOUD_PLATFORM_SPACES else "revision_id"
-                )
-                params[rev_param_key] = rev_id
+            params = self._prepare_download_params(rev_id)
 
             async with self._client.async_httpx_client.stream(
                 method="GET",
@@ -722,15 +716,7 @@ class Functions(WMLResource):
                 str(e),
             )
 
-        try:
-            filename.write_bytes(downloaded_model)
-            print(f"Successfully saved function content to file: '{filename}'")
-            return str(Path.cwd() / filename)
-        except IOError as e:
-            raise WMLClientError(
-                f"Saving function content with artifact_url: '{filename}' failed.",
-                str(e),
-            )
+        return self._save_downloaded_content(filename, downloaded_model)
 
     def delete(
         self, function_id: str | None = None, force: bool = False, **kwargs: Any
@@ -831,6 +817,41 @@ class Functions(WMLResource):
             self._handle_response(204, "function deletion", response, False),
         )
 
+    def _validate_and_prepare_get_details(
+        self,
+        function_id: str | None,
+        limit: int | None,
+        asynchronous: bool,
+        get_all: bool,
+        spec_state: SpecStates | None,
+        function_name: str | None,
+    ) -> tuple[str, Callable | None]:
+        Functions._validate_type(function_id, "function_uid", str, False)
+        Functions._validate_type(limit, "limit", int, False)
+        Functions._validate_type(asynchronous, "asynchronous", bool, False)
+        Functions._validate_type(get_all, "get_all", bool, False)
+        Functions._validate_type(spec_state, "spec_state", object, False)
+
+        if limit and spec_state:
+            spec_state_limit_inconsistency_warning = (
+                "In current implementation setting `spec_state=True` may break set `limit`, "
+                "returning less records than stated by set `limit`."
+            )
+            warn(spec_state_limit_inconsistency_warning)
+
+        url = self._client._href_definitions.get_functions_href()
+
+        if spec_state:
+            filter_func = self._get_filter_func_by_spec_ids(
+                self._get_and_cache_spec_ids_for_state(spec_state)
+            )
+        elif function_name:
+            filter_func = self._get_filter_func_by_artifact_name(function_name)
+        else:
+            filter_func = None
+
+        return url, filter_func
+
     def get_details(
         self,
         function_id: str | None = None,
@@ -892,37 +913,15 @@ class Functions(WMLResource):
         """
         function_id = _get_id_from_deprecated_uid(kwargs, function_id, "function", True)
 
-        Functions._validate_type(function_id, "function_uid", str, False)
-        Functions._validate_type(limit, "limit", int, False)
-        Functions._validate_type(asynchronous, "asynchronous", bool, False)
-        Functions._validate_type(get_all, "get_all", bool, False)
-        Functions._validate_type(spec_state, "spec_state", object, False)
-
-        if limit and spec_state:
-            print(
-                "Warning: In current implementation setting `spec_state=True` may break set `limit`, "
-                "returning less records than stated by set `limit`."
-            )
-
         # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
 
-        Functions._validate_type(function_id, "function_id", str, False)
-        Functions._validate_type(limit, "limit", int, False)
-
-        url = self._client._href_definitions.get_functions_href()
+        url, filter_func = self._validate_and_prepare_get_details(
+            function_id, limit, asynchronous, get_all, spec_state, function_name
+        )
 
         if function_id is not None:
             return self._get_artifact_details(url, function_id, limit, "functions")
-
-        if spec_state:
-            filter_func = self._get_filter_func_by_spec_ids(
-                self._get_and_cache_spec_ids_for_state(spec_state)
-            )
-        elif function_name:
-            filter_func = self._get_filter_func_by_artifact_name(function_name)
-        else:
-            filter_func = None
 
         if asynchronous:
             return self._get_artifact_details(
@@ -1004,39 +1003,17 @@ class Functions(WMLResource):
 
         """
 
-        Functions._validate_type(function_id, "function_uid", str, False)
-        Functions._validate_type(limit, "limit", int, False)
-        Functions._validate_type(asynchronous, "asynchronous", bool, False)
-        Functions._validate_type(get_all, "get_all", bool, False)
-        Functions._validate_type(spec_state, "spec_state", object, False)
-
-        if limit and spec_state:
-            print(
-                "Warning: In current implementation setting `spec_state=True` may break set `limit`, "
-                "returning less records than stated by set `limit`."
-            )
-
         # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
 
-        Functions._validate_type(function_id, "function_id", str, False)
-        Functions._validate_type(limit, "limit", int, False)
-
-        url = self._client._href_definitions.get_functions_href()
+        url, filter_func = self._validate_and_prepare_get_details(
+            function_id, limit, asynchronous, get_all, spec_state, function_name
+        )
 
         if function_id is not None:
             return await self._aget_artifact_details(
                 url, function_id, limit, "functions"
             )
-
-        if spec_state:
-            filter_func = self._get_filter_func_by_spec_ids(
-                self._get_and_cache_spec_ids_for_state(spec_state)
-            )
-        elif function_name:
-            filter_func = self._get_filter_func_by_artifact_name(function_name)
-        else:
-            filter_func = None
 
         if asynchronous:
             return await self._aget_artifact_details(

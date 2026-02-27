@@ -1,7 +1,7 @@
 """
 ToolUniverse Tools
 
-Type-safe Python interface to 1945 scientific tools.
+Type-safe Python interface to 2006 scientific tools.
 Each tool is in its own module for minimal import overhead.
 
 Usage:
@@ -184,6 +184,14 @@ from .CTD_get_gene_diseases import CTD_get_gene_diseases
 from .CTFPHC_list_guidelines import CTFPHC_list_guidelines
 from .CTFPHC_search_guidelines import CTFPHC_search_guidelines
 from .CallAgent import CallAgent
+from .CancerPrognosis_get_gene_expression import CancerPrognosis_get_gene_expression
+from .CancerPrognosis_get_study_summary import CancerPrognosis_get_study_summary
+from .CancerPrognosis_get_survival_data import CancerPrognosis_get_survival_data
+from .CancerPrognosis_search_studies import CancerPrognosis_search_studies
+from .CellMarker_list_cell_types import CellMarker_list_cell_types
+from .CellMarker_search_by_cell_type import CellMarker_search_by_cell_type
+from .CellMarker_search_by_gene import CellMarker_search_by_gene
+from .CellMarker_search_cancer_markers import CellMarker_search_cancer_markers
 from .CellPainting_get_screen_plates import CellPainting_get_screen_plates
 from .CellPainting_get_well_data import CellPainting_get_well_data
 from .CellPainting_search_screens import CellPainting_search_screens
@@ -324,7 +332,9 @@ from .DrugInteractionAnalyzerAgent import DrugInteractionAnalyzerAgent
 from .DrugOptimizationAgent import DrugOptimizationAgent
 from .DrugSafetyAnalyzer import DrugSafetyAnalyzer
 from .DrugSynergy_calculate_bliss import DrugSynergy_calculate_bliss
+from .DrugSynergy_calculate_ci import DrugSynergy_calculate_ci
 from .DrugSynergy_calculate_hsa import DrugSynergy_calculate_hsa
+from .DrugSynergy_calculate_loewe import DrugSynergy_calculate_loewe
 from .DrugSynergy_calculate_zip import DrugSynergy_calculate_zip
 from .Dryad_get_dataset import Dryad_get_dataset
 from .Dryad_get_dataset_files import Dryad_get_dataset_files
@@ -992,6 +1002,8 @@ from .ICD11_search_diseases import ICD11_search_diseases
 from .IDR_get_study import IDR_get_study
 from .IDR_get_study_datasets import IDR_get_study_datasets
 from .IDR_list_studies import IDR_list_studies
+from .IDT_analyze_oligo import IDT_analyze_oligo
+from .IDT_check_self_dimer import IDT_check_self_dimer
 from .IMGT_get_gene_info import IMGT_get_gene_info
 from .IMGT_get_sequence import IMGT_get_sequence
 from .IMGT_search_genes import IMGT_search_genes
@@ -1008,6 +1020,10 @@ from .IdentifiersOrg_list_namespaces import IdentifiersOrg_list_namespaces
 from .IdentifiersOrg_resolve import IdentifiersOrg_resolve
 from .IdentifiersOrg_search_namespaces import IdentifiersOrg_search_namespaces
 from .InspireHEP_search_papers import InspireHEP_search_papers
+from .IntOGen_get_drivers import IntOGen_get_drivers
+from .IntOGen_get_gene_info import IntOGen_get_gene_info
+from .IntOGen_list_cancer_types import IntOGen_list_cancer_types
+from .IntOGen_list_cohorts import IntOGen_list_cohorts
 from .IntentAnalyzerAgent import IntentAnalyzerAgent
 from .InterProScan_get_job_results import InterProScan_get_job_results
 from .InterProScan_get_job_status import InterProScan_get_job_status
@@ -1063,6 +1079,10 @@ from .MAGICapp_get_guideline import MAGICapp_get_guideline
 from .MAGICapp_get_recommendations import MAGICapp_get_recommendations
 from .MAGICapp_get_sections import MAGICapp_get_sections
 from .MAGICapp_list_guidelines import MAGICapp_list_guidelines
+from .MEME_discover_motifs import MEME_discover_motifs
+from .MEME_fimo_scan import MEME_fimo_scan
+from .MEME_list_databases import MEME_list_databases
+from .MEME_tomtom_compare import MEME_tomtom_compare
 from .MGnify_get_genome import MGnify_get_genome
 from .MGnify_get_study_detail import MGnify_get_study_detail
 from .MGnify_list_analyses import MGnify_list_analyses
@@ -1078,6 +1098,10 @@ from .MarineRegions_get_record import MarineRegions_get_record
 from .MarineRegions_search_by_name import MarineRegions_search_by_name
 from .MassBank_search_by_compound import MassBank_search_by_compound
 from .MassBank_search_by_formula import MassBank_search_by_formula
+from .Mcule_get_compound import Mcule_get_compound
+from .Mcule_get_database import Mcule_get_database
+from .Mcule_list_databases import Mcule_list_databases
+from .Mcule_lookup_compound import Mcule_lookup_compound
 from .MeSH_get_descriptor import MeSH_get_descriptor
 from .MeSH_search_descriptors import MeSH_search_descriptors
 from .MeSH_search_terms import MeSH_search_terms
@@ -1096,6 +1120,10 @@ from .MetaCyc_get_compound import MetaCyc_get_compound
 from .MetaCyc_get_pathway import MetaCyc_get_pathway
 from .MetaCyc_get_reaction import MetaCyc_get_reaction
 from .MetaCyc_search_pathways import MetaCyc_search_pathways
+from .MetaboAnalyst_biomarker_enrichment import MetaboAnalyst_biomarker_enrichment
+from .MetaboAnalyst_get_pathway_library import MetaboAnalyst_get_pathway_library
+from .MetaboAnalyst_name_to_id import MetaboAnalyst_name_to_id
+from .MetaboAnalyst_pathway_enrichment import MetaboAnalyst_pathway_enrichment
 from .MetabolomicsWorkbench_get_compound_by_pubchem_cid import (
     MetabolomicsWorkbench_get_compound_by_pubchem_cid,
 )
@@ -1181,6 +1209,8 @@ from .NCI_search_cancer_resources import NCI_search_cancer_resources
 from .NDEx_get_network import NDEx_get_network
 from .NDEx_get_network_summary import NDEx_get_network_summary
 from .NDEx_search_networks import NDEx_search_networks
+from .NEB_Tm_calculate import NEB_Tm_calculate
+from .NEB_Tm_list_polymerases import NEB_Tm_list_polymerases
 from .NICE_Clinical_Guidelines_Search import NICE_Clinical_Guidelines_Search
 from .NICE_Guideline_Full_Text import NICE_Guideline_Full_Text
 from .NWS_get_active_alerts import NWS_get_active_alerts
@@ -1477,6 +1507,11 @@ from .PDBe_get_residue_listing import PDBe_get_residue_listing
 from .PDBe_get_structure_ligands import PDBe_get_structure_ligands
 from .PDBe_get_uniprot_mappings import PDBe_get_uniprot_mappings
 from .PDBe_get_uniprot_structure_coverage import PDBe_get_uniprot_structure_coverage
+from .PDC_get_clinical_data import PDC_get_clinical_data
+from .PDC_get_gene_protein import PDC_get_gene_protein
+from .PDC_get_study_summary import PDC_get_study_summary
+from .PDC_list_programs import PDC_list_programs
+from .PDC_search_studies import PDC_search_studies
 from .PMC_search_papers import PMC_search_papers
 from .POWO_get_taxon import POWO_get_taxon
 from .POWO_search_plants import POWO_search_plants
@@ -1503,6 +1538,12 @@ from .PharmGKB_search_genes import PharmGKB_search_genes
 from .PharmGKB_search_variants import PharmGKB_search_variants
 from .PharmVar_get_alleles import PharmVar_get_alleles
 from .PharmVar_list_genes import PharmVar_list_genes
+from .PharmacoDB_get_biomarker_assoc import PharmacoDB_get_biomarker_assoc
+from .PharmacoDB_get_cell_line import PharmacoDB_get_cell_line
+from .PharmacoDB_get_compound import PharmacoDB_get_compound
+from .PharmacoDB_get_experiments import PharmacoDB_get_experiments
+from .PharmacoDB_list_datasets import PharmacoDB_list_datasets
+from .PharmacoDB_search import PharmacoDB_search
 from .Pharos_get_disease_targets import Pharos_get_disease_targets
 from .Pharos_get_target import Pharos_get_target
 from .Pharos_get_tdl_summary import Pharos_get_tdl_summary
@@ -1529,6 +1570,10 @@ from .ProteinsPlus_profile_structure_quality import (
 )
 from .ProteomeXchange_get_dataset import ProteomeXchange_get_dataset
 from .ProteomeXchange_search_datasets import ProteomeXchange_search_datasets
+from .ProteomicsDB_get_expression_summary import ProteomicsDB_get_expression_summary
+from .ProteomicsDB_get_protein_expression import ProteomicsDB_get_protein_expression
+from .ProteomicsDB_list_tissues import ProteomicsDB_list_tissues
+from .ProteomicsDB_search_proteins import ProteomicsDB_search_proteins
 from .ProtocolOptimizer import ProtocolOptimizer
 from .PubChemBioAssay_get_assay import PubChemBioAssay_get_assay
 from .PubChemBioAssay_get_assay_summary import PubChemBioAssay_get_assay_summary
@@ -1684,6 +1729,13 @@ from .STRING_get_network import STRING_get_network
 from .STRING_get_protein_interactions import STRING_get_protein_interactions
 from .STRING_map_identifiers import STRING_map_identifiers
 from .STRING_ppi_enrichment import STRING_ppi_enrichment
+from .SYNERGxDB_get_combo_matrix import SYNERGxDB_get_combo_matrix
+from .SYNERGxDB_get_combo_stats import SYNERGxDB_get_combo_stats
+from .SYNERGxDB_get_drug import SYNERGxDB_get_drug
+from .SYNERGxDB_list_cell_lines import SYNERGxDB_list_cell_lines
+from .SYNERGxDB_list_datasets import SYNERGxDB_list_datasets
+from .SYNERGxDB_list_drugs import SYNERGxDB_list_drugs
+from .SYNERGxDB_search_combos import SYNERGxDB_search_combos
 from .ScanProsite_scan_protein import ScanProsite_scan_protein
 from .ScientificTextSummarizer import ScientificTextSummarizer
 from .SemanticScholar_get_author import SemanticScholar_get_author
@@ -1700,11 +1752,15 @@ from .SunriseSunset_get_times import SunriseSunset_get_times
 from .Survival_cox_regression import Survival_cox_regression
 from .Survival_kaplan_meier import Survival_kaplan_meier
 from .Survival_log_rank_test import Survival_log_rank_test
+from .SwissADME_calculate_adme import SwissADME_calculate_adme
+from .SwissADME_check_druglikeness import SwissADME_check_druglikeness
 from .SwissDock_check_job_status import SwissDock_check_job_status
 from .SwissDock_dock_ligand import SwissDock_dock_ligand
 from .SwissDock_retrieve_results import SwissDock_retrieve_results
 from .SwissModel_get_models import SwissModel_get_models
 from .SwissModel_get_summary import SwissModel_get_summary
+from .SwissTargetPrediction_organisms import SwissTargetPrediction_organisms
+from .SwissTargetPrediction_predict import SwissTargetPrediction_predict
 from .SynBioHub_get_collections import SynBioHub_get_collections
 from .SynBioHub_get_part import SynBioHub_get_part
 from .SynBioHub_search_parts import SynBioHub_search_parts
@@ -1841,6 +1897,11 @@ from .ZFIN_get_gene_alleles import ZFIN_get_gene_alleles
 from .ZFIN_get_gene_expression import ZFIN_get_gene_expression
 from .ZFIN_get_gene_orthologs import ZFIN_get_gene_orthologs
 from .ZFIN_get_gene_phenotypes import ZFIN_get_gene_phenotypes
+from .ZINC_get_compound import ZINC_get_compound
+from .ZINC_get_purchasable import ZINC_get_purchasable
+from .ZINC_search_by_properties import ZINC_search_by_properties
+from .ZINC_search_by_smiles import ZINC_search_by_smiles
+from .ZINC_search_compounds import ZINC_search_compounds
 from .Zenodo_get_license import Zenodo_get_license
 from .Zenodo_get_record import Zenodo_get_record
 from .Zenodo_get_record_files import Zenodo_get_record_files
@@ -2607,6 +2668,14 @@ __all__ = [
     "CTFPHC_list_guidelines",
     "CTFPHC_search_guidelines",
     "CallAgent",
+    "CancerPrognosis_get_gene_expression",
+    "CancerPrognosis_get_study_summary",
+    "CancerPrognosis_get_survival_data",
+    "CancerPrognosis_search_studies",
+    "CellMarker_list_cell_types",
+    "CellMarker_search_by_cell_type",
+    "CellMarker_search_by_gene",
+    "CellMarker_search_cancer_markers",
     "CellPainting_get_screen_plates",
     "CellPainting_get_well_data",
     "CellPainting_search_screens",
@@ -2745,7 +2814,9 @@ __all__ = [
     "DrugOptimizationAgent",
     "DrugSafetyAnalyzer",
     "DrugSynergy_calculate_bliss",
+    "DrugSynergy_calculate_ci",
     "DrugSynergy_calculate_hsa",
+    "DrugSynergy_calculate_loewe",
     "DrugSynergy_calculate_zip",
     "Dryad_get_dataset",
     "Dryad_get_dataset_files",
@@ -3185,6 +3256,8 @@ __all__ = [
     "IDR_get_study",
     "IDR_get_study_datasets",
     "IDR_list_studies",
+    "IDT_analyze_oligo",
+    "IDT_check_self_dimer",
     "IMGT_get_gene_info",
     "IMGT_get_sequence",
     "IMGT_search_genes",
@@ -3201,6 +3274,10 @@ __all__ = [
     "IdentifiersOrg_resolve",
     "IdentifiersOrg_search_namespaces",
     "InspireHEP_search_papers",
+    "IntOGen_get_drivers",
+    "IntOGen_get_gene_info",
+    "IntOGen_list_cancer_types",
+    "IntOGen_list_cohorts",
     "IntentAnalyzerAgent",
     "InterProScan_get_job_results",
     "InterProScan_get_job_status",
@@ -3254,6 +3331,10 @@ __all__ = [
     "MAGICapp_get_recommendations",
     "MAGICapp_get_sections",
     "MAGICapp_list_guidelines",
+    "MEME_discover_motifs",
+    "MEME_fimo_scan",
+    "MEME_list_databases",
+    "MEME_tomtom_compare",
     "MGnify_get_genome",
     "MGnify_get_study_detail",
     "MGnify_list_analyses",
@@ -3269,6 +3350,10 @@ __all__ = [
     "MarineRegions_search_by_name",
     "MassBank_search_by_compound",
     "MassBank_search_by_formula",
+    "Mcule_get_compound",
+    "Mcule_get_database",
+    "Mcule_list_databases",
+    "Mcule_lookup_compound",
     "MeSH_get_descriptor",
     "MeSH_search_descriptors",
     "MeSH_search_terms",
@@ -3285,6 +3370,10 @@ __all__ = [
     "MetaCyc_get_pathway",
     "MetaCyc_get_reaction",
     "MetaCyc_search_pathways",
+    "MetaboAnalyst_biomarker_enrichment",
+    "MetaboAnalyst_get_pathway_library",
+    "MetaboAnalyst_name_to_id",
+    "MetaboAnalyst_pathway_enrichment",
     "MetabolomicsWorkbench_get_compound_by_pubchem_cid",
     "MetabolomicsWorkbench_get_refmet_info",
     "MetabolomicsWorkbench_get_study",
@@ -3362,6 +3451,8 @@ __all__ = [
     "NDEx_get_network",
     "NDEx_get_network_summary",
     "NDEx_search_networks",
+    "NEB_Tm_calculate",
+    "NEB_Tm_list_polymerases",
     "NICE_Clinical_Guidelines_Search",
     "NICE_Guideline_Full_Text",
     "NWS_get_active_alerts",
@@ -3542,6 +3633,11 @@ __all__ = [
     "PDBe_get_structure_ligands",
     "PDBe_get_uniprot_mappings",
     "PDBe_get_uniprot_structure_coverage",
+    "PDC_get_clinical_data",
+    "PDC_get_gene_protein",
+    "PDC_get_study_summary",
+    "PDC_list_programs",
+    "PDC_search_studies",
     "PMC_search_papers",
     "POWO_get_taxon",
     "POWO_search_plants",
@@ -3568,6 +3664,12 @@ __all__ = [
     "PharmGKB_search_variants",
     "PharmVar_get_alleles",
     "PharmVar_list_genes",
+    "PharmacoDB_get_biomarker_assoc",
+    "PharmacoDB_get_cell_line",
+    "PharmacoDB_get_compound",
+    "PharmacoDB_get_experiments",
+    "PharmacoDB_list_datasets",
+    "PharmacoDB_search",
     "Pharos_get_disease_targets",
     "Pharos_get_target",
     "Pharos_get_tdl_summary",
@@ -3588,6 +3690,10 @@ __all__ = [
     "ProteinsPlus_profile_structure_quality",
     "ProteomeXchange_get_dataset",
     "ProteomeXchange_search_datasets",
+    "ProteomicsDB_get_expression_summary",
+    "ProteomicsDB_get_protein_expression",
+    "ProteomicsDB_list_tissues",
+    "ProteomicsDB_search_proteins",
     "ProtocolOptimizer",
     "PubChemBioAssay_get_assay",
     "PubChemBioAssay_get_assay_summary",
@@ -3723,6 +3829,13 @@ __all__ = [
     "STRING_get_protein_interactions",
     "STRING_map_identifiers",
     "STRING_ppi_enrichment",
+    "SYNERGxDB_get_combo_matrix",
+    "SYNERGxDB_get_combo_stats",
+    "SYNERGxDB_get_drug",
+    "SYNERGxDB_list_cell_lines",
+    "SYNERGxDB_list_datasets",
+    "SYNERGxDB_list_drugs",
+    "SYNERGxDB_search_combos",
     "ScanProsite_scan_protein",
     "ScientificTextSummarizer",
     "SemanticScholar_get_author",
@@ -3739,11 +3852,15 @@ __all__ = [
     "Survival_cox_regression",
     "Survival_kaplan_meier",
     "Survival_log_rank_test",
+    "SwissADME_calculate_adme",
+    "SwissADME_check_druglikeness",
     "SwissDock_check_job_status",
     "SwissDock_dock_ligand",
     "SwissDock_retrieve_results",
     "SwissModel_get_models",
     "SwissModel_get_summary",
+    "SwissTargetPrediction_organisms",
+    "SwissTargetPrediction_predict",
     "SynBioHub_get_collections",
     "SynBioHub_get_part",
     "SynBioHub_search_parts",
@@ -3870,6 +3987,11 @@ __all__ = [
     "ZFIN_get_gene_expression",
     "ZFIN_get_gene_orthologs",
     "ZFIN_get_gene_phenotypes",
+    "ZINC_get_compound",
+    "ZINC_get_purchasable",
+    "ZINC_search_by_properties",
+    "ZINC_search_by_smiles",
+    "ZINC_search_compounds",
     "Zenodo_get_license",
     "Zenodo_get_record",
     "Zenodo_get_record_files",

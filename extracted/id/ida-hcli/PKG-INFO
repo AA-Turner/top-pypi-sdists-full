@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ida-hcli
-Version: 0.16.1
+Version: 0.16.3
 Summary: HCLI - Hex-Rays CLI Utility
 Author-email: Hex-Rays SA <support@hex-rays.com>
 License-Expression: MIT

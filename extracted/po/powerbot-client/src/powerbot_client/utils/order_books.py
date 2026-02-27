@@ -95,8 +95,15 @@ def reconstruct_order_book(
     ask_snapshot = {}
 
     book = {}
+    previous_revision_number = None
     # raw_order_book_revisions are already correctly sorted
     for revision in raw_order_book_revisions:
+        current_revision_number = revision["revision_number"]
+
+        # Reset order book snapshot if revision number decreases below previous revision number with a tolerance window of 10
+        if previous_revision_number is not None and current_revision_number < previous_revision_number - 10:
+            bid_snapshot = {}
+            ask_snapshot = {}
         current_bid = revision["buy_orders"]
         current_ask = revision["sell_orders"]
 
@@ -149,5 +156,6 @@ def reconstruct_order_book(
                     "best_ask_quantity": best_ask_quantity,
                 }
             )
+        previous_revision_number = current_revision_number
 
     return book

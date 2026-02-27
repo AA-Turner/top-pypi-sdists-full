@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    The follwoing commands now shows the new `action` field.
+
+    - ``openstack stack snapshot list <stack>``
+    - ``openstack stack snapshot show <stack> <snapshot>``

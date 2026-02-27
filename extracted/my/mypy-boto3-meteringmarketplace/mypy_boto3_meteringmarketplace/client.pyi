@@ -54,6 +54,7 @@ class Exceptions(BaseClientExceptions):
     InternalServiceErrorException: type[BotocoreClientError]
     InvalidCustomerIdentifierException: type[BotocoreClientError]
     InvalidEndpointRegionException: type[BotocoreClientError]
+    InvalidLicenseException: type[BotocoreClientError]
     InvalidProductCodeException: type[BotocoreClientError]
     InvalidPublicKeyVersionException: type[BotocoreClientError]
     InvalidRegionException: type[BotocoreClientError]
@@ -104,8 +105,8 @@ class MarketplaceMeteringClient(BaseClient):
         self, **kwargs: Unpack[BatchMeterUsageRequestTypeDef]
     ) -> BatchMeterUsageResultTypeDef:
         """
-        The <code>CustomerIdentifier</code> and <code>CustomerAWSAccountID</code> are
-        mutually exclusive parameters.
+        Amazon Web Services Marketplace is introducing Concurrent Agreements, enabling
+        buyers to make multiple purchases per Amazon Web Services account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/meteringmarketplace/client/batch_meter_usage.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_meteringmarketplace/client/#batch_meter_usage)

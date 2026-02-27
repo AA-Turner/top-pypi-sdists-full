@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dstack
-Version: 0.20.11
+Version: 0.20.12
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -22,7 +22,7 @@ Requires-Dist: cryptography
 Requires-Dist: cursor
 Requires-Dist: filelock
 Requires-Dist: gitpython
-Requires-Dist: gpuhunt==0.1.16
+Requires-Dist: gpuhunt==0.1.17
 Requires-Dist: ignore-python>=0.2.0
 Requires-Dist: jsonschema
 Requires-Dist: orjson
@@ -141,6 +141,28 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'azure'
 Requires-Dist: starlette>=0.26.0; extra == 'azure'
 Requires-Dist: uvicorn[standard]; extra == 'azure'
 Requires-Dist: watchfiles; extra == 'azure'
+Provides-Extra: crusoe
+Requires-Dist: aiocache; extra == 'crusoe'
+Requires-Dist: aiorwlock; extra == 'crusoe'
+Requires-Dist: aiosqlite; extra == 'crusoe'
+Requires-Dist: alembic-postgresql-enum; extra == 'crusoe'
+Requires-Dist: alembic>=1.16.0; extra == 'crusoe'
+Requires-Dist: asyncpg; extra == 'crusoe'
+Requires-Dist: backports-entry-points-selectable; extra == 'crusoe'
+Requires-Dist: docker>=6.0.0; extra == 'crusoe'
+Requires-Dist: fastapi; extra == 'crusoe'
+Requires-Dist: grpcio>=1.50; extra == 'crusoe'
+Requires-Dist: httpx>=0.28.0; extra == 'crusoe'
+Requires-Dist: jinja2; extra == 'crusoe'
+Requires-Dist: prometheus-client; extra == 'crusoe'
+Requires-Dist: python-dxf>=12.1.1; extra == 'crusoe'
+Requires-Dist: python-json-logger>=3.1.0; extra == 'crusoe'
+Requires-Dist: sentry-sdk[fastapi]>=2.27.0; extra == 'crusoe'
+Requires-Dist: sqlalchemy-utils>=0.40.0; extra == 'crusoe'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'crusoe'
+Requires-Dist: starlette>=0.26.0; extra == 'crusoe'
+Requires-Dist: uvicorn[standard]; extra == 'crusoe'
+Requires-Dist: watchfiles; extra == 'crusoe'
 Provides-Extra: datacrunch
 Requires-Dist: aiocache; extra == 'datacrunch'
 Requires-Dist: aiorwlock; extra == 'datacrunch'

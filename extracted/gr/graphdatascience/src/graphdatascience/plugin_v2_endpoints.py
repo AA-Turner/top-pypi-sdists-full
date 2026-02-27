@@ -1,4 +1,5 @@
 from graphdatascience.arrow_client.v1.gds_arrow_client import GdsArrowClient
+from graphdatascience.procedure_surface.api import SystemEndpoints
 from graphdatascience.procedure_surface.api.catalog.scale_properties_endpoints import ScalePropertiesEndpoints
 from graphdatascience.procedure_surface.api.centrality.articlerank_endpoints import ArticleRankEndpoints
 from graphdatascience.procedure_surface.api.centrality.articulationpoints_endpoints import ArticulationPointsEndpoints
@@ -40,6 +41,7 @@ from graphdatascience.procedure_surface.api.node_embedding.node2vec_endpoints im
 from graphdatascience.procedure_surface.api.pathfinding.all_shortest_path_endpoints import AllShortestPathEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.bfs_endpoints import BFSEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.dag_endpoints import DagEndpoints
+from graphdatascience.procedure_surface.api.pathfinding.dfs_endpoints import DFSEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.k_spanning_tree_endpoints import KSpanningTreeEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.max_flow_endpoints import MaxFlowEndpoints
 from graphdatascience.procedure_surface.api.pathfinding.prize_steiner_tree_endpoints import PrizeSteinerTreeEndpoints
@@ -51,11 +53,10 @@ from graphdatascience.procedure_surface.api.pathfinding.spanning_tree_endpoints 
 from graphdatascience.procedure_surface.api.pathfinding.steiner_tree_endpoints import SteinerTreeEndpoints
 from graphdatascience.procedure_surface.api.similarity.knn_endpoints import KnnEndpoints
 from graphdatascience.procedure_surface.api.similarity.node_similarity_endpoints import NodeSimilarityEndpoints
-from graphdatascience.procedure_surface.api.system_endpoints import SystemEndpoints
+from graphdatascience.procedure_surface.cypher.catalog.catalog_cypher_endpoints import CatalogCypherEndpoints
 from graphdatascience.procedure_surface.cypher.catalog.scale_properties_cypher_endpoints import (
     ScalePropertiesCypherEndpoints,
 )
-from graphdatascience.procedure_surface.cypher.catalog_cypher_endpoints import CatalogCypherEndpoints
 from graphdatascience.procedure_surface.cypher.centrality.articlerank_cypher_endpoints import ArticleRankCypherEndpoints
 from graphdatascience.procedure_surface.cypher.centrality.articulationpoints_cypher_endpoints import (
     ArticulationPointsCypherEndpoints,
@@ -115,6 +116,7 @@ from graphdatascience.procedure_surface.cypher.pathfinding.all_shortest_path_cyp
 )
 from graphdatascience.procedure_surface.cypher.pathfinding.bfs_cypher_endpoints import BFSCypherEndpoints
 from graphdatascience.procedure_surface.cypher.pathfinding.dag_cypher_endpoints import DagCypherEndpoints
+from graphdatascience.procedure_surface.cypher.pathfinding.dfs_cypher_endpoints import DFSCypherEndpoints
 from graphdatascience.procedure_surface.cypher.pathfinding.k_spanning_tree_cypher_endpoints import (
     KSpanningTreeCypherEndpoints,
 )
@@ -200,6 +202,13 @@ class PluginV2Endpoints:
         Return endpoints for the Breadth First Search (BFS) algorithm.
         """
         return BFSCypherEndpoints(self._db_client)
+
+    @property
+    def dfs(self) -> DFSEndpoints:
+        """
+        Return endpoints for the Depth First Search (DFS) algorithm.
+        """
+        return DFSCypherEndpoints(self._db_client)
 
     @property
     def articulation_points(self) -> ArticulationPointsEndpoints:

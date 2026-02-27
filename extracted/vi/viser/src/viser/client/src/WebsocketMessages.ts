@@ -1186,6 +1186,17 @@ export interface ScenePointerEnableMessage {
   enable: boolean;
   event_type: "click" | "rect-select";
 }
+/** Fog message.
+ *
+ * (automatically generated)
+ */
+export interface FogMessage {
+  type: "FogMessage";
+  near: number;
+  far: number;
+  color: [number, number, number];
+  enabled: boolean;
+}
 /** Environment Map message.
  *
  * (automatically generated)
@@ -1649,6 +1660,7 @@ export type Message =
   | ScenePointerMessage
   | ScenePointerEnableMessage
   | EnvironmentMapMessage
+  | FogMessage
   | EnableLightsMessage
   | SetBoneOrientationMessage
   | SetBonePositionMessage

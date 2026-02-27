@@ -9,6 +9,9 @@ from numpydantic.meta import update_ndarray_stub
 MYPY_DIR = Path(__file__).parent / "data" / "mypy"
 
 
+pytestmark = pytest.mark.typechecking
+
+
 @pytest.fixture(scope="session", autouse=True)
 def refresh_stubs():
     """Ensure no stale stubs"""
@@ -31,4 +34,6 @@ def refresh_stubs():
 def test_mypy(test_file: Path):
     """The mypy examples should pass static type checking"""
     res = mypy.api.run([str(test_file)])
-    assert res == ("Success: no issues found in 1 source file\n", "", 0)
+    assert "Success: no issues found in 1 source file" in res[0]
+    assert res[1] == ""
+    assert res[2] == 0

@@ -24,6 +24,7 @@ class ApplicationPreAuthorizedArgs:
                  permission_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
         """
         The set of arguments for constructing a ApplicationPreAuthorized resource.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application for which permissions are being authorized. Changing this field forces a new resource to be created.
         :param pulumi.Input[_builtins.str] authorized_client_id: The client ID of the application being authorized. Changing this field forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] permission_ids: A set of permission scope IDs required by the authorized application.
@@ -77,6 +78,7 @@ class _ApplicationPreAuthorizedState:
                  permission_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering ApplicationPreAuthorized resources.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application for which permissions are being authorized. Changing this field forces a new resource to be created.
         :param pulumi.Input[_builtins.str] authorized_client_id: The client ID of the application being authorized. Changing this field forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] permission_ids: A set of permission scope IDs required by the authorized application.
@@ -136,6 +138,18 @@ class ApplicationPreAuthorized(pulumi.CustomResource):
                  permission_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
+        Manages client applications that are pre-authorized with the specified permissions to access an application's APIs without requiring user consent.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource requires one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -184,7 +198,8 @@ class ApplicationPreAuthorized(pulumi.CustomResource):
         $ pulumi import azuread:index/applicationPreAuthorized:ApplicationPreAuthorized example 00000000-0000-0000-0000-000000000000/preAuthorizedApplication/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the authorizing application's object ID, the string "preAuthorizedApplication" and the authorized application's application ID (client ID) in the format `{ObjectId}/preAuthorizedApplication/{ApplicationId}`.
+        > This ID format is unique to Terraform and is composed of the authorizing application's object ID, the string "preAuthorizedApplication" and the authorized application's application ID (client ID) in the format `{ObjectId}/preAuthorizedApplication/{ApplicationId}`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -199,6 +214,18 @@ class ApplicationPreAuthorized(pulumi.CustomResource):
                  args: ApplicationPreAuthorizedArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages client applications that are pre-authorized with the specified permissions to access an application's APIs without requiring user consent.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource requires one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -247,7 +274,8 @@ class ApplicationPreAuthorized(pulumi.CustomResource):
         $ pulumi import azuread:index/applicationPreAuthorized:ApplicationPreAuthorized example 00000000-0000-0000-0000-000000000000/preAuthorizedApplication/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the authorizing application's object ID, the string "preAuthorizedApplication" and the authorized application's application ID (client ID) in the format `{ObjectId}/preAuthorizedApplication/{ApplicationId}`.
+        > This ID format is unique to Terraform and is composed of the authorizing application's object ID, the string "preAuthorizedApplication" and the authorized application's application ID (client ID) in the format `{ObjectId}/preAuthorizedApplication/{ApplicationId}`.
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationPreAuthorizedArgs args: The arguments to use to populate this resource's properties.

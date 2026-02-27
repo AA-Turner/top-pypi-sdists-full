@@ -1567,6 +1567,7 @@ class ToProtoConverter:
             ),
             fields_root_fqn=source.fields_root_fqn,
             escaped_param_name_to_fqn=source.params_to_root_fqn,
+            field_types=source.field_types,
         )
 
     @classmethod

@@ -8,7 +8,7 @@ from numpydantic import NDArray, Shape
 x: NDArray[Shape[L["1"]], Any] = np.empty((1,))
 
 
-def a_func(array: np.typing.NDArray) -> None:
+def a_func(array: np.ndarray) -> None:
     pass
 
 

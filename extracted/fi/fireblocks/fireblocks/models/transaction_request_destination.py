@@ -30,7 +30,7 @@ class TransactionRequestDestination(BaseModel):
     """ # noqa: E501
     amount: Optional[StrictStr] = None
     destination: Optional[DestinationTransferPeerPath] = None
-    travel_rule_message_id: Optional[StrictStr] = Field(default=None, description="The ID of the travel rule message from any travel rule provider. Used for travel rule linking functionality to associate transactions with existing travel rule messages.", alias="travelRuleMessageId")
+    travel_rule_message_id: Optional[StrictStr] = Field(default=None, description="The ID of the travel rule message from any travel rule provider. Used for travel rule supporting functionality to associate transactions with existing travel rule messages.", alias="travelRuleMessageId")
     customer_ref_id: Optional[StrictStr] = Field(default=None, description="The ID for AML providers to associate the owner of funds with transactions.", alias="customerRefId")
     __properties: ClassVar[List[str]] = ["amount", "destination", "travelRuleMessageId", "customerRefId"]
 

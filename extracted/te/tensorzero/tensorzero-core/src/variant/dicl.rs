@@ -164,31 +164,31 @@ impl DiclConfig {
     /// Converts this initialized config back to its uninitialized form.
     /// Note: Real file paths for system_instructions are preserved. Fake paths
     /// (like defaults) are converted to None and will be regenerated on load.
-    pub fn as_uninitialized(self) -> UninitializedDiclConfig {
+    pub fn as_uninitialized(&self) -> UninitializedDiclConfig {
         UninitializedDiclConfig {
             weight: self.weight,
             embedding_model: self.embedding_model.to_string(),
             k: self.k,
             model: self.model.to_string(),
             system_instructions: if self.system_instructions.is_real_path() {
-                Some(self.system_instructions)
+                Some(self.system_instructions.clone())
             } else {
                 None
             },
             temperature: self.temperature,
             top_p: self.top_p,
-            stop_sequences: self.stop_sequences,
+            stop_sequences: self.stop_sequences.clone(),
             presence_penalty: self.presence_penalty,
             frequency_penalty: self.frequency_penalty,
             max_tokens: self.max_tokens,
             seed: self.seed,
-            reasoning_effort: self.inference_params_v2.reasoning_effort,
+            reasoning_effort: self.inference_params_v2.reasoning_effort.clone(),
             thinking_budget_tokens: self.inference_params_v2.thinking_budget_tokens,
-            verbosity: self.inference_params_v2.verbosity,
+            verbosity: self.inference_params_v2.verbosity.clone(),
             json_mode: self.json_mode,
-            extra_body: self.extra_body,
+            extra_body: self.extra_body.clone(),
             retries: self.retries,
-            extra_headers: self.extra_headers,
+            extra_headers: self.extra_headers.clone(),
             max_distance: self.max_distance,
         }
     }
@@ -296,12 +296,13 @@ impl Variant for DiclConfig {
         // Refactored function call using the struct
         let mut inference_response = infer_model_request(args).await?;
 
-        // Add the embedding to the model inference results
+        // Add the embedding to the model inference results (at the beginning, so embedding
+        // entries appear before LLM entries in raw_response)
         inference_response
             .mut_model_inference_results()
             // This can only fail if the embedding response has a request with > 1 input,
             // which should never happen as we only send one input at a time
-            .push(embedding_response.try_into()?);
+            .insert(0, embedding_response.try_into()?);
         Ok(inference_response)
     }
 

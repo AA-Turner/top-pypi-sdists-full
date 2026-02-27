@@ -1,5 +1,11 @@
+use crate::config::Namespace;
 use crate::config::SchemaData;
 use crate::config::gateway::GatewayConfig;
+use crate::config::path::ResolvedTomlPathData;
+use crate::config::{
+    UninitializedFunctionConfig, UninitializedFunctionConfigChat, UninitializedFunctionConfigJson,
+    UninitializedSchemas,
+};
 #[cfg(feature = "pyo3")]
 use crate::error::IMPOSSIBLE_ERROR_MESSAGE;
 use crate::experimentation::{ExperimentationConfig, ExperimentationConfigWithNamespaces};
@@ -118,6 +124,15 @@ impl FunctionConfigType {
             FunctionConfigType::Json => "tensorzero.json_datapoints",
         }
     }
+
+    /// Returns the Postgres inference data table name for the given function type.
+    /// This is the split table that stores input/output payloads separately from metadata.
+    pub fn postgres_inference_data_table_name(&self) -> &'static str {
+        match self {
+            FunctionConfigType::Chat => "tensorzero.chat_inference_data",
+            FunctionConfigType::Json => "tensorzero.json_inference_data",
+        }
+    }
 }
 
 impl FunctionConfig {
@@ -149,7 +164,10 @@ impl FunctionConfig {
 
     /// Returns the experimentation config for a given namespace.
     /// If namespace is None or doesn't have a specific config, returns the base config.
-    pub fn experimentation_for_namespace(&self, namespace: Option<&str>) -> &ExperimentationConfig {
+    pub fn experimentation_for_namespace(
+        &self,
+        namespace: Option<&Namespace>,
+    ) -> &ExperimentationConfig {
         match self {
             FunctionConfig::Chat(config) => config.experimentation.get_for_namespace(namespace),
             FunctionConfig::Json(config) => config.experimentation.get_for_namespace(namespace),
@@ -170,6 +188,77 @@ impl FunctionConfig {
             FunctionConfig::Json(_config) => Box::new(std::iter::empty()),
         }
     }
+
+    pub fn as_uninitialized(&self) -> UninitializedFunctionConfig {
+        match self {
+            FunctionConfig::Chat(chat) => {
+                UninitializedFunctionConfig::Chat(chat.as_uninitialized())
+            }
+            FunctionConfig::Json(json) => {
+                UninitializedFunctionConfig::Json(json.as_uninitialized())
+            }
+        }
+    }
+}
+
+impl FunctionConfigChat {
+    pub fn as_uninitialized(&self) -> UninitializedFunctionConfigChat {
+        UninitializedFunctionConfigChat {
+            variants: self
+                .variants
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_uninitialized()))
+                .collect(),
+            system_schema: None,
+            user_schema: None,
+            assistant_schema: None,
+            schemas: extract_uninitialized_schemas(&self.schemas),
+            tools: self.tools.clone(),
+            tool_choice: self.tool_choice.clone(),
+            parallel_tool_calls: self.parallel_tool_calls,
+            description: self.description.clone(),
+            experimentation: None,
+        }
+    }
+}
+
+impl FunctionConfigJson {
+    pub fn as_uninitialized(&self) -> UninitializedFunctionConfigJson {
+        UninitializedFunctionConfigJson {
+            variants: self
+                .variants
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_uninitialized()))
+                .collect(),
+            system_schema: None,
+            user_schema: None,
+            assistant_schema: None,
+            schemas: extract_uninitialized_schemas(&self.schemas),
+            output_schema: Some(ResolvedTomlPathData::new_fake_path(
+                "checkpoint://output_schema".to_string(),
+                self.output_schema.value.to_string(),
+            )),
+            description: self.description.clone(),
+            experimentation: None,
+        }
+    }
+}
+
+fn extract_uninitialized_schemas(schema_data: &SchemaData) -> UninitializedSchemas {
+    let paths: HashMap<String, ResolvedTomlPathData> = schema_data
+        .inner
+        .iter()
+        .map(|(name, meta)| {
+            (
+                name.clone(),
+                ResolvedTomlPathData::new_fake_path(
+                    format!("checkpoint://schema/{name}"),
+                    meta.schema.value.to_string(),
+                ),
+            )
+        })
+        .collect();
+    UninitializedSchemas::from_paths(paths)
 }
 
 #[cfg(feature = "pyo3")]
@@ -1925,6 +2014,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -1995,6 +2085,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -2051,6 +2142,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -2110,6 +2202,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let model_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
@@ -2166,6 +2259,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let model_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
@@ -2222,6 +2316,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(0),
+            cost: None,
         };
         let model_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
@@ -2296,6 +2391,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -2346,6 +2442,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -2404,6 +2501,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let model_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
@@ -2459,6 +2557,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let model_response = ModelInferenceResponseWithMetadata {
             id: Uuid::now_v7(),
@@ -2520,6 +2619,7 @@ mod tests {
         let usage = Usage {
             input_tokens: Some(10),
             output_tokens: Some(10),
+            cost: None,
         };
         let latency = Latency::NonStreaming {
             response_time: Duration::from_millis(100),
@@ -2743,7 +2843,8 @@ mod tests {
             base: ExperimentationConfig::default(),
             namespaces,
         });
-        let exp = config.experimentation_for_namespace(Some("mobile"));
+        let ns = Namespace::new("mobile").unwrap();
+        let exp = config.experimentation_for_namespace(Some(&ns));
         assert!(
             matches!(exp, ExperimentationConfig::StaticWeights(_)),
             "Known namespace should return the namespace-specific config"
@@ -2753,7 +2854,8 @@ mod tests {
     #[test]
     fn test_experimentation_for_namespace_unknown_returns_base() {
         let config = make_chat_function_config(ExperimentationConfigWithNamespaces::default());
-        let exp = config.experimentation_for_namespace(Some("nonexistent"));
+        let ns = Namespace::new("nonexistent").unwrap();
+        let exp = config.experimentation_for_namespace(Some(&ns));
         assert!(
             matches!(exp, ExperimentationConfig::Uniform(_)),
             "Unknown namespace should fall back to the base config"

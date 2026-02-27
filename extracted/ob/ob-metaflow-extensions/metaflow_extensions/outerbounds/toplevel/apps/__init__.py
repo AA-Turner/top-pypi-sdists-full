@@ -4,6 +4,7 @@ from ...plugins.apps.core import (
     bake_image,
     BakedImage,
     package_code,
+    load_code_package,
     PackagedCode,
 )
 from . import exceptions

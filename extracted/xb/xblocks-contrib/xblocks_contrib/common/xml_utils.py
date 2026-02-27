@@ -438,7 +438,7 @@ class LegacyXmlMixin:
     @classmethod
     def parse_xml_new_runtime(cls, node, runtime, keys):
         """
-        This XML lives within Learning Core and the new runtime doesn't need this
+        This XML lives within openedx_content and the new runtime doesn't need this
         legacy XModule code. Use the "normal" XBlock parsing code.
         """
         try:

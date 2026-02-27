@@ -39,6 +39,11 @@ from snowflake.connector.errors import ProgrammingError
 from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLException
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_mapping import ERROR_MAPPINGS_JSON
+from snowflake.snowpark_connect.utils.context import get_is_python_client
+
+# Limit size of serialized status payloads to 4 KB to stay below typical 8 KB
+# header/metadata limits (e.g., HTTP/2 / gRPC) and leave room for overhead.
+STATUS_SIZE_LIMIT = 4000
 
 # Thread-local storage for custom error codes when we can't attach them directly to exceptions
 _thread_local = threading.local()
@@ -457,7 +462,60 @@ def build_grpc_error_response(ex: Exception) -> status_pb2.Status:
     rich_status = status_pb2.Status(
         code=code_pb2.INTERNAL, message=error_code_added_message, details=[detail]
     )
+
+    # gRPC status is passed via response headers, which have an ~8KB limit for TCP connections.
+    # If the status exceeds that, the client throws a generic exception that hides the real error.
+    # To prevent this, truncate the status to fit within STATUS_SIZE_LIMIT (4KB).
+    if rich_status.ByteSize() >= STATUS_SIZE_LIMIT:
+        rich_status = _truncate_grpc_status(
+            rich_status, error_info, detail, include_stack_trace
+        )
+
     return rich_status
+
+
+def _truncate_grpc_status(
+    rich_status: status_pb2.Status,
+    error_info: error_details_pb2.ErrorInfo,
+    detail: any_pb2.Any,
+    include_stack_trace: bool,
+) -> status_pb2.Status:
+    is_python_client = get_is_python_client()
+
+    # Scala/Java clients serialize the status into trailing metadata with extra overhead,
+    # so they need a tighter size cap than the Python client.
+    max_size = STATUS_SIZE_LIMIT if is_python_client else STATUS_SIZE_LIMIT // 2
+
+    details_size = sum(d.ByteSize() for d in rich_status.details)
+    message_limit = max(0, max_size - details_size)
+
+    if include_stack_trace:
+        detail, message_limit = _truncate_stack_trace(error_info, max_size)
+
+    truncated_message = rich_status.message[:message_limit] + "...(truncated)"
+    return status_pb2.Status(
+        code=code_pb2.INTERNAL, message=truncated_message, details=[detail]
+    )
+
+
+def _truncate_stack_trace(
+    error_info: error_details_pb2.ErrorInfo,
+    max_size: int,
+) -> tuple[any_pb2.Any, int]:
+    """Split the available space evenly between the stack trace and the message."""
+    half = max_size // 2
+
+    metadata = {k: v for k, v in error_info.metadata.items() if k != "stackTrace"}
+    metadata["stackTrace"] = error_info.metadata["stackTrace"][:half] + "...(truncated)"
+
+    truncated_info = error_details_pb2.ErrorInfo(
+        reason=error_info.reason,
+        domain=error_info.domain,
+        metadata=metadata,
+    )
+    detail = any_pb2.Any()
+    detail.Pack(truncated_info)
+    return detail, half
 
 
 class SparkException:

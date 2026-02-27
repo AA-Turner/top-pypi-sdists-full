@@ -3,8 +3,9 @@ Serialization helpers for :func:`pydantic.BaseModel.model_dump`
 and :func:`pydantic.BaseModel.model_dump_json` .
 """
 
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Callable, Iterable, TypeVar, Union
+from typing import Any, TypeVar
 
 from pydantic_core.core_schema import SerializationInfo
 
@@ -14,7 +15,7 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-def jsonize_array(value: Any, info: SerializationInfo) -> Union[list, dict]:
+def jsonize_array(value: Any, info: SerializationInfo) -> list | dict:
     """Use an interface class to render an array as JSON"""
     # perf: keys to skip in generation - anything named "value" is array data.
     skip = ["value"]

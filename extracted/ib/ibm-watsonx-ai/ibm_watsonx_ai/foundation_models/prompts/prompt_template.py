@@ -67,8 +67,8 @@ class FreeformPromptTemplate(BasePromptTemplate):
     :param name: name of the prompt template, defaults to None.
     :type name: str, optional
 
-    :param model_id: ID of the foundation model, defaults to None.
-    :type model_id: ModelTypes | str | None, optional
+    :param model_id: ID of the foundation model, can be retrieved using TextModels property, defaults to None.
+    :type model_id: str | None, optional
 
     :param model_params: parameters of the model, defaults to None.
     :type model_params: dict, optional
@@ -189,8 +189,8 @@ class PromptTemplate(BasePromptTemplate):
     :param name: name of the prompt template, defaults to None.
     :type name: str, optional
 
-    :param model_id: ID of the Foundation model, defaults to None.
-    :type model_id: ModelTypes | str | None, optional
+    :param model_id: ID of the Foundation model, can be retrieved using TextModels property, defaults to None.
+    :type model_id: str | None, optional
 
     :param model_params: parameters of the model, defaults to None.
     :type model_params: dict, optional
@@ -352,8 +352,8 @@ class DetachedPromptTemplate(BasePromptTemplate):
     :param name: name of the prompt template, defaults to None.
     :type name: str, optional
 
-    :param model_id: ID of the foundation model, defaults to None.
-    :type model_id: ModelTypes | str | None, optional
+    :param model_id: ID of the foundation model, can be retrieved using TextModels property, defaults to None.
+    :type model_id: str | None, optional
 
     :param model_params: parameters of the model, defaults to None.
     :type model_params: dict, optional
@@ -1280,7 +1280,7 @@ class PromptTemplateManager(WMLResource):
                 def get_metadata_value(
                     prompt_temp: LcPromptTemplate,
                     key: str,
-                    default: ModelTypes | list | bool | str | None = None,
+                    default: list | bool | str | None = None,
                     must_be_list: bool = False,
                     must_be_nested_list: bool = False,
                 ) -> Any:
@@ -1312,7 +1312,9 @@ class PromptTemplateManager(WMLResource):
                                 prompt_template, "name", "My prompt"
                             ),
                             model_id=get_metadata_value(
-                                prompt_template, "model_id", ModelTypes.FLAN_UL2
+                                prompt_template,
+                                "model_id",
+                                "meta-llama/llama-3-3-70b-instruct",
                             ),
                             model_params=get_metadata_value(
                                 prompt_template, "model_params", None
@@ -1359,7 +1361,9 @@ class PromptTemplateManager(WMLResource):
                                 prompt_template, "name", "My prompt"
                             ),
                             model_id=get_metadata_value(
-                                prompt_template, "model_id", ModelTypes.FLAN_UL2
+                                prompt_template,
+                                "model_id",
+                                "meta-llama/llama-3-3-70b-instruct",
                             ),
                             model_params=get_metadata_value(
                                 prompt_template, "model_params", None
@@ -1420,7 +1424,9 @@ class PromptTemplateManager(WMLResource):
                                 prompt_template, "name", "My prompt"
                             ),
                             model_id=get_metadata_value(
-                                prompt_template, "model_id", ModelTypes.FLAN_UL2
+                                prompt_template,
+                                "model_id",
+                                "meta-llama/llama-3-3-70b-instruct",
                             ),
                             model_params=get_metadata_value(
                                 prompt_template, "model_params", None

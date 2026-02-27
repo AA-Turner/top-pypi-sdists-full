@@ -95,3 +95,29 @@ def test_shape_literal():
     # fails to validate
     with pytest.raises(ShapeError):
         _ = array_type(np.zeros((4, 5)))
+
+
+def test_shape_callable():
+    """Shape can be used as a callable rather than a bracketed type"""
+    array_type = NDArray[Shape("1, 2, ..."), Any]
+
+    # validates
+    _ = array_type(np.zeros((1, 2, 3)))
+    # fails to validate
+    with pytest.raises(ShapeError):
+        _ = array_type(np.zeros((4, 5)))
+
+
+@pytest.mark.parametrize("form", ["square", "round"])
+def test_shape_tuple(form: str):
+    """Shape can be given as a tuple as well!"""
+    if form == "square":
+        array_type = NDArray[Shape[1, 2, "..."], Any]
+    else:
+        array_type = NDArray[Shape(1, 2, "..."), Any]
+
+    # validates
+    _ = array_type(np.zeros((1, 2, 3)))
+    # fails to validate
+    with pytest.raises(ShapeError):
+        _ = array_type(np.zeros((4, 5)))

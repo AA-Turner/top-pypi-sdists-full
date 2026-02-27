@@ -63,6 +63,39 @@ def validate_cypher_identifier(identifier: str, identifier_type: str) -> None:
         raise exception
 
 
+def validate_and_normalize_neo4j_labels(labels_str: str) -> str:
+    """
+    Validate Neo4j label syntax including multi-label chains.
+
+    Supported forms:
+      - "Person"
+      - "Person:Product"
+      - ":Person:Product" (leading colon is normalized away)
+
+    Returns:
+      A normalized label chain string.
+
+    Examples:
+      - validate_and_normalize_neo4j_labels("Person") -> "Person"
+      - validate_and_normalize_neo4j_labels(":Person:Product") -> "Person:Product"
+    """
+    if labels_str is None:
+        exception = ValueError("Neo4j labels cannot be empty")
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    individual_labels = [label for label in labels_str.split(":") if label]
+    if not individual_labels:
+        exception = ValueError("Neo4j labels cannot be empty")
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    for label in individual_labels:
+        validate_cypher_identifier(label, "label")
+
+    return ":".join(individual_labels)
+
+
 def transform_neo4j_to_jdbc_options(
     options: dict[str, str],
     operation: Literal["read", "write"],
@@ -144,10 +177,9 @@ def transform_neo4j_to_jdbc_options(
         if "query" in options:
             jdbc_options["query"] = options["query"]
         elif "labels" in options:
-            label = options["labels"]
-            validate_cypher_identifier(label, "label")
+            labels = validate_and_normalize_neo4j_labels(options["labels"])
             # Pass through - query will be resolved in jdbc_read_dbapi using existing connection
-            jdbc_options["labels"] = label
+            jdbc_options["labels"] = labels
         elif "relationship" in options:
             rel_type = options["relationship"]
             validate_cypher_identifier(rel_type, "relationship type")
@@ -162,14 +194,12 @@ def transform_neo4j_to_jdbc_options(
     elif operation == "write":
         # For write, labels becomes dbtable (the node label to create)
         if "labels" in options:
-            label = options["labels"]
-            validate_cypher_identifier(label, "label")
-            jdbc_options["dbtable"] = label
+            labels = validate_and_normalize_neo4j_labels(options["labels"])
+            jdbc_options["dbtable"] = labels
         elif "node.keys" in options:
             # Some Neo4j connector variants use node.keys
-            label = options.get("labels", "Node")
-            validate_cypher_identifier(label, "label")
-            jdbc_options["dbtable"] = label
+            labels = options.get("labels", "Node")
+            jdbc_options["dbtable"] = validate_and_normalize_neo4j_labels(labels)
         else:
             exception = ValueError(
                 "Neo4j write requires 'labels' option to specify the node label"

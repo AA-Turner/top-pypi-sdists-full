@@ -322,7 +322,7 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
         # the root /c4x/ url for assets. This allows client-side substitutions to occur.
         return {
             "module": self,
-            "editable_metadata_fields": self.editable_metadata_fields,  # pylint: disable=no-member
+            "editable_metadata_fields": self.editable_metadata_fields,
             "data": self.data,
             "base_asset_url": self.get_base_url_path_for_course_assets(self.location.course_key),
             "enable_latex_compiler": self.use_latex_compiler,
@@ -371,7 +371,7 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
         if self.scope_ids.user_id is not None and user_id == self.scope_ids.user_id:
             if getattr(self.runtime, "position", None):
                 # update the position of the tab
-                self.position = self.runtime.position  # pylint: disable=attribute-defined-outside-init
+                self.position = self.runtime.position
             return
 
         # # If we are switching users mid-request, save the data from the old user.
@@ -402,7 +402,7 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
             wrapped_field_data = self.runtime.service(self, "field-data-unbound")
             for wrapper in wrappers:
                 wrapped_field_data = wrapper(wrapped_field_data)
-            self._bound_field_data = wrapped_field_data  # pylint: disable=attribute-defined-outside-init
+            self._bound_field_data = wrapped_field_data
             if getattr(self.runtime, "uses_deprecated_field_data", False):
                 # This approach is deprecated but old mongo's CachingDescriptorSystem still requires it.
                 # For Split mongo's CachingDescriptor system, don't set ._field_data this way.

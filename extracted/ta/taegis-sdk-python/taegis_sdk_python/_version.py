@@ -1,3 +1,3 @@
 """Version idenitier."""
 
-__version__ = "1.6.10"
+__version__ = "1.6.11.1"

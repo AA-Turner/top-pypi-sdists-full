@@ -22,6 +22,8 @@ class UpdateAppRawMultipartDataApp:
         policy (Union[Unset, UpdateAppRawMultipartDataAppPolicy]):
         deployment_message (Union[Unset, str]):
         custom_path (Union[Unset, str]):
+        preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
+            preserves the original on_behalf_of value in the policy instead of overwriting it.
     """
 
     path: Union[Unset, str] = UNSET
@@ -30,6 +32,7 @@ class UpdateAppRawMultipartDataApp:
     policy: Union[Unset, "UpdateAppRawMultipartDataAppPolicy"] = UNSET
     deployment_message: Union[Unset, str] = UNSET
     custom_path: Union[Unset, str] = UNSET
+    preserve_on_behalf_of: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -42,6 +45,7 @@ class UpdateAppRawMultipartDataApp:
 
         deployment_message = self.deployment_message
         custom_path = self.custom_path
+        preserve_on_behalf_of = self.preserve_on_behalf_of
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -58,6 +62,8 @@ class UpdateAppRawMultipartDataApp:
             field_dict["deployment_message"] = deployment_message
         if custom_path is not UNSET:
             field_dict["custom_path"] = custom_path
+        if preserve_on_behalf_of is not UNSET:
+            field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
 
         return field_dict
 
@@ -83,6 +89,8 @@ class UpdateAppRawMultipartDataApp:
 
         custom_path = d.pop("custom_path", UNSET)
 
+        preserve_on_behalf_of = d.pop("preserve_on_behalf_of", UNSET)
+
         update_app_raw_multipart_data_app = cls(
             path=path,
             summary=summary,
@@ -90,6 +98,7 @@ class UpdateAppRawMultipartDataApp:
             policy=policy,
             deployment_message=deployment_message,
             custom_path=custom_path,
+            preserve_on_behalf_of=preserve_on_behalf_of,
         )
 
         update_app_raw_multipart_data_app.additional_properties = d

@@ -161,6 +161,12 @@ class SnowflakeFileByteRangeStream(io.RawIOBase):
         """Return the logical split size (before padding)."""
         return self._byte_range.split_size_bytes
 
+    @property
+    def is_reading_from_next_reader_owned_compressed_block(self) -> bool:
+        # Handles the case of uncompressed JSON parallel loading. There is no compression so no BZ2 compressed
+        # blocks to keep track of.
+        return False
+
     def readable(self) -> bool:
         """Return True - this stream is readable."""
         return True
@@ -258,6 +264,10 @@ class ResyncingBZ2SplitRawStream(io.RawIOBase):
     @property
     def num_blocks_decompressed_past_split_boundary(self) -> int:
         return self._num_blocks_decompressed_past_split_boundary
+
+    @property
+    def is_reading_from_next_reader_owned_compressed_block(self) -> bool:
+        return self._num_blocks_decompressed_past_split_boundary >= 1
 
     def readable(self):
         return True
@@ -398,10 +408,15 @@ class ResyncingLineRecordRawStream(io.RawIOBase):
     - Non-first split: discard bytes until first newline
     """
 
-    def __init__(self, raw_stream: ResyncingBZ2SplitRawStream, read_size=8192) -> None:
+    def __init__(
+        self,
+        raw_stream: ResyncingBZ2SplitRawStream | SnowflakeFileByteRangeStream,
+        read_size=8192,
+    ) -> None:
         self.raw = raw_stream
         self.read_size = read_size
 
+        self._skipped_bytes = 0
         self._buffer = bytearray()
         self._eof = False
         self._resynced = raw_stream.is_first_split
@@ -409,6 +424,10 @@ class ResyncingLineRecordRawStream(io.RawIOBase):
     @property
     def is_first_split(self) -> bool:
         return self.raw.is_first_split
+
+    @property
+    def bytes_skipped(self):
+        return self._skipped_bytes
 
     def readable(self):
         return True
@@ -430,17 +449,20 @@ class ResyncingLineRecordRawStream(io.RawIOBase):
 
             chunk = memoryview(read_buffer)[:n]
 
-            if self.raw.num_blocks_decompressed_past_split_boundary >= 1:
+            if self.raw.is_reading_from_next_reader_owned_compressed_block:
                 # First new line delimited record - that we must skip - can not lie past the split boundary.
                 self._eof = True
                 return False
 
             nl = read_buffer.find(b"\n", 0, n)
             if nl != -1:
+                self._skipped_bytes += nl
                 # Start AFTER the newline
                 self._buffer.extend(chunk[nl + 1 :])
                 self._resynced = True
                 return True
+            else:
+                self._skipped_bytes += n
 
     def readinto(self, b):
         while len(self._buffer) <= 0:
@@ -459,7 +481,7 @@ class ResyncingLineRecordRawStream(io.RawIOBase):
             chunk = memoryview(b)[:n]
 
             nl = bytes(chunk).find(b"\n")
-            if nl != -1 and self.raw.num_blocks_decompressed_past_split_boundary >= 1:
+            if nl != -1 and self.raw.is_reading_from_next_reader_owned_compressed_block:
                 # We read up to the first new line character that is in the compressedblock that starts in the next split.
                 # his is the record that the next split reader will skip because it can not decompress the previous compressed
                 # block which may have beginning of this record. Next reader can not decompress the previous compressed block

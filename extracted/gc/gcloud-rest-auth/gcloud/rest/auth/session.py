@@ -1,16 +1,13 @@
-import importlib.metadata
 import logging
 import threading
 import warnings
 from abc import ABCMeta
 from abc import abstractmethod
 from abc import abstractproperty
+from collections.abc import Mapping
 from typing import Any
 from typing import AnyStr
 from typing import IO
-from typing import Mapping
-from typing import Optional
-from typing import Union
 
 from .build_constants import BUILD_GCLOUD_REST
 
@@ -30,7 +27,7 @@ class BaseSession:
     __metaclass__ = ABCMeta
 
     def __init__(
-        self, session: Optional[Session] = None, timeout: float = 10,
+        self, session: Session | None = None, timeout: float = 10,
         verify_ssl: bool = True,
     ) -> None:
         self._shared_session = bool(session)
@@ -39,53 +36,53 @@ class BaseSession:
         self._timeout = timeout
 
     @abstractproperty  # pylint: disable=deprecated-decorator
-    def session(self) -> Optional[Session]:
+    def session(self) -> Session | None:
         return self._session
 
     @abstractmethod
     def post(
         self, url: str, headers: Mapping[str, str],
-        data: Optional[Union[bytes, str, IO[AnyStr]]], timeout: float,
-        params: Optional[Mapping[str, Union[int, str]]],
+        data: bytes | str | IO[AnyStr] | None, timeout: float,
+        params: Mapping[str, int | str] | None,
     ) -> Response:
         pass
 
     @abstractmethod
     def get(
-        self, url: str, headers: Optional[Mapping[str, str]],
-        timeout: float, params: Optional[Mapping[str, Union[int, str]]],
+        self, url: str, headers: Mapping[str, str] | None,
+        timeout: float, params: Mapping[str, int | str] | None,
         stream: bool,
-        auto_decompress: bool,
+        auto_decompress: bool | None,
     ) -> Response:
         pass
 
     @abstractmethod
     def patch(
         self, url: str, headers: Mapping[str, str],
-        data: Optional[Union[bytes, str]], timeout: float,
-        params: Optional[Mapping[str, Union[int, str]]],
+        data: bytes | str | None, timeout: float,
+        params: Mapping[str, int | str] | None,
     ) -> Response:
         pass
 
     @abstractmethod
     def put(
         self, url: str, headers: Mapping[str, str],
-        data: Union[bytes, str, IO[Any]], timeout: float,
+        data: bytes | str | IO[Any], timeout: float,
     ) -> Response:
         pass
 
     @abstractmethod
     def delete(
         self, url: str, headers: Mapping[str, str],
-        params: Optional[Mapping[str, Union[int, str]]],
+        params: Mapping[str, int | str] | None,
         timeout: float,
     ) -> Response:
         pass
 
     @abstractmethod
     def head(
-        self, url: str, headers: Optional[Mapping[str, str]],
-        timeout: float, params: Optional[Mapping[str, Union[int, str]]],
+        self, url: str, headers: Mapping[str, str] | None,
+        timeout: float, params: Mapping[str, int | str] | None,
         allow_redirects: bool,
     ) -> Response:
         pass
@@ -106,7 +103,7 @@ class BaseSession:
 if not BUILD_GCLOUD_REST:
     import aiohttp
 
-    Timeout = Union[aiohttp.ClientTimeout, float]
+    Timeout = aiohttp.ClientTimeout | float
 
     def _raise_for_status(resp: aiohttp.ClientResponse) -> None:
         """Check resp for status and if error log additional info."""
@@ -142,29 +139,19 @@ if not BUILD_GCLOUD_REST:
         _session: aiohttp.ClientSession  # type: ignore[assignment]
         _timeout: Timeout  # type: ignore[assignment]
 
-        # N.B. `aiohttp.TCPConnector` SSL config is not true / false / CA
-        # bundle path like `requests`, but `None` / false / object instead:
-        # * `None` for default SSL check
-        # * `False` to skip SSL certificate validation
-        # * `aiohttp.Fingerprint` for fingerprint validation
-        # * `ssl.SSLContext` for custom SSL certificate validation
-        #
-        # https://docs.aiohttp.org/en/v3.9.1/client_reference.html#aiohttp.TCPConnector
         @property
         def session(self) -> aiohttp.ClientSession:  # type: ignore[override]
             if not self._session:
-                ssl_flag: Optional[bool] = False
-                if self._ssl:
-                    aiohttp_version = importlib.metadata.version('aiohttp')
-                    major, minor, patch = aiohttp_version.split('.')
-                    if int(major) > 3 or int(minor) > 9 or int(patch) > 1:
-                        ssl_flag = True
-                    else:
-                        # TODO: drop when min supported aiohttp is 3.9.2
-                        ssl_flag = None
-
-                connector = aiohttp.TCPConnector(
-                    ssl=ssl_flag)  # type: ignore[arg-type]
+                # N.B. `aiohttp.TCPConnector` SSL config is not true / false /
+                # CA bundle path like `requests`, but `None` / false / object
+                # instead:
+                # * `None` for default SSL check (ie. enabled)
+                # * `False` to skip SSL certificate validation
+                # * `aiohttp.Fingerprint` for fingerprint validation
+                # * `ssl.SSLContext` for custom SSL certificate validation
+                #
+                # https://docs.aiohttp.org/en/v3.9.2/client_reference.html#aiohttp.TCPConnector
+                connector = aiohttp.TCPConnector(ssl=self._ssl)
 
                 if isinstance(self._timeout, aiohttp.ClientTimeout):
                     timeout = self._timeout
@@ -180,9 +167,9 @@ if not BUILD_GCLOUD_REST:
         def post(  # type: ignore[override]
             self, url: str,
             headers: Mapping[str, str],
-            data: Optional[Union[bytes, str, IO[AnyStr]]] = None,
+            data: bytes | str | IO[AnyStr] | None = None,
             timeout: Timeout = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
                 timeout = aiohttp.ClientTimeout(total=timeout)
@@ -196,11 +183,11 @@ if not BUILD_GCLOUD_REST:
 
         def get(  # type: ignore[override]
             self, url: str,
-            headers: Optional[Mapping[str, str]] = None,
+            headers: Mapping[str, str] | None = None,
             timeout: Timeout = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
-            stream: Optional[bool] = None,
-            auto_decompress: bool = True,
+            params: Mapping[str, int | str] | None = None,
+            stream: bool | None = None,
+            auto_decompress: bool | None = True,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
                 timeout = aiohttp.ClientTimeout(total=timeout)
@@ -221,9 +208,9 @@ if not BUILD_GCLOUD_REST:
 
         def patch(  # type: ignore[override]
             self, url: str, headers: Mapping[str, str],
-            data: Optional[Union[bytes, str]] = None,
+            data: bytes | str | None = None,
             timeout: Timeout = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
                 timeout = aiohttp.ClientTimeout(total=timeout)
@@ -237,7 +224,7 @@ if not BUILD_GCLOUD_REST:
 
         def put(  # type: ignore[override]
             self, url: str,
-            headers: Mapping[str, str], data: Union[bytes, str, IO[Any]],
+            headers: Mapping[str, str], data: bytes | str | IO[Any],
             timeout: Timeout = 10,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
@@ -253,7 +240,7 @@ if not BUILD_GCLOUD_REST:
         def delete(  # type: ignore[override]
             self, url: str,
             headers: Mapping[str, str],
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
             timeout: Timeout = 10,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
@@ -268,9 +255,9 @@ if not BUILD_GCLOUD_REST:
 
         def head(  # type: ignore[override]
             self, url: str,
-            headers: Optional[Mapping[str, str]] = None,
+            headers: Mapping[str, str] | None = None,
             timeout: Timeout = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
             allow_redirects: bool = False,
         ) -> aiohttp.ClientResponse:
             if not isinstance(timeout, aiohttp.ClientTimeout):
@@ -322,9 +309,9 @@ if BUILD_GCLOUD_REST:
         # analysis.
         def post(
             self, url: str, headers: Mapping[str, str],
-            data: Optional[Union[bytes, str, IO[AnyStr]]] = None,
+            data: bytes | str | IO[AnyStr] | None = None,
             timeout: float = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
         ) -> Response:
             with self.google_api_lock:
                 resp = self.session.post(
@@ -335,13 +322,13 @@ if BUILD_GCLOUD_REST:
             return resp
 
         def get(
-            self, url: str, headers: Optional[Mapping[str, str]] = None,
+            self, url: str, headers: Mapping[str, str] | None = None,
             timeout: float = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
             stream: bool = False,
-            auto_decompress: bool = True,
+            auto_decompress: bool | None = True,
         ) -> Response:
-            if not auto_decompress and not stream:
+            if auto_decompress is False and not stream:
                 warnings.warn(
                     'the requests library always decompresses responses when '
                     'outside of streaming mode; when auto_decompress is '
@@ -360,8 +347,8 @@ if BUILD_GCLOUD_REST:
 
         def patch(
             self, url: str, headers: Mapping[str, str],
-            data: Optional[Union[bytes, str]] = None, timeout: float = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            data: bytes | str | None = None, timeout: float = 10,
+            params: Mapping[str, int | str] | None = None,
         ) -> Response:
             with self.google_api_lock:
                 resp = self.session.patch(
@@ -373,7 +360,7 @@ if BUILD_GCLOUD_REST:
 
         def put(
             self, url: str, headers: Mapping[str, str],
-            data: Union[bytes, str, IO[Any]], timeout: float = 10,
+            data: bytes | str | IO[Any], timeout: float = 10,
         ) -> Response:
             with self.google_api_lock:
                 resp = self.session.put(
@@ -385,7 +372,7 @@ if BUILD_GCLOUD_REST:
 
         def delete(
             self, url: str, headers: Mapping[str, str],
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
             timeout: float = 10,
         ) -> Response:
             with self.google_api_lock:
@@ -397,9 +384,9 @@ if BUILD_GCLOUD_REST:
             return resp
 
         def head(
-            self, url: str, headers: Optional[Mapping[str, str]] = None,
+            self, url: str, headers: Mapping[str, str] | None = None,
             timeout: float = 10,
-            params: Optional[Mapping[str, Union[int, str]]] = None,
+            params: Mapping[str, int | str] | None = None,
             allow_redirects: bool = False,
         ) -> Response:
             with self.google_api_lock:

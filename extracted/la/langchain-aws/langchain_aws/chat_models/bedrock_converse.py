@@ -545,8 +545,11 @@ class ChatBedrockConverse(BaseChatModel):
     additional_model_request_fields: Optional[Dict[str, Any]] = None
     """Additional inference parameters that the model supports.
 
-    Parameters beyond the base set of inference parameters that Converse supports in the
-    inferenceConfig field.
+    Parameters beyond the base set of inference parameters that Converse
+    supports in the additionalModelRequestFields field. Keys must match
+    the exact format expected by the target model (e.g., inferenceConfig,
+    not inference_config). Refer to the model's AWS documentation for
+    supported parameters.
 
     """
 
@@ -1053,8 +1056,10 @@ class ChatBedrockConverse(BaseChatModel):
         logger.debug(f"System message to bedrock: {system}")
         # Remove disable_streaming from kwargs as it's not a valid API parameter
         filtered_kwargs = {k: v for k, v in kwargs.items() if k != "disable_streaming"}
+        additional_fields = filtered_kwargs.pop("additional_model_request_fields", None)
         params = self._converse_params(
             stop=stop,
+            additionalModelRequestFields=additional_fields,
             **_snake_to_camel_keys(
                 filtered_kwargs, excluded_keys={"inputSchema", "properties", "thinking"}
             ),
@@ -1110,8 +1115,10 @@ class ChatBedrockConverse(BaseChatModel):
 
         # Remove disable_streaming from kwargs as it's not a valid API parameter
         filtered_kwargs = {k: v for k, v in kwargs.items() if k != "disable_streaming"}
+        additional_fields = filtered_kwargs.pop("additional_model_request_fields", None)
         params = self._converse_params(
             stop=stop,
+            additionalModelRequestFields=additional_fields,
             **_snake_to_camel_keys(
                 filtered_kwargs, excluded_keys={"inputSchema", "properties", "thinking"}
             ),
@@ -1221,6 +1228,7 @@ class ChatBedrockConverse(BaseChatModel):
         ],
         *,
         tool_choice: Optional[Union[dict, str, Literal["auto", "any"]]] = None,
+        strict: Optional[bool] = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, AIMessage]:
         # Separate system tools from custom tools
@@ -1251,9 +1259,14 @@ class ChatBedrockConverse(BaseChatModel):
                 formatted_custom_tools.append(tool)
             else:
                 try:
-                    formatted_custom_tools.append(convert_to_openai_tool(tool))
+                    formatted_custom_tools.append(
+                        convert_to_openai_tool(tool, strict=strict)
+                    )
                 except Exception:
-                    formatted_custom_tools.append(_format_tools([tool])[0])
+                    formatted = _format_tools([tool])[0]
+                    if strict is not None and "toolSpec" in formatted:
+                        formatted["toolSpec"]["strict"] = strict  # type: ignore[assignment]
+                    formatted_custom_tools.append(formatted)
 
         if system_tools:
             # Merge system and custom tools
@@ -1332,6 +1345,7 @@ class ChatBedrockConverse(BaseChatModel):
         schema: _DictOrPydanticClass,
         *,
         include_raw: bool = False,
+        strict: Optional[bool] = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
         supports_tool_choice_values = self.supports_tool_choice_values or ()
@@ -1359,13 +1373,14 @@ class ChatBedrockConverse(BaseChatModel):
                 llm = self.bind_tools(
                     [schema],
                     tool_choice=tool_choice,
+                    strict=strict,
                     ls_structured_output_format={
                         "kwargs": {"method": "function_calling"},
                         "schema": convert_to_openai_tool(schema),
                     },
                 )
             except Exception:
-                llm = self.bind_tools([schema], tool_choice=tool_choice)
+                llm = self.bind_tools([schema], tool_choice=tool_choice, strict=strict)
         if isinstance(schema, type) and is_basemodel_subclass(schema):
             if self.disable_streaming:
                 output_parser: OutputParserLike = ToolsOutputParser(
@@ -1450,26 +1465,16 @@ class ChatBedrockConverse(BaseChatModel):
         tier = serviceTier or self.service_tier
 
         # Merge additional_model_request_fields: invoke-level values override
-        # constructor defaults.
-        # Both sides must be normalized to snake_case before merging to ensure
-        # that keys like "reasoningEffort" and "reasoning_effort" are treated
-        # as the same key. The final result stays in snake_case for the API.
+        # constructor defaults. Values are passed through without key
+        # transformation -- the user is responsible for providing keys in
+        # the specific format that the target model expects.
         constructor_fields = self.additional_model_request_fields
         invoke_fields = additionalModelRequestFields
-        excluded = {"reasoningConfig", "inputSchema", "properties", "thinking"}
 
         if constructor_fields or invoke_fields:
             merged_additional_fields = {
-                **(
-                    _camel_to_snake_keys(constructor_fields, excluded_keys=excluded)
-                    if constructor_fields
-                    else {}
-                ),
-                **(
-                    _camel_to_snake_keys(invoke_fields, excluded_keys=excluded)
-                    if invoke_fields
-                    else {}
-                ),
+                **(constructor_fields or {}),
+                **(invoke_fields or {}),
             }
         else:
             merged_additional_fields = {}
@@ -1911,6 +1916,32 @@ def _format_data_content_block(block: dict) -> dict:
         else:
             error_message = "File data only supported through in-line base64 format."
             raise ValueError(error_message)
+
+    elif block["type"] == "video":
+        if "base64" in block or block.get("sourceType") == "base64":
+            if "mimeType" not in block:
+                error_message = "mime_type key is required for base64 data."
+                raise ValueError(error_message)
+            formatted_block = {
+                "video": {
+                    "format": _mime_type_to_format(block["mimeType"]),
+                    "source": {
+                        "bytes": _b64str_to_bytes(
+                            block.get("base64") or block.get("data", "")
+                        )
+                    },
+                }
+            }
+        else:
+            error_message = "Video data only supported through in-line base64 format."
+            raise ValueError(error_message)
+
+    else:
+        error_message = (
+            f"Unsupported data content block type: '{block['type']}'. "
+            f"Supported types are: 'image', 'file', 'video'."
+        )
+        raise ValueError(error_message)
 
     return formatted_block
 

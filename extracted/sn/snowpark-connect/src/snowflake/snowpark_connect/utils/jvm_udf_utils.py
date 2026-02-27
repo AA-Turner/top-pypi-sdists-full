@@ -120,11 +120,21 @@ def build_jvm_udxf_imports(
         overwrite=True,
     )
 
+    from snowflake.snowpark_connect.config import global_config
+
+    config_imports = global_config.get("snowpark.connect.udf.java.imports", "")
+    config_imports = (
+        {x.strip() for x in config_imports.strip("[] ").split(",") if x.strip()}
+        if config_imports
+        else set()
+    )
+
     # Format the user jars to be used in the IMPORTS clause of the stored procedure.
     return (
         [closure_binary_file]
         + _scala_static_imports_for_udf(stage_resource_path)
         + list(session._artifact_jars)
+        + list(config_imports)
     )
 
 

@@ -2,7 +2,7 @@
 Interface to numpy arrays
 """
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, SerializationInfo
 
@@ -29,7 +29,7 @@ class NumpyJsonDict(JsonDict):
     dtype: str
     value: list
     # allow shape to be None for backwards compatibility.
-    shape: Union[tuple[int, ...], None] = None
+    shape: tuple[int, ...] | None = None
 
     def to_array_input(self) -> ndarray:
         """
@@ -105,9 +105,7 @@ class NumpyInterface(Interface):
         return ENABLED
 
     @classmethod
-    def to_json(
-        cls, array: ndarray, info: SerializationInfo = None
-    ) -> Union[list, JsonDict]:
+    def to_json(cls, array: ndarray, info: SerializationInfo = None) -> list | JsonDict:
         """
         Convert an array of :attr:`.return_type` to a JSON-compatible format using
         base python types

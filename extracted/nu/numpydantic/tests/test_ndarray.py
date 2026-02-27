@@ -1,6 +1,7 @@
 import json
-from typing import Any, Optional, Union
+from typing import Annotated, Any
 
+import dask.array
 import numpy as np
 import pytest
 from pydantic import (
@@ -9,7 +10,7 @@ from pydantic import (
     ValidationError,
 )
 
-from numpydantic import NDArray, Shape, dtype
+from numpydantic import NDArray, NDArraySchema, Shape, dtype
 from numpydantic.dtype import Number
 from numpydantic.exceptions import DtypeError
 
@@ -18,7 +19,7 @@ from numpydantic.exceptions import DtypeError
 def test_ndarray_type():
     class Model(BaseModel):
         array: NDArray[Shape["2 x, * y"], Number]
-        array_any: Optional[NDArray[Any, Any]] = None
+        array_any: NDArray[Any, Any] | None = None
 
     schema = Model.model_json_schema()
     assert schema["properties"]["array"]["items"] == {
@@ -97,13 +98,12 @@ def test_ndarray_union():
     generator = np.random.default_rng()
 
     class Model(BaseModel):
-        array: Optional[
-            Union[
-                NDArray[Shape["* x, * y"], Number],
-                NDArray[Shape["* x, * y, 3 r_g_b"], Number],
-                NDArray[Shape["* x, * y, 3 r_g_b, 4 r_g_b_a"], Number],
-            ]
-        ] = Field(None)
+        array: (
+            NDArray[Shape["* x, * y"], Number]
+            | NDArray[Shape["* x, * y, 3 r_g_b"], Number]
+            | NDArray[Shape["* x, * y, 3 r_g_b, 4 r_g_b_a"], Number]
+            | None
+        ) = Field(None)
 
     _ = Model()
     _ = Model(array=generator.random((5, 10)))
@@ -397,3 +397,46 @@ def test_callable():
 
     with pytest.raises(DtypeError):
         _ = annotation(np.zeros((1, 2, 3)))
+
+
+def test_annotation():
+    """
+    The NDArraySchema can be used as a type annotation
+    """
+
+    class MyModel(BaseModel):
+        array: Annotated[np.ndarray, NDArraySchema(Shape("3, 3"), np.uint8)]
+
+    MyModel(array=np.ones((3, 3), dtype=np.uint8))
+    with pytest.raises(ValidationError):
+        MyModel(array=np.ones((4, 4), dtype=np.uint8))
+    with pytest.raises(ValidationError):
+        MyModel(array=np.ones((3, 3), dtype=np.uint16))
+
+
+def test_annotation_rejects_array_type():
+    """
+    The NDArraySchema also validates that the annotated array type is used,
+    rather than any array type
+    """
+
+    class MyModel(BaseModel):
+        array: Annotated[np.ndarray, NDArraySchema(Shape("3, 3"), np.uint8)]
+
+    with pytest.raises(ValidationError) as e:
+        MyModel(array=dask.array.zeros(shape=(3, 3), dtype=np.uint8))
+
+    err_json = json.loads(e.value.json())
+    assert err_json[0]["type"] == "is_instance_of"
+
+
+@pytest.mark.parametrize("shape", ("1, 2, 3, ...", (1, 2, 3, "...")))
+def test_annotation_allows_not_using_shape(shape):
+    """
+    Annotation can not use the Shape class
+    """
+
+    class MyModel(BaseModel):
+        array: Annotated[np.ndarray, NDArraySchema(shape, np.uint8)]
+
+    MyModel(array=np.ones(shape=(1, 2, 3), dtype=np.uint8))

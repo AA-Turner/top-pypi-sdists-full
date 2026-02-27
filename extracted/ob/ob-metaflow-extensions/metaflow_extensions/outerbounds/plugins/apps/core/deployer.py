@@ -335,6 +335,94 @@ def package_code(
     return PackagedCode(url=package_url, key=package_key)
 
 
+def load_code_package(
+    package: PackagedCode,
+    target_dir: str,
+    logger: Optional[Callable[[str], Any]] = None,
+) -> str:
+    """
+    Load and extract a previously packaged code package.
+
+    This is the mirror operation of package_code(). Given a PackagedCode
+    (as returned by package_code()), it downloads the package from object
+    storage and extracts it into the specified directory.
+
+    Parameters
+    ----------
+    package : PackagedCode
+        The package to load, as returned by package_code(). Must contain
+        a valid url and key.
+    target_dir : str
+        The directory to extract the package into. Will be created if it
+        does not exist.
+    logger : Callable, optional
+        Logger function for progress messages. Receives a single string argument.
+
+    Returns
+    -------
+    str
+        The absolute path to the directory where the package was extracted.
+
+    Raises
+    ------
+    CodePackagingException
+        If the package cannot be loaded or extracted.
+
+    Examples
+    --------
+    Round-trip with package_code:
+
+    ```python
+    from metaflow.apps import package_code, load_code_package
+
+    pkg = package_code(src_paths=["./src"])
+    extracted_dir = load_code_package(pkg, target_dir="./unpacked")
+    ```
+
+    Load a package from a previous deployment:
+
+    ```python
+    from metaflow.apps import load_code_package, PackagedCode
+
+    pkg = PackagedCode(url="s3://...", key="abc123")
+    extracted_dir = load_code_package(pkg, target_dir="/tmp/code")
+    ```
+    """
+    from metaflow.metaflow_config import DEFAULT_DATASTORE
+
+    _logger = logger or (lambda x: None)
+
+    if not isinstance(package, PackagedCode):
+        raise CodePackagingException(
+            f"package must be a PackagedCode instance returned by package_code(). "
+            f"Got {type(package).__name__} instead."
+        )
+
+    if not package.key:
+        raise CodePackagingException(
+            "PackagedCode.key is empty. A valid key is required to load a package."
+        )
+
+    _logger(f"📦 Loading code package (key={package.key})...")
+
+    packager = CodePackager(
+        datastore_type=DEFAULT_DATASTORE,
+        code_package_prefix=CODE_PACKAGE_PREFIX,
+    )
+
+    try:
+        extracted_dir = packager.load(
+            key=package.key,
+            target_dir=target_dir,
+        )
+    except Exception as e:
+        raise CodePackagingException(f"Failed to load code package: {e}") from e
+
+    _logger(f"📦 Code package extracted to: {extracted_dir}")
+
+    return extracted_dir
+
+
 class AppDeployer(TypedCoreConfig):
 
     __examples__ = """

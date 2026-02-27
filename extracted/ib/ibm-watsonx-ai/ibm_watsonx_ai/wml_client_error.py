@@ -73,7 +73,7 @@ class WMLClientError(Exception):
             pattern,
             lambda m: f"[{str(m.group(2)).capitalize()} URL]",
             str(error_msg),
-            re.IGNORECASE,
+            flags=re.IGNORECASE,
         )
         self.reason = reason
         if logg_messages:

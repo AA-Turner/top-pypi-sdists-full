@@ -6,10 +6,11 @@ from docling_core.transforms.chunker.hierarchical_chunker import (
     ChunkingDocSerializer,
     ChunkingSerializerProvider,
     DocChunk,
+    TripletTableSerializer,
 )
+from docling_core.transforms.serializer.html import HTMLDocSerializer
 from docling_core.transforms.serializer.markdown import MarkdownParams, MarkdownTableSerializer
-from docling_core.types.doc.document import DoclingDocument, PictureItem, TextItem
-from docling_core.types.doc.labels import DocItemLabel
+from docling_core.types.doc import DocItemLabel, DoclingDocument, PictureItem, TableData, TextItem
 
 from .test_data_gen_flag import GEN_TEST_DATA
 
@@ -151,4 +152,55 @@ def test_traverse_pictures():
     assert total_items_traverse > total_items_default, (
         f"With traverse_pictures=True, more doc_items should be included in chunks. "
         f"Got {total_items_traverse} vs {total_items_default}"
+    )
+
+
+def test_triplet_table_serializer_single_column():
+    """Test TripletTableSerializer with a single-column table."""
+
+    # Create a document with a single-column table
+    doc = DoclingDocument(name="test_single_column")
+    table_data = TableData(num_cols=1)
+    table_data.add_row(["Country"])  # Header row
+    table_data.add_row(["Italy"])
+    table_data.add_row(["Canada"])
+    table_data.add_row(["Switzerland"])
+    doc.add_table(data=table_data)
+
+    serializer = ChunkingDocSerializer(doc=doc)
+    table_serializer = TripletTableSerializer()
+    table_item = next(iter(doc.iterate_items()))[0]
+
+    result = table_serializer.serialize(
+        item=table_item,
+        doc_serializer=serializer,
+        doc=doc,
+    )
+
+    expected = "Country = Italy. Country = Canada. Country = Switzerland"
+    assert result.text == expected, f"Expected '{expected}', got '{result.text}'"
+
+def test_chunk_rich_table_custom_serializer(rich_table_doc: DoclingDocument):
+    doc = rich_table_doc
+
+    class MySerializerProvider(ChunkingSerializerProvider):
+        def get_serializer(self, doc: DoclingDocument):
+            return HTMLDocSerializer(
+                doc=doc,
+                table_serializer=TripletTableSerializer(),
+            )
+
+    chunker = HierarchicalChunker(
+        merge_list_items=True,
+        serializer_provider=MySerializerProvider(),
+    )
+
+    chunks = chunker.chunk(dl_doc=doc)
+    act_data = dict(
+        root=[DocChunk.model_validate(n).export_json_dict() for n in chunks]
+    )
+
+    _process(
+        act_data=act_data,
+        exp_path_str="test/data/chunker/0c_out_chunks.json",
     )

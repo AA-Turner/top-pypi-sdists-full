@@ -52,7 +52,14 @@ class ListSnapshot(command.Lister):
             raise exc.CommandError(_('Stack not found: %s') %
                                    parsed_args.stack)
 
-        columns = ['id', 'name', 'status', 'status_reason', 'creation_time']
+        columns = [
+            'id',
+            'name',
+            'action',
+            'status',
+            'status_reason',
+            'creation_time'
+        ]
         return (
             columns,
             (utils.get_dict_properties(s, columns)
@@ -168,6 +175,7 @@ class CreateSnapshot(command.ShowOne):
         columns = [
             'ID',
             'name',
+            'action',
             'status',
             'status_reason',
             'data',

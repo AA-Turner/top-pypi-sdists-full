@@ -195,7 +195,7 @@ def map_expression(
                     precision = decimal_msg.precision
                 if decimal_msg.HasField("scale"):
                     scale = decimal_msg.scale
-                if "." in decimal_msg.value and precision == 10 and scale == 0:
+                if precision == 10 and scale == 0:
                     # Spark Connect protobuf will sometimes give the default precision and scale for Decimals
                     # so we manually determine what the precision and scale actually are.
                     # decimal {
@@ -203,9 +203,18 @@ def map_expression(
                     #    precision: 10
                     #    scale: 0
                     # }
-                    precision = len(decimal_msg.value) - 1
-                    scale = len(decimal_msg.value.split(".")[1])
-
+                    value = decimal_msg.value.lstrip("-")
+                    if "E+" in value:
+                        precision = int(value.split(".")[0]) + int(value.split("E+")[1])
+                    elif "E-" in value:
+                        precision = 10
+                        scale = int(value.split("E-")[1])
+                    elif "." in value:
+                        precision = max(10, len(value) - 1)
+                        scale = len(value.split(".")[1])
+                    else:
+                        precision = max(10, len(value))
+                precision = min(38, precision)
                 return_type = snowpark.types.DecimalType(precision, scale)
                 return [lit_name], TypedColumn(
                     snowpark_fn.lit(lit_value, return_type), lambda: [return_type]

@@ -201,6 +201,74 @@ class CodePackager:
 
         return package_url, package_key
 
+    def load(
+        self,
+        key: str,
+        target_dir: str,
+    ) -> str:
+        """
+        Load and extract a code package from the ContentAddressedStore.
+
+        This is the mirror operation of store(). It retrieves the package
+        by its content-addressed key and extracts the tarball into the
+        target directory.
+
+        Parameters
+        ----------
+        key : str
+            The content-addressed key identifying the package (as returned
+            by store() or PackagedCode.key).
+        target_dir : str
+            The directory to extract the package into. Will be created
+            if it does not exist.
+
+        Returns
+        -------
+        str
+            The absolute path to the directory where the package was extracted.
+
+        Raises
+        ------
+        ValueError
+            If the key is empty or None.
+        CodePackagingException
+            If no package is found for the given key or extraction fails.
+            (imported at call-site to avoid circular imports)
+        """
+        if not key:
+            raise ValueError("A non-empty key is required to load a package.")
+
+        # Get the ContentAddressedStore for the specified datastore
+        ca_store = self.get_content_addressed_store(
+            datastore_type=self._datastore_type,
+            datastore_root=self._datastore_root,
+            prefix=(
+                str(self._code_package_prefix)
+                if self._code_package_prefix is not None
+                else str(CODE_PACKAGE_PREFIX)
+            ),
+        )
+
+        # load_blobs returns an iterator of (key, bytes) tuples
+        loaded = list(ca_store.load_blobs([key], force_raw=True))
+        if not loaded:
+            raise RuntimeError(
+                f"No package found for key: {key}. "
+                "Ensure the key was returned by a previous store() or package_code() call."
+            )
+
+        _loaded_key, package_bytes = loaded[0]
+
+        # Create the target directory if it doesn't exist
+        os.makedirs(target_dir, exist_ok=True)
+
+        # Extract the gzipped tarball into the target directory
+        buf = BytesIO(package_bytes)
+        with tarfile.open(fileobj=buf, mode="r:gz") as tar:
+            tar.extractall(path=target_dir)
+
+        return os.path.abspath(target_dir)
+
     @staticmethod
     def get_content_addressed_store(
         datastore_type: str = "s3",

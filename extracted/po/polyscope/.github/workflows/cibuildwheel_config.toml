@@ -14,15 +14,18 @@ repair-wheel-command = "auditwheel repair --exclude libEGL.so.1 -w {dest_dir} {w
 [tool.cibuildwheel.environment.linux]
 CMAKE_ARGS = "DPOLYSCOPE_BACKEND_OPENGL3_EGL=ON"
 
-# Required by nanobind for C++17. Technically it should be 10.14 
-# for full support, but this seems to work and gets us somewhat older 
-# compatibility.
+# Required by nanobind for C++17.
 # There is a matching setting in pyproject.toml 
 # https://cibuildwheel.pypa.io/en/stable/cpp_standards/#macos-and-deployment-target-versions
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.13"
+MACOSX_DEPLOYMENT_TARGET = "10.14"
 
 # musllinux builds on an Alpinx Linux image, need different package names
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
 before-all = "apk add libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev freeglut-dev mesa-dev mesa-gl mesa-egl"
+
+# skip 32-bit builds on windows, 64bit only. As of Feb 2026 32bit are failing in CI for unclear reasons.
+# maybe platform bugs? it looks like it's trying to link with the 64bit linker chain for some reason
+[tool.cibuildwheel.windows]
+archs = ["auto64"]

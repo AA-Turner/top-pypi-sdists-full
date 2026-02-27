@@ -48,6 +48,9 @@ extensions = [
     "sphinx.ext.viewcode",
 ]
 
+# https://github.com/sphinx-doc/sphinxcontrib-django/pull/76
+autodoc_use_legacy_class_based = True
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -89,6 +92,9 @@ intersphinx_mapping = {
 }
 
 linkcheck_allow_redirects = True
+
+# Use legacy class-based autodoc implementation
+autodoc_use_legacy_class_based = True
 
 
 def setup(app):

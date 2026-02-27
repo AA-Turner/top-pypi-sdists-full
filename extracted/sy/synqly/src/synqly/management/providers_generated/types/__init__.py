@@ -91,6 +91,7 @@ from .claroty_credential import (
     ClarotyCredential_TokenId,
 )
 from .cloud_security_aws import CloudSecurityAws
+from .cloud_security_aws_event_bridge_sqs import CloudSecurityAwsEventBridgeSqs
 from .cloud_security_crowd_strike import CloudSecurityCrowdStrike
 from .cloud_security_defender import CloudSecurityDefender
 from .cloud_security_palo_alto import CloudSecurityPaloAlto
@@ -238,6 +239,7 @@ from .identity_entra_id import IdentityEntraId
 from .identity_google import IdentityGoogle
 from .identity_okta import IdentityOkta
 from .identity_ping_one import IdentityPingOne
+from .identity_workday import IdentityWorkday
 from .incident_io_credential import (
     IncidentIoCredential,
     IncidentIoCredential_Token,
@@ -361,6 +363,7 @@ from .provider_config import (
     ProviderConfig_AssetsTaniumCloud,
     ProviderConfig_AssetsTaniumCloudMock,
     ProviderConfig_CloudsecurityAws,
+    ProviderConfig_CloudsecurityAwseventbridgesqs,
     ProviderConfig_CloudsecurityCrowdstrike,
     ProviderConfig_CloudsecurityDefender,
     ProviderConfig_CloudsecurityPaloalto,
@@ -377,6 +380,7 @@ from .provider_config import (
     ProviderConfig_IdentityGoogle,
     ProviderConfig_IdentityOkta,
     ProviderConfig_IdentityPingone,
+    ProviderConfig_IdentityWorkday,
     ProviderConfig_IncidentresponseIncidentio,
     ProviderConfig_IncidentresponsePagerduty,
     ProviderConfig_NotificationsJira,
@@ -628,6 +632,11 @@ from .vulnerabilities_tanium_cloud_dataset import VulnerabilitiesTaniumCloudData
 from .vulnerabilities_tanium_cloud_mock import VulnerabilitiesTaniumCloudMock
 from .vulnerabilities_tenable_cloud import VulnerabilitiesTenableCloud
 from .vulnerabilities_tenable_sc import VulnerabilitiesTenableSc
+from .workday_credential import (
+    WorkdayCredential,
+    WorkdayCredential_OAuthClient,
+    WorkdayCredential_OAuthClientId,
+)
 from .zendesk_credential import (
     ZendeskCredential,
     ZendeskCredential_Basic,
@@ -704,6 +713,7 @@ __all__ = [
     "ClarotyCredential_Token",
     "ClarotyCredential_TokenId",
     "CloudSecurityAws",
+    "CloudSecurityAwsEventBridgeSqs",
     "CloudSecurityCrowdStrike",
     "CloudSecurityDefender",
     "CloudSecurityPaloAlto",
@@ -811,6 +821,7 @@ __all__ = [
     "IdentityGoogle",
     "IdentityOkta",
     "IdentityPingOne",
+    "IdentityWorkday",
     "IncidentIoCredential",
     "IncidentIoCredential_Token",
     "IncidentIoCredential_TokenId",
@@ -902,6 +913,7 @@ __all__ = [
     "ProviderConfig_AssetsTaniumCloud",
     "ProviderConfig_AssetsTaniumCloudMock",
     "ProviderConfig_CloudsecurityAws",
+    "ProviderConfig_CloudsecurityAwseventbridgesqs",
     "ProviderConfig_CloudsecurityCrowdstrike",
     "ProviderConfig_CloudsecurityDefender",
     "ProviderConfig_CloudsecurityPaloalto",
@@ -918,6 +930,7 @@ __all__ = [
     "ProviderConfig_IdentityGoogle",
     "ProviderConfig_IdentityOkta",
     "ProviderConfig_IdentityPingone",
+    "ProviderConfig_IdentityWorkday",
     "ProviderConfig_IncidentresponseIncidentio",
     "ProviderConfig_IncidentresponsePagerduty",
     "ProviderConfig_NotificationsJira",
@@ -1121,6 +1134,9 @@ __all__ = [
     "VulnerabilitiesTaniumCloudMock",
     "VulnerabilitiesTenableCloud",
     "VulnerabilitiesTenableSc",
+    "WorkdayCredential",
+    "WorkdayCredential_OAuthClient",
+    "WorkdayCredential_OAuthClientId",
     "ZendeskCredential",
     "ZendeskCredential_Basic",
     "ZendeskCredential_BasicId",

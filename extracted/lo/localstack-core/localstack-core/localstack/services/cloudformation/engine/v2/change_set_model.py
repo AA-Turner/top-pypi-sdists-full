@@ -4,9 +4,7 @@ import abc
 import enum
 from collections.abc import Generator
 from itertools import zip_longest
-from typing import Any, Final, TypedDict, cast
-
-from typing_extensions import TypeVar
+from typing import Any, Final, TypedDict, TypeVar, cast
 
 from localstack.aws.api.cloudformation import ChangeAction
 from localstack.services.cloudformation.resource_provider import ResourceProviderExecutor
@@ -813,19 +811,24 @@ class ChangeSetModel:
         if arguments.change_type != ChangeType.UNCHANGED:
             return arguments.change_type
         # TODO: validate arguments structure and type.
-        # TODO: add support for nested functions, here we assume the arguments are string literals.
 
         if not isinstance(arguments, NodeArray) or not arguments.array:
             raise RuntimeError()
         argument_mapping_name = arguments.array[0]
-        if not isinstance(argument_mapping_name, TerminalValue):
-            raise NotImplementedError()
         argument_top_level_key = arguments.array[1]
-        if not isinstance(argument_top_level_key, TerminalValue):
-            raise NotImplementedError()
         argument_second_level_key = arguments.array[2]
-        if not isinstance(argument_second_level_key, TerminalValue):
-            raise NotImplementedError()
+
+        # If any argument is not a terminal value (e.g., it contains nested intrinsic functions
+        # like Ref, Fn::Sub, etc.), we cannot perform the static mapping lookup at this stage.
+        # Instead, return the parent change type based on all arguments' change states.
+        if any(
+            not isinstance(arg, TerminalValue)
+            for arg in [argument_mapping_name, argument_top_level_key, argument_second_level_key]
+        ):
+            return parent_change_type_of(
+                [argument_mapping_name, argument_top_level_key, argument_second_level_key]
+            )
+
         mapping_name = argument_mapping_name.value
         top_level_key = argument_top_level_key.value
         second_level_key = argument_second_level_key.value
@@ -1043,26 +1046,20 @@ class ChangeSetModel:
 
     def _visit_deletion_policy(
         self, scope: Scope, before_deletion_policy: Any, after_deletion_policy: Any
-    ) -> TerminalValue:
+    ) -> ChangeSetEntity:
         value = self._visit_value(
             scope=scope, before_value=before_deletion_policy, after_value=after_deletion_policy
         )
-        if not isinstance(value, TerminalValue):
-            # TODO: decide where template schema validation should occur.
-            raise RuntimeError()
         return value
 
     def _visit_update_replace_policy(
         self, scope: Scope, before_update_replace_policy: Any, after_deletion_policy: Any
-    ) -> TerminalValue:
+    ) -> ChangeSetEntity:
         value = self._visit_value(
             scope=scope,
             before_value=before_update_replace_policy,
             after_value=after_deletion_policy,
         )
-        if not isinstance(value, TerminalValue):
-            # TODO: decide where template schema validation should occur.
-            raise RuntimeError()
         return value
 
     def _visit_resource(

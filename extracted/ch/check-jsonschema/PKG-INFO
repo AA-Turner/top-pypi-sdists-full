@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-jsonschema
-Version: 0.36.2
+Version: 0.37.0
 Summary: A jsonschema CLI and pre-commit hook
 Author-email: Stephen Rosen <sirosen0@gmail.com>
 Project-URL: Homepage, https://github.com/python-jsonschema/check-jsonschema
@@ -8,7 +8,7 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tomli>=2.0; python_version < "3.11"
@@ -44,7 +44,7 @@ files.
 
 ```yaml
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.36.2
+  rev: 0.37.0
   hooks:
     - id: check-github-workflows
       args: ["--verbose"]

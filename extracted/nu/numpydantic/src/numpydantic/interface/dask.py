@@ -2,7 +2,8 @@
 Interface for Dask arrays
 """
 
-from typing import Any, Iterable, List, Literal, Optional, Union
+from collections.abc import Iterable
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import BaseModel, SerializationInfo
@@ -33,7 +34,7 @@ class DaskJsonDict(JsonDict):
     name: str
     chunks: Iterable[tuple[int, ...]]
     dtype: str
-    shape: Union[tuple[int, ...], None] = None
+    shape: tuple[int, ...] | None = None
     value: list
 
     def to_array_input(self) -> DaskArray:
@@ -87,7 +88,7 @@ class DaskInterface(Interface):
 
                     def _chunked_to_model(array: np.ndarray) -> np.ndarray:
                         def _vectorized_to_model(
-                            item: Union[dict, BaseModel],
+                            item: dict | BaseModel,
                         ) -> BaseModel:
                             if not isinstance(item, self.dtype):
                                 return self.dtype(**item)
@@ -117,8 +118,8 @@ class DaskInterface(Interface):
 
     @classmethod
     def to_json(
-        cls, array: DaskArray, info: Optional[SerializationInfo] = None
-    ) -> Union[List, DaskJsonDict]:
+        cls, array: DaskArray, info: SerializationInfo | None = None
+    ) -> list | DaskJsonDict:
         """
         Convert an array to a JSON serializable array by first converting to a numpy
         array and then to a list.

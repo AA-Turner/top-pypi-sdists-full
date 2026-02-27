@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nodejs-wheel
-Version: 24.13.1
+Version: 24.14.0
 Summary: unoffical Node.js package
 Project-URL: repository, https://github.com/njzjz/nodejs-wheel
 Author-email: Jinzhe Zeng <jinzhe.zeng@ustc.edu.cn>
@@ -17,7 +17,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.7
-Requires-Dist: nodejs-wheel-binaries==24.13.1
+Requires-Dist: nodejs-wheel-binaries==24.14.0
 Description-Content-Type: text/markdown
 
 # Unofficial Node.js wheels

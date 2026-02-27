@@ -2596,7 +2596,7 @@ def create_token(
         duration,
         list(aud),
         org_id=org_id,
-        scopes=scope,
+        scopes=list(scope),
         inherit_session=inherit_session,
         **kwargs,
     )

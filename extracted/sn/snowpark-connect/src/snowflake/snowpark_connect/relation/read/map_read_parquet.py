@@ -9,7 +9,11 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from snowflake import snowpark
 from snowflake.snowpark import DataFrame, DataFrameReader, Session
 from snowflake.snowpark._internal.analyzer import analyzer_utils
-from snowflake.snowpark.types import StructType
+from snowflake.snowpark.types import StructType, TimestampTimeZone, TimestampType
+from snowflake.snowpark_connect.config import (
+    get_boolean_session_config_param,
+    global_config,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -100,6 +104,12 @@ def map_read_parquet(
         if not is_merge_schema:
             df = df.select(*schema_cols)
 
+    infer_ntz = get_boolean_session_config_param(
+        "spark.sql.parquet.inferTimestampNTZ.enabled"
+    )
+    if not infer_ntz:
+        df = _cast_ntz_to_ltz(df)
+
     renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
         df, rel.common.plan_id
     )
@@ -138,6 +148,31 @@ def _read_parquet_with_partitions(
         snowpark_options=snowpark_options,
         raw_options=raw_options,
     )
+
+
+def _cast_ntz_to_ltz(df: DataFrame) -> DataFrame:
+    """When inferTimestampNTZ.enabled is false, reinterpret TIMESTAMP_NTZ columns as UTC instants.
+
+    A simple CAST(ntz AS TIMESTAMP_LTZ) interprets the NTZ value in the session
+    timezone, which preserves the wall-clock time. We need CONVERT_TIMEZONE which
+    treats NTZ as UTC, matching Spark's behavior of reading all Parquet timestamps
+    as UTC-based instants regardless of isAdjustedToUTC.
+    """
+    from snowflake.snowpark.functions import builtin, col, lit
+
+    convert_tz = builtin("CONVERT_TIMEZONE")
+    session_tz = global_config.spark_sql_session_timeZone
+    ltz_type = TimestampType(TimestampTimeZone.LTZ)
+    for field in df.schema.fields:
+        if (
+            isinstance(field.datatype, TimestampType)
+            and field.datatype.tz == TimestampTimeZone.NTZ
+        ):
+            df = df.with_column(
+                field.name,
+                convert_tz(lit("UTC"), lit(session_tz), col(field.name)).cast(ltz_type),
+            )
+    return df
 
 
 _parquet_file_format_allowed_options = {

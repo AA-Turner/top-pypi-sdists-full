@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm_watsonx_ai
-Version: 1.5.2
+Version: 1.5.3
 Summary: IBM watsonx.ai API Client
 Author: IBM
 Maintainer-email: Maria Oleszkiewicz <maria.oleszkiewicz@pl.ibm.com>, Mateusz Szewczyk <Mateusz.Szewczyk@ibm.com>

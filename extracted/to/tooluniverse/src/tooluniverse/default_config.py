@@ -136,6 +136,7 @@ default_tool_files = {
     "interpro": os.path.join(current_dir, "data", "interpro_tools.json"),
     "ebi_search": os.path.join(current_dir, "data", "ebi_search_tools.json"),
     "intact": os.path.join(current_dir, "data", "intact_tools.json"),
+    "intogen": os.path.join(current_dir, "data", "intogen_tools.json"),
     "metabolights": os.path.join(current_dir, "data", "metabolights_tools.json"),
     "proteins_api": os.path.join(current_dir, "data", "proteins_api_tools.json"),
     "arrayexpress": os.path.join(current_dir, "data", "arrayexpress_tools.json"),
@@ -327,6 +328,8 @@ default_tool_files = {
     "enamine": os.path.join(current_dir, "data", "enamine_tools.json"),
     # eMolecules - Vendor Aggregator
     "emolecules": os.path.join(current_dir, "data", "emolecules_tools.json"),
+    # Mcule - Compound Purchasing Platform
+    "mcule": os.path.join(current_dir, "data", "mcule_tools.json"),
     # Pharos/TCRD - NIH IDG Understudied Proteins Database
     "pharos": os.path.join(current_dir, "data", "pharos_tools.json"),
     # AlphaMissense - DeepMind Pathogenicity Predictions
@@ -913,6 +916,8 @@ default_tool_files = {
     "dna_tools": os.path.join(current_dir, "data", "dna_tools.json"),
     # Drug Synergy - Bliss, HSA, ZIP synergy models (local computation)
     "drug_synergy": os.path.join(current_dir, "data", "drug_synergy_tools.json"),
+    # SYNERGxDB - Drug combination synergy database (22,507 combos, 151 cell lines, 9 studies)
+    "synergxdb": os.path.join(current_dir, "data", "synergxdb_tools.json"),
     # Dose-Response Analysis - 4PL curve fitting and IC50 calculation (local)
     "dose_response": os.path.join(current_dir, "data", "dose_response_tools.json"),
     # Survival Analysis - Kaplan-Meier, log-rank test, Cox regression (local)
@@ -923,6 +928,31 @@ default_tool_files = {
     "l1000fwd": os.path.join(current_dir, "data", "l1000fwd_tools.json"),
     # Cell Painting - IDR high-content microscopy screens, plates, and well-level data
     "cellpainting": os.path.join(current_dir, "data", "cellpainting_tools.json"),
+    # PharmacoDB - Integrated cancer pharmacogenomics (CCLE, GDSC, CTRPv2, PRISM, etc.)
+    "pharmacodb": os.path.join(current_dir, "data", "pharmacodb_tools.json"),
+    # Cancer Prognosis - cBioPortal survival data, expression, study search
+    "cancer_prognosis": os.path.join(
+        current_dir, "data", "cancer_prognosis_tools.json"
+    ),
+    # NEB Tm Calculator - Primer melting/annealing temperature via NEB API
+    "neb_tm": os.path.join(current_dir, "data", "neb_tm_tools.json"),
+    # Addgene - Plasmid repository search, detail, and depositor queries
+    "addgene": os.path.join(current_dir, "data", "addgene_tools.json"),
+    # IDT OligoAnalyzer - Oligo Tm, GC%, MW, extinction coefficient, self-dimer analysis
+    "idt": os.path.join(current_dir, "data", "idt_tools.json"),
+    # SwissTargetPrediction - Predict protein targets of small molecules from SMILES
+    "swiss_target": os.path.join(current_dir, "data", "swiss_target_tools.json"),
+    # PDC - NCI Proteomics Data Commons (CPTAC, ICPC, APOLLO cancer proteomics)
+    "pdc": os.path.join(current_dir, "data", "pdc_tools.json"),
+    "proteomicsdb": os.path.join(current_dir, "data", "proteomicsdb_tools.json"),
+    # MEME Suite - Motif analysis (FIMO scan, MEME discovery, TOMTOM comparison)
+    "meme": os.path.join(current_dir, "data", "meme_tools.json"),
+    # CellMarker 2.0 - Curated cell type markers for scRNA-seq annotation
+    "cellmarker": os.path.join(current_dir, "data", "cellmarker_tools.json"),
+    # SwissADME - ADMET properties, drug-likeness, medicinal chemistry from SMILES
+    "swissadme": os.path.join(current_dir, "data", "swissadme_tools.json"),
+    # MetaboAnalyst - Metabolomics pathway enrichment, name mapping, biomarker sets (KEGG + local stats)
+    "metaboanalyst": os.path.join(current_dir, "data", "metaboanalyst_tools.json"),
 }
 
 # Auto-load any user-provided tools from ~/.tooluniverse/user_tools/

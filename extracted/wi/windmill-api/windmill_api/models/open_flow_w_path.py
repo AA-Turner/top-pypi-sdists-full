@@ -31,6 +31,8 @@ class OpenFlowWPath:
         dedicated_worker (Union[Unset, bool]):
         timeout (Union[Unset, float]):
         visible_to_runner_only (Union[Unset, bool]):
+        preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
+            preserves the original on_behalf_of_email value instead of overwriting it.
     """
 
     summary: str
@@ -45,6 +47,7 @@ class OpenFlowWPath:
     dedicated_worker: Union[Unset, bool] = UNSET
     timeout: Union[Unset, float] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
+    preserve_on_behalf_of: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -64,6 +67,7 @@ class OpenFlowWPath:
         dedicated_worker = self.dedicated_worker
         timeout = self.timeout
         visible_to_runner_only = self.visible_to_runner_only
+        preserve_on_behalf_of = self.preserve_on_behalf_of
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -92,6 +96,8 @@ class OpenFlowWPath:
             field_dict["timeout"] = timeout
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
+        if preserve_on_behalf_of is not UNSET:
+            field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
 
         return field_dict
 
@@ -130,6 +136,8 @@ class OpenFlowWPath:
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
+        preserve_on_behalf_of = d.pop("preserve_on_behalf_of", UNSET)
+
         open_flow_w_path = cls(
             summary=summary,
             value=value,
@@ -143,6 +151,7 @@ class OpenFlowWPath:
             dedicated_worker=dedicated_worker,
             timeout=timeout,
             visible_to_runner_only=visible_to_runner_only,
+            preserve_on_behalf_of=preserve_on_behalf_of,
         )
 
         open_flow_w_path.additional_properties = d

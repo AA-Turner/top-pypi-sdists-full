@@ -539,7 +539,7 @@ class RunningJob(object):
                         field_manager="metaflow",
                         body={"spec": {"parallelism": 0}},
                     )
-            except:
+            except Exception:
                 # Best effort.
                 pass
                 # raise
@@ -569,7 +569,7 @@ class RunningJob(object):
                         stdout=True,
                         tty=False,
                     )
-                except:
+                except Exception:
                     # Best effort. It's likely that this API call could be
                     # blocked for the user.
                     # --------------------------------------------------------

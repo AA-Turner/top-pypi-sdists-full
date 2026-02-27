@@ -6,8 +6,8 @@ _F='apigatewaymanagementapi'
 _E='events'
 _D='lambda'
 _C='next_gen_pro'
-_B='legacy_pro'
-_A='v2_pro'
+_B='v2_pro'
+_A='legacy_pro'
 import functools
 from collections.abc import Callable
 from localstack import config,constants
@@ -39,9 +39,9 @@ def apigatewayv2():from localstack.pro.core.services.apigatewayv2.next_gen.provi
 def apigatewaymanagementapi_next_gen():from localstack.pro.core.services.apigatewayv2.next_gen.provider import ApigatewaymanagementapiProviderNextGen as A;B=A();return Service.for_provider(B)
 @pro_aws_provider(api=_G,name=_C)
 def apigatewayv2_next_gen():from localstack.pro.core.services.apigatewayv2.next_gen.provider import ApiGatewayV2ProviderNextGen as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(api=_F,name=_B)
+@pro_aws_provider(api=_F,name=_A)
 def apigatewaymanagementapi_legacy():from localstack.pro.core.services.apigateway.legacy.provider_mgmtapi import ApigatewaymanagementapiProvider as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(api=_G,name=_B)
+@pro_aws_provider(api=_G,name=_A)
 def apigatewayv2_legacy():from localstack.pro.core.services.apigateway.legacy.provider_v2 import ApiGatewayV2Provider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider()
 def appconfig():from localstack.pro.core.services.appconfig.provider import AppconfigProvider as A;B=A();return Service.for_provider(B)
@@ -133,7 +133,7 @@ def iot_data():from localstack.pro.core.services.iot_data.provider import IotDat
 def iotwireless():from localstack.pro.core.services.iotwireless.provider import IotWirelessProvider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider()
 def kafka():from localstack.pro.core.services.kafka.provider import KafkaProvider as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(api='kafka',name=_A)
+@pro_aws_provider(api='kafka',name=_B)
 def kafka_v2():from localstack.pro.core.services.kafka.provider import KafkaProvider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider(api='kafka',name='legacy')
 def kafka_legacy():from localstack.pro.core.services.kafka.legacy.provider import KafkaProvider as A;B=A();return Service.for_provider(B)
@@ -193,11 +193,11 @@ def xray():from localstack.pro.core.services.xray.provider import XrayProvider a
 def apigateway():from localstack.pro.core.services.apigateway.next_gen.provider import ApigatewayNextGenProviderPro as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
 @pro_aws_provider(api=_I,name=_C)
 def apigateway_next_gen():from localstack.pro.core.services.apigateway.next_gen.provider import ApigatewayNextGenProviderPro as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
-@pro_aws_provider(api=_I,name=_B)
+@pro_aws_provider(api=_I,name=_A)
 def apigateway_legacy():from localstack.pro.core.services.apigateway.legacy.apigateway_extended import ApigatewayExtProvider as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
 @pro_aws_provider(api=_D,name='asf_pro')
 def lambda_asf():from localstack.pro.core.services.lambda_.provider import LambdaProviderPro as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(api=_D,name=_A)
+@pro_aws_provider(api=_D,name=_B)
 def lambda_v2():from localstack.pro.core.services.lambda_.provider import LambdaProviderPro as A;B=A();return Service.for_provider(B)
 @pro_aws_provider(api=_D)
 def lambda_():from localstack.pro.core.services.lambda_.provider import LambdaProviderPro as A;B=A();return Service.for_provider(B)
@@ -207,15 +207,15 @@ def cloudformation():from localstack.pro.core.services.cloudformation import clo
 def cloudformation_v2():from localstack.pro.core.services.cloudformation import cloudformation_extended as A;from localstack.services.cloudformation.v2.provider import CloudformationProviderV2 as B;A.patch_cloudformation();C=B();return Service.for_provider(C)
 @pro_aws_provider()
 def dynamodb():from localstack.pro.core.services.dynamodb.provider import DynamoDBProviderExt as A;B=A();return Service.for_provider(B,dispatch_table_factory=lambda _provider:HttpFallbackDispatcher(_provider,_provider.get_forward_url))
-@pro_aws_provider(api='dynamodb',name=_A)
+@pro_aws_provider(api='dynamodb',name=_B)
 def dynamodb_v2():from localstack.pro.core.services.dynamodb.v2.provider import DynamoDBProviderExt as A;B=A();return Service.for_provider(B,dispatch_table_factory=lambda _provider:HttpFallbackDispatcher(_provider,_provider.get_forward_url))
 @pro_aws_provider()
 def events():from localstack.pro.core.services.events.provider import EventsProviderPro as A;B=A();return Service.for_provider(B)
-@pro_aws_provider(api=_E,name=_A)
+@pro_aws_provider(api=_E,name=_B)
 def events_v2():from localstack.pro.core.services.events.provider import EventsProviderPro as A;B=A();return Service.for_provider(B)
 @pro_aws_provider(api=_E,name='v1_pro')
 def events_v1():from localstack.pro.core.services.events.v1.provider import EventsProviderPro as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
-@pro_aws_provider(api=_E,name=_B)
+@pro_aws_provider(api=_E,name=_A)
 def events_legacy():from localstack.pro.core.services.events.v1.provider import EventsProviderPro as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
 @pro_aws_provider()
 def mq():from localstack.pro.core.services.mq.provider import MQProvider as A;B=A();return Service.for_provider(B)
@@ -223,8 +223,10 @@ def mq():from localstack.pro.core.services.mq.provider import MQProvider as A;B=
 def opensearch():from localstack.pro.core.services.opensearch.provider import OpensearchProvider as A;B=A();return Service.for_provider(B)
 @pro_aws_provider()
 def route53():from localstack.pro.core.services.route53.provider import Route53ProviderPro as A;B=A();return Service.for_provider(B,dispatch_table_factory=MotoFallbackDispatcher)
-@pro_aws_provider(name=_A)
+@pro_aws_provider()
 def resourcegroupstaggingapi():from localstack.pro.core.services.resourcegroupstaggingapi.provider import ResourceGroupsTaggingApiProvider as A;B=A();return Service.for_provider(B)
+@pro_aws_provider(api='resourcegroupstaggingapi',name=_A)
+def resourcegroupstaggingapi_legacy():from localstack.services.moto import MotoFallbackDispatcher as A;from localstack.services.resourcegroupstaggingapi.provider import ResourcegroupstaggingapiProvider as B;C=B();return Service.for_provider(C,dispatch_table_factory=A)
 @pro_aws_provider()
 def s3():from localstack.pro.core.services.s3.provider import S3ProviderPro as A;B=A();return Service.for_provider(B)
 @pro_aws_provider()

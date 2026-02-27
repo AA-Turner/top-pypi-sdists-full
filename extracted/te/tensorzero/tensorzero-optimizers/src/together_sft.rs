@@ -15,7 +15,7 @@ use tensorzero_core::{
         Config, TimeoutsConfig,
         provider_types::{ProviderTypesConfig, TogetherSFTConfig as TogetherProviderSFTConfig},
     },
-    db::clickhouse::ClickHouseConnectionInfo,
+    db::delegating_connection::DelegatingDatabaseQueries,
     endpoints::inference::InferenceCredentials,
     error::{DisplayOrDebugGateway, Error, ErrorDetails, IMPOSSIBLE_ERROR_MESSAGE},
     http::TensorzeroHttpClient,
@@ -31,10 +31,10 @@ use tensorzero_core::{
     },
     providers::{
         helpers::UrlParseErrExt,
-        openai::tensorzero_to_openai_assistant_message,
-        openai::{OpenAIMessagesConfig, OpenAIRequestMessage, OpenAITool},
+        openai::{OpenAIMessagesConfig, OpenAITool},
         together::prepare_together_messages,
-        together::{PROVIDER_TYPE, TOGETHER_API_BASE},
+        together::tensorzero_to_together_assistant_message,
+        together::{PROVIDER_TYPE, TOGETHER_API_BASE, TogetherRequestMessage},
     },
     stored_inference::{LazyRenderedSample, RenderedSample},
     utils::mock::get_mock_provider_api_base,
@@ -136,7 +136,7 @@ impl Optimizer for TogetherSFTConfig {
         train_examples: Vec<RenderedSample>,
         val_examples: Option<Vec<RenderedSample>>,
         credentials: &InferenceCredentials,
-        _clickhouse_connection_info: &ClickHouseConnectionInfo,
+        _db: &Arc<dyn DelegatingDatabaseQueries + Send + Sync>,
         config: Arc<Config>,
     ) -> Result<Self::Handle, Error> {
         // Get optional provider-level configuration
@@ -340,13 +340,15 @@ impl JobHandle for TogetherSFTJobHandle {
                 let model_provider = UninitializedModelProvider {
                     config: UninitializedProviderConfig::Together {
                         model_name: model_name.clone(),
-                        parse_think_blocks: true,
+                        parse_think_blocks: None,
                         api_key_location: None,
                     },
                     extra_headers: None,
                     extra_body: None,
                     timeouts: TimeoutsConfig::default(),
                     discard_unknown_chunks: false,
+                    cost: None,
+                    batch_cost: None,
                 };
                 Ok(OptimizationJobInfo::Completed {
                     output: OptimizerOutput::Model(UninitializedModelConfig {
@@ -354,6 +356,7 @@ impl JobHandle for TogetherSFTJobHandle {
                         providers: HashMap::from([(model_name.into(), model_provider)]),
                         timeouts: TimeoutsConfig::default(),
                         skip_relay: None,
+                        namespace: None,
                     }),
                 })
             }
@@ -363,7 +366,7 @@ impl JobHandle for TogetherSFTJobHandle {
 
 #[derive(Debug, Serialize)]
 pub struct TogetherSupervisedRow<'a> {
-    messages: Vec<OpenAIRequestMessage<'a>>,
+    messages: Vec<TogetherRequestMessage<'a>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<OpenAITool<'a>>,
 }
@@ -417,7 +420,7 @@ impl<'a> TogetherSupervisedRow<'a> {
         }
         let output_content_blocks: Vec<ContentBlock> =
             output.iter().map(|c| c.clone().into()).collect::<Vec<_>>();
-        let final_assistant_message = tensorzero_to_openai_assistant_message(
+        let final_assistant_message = tensorzero_to_together_assistant_message(
             Cow::Owned(output_content_blocks),
             OpenAIMessagesConfig {
                 json_mode: None,

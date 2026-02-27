@@ -32,6 +32,7 @@ from rich.text import Text
 from edgar.core import log
 from edgar.entity.enhanced_statement import MultiPeriodStatement
 from edgar.entity.models import FinancialFact
+from edgar.entity.utils import normalize_period_to_entity_facts
 from edgar.httprequests import download_json
 from edgar.storage import get_edgar_data_directory, is_using_local_storage
 
@@ -142,6 +143,12 @@ class EntityFacts:
         self._ticker = ticker
         self._fact_index = self._build_indices()
         self._cache = {}
+
+    def _suggest_concepts(self, query: str, n: int = 3) -> List[str]:
+        """Return up to n concept keys similar to query, using difflib."""
+        import difflib
+        all_concepts = [k for k in self._fact_index['by_concept'] if ':' in k or k[0:1].isupper()]
+        return difflib.get_close_matches(query, all_concepts, n=n, cutoff=0.4)
 
     def _build_indices(self) -> Dict[str, Dict]:
         """Build optimized indices for fast querying"""
@@ -375,22 +382,26 @@ class EntityFacts:
         ]
 
         has_metrics = False
-        for label, concept in key_metrics:
-            fact = self.get_fact(concept)
-            if fact:
-                has_metrics = True
-                # Format value based on unit
-                if fact.numeric_value:
-                    if 'share' in fact.unit.lower():
-                        value = f"{fact.numeric_value:,.0f}"
+        self._suppress_warnings = True
+        try:
+            for label, concept in key_metrics:
+                fact = self.get_fact(concept)
+                if fact:
+                    has_metrics = True
+                    # Format value based on unit
+                    if fact.numeric_value:
+                        if 'share' in fact.unit.lower():
+                            value = f"{fact.numeric_value:,.0f}"
+                        else:
+                            value = f"${fact.numeric_value:,.0f}"
                     else:
-                        value = f"${fact.numeric_value:,.0f}"
-                else:
-                    value = str(fact.value)
+                        value = str(fact.value)
 
-                period = f"{fact.fiscal_period} {fact.fiscal_year}"
-                quality = fact.data_quality.value if fact.data_quality else "N/A"
-                metrics.add_row(label, value, period, quality)
+                    period = f"{fact.fiscal_period} {fact.fiscal_year}"
+                    quality = fact.data_quality.value if fact.data_quality else "N/A"
+                    metrics.add_row(label, value, period, quality)
+        finally:
+            self._suppress_warnings = False
 
         if has_metrics:
             metrics_panel = Panel(
@@ -537,6 +548,10 @@ class EntityFacts:
 
         Returns:
             The most recent matching fact, or None if not found
+
+        Tip:
+            Use ``search_concepts()`` to find concept names and
+            ``available_periods()`` to find period keys.
         """
         # Try exact concept match first
         facts = self._fact_index['by_concept'].get(concept, [])
@@ -546,11 +561,29 @@ class EntityFacts:
             facts = self._fact_index['by_concept'].get(concept.lower(), [])
 
         if not facts:
+            if not getattr(self, '_suppress_warnings', False):
+                suggestions = self._suggest_concepts(concept)
+                hint = f"No fact found for concept '{concept}'."
+                if suggestions:
+                    hint += f"\n  Similar concepts: {', '.join(repr(s) for s in suggestions)}"
+                hint += f"\n  Tip: Use search_concepts('{concept}') to explore available concepts."
+                warnings.warn(hint, stacklevel=2)
             return None
 
         # Filter by period if specified
         if period:
+            period = normalize_period_to_entity_facts(period)  # accept "FY 2023" too
+            all_facts = facts
             facts = [f for f in facts if f"{f.fiscal_year}-{f.fiscal_period}" == period]
+
+            if not facts:
+                if not getattr(self, '_suppress_warnings', False):
+                    avail = sorted(set(f"{f.fiscal_year}-{f.fiscal_period}" for f in all_facts))[-5:]
+                    hint = f"Concept '{concept}' found but no facts match period '{period}'."
+                    hint += f"\n  Recent periods: {', '.join(avail)}"
+                    hint += f"\n  Tip: Use available_periods('{concept}') to see all periods."
+                    warnings.warn(hint, stacklevel=2)
+                return None
 
         # Return most recent
         if facts:
@@ -580,17 +613,38 @@ class EntityFacts:
             facts = self._fact_index['by_concept'].get(concept.lower(), [])
 
         if not facts:
+            if not getattr(self, '_suppress_warnings', False):
+                suggestions = self._suggest_concepts(concept)
+                hint = f"No fact found for concept '{concept}'."
+                if suggestions:
+                    hint += f"\n  Similar concepts: {', '.join(repr(s) for s in suggestions)}"
+                hint += f"\n  Tip: Use search_concepts('{concept}') to explore available concepts."
+                warnings.warn(hint, stacklevel=2)
             return None
 
         # Filter for annual periods (FY)
         annual_facts = [f for f in facts if f.fiscal_period == 'FY']
 
         if not annual_facts:
+            if not getattr(self, '_suppress_warnings', False):
+                periods = sorted(set(f.fiscal_period for f in facts))
+                hint = f"Concept '{concept}' found but has no annual (FY) data."
+                hint += f"\n  Available period types: {', '.join(periods)}"
+                warnings.warn(hint, stacklevel=2)
             return None
 
         # Filter by fiscal year if specified
         if fiscal_year:
+            fy_facts = annual_facts
             annual_facts = [f for f in annual_facts if f.fiscal_year == fiscal_year]
+
+            if not annual_facts:
+                if not getattr(self, '_suppress_warnings', False):
+                    avail_years = sorted(set(f.fiscal_year for f in fy_facts), reverse=True)[:5]
+                    hint = f"Concept '{concept}' has annual data but not for fiscal year {fiscal_year}."
+                    hint += f"\n  Available fiscal years: {', '.join(str(y) for y in avail_years)}"
+                    warnings.warn(hint, stacklevel=2)
+                return None
 
         # Return most recent annual fact
         if annual_facts:
@@ -998,10 +1052,10 @@ class EntityFacts:
         group = synonyms.get_group(concept_name)
 
         if group is None:
-            log.warning(
-                f"Unknown concept '{concept_name}'. "
-                f"Use SynonymGroups.list_groups() to see available concepts."
-            )
+            hint = f"Unknown concept '{concept_name}'."
+            hint += f"\n  Use list_supported_concepts() to see available concept names,"
+            hint += f"\n  or search_concepts() to search this company's raw XBRL tags."
+            warnings.warn(hint, stacklevel=2)
             return None
 
         # Use the existing _get_standardized_concept_value infrastructure
@@ -1009,30 +1063,35 @@ class EntityFacts:
         target_unit = unit or 'USD'
         synonyms_tried = []
 
-        for concept in group.synonyms:
-            synonyms_tried.append(concept)
-            # Try with all known taxonomy prefixes
-            for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
-                fact = self.get_fact(concept_variant, period)
-                if fact and fact.numeric_value is not None:
-                    unit_result = UnitNormalizer.get_normalized_value(
-                        fact=fact,
-                        target_unit=target_unit,
-                        apply_scale=True,
-                        strict_unit_match=unit is not None  # Strict when user explicitly specifies unit
-                    )
+        # Suppress warnings from get_fact() during synonym resolution
+        self._suppress_warnings = True
+        try:
+            for concept in group.synonyms:
+                synonyms_tried.append(concept)
+                # Try with all known taxonomy prefixes
+                for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
+                    fact = self.get_fact(concept_variant, period)
+                    if fact and fact.numeric_value is not None:
+                        unit_result = UnitNormalizer.get_normalized_value(
+                            fact=fact,
+                            target_unit=target_unit,
+                            apply_scale=True,
+                            strict_unit_match=unit is not None  # Strict when user explicitly specifies unit
+                        )
 
-                    if unit_result.success:
-                        if return_metadata:
-                            return {
-                                'value': unit_result.value,
-                                'tag_used': concept_variant,
-                                'period': period,
-                                'unit': unit_result.normalized_unit,
-                                'concept_name': concept_name,
-                                'synonyms_tried': synonyms_tried.copy()
-                            }
-                        return unit_result.value
+                        if unit_result.success:
+                            if return_metadata:
+                                return {
+                                    'value': unit_result.value,
+                                    'tag_used': concept_variant,
+                                    'period': period,
+                                    'unit': unit_result.normalized_unit,
+                                    'concept_name': concept_name,
+                                    'synonyms_tried': synonyms_tried.copy()
+                                }
+                            return unit_result.value
+        finally:
+            self._suppress_warnings = False
 
         return None
 
@@ -1064,15 +1123,138 @@ class EntityFacts:
             return []
 
         found_tags = []
-        for tag in group.synonyms:
-            # Check if tag exists in facts (try all known taxonomy prefixes)
-            for variant in [tag, f'us-gaap:{tag}', f'ifrs-full:{tag}']:
-                fact = self.get_fact(variant)
-                if fact is not None:
-                    found_tags.append(tag)
-                    break
+        self._suppress_warnings = True
+        try:
+            for tag in group.synonyms:
+                # Check if tag exists in facts (try all known taxonomy prefixes)
+                for variant in [tag, f'us-gaap:{tag}', f'ifrs-full:{tag}']:
+                    fact = self.get_fact(variant)
+                    if fact is not None:
+                        found_tags.append(tag)
+                        break
+        finally:
+            self._suppress_warnings = False
 
         return found_tags
+
+    def search_concepts(self, pattern: str) -> 'ConceptSearchResults':
+        """
+        Search this company's facts for concepts matching a pattern.
+
+        Performs a case-insensitive regex search against concept names and labels.
+        Useful for discovering what data a company actually reports before querying.
+
+        Args:
+            pattern: Regex pattern to match (e.g. "revenue", "asset", "cash.*flow")
+
+        Returns:
+            ConceptSearchResults with Rich display and to_dataframe()
+
+        Example:
+            >>> facts = company.get_facts()
+            >>> facts.search_concepts("revenue")
+            # Shows table: Concept | Label | Facts | Years | Periods
+        """
+        import re
+        from edgar.entity.models import ConceptMatch, ConceptSearchResults
+
+        regex = re.compile(pattern, re.IGNORECASE)
+
+        # Single pass: build per-concept aggregates
+        concept_info: Dict[str, dict] = {}
+        for fact in self._facts:
+            key = fact.concept
+            if key not in concept_info:
+                concept_info[key] = {
+                    'label': fact.label or '',
+                    'count': 0,
+                    'years': set(),
+                    'periods': set(),
+                    'units': set(),
+                }
+            info = concept_info[key]
+            info['count'] += 1
+            if fact.fiscal_year:
+                info['years'].add(fact.fiscal_year)
+            if fact.fiscal_period:
+                info['periods'].add(fact.fiscal_period)
+            if fact.unit:
+                info['units'].add(fact.unit)
+
+        # Filter by regex on concept name and label
+        matches = []
+        for concept, info in concept_info.items():
+            if regex.search(concept) or regex.search(info['label']):
+                matches.append(ConceptMatch(
+                    concept=concept,
+                    label=info['label'],
+                    fact_count=info['count'],
+                    fiscal_years=sorted(info['years']),
+                    periods=sorted(info['periods']),
+                    units=sorted(info['units']),
+                ))
+
+        # Sort by fact_count descending
+        matches.sort(key=lambda m: m.fact_count, reverse=True)
+
+        return ConceptSearchResults(matches, pattern)
+
+    def available_periods(self, concept: str = None) -> 'PeriodSummary':
+        """
+        List periods that have data, optionally filtered to a specific concept.
+
+        Args:
+            concept: Optional concept name or label to filter by.
+                     If None, shows periods across all facts.
+
+        Returns:
+            PeriodSummary with Rich display and to_dataframe()
+
+        Example:
+            >>> facts = company.get_facts()
+            >>> facts.available_periods()           # all periods
+            >>> facts.available_periods("Revenue")  # periods with Revenue data
+        """
+        from collections import defaultdict
+        from edgar.entity.models import PeriodEntry, PeriodSummary
+
+        # Determine which facts to scan
+        if concept:
+            facts_to_scan = self._fact_index['by_concept'].get(concept, [])
+            if not facts_to_scan:
+                facts_to_scan = self._fact_index['by_concept'].get(concept.lower(), [])
+        else:
+            facts_to_scan = self._facts
+
+        # Group by period key
+        period_data: Dict[str, dict] = defaultdict(lambda: {
+            'year': 0, 'period': '', 'count': 0, 'concepts': set()
+        })
+        for fact in facts_to_scan:
+            key = f"{fact.fiscal_year}-{fact.fiscal_period}"
+            info = period_data[key]
+            info['year'] = fact.fiscal_year
+            info['period'] = fact.fiscal_period
+            info['count'] += 1
+            info['concepts'].add(fact.concept)
+
+        # Sort: year descending, then FY > Q4 > Q3 > Q2 > Q1
+        period_order = {'FY': 0, 'Q4': 1, 'Q3': 2, 'Q2': 3, 'Q1': 4}
+
+        entries = [
+            PeriodEntry(
+                period_key=key,
+                fiscal_year=info['year'],
+                fiscal_period=info['period'],
+                fact_count=info['count'],
+                concept_count=len(info['concepts']),
+            )
+            for key, info in period_data.items()
+            if info['year']  # skip entries with no fiscal year
+        ]
+        entries.sort(key=lambda e: (-e.fiscal_year, period_order.get(e.fiscal_period, 9)))
+
+        return PeriodSummary(entries)
 
     def list_supported_concepts(self, category: Optional[str] = None) -> List[str]:
         """
@@ -1604,22 +1786,30 @@ class EntityFacts:
         ]
 
         metrics = {}
-        for concept in key_concepts:
-            fact = self.get_fact(concept)
-            if fact:
-                metrics[concept] = {
-                    "value": fact.numeric_value or fact.value,
-                    "unit": fact.unit,
-                    "period": f"{fact.fiscal_period} {fact.fiscal_year}",
-                    "quality": fact.data_quality.value
-                }
+        self._suppress_warnings = True
+        try:
+            for concept in key_concepts:
+                fact = self.get_fact(concept)
+                if fact:
+                    metrics[concept] = {
+                        "value": fact.numeric_value or fact.value,
+                        "unit": fact.unit,
+                        "period": f"{fact.fiscal_period} {fact.fiscal_year}",
+                        "quality": fact.data_quality.value
+                    }
+        finally:
+            self._suppress_warnings = False
 
         return metrics
 
     def _analyze_profitability(self) -> Dict[str, Any]:
         """Analyze profitability metrics"""
-        revenue = self.get_fact('Revenue')
-        net_income = self.get_fact('NetIncome')
+        self._suppress_warnings = True
+        try:
+            revenue = self.get_fact('Revenue')
+            net_income = self.get_fact('NetIncome')
+        finally:
+            self._suppress_warnings = False
 
         analysis = {}
 
@@ -1657,8 +1847,12 @@ class EntityFacts:
 
     def _analyze_liquidity(self) -> Dict[str, Any]:
         """Analyze liquidity metrics"""
-        current_assets = self.get_fact('CurrentAssets')
-        current_liabilities = self.get_fact('CurrentLiabilities')
+        self._suppress_warnings = True
+        try:
+            current_assets = self.get_fact('CurrentAssets')
+            current_liabilities = self.get_fact('CurrentLiabilities')
+        finally:
+            self._suppress_warnings = False
 
         if current_assets and current_liabilities and current_assets.numeric_value and current_liabilities.numeric_value:
             current_ratio = current_assets.numeric_value / current_liabilities.numeric_value
@@ -1706,31 +1900,36 @@ class EntityFacts:
         if strict_unit_match is None:
             strict_unit_match = unit is not None
 
-        # Try each concept variant in priority order
-        for concept in concept_variants:
-            # Try with all known taxonomy prefixes
-            for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
-                # Use annual fact if requested and no specific period provided
-                if annual and period is None:
-                    fact = self.get_annual_fact(concept_variant)
-                    # Fallback to most recent if no annual fact available
-                    if fact is None:
+        # Suppress warnings from get_fact()/get_annual_fact() during synonym resolution
+        self._suppress_warnings = True
+        try:
+            # Try each concept variant in priority order
+            for concept in concept_variants:
+                # Try with all known taxonomy prefixes
+                for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
+                    # Use annual fact if requested and no specific period provided
+                    if annual and period is None:
+                        fact = self.get_annual_fact(concept_variant)
+                        # Fallback to most recent if no annual fact available
+                        if fact is None:
+                            fact = self.get_fact(concept_variant, period)
+                    else:
                         fact = self.get_fact(concept_variant, period)
-                else:
-                    fact = self.get_fact(concept_variant, period)
-                if fact and fact.numeric_value is not None:
-                    # Use enhanced unit handling
-                    unit_result = UnitNormalizer.get_normalized_value(
-                        fact=fact,
-                        target_unit=target_unit,
-                        apply_scale=True,
-                        strict_unit_match=strict_unit_match
-                    )
+                    if fact and fact.numeric_value is not None:
+                        # Use enhanced unit handling
+                        unit_result = UnitNormalizer.get_normalized_value(
+                            fact=fact,
+                            target_unit=target_unit,
+                            apply_scale=True,
+                            strict_unit_match=strict_unit_match
+                        )
 
-                    if unit_result.success:
-                        if return_detailed:
-                            return unit_result  # type: ignore[return-value]
-                        return unit_result.value
+                        if unit_result.success:
+                            if return_detailed:
+                                return unit_result  # type: ignore[return-value]
+                            return unit_result.value
+        finally:
+            self._suppress_warnings = False
 
         # Try fallback calculation if provided
         if fallback_calculation:
@@ -1778,15 +1977,19 @@ class EntityFacts:
         """
         from edgar.entity.unit_handling import UnitNormalizer
 
-        gross_profit_fact = self.get_fact('GrossProfit', period)
-        cost_of_revenue_fact = self.get_fact('CostOfRevenue', period)
+        self._suppress_warnings = True
+        try:
+            gross_profit_fact = self.get_fact('GrossProfit', period)
+            cost_of_revenue_fact = self.get_fact('CostOfRevenue', period)
 
-        # Try alternative cost concepts
-        if not cost_of_revenue_fact:
-            for cost_concept in ['CostOfGoodsAndServicesSold', 'CostOfGoodsSold', 'CostOfSales']:
-                cost_of_revenue_fact = self.get_fact(cost_concept, period)
-                if cost_of_revenue_fact:
-                    break
+            # Try alternative cost concepts
+            if not cost_of_revenue_fact:
+                for cost_concept in ['CostOfGoodsAndServicesSold', 'CostOfGoodsSold', 'CostOfSales']:
+                    cost_of_revenue_fact = self.get_fact(cost_concept, period)
+                    if cost_of_revenue_fact:
+                        break
+        finally:
+            self._suppress_warnings = False
 
         if (gross_profit_fact and cost_of_revenue_fact and
             gross_profit_fact.numeric_value is not None and
@@ -1817,20 +2020,24 @@ class EntityFacts:
         from edgar.entity.unit_handling import UnitNormalizer
 
         # Try to get revenue using standardized method (but avoid infinite recursion)
-        revenue_fact = None
-        for concept in ['RevenueFromContractWithCustomerExcludingAssessedTax', 'SalesRevenueNet', 'Revenues', 'Revenue']:
-            revenue_fact = self.get_fact(concept, period)
-            if revenue_fact:
-                break
-
-        cost_of_revenue_fact = self.get_fact('CostOfRevenue', period)
-
-        # Try alternative cost concepts
-        if not cost_of_revenue_fact:
-            for cost_concept in ['CostOfGoodsAndServicesSold', 'CostOfGoodsSold', 'CostOfSales']:
-                cost_of_revenue_fact = self.get_fact(cost_concept, period)
-                if cost_of_revenue_fact:
+        self._suppress_warnings = True
+        try:
+            revenue_fact = None
+            for concept in ['RevenueFromContractWithCustomerExcludingAssessedTax', 'SalesRevenueNet', 'Revenues', 'Revenue']:
+                revenue_fact = self.get_fact(concept, period)
+                if revenue_fact:
                     break
+
+            cost_of_revenue_fact = self.get_fact('CostOfRevenue', period)
+
+            # Try alternative cost concepts
+            if not cost_of_revenue_fact:
+                for cost_concept in ['CostOfGoodsAndServicesSold', 'CostOfGoodsSold', 'CostOfSales']:
+                    cost_of_revenue_fact = self.get_fact(cost_concept, period)
+                    if cost_of_revenue_fact:
+                        break
+        finally:
+            self._suppress_warnings = False
 
         if (revenue_fact and cost_of_revenue_fact and
             revenue_fact.numeric_value is not None and
@@ -1877,19 +2084,23 @@ class EntityFacts:
             'fact_details': {}
         }
 
-        for concept in concept_variants:
-            fact = self.get_fact(concept)
-            if fact:
-                info['available'].append(concept)
-                info['fact_details'][concept] = {
-                    'label': fact.label,
-                    'unit': fact.unit,
-                    'latest_period': f"{fact.fiscal_period} {fact.fiscal_year}",
-                    'latest_value': fact.numeric_value,
-                    'filing_date': fact.filing_date
-                }
-            else:
-                info['missing'].append(concept)
+        self._suppress_warnings = True
+        try:
+            for concept in concept_variants:
+                fact = self.get_fact(concept)
+                if fact:
+                    info['available'].append(concept)
+                    info['fact_details'][concept] = {
+                        'label': fact.label,
+                        'unit': fact.unit,
+                        'latest_period': f"{fact.fiscal_period} {fact.fiscal_year}",
+                        'latest_value': fact.numeric_value,
+                        'filing_date': fact.filing_date
+                    }
+                else:
+                    info['missing'].append(concept)
+        finally:
+            self._suppress_warnings = False
 
         return info
 
@@ -1980,8 +2191,12 @@ class EntityFacts:
         """
         from edgar.entity.unit_handling import UnitNormalizer
 
-        fact1 = self.get_fact(concept1, period)
-        fact2 = self.get_fact(concept2, period)
+        self._suppress_warnings = True
+        try:
+            fact1 = self.get_fact(concept1, period)
+            fact2 = self.get_fact(concept2, period)
+        finally:
+            self._suppress_warnings = False
 
         result = {
             'compatible': False,

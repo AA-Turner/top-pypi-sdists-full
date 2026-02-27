@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swesmith
-Version: 0.0.8
+Version: 0.0.9
 Summary: The official SWE-smith package - A toolkit for generating software engineering training data at scale.
 Author-email: John Yang <byjohnyang@gmail.com>
 License: MIT License
@@ -43,6 +43,7 @@ Requires-Dist: astor; extra == "all"
 Requires-Dist: datasets; extra == "all"
 Requires-Dist: docker; extra == "all"
 Requires-Dist: ghapi; extra == "all"
+Requires-Dist: jinja2; extra == "all"
 Requires-Dist: libcst; extra == "all"
 Requires-Dist: litellm; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
@@ -61,13 +62,14 @@ Requires-Dist: tree-sitter-c; extra == "all"
 Requires-Dist: tree-sitter-cpp; extra == "all"
 Requires-Dist: tree-sitter-c-sharp; extra == "all"
 Requires-Dist: tree-sitter-go; extra == "all"
-Requires-Dist: tree-sitter-javascript; extra == "all"
 Requires-Dist: tree-sitter-java; extra == "all"
+Requires-Dist: tree-sitter-javascript; extra == "all"
+Requires-Dist: tree-sitter-php>=0.23.11; extra == "all"
 Requires-Dist: tree-sitter-ruby; extra == "all"
 Requires-Dist: tree-sitter-rust; extra == "all"
+Requires-Dist: tree-sitter-typescript; extra == "all"
 Requires-Dist: unidiff; extra == "all"
 Requires-Dist: textual; extra == "all"
-Requires-Dist: tree-sitter-php>=0.23.11; extra == "all"
 Provides-Extra: docs
 Requires-Dist: mkdocs; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
@@ -89,6 +91,7 @@ Provides-Extra: generate
 Requires-Dist: astor; extra == "generate"
 Requires-Dist: docker; extra == "generate"
 Requires-Dist: ghapi; extra == "generate"
+Requires-Dist: jinja2; extra == "generate"
 Requires-Dist: libcst; extra == "generate"
 Requires-Dist: python-dotenv; extra == "generate"
 Requires-Dist: rich; extra == "generate"
@@ -100,6 +103,7 @@ Requires-Dist: tree-sitter-cpp; extra == "generate"
 Requires-Dist: tree-sitter-c-sharp; extra == "generate"
 Requires-Dist: tree-sitter-go; extra == "generate"
 Requires-Dist: tree-sitter-javascript; extra == "generate"
+Requires-Dist: tree-sitter-typescript; extra == "generate"
 Requires-Dist: tree-sitter-java; extra == "generate"
 Requires-Dist: tree-sitter-ruby; extra == "generate"
 Requires-Dist: tree-sitter-rust; extra == "generate"

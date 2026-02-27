@@ -6,10 +6,15 @@ installation and testing configurations for different repositories.
 """
 
 import docker
+import json
+import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 
 from abc import ABC, abstractmethod, ABCMeta
 from collections import UserDict
@@ -36,12 +41,30 @@ from swesmith.constants import (
     ORG_NAME_GH,
     INSTANCE_REF,
     CodeEntity,
-    Architecture,
 )
 from unidiff import PatchSet
 
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_SSH_KEYS = ["id_rsa", "id_ecdsa", "id_ecdsa_sk", "id_ed25519", "id_ed25519_sk"]
+
+
+def _find_ssh_key() -> Path | None:
+    """Find an SSH private key: explicit env var first, then default paths."""
+    key_path = os.getenv("GITHUB_USER_SSH_KEY")
+    if key_path and Path(key_path).exists():
+        return Path(key_path)
+
+    ssh_dir = Path.home() / ".ssh"
+    for key_name in _DEFAULT_SSH_KEYS:
+        key_file = ssh_dir / key_name
+        if key_file.exists():
+            return key_file
+
+    return None
 
 
 class SingletonMeta(ABCMeta):
@@ -65,21 +88,17 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
 
     org_dh: str = ORG_NAME_DH
     org_gh: str = ORG_NAME_GH
-    arch: Architecture = (
-        Architecture.X86_64
-        if platform.machine() not in {"aarch64", "arm64"}
-        else Architecture.ARM64
-    )
+    arch: str = "x86_64" if platform.machine() not in {"aarch64", "arm64"} else "arm64"
 
     @property
     def pltf(self) -> str:
-        if self.arch == Architecture.X86_64:
+        if self.arch == "x86_64":
             return "linux/x86_64"
-        elif self.arch == Architecture.ARM64:
+        elif self.arch == "arm64":
             return "linux/arm64/v8"
         else:
             raise ValueError(
-                f"Architecture {self.arch} not supported. Must be one of {[a.value for a in Architecture]}"
+                f"Architecture {self.arch} not supported. Must be one of ['x86_64', 'arm64']"
             )
 
     exts: list[str] = field(default_factory=list)  # Must be set by subclass
@@ -111,6 +130,9 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
     _cache_test_paths = None
     _cache_branches = None
     _cache_mirror_exists = None
+    _cache_repo_private: bool | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     ### START: Properties, Methods that *do not* require (re-)implementation ###
 
@@ -121,6 +143,63 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
             token = os.getenv("GITHUB_TOKEN")
             self._api = GhApi(token=token)
         return self._api
+
+    def _is_repo_private(self) -> bool:
+        if self._cache_repo_private is not None:
+            return self._cache_repo_private
+        try:
+            url = f"https://api.github.com/repos/{self.owner}/{self.repo}"
+            headers = {"User-Agent": "swesmith"}
+            token = os.getenv("GITHUB_TOKEN")
+            if token:
+                headers["Authorization"] = f"token {token}"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req) as resp:
+                data = json.loads(resp.read())
+                self._cache_repo_private = data.get("private", False)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                logger.warning(
+                    "Repo '%s/%s' returned 404 — assuming private",
+                    self.owner,
+                    self.repo,
+                )
+                self._cache_repo_private = True
+            else:
+                raise
+        return self._cache_repo_private
+
+    @staticmethod
+    def _configure_ssh_env():
+        """Bake GIT_SSH_COMMAND into os.environ if GITHUB_USER_SSH_KEY is set."""
+        key_path = os.getenv("GITHUB_USER_SSH_KEY")
+        if key_path and "GIT_SSH_COMMAND" not in os.environ:
+            os.environ["GIT_SSH_COMMAND"] = f"ssh -i {key_path} -o IdentitiesOnly=yes"
+
+    @property
+    def mirror_url(self) -> str:
+        if self._is_repo_private():
+            return f"git@github.com:{self.mirror_name}.git"
+        return f"https://github.com/{self.mirror_name}"
+
+    @property
+    def _mirror_ssh_url(self) -> str:
+        return f"git@github.com:{self.mirror_name}.git"
+
+    @property
+    def _source_read_url(self) -> str:
+        if self._is_repo_private():
+            return f"git@github.com:{self.owner}/{self.repo}.git"
+        return f"https://github.com/{self.owner}/{self.repo}.git"
+
+    @property
+    def _docker_ssh_arg(self) -> str:
+        key_file = _find_ssh_key()
+        if key_file:
+            return f"--ssh default={key_file}"
+        if self._is_repo_private():
+            return "--ssh default"
+        return ""
 
     @property
     def image_name(self) -> str:
@@ -201,16 +280,52 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
                 self._cache_mirror_exists = False
         return self._cache_mirror_exists
 
+    def _prepare_dockerfile(self, content: str) -> str:
+        """Inject BuildKit syntax directive and SSH mount into all RUN instructions.
+
+        This ensures that SSH keys forwarded via `docker build --ssh` are
+        transparently available to every RUN step (e.g. git clone, git
+        submodule update) without requiring profile authors to remember
+        `--mount=type=ssh` themselves.  The mount uses `required=false` so
+        builds still succeed when no SSH agent is forwarded.
+        """
+        if not content.lstrip().startswith("# syntax=docker/dockerfile"):
+            content = "# syntax=docker/dockerfile:1\n" + content
+
+        # Inject GIT_SSH_COMMAND variable to the dockerfile. This ssh usage
+        # accepts the unknown host key by default and save it to ~/.ssh/.known_hosts
+        # which removes the user interaction requirement.
+        content = re.sub(
+            r"^(FROM\s+.+)$",
+            r'\1\nENV GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"',
+            content,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+        content = re.sub(
+            r"^RUN\s+(?!--mount=type=ssh)",
+            "RUN --mount=type=ssh,required=false ",
+            content,
+            flags=re.MULTILINE,
+        )
+        return content
+
     def build_image(self):
         """Build a Docker image (execution environment) for this repository profile."""
         env_dir = LOG_DIR_ENV / self.repo_name
         env_dir.mkdir(parents=True, exist_ok=True)
         dockerfile_path = env_dir / "Dockerfile"
         with open(dockerfile_path, "w") as f:
-            f.write(self.dockerfile)
+            f.write(self._prepare_dockerfile(self.dockerfile))
+
+        build_cmd = (
+            f"docker build -f {dockerfile_path} --platform {self.pltf}"
+            f" --no-cache {self._docker_ssh_arg} -t {self.image_name} ."
+        )
         with open(env_dir / "build_image.log", "w") as log_file:
             subprocess.run(
-                f"docker build -f {dockerfile_path} --platform {self.pltf} --no-cache -t {self.image_name} .",
+                build_cmd,
                 check=True,
                 shell=True,
                 stdout=log_file,
@@ -223,11 +338,15 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
             return
         if self.repo_name in os.listdir():
             shutil.rmtree(self.repo_name)
-        self.api.repos.create_in_org(self.org_gh, self.repo_name)
+        source_repo = self.api.repos.get(self.owner, self.repo)
+        self.api.repos.create_in_org(
+            self.org_gh, self.repo_name, private=source_repo.private
+        )
 
-        # Clone the repository
+        # Clone the source repository (READ operation)
+        self._configure_ssh_env()
         subprocess.run(
-            f"git clone git@github.com:{self.owner}/{self.repo}.git {self.repo_name}",
+            f"git clone {self._source_read_url} {self.repo_name}",
             shell=True,
             check=True,
             stdout=subprocess.DEVNULL,
@@ -244,7 +363,7 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
         if os.path.exists(os.path.join(self.repo_name, ".gitmodules")):
             git_cmds.append("git submodule update --init --recursive")
 
-        # Add the rest of the commands
+        # Add the rest of the commands (WRITE → always SSH)
         git_cmds.extend(
             [
                 "rm -rf .git",
@@ -253,7 +372,7 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
                 'git config user.email "swesmith@anon.com"',
                 "rm -rf .github/workflows",
                 "rm -rf .github/dependabot.y*",
-                "git add .",
+                "git add --force .",
                 "git commit --no-gpg-sign -m 'Initial commit'",
                 "git branch -M main",
                 f"git remote add origin git@github.com:{self.mirror_name}.git",
@@ -287,21 +406,18 @@ class RepoProfile(ABC, metaclass=SingletonMeta):
             )
         dest = self.repo_name if not dest else dest
         if not os.path.exists(dest):
-            token = os.getenv("GITHUB_TOKEN")
-            if token:
-                base_url = (
-                    f"https://x-access-token:{token}@github.com/{self.mirror_name}.git"
-                )
-            else:
-                base_url = f"git@github.com:{self.mirror_name}.git"
-
-            clone_cmd = (
-                f"git clone {base_url}"
-                if dest is None
-                else f"git clone {base_url} {dest}"
-            )
+            self._configure_ssh_env()
+            clone_cmd = f"git clone {self.mirror_url} {dest}"
             subprocess.run(
                 clone_cmd,
+                check=True,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            # Always set SSH push URL (writes always use SSH)
+            subprocess.run(
+                f"git -C {dest} remote set-url --push origin {self._mirror_ssh_url}",
                 check=True,
                 shell=True,
                 stdout=subprocess.DEVNULL,

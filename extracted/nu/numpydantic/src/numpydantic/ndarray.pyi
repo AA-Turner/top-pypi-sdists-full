@@ -16,4 +16,4 @@ TShape = typing.TypeVar('TShape')
 TDtype = typing.TypeVar('TDtype')
 
 
-NDArray = TShape | TDtype | DaskArrayCoreArray | H5ArrayPath | typing.Tuple[typing.Union[pathlib._local.Path, str], str] | H5Proxy | Pathlib_localPath | Cv2VideoCapture | VideoProxy | Pathlib_localPath | ZarrCoreArray | ZarrArrayPath | Numpyndarray
+NDArray = TShape | TDtype | DaskArrayCoreArray | H5ArrayPath | H5Proxy | Pathlib_localPath | Cv2VideoCapture | VideoProxy | Pathlib_localPath | ZarrCoreArray | ZarrArrayPath | Numpyndarray

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodide-build
-Version: 0.32.1
+Version: 0.33.0
 Summary: "Tools for building Pyodide"
 Project-URL: Homepage, https://github.com/pyodide/pyodide-build
 Project-URL: Bug Tracker, https://github.com/pyodide/pyodide-build/issues

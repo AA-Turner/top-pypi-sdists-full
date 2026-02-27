@@ -92,17 +92,28 @@ async def register_service(session: AsyncSession, run_model: RunModel, run_spec:
 
     if isinstance(run_spec.configuration.gateway, str):
         gateway = await get_project_gateway_model_by_name(
-            session=session, project=run_model.project, name=run_spec.configuration.gateway
+            session=session,
+            project=run_model.project,
+            name=run_spec.configuration.gateway,
+            load_gateway_compute=True,
+            load_backend_type=True,
         )
         if gateway is None:
             raise ResourceNotExistsError(
                 f"Gateway {run_spec.configuration.gateway} does not exist"
             )
+        if gateway.to_be_deleted:
+            raise ResourceNotExistsError(
+                f"Gateway {run_spec.configuration.gateway} was marked for deletion"
+            )
     elif run_spec.configuration.gateway == False:
         gateway = None
     else:
         gateway = await get_project_default_gateway_model(
-            session=session, project=run_model.project
+            session=session,
+            project=run_model.project,
+            load_gateway_compute=True,
+            load_backend_type=True,
         )
         if gateway is None and run_spec.configuration.gateway == True:
             raise ResourceNotExistsError(
@@ -241,11 +252,13 @@ def _register_service_in_server(run_model: RunModel, run_spec: RunSpec) -> Servi
             "Service with SGLang router configuration requires a gateway. "
             "Please configure a gateway with the SGLang router enabled."
         )
-    if run_spec.configuration.https != SERVICE_HTTPS_DEFAULT:
-        # Note: if the user sets `https: <default-value>`, it will be ignored silently
-        # TODO: in 0.19, make `https` Optional to be able to tell if it was set or omitted
+    if run_spec.configuration.https not in (
+        None,
+        "auto",
+        True,  # Default set by pre-0.20.12 clients. TODO(0.21.0?): forbid True too.
+    ):
         raise ServerClientError(
-            "The `https` configuration property is not applicable when running services without a gateway."
+            f"Setting `https: {run_spec.configuration.https}` is not allowed without a gateway."
             " Please configure a gateway or remove the `https` property from the service configuration"
         )
     # Check if any group has autoscaling (min != max)
@@ -416,7 +429,16 @@ async def unregister_replica(session: AsyncSession, job_model: JobModel):
 
 def _get_service_https(run_spec: RunSpec, configuration: GatewayConfiguration) -> bool:
     assert run_spec.configuration.type == "service"
-    if not run_spec.configuration.https:
+    https = run_spec.configuration.https
+    if https is None:
+        https = SERVICE_HTTPS_DEFAULT
+    if https == "auto":
+        if configuration.certificate is None:
+            return False
+        if configuration.certificate.type == "acm":
+            return False
+        return True
+    if not https:
         return False
     if configuration.certificate is not None and configuration.certificate.type == "acm":
         return False

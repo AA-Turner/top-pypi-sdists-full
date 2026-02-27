@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.44
+Version: 0.1.46
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -210,6 +210,16 @@ Change Log
 Unreleased
 **********
 
+0.1.46 – 2026-02-26
+*******************
+
+* fix: allowing django admin adding of WebhookTransmissionQueue
+
+0.1.45 – 2026-02-26
+*******************
+
+* chore: upgrade python requirements
+
 0.1.44 – 2026-02-25
 *******************
 
@@ -229,7 +239,7 @@ Unreleased
 0.1.41 – 2026-02-24
 *******************
 
-* fix: setup changes for region specific Percipio integration 
+* fix: setup changes for region specific Percipio integration
 
 0.1.40 – 2026-02-17
 *******************

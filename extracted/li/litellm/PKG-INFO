@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.81.15
+Version: 1.81.16
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -46,7 +46,7 @@ Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
 Requires-Dist: jsonschema (>=4.23.0,<5.0.0)
 Requires-Dist: litellm-enterprise (==0.1.32) ; extra == "proxy"
-Requires-Dist: litellm-proxy-extras (==0.4.47) ; extra == "proxy"
+Requires-Dist: litellm-proxy-extras (==0.4.48) ; extra == "proxy"
 Requires-Dist: mcp (>=1.25.0,<2.0.0) ; (python_version >= "3.10") and (extra == "proxy")
 Requires-Dist: mlflow (>3.1.4) ; (python_version >= "3.10") and (extra == "mlflow")
 Requires-Dist: numpydoc ; extra == "utils"
@@ -284,7 +284,7 @@ curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
 {
   "mcpServers": {
     "LiteLLM": {
-      "url": "http://localhost:4000/mcp",
+      "url": "http://localhost:4000/mcp/",
       "headers": {
         "x-litellm-api-key": "Bearer sk-1234"
       }

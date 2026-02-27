@@ -1304,6 +1304,10 @@ def map_type_to_snowflake_type(
         case snowpark_type.DateType | "date":
             return "DATE"
         case snowpark_type.DecimalType | "decimal":
+            if is_snowpark_type:
+                return f"NUMBER({t.precision},{t.scale})"
+            if hasattr(t, "decimal"):
+                return f"NUMBER({t.decimal.precision},{t.decimal.scale})"
             return "NUMBER"
         case snowpark_type.DoubleType | "double":
             return "DOUBLE"

@@ -23,6 +23,8 @@ class CreateAppJsonBody:
         draft_only (Union[Unset, bool]):
         deployment_message (Union[Unset, str]):
         custom_path (Union[Unset, str]):
+        preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
+            preserves the original on_behalf_of value in the policy instead of overwriting it.
     """
 
     path: str
@@ -32,6 +34,7 @@ class CreateAppJsonBody:
     draft_only: Union[Unset, bool] = UNSET
     deployment_message: Union[Unset, str] = UNSET
     custom_path: Union[Unset, str] = UNSET
+    preserve_on_behalf_of: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -43,6 +46,7 @@ class CreateAppJsonBody:
         draft_only = self.draft_only
         deployment_message = self.deployment_message
         custom_path = self.custom_path
+        preserve_on_behalf_of = self.preserve_on_behalf_of
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +64,8 @@ class CreateAppJsonBody:
             field_dict["deployment_message"] = deployment_message
         if custom_path is not UNSET:
             field_dict["custom_path"] = custom_path
+        if preserve_on_behalf_of is not UNSET:
+            field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
 
         return field_dict
 
@@ -82,6 +88,8 @@ class CreateAppJsonBody:
 
         custom_path = d.pop("custom_path", UNSET)
 
+        preserve_on_behalf_of = d.pop("preserve_on_behalf_of", UNSET)
+
         create_app_json_body = cls(
             path=path,
             value=value,
@@ -90,6 +98,7 @@ class CreateAppJsonBody:
             draft_only=draft_only,
             deployment_message=deployment_message,
             custom_path=custom_path,
+            preserve_on_behalf_of=preserve_on_behalf_of,
         )
 
         create_app_json_body.additional_properties = d

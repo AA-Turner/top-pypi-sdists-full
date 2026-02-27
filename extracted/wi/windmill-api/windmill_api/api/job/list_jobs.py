@@ -46,6 +46,7 @@ def _get_kwargs(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -146,6 +147,8 @@ def _get_kwargs(
 
     params["is_not_schedule"] = is_not_schedule
 
+    params["broad_filter"] = broad_filter
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
@@ -240,6 +243,7 @@ def sync_detailed(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Response[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
 
@@ -277,6 +281,7 @@ def sync_detailed(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        broad_filter (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -320,6 +325,7 @@ def sync_detailed(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        broad_filter=broad_filter,
     )
 
     response = client.get_httpx_client().request(
@@ -365,6 +371,7 @@ def sync(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Optional[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
 
@@ -402,6 +409,7 @@ def sync(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        broad_filter (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -446,6 +454,7 @@ def sync(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        broad_filter=broad_filter,
     ).parsed
 
 
@@ -485,6 +494,7 @@ async def asyncio_detailed(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Response[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
 
@@ -522,6 +532,7 @@ async def asyncio_detailed(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        broad_filter (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -565,6 +576,7 @@ async def asyncio_detailed(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        broad_filter=broad_filter,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -608,6 +620,7 @@ async def asyncio(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Optional[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
 
@@ -645,6 +658,7 @@ async def asyncio(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        broad_filter (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -690,5 +704,6 @@ async def asyncio(
             success=success,
             all_workspaces=all_workspaces,
             is_not_schedule=is_not_schedule,
+            broad_filter=broad_filter,
         )
     ).parsed

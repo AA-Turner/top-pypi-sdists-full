@@ -58,6 +58,7 @@ from .internal import (
     Range,
     ReportWidth,
     SmoothingType,
+    PointVizMethod
 )
 
 TextLike = Union[str, "TextWithInlineComments", "Link", "InlineLatex", "InlineCode"]
@@ -137,6 +138,22 @@ class RunsetGroup:
 
     runset_name: str
     keys: Tuple[RunsetGroupKey, ...]
+
+
+@dataclass(config=dataclass_config, repr=False)
+class RunSettings(Base):
+    """Configure the display appearance and visibility of an individual run in a report panel grid.
+
+    Use `RunSettings` to customize how a specific run is rendered within a `Runset`,
+    including its line color and visibility in charts.
+
+    Attributes:
+        color: Display color for the run. Accepts hex format (`#ff0000`), a CSS color name (red), or an RGB string ("rgb(255,0,0)").
+        disabled: If True, hide the run from charts. This is equivalent to clicking the closed-eye icon in the UI.
+    """
+
+    color: str = ""
+    disabled: bool = False
 
 
 @dataclass(config=dataclass_config, frozen=True)
@@ -918,7 +935,10 @@ class Runset(Base):
             - "config.param" to group by a config parameter
             - "summary.metric" to group by a summary metric
         order (LList[OrderBy]): A list of `OrderBy` objects to order by.
-        custom_run_colors (LList[OrderBy]): A dictionary mapping run IDs to colors.
+        custom_run_colors (dict): A dictionary mapping run IDs (or `RunsetGroup` keys for
+            grouped runs) to colors. For simple per-run colors, prefer using `run_settings`.
+        run_settings (Dict[str, RunSettings]): Per-run display settings keyed by run ID.
+            Use this to set colors and/or hide individual runs. See `RunSettings`.
 
     Example:
         ```python
@@ -948,12 +968,27 @@ class Runset(Base):
         default_factory=lambda: [OrderBy("CreatedTimestamp", ascending=False)]
     )
 
-    # this field does not get exported to model, but is used in PanelGrid
+    # custom_run_colors supports RunsetGroup tuple keys for grouped-run colors,
+    # which run_settings does not handle. Kept for backward compatibility and
+    # for that grouped-run use case. Plain string keys are merged into run_settings
+    # automatically by the validator below.
     custom_run_colors: Dict[Union[str, Tuple[MetricType, ...]], str] = Field(
         default_factory=dict
     )
 
+    run_settings: Dict[str, "RunSettings"] = Field(default_factory=dict)
+
     _id: str = Field(default_factory=internal._generate_name, init=False, repr=False)
+
+    @model_validator(mode="after")
+    def merge_custom_run_colors_into_run_settings(self):
+        """Merge plain-string-keyed custom_run_colors into run_settings for backward compat."""
+        merged = dict(self.run_settings)
+        for run_id, color in self.custom_run_colors.items():
+            if isinstance(run_id, str) and run_id not in merged:
+                merged[run_id] = RunSettings(color=color)
+        object.__setattr__(self, "run_settings", merged)
+        return self
 
     @model_validator(mode="after")
     def convert_filterexpr_list_to_string(self):
@@ -992,6 +1027,15 @@ class Runset(Base):
                     "Please verify that the entity and project names are correct and that you have access to this project."
                 )
 
+        # selections.tree in the internal model stores the list of disabled (hidden)
+        # run IDs. It can contain plain strings or SelectionTreeNode objects for
+        # grouped runs. Here we only write plain run ID strings.
+        disabled_run_ids = [
+            run_id
+            for run_id, settings in self.run_settings.items()
+            if settings.disabled
+        ]
+
         obj = internal.Runset(
             project=project,
             name=self.name,
@@ -999,6 +1043,7 @@ class Runset(Base):
             filters=expr.expr_to_filters(self.filters),
             grouping=[expr.groupby_str_to_key(g) for g in self.groupby],
             sort=internal.Sort(keys=[o._to_model() for o in self.order]),
+            selections=internal.RunsetSelections(tree=disabled_run_ids),
         )
         obj.id = self._id
         return obj
@@ -1015,6 +1060,14 @@ class Runset(Base):
             if p.name:
                 project = p.name
 
+        run_settings = {}
+        for item in model.selections.tree:
+            if isinstance(item, str):
+                run_settings[item] = RunSettings(disabled=True)
+            else:
+                for child_id in item.children:
+                    run_settings[child_id] = RunSettings(disabled=True)
+
         obj = cls(
             entity=entity,
             project=project,
@@ -1023,6 +1076,7 @@ class Runset(Base):
             filters=expr.filters_to_expr(model.filters),
             groupby=[expr.to_frontend_name(k.name) for k in model.grouping],
             order=[OrderBy._from_model(s) for s in model.sort.keys],
+            run_settings=run_settings,
         )
         obj._id = model.id
         return obj
@@ -1059,7 +1113,7 @@ class PanelGrid(Block):
         runsets (LList["Runset"]): A list of one or more `Runset` objects.
         hide_run_sets (bool): Whether to hide the run sets of the panel grid for report viewers.
         panels (LList["PanelTypes"]): A list of one or more `Panel` objects.
-        active_runset (int): The number of runs you want to display within a runset. By default, it is set to 0.
+        active_runset (Optional[int]): The index of the active runset tab. By default, it is set to 0.
         custom_run_colors (dict): Key-value pairs where the key is the name of a
             run and the value is a color specified by a hexadecimal value.
     """
@@ -1067,7 +1121,7 @@ class PanelGrid(Block):
     runsets: LList["Runset"] = Field(default_factory=lambda: [Runset()])
     hide_run_sets: bool = False
     panels: LList["PanelTypes"] = Field(default_factory=list)
-    active_runset: int = 0
+    active_runset: Optional[int] = 0
     custom_run_colors: Dict[Union[RunId, RunsetGroup], Union[str, dict]] = Field(
         default_factory=dict
     )
@@ -1081,6 +1135,11 @@ class PanelGrid(Block):
         # Merge custom_run_colors from runsets, with PanelGrid colors taking precedence
         merged_colors = {}
         for rs in self.runsets:
+            # Colors from run_settings (new path)
+            for run_id, settings in rs.run_settings.items():
+                if settings.color:
+                    merged_colors[run_id] = settings.color
+            # Colors from custom_run_colors (existing, may have RunsetGroup keys)
             merged_colors.update(rs.custom_run_colors)
         merged_colors.update(self.custom_run_colors)
 
@@ -1102,6 +1161,24 @@ class PanelGrid(Block):
     @classmethod
     def _from_model(cls, model: internal.PanelGrid):
         runsets = [Runset._from_model(rs) for rs in model.metadata.run_sets]
+        all_colors = _from_color_dict(model.metadata.custom_run_colors, runsets)
+
+        panelgrid_colors = {}
+        for key, color in all_colors.items():
+            if isinstance(key, str):
+                # If this run ID already exists in a runset's run_settings
+                # (from selections.tree), add its color there too
+                assigned = False
+                for rs in runsets:
+                    if key in rs.run_settings:
+                        rs.run_settings[key].color = color
+                        assigned = True
+                        break
+                if not assigned:
+                    panelgrid_colors[key] = color
+            else:
+                panelgrid_colors[key] = color
+
         obj = cls(
             runsets=runsets,
             hide_run_sets=model.metadata.hide_run_sets,
@@ -1110,9 +1187,7 @@ class PanelGrid(Block):
                 for p in model.metadata.panel_bank_section_config.panels
             ],
             active_runset=model.metadata.open_run_set,
-            custom_run_colors=_from_color_dict(
-                model.metadata.custom_run_colors, runsets
-            ),
+            custom_run_colors=panelgrid_colors,
             # _panel_bank_sections=model.metadata.panel_bank_config.sections,
         )
         obj._open_viz = model.metadata.open_viz
@@ -1836,8 +1911,12 @@ class LinePlot(Panel):
             appears if you define a custom metric. For example,
             you can specify 'datetime' to format the x-axis as a date and time.
         legend_fields (Optional[LList[str]]): The fields to include in the legend.
-        metric_regex (Optional[str]): Regular expression pattern to match y-axis metrics.
-            The backend will use this pattern to select matching metrics.
+       metric_regex (Optional[str]): Regular expression pattern to match y-axis metrics.
+           The backend will use this pattern to select matching metrics.
+       point_visualization_method (Optional[PointVizMethod]): The method used to aggregate
+           points when there are too many to display. Options include "bucketing-gorilla" (buckets
+           data points and shows min, max, avg per bucket to preserve outliers and spikes) or
+           "sampling" (randomly samples points for faster rendering but may miss outliers).
     """
 
     title: Optional[str] = None
@@ -1867,6 +1946,7 @@ class LinePlot(Panel):
     xaxis_format: Optional[str] = None
     legend_fields: Optional[LList[str]] = None
     metric_regex: Optional[str] = None
+    point_visualization_method: Optional[PointVizMethod] = None
 
     def _to_model(self):
         return internal.LinePlot(
@@ -1901,6 +1981,7 @@ class LinePlot(Panel):
                 legend_fields=self.legend_fields,
                 metric_regex=self.metric_regex,
                 use_metric_regex=True if self.metric_regex else None,
+                point_visualization_method=self.point_visualization_method,
             ),
             id=self._id,
             layout=self.layout._to_model(),
@@ -1950,6 +2031,7 @@ class LinePlot(Panel):
         object.__setattr__(obj, "legend_fields", model.config.legend_fields)
         object.__setattr__(obj, "metric_regex", model.config.metric_regex)
         object.__setattr__(obj, "_id", model.id)
+        object.__setattr__(obj, "point_visualization_method", model.config.point_visualization_method)
         return obj
 
 
@@ -2585,9 +2667,9 @@ class CustomChart(Panel):
                 fields.append(field)
             return fields
 
-        d = self.query
-        d.setdefault("id", None)
-        d.setdefault("name", None)
+        d = {**self.query}
+        d.setdefault("id", [])
+        d.setdefault("name", [])
 
         _query = [
             internal.QueryField(
@@ -2709,6 +2791,41 @@ class WeavePanelSummaryTable(Panel):
 
     Attributes:
         table_name (str): The name of the table, DataFrame, plot, or value.
+        layout (Layout): The layout configuration for the panel, including position and size.
+            Inherited from the Panel base class. Use to adjust width (w) and height (h).
+
+    Example:
+        Create a report with a summary table panel that displays a table with custom dimensions:
+
+        ```python
+        import wandb_workspaces.reports as wr
+
+        report = wr.Report(
+            project="my-project",
+            entity="my-entity",
+            title="Summary Table Report"
+        )
+
+        report.blocks = [
+            wr.PanelGrid(
+                runsets=[wr.Runset(project="my-project")],
+                panels=[
+                    wr.WeavePanelSummaryTable(
+                        table_name="my-table-name",
+                        layout=wr.Layout(w=24, h=20)
+                    )
+                ]
+            )
+        ]
+
+        report.save()
+        ```
+
+        The layout parameters control panel dimensions:
+        - w (width): Width in grid units (default: 8, max: 24)
+        - h (height): Height in grid units (default: 6)
+        - x (x-position): Horizontal position in grid (default: 0)
+        - y (y-position): Vertical position in grid (default: 0)
 
     """
 

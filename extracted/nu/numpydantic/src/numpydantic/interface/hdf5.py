@@ -40,9 +40,10 @@ as ``S32`` isoformatted byte strings (timezones optional) like:
 """
 
 import sys
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, List, NamedTuple, Optional, Tuple, TypeVar, Union
+from typing import Any, NamedTuple, TypeVar
 
 import numpy as np
 from pydantic import SerializationInfo
@@ -58,9 +59,9 @@ except ImportError:  # pragma: no cover
 if sys.version_info.minor >= 10:
     from typing import TypeAlias
 else:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
-H5Arraylike: TypeAlias = Tuple[Union[Path, str], str]
+H5Arraylike: TypeAlias = tuple[Path | str, str]
 
 T = TypeVar("T")
 
@@ -68,11 +69,11 @@ T = TypeVar("T")
 class H5ArrayPath(NamedTuple):
     """Location specifier for arrays within an HDF5 file"""
 
-    file: Union[Path, str]
+    file: Path | str
     """Location of HDF5 file"""
     path: str
     """Path within the HDF5 file"""
-    field: Optional[Union[str, List[str]]] = None
+    field: str | list[str] | None = None
     """Refer to a specific field within a compound dtype"""
 
 
@@ -81,7 +82,7 @@ class H5JsonDict(JsonDict):
 
     file: str
     path: str
-    field: Optional[str] = None
+    field: str | None = None
 
     def to_array_input(self) -> H5ArrayPath:
         """Construct an :class:`.H5ArrayPath`"""
@@ -114,10 +115,10 @@ class H5Proxy:
 
     def __init__(
         self,
-        file: Union[Path, str],
+        file: Path | str,
         path: str,
-        field: Optional[Union[str, List[str]]] = None,
-        annotation_dtype: Optional[DtypeType] = None,
+        field: str | list[str] | None = None,
+        annotation_dtype: DtypeType | None = None,
     ):
         self._h5f = None
         self.file = Path(file).resolve()
@@ -165,8 +166,8 @@ class H5Proxy:
             return val
 
     def __getitem__(
-        self, item: Union[int, slice, Tuple[Union[int, slice], ...]]
-    ) -> Union[np.ndarray, DtypeType]:
+        self, item: int | slice | tuple[int | slice, ...]
+    ) -> np.ndarray | DtypeType:
         with h5py.File(self.file, "r") as h5f:
             obj = h5f.get(self.path)
             # handle compound dtypes
@@ -210,8 +211,8 @@ class H5Proxy:
 
     def __setitem__(
         self,
-        key: Union[int, slice, Tuple[Union[int, slice], ...]],
-        value: Union[int, float, datetime, np.ndarray],
+        key: int | slice | tuple[int | slice, ...],
+        value: int | float | datetime | np.ndarray,
     ):
         # TODO: Make a generalized value serdes system instead of ad-hoc type conversion
         value = self._serialize_datetime(value)
@@ -258,7 +259,7 @@ class H5Proxy:
             self._h5f.close()
         self._h5f = None
 
-    def _serialize_datetime(self, v: Union[T, datetime]) -> Union[T, bytes]:
+    def _serialize_datetime(self, v: T | datetime) -> T | bytes:
         """
         Convert a datetime into a bytestring
         """
@@ -289,7 +290,7 @@ class H5Interface(Interface):
         return h5py is not None
 
     @classmethod
-    def check(cls, array: Union[H5ArrayPath, Tuple[Union[Path, str], str]]) -> bool:
+    def check(cls, array: H5ArrayPath | tuple[Path | str, str]) -> bool:
         """
         Check that the given array is a :class:`.H5ArrayPath` or something that
         resembles one.
@@ -383,7 +384,7 @@ class H5Interface(Interface):
             return array.dtype
 
     @classmethod
-    def to_json(cls, array: H5Proxy, info: Optional[SerializationInfo] = None) -> dict:
+    def to_json(cls, array: H5Proxy, info: SerializationInfo | None = None) -> dict:
         """
         Render HDF5 array as JSON
 

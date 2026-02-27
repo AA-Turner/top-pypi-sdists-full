@@ -90,7 +90,7 @@ class AssignmentService(OtherServiceEndpoint):
     ) -> ExecutionEnvironment:
         LOG.debug("Starting new environment")
         initialization_type = InitializationType.on_demand
-        if function_version.config.CapacityProviderConfig:
+        if function_version.config.capacity_provider_config:
             initialization_type = InitializationType.lambda_managed_instances
         execution_environment = ExecutionEnvironment(
             function_version=function_version,
@@ -148,7 +148,7 @@ class AssignmentService(OtherServiceEndpoint):
         # current_provisioned_environments_count = len(current_provisioned_environments)
         # diff = target_provisioned_environments - current_provisioned_environments_count
 
-        # TODO: handle case where no provisioned environment is available during scaling
+        # TODO: handle case where no provisioned environment is available during scaling. Does AWS serve on-demand?
         # Most simple scaling implementation for now:
         futures = []
         # 1) Re-create new target

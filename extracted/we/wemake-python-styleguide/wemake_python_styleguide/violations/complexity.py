@@ -1149,6 +1149,9 @@ class TooComplexFormattedStringViolation(ASTViolation):
       string as the key
     - the return value of a function / method call with 3 arguments maximum
 
+    Using format specifiers also increases complexity, so you should avoid
+    using more than one specifier for a single value.
+
     Reasoning:
         Complex ``f`` strings are often difficult to understand,
         making the code less readable. Generally we don't allow
@@ -1164,12 +1167,17 @@ class TooComplexFormattedStringViolation(ASTViolation):
         # Correct:
         f'smth {user.get_full_name()}'
         f'smth {math_func(1, 2, 3)}'
+        f'smth {value=:.2f}
+        f'smth {value=:{formatspec}}
 
         # Wrong:
         f'{reverse("url-name")}?{"&".join("user=" + uid for uid in user_ids)}'
         f'smth {math_func(1, 2, 3, 4)}'
+        f'smth {value=:{filler}^{padding}.{precision}f}'
 
     .. versionadded:: 0.15.0
+    .. versionchanged:: 1.6.0
+        Complex format specifiers are forbidden.
 
     """
 

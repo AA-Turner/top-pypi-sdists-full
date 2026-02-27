@@ -137,8 +137,8 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                 outputs = getattr(pl_module, f"_{self.stage}_epoch_outputs")
                 z = outputs["z"].numpy()
                 x = np.zeros(z.shape)  # we don't really need x here, we work on z
-                batch = outputs["batch"].numpy()  # (
-                labels = outputs["labels"].numpy()  # (
+                batch = outputs["batch"].numpy()
+                labels = outputs["labels"].numpy()
 
                 # subsample to save time
                 if self.indices_list is None or len(self.indices_list) == 0:
@@ -719,9 +719,9 @@ class AutotuneExperiment:
             (TuneReportCheckpointCallback, Callback),
             {},
         )
-        on = "validation_end" if "validation" in self.metrics else "train_end"
+        on = "validation_end" if "validation" in self.metrics[0] else "train_end"
 
-        return callback_cls(metrics=self.metrics, on=on, save_checkpoints=self.save_checkpoints)
+        return callback_cls(metrics=self.metrics[0], on=on, save_checkpoints=self.save_checkpoints)
 
     @property
     def scib_metrics_callback(self) -> Callback:

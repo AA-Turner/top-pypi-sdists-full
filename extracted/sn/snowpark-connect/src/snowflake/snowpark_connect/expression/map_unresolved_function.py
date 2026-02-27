@@ -40,8 +40,10 @@ from pyspark.sql.types import _parse_datatype_json_string
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column, Session
+from snowflake.snowpark._internal.analyzer.datatype_mapper import to_sql
 from snowflake.snowpark._internal.analyzer.expression import Literal
 from snowflake.snowpark._internal.analyzer.unary_expression import Alias
+from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
 from snowflake.snowpark.types import (
     ArrayType,
     BinaryType,
@@ -746,8 +748,12 @@ def map_unresolved_function(
                 case (DecimalType(), t) | (t, DecimalType()) if isinstance(
                     t, (DecimalType, _IntegralType)
                 ):
-                    p1, s1 = _get_type_precision(snowpark_typed_args[0].typ)
-                    p2, s2 = _get_type_precision(snowpark_typed_args[1].typ)
+                    p1, s1 = _get_type_precision(
+                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                    )
+                    p2, s2 = _get_type_precision(
+                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                    )
                     (
                         result_type,
                         overflow_possible,
@@ -1368,8 +1374,12 @@ def map_unresolved_function(
                 case (DecimalType(), t) | (t, DecimalType()) if isinstance(
                     t, (DecimalType, _IntegralType)
                 ):
-                    p1, s1 = _get_type_precision(snowpark_typed_args[0].typ)
-                    p2, s2 = _get_type_precision(snowpark_typed_args[1].typ)
+                    p1, s1 = _get_type_precision(
+                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                    )
+                    p2, s2 = _get_type_precision(
+                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                    )
                     result_type, overflow_possible = _get_decimal_division_result_type(
                         p1, s1, p2, s2
                     )
@@ -1787,7 +1797,7 @@ def map_unresolved_function(
                     raise exception
 
             spark_function_name = f"any_value({snowpark_arg_names[0]})"
-            result_exp = _type_with_typer(result_exp)
+            result_exp = TypedColumn(result_exp, lambda: snowpark_typed_args[0].types)
         case "approx_count_distinct":
             match snowpark_args:
                 case [data]:
@@ -2782,10 +2792,22 @@ def map_unresolved_function(
             if len(snowpark_args) == 0:
                 result_exp = TypedColumn(snowpark_fn.lit(""), lambda: [StringType()])
             else:
+                arg_types = [arg.typ for arg in snowpark_typed_args]
+                has_array = any(isinstance(t, ArrayType) for t in arg_types)
+                has_non_array = any(not isinstance(t, ArrayType) for t in arg_types)
+                if has_array and has_non_array:
+                    types_message = " or ".join([f'"{t}"' for t in arg_types])
+                    exception = AnalysisException(
+                        f"pyspark.errors.exceptions.captured.AnalysisException: [DATATYPE_MISMATCH.DATA_DIFF_TYPES] "
+                        f"Cannot resolve expression due to data type mismatch: Input to `{function_name}` should all be the same type, "
+                        f"but it's ({types_message})."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
                 result_type = _find_common_type(
-                    [arg.typ for arg in snowpark_typed_args],
+                    arg_types,
                     func_name=function_name,
-                    coerce_to_string=True,
+                    widen_to_string=True,
                 )
                 if isinstance(result_type, StringType):
                     snowpark_args = [
@@ -4259,171 +4281,217 @@ def map_unresolved_function(
             if isinstance(result_type, MapType):
                 spark_function_name = "entries"
 
-            # try to parse first, since spark returns null for invalid json
-            result_exp = snowpark_fn.call_function("try_parse_json", snowpark_args[0])
-
-            # Check if the original input is NULL - if so, return NULL for the entire result
-            original_input_is_null = snowpark_args[0].is_null()
-
-            # helper function to make sure we have the expected array element type
-            def _element_type_matches(
-                array_exp: Column, element_type: DataType
-            ) -> Column:
-                if isinstance(element_type, StructType) or isinstance(
-                    element_type, MapType
-                ):
-                    # we need to confirm that all elements are objects, we don't care about the schema here
-                    return snowpark_fn.call_function(
-                        "reduce",
-                        array_exp,
-                        snowpark_fn.lit(True),
-                        snowpark_fn.sql_expr(
-                            "(acc, e) -> acc and (strip_null_value(e) is null or is_object(e))"
-                        ),
-                    )
-
-                if isinstance(element_type, ArrayType):
-                    # we need to recursively go down and check nested arrays
-                    # then bubble up the result
-                    analyzer = Session.get_active_session()._analyzer
-                    fn_sql = analyzer.analyze(
-                        _element_type_matches(
-                            snowpark_fn.col("x"), element_type.element_type
-                        )._expression,
-                        defaultdict(),
-                    )
-
-                    return snowpark_fn.call_function(
-                        "reduce",
-                        snowpark_fn.call_function(
-                            "transform",
-                            array_exp,
-                            snowpark_fn.sql_expr(
-                                f"x -> (strip_null_value(x) is null or is_array(x)) and {fn_sql}"
-                            ),
-                        ),
-                        snowpark_fn.lit(True),
-                        snowpark_fn.sql_expr("(acc, e) -> acc and nvl(e, true)"),
-                    )
-
-                # let's optimistically assume that any simple type can be coerced to the expected type automatically
-                return snowpark_fn.lit(True)
-
-            # Snowflake limitation: Casting semi-structured data to structured types fails
-            # if the source doesn't have the exact "shape" (e.g., missing struct fields).
-            # This function constructs an expression that coerces the parsed JSON to match
-            # the expected type structure, filling in NULLs for missing fields.
-            #
-            # For complex types (StructType, ArrayType, MapType), this recursively ensures
-            # nested structures match the schema. For MapType with complex values, it uses
-            # a pure SQL REDUCE approach to avoid UDF-in-lambda errors.
-            def _coerce_to_type(
-                exp: Column, t: DataType, top_level: bool = True
-            ) -> Column:
-                if isinstance(t, StructType):
-                    key_values = []
-                    for field in t.fields:
-                        key_values.append(snowpark_fn.lit(field.name))
-                        key_values.append(
-                            _coerce_to_type(
-                                snowpark_fn.get(exp, snowpark_fn.lit(field.name)),
-                                field.datatype,
-                                False,
-                            )
-                        )
-                    # spark will not return null for top level structs, so we need to handle that
-                    if top_level:
-                        return snowpark_fn.object_construct_keep_null(*key_values)
-                    else:
-                        return snowpark_fn.when(
-                            snowpark_fn.as_object(exp).is_null(), snowpark_fn.lit(None)
-                        ).otherwise(snowpark_fn.object_construct_keep_null(*key_values))
-                elif isinstance(t, ArrayType):
-                    # Handle array wrapping behavior for top-level structs
-                    if top_level and isinstance(t.element_type, StructType):
-                        # Spark can wrap a single value in an array if the element type is a struct
-                        arr_exp = snowpark_fn.to_array(exp)
-                    else:
-                        # For other types, return null for non-array values
-                        arr_exp = snowpark_fn.as_array(exp)
-
-                    # Get coercion SQL for the array element type using placeholder column "x"
-                    analyzer = Session.get_active_session()._analyzer
-                    fn_sql = analyzer.analyze(
-                        _coerce_to_type(
-                            snowpark_fn.col("x"), t.element_type, False
-                        )._expression,
-                        defaultdict(),
-                    )
-
-                    # Apply TRANSFORM to coerce each element, or return null if types don't match
-                    return snowpark_fn.when(
-                        _element_type_matches(arr_exp, t.element_type),
-                        snowpark_fn.call_function(
-                            "transform", arr_exp, snowpark_fn.sql_expr(f"x -> {fn_sql}")
-                        ),
-                    ).otherwise(snowpark_fn.lit(None))
-                elif isinstance(t, MapType):
-                    obj_exp = snowpark_fn.as_object(exp)
-
-                    # If value type is simple (no nested complex types), no coercion needed
-                    if not isinstance(t.value_type, (StructType, ArrayType, MapType)):
-                        return obj_exp
-
-                    # For maps with complex value types, we need to coerce each value.
-                    # Strategy: Use pure SQL REDUCE with stateful accumulator to avoid:
-                    # 1. UDF-in-lambda errors (which break nested maps)
-                    # 2. Column scoping issues (outer columns aren't accessible in lambdas)
-                    #
-                    # The state is a 2-element array: [result_map, original_map]
-                    # This allows the lambda to access the original map's values while building the result.
-
-                    analyzer = Session.get_active_session()._analyzer
-
-                    # Get the coercion SQL for the value type using a placeholder column
-                    fn_sql = analyzer.analyze(
-                        _coerce_to_type(
-                            snowpark_fn.col("v"), t.value_type, False
-                        )._expression,
-                        defaultdict(),
-                    )
-
-                    # Replace placeholder "V" with reference to original map via state array
-                    # In lambda: state[1] = original_map, k = current_key
-                    fn_sql_with_value = fn_sql.replace(
-                        '"V"', "strip_null_value(GET(state[1], k))"
-                    )
-
-                    # Build REDUCE lambda: (state, k) -> [updated_result, original_map]
-                    lambda_expr = (
-                        f"(state, k) -> ARRAY_CONSTRUCT("
-                        f"object_insert(state[0], k, ({fn_sql_with_value})::variant, true), "
-                        f"state[1])"
-                    )
-
-                    # Execute REDUCE with initial state = [{}, original_map]
-                    reduce_result = snowpark_fn.call_function(
-                        "reduce",
-                        snowpark_fn.call_function("object_keys", obj_exp),
-                        snowpark_fn.array_construct(
-                            snowpark_fn.object_construct(),  # state[0]: empty result map
-                            obj_exp,  # state[1]: original map
-                        ),
-                        snowpark_fn.sql_expr(lambda_expr),
-                    )
-
-                    # Extract the result map (state[0]) from the final state
-                    return snowpark_fn.get(reduce_result, snowpark_fn.lit(0))
+            # TODO(SNOW-3122222) TODO Remove the legacy `else` branch once 10.6 is fully rolled out
+            if session._has_structured_try_cast:
+                expr = snowpark_args[0]._expression
+                # TODO(SNOW-3083544): Snowpark does not yet support the PERMISSIVE flag, so we need to manually perform SQL resolution here.
+                if isinstance(expr, Literal):
+                    # The `Literal` class does not support generation through _expression.sql, so we need to add a special case for it.
+                    arg_sql = to_sql(expr.value, expr.datatype)
                 else:
-                    return snowpark_fn.try_cast(snowpark_fn.to_varchar(exp), t)
+                    arg_sql = expr.sql
+                # If the original element is NULL, the result of the cast will also be NULL.
+                # Schema checking of fields (dropping extra fields, NULLing missing fields) is handled by the server.
+                sf_type = convert_sp_to_sf_type(result_type)
+                result_exp = snowpark_fn.sql_expr(
+                    f"TRY_CAST(TRY_PARSE_JSON({arg_sql}) AS {sf_type} PERMISSIVE)"
+                )
+                if isinstance(result_type, StructType):
+                    # If the top-level expected return type is a struct, Spark will implicitly retain nulls for all fields.
+                    # The top-level return of the TRY_CAST will only be NULL if the input was a scalar, so we handle this case by doing
+                    # a dummy TRY_CAST on an empty object.
+                    result_exp = snowpark_fn.ifnull(
+                        result_exp,
+                        snowpark_fn.sql_expr(
+                            f"TRY_CAST(OBJECT_CONSTRUCT() AS {sf_type} PERMISSIVE)"
+                        ),
+                    )
+                if isinstance(result_type, ArrayType) and isinstance(
+                    result_type.element_type, StructType
+                ):
+                    result_exp = snowpark_fn.ifnull(
+                        result_exp,
+                        # If the top-level expected return type is an array, Spark will implicitly wrap a scalar value if the type matches.
+                        snowpark_fn.sql_expr(
+                            f"TRY_CAST(TO_ARRAY(TRY_PARSE_JSON({arg_sql})) AS {sf_type} PERMISSIVE)"
+                        ),
+                    )
+            else:
+                # try to parse first, since spark returns null for invalid json
+                result_exp = snowpark_fn.call_function(
+                    "try_parse_json", snowpark_args[0]
+                )
 
-            # Apply the coercion to handle invalid JSON (creates struct with NULL fields)
-            coerced_exp = _coerce_to_type(result_exp, result_type)
+                # Check if the original input is NULL - if so, return NULL for the entire result
+                original_input_is_null = snowpark_args[0].is_null()
 
-            # If the original input was NULL, return NULL instead of a struct
-            result_exp = snowpark_fn.when(
-                original_input_is_null, snowpark_fn.lit(None)
-            ).otherwise(snowpark_fn.cast(coerced_exp, result_type))
+                # helper function to make sure we have the expected array element type
+                def _element_type_matches(
+                    array_exp: Column, element_type: DataType
+                ) -> Column:
+                    if isinstance(element_type, StructType) or isinstance(
+                        element_type, MapType
+                    ):
+                        # we need to confirm that all elements are objects, we don't care about the schema here
+                        return snowpark_fn.call_function(
+                            "reduce",
+                            array_exp,
+                            snowpark_fn.lit(True),
+                            snowpark_fn.sql_expr(
+                                "(acc, e) -> acc and (strip_null_value(e) is null or is_object(e))"
+                            ),
+                        )
+
+                    if isinstance(element_type, ArrayType):
+                        # we need to recursively go down and check nested arrays
+                        # then bubble up the result
+                        analyzer = Session.get_active_session()._analyzer
+                        fn_sql = analyzer.analyze(
+                            _element_type_matches(
+                                snowpark_fn.col("x"), element_type.element_type
+                            )._expression,
+                            defaultdict(),
+                        )
+
+                        return snowpark_fn.call_function(
+                            "reduce",
+                            snowpark_fn.call_function(
+                                "transform",
+                                array_exp,
+                                snowpark_fn.sql_expr(
+                                    f"x -> (strip_null_value(x) is null or is_array(x)) and {fn_sql}"
+                                ),
+                            ),
+                            snowpark_fn.lit(True),
+                            snowpark_fn.sql_expr("(acc, e) -> acc and nvl(e, true)"),
+                        )
+
+                    # let's optimistically assume that any simple type can be coerced to the expected type automatically
+                    return snowpark_fn.lit(True)
+
+                # Snowflake limitation: Casting semi-structured data to structured types fails
+                # if the source doesn't have the exact "shape" (e.g., missing struct fields).
+                # This function constructs an expression that coerces the parsed JSON to match
+                # the expected type structure, filling in NULLs for missing fields.
+                #
+                # For complex types (StructType, ArrayType, MapType), this recursively ensures
+                # nested structures match the schema. For MapType with complex values, it uses
+                # a pure SQL REDUCE approach to avoid UDF-in-lambda errors.
+                def _coerce_to_type(
+                    exp: Column, t: DataType, top_level: bool = True
+                ) -> Column:
+                    if isinstance(t, StructType):
+                        key_values = []
+                        for field in t.fields:
+                            key_values.append(snowpark_fn.lit(field.name))
+                            key_values.append(
+                                _coerce_to_type(
+                                    snowpark_fn.get(exp, snowpark_fn.lit(field.name)),
+                                    field.datatype,
+                                    False,
+                                )
+                            )
+                        # spark will not return null for top level structs, so we need to handle that
+                        if top_level:
+                            return snowpark_fn.object_construct_keep_null(*key_values)
+                        else:
+                            return snowpark_fn.when(
+                                snowpark_fn.as_object(exp).is_null(),
+                                snowpark_fn.lit(None),
+                            ).otherwise(
+                                snowpark_fn.object_construct_keep_null(*key_values)
+                            )
+                    elif isinstance(t, ArrayType):
+                        # Handle array wrapping behavior for top-level structs
+                        if top_level and isinstance(t.element_type, StructType):
+                            # Spark can wrap a single value in an array if the element type is a struct
+                            arr_exp = snowpark_fn.to_array(exp)
+                        else:
+                            # For other types, return null for non-array values
+                            arr_exp = snowpark_fn.as_array(exp)
+
+                        # Get coercion SQL for the array element type using placeholder column "x"
+                        analyzer = Session.get_active_session()._analyzer
+                        fn_sql = analyzer.analyze(
+                            _coerce_to_type(
+                                snowpark_fn.col("x"), t.element_type, False
+                            )._expression,
+                            defaultdict(),
+                        )
+
+                        # Apply TRANSFORM to coerce each element, or return null if types don't match
+                        return snowpark_fn.when(
+                            _element_type_matches(arr_exp, t.element_type),
+                            snowpark_fn.call_function(
+                                "transform",
+                                arr_exp,
+                                snowpark_fn.sql_expr(f"x -> {fn_sql}"),
+                            ),
+                        ).otherwise(snowpark_fn.lit(None))
+                    elif isinstance(t, MapType):
+                        obj_exp = snowpark_fn.as_object(exp)
+
+                        # If value type is simple (no nested complex types), no coercion needed
+                        if not isinstance(
+                            t.value_type, (StructType, ArrayType, MapType)
+                        ):
+                            return obj_exp
+
+                        # For maps with complex value types, we need to coerce each value.
+                        # Strategy: Use pure SQL REDUCE with stateful accumulator to avoid:
+                        # 1. UDF-in-lambda errors (which break nested maps)
+                        # 2. Column scoping issues (outer columns aren't accessible in lambdas)
+                        #
+                        # The state is a 2-element array: [result_map, original_map]
+                        # This allows the lambda to access the original map's values while building the result.
+
+                        analyzer = Session.get_active_session()._analyzer
+
+                        # Get the coercion SQL for the value type using a placeholder column
+                        fn_sql = analyzer.analyze(
+                            _coerce_to_type(
+                                snowpark_fn.col("v"), t.value_type, False
+                            )._expression,
+                            defaultdict(),
+                        )
+
+                        # Replace placeholder "V" with reference to original map via state array
+                        # In lambda: state[1] = original_map, k = current_key
+                        fn_sql_with_value = fn_sql.replace(
+                            '"V"', "strip_null_value(GET(state[1], k))"
+                        )
+
+                        # Build REDUCE lambda: (state, k) -> [updated_result, original_map]
+                        lambda_expr = (
+                            f"(state, k) -> ARRAY_CONSTRUCT("
+                            f"object_insert(state[0], k, ({fn_sql_with_value})::variant, true), "
+                            f"state[1])"
+                        )
+
+                        # Execute REDUCE with initial state = [{}, original_map]
+                        reduce_result = snowpark_fn.call_function(
+                            "reduce",
+                            snowpark_fn.call_function("object_keys", obj_exp),
+                            snowpark_fn.array_construct(
+                                snowpark_fn.object_construct(),  # state[0]: empty result map
+                                obj_exp,  # state[1]: original map
+                            ),
+                            snowpark_fn.sql_expr(lambda_expr),
+                        )
+
+                        # Extract the result map (state[0]) from the final state
+                        return snowpark_fn.get(reduce_result, snowpark_fn.lit(0))
+                    else:
+                        return snowpark_fn.try_cast(snowpark_fn.to_varchar(exp), t)
+
+                # Apply the coercion to handle invalid JSON (creates struct with NULL fields)
+                coerced_exp = _coerce_to_type(result_exp, result_type)
+
+                # If the original input was NULL, return NULL instead of a struct
+                result_exp = snowpark_fn.when(
+                    original_input_is_null, snowpark_fn.lit(None)
+                ).otherwise(snowpark_fn.cast(coerced_exp, result_type))
+
         case "from_unixtime":
 
             def raise_analysis_exception(
@@ -5926,14 +5994,6 @@ def map_unresolved_function(
             key_type = snowpark_typed_args[0].typ.key_type
             value_type = snowpark_typed_args[0].typ.value_type
 
-            # SNOW-2040715
-            def _map_entries(obj: dict):
-                if obj is None:
-                    raise TypeError(
-                        f"[snowpark_connect::type_mismatch] Expected MapType but received {obj} instead."
-                    )
-                return [{"key": key, "value": value} for key, value in obj.items()]
-
             arg_type = snowpark_typed_args[0].typ
             if not isinstance(arg_type, MapType):
                 exception = TypeError(
@@ -5942,11 +6002,15 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            map_entries = snowpark_fn.udf(
-                _map_entries,
-                return_type=ArrayType(StructType()),
-                input_types=[arg_type],
-            )
+            # SNOW-2040715
+            @cached_udf(input_types=[arg_type], return_type=ArrayType(StructType()))
+            def _map_entries(obj: dict):
+                if obj is None:
+                    raise TypeError(
+                        f"[snowpark_connect::type_mismatch] Expected MapType but received {obj} instead."
+                    )
+                return [{"key": key, "value": value} for key, value in obj.items()]
+
             result_type = ArrayType(
                 StructType(
                     [
@@ -5960,7 +6024,7 @@ def map_unresolved_function(
                 snowpark_fn.lit(None),
             ).otherwise(
                 snowpark_fn.cast(
-                    map_entries(snowpark_args[0]),
+                    _map_entries(snowpark_args[0]),
                     result_type,
                 )
             )
@@ -7867,10 +7931,10 @@ def map_unresolved_function(
             )
             result_type = ArrayType(ArrayType(StringType()))
         case "sequence":
-            both_integral = isinstance(
-                snowpark_typed_args[0].typ, _IntegralType
-            ) and isinstance(snowpark_typed_args[1].typ, _IntegralType)
-            if not both_integral:
+            all_integral = all(
+                isinstance(arg.typ, _IntegralType) for arg in snowpark_typed_args
+            )
+            if not all_integral:
                 exception = AnalysisException(
                     f"""[DATATYPE_MISMATCH.SEQUENCE_WRONG_INPUT_TYPES] Cannot resolve "sequence({snowpark_arg_names[0]}, {snowpark_arg_names[1]})" due to data type mismatch: `sequence` uses the wrong parameter type. The parameter type must conform to:
                         1. The start and stop expressions must resolve to the same type.
@@ -7879,11 +7943,13 @@ def map_unresolved_function(
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
+
+            result_type = _find_common_type([arg.typ for arg in snowpark_typed_args])
             result_exp = snowpark_fn.cast(
                 snowpark_fn.sequence(*snowpark_args),
-                ArrayType(LongType(), contains_null=False),
+                ArrayType(result_type, contains_null=False),
             )
-            result_type = ArrayType(LongType(), contains_null=False)
+            result_exp = TypedColumn(result_exp, lambda: [ArrayType(result_type)])
         case "sha":
             sha_function = snowpark_fn.function("SHA1_HEX")
             result_exp = sha_function(snowpark_args[0])
@@ -9702,8 +9768,12 @@ def map_unresolved_function(
                     )
                     | (DecimalType(), DecimalType())
                 ):
-                    p1, s1 = _get_type_precision(snowpark_typed_args[0].typ)
-                    p2, s2 = _get_type_precision(snowpark_typed_args[1].typ)
+                    p1, s1 = _get_type_precision(
+                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                    )
+                    p2, s2 = _get_type_precision(
+                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                    )
                     result_type, overflow_possible = _get_decimal_division_result_type(
                         p1, s1, p2, s2
                     )
@@ -9900,8 +9970,12 @@ def map_unresolved_function(
                     )
                     | (DecimalType(), DecimalType())
                 ):
-                    p1, s1 = _get_type_precision(snowpark_typed_args[0].typ)
-                    p2, s2 = _get_type_precision(snowpark_typed_args[1].typ)
+                    p1, s1 = _get_type_precision(
+                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                    )
+                    p2, s2 = _get_type_precision(
+                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                    )
                     (
                         result_type,
                         overflow_possible,
@@ -10775,7 +10849,10 @@ def _resolve_decimal_and_numeric(type1: DecimalType, type2: _NumericType) -> Dat
 
 
 def _find_common_type(
-    types: list[DataType], func_name: str = None, coerce_to_string: bool = False
+    types: list[DataType],
+    func_name: str = None,
+    widen_to_string: bool = False,
+    narrow_string: bool = False,
 ) -> DataType | None:
     numeric_priority = {
         DoubleType: 6,
@@ -10797,11 +10874,18 @@ def _find_common_type(
         match (type1, type2):
             case (None, t) | (t, None):
                 return t
+            case (NullType(), t) | (t, NullType()):
+                return t
+            case (StringType(), t) | (
+                t,
+                StringType(),
+            ) if narrow_string:
+                return t
             case (StringType(), t) | (t, StringType()) if (
-                not coerce_to_string
+                not widen_to_string
                 and any(isinstance(t, castable) for castable in castable_to_string)
             ) or (
-                coerce_to_string
+                widen_to_string
                 and any(isinstance(t, coercible) for coercible in coercible_to_string)
             ):
                 return StringType()
@@ -10812,8 +10896,6 @@ def _find_common_type(
                 exception = AnalysisException(exception_base_message)
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
-            case (NullType(), t) | (t, NullType()):
-                return t
             case (BinaryType(), BinaryType()):
                 return BinaryType()
             case (BooleanType(), BooleanType()):
@@ -11952,12 +12034,16 @@ def _try_sum_helper(
                 return result, DoubleType()
 
 
-def _get_type_precision(typ: DataType) -> tuple[int, int]:
+def _get_type_precision(
+    typ: DataType, arg_type: str = None, arg_name: str = None
+) -> tuple[int, int]:
     """
     Returns (precision, scale) needed for a given type.
     For integral types, returns the number of digits needed to represent the maximum value.
     For decimal types, returns the type's precision and scale.
     """
+    if arg_type == "literal" and isinstance(typ, _IntegralType):
+        return _get_type_precision_for_integral_literal(typ, val=arg_name)
     match typ:
         case DecimalType():
             return typ.precision, typ.scale
@@ -11973,6 +12059,19 @@ def _get_type_precision(typ: DataType) -> tuple[int, int]:
             return 0, 0  # NULL
         case _:
             return 38, 0  # Default to maximum precision for other types
+
+
+def _get_type_precision_for_integral_literal(typ: _IntegralType, val: str):
+    # https://github.com/apache/spark/blob/dd22010c7a781bf4bb073bb44c6dacfce92c614a/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/types/DataTypeUtils.scala#L244-L252
+    assert isinstance(typ, _IntegralType), "Provided type must be _IntegralType"
+
+    if isinstance(typ, ByteType):
+        return 3, 0
+
+    d = Decimal(val)
+    _sign, digits, exponent = d.as_tuple()
+    assert exponent >= 0, "The _IntegralType literal should have no fractional part"
+    return len(digits), 0
 
 
 def _decimal_add_sub_result_type_helper(p1, s1, p2, s2):

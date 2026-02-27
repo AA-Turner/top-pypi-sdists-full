@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-20T21:41:16.025819                                                            #
+# MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-27T00:13:09.809068                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.plugins.cards.card_modules.card
+    import metaflow.plugins.cards.card_modules.json_viewer
     import metaflow.plugins.cards.card_modules.components
     import typing
-    import metaflow.plugins.cards.card_modules.json_viewer
-    import metaflow.plugins.cards.card_modules.card
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent

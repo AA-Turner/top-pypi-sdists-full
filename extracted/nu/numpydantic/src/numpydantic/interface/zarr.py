@@ -3,9 +3,10 @@ Interface to zarr arrays
 """
 
 import contextlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import SerializationInfo
@@ -33,9 +34,9 @@ class ZarrArrayPath:
     See :func:`zarr.open`
     """
 
-    file: Union[Path, str]
+    file: Path | str
     """Location of Zarr store file or directory"""
-    path: Optional[str] = None
+    path: str | None = None
     """Path to array within hierarchical zarr store"""
 
     def open(self, **kwargs: dict) -> ZarrArray:
@@ -61,12 +62,12 @@ class ZarrJsonDict(JsonDict):
 
     info: dict[str, str]
     type: Literal["zarr"]
-    file: Optional[str] = None
-    path: Optional[str] = None
-    dtype: Optional[str] = None
-    value: Optional[list] = None
+    file: str | None = None
+    path: str | None = None
+    dtype: str | None = None
+    value: list | None = None
 
-    def to_array_input(self) -> Union[ZarrArray, ZarrArrayPath]:
+    def to_array_input(self) -> ZarrArray | ZarrArrayPath:
         """
         Construct a ZarrArrayPath if file and path are present,
         otherwise a ZarrArray
@@ -96,7 +97,7 @@ class ZarrInterface(Interface):
 
     @staticmethod
     def _get_array(
-        array: Union[ZarrArray, str, dict, ZarrJsonDict, Path, ZarrArrayPath, Sequence],
+        array: ZarrArray | str | dict | ZarrJsonDict | Path | ZarrArrayPath | Sequence,
     ) -> ZarrArray:
         if isinstance(array, ZarrArray):
             return array
@@ -141,7 +142,7 @@ class ZarrInterface(Interface):
         return False
 
     def before_validation(
-        self, array: Union[ZarrArray, str, Path, ZarrArrayPath, Sequence]
+        self, array: ZarrArray | str | Path | ZarrArrayPath | Sequence
     ) -> ZarrArray:
         """
         Ensure that the zarr array is opened
@@ -164,9 +165,9 @@ class ZarrInterface(Interface):
     @classmethod
     def to_json(
         cls,
-        array: Union[ZarrArray, str, Path, ZarrArrayPath, Sequence],
-        info: Optional[SerializationInfo] = None,
-    ) -> Union[list, ZarrJsonDict]:
+        array: ZarrArray | str | Path | ZarrArrayPath | Sequence,
+        info: SerializationInfo | None = None,
+    ) -> list | ZarrJsonDict:
         """
         Dump a Zarr Array to JSON
 

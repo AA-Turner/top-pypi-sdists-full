@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 
 from localstack import config
 from localstack.runtime import hooks
@@ -34,6 +35,8 @@ TRACKED_ENV_VAR = [
     "EC2_VM_MANAGER",
     "ECS_TASK_EXECUTOR",
     "EDGE_PORT",
+    "EKS_K8S_PROVIDER",
+    "EKS_PERSIST_CLUSTER_CONTENTS",
     "ENABLE_REPLICATOR",
     "ENFORCE_IAM",
     "ES_CUSTOM_BACKEND",  # deprecated in 0.14.0, removed in 3.0.0
@@ -119,6 +122,10 @@ def _publish_config_as_analytics_event():
     env_vars = {key: os.getenv(key) for key in env_vars}
     present_env_vars = {env_var: 1 for env_var in PRESENCE_ENV_VAR if os.getenv(env_var)}
 
+    # filter out irrelevant None values, making the payload significantly smaller.
+    env_vars = {k: v for k, v in env_vars.items() if v is not None}
+    present_env_vars = {k: v for k, v in present_env_vars.items() if v is not None}
+
     log.event("config", env_vars=env_vars, set_vars=present_env_vars)
 
 
@@ -132,10 +139,21 @@ class LocalstackContainerInfo:
     def has_docker_socket(self) -> bool:
         return os.path.exists("/run/docker.sock")
 
+    def uname(self) -> dict:
+        result = platform.uname()
+        return {
+            "uname_system": result.system,
+            "uname_release": result.release,
+            "uname_version": result.version,
+            "uname_machine": result.machine,
+        }
+
     def to_dict(self):
         return {
             "variant": self.get_image_variant(),
             "has_docker_socket": self.has_docker_socket(),
+            "container_runtime": config.CONTAINER_RUNTIME,
+            **self.uname(),
         }
 
 

@@ -219,12 +219,18 @@ def safe_requests_wrapper(
             _num_retries += 1
             time.sleep((2 ** (_num_retries + 1)) + noise)
         except requests.exceptions.ConnectionError:
-            if _num_retries <= conn_error_retries - 1:
+            if _num_retries < conn_error_retries - 1:
                 # Exponential backoff with 2^(_num_retries+1) seconds
                 time.sleep((2 ** (_num_retries + 1)) + noise)
                 _num_retries += 1
             else:
                 raise
+    if response is None:
+        # This should never happen since ConnectionError should be re-raised
+        # above, but guard against it just in case.
+        raise requests.exceptions.ConnectionError(
+            f"Failed to connect after {conn_error_retries} retries"
+        )
     raise MaximumRetriesExceeded(
         response.url,
         requests_module_fn.__name__,

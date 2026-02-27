@@ -6,11 +6,7 @@ from operator import ior
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    List,
     Literal,
-    Optional,
-    Tuple,
-    Type,
     Union,
 )
 
@@ -44,8 +40,8 @@ class InterfaceCase(ABC):
 
     @classmethod
     def array_from_case(
-        cls, case: "ValidationCase", path: Optional[Path] = None
-    ) -> Optional[NDArrayType]:
+        cls, case: "ValidationCase", path: Path | None = None
+    ) -> NDArrayType | None:
         """
         Generate an array from the given validation case.
 
@@ -57,11 +53,11 @@ class InterfaceCase(ABC):
     @abstractmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[NDArrayType]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> NDArrayType | None:
         """
         Make an array from a shape and dtype, and a path if needed
 
@@ -107,7 +103,7 @@ class InterfaceCase(ABC):
             return True
 
     @classmethod
-    def skip(cls, shape: Tuple[int, ...], dtype: DtypeType) -> bool:
+    def skip(cls, shape: tuple[int, ...], dtype: DtypeType) -> bool:
         """
         Whether a given interface should be skipped for the case
         """
@@ -115,7 +111,7 @@ class InterfaceCase(ABC):
         return False
 
 
-_a_shape_type = Tuple[Union[int, Literal["*"], Literal["..."]], ...]
+_a_shape_type = tuple[int | Literal["*"] | Literal["..."], ...]
 
 
 class ValidationCase(BaseModel):
@@ -126,30 +122,32 @@ class ValidationCase(BaseModel):
     test in a given interface
     """
 
-    id: Optional[str] = None
+    id: str | None = None
     """
     String identifying the validation case
     """
-    annotation_shape: Union[
-        Tuple[Union[int, str], ...],
-        Tuple[Tuple[Union[int, str], ...], ...],
-    ] = (10, 10, "*", "*")
+    annotation_shape: tuple[int | str, ...] | tuple[tuple[int | str, ...], ...] = (
+        10,
+        10,
+        "*",
+        "*",
+    )
     """
     Shape to use in computed annotation used to validate against
     """
-    annotation_dtype: Union[DtypeType, Sequence[DtypeType]] = Float
+    annotation_dtype: DtypeType | Sequence[DtypeType] = Float
     """
     Dtype to use in computed annotation used to validate against
     """
-    shape: Tuple[int, ...] = (10, 10, 2, 2)
+    shape: tuple[int, ...] = (10, 10, 2, 2)
     """Shape of the array to validate"""
-    dtype: Union[Type, np.dtype] = float
+    dtype: type | np.dtype = float
     """Dtype of the array to validate"""
     passes: bool = False
     """Whether the validation should pass or not"""
-    interface: Optional[Type[InterfaceCase]] = None
+    interface: type[InterfaceCase] | None = None
     """The interface test case to generate and validate the array with"""
-    path: Optional[Path] = None
+    path: Path | None = None
     """The path to generate arrays into, if any."""
     marks: set[str] = Field(default_factory=set)
     """pytest marks to set for this test case"""
@@ -176,18 +174,18 @@ class ValidationCase(BaseModel):
             dtype_iter = (
                 self.annotation_dtype if dtype_union else [self.annotation_dtype]
             )
-            annotations: List[type] = []
+            annotations: list[type] = []
             for shape, dtype in product(shape_iter, dtype_iter):
                 shape_str = ", ".join([str(i) for i in shape])
                 annotations.append(NDArray[Shape[shape_str], dtype])
-            return Union[tuple(annotations)]
+            return Union[tuple(annotations)]  # noqa: UP007
 
         else:
             shape_str = ", ".join([str(i) for i in self.annotation_shape])
             return NDArray[Shape[shape_str], self.annotation_dtype]
 
     @computed_field()
-    def model(self) -> Type[BaseModel]:
+    def model(self) -> type[BaseModel]:
         """A model with a field ``array`` with the given annotation"""
         annotation = self.annotation
 
@@ -209,7 +207,7 @@ class ValidationCase(BaseModel):
             marks.add(self.interface.interface.name)
         return [getattr(pytest.mark, m) for m in marks]
 
-    def validate_case(self, path: Optional[Path] = None) -> bool:
+    def validate_case(self, path: Path | None = None) -> bool:
         """
         Whether the generated array correctly validated against the annotation,
         given the interface

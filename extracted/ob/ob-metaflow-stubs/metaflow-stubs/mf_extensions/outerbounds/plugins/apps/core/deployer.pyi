@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-20T21:41:16.011621                                                            #
+# MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-27T00:13:09.795956                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import datetime
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -180,6 +180,57 @@ def package_code(src_paths: typing.List[str], suffixes: typing.Optional[typing.L
         src_paths=["./app"],
         suffixes=[".py", ".yaml", ".json"]
     )
+    ```
+    """
+    ...
+
+def load_code_package(package: metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.PackagedCode, target_dir: str, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None) -> str:
+    """
+    Load and extract a previously packaged code package.
+    
+    This is the mirror operation of package_code(). Given a PackagedCode
+    (as returned by package_code()), it downloads the package from object
+    storage and extracts it into the specified directory.
+    
+    Parameters
+    ----------
+    package : PackagedCode
+        The package to load, as returned by package_code(). Must contain
+        a valid url and key.
+    target_dir : str
+        The directory to extract the package into. Will be created if it
+        does not exist.
+    logger : Callable, optional
+        Logger function for progress messages. Receives a single string argument.
+    
+    Returns
+    -------
+    str
+        The absolute path to the directory where the package was extracted.
+    
+    Raises
+    ------
+    CodePackagingException
+        If the package cannot be loaded or extracted.
+    
+    Examples
+    --------
+    Round-trip with package_code:
+    
+    ```python
+    from metaflow.apps import package_code, load_code_package
+    
+    pkg = package_code(src_paths=["./src"])
+    extracted_dir = load_code_package(pkg, target_dir="./unpacked")
+    ```
+    
+    Load a package from a previous deployment:
+    
+    ```python
+    from metaflow.apps import load_code_package, PackagedCode
+    
+    pkg = PackagedCode(url="s3://...", key="abc123")
+    extracted_dir = load_code_package(pkg, target_dir="/tmp/code")
     ```
     """
     ...

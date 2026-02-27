@@ -4,7 +4,8 @@ import base64
 import copy
 import re
 from collections.abc import Callable
-from typing import Any, Final, Generic, TypeVar
+from enum import StrEnum
+from typing import Any, Final
 
 from botocore.exceptions import ClientError
 
@@ -79,9 +80,6 @@ _PSEUDO_PARAMETERS: Final[set[str]] = {
     "AWS::NotificationARNs",
 }
 
-TBefore = TypeVar("TBefore")
-TAfter = TypeVar("TAfter")
-_T = TypeVar("_T")
 
 REGEX_OUTPUT_APIGATEWAY = re.compile(
     rf"^(https?://.+\.execute-api\.)(?:[^-]+-){{2,3}}\d\.(amazonaws\.com|{_AWS_URL_SUFFIX})/?(.*)$"
@@ -91,7 +89,7 @@ MOCKED_REFERENCE = "unknown"
 VALID_LOGICAL_RESOURCE_ID_RE = re.compile(r"^[A-Za-z0-9]+$")
 
 
-class PreprocEntityDelta(Generic[TBefore, TAfter]):
+class PreprocEntityDelta[TBefore, TAfter]:
     before: Maybe[TBefore]
     after: Maybe[TAfter]
 
@@ -117,6 +115,19 @@ class PreprocProperties:
         return self.properties == other.properties
 
 
+class DeletionPolicy(StrEnum):
+    Retain = "Retain"
+    Delete = "Delete"
+    RetainExceptOnCreate = "RetainExceptOnCreate"
+    Snapshot = "Snapshot"
+
+
+class UpdateReplacePolicy(StrEnum):
+    Delete = "Delete"
+    Retain = "Retain"
+    Snapshot = "Snapshot"
+
+
 class PreprocResource:
     logical_id: str
     physical_resource_id: str | None
@@ -126,6 +137,9 @@ class PreprocResource:
     depends_on: list[str] | None
     requires_replacement: bool
     status: ResourceStatus | None
+    # TODO: typing
+    deletion_policy: DeletionPolicy | None
+    update_replace_policy: UpdateReplacePolicy | None
 
     def __init__(
         self,
@@ -137,6 +151,8 @@ class PreprocResource:
         depends_on: list[str] | None,
         requires_replacement: bool,
         status: ResourceStatus | None = None,
+        deletion_policy: str | None = None,
+        update_replace_policy: str | None = None,
     ):
         self.logical_id = logical_id
         self.physical_resource_id = physical_resource_id
@@ -146,6 +162,8 @@ class PreprocResource:
         self.depends_on = depends_on
         self.requires_replacement = requires_replacement
         self.status = status
+        self.deletion_policy = deletion_policy
+        self.update_replace_policy = update_replace_policy
 
     @staticmethod
     def _compare_conditions(c1: bool, c2: bool):
@@ -432,8 +450,8 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
     def _maybe_perform_dynamic_replacements(self, delta: PreprocEntityDelta) -> PreprocEntityDelta:
         return self._maybe_perform_on_delta(delta, self._perform_dynamic_replacements)
 
-    def _maybe_perform_on_delta(
-        self, delta: PreprocEntityDelta | None, f: Callable[[_T], _T]
+    def _maybe_perform_on_delta[T](
+        self, delta: PreprocEntityDelta | None, f: Callable[[T], T]
     ) -> PreprocEntityDelta | None:
         if isinstance(delta.before, str):
             delta.before = f(delta.before)
@@ -441,7 +459,7 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             delta.after = f(delta.after)
         return delta
 
-    def _perform_dynamic_replacements(self, value: _T) -> _T:
+    def _perform_dynamic_replacements[T](self, value: T) -> T:
         if not isinstance(value, str):
             return value
 
@@ -1263,13 +1281,39 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             depends_on_after = depends_on_delta.after
 
         type_delta = self.visit(node_resource.type_)
-        properties_delta: PreprocEntityDelta[PreprocProperties, PreprocProperties] = self.visit(
-            node_resource.properties
+
+        # Check conditions before visiting properties to avoid resolving references
+        # (e.g. GetAtt) to conditional resources that were never created.
+        should_process_before = change_type != ChangeType.CREATED and (
+            is_nothing(condition_before) or condition_before
         )
+        should_process_after = change_type != ChangeType.REMOVED and (
+            is_nothing(condition_after) or condition_after
+        )
+
+        properties_delta: PreprocEntityDelta[PreprocProperties, PreprocProperties]
+        if should_process_before or should_process_after:
+            properties_delta = self.visit(node_resource.properties)
+        else:
+            properties_delta = PreprocEntityDelta(before=Nothing, after=Nothing)
+
+        deletion_policy_before = Nothing
+        deletion_policy_after = Nothing
+        if not is_nothing(node_resource.deletion_policy):
+            deletion_policy_delta = self.visit(node_resource.deletion_policy)
+            deletion_policy_before = deletion_policy_delta.before
+            deletion_policy_after = deletion_policy_delta.after
+
+        update_replace_policy_before = Nothing
+        update_replace_policy_after = Nothing
+        if not is_nothing(node_resource.update_replace_policy):
+            update_replace_policy_delta = self.visit(node_resource.update_replace_policy)
+            update_replace_policy_before = update_replace_policy_delta.before
+            update_replace_policy_after = update_replace_policy_delta.after
 
         before = Nothing
         after = Nothing
-        if change_type != ChangeType.CREATED and is_nothing(condition_before) or condition_before:
+        if should_process_before:
             logical_resource_id = node_resource.name
             before_physical_resource_id = self._before_resource_physical_id(
                 resource_logical_id=logical_resource_id
@@ -1282,8 +1326,10 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
                 properties=properties_delta.before,
                 depends_on=depends_on_before,
                 requires_replacement=False,
+                deletion_policy=deletion_policy_before,
+                update_replace_policy=update_replace_policy_before,
             )
-        if change_type != ChangeType.REMOVED and is_nothing(condition_after) or condition_after:
+        if should_process_after:
             logical_resource_id = node_resource.name
             try:
                 after_physical_resource_id = self._after_resource_physical_id(
@@ -1299,6 +1345,8 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
                 properties=properties_delta.after,
                 depends_on=depends_on_after,
                 requires_replacement=node_resource.requires_replacement,
+                deletion_policy=deletion_policy_after,
+                update_replace_policy=update_replace_policy_after,
             )
         return PreprocEntityDelta(before=before, after=after)
 

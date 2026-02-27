@@ -119,6 +119,8 @@ export const API = {
         SECRETS_DELETE: (projectName: IProject['project_name']) => `${API.BASE()}/project/${projectName}/secrets/delete`,
         // GPUS
         GPUS_LIST: (projectName: IProject['project_name']) => `${API.BASE()}/project/${projectName}/gpus/list`,
+        // GPUS
+        TEMPLATES_LIST: (projectName: IProject['project_name']) => `${API.BASE()}/project/${projectName}/templates/list`,
     },
 
     BACKENDS: {
@@ -169,6 +171,8 @@ export const API = {
     INSTANCES: {
         BASE: () => `${API.BASE()}/instances`,
         LIST: () => `${API.INSTANCES.BASE()}/list`,
+        DETAILS: (projectName: IProject['project_name']) =>
+            `${API.BASE()}/project/${projectName}/instances/get`,
     },
 
     SERVER: {

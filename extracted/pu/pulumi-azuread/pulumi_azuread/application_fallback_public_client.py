@@ -23,6 +23,7 @@ class ApplicationFallbackPublicClientArgs:
                  enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a ApplicationFallbackPublicClient resource.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.bool] enabled: Whether to enable the application as a fallback public client.
                
@@ -66,6 +67,7 @@ class _ApplicationFallbackPublicClientState:
                  enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering ApplicationFallbackPublicClient resources.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.bool] enabled: Whether to enable the application as a fallback public client.
                
@@ -113,6 +115,20 @@ class ApplicationFallbackPublicClient(pulumi.CustomResource):
                  enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         """
+        Manages the Fallback Public Client setting for an application registration.
+
+        > This resource is incompatible with the `Application` resource, instead use this with the `ApplicationRegistration` resource.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -132,6 +148,7 @@ class ApplicationFallbackPublicClient(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationFallbackPublicClient:ApplicationFallbackPublicClient example /applications/00000000-0000-0000-0000-000000000000/fallbackPublicClient
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -147,6 +164,20 @@ class ApplicationFallbackPublicClient(pulumi.CustomResource):
                  args: ApplicationFallbackPublicClientArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages the Fallback Public Client setting for an application registration.
+
+        > This resource is incompatible with the `Application` resource, instead use this with the `ApplicationRegistration` resource.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -166,6 +197,7 @@ class ApplicationFallbackPublicClient(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationFallbackPublicClient:ApplicationFallbackPublicClient example /applications/00000000-0000-0000-0000-000000000000/fallbackPublicClient
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationFallbackPublicClientArgs args: The arguments to use to populate this resource's properties.

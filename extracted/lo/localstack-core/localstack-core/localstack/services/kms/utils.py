@@ -1,16 +1,23 @@
+import base64
 import re
 from collections.abc import Callable
-from typing import TypeVar
 
-from localstack.aws.api.kms import DryRunOperationException, Tag, TagException
+from localstack.aws.api.kms import (
+    CreateKeyRequest,
+    DryRunOperationException,
+    Tag,
+    TagException,
+    TagList,
+)
+from localstack.constants import TAG_KEY_CUSTOM_ID
 from localstack.services.kms.exceptions import ValidationException
 from localstack.utils.aws.arns import ARN_PARTITION_REGEX
-
-T = TypeVar("T")
 
 KMS_KEY_ARN_PATTERN = re.compile(
     rf"{ARN_PARTITION_REGEX}:kms:(?P<region_name>[^:]+):(?P<account_id>\d{{12}}):((?=key/)key/|(?=alias/))(?P<key_id>[^:]+)$"
 )
+# special tag name to allow specifying a custom key material for created keys
+TAG_KEY_CUSTOM_KEY_MATERIAL = "_custom_key_material_"
 
 
 def get_hash_algorithm(signing_algorithm: str) -> str:
@@ -63,7 +70,63 @@ def validate_tag(tag_position: int, tag: Tag) -> None:
         raise TagException("Tags beginning with aws: are reserved")
 
 
-def execute_dry_run_capable(func: Callable[..., T], dry_run: bool, *args, **kwargs) -> T:
+def validate_and_filter_tags(tag_list: TagList) -> TagList:
+    """
+    Validates tags and filters out LocalStack specific tags
+
+    :param tag_list: The list of tags provided to apply to the KMS key.
+    :returns: Filtered and validated list of tags to apply to the KMS key.
+    """
+    unique_tag_keys = {tag["TagKey"] for tag in tag_list}
+    if len(unique_tag_keys) < len(tag_list):
+        raise TagException("Duplicate tag keys")
+    if len(tag_list) > 50:
+        raise TagException("Too many tags")
+
+    validated_tags = []
+    for i, tag in enumerate(tag_list, start=1):
+        if tag["TagKey"] != TAG_KEY_CUSTOM_KEY_MATERIAL:
+            validate_tag(i, tag)
+            validated_tags.append(tag)
+
+    return validated_tags
+
+
+def get_custom_key_material(request: CreateKeyRequest | None) -> bytes | None:
+    """
+    Retrieves custom material which is sent in a CreateKeyRequest via the Tags.
+
+    :param request: The request for creating a KMS key.
+    :returns: Custom key material for the KMS key.
+    """
+    if not request:
+        return None
+
+    tags = request.get("Tags", [])
+    for tag in tags:
+        if tag["TagKey"] == TAG_KEY_CUSTOM_KEY_MATERIAL:
+            return base64.b64decode(tag["TagValue"])
+    return None
+
+
+def get_custom_key_id(request: CreateKeyRequest | None) -> bytes | None:
+    """
+    Retrieves a custom Key ID for the KMS key which is sent in a CreateKeyRequest via the Tags.
+
+    :param request: The request for creating a KMS key.
+    :returns: THe custom Key ID for the KMS key.
+    """
+    if not request:
+        return None
+
+    tags = request.get("Tags", [])
+    for tag in tags:
+        if tag["TagKey"] == TAG_KEY_CUSTOM_ID:
+            return tag["TagValue"]
+    return None
+
+
+def execute_dry_run_capable[T](func: Callable[..., T], dry_run: bool, *args, **kwargs) -> T:
     """
     Executes a function unless dry run mode is enabled.
 

@@ -187,6 +187,7 @@ from localstack.services.lambda_.invocation.execution_environment import (
 from localstack.services.lambda_.invocation.lambda_models import (
     AliasRoutingConfig,
     CodeSigningConfig,
+    DesiredCapacityProviderState,
     EventInvokeConfig,
     Function,
     FunctionResourcePolicy,
@@ -292,6 +293,9 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         visitor.visit(lambda_stores)
 
     def on_before_state_reset(self):
+        for esm_worker in self.esm_workers.values():
+            esm_worker.stop_for_shutdown()
+        self.esm_workers = {}
         self.lambda_service.stop()
 
     def on_after_state_reset(self):
@@ -307,12 +311,33 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         for account_id, account_bundle in lambda_stores.items():
             for region_name, state in account_bundle.items():
                 for fn in state.functions.values():
+                    # HACK to model a volatile variable that should be ignored for persistence
+                    # Identifier unique to this function and LocalStack instance.
+                    # A LocalStack restart or persistence load should create a new instance id.
+                    # Used for retaining invoke queues across version updates for $LATEST, but
+                    # separate unrelated instances.
+                    fn.instance_id = short_uid()
+
                     for fn_version in fn.versions.values():
                         try:
+                            # Skip function versions that were being deleted
+                            if fn_version.config.state.state == State.Deleting:
+                                continue
+
+                            # Skip function versions whose capacity provider has been stopped
+                            if fn_version.config.capacity_provider_config:
+                                cp_arn = fn_version.config.capacity_provider_config[
+                                    "LambdaManagedInstancesCapacityProviderConfig"
+                                ]["CapacityProviderArn"]
+                                cp_name = cp_arn.split(":")[-1]
+                                cp = state.capacity_providers.get(cp_name)
+                                if cp and cp.DesiredState == DesiredCapacityProviderState.Stopped:
+                                    continue
+
                             # $LATEST is not invokable for Lambda functions with a capacity provider
                             # and has a different State (i.e., ActiveNonInvokable)
                             is_capacity_provider_latest = (
-                                fn_version.config.CapacityProviderConfig
+                                fn_version.config.capacity_provider_config
                                 and fn_version.id.qualifier == "$LATEST"
                             )
                             if not is_capacity_provider_latest:
@@ -373,8 +398,10 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                     # TODO: How do we know the event source is up?
                     # A basic poll to see if the mapped Lambda function is active/failed
                     if not poll_condition(
-                        lambda: get_function_version_from_arn(function_arn).config.state.state
-                        in [State.Active, State.Failed],
+                        lambda: (
+                            get_function_version_from_arn(function_arn).config.state.state
+                            in [State.Active, State.Failed]
+                        ),
                         timeout=10,
                     ):
                         LOG.warning(
@@ -625,7 +652,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 account=account_id,
             )
 
-            if current_latest_version.config.CapacityProviderConfig:
+            if current_latest_version.config.capacity_provider_config:
                 # for lambda managed functions, snap start is not supported
                 snap_start = None
             else:
@@ -701,7 +728,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         if not changed:
             return new_version
 
-        if new_version.config.CapacityProviderConfig:
+        if new_version.config.capacity_provider_config:
             self.lambda_service.publish_version_async(new_version)
         else:
             self.lambda_service.publish_version(new_version)
@@ -714,7 +741,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         function.versions["$LATEST"] = dataclasses.replace(
             latest_version, config=dataclasses.replace(latest_version.config)
         )
-        if new_version.config.CapacityProviderConfig:
+        if new_version.config.capacity_provider_config:
             # publish_version happens async for functions with a capacity provider.
             # Therefore, we return the new_version with State=Pending or LastUpdateStatus=InProgress ($LATEST.PUBLISHED)
             return new_version
@@ -1172,7 +1199,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                     logging_config=logging_config,
                     # TODO: might need something like **optional_kwargs if None
                     #   -> Test with regular GetFunction (i.e., without a capacity provider)
-                    CapacityProviderConfig=capacity_provider_config,
+                    capacity_provider_config=capacity_provider_config,
                 ),
             )
             version_post_response = None
@@ -1220,10 +1247,12 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         if config.LAMBDA_SYNCHRONOUS_CREATE:
             # block via retrying until "terminal" condition reached before returning
             if not poll_condition(
-                lambda: get_function_version(
-                    function_name, version.id.qualifier, version.id.account, version.id.region
-                ).config.state.state
-                in [State.Active, State.ActiveNonInvocable, State.Failed],
+                lambda: (
+                    get_function_version(
+                        function_name, version.id.qualifier, version.id.account, version.id.region
+                    ).config.state.state
+                    in [State.Active, State.ActiveNonInvocable, State.Failed]
+                ),
                 timeout=10,
             ):
                 LOG.warning(
@@ -1424,18 +1453,26 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             capacity_provider_config = request["CapacityProviderConfig"]
             self._validate_capacity_provider_config(capacity_provider_config, context)
 
-            if latest_version.config.CapacityProviderConfig and not request[
+            if latest_version.config.capacity_provider_config and not request[
                 "CapacityProviderConfig"
             ].get("LambdaManagedInstancesCapacityProviderConfig"):
                 raise ValidationException(
                     "1 validation error detected: Value null at 'capacityProviderConfig.lambdaManagedInstancesCapacityProviderConfig' failed to satisfy constraint: Member must not be null"
                 )
-            if not latest_version.config.CapacityProviderConfig:
+            if not latest_version.config.capacity_provider_config:
                 raise InvalidParameterValueException(
                     "CapacityProviderConfig isn't supported for Lambda Default functions.",
                     Type="User",
                 )
 
+            default_config = CapacityProviderConfig(
+                LambdaManagedInstancesCapacityProviderConfig=LambdaManagedInstancesCapacityProviderConfig(
+                    ExecutionEnvironmentMemoryGiBPerVCpu=2.0,
+                    PerExecutionEnvironmentMaxConcurrency=16,
+                )
+            )
+            capacity_provider_config = merge_recursive(default_config, capacity_provider_config)
+            replace_kwargs["capacity_provider_config"] = capacity_provider_config
         new_latest_version = dataclasses.replace(
             latest_version,
             config=dataclasses.replace(
@@ -1451,7 +1488,22 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             ),
         )
         function.versions["$LATEST"] = new_latest_version  # TODO: notify
-        self.lambda_service.update_version(new_version=new_latest_version)
+
+        if function.latest().config.capacity_provider_config:
+
+            def _update_version_with_logging():
+                try:
+                    self.lambda_service.update_version(new_latest_version)
+                except Exception:
+                    LOG.error(
+                        "Failed to update Lambda Managed Instances function version %s",
+                        new_latest_version.id.qualified_arn(),
+                        exc_info=LOG.isEnabledFor(logging.DEBUG),
+                    )
+
+            self.lambda_service.task_executor.submit(_update_version_with_logging)
+        else:
+            self.lambda_service.update_version(new_version=new_latest_version)
 
         return api_utils.map_config_out(new_latest_version)
 
@@ -1602,9 +1654,12 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 "$LATEST version cannot be deleted without deleting the function.", Type="User"
             )
 
+        unqualified_function_arn = api_utils.unqualified_lambda_arn(
+            function_name=function_name, region=region, account=account_id
+        )
         if function_name not in store.functions:
             e = ResourceNotFoundException(
-                f"Function not found: {api_utils.unqualified_lambda_arn(function_name=function_name, region=region, account=account_id)}",
+                f"Function not found: {unqualified_function_arn}",
                 Type="User",
             )
             raise e
@@ -1613,29 +1668,39 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
         function_has_capacity_provider = False
         if qualifier:
             # delete a version of the function
-            version = function.versions.pop(qualifier, None)
+            version = function.versions.get(qualifier, None)
             if version:
-                if version.config.CapacityProviderConfig:
+                if version.config.capacity_provider_config:
                     function_has_capacity_provider = True
+                    # async delete from store
+                    self.lambda_service.delete_function_version_async(function, version, qualifier)
+                else:
+                    function.versions.pop(qualifier, None)
                 self.lambda_service.stop_version(version.id.qualified_arn())
                 destroy_code_if_not_used(code=version.config.code, function=function)
         else:
             # delete the whole function
+            self._remove_all_tags(unqualified_function_arn)
             # TODO: introduce locking for safe deletion: We could create a new version at the API layer before
             #  the old version gets cleaned up in the internal lambda service.
-            function = store.functions.pop(function_name)
+            function = store.functions.get(function_name)
+            if function.latest().config.capacity_provider_config:
+                function_has_capacity_provider = True
+                # async delete version from store
+                self.lambda_service.delete_function_async(store, function_name)
+
             for version in function.versions.values():
                 # Functions with a capacity provider do NOT have a version manager for $LATEST because only
                 # published versions are invokable.
-                if version.config.CapacityProviderConfig:
-                    function_has_capacity_provider = True
-                    if version.id.qualifier == "$LATEST":
-                        pass
-                else:
+                if not function_has_capacity_provider or (
+                    function_has_capacity_provider and version.id.qualifier != "$LATEST"
+                ):
                     self.lambda_service.stop_version(qualified_arn=version.id.qualified_arn())
                 # we can safely destroy the code here
                 if version.config.code:
                     version.config.code.destroy()
+            if not function_has_capacity_provider:
+                store.functions.pop(function_name, None)
 
         return DeleteFunctionResponse(StatusCode=202 if function_has_capacity_provider else 204)
 
@@ -2446,6 +2511,10 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             raise ResourceNotFoundException(
                 "The resource you requested does not exist.", Type="User"
             )
+        # the full deletion of the ESM is happening asynchronously, but we delete the Tags instantly
+        # this behavior is similar to ``get_event_source_mapping`` which will raise right after deletion, but it is not
+        # always the case in AWS. Add more testing and align behavior with ``get_event_source_mapping``.
+        self._remove_all_tags(event_source_mapping["EventSourceMappingArn"])
         esm_worker.delete()
         return {**esm, "State": EsmState.DELETING}
 
@@ -4358,27 +4427,64 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
     # =======================================
     # ===============  TAGS   ===============
     # =======================================
-    # only Function, Event Source Mapping, and Code Signing Config (not currently supported by LocalStack) ARNs an are available for tagging in AWS
+    # only Function, Event Source Mapping, and Code Signing Config (not currently supported by LocalStack) ARNs
+    # are available for tagging in AWS
+
+    @staticmethod
+    def _update_resource_tags(
+        resource_arn: str, account_id: str, region: str, tags: dict[str, str]
+    ) -> None:
+        lambda_stores[account_id][region].tags.update_tags(resource_arn, tags)
+
+    @staticmethod
+    def _list_resource_tags(resource_arn: str, account_id: str, region: str) -> dict[str, str]:
+        return lambda_stores[account_id][region].tags.get_tags(resource_arn)
+
+    @staticmethod
+    def _remove_resource_tags(
+        resource_arn: str, account_id: str, region: str, keys: TagKeyList
+    ) -> None:
+        lambda_stores[account_id][region].tags.delete_tags(resource_arn, keys)
+
+    @staticmethod
+    def _remove_all_resource_tags(resource_arn: str, account_id: str, region: str) -> None:
+        lambda_stores[account_id][region].tags.delete_all_tags(resource_arn)
 
     def _get_tags(self, resource: TaggableResource) -> dict[str, str]:
-        state = self.fetch_lambda_store_for_tagging(resource)
-        lambda_adapted_tags = {
-            tag["Key"]: tag["Value"]
-            for tag in state.TAGS.list_tags_for_resource(resource).get("Tags")
-        }
-        return lambda_adapted_tags
+        account_id, region = self._get_account_id_and_region_for_taggable_resource(resource)
+        tags = self._list_resource_tags(resource_arn=resource, account_id=account_id, region=region)
+        return tags
 
-    def _store_tags(self, resource: TaggableResource, tags: dict[str, str]):
-        state = self.fetch_lambda_store_for_tagging(resource)
-        if len(state.TAGS.tags.get(resource, {}) | tags) > LAMBDA_TAG_LIMIT_PER_RESOURCE:
+    def _store_tags(self, resource: TaggableResource, tags: dict[str, str]) -> None:
+        account_id, region = self._get_account_id_and_region_for_taggable_resource(resource)
+        existing_tags = self._list_resource_tags(
+            resource_arn=resource, account_id=account_id, region=region
+        )
+        if len({**existing_tags, **tags}) > LAMBDA_TAG_LIMIT_PER_RESOURCE:
+            # note: we cannot use | on `ImmutableDict` and regular `dict`
             raise InvalidParameterValueException(
                 "Number of tags exceeds resource tag limit.", Type="User"
             )
+        self._update_resource_tags(
+            resource_arn=resource,
+            account_id=account_id,
+            region=region,
+            tags=tags,
+        )
 
-        tag_svc_adapted_tags = [{"Key": key, "Value": value} for key, value in tags.items()]
-        state.TAGS.tag_resource(resource, tag_svc_adapted_tags)
+    def _remove_tags(self, resource: TaggableResource, keys: TagKeyList) -> None:
+        account_id, region = self._get_account_id_and_region_for_taggable_resource(resource)
+        self._remove_resource_tags(
+            resource_arn=resource, account_id=account_id, region=region, keys=keys
+        )
 
-    def fetch_lambda_store_for_tagging(self, resource: TaggableResource) -> LambdaStore:
+    def _remove_all_tags(self, resource: TaggableResource) -> None:
+        account_id, region = self._get_account_id_and_region_for_taggable_resource(resource)
+        self._remove_all_resource_tags(resource_arn=resource, account_id=account_id, region=region)
+
+    def _get_account_id_and_region_for_taggable_resource(
+        self, resource: TaggableResource
+    ) -> tuple[str, str]:
         """
         Takes a resource ARN for a TaggableResource (Lambda Function, Event Source Mapping, Code Signing Config, or Capacity Provider) and returns a corresponding
         LambdaStore for its region and account.
@@ -4439,7 +4545,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
             _raise_validation_exception()
 
         # If no exceptions are raised, assume ARN and referenced resource is valid for tag operations
-        return lambda_stores[account_id][region]
+        return account_id, region
 
     def tag_resource(
         self, context: RequestContext, resource: TaggableResource, tags: Tags, **kwargs
@@ -4476,8 +4582,7 @@ class LambdaProvider(LambdaApi, ServiceLifecycleHook):
                 "1 validation error detected: Value null at 'tagKeys' failed to satisfy constraint: Member must not be null"
             )  # should probably be generalized a bit
 
-        state = self.fetch_lambda_store_for_tagging(resource)
-        state.TAGS.untag_resource(resource, tag_keys)
+        self._remove_tags(resource, tag_keys)
 
         if (resource_id := extract_resource_from_arn(resource)) and resource_id.startswith(
             "function"

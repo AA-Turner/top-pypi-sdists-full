@@ -47,6 +47,10 @@ class NewHttpTrigger:
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewHttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, NewHttpTriggerRetry]): Retry configuration for failed module executions
+        email (Union[Unset, str]): Email of the user who triggered jobs run as. Used during deployment to preserve the
+            original trigger owner.
+        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
+            the original email value instead of overwriting it.
     """
 
     path: str
@@ -69,6 +73,8 @@ class NewHttpTrigger:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewHttpTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewHttpTriggerRetry"] = UNSET
+    email: Union[Unset, str] = UNSET
+    preserve_email: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -109,6 +115,9 @@ class NewHttpTrigger:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
+        email = self.email
+        preserve_email = self.preserve_email
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -148,6 +157,10 @@ class NewHttpTrigger:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if email is not UNSET:
+            field_dict["email"] = email
+        if preserve_email is not UNSET:
+            field_dict["preserve_email"] = preserve_email
 
         return field_dict
 
@@ -225,6 +238,10 @@ class NewHttpTrigger:
         else:
             retry = NewHttpTriggerRetry.from_dict(_retry)
 
+        email = d.pop("email", UNSET)
+
+        preserve_email = d.pop("preserve_email", UNSET)
+
         new_http_trigger = cls(
             path=path,
             script_path=script_path,
@@ -246,6 +263,8 @@ class NewHttpTrigger:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
+            email=email,
+            preserve_email=preserve_email,
         )
 
         new_http_trigger.additional_properties = d

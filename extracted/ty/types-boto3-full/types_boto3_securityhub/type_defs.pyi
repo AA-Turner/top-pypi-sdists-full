@@ -3880,6 +3880,7 @@ class ProductV2TypeDef(TypedDict):
     IntegrationV2Types: NotRequired[list[IntegrationV2TypeType]]
     MarketplaceUrl: NotRequired[str]
     ActivationUrl: NotRequired[str]
+    MarketplaceProductId: NotRequired[str]
 
 class DescribeStandardsControlsRequestTypeDef(TypedDict):
     StandardsSubscriptionArn: str

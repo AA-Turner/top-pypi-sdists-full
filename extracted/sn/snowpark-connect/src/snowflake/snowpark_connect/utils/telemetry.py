@@ -221,6 +221,7 @@ ALLOWED_IO_OPTION_VALUES: dict[str, frozenset[str] | str | None] = {
     "dropfieldifallnull": _BOOLEAN,
     "processinbulk": _BOOLEAN,
     "bz2fileparallelloading": _BOOLEAN,
+    "jsonfileparallelloading": _BOOLEAN,
     # --- Parquet boolean options ---
     "mergeschema": _BOOLEAN,
     # --- Enum options ---

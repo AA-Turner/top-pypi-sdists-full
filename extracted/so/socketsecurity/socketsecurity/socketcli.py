@@ -464,7 +464,8 @@ def main_code():
         make_default_branch=is_default_branch,
         set_as_pending_head=is_default_branch,
         tmp=False,
-        scan_type='socket_tier1' if config.reach else 'socket'
+        scan_type='socket_tier1' if config.reach else 'socket',
+        workspace=config.workspace or None,
     )
 
     params.include_license_details = not config.exclude_license_details
@@ -640,6 +641,21 @@ def main_code():
         if not config.disable_blocking:
             log.debug("Temporarily enabling disable_blocking due to no supported manifest files")
             config.disable_blocking = True
+
+    # Post commit status to GitLab if enabled
+    if config.enable_commit_status and scm is not None:
+        from socketsecurity.core.scm.gitlab import Gitlab
+        if isinstance(scm, Gitlab) and scm.config.mr_project_id:
+            scm.enable_merge_pipeline_check()
+            passed = output_handler.report_pass(diff)
+            state = "success" if passed else "failed"
+            blocking_count = sum(1 for a in diff.new_alerts if a.error)
+            if passed:
+                description = "No blocking issues"
+            else:
+                description = f"{blocking_count} blocking alert(s) found"
+            target_url = diff.report_url or diff.diff_url or ""
+            scm.set_commit_status(state, description, target_url)
 
     sys.exit(output_handler.return_exit_code(diff))
 

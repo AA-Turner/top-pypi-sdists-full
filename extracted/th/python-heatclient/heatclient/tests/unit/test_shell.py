@@ -2124,6 +2124,7 @@ class ShellTestUserPass(ShellBase):
         resp_dict = {"snapshots": [{
             "id": "2",
             "name": "snap1",
+            "action": "CREATE",
             "status": "COMPLETE",
             "status_reason": "",
             "creation_time": "2014-12-05T01:25:52Z"
@@ -2136,6 +2137,7 @@ class ShellTestUserPass(ShellBase):
         required = [
             'id',
             'name',
+            'action',
             'status',
             'status_reason',
             'creation_time',

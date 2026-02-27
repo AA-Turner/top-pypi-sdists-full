@@ -124,7 +124,7 @@ export const ROUTES = {
 
     RUNS: {
         LIST: '/runs',
-        CREATE_DEV_ENV: '/runs/create-dev-environment',
+        CREATE_DEV_ENV: '/runs/launch',
     },
 
     OFFERS: {
@@ -165,6 +165,21 @@ export const ROUTES = {
 
     INSTANCES: {
         LIST: '/instances',
+        DETAILS: {
+            TEMPLATE: `/projects/:projectName/instances/:instanceId`,
+            FORMAT: (projectName: string, instanceId: string) =>
+                buildRoute(ROUTES.INSTANCES.DETAILS.TEMPLATE, { projectName, instanceId }),
+            EVENTS: {
+                TEMPLATE: `/projects/:projectName/instances/:instanceId/events`,
+                FORMAT: (projectName: string, instanceId: string) =>
+                    buildRoute(ROUTES.INSTANCES.DETAILS.EVENTS.TEMPLATE, { projectName, instanceId }),
+            },
+            INSPECT: {
+                TEMPLATE: `/projects/:projectName/instances/:instanceId/inspect`,
+                FORMAT: (projectName: string, instanceId: string) =>
+                    buildRoute(ROUTES.INSTANCES.DETAILS.INSPECT.TEMPLATE, { projectName, instanceId }),
+            },
+        },
     },
 
     VOLUMES: {

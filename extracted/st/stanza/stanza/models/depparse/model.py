@@ -20,12 +20,11 @@ from stanza.models.common import utils
 logger = logging.getLogger('stanza')
 
 class Parser(nn.Module):
-    def __init__(self, args, vocab, emb_matrix=None, share_hid=False, foundation_cache=None, bert_model=None, bert_tokenizer=None, force_bert_saved=False, peft_name=None):
+    def __init__(self, args, vocab, emb_matrix=None, foundation_cache=None, bert_model=None, bert_tokenizer=None, force_bert_saved=False, peft_name=None):
         super().__init__()
 
         self.vocab = vocab
         self.args = args
-        self.share_hid = share_hid
         self.unsaved_modules = []
 
         # input layers
@@ -60,16 +59,16 @@ class Parser(nn.Module):
 
         if self.args['char'] and self.args['char_emb_dim'] > 0:
             if self.args.get('charlm', None):
-                if args['charlm_forward_file'] is None or not os.path.exists(args['charlm_forward_file']):
-                    raise FileNotFoundError('Could not find forward character model: {}  Please specify with --charlm_forward_file'.format(args['charlm_forward_file']))
-                if args['charlm_backward_file'] is None or not os.path.exists(args['charlm_backward_file']):
-                    raise FileNotFoundError('Could not find backward character model: {}  Please specify with --charlm_backward_file'.format(args['charlm_backward_file']))
-                logger.debug("Depparse model loading charmodels: %s and %s", args['charlm_forward_file'], args['charlm_backward_file'])
-                self.add_unsaved_module('charmodel_forward', load_charlm(args['charlm_forward_file'], foundation_cache=foundation_cache))
-                self.add_unsaved_module('charmodel_backward', load_charlm(args['charlm_backward_file'], foundation_cache=foundation_cache))
+                if self.args['charlm_forward_file'] is None or not os.path.exists(self.args['charlm_forward_file']):
+                    raise FileNotFoundError('Could not find forward character model: {}  Please specify with --charlm_forward_file'.format(self.args['charlm_forward_file']))
+                if self.args['charlm_backward_file'] is None or not os.path.exists(self.args['charlm_backward_file']):
+                    raise FileNotFoundError('Could not find backward character model: {}  Please specify with --charlm_backward_file'.format(self.args['charlm_backward_file']))
+                logger.debug("Depparse model loading charmodels: %s and %s", self.args['charlm_forward_file'], self.args['charlm_backward_file'])
+                self.add_unsaved_module('charmodel_forward', load_charlm(self.args['charlm_forward_file'], foundation_cache=foundation_cache))
+                self.add_unsaved_module('charmodel_backward', load_charlm(self.args['charlm_backward_file'], foundation_cache=foundation_cache))
                 input_size += self.charmodel_forward.hidden_dim() + self.charmodel_backward.hidden_dim()
             else:
-                self.charmodel = CharacterModel(args, vocab)
+                self.charmodel = CharacterModel(self.args, vocab)
                 self.trans_char = nn.Linear(self.args['char_hidden_dim'], self.args['transformed_dim'], bias=False)
                 input_size += self.args['transformed_dim']
 
@@ -77,10 +76,10 @@ class Parser(nn.Module):
         attach_bert_model(self, bert_model, bert_tokenizer, self.args.get('use_peft', False), force_bert_saved)
         if self.args.get('bert_model', None):
             # TODO: refactor bert_hidden_layers between the different models
-            if args.get('bert_hidden_layers', False):
+            if self.args.get('bert_hidden_layers', False):
                 # The average will be offset by 1/N so that the default zeros
                 # represents an average of the N layers
-                self.bert_layer_mix = nn.Linear(args['bert_hidden_layers'], 1, bias=False)
+                self.bert_layer_mix = nn.Linear(self.args['bert_hidden_layers'], 1, bias=False)
                 nn.init.zeros_(self.bert_layer_mix.weight)
             else:
                 # an average of layers 2, 3, 4 will be used
@@ -100,19 +99,34 @@ class Parser(nn.Module):
         self.parserlstm_h_init = nn.Parameter(torch.zeros(2 * self.args['num_layers'], 1, self.args['hidden_dim']))
         self.parserlstm_c_init = nn.Parameter(torch.zeros(2 * self.args['num_layers'], 1, self.args['hidden_dim']))
 
+        # dropout
+        self.drop = nn.Dropout(self.args['dropout'])
+        self.worddrop = WordDropout(self.args['word_dropout'])
+
         # classifiers
-        self.unlabeled = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=args['dropout'])
-        self.deprel = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], len(vocab['deprel']), pairwise=True, dropout=args['dropout'])
-        if args['linearization']:
-            self.linearization = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=args['dropout'])
-        if args['distance']:
-            self.distance = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=args['dropout'])
+        # args.get to preserve old models, including models other people might have created
+        if self.args.get('use_arc_embedding'):
+            logger.debug("Using arc embedding enhancement")
+            self.arc_embedding = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], self.args['deep_biaff_output_dim'], pairwise=True, dropout=self.args['dropout'])
+            self.unlabeled_linear = nn.Sequential(self.drop,
+                                                  nn.Linear(self.args['deep_biaff_output_dim'], 1))
+            self.deprel_linear = nn.Sequential(self.drop,
+                                               nn.Linear(self.args['deep_biaff_output_dim'], 2 * self.args['deep_biaff_output_dim']),
+                                               nn.ReLU(),
+                                               self.drop,
+                                               nn.Linear(self.args['deep_biaff_output_dim'] * 2, len(vocab['deprel'])))
+        else:
+            logger.debug("Not using arc embedding enhancement")
+            self.unlabeled = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=self.args['dropout'])
+            self.deprel = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], len(vocab['deprel']), pairwise=True, dropout=self.args['dropout'])
+        if self.args['linearization']:
+            self.linearization = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=self.args['dropout'])
+        if self.args['distance']:
+            self.distance = DeepBiaffineScorer(2 * self.args['hidden_dim'], 2 * self.args['hidden_dim'], self.args['deep_biaff_hidden_dim'], 1, pairwise=True, dropout=self.args['dropout'])
 
         # criterion
         self.crit = nn.CrossEntropyLoss(ignore_index=-1, reduction='sum') # ignore padding
 
-        self.drop = nn.Dropout(args['dropout'])
-        self.worddrop = WordDropout(args['word_dropout'])
 
     def add_unsaved_module(self, name, module):
         self.unsaved_modules += [name]
@@ -206,8 +220,13 @@ class Parser(nn.Module):
         lstm_outputs, _ = self.parserlstm(lstm_inputs, sentlens, hx=(self.parserlstm_h_init.expand(2 * self.args['num_layers'], word.size(0), self.args['hidden_dim']).contiguous(), self.parserlstm_c_init.expand(2 * self.args['num_layers'], word.size(0), self.args['hidden_dim']).contiguous()))
         lstm_outputs, _ = pad_packed_sequence(lstm_outputs, batch_first=True)
 
-        unlabeled_scores = self.unlabeled(self.drop(lstm_outputs), self.drop(lstm_outputs)).squeeze(3)
-        deprel_scores = self.deprel(self.drop(lstm_outputs), self.drop(lstm_outputs))
+        if self.args.get('use_arc_embedding'):
+            arc_scores = self.arc_embedding(self.drop(lstm_outputs), self.drop(lstm_outputs))
+            unlabeled_scores = self.unlabeled_linear(arc_scores).squeeze(3)
+            deprel_scores = self.deprel_linear(arc_scores).squeeze(3)
+        else:
+            unlabeled_scores = self.unlabeled(self.drop(lstm_outputs), self.drop(lstm_outputs)).squeeze(3)
+            deprel_scores = self.deprel(self.drop(lstm_outputs), self.drop(lstm_outputs))
 
         #goldmask = head.new_zeros(*head.size(), head.size(-1)+1, dtype=torch.uint8)
         #goldmask.scatter_(2, head.unsqueeze(2), 1)
@@ -253,6 +272,7 @@ class Parser(nn.Module):
 
             if self.args['distance']:
                 #dist_kld = dist_kld[:, 1:].masked_select(goldmask)
+                # dist_kld[:, 1:] so that the root isn't included in the distance calculation
                 dist_kld = torch.gather(dist_kld[:, 1:], 2, head.unsqueeze(2))
                 loss -= dist_kld.sum()
 

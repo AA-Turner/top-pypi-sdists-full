@@ -194,6 +194,7 @@ GroupByFieldType = Literal[
     "finding_info.types",
     "metadata.product.name",
     "metadata.product.uid",
+    "metadata.product.vendor_name",
     "resources.type",
     "resources.uid",
     "severity",
@@ -208,6 +209,7 @@ IntegrationTypeType = Literal[
     "UPDATE_FINDINGS_IN_SECURITY_HUB",
 ]
 IntegrationV2TypeType = Literal[
+    "EXTENDED_PLAN",
     "RECEIVE_FINDINGS_FROM_SECURITY_HUB",
     "SEND_FINDINGS_TO_SECURITY_HUB",
     "UPDATE_FINDINGS_IN_SECURITY_HUB",

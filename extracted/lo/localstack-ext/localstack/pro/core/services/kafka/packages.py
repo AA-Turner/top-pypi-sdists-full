@@ -49,8 +49,9 @@ class KafkaPackageInstaller(JavaInstallerMixin,MirrorArchiveInstaller):
 	def _setup_existing_installation(A,target:InstallTarget)->_A:A._prepare_installation(target)
 def _get_kafka_version(requested_version:str)->str:
 	A=requested_version
-	if(B:=KAFKA_VERSION_MAPPING.get(A)):LOG.info('The specified MSK version %s is being mapped to %s. Note, that tiered storage and KRaft-based Kafka are currently unsupported.',A,B);A=B
+	if(B:=KAFKA_VERSION_MAPPING.get(A)):LOG.debug('The specified MSK version %s is being mapped to Apache Kafka %s. Note, that tiered storage is currently unsupported.',A,B);A=B
 	if A in KAFKA_VERSIONS:return A
 	if A:LOG.info("Unable to install Kafka version '%s', falling back to default '%s'",A,DEFAULT_VERSION)
 	return DEFAULT_VERSION
+def is_kraft_mode(version:str)->bool:A=version;return A in ACTIVE_MSK_VERSIONS and A.endswith('.kraft')
 kafka_package=KafkaPackage()

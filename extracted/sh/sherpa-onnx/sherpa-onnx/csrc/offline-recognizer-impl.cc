@@ -5,8 +5,8 @@
 #include "sherpa-onnx/csrc/offline-recognizer-impl.h"
 
 #include <memory>
+#include <sstream>
 #include <string>
-#include <strstream>
 #include <utility>
 #include <vector>
 
@@ -228,6 +228,7 @@ std::unique_ptr<OfflineRecognizerImpl> OfflineRecognizerImpl::Create(
       !config.model_config.wenet_ctc.model.empty() ||
       !config.model_config.omnilingual.model.empty() ||
       !config.model_config.medasr.model.empty() ||
+      !config.model_config.fire_red_asr_ctc.model.empty() ||
       !config.model_config.dolphin.model.empty()) {
     return std::make_unique<OfflineRecognizerCtcImpl>(config);
   }
@@ -567,6 +568,7 @@ std::unique_ptr<OfflineRecognizerImpl> OfflineRecognizerImpl::Create(
       !config.model_config.wenet_ctc.model.empty() ||
       !config.model_config.omnilingual.model.empty() ||
       !config.model_config.medasr.model.empty() ||
+      !config.model_config.fire_red_asr_ctc.model.empty() ||
       !config.model_config.dolphin.model.empty()) {
     return std::make_unique<OfflineRecognizerCtcImpl>(mgr, config);
   }
@@ -806,7 +808,7 @@ OfflineRecognizerImpl::OfflineRecognizerImpl(
         SHERPA_ONNX_LOGE("rule fst: %s", f.c_str());
       }
       auto buf = ReadFile(mgr, f);
-      std::istrstream is(buf.data(), buf.size());
+      std::istringstream is(std::string(buf.data(), buf.size()));
       itn_list_.push_back(std::make_unique<kaldifst::TextNormalizer>(is));
     }
   }
@@ -824,7 +826,7 @@ OfflineRecognizerImpl::OfflineRecognizerImpl(
       auto buf = ReadFile(mgr, f);
 
       std::unique_ptr<std::istream> s(
-          new std::istrstream(buf.data(), buf.size()));
+          new std::istringstream(std::string(buf.data(), buf.size())));
 
       std::unique_ptr<fst::FarReader<fst::StdArc>> reader(
           fst::FarReader<fst::StdArc>::Open(std::move(s)));

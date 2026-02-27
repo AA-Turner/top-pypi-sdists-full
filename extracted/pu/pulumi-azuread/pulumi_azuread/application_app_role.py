@@ -27,11 +27,14 @@ class ApplicationAppRoleInitArgs:
                  value: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ApplicationAppRole resource.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_member_types: A set of values to specify whether this app role definition can be assigned to users and groups by setting to `User`, or to other applications by setting to `Application`, or to both.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] description: Description of the app role that appears when the role is being assigned, and if the role functions as an application permissions, during the consent experiences.
         :param pulumi.Input[_builtins.str] display_name: Display name for the app role that appears during app role assignment and in consent experiences.
-        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role
+        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+               
+               > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         :param pulumi.Input[_builtins.str] value: The value that is used for the `roles` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal.
                
                > **Roles and Permission Scopes** In Azure Active Directory, application roles and permission scopes exported by an application share the same namespace and cannot contain duplicate values.
@@ -96,7 +99,9 @@ class ApplicationAppRoleInitArgs:
     @pulumi.getter(name="roleId")
     def role_id(self) -> pulumi.Input[_builtins.str]:
         """
-        The unique identifier of the app role
+        The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+
+        > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         """
         return pulumi.get(self, "role_id")
 
@@ -130,11 +135,14 @@ class _ApplicationAppRoleState:
                  value: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ApplicationAppRole resources.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_member_types: A set of values to specify whether this app role definition can be assigned to users and groups by setting to `User`, or to other applications by setting to `Application`, or to both.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] description: Description of the app role that appears when the role is being assigned, and if the role functions as an application permissions, during the consent experiences.
         :param pulumi.Input[_builtins.str] display_name: Display name for the app role that appears during app role assignment and in consent experiences.
-        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role
+        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+               
+               > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         :param pulumi.Input[_builtins.str] value: The value that is used for the `roles` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal.
                
                > **Roles and Permission Scopes** In Azure Active Directory, application roles and permission scopes exported by an application share the same namespace and cannot contain duplicate values.
@@ -204,7 +212,9 @@ class _ApplicationAppRoleState:
     @pulumi.getter(name="roleId")
     def role_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The unique identifier of the app role
+        The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+
+        > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         """
         return pulumi.get(self, "role_id")
 
@@ -241,6 +251,20 @@ class ApplicationAppRole(pulumi.CustomResource):
                  value: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        Manages an app role for an application registration.
+
+        This resource is analogous to the `app_role` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -279,13 +303,16 @@ class ApplicationAppRole(pulumi.CustomResource):
         $ pulumi import azuread:index/applicationAppRole:ApplicationAppRole example /applications/00000000-0000-0000-0000-000000000000/appRoles/11111111-1111-1111-1111-111111111111
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_member_types: A set of values to specify whether this app role definition can be assigned to users and groups by setting to `User`, or to other applications by setting to `Application`, or to both.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] description: Description of the app role that appears when the role is being assigned, and if the role functions as an application permissions, during the consent experiences.
         :param pulumi.Input[_builtins.str] display_name: Display name for the app role that appears during app role assignment and in consent experiences.
-        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role
+        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+               
+               > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         :param pulumi.Input[_builtins.str] value: The value that is used for the `roles` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal.
                
                > **Roles and Permission Scopes** In Azure Active Directory, application roles and permission scopes exported by an application share the same namespace and cannot contain duplicate values.
@@ -297,6 +324,20 @@ class ApplicationAppRole(pulumi.CustomResource):
                  args: ApplicationAppRoleInitArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages an app role for an application registration.
+
+        This resource is analogous to the `app_role` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -334,6 +375,7 @@ class ApplicationAppRole(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationAppRole:ApplicationAppRole example /applications/00000000-0000-0000-0000-000000000000/appRoles/11111111-1111-1111-1111-111111111111
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationAppRoleInitArgs args: The arguments to use to populate this resource's properties.
@@ -408,7 +450,9 @@ class ApplicationAppRole(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] description: Description of the app role that appears when the role is being assigned, and if the role functions as an application permissions, during the consent experiences.
         :param pulumi.Input[_builtins.str] display_name: Display name for the app role that appears during app role assignment and in consent experiences.
-        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role
+        :param pulumi.Input[_builtins.str] role_id: The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+               
+               > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         :param pulumi.Input[_builtins.str] value: The value that is used for the `roles` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal.
                
                > **Roles and Permission Scopes** In Azure Active Directory, application roles and permission scopes exported by an application share the same namespace and cannot contain duplicate values.
@@ -461,7 +505,9 @@ class ApplicationAppRole(pulumi.CustomResource):
     @pulumi.getter(name="roleId")
     def role_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The unique identifier of the app role
+        The unique identifier of the app role. Must be a valid UUID. Changing this forces a new resource to be created.
+
+        > **Tip** Use the `random_uuid` resource to generate UUIDs and save them to state for app roles within your Terraform configuration
         """
         return pulumi.get(self, "role_id")
 

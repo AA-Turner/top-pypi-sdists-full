@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc-data
-Version: 3.18.2
+Version: 3.18.3
 Summary: DVC's data management subsystem
 Author-email: Iterative <support@dvc.org>
 License-Expression: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: sqltrie<1,>=0.11.0
 Requires-Dist: tqdm<5,>=4.63.1
 Requires-Dist: orjson<4,>=3; implementation_name == "cpython"
 Provides-Extra: cli
-Requires-Dist: typer-slim>=0.12; extra == "cli"
+Requires-Dist: typer>=0.12; extra == "cli"
 Provides-Extra: all
 Requires-Dist: dvc-data[cli]; extra == "all"
 Provides-Extra: tests

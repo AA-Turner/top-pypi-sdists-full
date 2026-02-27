@@ -4,14 +4,14 @@ import os
 import shutil
 import stanza
 from stanza.resources import installation
-from stanza.tests import TEST_HOME_VAR, TEST_DIR_BASE_NAME
+from stanza.tests import TEST_HOME_VAR, TEST_WORKING_DIR
 
 logger = logging.getLogger('stanza')
 
 test_dir = os.getenv(TEST_HOME_VAR, None)
 if not test_dir:
-    test_dir = os.path.join(os.getcwd(), TEST_DIR_BASE_NAME)
-    logger.info("STANZA_TEST_HOME not set.  Will assume $PWD/stanza_test = %s", test_dir)
+    test_dir = TEST_WORKING_DIR
+    logger.info("STANZA_TEST_HOME not set.  Will assume %s", test_dir)
     logger.info("To use a different directory, export or set STANZA_TEST_HOME=...")
 
 in_dir = os.path.join(test_dir, "in")
@@ -47,6 +47,13 @@ stanza.download(lang='zh', model_dir=models_dir, logging_level='info')
 # useful not just for verifying RtL, but because the default Arabic has a unique style of xpos tags
 stanza.download(lang='ar', model_dir=models_dir, logging_level='info')
 stanza.download(lang='multilingual', model_dir=models_dir, logging_level='info')
+
+logger.info("DOWNLOADING STANZA TOKENIZERS FOR MORPHSEG TESTS")
+
+morphseg_langs = ['en', 'es', 'ru', 'fr', 'it', 'cs', 'hu', 'la']
+for lang in morphseg_langs:
+    stanza.download(lang=lang, model_dir=models_dir, processors='tokenize', logging_level='info')
+    logger.info(f"Downloaded {lang} tokenizer for morphseg tests")
 
 logger.info("DOWNLOADING CORENLP")
 

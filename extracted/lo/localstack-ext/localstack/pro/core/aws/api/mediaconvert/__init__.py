@@ -28,6 +28,7 @@ _integerMin0Max128 = int
 _integerMin0Max1466400000 = int
 _integerMin0Max15 = int
 _integerMin0Max16 = int
+_integerMin0Max2 = int
 _integerMin0Max2147483647 = int
 _integerMin0Max255 = int
 _integerMin0Max3 = int
@@ -41,6 +42,7 @@ _integerMin0Max47185920 = int
 _integerMin0Max5 = int
 _integerMin0Max500 = int
 _integerMin0Max50000 = int
+_integerMin0Max64 = int
 _integerMin0Max65534 = int
 _integerMin0Max65535 = int
 _integerMin0Max7 = int
@@ -67,7 +69,6 @@ _integerMin1Max10000000 = int
 _integerMin1Max1001 = int
 _integerMin1Max150 = int
 _integerMin1Max17895697 = int
-_integerMin1Max2 = int
 _integerMin1Max20 = int
 _integerMin1Max2048 = int
 _integerMin1Max2147483640 = int
@@ -80,7 +81,6 @@ _integerMin1Max512 = int
 _integerMin1Max6 = int
 _integerMin1Max60000 = int
 _integerMin1Max64 = int
-_integerMin1Max8 = int
 _integerMin1Max86400000 = int
 _integerMin2000Max30000 = int
 _integerMin22050Max192000 = int
@@ -202,6 +202,7 @@ class AacCodingMode(StrEnum):
     CODING_MODE_1_1 = "CODING_MODE_1_1"
     CODING_MODE_2_0 = "CODING_MODE_2_0"
     CODING_MODE_5_1 = "CODING_MODE_5_1"
+    CODING_MODE_AUTO = "CODING_MODE_AUTO"
 
 
 class AacLoudnessMeasurementMode(StrEnum):
@@ -247,6 +248,7 @@ class Ac3CodingMode(StrEnum):
     CODING_MODE_1_1 = "CODING_MODE_1_1"
     CODING_MODE_2_0 = "CODING_MODE_2_0"
     CODING_MODE_3_2_LFE = "CODING_MODE_3_2_LFE"
+    CODING_MODE_AUTO = "CODING_MODE_AUTO"
 
 
 class Ac3DynamicRangeCompressionLine(StrEnum):
@@ -1031,6 +1033,11 @@ class DescribeEndpointsMode(StrEnum):
     GET_ONLY = "GET_ONLY"
 
 
+class DolbyVisionCompatibility(StrEnum):
+    DUPLICATE_STREAM = "DUPLICATE_STREAM"
+    SUPPLEMENTAL_CODECS = "SUPPLEMENTAL_CODECS"
+
+
 class DolbyVisionLevel6Mode(StrEnum):
     PASSTHROUGH = "PASSTHROUGH"
     RECALCULATE = "RECALCULATE"
@@ -1216,6 +1223,7 @@ class Eac3CodingMode(StrEnum):
     CODING_MODE_1_0 = "CODING_MODE_1_0"
     CODING_MODE_2_0 = "CODING_MODE_2_0"
     CODING_MODE_3_2 = "CODING_MODE_3_2"
+    CODING_MODE_AUTO = "CODING_MODE_AUTO"
 
 
 class Eac3DcFilter(StrEnum):
@@ -1327,6 +1335,7 @@ class Format(StrEnum):
     matroska = "matroska"
     webm = "webm"
     mxf = "mxf"
+    wave = "wave"
 
 
 class FrameControl(StrEnum):
@@ -2536,6 +2545,11 @@ class MxfProfile(StrEnum):
     XDCAM_RDD9 = "XDCAM_RDD9"
 
 
+class MxfUncompressedAudioWrapping(StrEnum):
+    AUTO = "AUTO"
+    AES3 = "AES3"
+
+
 class MxfXavcDurationMode(StrEnum):
     ALLOW_ANY_DURATION = "ALLOW_ANY_DURATION"
     DROP_FRAMES_FOR_COMPLIANCE = "DROP_FRAMES_FOR_COMPLIANCE"
@@ -3352,7 +3366,7 @@ class AiffSettings(TypedDict, total=False):
     """Required when you set Codec to the value AIFF."""
 
     BitDepth: _integerMin16Max24 | None
-    Channels: _integerMin1Max64 | None
+    Channels: _integerMin0Max64 | None
     SampleRate: _integerMin8000Max192000 | None
 
 
@@ -3408,7 +3422,7 @@ class WavSettings(TypedDict, total=False):
     """Required when you set Codec to the value WAV."""
 
     BitDepth: _integerMin16Max24 | None
-    Channels: _integerMin1Max64 | None
+    Channels: _integerMin0Max64 | None
     Format: WavFormat | None
     SampleRate: _integerMin8000Max192000 | None
 
@@ -3418,7 +3432,7 @@ class VorbisSettings(TypedDict, total=False):
     the value Vorbis.
     """
 
-    Channels: _integerMin1Max2 | None
+    Channels: _integerMin0Max2 | None
     SampleRate: _integerMin22050Max48000 | None
     VbrQuality: _integerMinNegative1Max10 | None
 
@@ -3429,7 +3443,7 @@ class OpusSettings(TypedDict, total=False):
     """
 
     Bitrate: _integerMin32000Max192000 | None
-    Channels: _integerMin1Max2 | None
+    Channels: _integerMin0Max2 | None
     SampleRate: _integerMin16000Max48000 | None
 
 
@@ -3439,7 +3453,7 @@ class Mp3Settings(TypedDict, total=False):
     """
 
     Bitrate: _integerMin16000Max320000 | None
-    Channels: _integerMin1Max2 | None
+    Channels: _integerMin0Max2 | None
     RateControlMode: Mp3RateControlMode | None
     SampleRate: _integerMin22050Max48000 | None
     VbrQuality: _integerMin0Max9 | None
@@ -3450,7 +3464,7 @@ class Mp2Settings(TypedDict, total=False):
 
     AudioDescriptionMix: Mp2AudioDescriptionMix | None
     Bitrate: _integerMin32000Max384000 | None
-    Channels: _integerMin1Max2 | None
+    Channels: _integerMin0Max2 | None
     SampleRate: _integerMin32000Max48000 | None
 
 
@@ -3460,7 +3474,7 @@ class FlacSettings(TypedDict, total=False):
     """
 
     BitDepth: _integerMin16Max24 | None
-    Channels: _integerMin1Max8 | None
+    Channels: _integerMin0Max8 | None
     SampleRate: _integerMin22050Max192000 | None
 
 
@@ -4514,6 +4528,7 @@ class MxfSettings(TypedDict, total=False):
 
     AfdSignaling: MxfAfdSignaling | None
     Profile: MxfProfile | None
+    UncompressedAudioWrapping: MxfUncompressedAudioWrapping | None
     XavcProfileSettings: MxfXavcProfileSettings | None
 
 
@@ -4880,6 +4895,7 @@ class DolbyVisionLevel6Metadata(TypedDict, total=False):
 class DolbyVision(TypedDict, total=False):
     """Create Dolby Vision Profile 5 or Profile 8.1 compatible video output."""
 
+    Compatibility: DolbyVisionCompatibility | None
     L6Metadata: DolbyVisionLevel6Metadata | None
     L6Mode: DolbyVisionLevel6Mode | None
     Mapping: DolbyVisionMapping | None

@@ -1,7 +1,7 @@
 """
 Chem_sa_score
 
-Compute the Ertl-Schuffenhauer synthetic accessibility (SA) score for a molecule supplied as a SM...
+Compute the synthetic accessibility (SA) score for a molecule supplied as a SMILES string, using ...
 """
 
 from typing import Any, Optional, Callable
@@ -17,7 +17,7 @@ def Chem_sa_score(
     validate: bool = True,
 ) -> Any:
     """
-    Compute the Ertl-Schuffenhauer synthetic accessibility (SA) score for a molecule supplied as a SM...
+    Compute the synthetic accessibility (SA) score for a molecule supplied as a SMILES string, using ...
 
     Parameters
     ----------

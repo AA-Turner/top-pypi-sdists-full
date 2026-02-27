@@ -289,20 +289,34 @@ class TestRunState:
         default_json = state.to_json()
         assert default_json["trace"] is not None
         assert "tracing_api_key" not in default_json["trace"]
+        assert default_json["trace"]["tracing_api_key_hash"]
+        assert default_json["trace"]["tracing_api_key_hash"] != "trace-key"
 
         opt_in_json = state.to_json(include_tracing_api_key=True)
         assert opt_in_json["trace"] is not None
         assert opt_in_json["trace"]["tracing_api_key"] == "trace-key"
+        assert (
+            opt_in_json["trace"]["tracing_api_key_hash"]
+            == default_json["trace"]["tracing_api_key_hash"]
+        )
 
         restored_with_key = await RunState.from_string(
             agent, state.to_string(include_tracing_api_key=True)
         )
         assert restored_with_key._trace_state is not None
         assert restored_with_key._trace_state.tracing_api_key == "trace-key"
+        assert (
+            restored_with_key._trace_state.tracing_api_key_hash
+            == default_json["trace"]["tracing_api_key_hash"]
+        )
 
         restored_without_key = await RunState.from_string(agent, state.to_string())
         assert restored_without_key._trace_state is not None
         assert restored_without_key._trace_state.tracing_api_key is None
+        assert (
+            restored_without_key._trace_state.tracing_api_key_hash
+            == default_json["trace"]["tracing_api_key_hash"]
+        )
 
     async def test_throws_error_if_schema_version_is_missing_or_invalid(self):
         """Test that deserialization fails with missing or invalid schema version."""
@@ -1669,6 +1683,7 @@ class TestDeserializeHelpers:
                 )
             ],
             response_id="resp123",
+            request_id="req123",
         )
         state._model_responses.append(response)
 
@@ -1678,6 +1693,7 @@ class TestDeserializeHelpers:
 
         assert len(restored._model_responses) == 1
         assert restored._model_responses[0].response_id == "resp123"
+        assert restored._model_responses[0].request_id == "req123"
         assert restored._model_responses[0].usage.requests == 1
         assert restored._model_responses[0].usage.input_tokens == 10
 

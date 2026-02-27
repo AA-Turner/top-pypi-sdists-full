@@ -14,7 +14,7 @@ ROOT_FOLDER = os.path.realpath(
 
 # list of folders (within the localstack.pro.core or localstack.pro.azure module) which are *not* protected
 # i.e., published unencrypted
-UNPROTECTED_FOLDERS = ["aws", "bootstrap", "cli", "packages", "testing"]
+UNPROTECTED_FOLDERS = ["aws", "bootstrap", "packages", "testing"]
 # list of filenames (within the localstack.pro.core module) which are *not* protected (i.e., published unencrypted)
 UNPROTECTED_FILES = [
     "__init__.py",
@@ -253,7 +253,6 @@ EKS_START_K3D_LB_INGRESS = localstack_config.is_env_true("EKS_START_K3D_LB_INGRE
 EKS_PERSIST_CLUSTER_CONTENTS = localstack_config.is_env_true("EKS_PERSIST_CLUSTER_CONTENTS")
 
 # Port where Hive/metastore/Spark are available for EMR/Athena
-PORT_HIVE_METASTORE = int(os.getenv("PORT_HIVE_METASTORE") or 9083)
 PORT_HIVE_SERVER = int(os.getenv("PORT_HIVE_SERVER") or 10000)
 PORT_TRINO_SERVER = int(os.getenv("PORT_TRINO_SERVER") or 41983)
 PORT_SPARK_MASTER = int(os.getenv("PORT_SPARK_MASTER") or 7077)
@@ -458,10 +457,9 @@ MEDIACONVERT_DISABLE_JOB_DURATION = is_env_true("MEDIACONVERT_DISABLE_JOB_DURATI
 # Kafka provider override
 KAFKA_LEGACY_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_KAFKA") == "legacy"
 
-# Resource Groups Tagging API override
-RESOURCE_GROUPS_TAGGING_API_V2 = (
-    os.environ.get("PROVIDER_OVERRIDE_RESOURCEGROUPSTAGGINGAPI", "") == "v2"
-)
+# startup timeout for an MSK cluster.
+MSK_STARTUP_TIMEOUT = int(os.environ.get("MSK_STARTUP_TIMEOUT", "180").strip())
+
 
 # AppInspector
 APPINSPECTOR_DEV_ENABLE = is_env_true(
@@ -531,6 +529,7 @@ localstack_config.CONFIG_ENV_VARS += [
     "LS_CI_PROJECT",
     "LS_CI_LOGS",
     "MEDIACONVERT_DISABLE_JOB_DURATION",
+    "MSK_STARTUP_TIMEOUT",
     "MSSQL_ACCEPT_EULA",
     "MWAA_PIP_TRUSTED_HOSTS",
     "MWAA_S3_POLL_INTERVAL",

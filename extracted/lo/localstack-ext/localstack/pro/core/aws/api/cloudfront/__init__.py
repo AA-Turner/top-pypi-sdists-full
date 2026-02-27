@@ -3103,6 +3103,14 @@ class VpcOriginConfig(TypedDict, total=False):
     OriginKeepaliveTimeout: integer | None
 
 
+class OriginMtlsConfig(TypedDict, total=False):
+    """Configures mutual TLS authentication between CloudFront and your origin
+    server.
+    """
+
+    ClientCertificateArn: string
+
+
 SslProtocolsList = list[SslProtocol]
 
 
@@ -3131,6 +3139,7 @@ class CustomOriginConfig(TypedDict, total=False):
     OriginReadTimeout: integer | None
     OriginKeepaliveTimeout: integer | None
     IpAddressType: IpAddressType | None
+    OriginMtlsConfig: OriginMtlsConfig | None
 
 
 class S3OriginConfig(TypedDict, total=False):

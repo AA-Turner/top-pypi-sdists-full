@@ -4,6 +4,7 @@ use std::{io::Write, path::PathBuf};
 use tempfile::NamedTempFile;
 use toml::de::DeTable;
 
+use crate::config::namespace::Namespace;
 use crate::{embeddings::EmbeddingProviderConfig, inference::types::Role, variant::JsonMode};
 
 /// Ensure that the sample valid config can be parsed without panicking
@@ -334,7 +335,7 @@ async fn test_config_from_toml_table_missing_models() {
             .await
             .unwrap_err(),
         Error::new(ErrorDetails::Config {
-            message: "Model name 'gpt-4.1-mini' not found in model table".to_string()
+            message: "Model name 'gpt-5-mini' not found in model table".to_string()
         })
     );
 }
@@ -639,14 +640,14 @@ async fn test_config_from_toml_table_extra_variables_metrics() {
 #[tokio::test]
 async fn test_config_validate_model_empty_providers() {
     let mut config = get_sample_valid_config();
-    config["models"]["gpt-4.1-mini"]["routing"] = toml::Value::Array(vec![]);
+    config["models"]["gpt-5-mini"]["routing"] = toml::Value::Array(vec![]);
 
     let result = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config))).await;
     let error = result.unwrap_err();
     assert!(
         error
             .to_string()
-            .contains("`models.gpt-4.1-mini`: `routing` must not be empty")
+            .contains("`models.gpt-5-mini`: `routing` must not be empty")
     );
 }
 
@@ -654,20 +655,20 @@ async fn test_config_validate_model_empty_providers() {
 #[tokio::test]
 async fn test_config_validate_model_duplicate_routing_entry() {
     let mut config = get_sample_valid_config();
-    config["models"]["gpt-4.1-mini"]["routing"] =
+    config["models"]["gpt-5-mini"]["routing"] =
         toml::Value::Array(vec!["openai".into(), "openai".into()]);
     let result = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config))).await;
     let error = result.unwrap_err().to_string();
-    assert!(error.contains("`models.gpt-4.1-mini.routing`: duplicate entry `openai`"));
+    assert!(error.contains("`models.gpt-5-mini.routing`: duplicate entry `openai`"));
 }
 
 /// Ensure that the config validation fails when a routing entry does not exist in providers
 #[tokio::test]
 async fn test_config_validate_model_routing_entry_not_in_providers() {
     let mut config = get_sample_valid_config();
-    config["models"]["gpt-4.1-mini"]["routing"] = toml::Value::Array(vec!["closedai".into()]);
+    config["models"]["gpt-5-mini"]["routing"] = toml::Value::Array(vec!["closedai".into()]);
     let result = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config))).await;
-    assert!(result.unwrap_err().to_string().contains("`models.gpt-4.1-mini`: `routing` contains entry `closedai` that does not exist in `providers`"));
+    assert!(result.unwrap_err().to_string().contains("`models.gpt-5-mini`: `routing` contains entry `closedai` that does not exist in `providers`"));
 }
 
 /// Ensure that the config loading fails when the system schema does not exist
@@ -1132,8 +1133,8 @@ async fn test_config_validate_model_name_tensorzero_prefix() {
     let old_model_entry = config["models"]
         .as_table_mut()
         .unwrap()
-        .remove("gpt-4.1-mini")
-        .expect("Did not find model `gpt-4.1-mini`");
+        .remove("gpt-5-mini")
+        .expect("Did not find model `gpt-5-mini`");
     config["models"]
         .as_table_mut()
         .unwrap()
@@ -1259,18 +1260,18 @@ async fn test_config_validate_model_provider_name_tensorzero_prefix() {
     let mut config = get_sample_valid_config();
 
     // Rename an existing provider to start with `tensorzero::`
-    let old_openai_provider = config["models"]["gpt-4.1-mini"]["providers"]
+    let old_openai_provider = config["models"]["gpt-5-mini"]["providers"]
         .as_table_mut()
         .unwrap()
         .remove("openai")
-        .expect("Did not find provider `openai` under `gpt-4.1-mini`");
-    config["models"]["gpt-4.1-mini"]["providers"]
+        .expect("Did not find provider `openai` under `gpt-5-mini`");
+    config["models"]["gpt-5-mini"]["providers"]
         .as_table_mut()
         .unwrap()
         .insert("tensorzero::openai".to_string(), old_openai_provider);
 
     // Update the routing entry to match the new provider name
-    let routing = config["models"]["gpt-4.1-mini"]["routing"]
+    let routing = config["models"]["gpt-5-mini"]["routing"]
         .as_array_mut()
         .expect("Expected routing to be an array");
     for entry in routing.iter_mut() {
@@ -1281,7 +1282,7 @@ async fn test_config_validate_model_provider_name_tensorzero_prefix() {
 
     let result = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config))).await;
 
-    assert!(result.unwrap_err().to_string().contains("`models.gpt-4.1-mini.routing`: Provider name cannot start with 'tensorzero::': tensorzero::openai"));
+    assert!(result.unwrap_err().to_string().contains("`models.gpt-5-mini.routing`: Provider name cannot start with 'tensorzero::': tensorzero::openai"));
 }
 
 /// Ensure that get_templates returns the correct templates
@@ -1559,7 +1560,7 @@ async fn test_config_load_shorthand_models_only() {
         [functions.generate_draft.variants.openai_promptA]
         type = "chat_completion"
         weight = 0.9
-        model = "openai::gpt-4.1-mini"
+        model = "openai::gpt-5-mini"
         "#
             .as_bytes(),
         )
@@ -3309,25 +3310,86 @@ async fn test_config_file_glob_integration() {
 
     // Create directory structure
     let config_dir = temp_dir.path().join("config");
-    std::fs::create_dir(&config_dir).unwrap();
+    let sub_dir = config_dir.join("subdir");
+    std::fs::create_dir_all(&sub_dir).unwrap();
 
     // Create some test files
     std::fs::write(config_dir.join("base.toml"), "[test]\nkey = \"base\"").unwrap();
     std::fs::write(config_dir.join("dev.toml"), "[test]\nkey = \"dev\"").unwrap();
     std::fs::write(config_dir.join("README.md"), "# README").unwrap();
+    // Create a .toml file in a subdirectory — should NOT be matched by *.toml
+    std::fs::write(sub_dir.join("nested.toml"), "[test]\nkey = \"nested\"").unwrap();
 
     // Test glob pattern matching
     let glob_pattern = format!("{}/*.toml", config_dir.display());
     let config_glob = ConfigFileGlob::new(glob_pattern).unwrap();
 
-    // Should match 2 .toml files, not the .md file
-    assert_eq!(config_glob.paths.len(), 2);
+    // Should match only 2 top-level .toml files, not the .md file or the nested .toml
+    assert_eq!(
+        config_glob.paths.len(),
+        2,
+        "*.toml should only match files in the immediate directory, not subdirectories"
+    );
     assert!(
         config_glob
             .paths
             .iter()
-            .all(|p| p.extension().unwrap() == "toml")
+            .all(|p| p.extension().unwrap() == "toml"),
+        "All matched files should have .toml extension"
     );
+}
+
+/// Test that `*.toml` does not match files inside Kubernetes ConfigMap hidden
+/// timestamped directories. Kubernetes mounts ConfigMaps with a symlink structure:
+///
+/// ```text
+/// /app/config/
+/// ├── ..2026_02_21_00_33_52.1026899871/   ← real directory with actual files
+/// │   ├── app.toml
+/// │   └── db.toml
+/// ├── ..data -> ..2026_02_21_00_33_52.1026899871  ← symlink
+/// ├── app.toml -> ..data/app.toml                 ← symlink
+/// └── db.toml -> ..data/db.toml                   ← symlink
+/// ```
+///
+/// Without `literal_separator(true)`, `*.toml` would match files inside the
+/// hidden directory, causing every config key to be loaded twice.
+#[tokio::test]
+async fn test_config_file_glob_ignores_k8s_configmap_hidden_dirs() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let config_dir = temp_dir.path().join("config");
+    std::fs::create_dir(&config_dir).unwrap();
+
+    // Simulate Kubernetes ConfigMap hidden timestamped directory
+    let hidden_dir = config_dir.join("..2026_02_21_00_33_52.1026899871");
+    std::fs::create_dir(&hidden_dir).unwrap();
+
+    // Create files in the hidden directory (the "real" files in K8s)
+    std::fs::write(hidden_dir.join("app.toml"), "[app]\nkey = \"value\"").unwrap();
+    std::fs::write(hidden_dir.join("db.toml"), "[db]\nkey = \"value\"").unwrap();
+
+    // Create top-level files (in K8s these would be symlinks, but for this test
+    // we use real files since the glob behavior is the same either way)
+    std::fs::write(config_dir.join("app.toml"), "[app]\nkey = \"value\"").unwrap();
+    std::fs::write(config_dir.join("db.toml"), "[db]\nkey = \"value\"").unwrap();
+
+    let glob_pattern = format!("{}/*.toml", config_dir.display());
+    let config_glob = ConfigFileGlob::new(glob_pattern).unwrap();
+
+    // Should match only the 2 top-level files, not the 2 files in the hidden directory
+    assert_eq!(
+        config_glob.paths.len(),
+        2,
+        "*.toml should not match files inside K8s ConfigMap hidden timestamped directories"
+    );
+    // Verify none of the matched paths contain the hidden directory
+    for path in &config_glob.paths {
+        let path_str = path.display().to_string();
+        assert!(
+            !path_str.contains("..2026"),
+            "Matched path `{path_str}` should not be inside the hidden timestamped directory"
+        );
+    }
 }
 
 #[tokio::test]
@@ -3344,12 +3406,48 @@ async fn test_config_file_glob_recursive() {
     std::fs::write(base_dir.join("base.toml"), "[test]\nkey = \"base\"").unwrap();
     std::fs::write(sub_dir.join("nested.toml"), "[test]\nkey = \"nested\"").unwrap();
 
-    // Test recursive glob pattern
+    // Test recursive glob pattern — ** should still match across path separators
     let glob_pattern = format!("{}/**/*.toml", base_dir.display());
     let config_glob = ConfigFileGlob::new(glob_pattern).unwrap();
 
-    // Should match both files
-    assert_eq!(config_glob.paths.len(), 2);
+    // Should match both files (** crosses directories even with literal_separator)
+    assert_eq!(
+        config_glob.paths.len(),
+        2,
+        "**/*.toml should match files in subdirectories"
+    );
+}
+
+/// Verify that `*` does not match path separators (literal_separator behavior),
+/// while `**` still does. This is the core semantic distinction that prevents
+/// Kubernetes ConfigMap hidden directory issues.
+#[test]
+fn test_glob_star_does_not_cross_directories() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let base_dir = temp_dir.path().join("dir");
+    let sub_dir = base_dir.join("sub");
+    std::fs::create_dir_all(&sub_dir).unwrap();
+
+    std::fs::write(base_dir.join("a.toml"), "").unwrap();
+    std::fs::write(sub_dir.join("b.toml"), "").unwrap();
+
+    // Single * should only match top-level
+    let single_star = format!("{}/*.toml", base_dir.display());
+    let glob_single = ConfigFileGlob::new(single_star).unwrap();
+    assert_eq!(
+        glob_single.paths.len(),
+        1,
+        "Single * should not cross directory boundaries"
+    );
+
+    // Double ** should match recursively
+    let double_star = format!("{}/**/*.toml", base_dir.display());
+    let glob_double = ConfigFileGlob::new(double_star).unwrap();
+    assert_eq!(
+        glob_double.paths.len(),
+        2,
+        "** should match across directory boundaries"
+    );
 }
 
 /// Test that built-in functions are automatically loaded
@@ -3512,9 +3610,8 @@ async fn test_experimentation_with_namespaces_valid() {
     );
 }
 
-// TODO: implement track-and-stop for namespaces, delete
 #[tokio::test]
-async fn test_experimentation_namespace_track_and_stop_rejected() {
+async fn test_experimentation_namespace_track_and_stop_loads() {
     let config_str = r#"
         [models.test]
         routing = ["test"]
@@ -3553,17 +3650,21 @@ async fn test_experimentation_namespace_track_and_stop_rejected() {
         "#;
 
     let config = toml::from_str(config_str).expect("Failed to parse TOML config");
-    let err = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config)))
+    let loaded = Box::pin(Config::load_from_toml(ConfigInput::Fresh(config)))
         .await
-        .expect_err("Namespace with track_and_stop should fail to load");
+        .expect("Namespace with track_and_stop should load successfully");
 
-    let err_msg = err.to_string();
+    let function_config = loaded.functions.get("test_function").unwrap();
+    let experimentation = function_config.experimentation_with_namespaces();
     assert!(
-        err_msg.contains("track_and_stop"),
-        "Error should mention `track_and_stop`: {err_msg}"
+        experimentation.has_namespace_config("mobile"),
+        "Should have a `mobile` namespace config"
     );
     assert!(
-        err_msg.contains("mobile"),
-        "Error should mention the namespace name: {err_msg}"
+        matches!(
+            experimentation.get_for_namespace(Some(&Namespace::new("mobile").unwrap())),
+            crate::experimentation::ExperimentationConfig::TrackAndStop(_)
+        ),
+        "The `mobile` namespace config should be TrackAndStop"
     );
 }

@@ -178,11 +178,10 @@ import json
 import time
 import urllib.parse
 import warnings
-from typing import List, Optional
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 from . import Accounts, client
-from .logs.telephony import Telephony
 
 USER_STATUS_ACTIVE = "active"
 USER_STATUS_BYPASS = "bypass"
@@ -629,12 +628,21 @@ class Admin(client.Client):
             row['host'] = self.host
         return response
 
-    def get_telephony_log(self, mintime=0, api_version=1, **kwargs):
+    def get_telephony_log(self, mintime: int = 0, api_version: int = 1, maxtime: Optional[int] = 0, 
+                              limit: Optional[int] = 100, sort: Optional[str] = 'desc', 
+                              next_offset: Optional[str] = None, account_id = None, 
+                              filters = None, **kwargs):
         """
         Returns telephony log events.
 
         mintime - Fetch events only >= mintime (to avoid duplicate
             records that have already been fetched)
+        maxtime - Fetch events only <= maxtime. (API Version 2 only)
+        limit - Number of results to limit to, default 100, max 1000. (API Version 2 only)
+        sort - Sort order to be applied, default 'desc'. (API Version 2 only)
+        next_offset - Used to grab the next set of results from a previous response. (API Version 2 only)
+        account_id - Filter by account_id. (API Version 2 only) Type undocumented.
+        filters - Filter by filters. (API Version 2 only) Type undocumented.
         api_version - The API version of the handler to use.
             Currently, the default api version is v1, but the v1 API
             will be deprecated in a future version of the Duo Admin API.
@@ -683,11 +691,42 @@ class Admin(client.Client):
 
         if api_version not in [1,2]:
             raise ValueError("Invalid API Version")
+        
+        params = {}
 
-        if api_version == 2:
-            return Telephony.get_telephony_logs_v2(self.json_api_call, self.host, **kwargs)
-        return Telephony.get_telephony_logs_v1(self.json_api_call, self.host, mintime=mintime)
+        today = datetime.now(tz=timezone.utc)
+        # If mintime is not provided, the script defaults it to 180 days in past
+        mintime = int((today - timedelta(days=180)).timestamp() * (1000 if api_version == 2 else 1)) if  not mintime else mintime
+        params["mintime"] = f"{int(mintime)}"
 
+        if api_version == 2: # Add additional parameters for API Version 2
+            if limit > 1000: 
+                limit = 1000 # Limit is capped at 1000
+            params["limit"] = f"{int(limit)}"
+
+            params["sort"] = 'ts:desc' if sort.lower() == 'desc' else 'ts:asc'
+            # if maxtime is not provided, the script defaults it to now
+            maxtime = int(today.timestamp() * 1000) - 120 if not maxtime else maxtime
+            params["maxtime"] = f"{int(maxtime)}"
+            if next_offset:
+                params["next_offset"] = next_offset
+            if account_id:
+                params["account_id"] = account_id
+            if filters:
+                params["filters"] = filters
+        response = self.json_api_call("GET", '/admin/v{}/logs/telephony'.format(api_version), params)
+
+        if api_version == 1:
+            for row in response:
+                row["eventtype"] = "telephony"
+                row["host"] = self.host
+        else:
+            for row in response["items"]:
+                row["eventtype"] = "telephony"
+                row["host"] = self.host
+        
+        return response
+    
     def get_users_iterator(self):
         """
         Returns iterator of user objects.
@@ -805,7 +844,7 @@ class Admin(client.Client):
     def add_user(self, username, realname=None, status=None,
                  notes=None, email=None, firstname=None, lastname=None,
                  alias1=None, alias2=None, alias3=None, alias4=None,
-                 aliases=None):
+                 aliases=None, custom_attribute_map=None):
         """
         Adds a user.
 
@@ -818,6 +857,9 @@ class Admin(client.Client):
         lastname - User's surname for ID Proofing (optional)
         alias1..alias4 - Aliases for the user's primary username (optional)
         aliases - Aliases for the user's primary username (optional)
+        custom_attribute_map - Map of custom attributes (optional). When provided this will be of type Dict[str|str]. e.g.
+        {"attribute_name":"attribute_value"}
+        Note: the custom attribute names have to be created prior to adding users
 
         Returns newly created user object.
 
@@ -848,6 +890,10 @@ class Admin(client.Client):
             params['alias4'] = alias4
         if aliases is not None:
             params['aliases'] = aliases
+        if custom_attribute_map is not None:
+            for key in custom_attribute_map:
+                params[f'custom_attributes.{key}'] = custom_attribute_map[key]
+        
         response = self.json_api_call('POST',
                                       '/admin/v1/users',
                                       params)
@@ -2040,8 +2086,8 @@ class Admin(client.Client):
         helpdesk_bypass_expiration - <int:minutes>|0
         helpdesk_message - <str:message|None>
         helpdesk_can_send_enroll_email - True|False|None
-        reactivation_url - <str:url>|None
-        reactivation_integration_key - <str:url>|None
+        reactivation_url - Deprecated; ignored if specified.
+        reactivation_integration_key - Deprecated; ignored if specified.
         security_checkup_enabled - True|False|None
         user_managers_can_put_users_in_bypass - True|False|None
         email_activity_notification_enabled = True|False|None
@@ -2113,10 +2159,6 @@ class Admin(client.Client):
         if helpdesk_can_send_enroll_email is not None:
             params['helpdesk_can_send_enroll_email'] = ('1' if
               helpdesk_can_send_enroll_email else '0')
-        if reactivation_url is not None:
-            params['reactivation_url'] = reactivation_url
-        if reactivation_integration_key is not None:
-            params['reactivation_integration_key'] = reactivation_integration_key
         if security_checkup_enabled is not None:
             params['security_checkup_enabled'] = ('1' if
                 security_checkup_enabled else '0')
@@ -3718,6 +3760,49 @@ class Admin(client.Client):
             },
         )
         return response
+
+    def start_idv(self, user_id):
+        """
+        Start identity verification process
+
+        Args:
+            user_id (str) - The ID of the Duo user (required)
+
+        Returns (dict) - Dictionary containing details of IDV process
+        """
+        path = f"/admin/v2/identity_verification/{user_id}/start"
+        return self.json_api_call(
+                "POST",
+                path,
+                {}
+                )
+
+    def cancel_idv(self, user_id, inquiry_id):
+        """
+        Cancel identity verification process
+
+        Args:
+            user_id (str) - The ID of the Duo user (required)
+            inquiry_id (str) - The inquiry_id of the request to cancel (required)
+        """
+        path = f"/admin/v2/identity_verification/{user_id}/cancel"
+        return self.json_api_call(
+                "POST",
+                path,
+                {"inquiry_id": inquiry_id}
+                )
+
+    def get_idv_status(self, user_id):
+        """
+        Get the status of a identity verification process
+
+        Args:
+            user_id (str) - The ID of the Duo user (required)
+
+        Returns (dict) - Dictionary containing details of the identity verification process status
+        """
+        path = f"/admin/v2/identity_verification/{user_id}/status"
+        return self.json_api_call("GET", path, {})
 
 
 class AccountAdmin(Admin):

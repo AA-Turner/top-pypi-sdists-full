@@ -23,6 +23,7 @@ class GroupMemberArgs:
                  member_object_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a GroupMember resource.
+
         :param pulumi.Input[_builtins.str] group_object_id: The object ID of the group you want to add the member to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals. Changing this forces a new resource to be created.
         """
@@ -61,6 +62,7 @@ class _GroupMemberState:
                  member_object_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering GroupMember resources.
+
         :param pulumi.Input[_builtins.str] group_object_id: The object ID of the group you want to add the member to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals. Changing this forces a new resource to be created.
         """
@@ -141,7 +143,8 @@ class GroupMember(pulumi.CustomResource):
         $ pulumi import azuread:index/groupMember:GroupMember example 00000000-0000-0000-0000-000000000000/member/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Azure AD Group Object ID and the target Member Object ID in the format `{GroupObjectID}/member/{MemberObjectID}`.
+        > This ID format is unique to Terraform and is composed of the Azure AD Group Object ID and the target Member Object ID in the format `{GroupObjectID}/member/{MemberObjectID}`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -192,7 +195,8 @@ class GroupMember(pulumi.CustomResource):
         $ pulumi import azuread:index/groupMember:GroupMember example 00000000-0000-0000-0000-000000000000/member/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Azure AD Group Object ID and the target Member Object ID in the format `{GroupObjectID}/member/{MemberObjectID}`.
+        > This ID format is unique to Terraform and is composed of the Azure AD Group Object ID and the target Member Object ID in the format `{GroupObjectID}/member/{MemberObjectID}`.
+
 
         :param str resource_name: The name of the resource.
         :param GroupMemberArgs args: The arguments to use to populate this resource's properties.

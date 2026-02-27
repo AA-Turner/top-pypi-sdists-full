@@ -138,14 +138,16 @@ class CLA(base_optimizer.BaseOptimizer):
         g1 = np.dot(np.dot(onesF.T, covarF_inv), meanF)
         g2 = np.dot(np.dot(onesF.T, covarF_inv), onesF)
         if wB is None:
-            g, w1 = float(-self.ls[-1] * g1 / g2 + 1 / g2), 0
+            g = -self.ls[-1] * g1 / g2 + 1 / g2
+            w1 = 0
         else:
             onesB = np.ones(wB.shape)
             g3 = np.dot(onesB.T, wB)
             g4 = np.dot(covarF_inv, covarFB)
             w1 = np.dot(g4, wB)
             g4 = np.dot(onesF.T, w1)
-            g = float(-self.ls[-1] * g1 / g2 + (1 - g3 + g4) / g2)
+            g = -self.ls[-1] * g1 / g2 + (1 - g3 + g4) / g2
+        g = float(g[0, 0])
         # 2) compute weights
         w2 = np.dot(covarF_inv, onesF)
         w3 = np.dot(covarF_inv, meanF)
@@ -167,14 +169,16 @@ class CLA(base_optimizer.BaseOptimizer):
         # 3) Lambda
         if wB is None:
             # All free assets
-            return float((c4[i] - c1 * bi) / c), bi
+            res = (c4[i] - c1 * bi) / c
         else:
             onesB = np.ones(wB.shape)
             l1 = np.dot(onesB.T, wB)
             l2 = np.dot(covarF_inv, covarFB)
             l3 = np.dot(l2, wB)
             l2 = np.dot(onesF.T, l3)
-            return float(((1 - l1 + l2) * c4[i] - c1 * (bi + l3[i])) / c), bi
+            res = ((1 - l1 + l2) * c4[i] - c1 * (bi + l3[i])) / c
+        res = float(res[0, 0])
+        return res, bi
 
     def _get_matrices(self, f):
         # Slice covarF,covarFB,covarB,meanF,meanB,wF,wB
@@ -194,18 +198,25 @@ class CLA(base_optimizer.BaseOptimizer):
 
     @staticmethod
     def _reduce_matrix(matrix, listX, listY):
-        # Reduce a matrix to the provided list of rows and columns
+        """
+        Extract a submatrix from the given matrix using specified row and column indices.
+
+        Uses numpy advanced indexing with np.ix_ for vectorized selection,
+        which is significantly faster than the previous nested loop implementation
+        for large matrices.
+
+        :param matrix: input matrix to extract submatrix from
+        :type matrix: np.ndarray
+        :param listX: row indices to select
+        :type listX: list
+        :param listY: column indices to select
+        :type listY: list
+        :return: submatrix with selected rows and columns, or None if indices are empty
+        :rtype: np.ndarray or None
+        """
         if len(listX) == 0 or len(listY) == 0:
-            return
-        matrix_ = matrix[:, listY[0] : listY[0] + 1]
-        for i in listY[1:]:
-            a = matrix[:, i : i + 1]
-            matrix_ = np.append(matrix_, a, 1)
-        matrix__ = matrix_[listX[0] : listX[0] + 1, :]
-        for i in listX[1:]:
-            a = matrix_[i : i + 1, :]
-            matrix__ = np.append(matrix__, a, 0)
-        return matrix__
+            return None
+        return matrix[np.ix_(listX, listY)]
 
     def _purge_num_err(self, tol):
         # Purge violations of inequality constraints (associated with ill-conditioned cov matrix)
@@ -314,11 +325,11 @@ class CLA(base_optimizer.BaseOptimizer):
                 covarF_inv = np.linalg.inv(covarF)
                 j = 0
                 for i in f:
-                    l, bi = self._compute_lambda(
+                    lam, bi = self._compute_lambda(
                         covarF_inv, covarFB, meanF, wB, j, [self.lB[i], self.uB[i]]
                     )
-                    if CLA._infnone(l) > CLA._infnone(l_in):
-                        l_in, i_in, bi_in = l, i, bi
+                    if CLA._infnone(lam) > CLA._infnone(l_in):
+                        l_in, i_in, bi_in = lam, i, bi
                     j += 1
             # 2) case b): Free one bounded weight
             l_out = None
@@ -327,7 +338,7 @@ class CLA(base_optimizer.BaseOptimizer):
                 for i in b:
                     covarF, covarFB, meanF, wB = self._get_matrices(f + [i])
                     covarF_inv = np.linalg.inv(covarF)
-                    l, bi = self._compute_lambda(
+                    lam, bi = self._compute_lambda(
                         covarF_inv,
                         covarFB,
                         meanF,
@@ -335,10 +346,10 @@ class CLA(base_optimizer.BaseOptimizer):
                         meanF.shape[0] - 1,
                         self.w[-1][i],
                     )
-                    if (self.ls[-1] is None or l < self.ls[-1]) and l > CLA._infnone(
-                        l_out
-                    ):
-                        l_out, i_out = l, i
+                    if (
+                        self.ls[-1] is None or lam < self.ls[-1]
+                    ) and lam > CLA._infnone(l_out):
+                        l_out, i_out = lam, i
             if (l_in is None or l_in < 0) and (l_out is None or l_out < 0):
                 # 3) compute minimum variance solution
                 self.ls.append(0)

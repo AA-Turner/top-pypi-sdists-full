@@ -3,6 +3,8 @@
 #
 
 import io
+import json
+import logging
 
 from snowflake.snowpark.files import SnowflakeFile
 from snowflake.snowpark_connect.utils.bz2_stream_utils import (
@@ -124,11 +126,11 @@ class BZ2FileProcessorUDTF:
     Returns:
         A table with columns:
         - line_number: The line number within this split (1-indexed)
-        - line_content: The content of the line (bytes decoded as UTF-8)
+        - line_content: The content of the line as a VARIANT
     """
 
     def __init__(self) -> None:
-        self._line_number = 0
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def process(
         self,
@@ -137,6 +139,8 @@ class BZ2FileProcessorUDTF:
         start_byte: int,
         end_byte: int,
         split_size_bytes: int,
+        mode: str,
+        compressed: bool,
     ):
         """
         Process a byte range and yield each line as a record.
@@ -166,26 +170,47 @@ class BZ2FileProcessorUDTF:
         raw_stream = SnowflakeFileByteRangeStream(file_url, byte_range)
 
         # Layer 2: BZ2 decompression with block resync
-        bz2_stream = ResyncingBZ2SplitRawStream(raw_stream)
+        compressed_stream = (
+            ResyncingBZ2SplitRawStream(raw_stream) if compressed else raw_stream
+        )
 
         # Layer 3: Line record extraction with boundary handling
-        record_stream = ResyncingLineRecordRawStream(bz2_stream)
+        record_stream = ResyncingLineRecordRawStream(compressed_stream)
 
         # Wrap in BufferedReader for efficient line reading
         buffered_stream = io.BufferedReader(record_stream)
 
+        bytes_read = 0
+        line_number = 0
         try:
             # Read and yield each line
             for line_bytes in buffered_stream:
-                self._line_number += 1
-                # Decode bytes to string, strip trailing newline
+                bytes_read += len(line_bytes)
+                line_number += 1
                 line_content = line_bytes.decode("utf-8", errors="replace").rstrip(
                     "\n\r"
                 )
-                yield (self._line_number, line_content)
+                try:
+                    # Decode bytes to string, strip trailing newline
+                    yield (line_number, json.loads(line_content))
+                except json.JSONDecodeError as e:
+                    if mode.lower() == "failfast":
+                        raise e
+                    else:
+                        # Ignore corrupt records
+                        self._logger.warning("Error parsing line: %s", line_content)
+
+                # Handle reading last record across split boundaries for uncompressed case
+                # In case of a compressed file this is automatically handled by ResyncingBZ2SplitRawStream
+                if (
+                    not compressed
+                    and (record_stream._skipped_bytes + bytes_read) >= split_size_bytes
+                ):
+                    # We are past the split boundary
+                    break
         finally:
             buffered_stream.close()
 
     def end_partition(self):
         """Called at the end of each partition. Reset line counter."""
-        self._line_number = 0
+        pass

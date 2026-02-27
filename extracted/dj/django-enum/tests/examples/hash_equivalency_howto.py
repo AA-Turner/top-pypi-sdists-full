@@ -14,14 +14,14 @@ assert obj.not_hash_eq != "V1"
 assert obj.hash_eq == obj.hash_eq_str == "V1"
 
 # here is the problem that can break some Django internals in rare instances:
-assert dict(HashEquivalencyExample._meta.get_field("not_hash_eq").flatchoices) == {
+assert dict(HashEquivalencyExample._meta.get_field("not_hash_eq").flatchoices) == {  # pyright: ignore[reportAttributeAccessIssue]
     "V1": "VALUE1",
     "V2": "VALUE2",
     "V3": "VALUE3"
 }
 
 try:
-    dict(HashEquivalencyExample._meta.get_field("not_hash_eq").flatchoices)[
+    dict(HashEquivalencyExample._meta.get_field("not_hash_eq").flatchoices)[  # pyright: ignore[reportAttributeAccessIssue]
         HashEquivalencyExample.NotHashEq.VALUE1
     ]
     assert False
@@ -29,9 +29,9 @@ except KeyError:
     assert True
 
 # if we've made our enum hash equivalent though, this works:
-assert dict(HashEquivalencyExample._meta.get_field("hash_eq").flatchoices)[
+assert dict(HashEquivalencyExample._meta.get_field("hash_eq").flatchoices)[  # pyright: ignore[reportAttributeAccessIssue]
     HashEquivalencyExample.HashEq.VALUE1
 ] == "VALUE1"
-assert dict(HashEquivalencyExample._meta.get_field("hash_eq_str").flatchoices)[
+assert dict(HashEquivalencyExample._meta.get_field("hash_eq_str").flatchoices)[  # pyright: ignore[reportAttributeAccessIssue]
     HashEquivalencyExample.HashEqStr.VALUE1
 ] == "VALUE1"

@@ -20,7 +20,6 @@ from urllib.parse import urlparse
 import click,requests,yaml
 from click import ClickException
 from localstack import config,constants
-from localstack.cli import console
 from localstack.constants import APPLICATION_JSON,HEADER_CONTENT_TYPE,LOCALHOST_HOSTNAME
 from localstack.pro.core.bootstrap import auth
 from localstack.pro.core.bootstrap.auth import get_platform_auth_headers
@@ -35,6 +34,7 @@ from localstack.utils.http import safe_requests
 from localstack.utils.strings import to_str
 from packaging import version
 from requests.structures import CaseInsensitiveDict
+from rich.console import Console
 from rich.progress import Progress
 LOG=logging.getLogger(__name__)
 HEADER_LS_API_KEY='ls-api-key'
@@ -105,16 +105,16 @@ def _get_remote_params_payload(remote:RemoteConfigParams|_A)->PodSaveRequest:
 	A.remote_params=B();return{'remote':A.to_dict()}
 class CloudPodsClient(CloudPodsService):
 	def __init__(A,interactive:bool=_B)->_A:A.interactive=interactive
-	def _process_response(J,response,message:str):
-		F='operation';C=message;B=console.status(C);B.start()
-		for G in response.iter_lines():
-			A=json.loads(G)
+	def _process_response(K,response,message:str):
+		F='operation';C=message;G=Console();B=G.status(C);B.start()
+		for H in response.iter_lines():
+			A=json.loads(H)
 			if A[_D]=='log':B.update(A[_F])
-			if A[_D]==_G:D,H,E=A[_G],A[_H],A[F];C=f"{D}: {E} succeeded"if H=='ok'else f"{D}: {E} failed";B.update(C)
+			if A[_D]==_G:D,I,E=A[_G],A[_H],A[F];C=f"{D}: {E} succeeded"if I=='ok'else f"{D}: {E} failed";B.update(C)
 			elif A[_D]=='completion':
 				B.stop()
 				if A[_H]=='error':raise Exception(A.get(_F))
-				if A[F]=='save':I=PodInfo(**A['info']);return I
+				if A[F]=='save':J=PodInfo(**A['info']);return J
 		B.stop()
 	def save(C,pod_name:str,attributes:CloudPodRemoteAttributes|_A=_A,remote:RemoteConfigParams|_A=_A,local:bool=_B,version:int|_A=_A,secret:str|_A=_A)->PodInfo:
 		H=version;E=secret;D=pod_name;F=f"{get_runtime_pods_endpoint(E)}/{D}?"
@@ -190,15 +190,15 @@ class StateService:
 		B:dict=get_environment_metadata();B['name']=os.path.basename(C);B.update(F)
 		with zipfile.ZipFile(file=A,mode='a')as H:H.writestr(CLOUDPODS_METADATA_FILE,yaml.dump(B))
 		return F
-	def import_pod(I,source:str,show_progress:bool=_C)->_A:
-		E='pro';C=urlparse(source);A=os.path.abspath(os.path.join(C.netloc,C.path))
+	def import_pod(J,source:str,show_progress:bool=_C)->_A:
+		E='pro';F=Console();C=urlparse(source);A=os.path.abspath(os.path.join(C.netloc,C.path))
 		if not os.path.exists(A):raise Exception(f"Path {A} does not exist")
 		if not os.path.isfile(A):raise Exception(f"Path {A} is not a file")
 		with open(A,mode='rb')as B:
-			with zipfile.ZipFile(B,'r')as F:D=read_metadata_from_pod(F)or{}
-			G=D.get(_I,[]);H:bool=get_environment_metadata().get(E)
-			if D.get(E,_B)and not H:console.print('Warning: You are trying to load a Cloud Pod generated with a Pro license.The loaded state might be incomplete.')
-			B.seek(0);load_local_state_from_open_zipfile(file=B,number_services=len(G),show_progress=show_progress)
+			with zipfile.ZipFile(B,'r')as G:D=read_metadata_from_pod(G)or{}
+			H=D.get(_I,[]);I:bool=get_environment_metadata().get(E)
+			if D.get(E,_B)and not I:F.print('Warning: You are trying to load a Cloud Pod generated with a Pro license.The loaded state might be incomplete.')
+			B.seek(0);load_local_state_from_open_zipfile(file=B,number_services=len(H),show_progress=show_progress)
 def list_public_pods()->list[str]:
 	B=create_platform_url('public');C=auth.get_platform_auth_headers();A=safe_requests.get(B,headers=C)
 	if not A.ok:raise Exception(to_str(A.content))

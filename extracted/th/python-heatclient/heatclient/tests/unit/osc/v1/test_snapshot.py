@@ -101,6 +101,7 @@ class TestRestoreSnapshot(TestStack):
 
 class TestSnapshotCreate(TestStack):
     get_response = {
+        "action": "CREATE",
         "status": "IN_PROGRESS",
         "name": "test_snapshot",
         "status_reason": None,

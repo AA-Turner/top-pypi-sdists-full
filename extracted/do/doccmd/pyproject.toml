@@ -47,10 +47,10 @@ dependencies = [
     # Pin this dependency as we expect:
     # * It might have breaking changes
     # * It is not a direct dependency of the user
-    "sybil-extras==2026.1.27",
+    "sybil-extras==2026.2.26.1",
 ]
 optional-dependencies.dev = [
-    "actionlint-py==1.7.10.24",
+    "actionlint-py==1.7.11.24",
     "ansi==0.3.7",
     "check-manifest==0.51",
     "deptry==0.24.0",
@@ -61,21 +61,21 @@ optional-dependencies.dev = [
     "interrogate==1.7.0",
     "mypy[faster-cache]==1.19.1",
     "mypy-strict-kwargs==2026.1.12",
-    "prek==0.3.2",
+    "prek==0.3.3",
     "pydocstringformatter==0.7.5",
     "pydocstyle==6.3",
     "pygments==2.19.2",
-    "pylint[spelling]==4.0.4",
+    "pylint[spelling]==4.0.5",
     "pylint-per-file-ignores==3.2.0",
-    "pyproject-fmt==2.16.0",
-    "pyrefly==0.52.0",
+    "pyproject-fmt==2.16.2",
+    "pyrefly==0.54.0",
     "pyright==1.1.408",
     "pyroma==5.0.1",
     "pytest==9.0.2",
     "pytest-cov==7.0.0",
     "pytest-regressions==2.10.0",
     "pyyaml==6.0.3",
-    "ruff==0.15.1",
+    "ruff==0.15.4",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -89,7 +89,7 @@ optional-dependencies.dev = [
     "sphinx-pyproject==0.3.0",
     "sphinx-substitution-extensions==2026.1.12",
     "sphinxcontrib-spelling==8.0.2",
-    "ty==0.0.16",
+    "ty==0.0.19",
     "types-pygments==2.19.0.20251121",
     "vulture==2.14",
     "yamlfix==1.19.1",
@@ -325,8 +325,8 @@ keep_full_version = true
 max_supported_python = "3.14"
 
 [tool.pytest]
-ini_options.xfail_strict = true
-ini_options.log_cli = true
+xfail_strict = true
+log_cli = true
 
 [tool.coverage]
 run.branch = true
@@ -339,6 +339,7 @@ report.exclude_also = [
     "class .*\\bProtocol\\):",
     "if TYPE_CHECKING:",
 ]
+report.show_missing = true
 
 [tool.mypy]
 strict = true

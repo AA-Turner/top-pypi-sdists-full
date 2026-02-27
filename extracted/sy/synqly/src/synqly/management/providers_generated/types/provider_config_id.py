@@ -160,6 +160,11 @@ class ProviderConfigId(str, enum.Enum):
     AWS Cloud Security
     """
 
+    CLOUD_SECURITY_AWS_EVENT_BRIDGE_SQS = "cloudsecurity_awseventbridgesqs"
+    """
+    AWS EventBridge SQS
+    """
+
     CLOUD_SECURITY_CROWD_STRIKE = "cloudsecurity_crowdstrike"
     """
     CrowdStrike Falcon® Insight EDR
@@ -238,6 +243,11 @@ class ProviderConfigId(str, enum.Enum):
     IDENTITY_PING_ONE = "identity_pingone"
     """
     PingOne Cloud Platform
+    """
+
+    IDENTITY_WORKDAY = "identity_workday"
+    """
+    Workday Identity
     """
 
     INCIDENT_RESPONSE_INCIDENT_IO = "incidentresponse_incidentio"
@@ -624,6 +634,7 @@ class ProviderConfigId(str, enum.Enum):
         assets_tanium_cloud: typing.Callable[[], T_Result],
         assets_tanium_cloud_mock: typing.Callable[[], T_Result],
         cloud_security_aws: typing.Callable[[], T_Result],
+        cloud_security_aws_event_bridge_sqs: typing.Callable[[], T_Result],
         cloud_security_crowd_strike: typing.Callable[[], T_Result],
         cloud_security_defender: typing.Callable[[], T_Result],
         cloud_security_palo_alto: typing.Callable[[], T_Result],
@@ -640,6 +651,7 @@ class ProviderConfigId(str, enum.Enum):
         identity_google: typing.Callable[[], T_Result],
         identity_okta: typing.Callable[[], T_Result],
         identity_ping_one: typing.Callable[[], T_Result],
+        identity_workday: typing.Callable[[], T_Result],
         incident_response_incident_io: typing.Callable[[], T_Result],
         incident_response_pager_duty: typing.Callable[[], T_Result],
         notifications_jira: typing.Callable[[], T_Result],
@@ -768,6 +780,8 @@ class ProviderConfigId(str, enum.Enum):
             return assets_tanium_cloud_mock()
         if self is ProviderConfigId.CLOUD_SECURITY_AWS:
             return cloud_security_aws()
+        if self is ProviderConfigId.CLOUD_SECURITY_AWS_EVENT_BRIDGE_SQS:
+            return cloud_security_aws_event_bridge_sqs()
         if self is ProviderConfigId.CLOUD_SECURITY_CROWD_STRIKE:
             return cloud_security_crowd_strike()
         if self is ProviderConfigId.CLOUD_SECURITY_DEFENDER:
@@ -800,6 +814,8 @@ class ProviderConfigId(str, enum.Enum):
             return identity_okta()
         if self is ProviderConfigId.IDENTITY_PING_ONE:
             return identity_ping_one()
+        if self is ProviderConfigId.IDENTITY_WORKDAY:
+            return identity_workday()
         if self is ProviderConfigId.INCIDENT_RESPONSE_INCIDENT_IO:
             return incident_response_incident_io()
         if self is ProviderConfigId.INCIDENT_RESPONSE_PAGER_DUTY:

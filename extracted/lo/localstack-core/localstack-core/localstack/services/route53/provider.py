@@ -11,6 +11,7 @@ from localstack.aws.api.route53 import (
     ChangeStatus,
     CreateHostedZoneResponse,
     DeleteHealthCheckResponse,
+    DeleteHostedZoneResponse,
     DNSName,
     GetChangeResponse,
     GetHealthCheckResponse,
@@ -26,15 +27,21 @@ from localstack.aws.api.route53 import (
 from localstack.aws.connect import connect_to
 from localstack.services.moto import call_moto
 from localstack.services.plugins import ServiceLifecycleHook
+from localstack.services.route53.models import route53_stores
 from localstack.state import StateVisitor
 
 
 class Route53Provider(Route53Api, ServiceLifecycleHook):
     def accept_state_visitor(self, visitor: StateVisitor):
-        from localstack.services.route53.models import route53_stores
 
         visitor.visit(route53_backends)
         visitor.visit(route53_stores)
+
+    # No tag deletion logic to handle in Community. Overwritten in Pro implementation.
+    def remove_resource_tags(
+        self, context: RequestContext, resource_type: str, resource_id: str
+    ) -> None:
+        return
 
     def create_hosted_zone(
         self,
@@ -114,6 +121,13 @@ class Route53Provider(Route53Api, ServiceLifecycleHook):
             )
         )
 
+    def delete_hosted_zone(
+        self, context: RequestContext, id: ResourceId, **kwargs
+    ) -> DeleteHostedZoneResponse:
+        response = call_moto(context)
+        self.remove_resource_tags(context=context, resource_type="hostedzone", resource_id=id)
+        return response
+
     def delete_health_check(
         self, context: RequestContext, health_check_id: HealthCheckId, **kwargs
     ) -> DeleteHealthCheckResponse:
@@ -126,4 +140,8 @@ class Route53Provider(Route53Api, ServiceLifecycleHook):
             )
 
         route53_backends[context.account_id][context.partition].delete_health_check(health_check_id)
-        return {}
+        self.remove_resource_tags(
+            context=context, resource_type="healthcheck", resource_id=health_check_id
+        )
+
+        return DeleteHealthCheckResponse()

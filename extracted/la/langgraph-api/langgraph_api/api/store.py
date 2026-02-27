@@ -126,7 +126,7 @@ async def delete_item(request: ApiRequest):
 
 @retry_db
 async def search_items(request: ApiRequest):
-    """Search for items within a namespace prefix."""
+    """Search or list items within a namespace prefix."""
     payload = await request.json(StoreSearchRequest)
     namespace_prefix = tuple(payload["namespace_prefix"])
     if err := _validate_namespace(namespace_prefix):

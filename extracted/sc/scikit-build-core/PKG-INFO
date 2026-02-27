@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit_build_core
-Version: 0.12.0
+Version: 0.12.1
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -335,7 +335,7 @@ strict-config = true
 experimental = false
 
 # If set, this will provide a method for backward compatibility.
-minimum-version = "0.11"  # current version
+minimum-version = "0.12"  # current version
 
 # The CMake build directory. Defaults to a unique temporary directory.
 build-dir = ""
@@ -382,7 +382,7 @@ Science Foundation.
 
 <!-- prettier-ignore-start -->
 [OAC-2209877]:              https://www.nsf.gov/awardsearch/showAward?AWD_ID=2209877&HistoricalAwards=false
-[actions-badge]:            https://github.com/scikit-build/scikit-build-core/workflows/CI/badge.svg
+[actions-badge]:            https://github.com/scikit-build/scikit-build-core/actions/workflows/ci.yml/badge.svg
 [actions-link]:             https://github.com/scikit-build/scikit-build-core/actions
 [cmeel]:                    https://github.com/cmake-wheel/cmeel
 [codecov-badge]:            https://codecov.io/gh/scikit-build/scikit-build-core/branch/main/graph/badge.svg?token=ZLbQzIvyG8

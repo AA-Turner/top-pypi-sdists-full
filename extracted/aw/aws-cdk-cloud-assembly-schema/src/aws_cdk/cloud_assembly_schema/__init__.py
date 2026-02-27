@@ -1314,6 +1314,7 @@ class ContainerImageAssetCacheOption:
         "path": "path",
         "source_hash": "sourceHash",
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "build_secrets": "buildSecrets",
         "build_ssh": "buildSsh",
         "cache_disabled": "cacheDisabled",
@@ -1338,6 +1339,7 @@ class ContainerImageAssetMetadataEntry:
         path: builtins.str,
         source_hash: builtins.str,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -1359,6 +1361,7 @@ class ContainerImageAssetMetadataEntry:
         :param path: Path on disk to the asset.
         :param source_hash: The hash of the asset source.
         :param build_args: Build args to pass to the ``docker build`` command. Default: no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Default: no build contexts are passed
         :param build_secrets: Build secrets to pass to the ``docker build`` command. Default: no build secrets are passed
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Default: no ssh arg is passed
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -1390,6 +1393,7 @@ class ContainerImageAssetMetadataEntry:
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument source_hash", value=source_hash, expected_type=type_hints["source_hash"])
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
             check_type(argname="argument build_ssh", value=build_ssh, expected_type=type_hints["build_ssh"])
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
@@ -1411,6 +1415,8 @@ class ContainerImageAssetMetadataEntry:
         }
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if build_secrets is not None:
             self._values["build_secrets"] = build_secrets
         if build_ssh is not None:
@@ -1473,6 +1479,17 @@ class ContainerImageAssetMetadataEntry:
         :default: no build args are passed
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        :default: no build contexts are passed
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -3640,6 +3657,7 @@ class DockerImageDestination(AwsDestination):
         "cache_to": "cacheTo",
         "directory": "directory",
         "docker_build_args": "dockerBuildArgs",
+        "docker_build_contexts": "dockerBuildContexts",
         "docker_build_secrets": "dockerBuildSecrets",
         "docker_build_ssh": "dockerBuildSsh",
         "docker_build_target": "dockerBuildTarget",
@@ -3659,6 +3677,7 @@ class DockerImageSource:
         cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         directory: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -3675,6 +3694,7 @@ class DockerImageSource:
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to options are passed to the build command
         :param directory: The directory containing the Docker image build instructions. This path is relative to the asset manifest location. Default: - Exactly one of ``directory`` and ``executable`` is required
         :param docker_build_args: Additional build arguments. Only allowed when ``directory`` is set. Default: - No additional build arguments
+        :param docker_build_contexts: Additional build contexts. Only allowed when ``directory`` is set. Default: - No additional build contexts
         :param docker_build_secrets: Additional build secrets. Only allowed when ``directory`` is set. Default: - No additional build secrets
         :param docker_build_ssh: SSH agent socket or keys. Requires building with docker buildkit. Default: - No ssh flag is set
         :param docker_build_target: Target build stage in a Dockerfile with multiple build stages. Only allowed when ``directory`` is set. Default: - The last stage in the Dockerfile
@@ -3693,6 +3713,7 @@ class DockerImageSource:
             check_type(argname="argument cache_to", value=cache_to, expected_type=type_hints["cache_to"])
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
             check_type(argname="argument docker_build_args", value=docker_build_args, expected_type=type_hints["docker_build_args"])
+            check_type(argname="argument docker_build_contexts", value=docker_build_contexts, expected_type=type_hints["docker_build_contexts"])
             check_type(argname="argument docker_build_secrets", value=docker_build_secrets, expected_type=type_hints["docker_build_secrets"])
             check_type(argname="argument docker_build_ssh", value=docker_build_ssh, expected_type=type_hints["docker_build_ssh"])
             check_type(argname="argument docker_build_target", value=docker_build_target, expected_type=type_hints["docker_build_target"])
@@ -3712,6 +3733,8 @@ class DockerImageSource:
             self._values["directory"] = directory
         if docker_build_args is not None:
             self._values["docker_build_args"] = docker_build_args
+        if docker_build_contexts is not None:
+            self._values["docker_build_contexts"] = docker_build_contexts
         if docker_build_secrets is not None:
             self._values["docker_build_secrets"] = docker_build_secrets
         if docker_build_ssh is not None:
@@ -3782,6 +3805,19 @@ class DockerImageSource:
         :default: - No additional build arguments
         '''
         result = self._values.get("docker_build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def docker_build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional build contexts.
+
+        Only allowed when ``directory`` is set.
+
+        :default: - No additional build contexts
+        '''
+        result = self._values.get("docker_build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -7831,6 +7867,7 @@ def _typecheckingstub__a05965a1e03a347027556ee3281fdb462dd892ed3c599d69d7cd7444c
     path: builtins.str,
     source_hash: builtins.str,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -8018,6 +8055,7 @@ def _typecheckingstub__b6e7c2957a6d1f05f0255045b81adc10d1731f3f4c022b7a322d02023
     cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
     directory: typing.Optional[builtins.str] = None,
     docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     docker_build_ssh: typing.Optional[builtins.str] = None,
     docker_build_target: typing.Optional[builtins.str] = None,

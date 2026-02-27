@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-core
-Version: 4.13.1
+Version: 4.14.0
 Summary: The core library and runtime of LocalStack
 Author-email: LocalStack Contributors <info@localstack.cloud>
 License-Expression: Apache-2.0
@@ -29,8 +29,8 @@ Requires-Dist: rich>=12.3.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: semver>=2.10
 Provides-Extra: base-runtime
-Requires-Dist: boto3==1.42.34; extra == "base-runtime"
-Requires-Dist: botocore==1.42.34; extra == "base-runtime"
+Requires-Dist: boto3==1.42.54; extra == "base-runtime"
+Requires-Dist: botocore==1.42.54; extra == "base-runtime"
 Requires-Dist: awscrt!=0.27.1,>=0.13.14; extra == "base-runtime"
 Requires-Dist: cbor2>=5.5.0; extra == "base-runtime"
 Requires-Dist: dill==0.3.6; extra == "base-runtime"
@@ -40,21 +40,20 @@ Requires-Dist: jsonpatch>=1.24; extra == "base-runtime"
 Requires-Dist: jsonpointer>=3.0.0; extra == "base-runtime"
 Requires-Dist: jsonschema>=4.25.1; extra == "base-runtime"
 Requires-Dist: hypercorn>=0.14.4; extra == "base-runtime"
-Requires-Dist: localstack-twisted>=23.0; extra == "base-runtime"
+Requires-Dist: localstack-twisted>=25.0; extra == "base-runtime"
 Requires-Dist: openapi-core>=0.19.2; extra == "base-runtime"
 Requires-Dist: pydantic>=2.11.9; extra == "base-runtime"
 Requires-Dist: pyopenssl>=23.0.0; extra == "base-runtime"
 Requires-Dist: python-dateutil>=2.9.0; extra == "base-runtime"
 Requires-Dist: readerwriterlock>=1.0.7; extra == "base-runtime"
 Requires-Dist: requests-aws4auth>=1.0; extra == "base-runtime"
-Requires-Dist: typing-extensions>=4.15.0; extra == "base-runtime"
 Requires-Dist: urllib3>=2.0.7; extra == "base-runtime"
 Requires-Dist: Werkzeug>=3.1.3; extra == "base-runtime"
 Requires-Dist: xmltodict>=0.13.0; extra == "base-runtime"
-Requires-Dist: rolo>=0.7; extra == "base-runtime"
+Requires-Dist: rolo>=0.8.1; extra == "base-runtime"
 Provides-Extra: runtime
 Requires-Dist: localstack-core[base-runtime]; extra == "runtime"
-Requires-Dist: awscli==1.44.24; extra == "runtime"
+Requires-Dist: awscli==1.44.44; extra == "runtime"
 Requires-Dist: airspeed-ext>=0.6.3; extra == "runtime"
 Requires-Dist: antlr4-python3-runtime==4.13.2; extra == "runtime"
 Requires-Dist: apispec>=5.1.1; extra == "runtime"
@@ -66,7 +65,7 @@ Requires-Dist: jpype1>=1.6.0; extra == "runtime"
 Requires-Dist: jsonpath-ng>=1.6.1; extra == "runtime"
 Requires-Dist: jsonpath-rw>=1.4.0; extra == "runtime"
 Requires-Dist: kclpy-ext>=3.0.0; extra == "runtime"
-Requires-Dist: moto-ext[all]!=5.1.19.post44,!=5.1.19.post57,!=5.1.19.post61,>=5.1.12.post22; extra == "runtime"
+Requires-Dist: moto-ext[all]>=5.1.22; extra == "runtime"
 Requires-Dist: opensearch-py>=2.4.1; extra == "runtime"
 Requires-Dist: pymongo>=4.2.0; extra == "runtime"
 Requires-Dist: pyopenssl>=23.0.0; extra == "runtime"
@@ -98,6 +97,7 @@ Requires-Dist: pypandoc; extra == "dev"
 Requires-Dist: ruff>=0.3.3; extra == "dev"
 Requires-Dist: rstr>=3.2.0; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
+Requires-Dist: watchdog>=6; extra == "dev"
 Provides-Extra: typehint
 Requires-Dist: localstack-core[dev]; extra == "typehint"
 Requires-Dist: boto3-stubs[acm,acm-pca,amplify,apigateway,apigatewayv2,appconfig,appconfigdata,application-autoscaling,appsync,athena,autoscaling,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codebuild,codecommit,codeconnections,codedeploy,codepipeline,codestar-connections,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,identitystore,iot,iot-data,iotwireless,kafka,kinesis,kinesisanalyticsv2,kms,lakeformation,lambda,logs,managedblockchain,mediaconvert,mq,mwaa,neptune,opensearch,organizations,pi,pinpoint,pipes,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,verifiedpermissions,wafv2,xray]; extra == "typehint"

@@ -59,6 +59,7 @@ from .okta_credential import OktaCredential
 from .ping_one_auth_url import PingOneAuthUrl
 from .ping_one_credential import PingOneCredential
 from .ping_one_apiurl import PingOneApiurl
+from .workday_credential import WorkdayCredential
 from .incident_io_credential import IncidentIoCredential
 from .pager_duty_credential import PagerDutyCredential
 from .jira_credential import JiraCredential
@@ -577,6 +578,24 @@ class ProviderConfig_CloudsecurityAws(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_CloudsecurityAwseventbridgesqs(UncheckedBaseModel):
+    type: typing.Literal["cloudsecurity_awseventbridgesqs"] = (
+        "cloudsecurity_awseventbridgesqs"
+    )
+    credential: AwsProviderCredential
+    queue_url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_CloudsecurityCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["cloudsecurity_crowdstrike"] = "cloudsecurity_crowdstrike"
     credential: CrowdStrikeCredential
@@ -833,6 +852,23 @@ class ProviderConfig_IdentityPingone(UncheckedBaseModel):
     credential: PingOneCredential
     organization_id: str
     url: PingOneApiurl
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_IdentityWorkday(UncheckedBaseModel):
+    type: typing.Literal["identity_workday"] = "identity_workday"
+    credential: WorkdayCredential
+    tenant: str
+    url: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -2061,6 +2097,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_AssetsTaniumCloud,
         ProviderConfig_AssetsTaniumCloudMock,
         ProviderConfig_CloudsecurityAws,
+        ProviderConfig_CloudsecurityAwseventbridgesqs,
         ProviderConfig_CloudsecurityCrowdstrike,
         ProviderConfig_CloudsecurityDefender,
         ProviderConfig_CloudsecurityPaloalto,
@@ -2077,6 +2114,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_IdentityGoogle,
         ProviderConfig_IdentityOkta,
         ProviderConfig_IdentityPingone,
+        ProviderConfig_IdentityWorkday,
         ProviderConfig_IncidentresponseIncidentio,
         ProviderConfig_IncidentresponsePagerduty,
         ProviderConfig_NotificationsJira,

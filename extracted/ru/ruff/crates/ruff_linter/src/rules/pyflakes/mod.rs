@@ -168,6 +168,7 @@ mod tests {
     #[test_case(Rule::UndefinedName, Path::new("F821_31.py"))]
     #[test_case(Rule::UndefinedName, Path::new("F821_32.pyi"))]
     #[test_case(Rule::UndefinedName, Path::new("F821_33.py"))]
+    #[test_case(Rule::UndefinedName, Path::new("F821_34.pyi"))]
     #[test_case(Rule::UndefinedExport, Path::new("F822_0.py"))]
     #[test_case(Rule::UndefinedExport, Path::new("F822_0.pyi"))]
     #[test_case(Rule::UndefinedExport, Path::new("F822_1.py"))]
@@ -702,6 +703,19 @@ mod tests {
             &LinterSettings {
                 typing_modules: vec!["foo.typical".to_string()],
                 ..LinterSettings::for_rule(Rule::UndefinedName)
+            },
+        )?;
+        assert_diagnostics!(diagnostics);
+        Ok(())
+    }
+
+    #[test]
+    fn f811_typing_modules_overload() -> Result<()> {
+        let diagnostics = test_path(
+            Path::new("pyflakes/F811_33.py"),
+            &LinterSettings {
+                typing_modules: vec!["std".to_string()],
+                ..LinterSettings::for_rule(Rule::RedefinedWhileUnused)
             },
         )?;
         assert_diagnostics!(diagnostics);

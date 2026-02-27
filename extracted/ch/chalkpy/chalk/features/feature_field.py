@@ -2068,11 +2068,15 @@ def feature(
                 )
         if not isinstance(versions, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise ValueError(f"When `versions` is provided, it must be a mapping, but `{versions}` was given.")
+        from chalk.streams._windows import Windowed
+
         for key, value in versions.items():
             if not isinstance(key, int):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise ValueError(f"When `versions` is provided, the keys must be integers, but `{key}` was given.")
-            if not isinstance(value, Feature):  # pyright: ignore[reportUnnecessaryIsInstance]
-                raise ValueError(f"When `versions` is provided, the values must be features, but `{value}` was given.")
+
+            if not isinstance(value, (Feature, Windowed)):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"When `versions` is provided, the values must be features or windowed, but `{value}` was given.")
+
 
     cache_strategy = get_cache_strategy_from_cache_settings(cache_nulls=cache_nulls, cache_defaults=cache_defaults)
 

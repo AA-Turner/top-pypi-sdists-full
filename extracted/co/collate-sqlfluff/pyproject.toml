@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "collate-sqlfluff"
-version = "3.3.6"
+version = "3.3.7"
 description = "The SQL Linter for Humans"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.8"
@@ -100,11 +100,11 @@ dependencies = [
 [project.urls]
 Homepage = "https://www.sqlfluff.com"
 Documentation = "https://docs.sqlfluff.com"
-Source = "https://github.com/sqlfluff/sqlfluff"
-Changes = "https://github.com/sqlfluff/sqlfluff/blob/main/CHANGELOG.md"
-"Issue Tracker" = "https://github.com/sqlfluff/sqlfluff/issues"
+Source = "https://github.com/open-metadata/collate-sqlfluff"
+Changes = "https://github.com/open-metadata/collate-sqlfluff/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/open-metadata/collate-sqlfluff/issues"
 Twitter = "https://twitter.com/SQLFluff"
-Chat = "https://github.com/sqlfluff/sqlfluff#sqlfluff-on-slack"
+Chat = "https://github.com/open-metadata/collate-sqlfluff#sqlfluff-on-slack"
 
 [project.scripts]
 sqlfluff = "sqlfluff.cli.commands:cli"

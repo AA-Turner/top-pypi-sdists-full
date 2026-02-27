@@ -1,6 +1,6 @@
 """Lamin Utils."""
 
-__version__ = "0.16.3"
+__version__ = "0.16.4"
 
 try:
     from ._colors import colors

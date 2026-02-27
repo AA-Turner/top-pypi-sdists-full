@@ -32,7 +32,7 @@ def _failing_evaluator(example: Example) -> None:
 
 
 @pytest.fixture(name="rst_file")
-def fixture_rst_file(tmp_path: Path) -> Path:
+def fixture_rst_file(*, tmp_path: Path) -> Path:
     """Fixture to create a temporary RST file with Python code blocks."""
     content = """
     .. code-block:: python
@@ -84,6 +84,7 @@ def test_multi_evaluator_raises_on_failure(rst_file: Path) -> None:
     ids=["non-empty", "empty"],
 )
 def test_multi_evaluator_propagates_failure_string(
+    *,
     rst_file: Path,
     failure_string: str,
 ) -> None:

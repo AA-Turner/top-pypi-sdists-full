@@ -33,6 +33,7 @@ from stanza.models.common import pretrain
 from stanza.models.common.data import augment_punct
 from stanza.models.common.doc import *
 from stanza.models.common.peft_config import add_peft_args, resolve_peft_args
+from stanza.models.common.utils import log_training_args
 from stanza.utils.conll import CoNLL
 from stanza.models import _training_logging
 
@@ -56,8 +57,26 @@ def build_argparse():
     parser.add_argument('--hidden_dim', type=int, default=400)
     parser.add_argument('--char_hidden_dim', type=int, default=400)
     parser.add_argument('--deep_biaff_hidden_dim', type=int, default=400)
-    parser.add_argument('--composite_deep_biaff_hidden_dim', type=int, default=100)
+    parser.add_argument('--deep_biaff_output_dim', type=int, default=160)
+    # As an additional option, we implement arc embeddings
+    #  described in https://arxiv.org/pdf/2501.09451
+    #  Scaling Graph-Based Dependency Parsing with Arc Vectorization and Attention-Based Refinement
+    #  Nicolas Floquet, Joseph Le Roux, Nadi Tomeh, Thierry Charnois
+    # Unfortunately, the current implementation and hyperparameters do not seem to help
+    # when combined with a transformer as the input embedding
+    # LAS Scores on a few dev sets, UD 2.17, averaged over 5 seeds
+    # This is with a version where the arc -> unlabeled is one layer, arc -> label is two layers
+    # Using two layers for the arc -> unlabeled hurts scores a bit more
+    #  treebank   w/     w/o
+    #   en_ewt  93.46  93.47
+    #   de_gsd  89.02  89.12
+    #   it_vit  90.15  90.19
+    # However, this is without the transformer over the arcs, which is
+    # an important component of making the arcs more useful
+    parser.add_argument('--use_arc_embedding', action='store_true', default=False, help='Use arc embeddings, as per Scaling Graph-Based Dependency Parsing')
+    parser.add_argument('--no_use_arc_embedding', dest='use_arc_embedding', action='store_false', help="Don't use arc embeddings")
     parser.add_argument('--word_emb_dim', type=int, default=75)
+    parser.add_argument('--word_cutoff', type=int, default=None, help='How common a word must be to include it in the finetuned word embedding.  If not set, small word vector files will be 0, larger will be %d' % utils.DEFAULT_WORD_CUTOFF)
     parser.add_argument('--char_emb_dim', type=int, default=100)
     parser.add_argument('--tag_emb_dim', type=int, default=50)
     parser.add_argument('--no_upos', dest='use_upos', action='store_false', default=True, help="Don't use upos tags as part of the tag embedding")
@@ -98,20 +117,71 @@ def build_argparse():
     parser.add_argument('--no_linearization', dest='linearization', action='store_false', help="Turn off linearization term.")
     parser.add_argument('--no_distance', dest='distance', action='store_false', help="Turn off distance term.")
 
+    # Originally, we used a single adam optimizer, stopping after 1000 stalled iterations,
+    # with a couple other hyperparameters corresponding to:  TODO
+    #   --max_steps_before_stop 1000
+    #   --beta2 0.95
+    #   --lr 3e-3
+    #   --weight_decay 0.0
+    #   --optim adam
+    #   --no_second_optim
+    # Later experiments found the current defaults helped the results
+    # on several different datasets (using a transformer as the input embedding)
+    # These experiements are averaged across 5 models,
+    # with multiple early stopping values as well
+    #   5 model dev avg LAS  1 stage  1 stage 2k  1 stage 4k   2 stage
+    # de_gsd                  89.03    89.50       89.71        89.83
+    # en_ewt                  93.47    93.69       93.74        93.89
+    # fi_tdt                  92.16    92.56       92.69        93.15
+    # it_vit                  90.12    90.37       90.44        90.60
+    # ta_ttb                  71.26    71.39       71.45        72.19
+    # zh-hans_gsdsimp         85.47    85.69       85.76        85.89
+    #
+    #   5 model test avg LAS 1 stage  1 stage 2k  1 stage 4k   2 stage
+    # de_gsd                  86.60    86.96       87.04        87.09
+    # en_ewt                  93.37    93.51       93.55        93.72
+    # fi_tdt                  92.56    92.92       93.10        93.47
+    # it_vit                  90.51    90.74       90.75        90.88
+    # ta_ttb                  68.22    68.27       68.42        69.06
+    # zh-hans_gsdsimp         85.66    85.92       86.04        86.34
+    #
+    # In addition to these experiments, we ran multiple alternate optimizer combinations, none of which
+    # were a clear improvement over AdaDelta+Adam
+    #
+    # rmsprop  --weight_decay 1e-5 --lr 0.0001
+    # adamw    --second_lr 0.0001
+    # madgrad  --second_lr 0.00008
+    #   5 model dev avg LAS   ada+adam   rms+adam    ada+adamw  ada+madgrad
+    # de_gsd                 89.83      89.80       89.67      89.55
+    # en_ewt                 93.89      93.97       93.92      93.90
+    # fi_tdt                 93.15      92.95       93.03      93.08
+    # it_vit                 90.60      90.64       90.58      90.54
+    # ta_ttb                 72.19      71.86       72.18      72.24
+    # zh-hans_gsdsimp        85.89      85.60       85.97      85.92
+    #
+    #   5 model test avg LAS    ada+adam  rms+adam   ada+adamw  ada+madgrad
+    # de_gsd                   87.09     87.26      87.06      87.08
+    # en_ewt                   93.72     93.73      93.75      93.73
+    # fi_tdt                   93.47     93.30      93.43      93.44
+    # it_vit                   90.88     90.95      90.90      90.85
+    # ta_ttb                   69.06     68.45      69.05      69.26
+    # zh-hans_gsdsimp          86.34     85.86      86.27      86.23
+
     parser.add_argument('--sample_train', type=float, default=1.0, help='Subsample training data.')
-    parser.add_argument('--optim', type=str, default='adam', help='sgd, adagrad, adam or adamax.')
-    parser.add_argument('--second_optim', type=str, default=None, help='sgd, adagrad, adam or adamax.')
-    parser.add_argument('--lr', type=float, default=3e-3, help='Learning rate')
-    parser.add_argument('--second_lr', type=float, default=3e-4, help='Secondary stage learning rate')
-    parser.add_argument('--weight_decay', type=float, default=None, help='Weight decay for the first optimizer')
-    parser.add_argument('--beta2', type=float, default=0.95)
-    parser.add_argument('--second_optim_start_step', type=int, default=None, help='If set, switch to the second optimizer when stalled or at this step regardless of performance.  Normally, the optimizer only switches when the dev scores have stalled for --max_steps_before_stop steps')
+    parser.add_argument('--optim', type=str, default='adadelta', help='sgd, adagrad, adam or adamax.')
+    parser.add_argument('--second_optim', type=str, default="adam", help='sgd, adagrad, adam or adamax.')
+    parser.add_argument('--no_second_optim', dest='second_optim', action='store_const', const=None, help="Don't use the second optimizer")
+    parser.add_argument('--lr', type=float, default=2.0, help='Learning rate')
+    parser.add_argument('--second_lr', type=float, default=0.0002, help='Secondary stage learning rate')
+    parser.add_argument('--weight_decay', type=float, default=0.00001, help='Weight decay for the first optimizer')
+    parser.add_argument('--beta2', type=float, default=0.999)
+    parser.add_argument('--second_optim_start_step', type=int, default=10000, help='If set, switch to the second optimizer when stalled or at this step regardless of performance.  Normally, the optimizer only switches when the dev scores have stalled for --max_steps_before_stop steps')
     parser.add_argument('--second_warmup_steps', type=int, default=200, help="If set, give the 2nd optimizer a linear warmup.  Idea being that the optimizer won't have a good grasp on the initial gradients and square gradients when it first starts")
 
     parser.add_argument('--max_steps', type=int, default=50000)
     parser.add_argument('--eval_interval', type=int, default=100)
     parser.add_argument('--checkpoint_interval', type=int, default=500)
-    parser.add_argument('--max_steps_before_stop', type=int, default=1000)
+    parser.add_argument('--max_steps_before_stop', type=int, default=2000)
     parser.add_argument('--batch_size', type=int, default=5000)
     parser.add_argument('--second_batch_size', type=int, default=None, help='Use a different batch size for the second optimizer.  Can be relevant for models with different transformer finetuning settings between optimizers, for example, where the larger batch size is impossible for FT the transformer"')
     parser.add_argument('--max_grad_norm', type=float, default=1.0, help='Gradient clipping.')
@@ -186,6 +256,7 @@ def train(args):
 
     # load pretrained vectors if needed
     pretrain = load_pretrain(args)
+    args['word_cutoff'] = utils.update_word_cutoff(pretrain, args['word_cutoff'])
 
     # TODO: refactor.  the exact same thing is done in the tagger
     if args['charlm']:
@@ -196,6 +267,8 @@ def train(args):
             args['charlm_forward_file'] = '{}/{}_forward_charlm.pt'.format(args['charlm_save_dir'], args['charlm_shorthand'])
         if not args['charlm_backward_file']:
             args['charlm_backward_file'] = '{}/{}_backward_charlm.pt'.format(args['charlm_save_dir'], args['charlm_shorthand'])
+
+    utils.log_training_args(args, logger)
 
     # load data
     logger.info("Loading data with batch size {}...".format(args['batch_size']))
@@ -225,12 +298,21 @@ def train(args):
             logger.info("Limiting training data to %d entries", len(train_data))
         else:
             logger.info("Train data less than %d already, not limiting train data", args['train_size'])
+    # build the training data once, before augmentation, so that random variation
+    # (which might be different based on the random seed)
+    # doesn't have an effect on the vocab being cut off at the word limit
+    # otherwise different models will have different vocabs
+    # based on how often the words were duplicated in the augmentation
+    # TODO: put the augmentation into the dataloader,
+    # such as is done with the POS or the tokenizer
+    train_doc = Document(train_data)
+    train_batch = DataLoader(train_doc, args['batch_size'], args, pretrain, evaluation=False)
+    vocab = train_batch.vocab
     train_data.extend(augment_punct(train_data, args['augment_nopunct'],
                                     keep_original_sentences=False))
     logger.info("Augmented data size: {}".format(len(train_data)))
     train_doc = Document(train_data)
-    train_batch = DataLoader(train_doc, args['batch_size'], args, pretrain, evaluation=False)
-    vocab = train_batch.vocab
+    train_batch = DataLoader(train_doc, args['batch_size'], args, pretrain, vocab=vocab, evaluation=False)
     dev_doc = CoNLL.conll2doc(input_file=args['eval_file'])
     dev_batch = DataLoader(dev_doc, args['batch_size'], args, pretrain, vocab=vocab, evaluation=True, sort_during_eval=True)
 
@@ -393,6 +475,8 @@ def evaluate(args):
     # load model
     logger.info("Loading model from: {}".format(model_file))
     trainer = Trainer(pretrain=pretrain, model_file=model_file, device=args['device'], args=load_args)
+    if args['log_norms']:
+        trainer.model.log_norms()
     return trainer, evaluate_trainer(args, trainer, pretrain)
 
 def evaluate_trainer(args, trainer, pretrain):
@@ -430,8 +514,7 @@ def evaluate_trainer(args, trainer, pretrain):
         system_pred_file = io.StringIO(system_pred_file)            
         _, _, score = scorer.score(system_pred_file, args['eval_file'])
 
-        logger.info("Parser score:")
-        logger.info("{} {:.2f}".format(args['shorthand'], score*100))
+        logger.info("Parser score on %s file %s: %.2f", args['shorthand'], args['eval_file'], score*100)
 
     return batch.doc
 

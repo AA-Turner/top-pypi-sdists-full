@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19                                                                                #
-# Generated on 2026-02-09T14:58:07.180280                                                            #
+# MF version: 2.19.20                                                                                #
+# Generated on 2026-02-26T21:59:51.275927                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import abc
 if typing.TYPE_CHECKING:
     import typing
-    import _io
     import abc
+    import _io
 
 
 class PackagingBackend(abc.ABC, metaclass=abc.ABCMeta):

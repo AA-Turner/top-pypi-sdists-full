@@ -194,9 +194,9 @@ class RootLogger(logging.RootLogger):
         level: int,
         msg: str,
         *,
-        extra: Optional[dict] = None,
+        extra: dict | None = None,
         time: datetime = None,
-        deep: Optional[str] = None,
+        deep: str | None = None,
     ) -> datetime:
         """Log message with level and return current time.
 

@@ -57,6 +57,7 @@ class UserArgs:
                  usage_location: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a User resource.
+
         :param pulumi.Input[_builtins.str] display_name: The name to display in the address book for the user.
         :param pulumi.Input[_builtins.str] user_principal_name: The user principal name (UPN) of the user.
         :param pulumi.Input[_builtins.bool] account_enabled: Whether or not the account should be enabled.
@@ -85,7 +86,9 @@ class UserArgs:
         :param pulumi.Input[_builtins.str] office_location: The office location in the user's place of business.
         :param pulumi.Input[_builtins.str] onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's `user_principal_name` property when creating a new user account.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] other_mails: A list of additional email addresses for the user.
-        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+               
+               > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         :param pulumi.Input[_builtins.str] postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code.
         :param pulumi.Input[_builtins.str] preferred_language: The user's preferred language, in ISO 639-1 notation.
         :param pulumi.Input[_builtins.bool] show_in_address_list: Whether or not the Outlook global address list should include this user. Defaults to `true`.
@@ -505,7 +508,9 @@ class UserArgs:
     @pulumi.getter
     def password(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+
+        > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         """
         return pulumi.get(self, "password")
 
@@ -652,6 +657,7 @@ class _UserState:
                  user_type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering User resources.
+
         :param pulumi.Input[_builtins.str] about_me: A freeform field for the user to describe themselves
         :param pulumi.Input[_builtins.bool] account_enabled: Whether or not the account should be enabled.
         :param pulumi.Input[_builtins.str] age_group: The age group of the user. Supported values are `Adult`, `NotAdult` and `Minor`. Omit this property or specify a blank string to unset.
@@ -690,7 +696,9 @@ class _UserState:
         :param pulumi.Input[_builtins.bool] onpremises_sync_enabled: Whether this user is synchronised from an on-premises directory (`true`), no longer synchronised (`false`), or has never been synchronised (`null`).
         :param pulumi.Input[_builtins.str] onpremises_user_principal_name: The on-premise user principal name of the user.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] other_mails: A list of additional email addresses for the user.
-        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+               
+               > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         :param pulumi.Input[_builtins.str] postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code.
         :param pulumi.Input[_builtins.str] preferred_language: The user's preferred language, in ISO 639-1 notation.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] proxy_addresses: List of email addresses for the user that direct to the same mailbox.
@@ -1261,7 +1269,9 @@ class _UserState:
     @pulumi.getter
     def password(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+
+        > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         """
         return pulumi.get(self, "password")
 
@@ -1465,6 +1475,7 @@ class User(pulumi.CustomResource):
         $ pulumi import azuread:index/user:User my_user /users/00000000-0000-0000-0000-000000000000
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] account_enabled: Whether or not the account should be enabled.
@@ -1494,7 +1505,9 @@ class User(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] office_location: The office location in the user's place of business.
         :param pulumi.Input[_builtins.str] onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's `user_principal_name` property when creating a new user account.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] other_mails: A list of additional email addresses for the user.
-        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+               
+               > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         :param pulumi.Input[_builtins.str] postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code.
         :param pulumi.Input[_builtins.str] preferred_language: The user's preferred language, in ISO 639-1 notation.
         :param pulumi.Input[_builtins.bool] show_in_address_list: Whether or not the Outlook global address list should include this user. Defaults to `true`.
@@ -1541,6 +1554,7 @@ class User(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/user:User my_user /users/00000000-0000-0000-0000-000000000000
         ```
+
 
         :param str resource_name: The name of the resource.
         :param UserArgs args: The arguments to use to populate this resource's properties.
@@ -1761,7 +1775,9 @@ class User(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] onpremises_sync_enabled: Whether this user is synchronised from an on-premises directory (`true`), no longer synchronised (`false`), or has never been synchronised (`null`).
         :param pulumi.Input[_builtins.str] onpremises_user_principal_name: The on-premise user principal name of the user.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] other_mails: A list of additional email addresses for the user.
-        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        :param pulumi.Input[_builtins.str] password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+               
+               > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         :param pulumi.Input[_builtins.str] postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code.
         :param pulumi.Input[_builtins.str] preferred_language: The user's preferred language, in ISO 639-1 notation.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] proxy_addresses: List of email addresses for the user that direct to the same mailbox.
@@ -2136,7 +2152,9 @@ class User(pulumi.CustomResource):
     @pulumi.getter
     def password(self) -> pulumi.Output[_builtins.str]:
         """
-        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
+        The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user.
+
+        > **Passwords and importing users** Passwords can be changed but not cleared. Removing the `password` property for an existing user resource, or setting the password value to a blank string, will not remove the password. When importing a user, Terraform will not reset the password unless the value is subsequently changed in your configuration.
         """
         return pulumi.get(self, "password")
 

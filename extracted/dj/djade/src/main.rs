@@ -396,7 +396,7 @@ fn format(content: &str, target_version: Option<(u8, u8)>) -> String {
     // Formatters
     update_leading_trailing_whitespace(&mut tokens, newline);
     update_load_tags(&mut tokens);
-    update_endblock_labels(&mut tokens);
+    update_endblock_and_endpartialdef_labels(&mut tokens);
     update_top_level_block_indentation(&mut tokens);
     update_top_level_block_spacing(&mut tokens, newline);
 
@@ -588,6 +588,7 @@ fn migrate_ifequal_tags(tokens: &mut [Token<'_>], target_version: Option<(u8, u8
             let var1 = start_bits[1].clone();
             let var2 = start_bits[2].clone();
 
+            // Update start token
             if let Token::Block { bits, .. } = &mut tokens[start] {
                 bits.clear();
                 bits.push(Cow::Borrowed("if"));
@@ -596,6 +597,7 @@ fn migrate_ifequal_tags(tokens: &mut [Token<'_>], target_version: Option<(u8, u8
                 bits.push(var2);
             }
 
+            // Update end token
             if let Token::Block { bits, .. } = &mut tokens[end] {
                 bits.clear();
                 bits.push(Cow::Borrowed("endif"));
@@ -634,7 +636,9 @@ fn migrate_static_load_tags(tokens: &mut [Token<'_>], target_version: Option<(u8
 
 fn migrate_assignments(tokens: &mut [Token<'_>]) {
     for token in tokens.iter_mut() {
-        if let Token::Block { bits, .. } = token {
+        if let Token::Block { bits, .. } = token
+            && bits.iter().any(|b| b == "as")
+        {
             match bits[0].as_ref() {
                 "with" => migrate_assignments_with_tag(bits),
                 "blocktrans" | "blocktranslate" => migrate_assignments_blocktranslate_tag(bits),
@@ -860,8 +864,9 @@ fn update_load_tags<'a>(tokens: &mut Vec<Token<'a>>) {
     }
 }
 
-fn update_endblock_labels<'a>(tokens: &mut [Token<'a>]) {
+fn update_endblock_and_endpartialdef_labels<'a>(tokens: &mut [Token<'a>]) {
     let mut block_stack = Vec::new();
+    let mut partialdef_stack = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
         let update = match &tokens[i] {
@@ -872,13 +877,30 @@ fn update_endblock_labels<'a>(tokens: &mut [Token<'a>]) {
             }
             Token::Block { bits, lineno } if bits[0] == "endblock" => {
                 if let Some((Some(label), start_lineno)) = block_stack.pop() {
-                    if bits.len() == 1 || (bits.len() == 2 && label == bits[1]) {
-                        let same_line = start_lineno == *lineno;
-                        Some(if same_line {
-                            vec![Cow::Borrowed("endblock")]
-                        } else {
-                            vec![Cow::Borrowed("endblock"), label]
-                        })
+                    let same_line = start_lineno == *lineno;
+                    if same_line && bits.len() == 2 {
+                        Some(vec![Cow::Borrowed("endblock")])
+                    } else if !same_line && bits.len() == 1 {
+                        Some(vec![Cow::Borrowed("endblock"), label])
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            Token::Block { bits, lineno } if bits[0] == "partialdef" => {
+                let label = bits.get(1).cloned();
+                partialdef_stack.push((label, *lineno));
+                None
+            }
+            Token::Block { bits, lineno } if bits[0] == "endpartialdef" => {
+                if let Some((Some(label), start_lineno)) = partialdef_stack.pop() {
+                    let same_line = start_lineno == *lineno;
+                    if same_line && bits.len() == 2 {
+                        Some(vec![Cow::Borrowed("endpartialdef")])
+                    } else if !same_line && bits.len() == 1 {
+                        Some(vec![Cow::Borrowed("endpartialdef"), label])
                     } else {
                         None
                     }
@@ -935,7 +957,10 @@ fn unindent_token<'a>(tokens: &mut [Token<'a>], index: usize) {
     if index > 0
         && let Token::Text { contents, .. } = &mut tokens[index - 1]
     {
-        *contents = Cow::Owned(INDENTATION_LINE.replace_all(contents, "").to_string());
+        let unindented = INDENTATION_LINE.replace_all(contents, "");
+        if unindented != *contents {
+            *contents = Cow::Owned(unindented.to_string());
+        }
     }
 }
 
@@ -959,7 +984,10 @@ fn update_top_level_block_spacing<'a>(tokens: &mut [Token<'a>], newline: &str) {
                             && let Token::Text { contents, .. } = &mut tokens[i - 1]
                             && contents.trim().is_empty()
                         {
-                            *contents = Cow::Owned(format!("{}{}", newline, newline));
+                            let double_newline = format!("{}{}", newline, newline);
+                            if contents.as_ref() != double_newline {
+                                *contents = Cow::Owned(double_newline);
+                            }
                         }
                         last_top_level_tag = Some(i);
                     }
@@ -1970,6 +1998,63 @@ dependencies = [
         assert_eq!(
             formatted,
             "{% block h %}\n{% blocktranslate %}ovo{% endblocktranslate %}\n{% endblock h %}\n"
+        );
+    }
+
+    #[test]
+    fn test_format_partialdef_no_label() {
+        let formatted = format("{% partialdef %}\n{% endpartialdef %}\n", None);
+        assert_eq!(formatted, "{% partialdef %}\n{% endpartialdef %}\n");
+    }
+
+    #[test]
+    fn test_format_endpartialdef_broken() {
+        let formatted = format("{% endpartialdef %}\n", None);
+        assert_eq!(formatted, "{% endpartialdef %}\n");
+    }
+
+    #[test]
+    fn test_format_endpartialdef_broken_nesting() {
+        let formatted = format("{% partialdef a %}\n{% endpartialdef b %}\n", None);
+        assert_eq!(formatted, "{% partialdef a %}\n{% endpartialdef b %}\n");
+    }
+
+    #[test]
+    fn test_format_endpartialdef_label_added() {
+        let formatted = format("{% partialdef button %}\n{% endpartialdef %}\n", None);
+        assert_eq!(
+            formatted,
+            "{% partialdef button %}\n{% endpartialdef button %}\n"
+        );
+    }
+
+    #[test]
+    fn test_format_endpartialdef_label_added_nested() {
+        let formatted = format(
+            "{% partialdef a %}\n{% partialdef b %}\n{% endpartialdef %}\n{% endpartialdef %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% partialdef a %}\n{% partialdef b %}\n{% endpartialdef b %}\n{% endpartialdef a %}\n"
+        );
+    }
+
+    #[test]
+    fn test_format_endpartialdef_label_removed() {
+        let formatted = format("{% partialdef button %}i{% endpartialdef button %}\n", None);
+        assert_eq!(formatted, "{% partialdef button %}i{% endpartialdef %}\n");
+    }
+
+    #[test]
+    fn test_format_block_and_partialdef_independent_stacks() {
+        let formatted = format(
+            "{% block a %}\n{% partialdef b %}\n{% endpartialdef %}\n{% endblock %}\n",
+            None,
+        );
+        assert_eq!(
+            formatted,
+            "{% block a %}\n{% partialdef b %}\n{% endpartialdef b %}\n{% endblock a %}\n"
         );
     }
 

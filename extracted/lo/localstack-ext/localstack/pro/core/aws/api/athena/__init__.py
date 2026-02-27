@@ -874,8 +874,16 @@ class CustomerContentEncryptionConfiguration(TypedDict, total=False):
 
 
 class EngineConfiguration(TypedDict, total=False):
-    """Contains data processing unit (DPU) configuration settings and parameter
-    mappings for a notebook engine.
+    """The engine configuration for the workgroup, which includes the
+    minimum/maximum number of Data Processing Units (DPU) that queries
+    should use when running in provisioned capacity. If not specified,
+    Athena uses default values (Default value for min is 4 and for max is
+    Minimum of 124 and allocated DPUs).
+
+    To specify DPU values for PC queries the WG containing
+    EngineConfiguration should have the following values: The name of the
+    Classifications should be ``athena-query-engine-properties``, with the
+    only allowed properties as ``max-dpu-count`` and ``min-dpu-count``.
     """
 
     CoordinatorDpuSize: CoordinatorDpuSize | None
@@ -3104,8 +3112,9 @@ class AthenaApi:
         :param work_group: The name of the workgroup in which the query is being started.
         :param execution_parameters: A list of values for the parameters in a query.
         :param result_reuse_configuration: Specifies the query result reuse behavior for the query.
-        :param engine_configuration: Contains data processing unit (DPU) configuration settings and parameter
-        mappings for a notebook engine.
+        :param engine_configuration: The engine configuration for the workgroup, which includes the
+        minimum/maximum number of Data Processing Units (DPU) that queries
+        should use when running in provisioned capacity.
         :returns: StartQueryExecutionOutput
         :raises InternalServerException:
         :raises InvalidRequestException:

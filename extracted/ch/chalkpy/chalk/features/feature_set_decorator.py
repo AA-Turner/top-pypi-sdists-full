@@ -13,7 +13,7 @@ import textwrap
 import types
 import typing
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
+from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
 
 import pyarrow as pa
 
@@ -470,18 +470,13 @@ def _get_field(
 
     elif isinstance(default, Windowed):
         # The feature was set like x: Windowed[int] = windowed()
-        # Convert it to a Feature
+        # Convert it to a Feature. Invalid buckets are caught by _validate_windowed later.
         try:
             f = default._to_feature(bucket=None)
-        except Exception as e:
-            error_builder.add_diagnostic(
-                message=f"Invalid window found for feature '{namespace}.{annotation_name}'. {e}",
-                label="invalid duration",
-                code="18",
-                range=error_builder.property_value_range(annotation_name),
-                raise_error=ValueError,
-            )
-            f = default
+        except Exception:
+            # Invalid windowed definition; _validate_windowed will emit the diagnostic later.
+            # Create a placeholder Feature so downstream attribute access doesn't crash.
+            f = Feature(name=annotation_name, namespace=namespace)
         if f.version is not None:
             f.version.base_name = f.name if f.is_name_set() else annotation_name
             f.name = f.version.name_for_version(f.version.default)
@@ -793,6 +788,118 @@ _skip_attrs = {
 }
 
 
+def _validate_windowed(
+    wind: "Windowed",
+    namespace: str,
+    name: str,
+    annotation_kind_name: str,
+    error_builder: "FeatureClassErrorBuilder",
+    label_prefix: str = "",
+) -> set[int]:
+    """Validate a Windowed instance: bucket durations + materialization config.
+
+    Returns the set of valid bucket seconds. Shared between versioned and non-versioned paths.
+    label_prefix is e.g. "version 2 " for per-version errors.
+    """
+
+    def get_mat_range():
+        return (
+            error_builder.property_value_kwarg_range(name, kwarg="materialization")
+            or error_builder.property_value_range(name)
+            or error_builder.property_range(name)
+        )
+
+    # Validate bucket durations
+    valid_bucket_seconds: set[int] = set()
+    if len(wind._buckets) == 0:
+        error_builder.add_diagnostic(
+            message=(
+                f"Windowed feature '{namespace}.{name}' {label_prefix}does not have any window durations. "
+                f"To create a windowed feature, use "
+                f'\'{name}: Windowed[{annotation_kind_name}] = windowed("1h", "1d"))\''
+            ),
+            label="missing window durations",
+            range=error_builder.property_value_range(name) or error_builder.property_range(name),
+            code="777",
+        )
+    for bucket in wind._buckets:
+        try:
+            valid_bucket_seconds.add(parse_chalk_duration_s(bucket))
+        except ValueError as e:
+            error_builder.add_diagnostic(
+                message=f"Windowed feature '{namespace}.{name}' {label_prefix}has an invalid duration '{bucket}'. {e.args[0]}",
+                label="invalid duration",
+                range=error_builder.property_value_range(name) or error_builder.property_range(name),
+                code="18",
+            )
+
+    # Validate materialization config (dict form only; True is handled by _to_feature)
+    if isinstance(wind._materialization, dict):
+        if wind._expression is None:
+            error_builder.add_diagnostic(
+                message=(
+                    f"Windowed feature '{namespace}.{name}' {label_prefix}has a materialization, but no expression. "
+                    f"To create a materialized windowed feature, use "
+                    f"'{name}: Windowed[{annotation_kind_name}] = windowed(\"10m\", materialization={wind._materialization}, expression=_.your_dataframe_feature[_.field_to_agg].sum())'"
+                ),
+                label="materialization config",
+                range=get_mat_range(),
+                code="177",
+            )
+
+        bucket_duration_raw = wind._materialization.get("bucket_duration", None)
+        if bucket_duration_raw is not None:
+            try:
+                wind._materialization["bucket_duration"] = parse_chalk_duration(bucket_duration_raw)
+            except ValueError as e:
+                error_builder.add_diagnostic(
+                    message=f"Windowed feature '{namespace}.{name}' {label_prefix}has an invalid `bucket_duration`. {e.args[0]}",
+                    label="invalid duration",
+                    range=get_mat_range(),
+                    code="18",
+                )
+
+        validated_bucket_durations: dict[Duration, list[Duration]] = collections.defaultdict(list)
+        for d, windows_or_window in wind._materialization.get("bucket_durations", {}).items():
+            try:
+                d = parse_chalk_duration(d)
+            except ValueError as e:
+                error_builder.add_diagnostic(
+                    message=f"Windowed feature '{namespace}.{name}' {label_prefix}has an invalid key in `bucket_durations`. {e.args[0]}",
+                    label="invalid duration",
+                    range=get_mat_range(),
+                    code="18",
+                    raise_error=ValueError,
+                )
+            for w in ensure_tuple(windows_or_window):
+                try:
+                    w = parse_chalk_duration(w)
+                except ValueError as e:
+                    error_builder.add_diagnostic(
+                        message=f"Windowed feature '{namespace}.{name}' {label_prefix}has an invalid key in `bucket_durations`. {e.args[0]}",
+                        label="invalid duration",
+                        range=get_mat_range(),
+                        code="18",
+                        raise_error=ValueError,
+                    )
+                validated_bucket_durations[d].append(w)
+
+        wind._materialization["bucket_durations"] = validated_bucket_durations
+        if bucket_duration_raw is None and not validated_bucket_durations:
+            error_builder.add_diagnostic(
+                message=(
+                    f"Windowed feature '{namespace}.{name}' {label_prefix}has a materialization, but no 'bucket_duration'. "
+                    "Please provide a 'bucket_duration', like '1h', in the dictionary under the keyword "
+                    "argument 'materialization'."
+                ),
+                label="missing 'bucket_duration' key",
+                range=get_mat_range(),
+                code="188",
+            )
+
+    return valid_bucket_seconds
+
+
 def _process_class(
     cls: Type[T],
     source_info: ClassSource,
@@ -855,13 +962,156 @@ def _process_class(
             assert isinstance(annotation, Windowed), f"failed to parse annotation {annotation} as Windowed"
 
             wind = getattr(cls, name, None)
-            if wind is None or not isinstance(wind, Windowed):
+
+            # Check for versioned windowed: feature(versions={1: windowed(...), 2: windowed(...)})
+            _is_versioned_windowed = (
+                isinstance(wind, Feature)
+                and wind.version is not None
+                and wind.version.explicitly_enumerated
+                and any(isinstance(v, Windowed) for v in wind.version.reference.values())
+            )
+            if _is_versioned_windowed:
+                assert isinstance(wind, Feature) and wind.version is not None
+                windowed_versions: dict[int, Windowed] = {
+                    k: v for k, v in wind.version.reference.items() if isinstance(v, Windowed)
+                }
+
+                # All versions must be windowed — mixing windowed() and feature() is not allowed
+                non_windowed_versions = {
+                    k: v for k, v in wind.version.reference.items() if not isinstance(v, Windowed)
+                }
+                if non_windowed_versions:
+                    bad_keys = ", ".join(str(k) for k in sorted(non_windowed_versions.keys()))
+                    error_builder.add_diagnostic(
+                        message=(
+                            f"Windowed feature '{namespace}.{name}' has a mix of windowed() and feature() in its versions dict. "
+                            f"Version(s) {bad_keys} use feature() instead of windowed(). "
+                            f"All versions must use windowed() when the annotation is Windowed."
+                        ),
+                        label="mixed windowed/feature versions",
+                        range=error_builder.property_value_range(name) or error_builder.property_range(name),
+                        code="39",
+                    )
+                    cls_annotations[name] = annotation.kind
+                    continue
+
+                default_ver = wind.version.default
+                default_wind = windowed_versions[default_ver]
+                max_ver = wind.version.maximum
+
+                # Set kind and _name on all version Windowed instances
+                for v_wind in windowed_versions.values():
+                    v_wind.kind = annotation.kind
+                    if v_wind._name is None:
+                        v_wind._name = name
+
+                # Validate and collect bucket seconds across all versions
+                all_bucket_seconds: set[int] = set()
+                seconds_to_bucket_str: dict[int, str] = {}
+                for ver, v_wind in windowed_versions.items():
+                    ver_buckets = _validate_windowed(
+                        wind=v_wind,
+                        namespace=namespace,
+                        name=name,
+                        annotation_kind_name=getattr(annotation.kind, "__name__", None) or str(annotation.kind),
+                        error_builder=error_builder,
+                        label_prefix=f"version {ver} ",
+                    )
+                    all_bucket_seconds.update(ver_buckets)
+                    for b in v_wind._buckets:
+                        try:
+                            s = parse_chalk_duration_s(b)
+                            if s not in seconds_to_bucket_str:
+                                seconds_to_bucket_str[s] = b
+                        except ValueError:
+                            pass
+                annotation._buckets = default_wind._buckets
+
+                # Create pseudo-features for each bucket across all versions
+                for bucket_s in sorted(all_bucket_seconds):
+                    versions_with_bucket = {
+                        ver: w for ver, w in windowed_versions.items()
+                        if bucket_s in w.buckets_seconds
+                    }
+                    default_has_bucket = default_ver in versions_with_bucket
+                    source_ver = default_ver if default_has_bucket else min(versions_with_bucket.keys())
+                    source_wind = versions_with_bucket[source_ver]
+
+                    # Create the base pseudo-feature from the source version
+                    try:
+                        base_feat = source_wind._to_feature(bucket=bucket_s)
+                    except ValueError as e:
+                        error_builder.add_diagnostic(
+                            message=f"Invalid window found for feature '{namespace}.{name}'. {e.args[0]}",
+                            label="invalid duration",
+                            range=error_builder.property_value_range(name),
+                            code="18",
+                        )
+                        continue
+
+                    # Build version reference with Feature instances for each version that has this bucket.
+                    # Delete `name` so that version expansion assigns it via name_for_version,
+                    # which adds the @N suffix for non-v1 versions.
+                    version_reference: dict[int, Feature] = {}
+                    for ver, v_wind in versions_with_bucket.items():
+                        try:
+                            ver_feat = v_wind._to_feature(bucket=bucket_s)
+                        except ValueError:
+                            continue
+                        if hasattr(ver_feat, "name"):
+                            del ver_feat.name
+                        version_reference[ver] = ver_feat
+
+                    base_feat.version = VersionInfo(
+                        version=source_ver,
+                        maximum=max_ver,
+                        default=default_ver if default_has_bucket else source_ver,
+                        reference=cast(MutableMapping[int, Feature], version_reference),
+                        explicitly_enumerated=True,
+                        base_name=base_feat.name,
+                    )
+
+                    if base_feat.window_materialization is not None:
+                        materialized_windows.append(base_feat)
+                    elif base_feat.underscore_expression is not None:
+                        expression_windows.append(base_feat)
+
+                    cls_annotations[base_feat.name] = annotation.kind
+                    setattr(cls, base_feat.name, base_feat)
+
+                    bucket_str = seconds_to_bucket_str.get(bucket_s)
+                    if bucket_str is not None:
+                        alias = f"{name}_{bucket_str}"
+                        additional_inits.append(alias)
+                        alias_from_to[
+                            get_name_with_duration(name_or_fqn=name, duration=bucket_s)
+                        ] = alias
+
+                # Set up the root feature with window_durations for all buckets
+                root_feat = default_wind._to_feature(bucket=None)
+                root_feat.window_durations = tuple(sorted(all_bucket_seconds))
+                root_feat.version = VersionInfo(
+                    version=default_ver,
+                    maximum=max_ver,
+                    default=default_ver,
+                    reference={},
+                    explicitly_enumerated=True,
+                    base_name=name,
+                )
+                f = root_feat
+                cls_annotations[name] = annotation
+                # Skip the normal windowed processing below
+                setattr(cls, name, f)
+                continue
+
+            elif wind is None or not isinstance(wind, Windowed):
                 assert annotation._kind is not None
                 error_builder.add_diagnostic(
                     message=(
                         f"Windowed feature '{namespace}.{name}' is missing windows. "
                         f"To create a windowed feature, use "
-                        f"'{name}: Windowed[{annotation.kind.__name__}] = windowed(\"10m\", ...)'"
+                        f"'{name}: Windowed[{getattr(annotation.kind, '__name__', None) or str(annotation.kind)}] = windowed(\"10m\", ...)' "
+                        f"or '{name}: Windowed[{getattr(annotation.kind, '__name__', None) or str(annotation.kind)}] = feature(versions={{1: windowed(\"10m\", ...), ...}})'"
                     ),
                     label="missing windowed(...) call",
                     range=error_builder.property_range(name),
@@ -873,112 +1123,32 @@ def _process_class(
             if wind._name is None:
                 wind._name = name
             annotation._buckets = wind._buckets
-            if len(wind._buckets) == 0:
-                error_builder.add_diagnostic(
-                    message=(
-                        f"Windowed feature '{namespace}.{name}' does not have any window durations. "
-                        f"To create a windowed feature, use "
-                        f'\'{name}: Windowed[{annotation.kind.__name__}] = windowed("1h", "1d"))\''
-                    ),
-                    label="missing window durations",
-                    range=error_builder.property_value_range(name) or error_builder.property_range(name),
-                    code="777",
-                )
 
-            if isinstance(wind._materialization, dict):
+            valid_bucket_seconds = _validate_windowed(
+                wind=wind,
+                namespace=namespace,
+                name=name,
+                annotation_kind_name=getattr(annotation.kind, "__name__", None) or str(annotation.kind),
+                error_builder=error_builder,
+            )
 
-                def get_mat_range():
-                    return (
-                        error_builder.property_value_kwarg_range(name, kwarg="materialization")
-                        or error_builder.property_value_range(name)
-                        or error_builder.property_range(name)
-                    )
-
-                if wind._expression is None:
-                    error_builder.add_diagnostic(
-                        message=(
-                            f"Windowed feature '{namespace}.{name}' has a materialization, but no expression. "
-                            f"To create a materialized windowed feature, use "
-                            f"'{name}: Windowed[{annotation.kind.__name__}] = windowed(\"10m\", materialization={wind._materialization}, expression=_.your_dataframe_feature[_.field_to_agg].sum())'"
-                        ),
-                        label="materialization config",
-                        range=get_mat_range(),
-                        code="177",
-                    )
-
-                bucket_duration_raw = wind._materialization.get("bucket_duration", None)
-                if bucket_duration_raw is not None:
-                    try:
-                        wind._materialization["bucket_duration"] = parse_chalk_duration(bucket_duration_raw)
-                    except ValueError as e:
-                        error_builder.add_diagnostic(
-                            message=(
-                                f"Windowed feature '{namespace}.{name}' has an invalid `bucket_duration`. {e.args[0]}"
-                            ),
-                            label="invalid duration",
-                            range=get_mat_range(),
-                            code="18",
-                        )
-
-                validated_bucket_durations: dict[Duration, list[Duration]] = collections.defaultdict(list)
-                for d, windows_or_window in wind._materialization.get("bucket_durations", {}).items():
-                    try:
-                        d = parse_chalk_duration(d)
-                    except ValueError as e:
-                        error_builder.add_diagnostic(
-                            message=(
-                                f"Windowed feature '{namespace}.{name}' has an invalid key in `bucket_durations`. {e.args[0]}"
-                            ),
-                            label="invalid duration",
-                            range=get_mat_range(),
-                            code="18",
-                            raise_error=ValueError,
-                        )
-
-                    for_windows = ensure_tuple(windows_or_window)
-                    for w in for_windows:
-                        try:
-                            w = parse_chalk_duration(w)
-                        except ValueError as e:
-                            error_builder.add_diagnostic(
-                                message=(
-                                    f"Windowed feature '{namespace}.{name}' has an invalid key in `bucket_durations`. {e.args[0]}"
-                                ),
-                                label="invalid duration",
-                                range=get_mat_range(),
-                                code="18",
-                                raise_error=ValueError,
-                            )
-                        validated_bucket_durations[d].append(w)
-
-                wind._materialization["bucket_durations"] = validated_bucket_durations
-                if bucket_duration_raw is None and not validated_bucket_durations:
-                    error_builder.add_diagnostic(
-                        message=(
-                            f"Windowed feature '{namespace}.{name}' has a materialization, but no 'bucket_duration'. "
-                            "Please provide a 'bucket_duration', like '1h', in the dictionary under the keyword "
-                            "argument 'materialization'."
-                        ),
-                        label="missing 'bucket_duration' key",
-                        range=get_mat_range(),
-                        code="188",
-                    )
-
-            for bucket in wind._buckets:
-                # Make pseudo-features for each bucket of the window
+            # Build reverse mapping: seconds → original bucket string for alias generation,
+            # and filter wind._buckets to only valid ones so _to_feature doesn't choke
+            # on invalid durations when accessing self.buckets_seconds internally.
+            seconds_to_bucket_str: dict[int, str] = {}
+            valid_buckets: list[str] = []
+            for b in wind._buckets:
                 try:
-                    bucket_seconds = parse_chalk_duration_s(bucket)
-                except ValueError as e:
-                    # set bucket_seconds to anything so that we can continue accumulating errors
-                    # in the class.
-                    bucket_seconds = 60
-                    error_builder.add_diagnostic(
-                        message=f"Invalid window found for feature '{namespace}.{name}'. {e.args[0]}",
-                        label="invalid duration",
-                        range=error_builder.property_value_range(name),
-                        code="18",
-                    )
+                    s = parse_chalk_duration_s(b)
+                    valid_buckets.append(b)
+                    if s not in seconds_to_bucket_str:
+                        seconds_to_bucket_str[s] = b
+                except ValueError:
+                    pass
+            wind._buckets = valid_buckets
 
+            for bucket_seconds in sorted(valid_bucket_seconds):
+                # Make pseudo-features for each valid bucket of the window
                 try:
                     feat = wind._to_feature(bucket=bucket_seconds)
                 except ValueError as e:
@@ -1000,13 +1170,14 @@ def _process_class(
                 # Windowed[underlying], since it's only one value
                 cls_annotations[feat.name] = wind.kind
                 setattr(cls, feat.name, feat)
-                if isinstance(bucket, str):  # pyright: ignore [reportUnnecessaryIsInstance] -- user provided
-                    alias = f"{name}_{bucket}"
+                bucket_str = seconds_to_bucket_str.get(bucket_seconds)
+                if bucket_str is not None:
+                    alias = f"{name}_{bucket_str}"
                     additional_inits.append(alias)
                     alias_from_to[
                         get_name_with_duration(
                             name_or_fqn=name,
-                            duration="all" if bucket == "infinity" or bucket == "all" else bucket_seconds,
+                            duration=bucket_seconds,
                         )
                     ] = alias
 
@@ -1297,6 +1468,30 @@ def _process_class(
         alias_from_to[f.attribute_name] = f"{f.attribute_name}_v{f.version.default}"
 
         if f.version.explicitly_enumerated:
+            # Check for windowed values that weren't handled in the windowed annotation path
+            # (e.g. annotation is int but versions contain windowed() — wrong annotation type)
+            has_windowed_ref = any(isinstance(v, Windowed) for v in f.version.reference.values())
+            if has_windowed_ref:
+                # Only emit this error if the annotation isn't Windowed — if it is Windowed,
+                # the Windowed annotation block already handled this (possibly with a different error)
+                orig_annotation = raw_cls_annotations.get(f.attribute_name)
+                is_windowed_annotation = isinstance(orig_annotation, Windowed) or (
+                    isinstance(orig_annotation, str) and "Windowed" in orig_annotation
+                )
+                if not is_windowed_annotation:
+                    error_builder.add_diagnostic(
+                        message=(
+                            f"Feature '{namespace}.{f.attribute_name}' uses windowed() in its versions dict, "
+                            f"but the type annotation is not Windowed. "
+                            f"Use 'Windowed[<type>]' as the annotation, e.g. "
+                            f"'{f.attribute_name}: Windowed[float] = feature(versions={{...}})'"
+                        ),
+                        label="windowed versions need Windowed annotation",
+                        range=error_builder.property_range(f.attribute_name),
+                        code="19",
+                    )
+                continue
+
             for i, mapped_feature in f.version.reference.items():
                 f_i = copy.copy(mapped_feature)
                 f_i.namespace = namespace
@@ -1344,6 +1539,10 @@ def _process_class(
                 # The default feature already exists.
                 f_i.no_display = i == f.version.default
                 cls_fields.append(f_i)
+                # Ensure version-expanded windowed features get processed by the importer
+                # for materialization parsing (otherwise only the base/default gets parsed).
+                if f_i.window_materialization is not None and i != f.version.default:
+                    materialized_windows.append(f_i)
             continue
 
         for i in range(1, f.version.maximum + 1):

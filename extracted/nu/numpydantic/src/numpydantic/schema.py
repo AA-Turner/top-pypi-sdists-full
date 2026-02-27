@@ -5,7 +5,8 @@ Helper functions for use with :class:`~numpydantic.NDArray` - see the note in
 
 import hashlib
 import json
-from typing import TYPE_CHECKING, Any, Callable, Optional, get_args
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional, get_args
 
 import numpy as np
 from pydantic import BaseModel
@@ -198,7 +199,7 @@ def _hash_schema(schema: CoreSchema) -> str:
 
 
 def _unbounded_shape(
-    inner_type: CoreSchema, metadata: Optional[dict] = None
+    inner_type: CoreSchema, metadata: dict | None = None
 ) -> core_schema.DefinitionsSchema:
     """
     Make a recursive schema that refers to itself using a hashed version of the inner

@@ -24,6 +24,7 @@ class AccessPackageResourcePackageAssociationArgs:
                  access_type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a AccessPackageResourcePackageAssociation resource.
+
         :param pulumi.Input[_builtins.str] access_package_id: The ID of access package this resource association is configured to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] catalog_resource_association_id: The ID of the catalog association from the `AccessPackageResourceCatalogAssociation` resource. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] access_type: The role of access type to the specified resource. Valid values are `Member`, or `Owner` The default is `Member`. Changing this forces a new resource to be created.
@@ -78,6 +79,7 @@ class _AccessPackageResourcePackageAssociationState:
                  catalog_resource_association_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AccessPackageResourcePackageAssociation resources.
+
         :param pulumi.Input[_builtins.str] access_package_id: The ID of access package this resource association is configured to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] access_type: The role of access type to the specified resource. Valid values are `Member`, or `Owner` The default is `Member`. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] catalog_resource_association_id: The ID of the catalog association from the `AccessPackageResourceCatalogAssociation` resource. Changing this forces a new resource to be created.
@@ -180,7 +182,8 @@ class AccessPackageResourcePackageAssociation(pulumi.CustomResource):
         $ pulumi import azuread:index/accessPackageResourcePackageAssociation:AccessPackageResourcePackageAssociation example 00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111_22222222-2222-2222-2222-22222222/33333333-3333-3333-3333-33333333/Member
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Access Package ID, the access package ResourceRoleScope (in the format Role_Scope), the Resource Origin ID, and the Access Type, in the format `{AccessPackageID}/{ResourceRoleScope}/{ResourceOriginID}/{AccessType}`.
+        > This ID format is unique to Terraform and is composed of the Access Package ID, the access package ResourceRoleScope (in the format Role_Scope), the Resource Origin ID, and the Access Type, in the format `{AccessPackageID}/{ResourceRoleScope}/{ResourceOriginID}/{AccessType}`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -238,7 +241,8 @@ class AccessPackageResourcePackageAssociation(pulumi.CustomResource):
         $ pulumi import azuread:index/accessPackageResourcePackageAssociation:AccessPackageResourcePackageAssociation example 00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111_22222222-2222-2222-2222-22222222/33333333-3333-3333-3333-33333333/Member
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Access Package ID, the access package ResourceRoleScope (in the format Role_Scope), the Resource Origin ID, and the Access Type, in the format `{AccessPackageID}/{ResourceRoleScope}/{ResourceOriginID}/{AccessType}`.
+        > This ID format is unique to Terraform and is composed of the Access Package ID, the access package ResourceRoleScope (in the format Role_Scope), the Resource Origin ID, and the Access Type, in the format `{AccessPackageID}/{ResourceRoleScope}/{ResourceOriginID}/{AccessType}`.
+
 
         :param str resource_name: The name of the resource.
         :param AccessPackageResourcePackageAssociationArgs args: The arguments to use to populate this resource's properties.

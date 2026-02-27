@@ -66,6 +66,7 @@ class CliConfig:
     save_manifest_tar: Optional[str] = None
     sub_paths: List[str] = field(default_factory=list)
     workspace_name: Optional[str] = None
+    workspace: Optional[str] = None
     # Reachability Flags
     reach: bool = False
     reach_version: Optional[str] = None
@@ -86,6 +87,7 @@ class CliConfig:
     only_facts_file: bool = False
     reach_use_only_pregenerated_sboms: bool = False
     max_purl_batch_size: int = 5000
+    enable_commit_status: bool = False
     
     @classmethod
     def from_args(cls, args_list: Optional[List[str]] = None) -> 'CliConfig':
@@ -144,6 +146,7 @@ class CliConfig:
             'save_manifest_tar': args.save_manifest_tar,
             'sub_paths': args.sub_paths or [],
             'workspace_name': args.workspace_name,
+            'workspace': args.workspace,
             'slack_webhook': args.slack_webhook,
             'reach': args.reach,
             'reach_version': args.reach_version,
@@ -164,6 +167,7 @@ class CliConfig:
             'only_facts_file': args.only_facts_file,
             'reach_use_only_pregenerated_sboms': args.reach_use_only_pregenerated_sboms,
             'max_purl_batch_size': args.max_purl_batch_size,
+            'enable_commit_status': args.enable_commit_status,
             'version': __version__
         }
         try:
@@ -252,6 +256,12 @@ def create_argument_parser() -> argparse.ArgumentParser:
         "--repo",
         metavar="<owner/repo>",
         help="Repository name in owner/repo format",
+        required=False
+    )
+    repo_group.add_argument(
+        "--workspace",
+        metavar="<string>",
+        help="The workspace in the Socket Organization that the repository is in to associate with the full scan.",
         required=False
     )
     repo_group.add_argument(
@@ -509,6 +519,18 @@ def create_argument_parser() -> argparse.ArgumentParser:
     output_group.add_argument(
         "--disable_security_issue",
         dest="disable_security_issue",
+        action="store_true",
+        help=argparse.SUPPRESS
+    )
+    output_group.add_argument(
+        "--enable-commit-status",
+        dest="enable_commit_status",
+        action="store_true",
+        help="Report scan result as a commit status on GitLab (requires GitLab SCM)"
+    )
+    output_group.add_argument(
+        "--enable_commit_status",
+        dest="enable_commit_status",
         action="store_true",
         help=argparse.SUPPRESS
     )

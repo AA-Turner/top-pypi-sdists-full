@@ -5,8 +5,13 @@ Package metadata for xblocks-contrib.
 import os
 import re
 import sys
+import shutil
+import subprocess
 
 from setuptools import find_packages, setup
+from setuptools.command.build_py import build_py
+from setuptools.command.develop import develop
+from setuptools.command.sdist import sdist
 
 
 def get_version(*file_paths):
@@ -151,6 +156,51 @@ def package_data(pkg, sub_roots):
     return {pkg: data}
 
 
+JS_BUILD_DONE = False
+
+
+def build_js(dist=None):
+    """Run npm ci & build once. Updates package_data if run."""
+    global JS_BUILD_DONE
+    if JS_BUILD_DONE:
+        return
+    JS_BUILD_DONE = True
+
+    # Skip if no package.json (e.g. installing from PyPI) or no npm
+    if not os.path.exists("package.json") or not shutil.which("npm"):
+        if os.path.exists("package.json"):
+            print("Warning: npm not found, skipping JS build.")
+        return
+
+    try:
+        print("Building JS assets...")
+        subprocess.check_call(["npm", "ci"])
+        subprocess.check_call(["npm", "run", "build"])
+        # Refresh package data to include new assets
+        if dist:
+            dist.package_data = package_data("xblocks_contrib", ["static", "public", "templates"])
+    except Exception as e:
+        print(f"Warning: JS build failed: {e}. Continuing installation...")
+
+
+class JSBuildPy(build_py):
+    def run(self):
+        build_js(self.distribution)
+        super().run()
+
+
+class JSDevelop(develop):
+    def run(self):
+        build_js(self.distribution)
+        super().run()
+
+
+class JSSdist(sdist):
+    def run(self):
+        build_js(self.distribution)
+        super().run()
+
+
 VERSION = get_version("xblocks_contrib", "__init__.py")
 
 if sys.argv[-1] == "tag":
@@ -175,7 +225,7 @@ setup(
     author_email="oscm@openedx.org",
     url="https://github.com/openedx/xblocks-contrib",
     packages=find_packages(
-        include=["xblocks_contrib", "xblocks_contrib.*"],
+        include=["xblocks_contrib", "xblocks_contrib.*", "xblock_pdf"],
         exclude=["*tests"],
     ),
     include_package_data=True,
@@ -204,7 +254,23 @@ setup(
             "_problem_extracted = xblocks_contrib:ProblemBlock",
             "_video_extracted = xblocks_contrib:VideoBlock",
             "_word_cloud_extracted = xblocks_contrib:WordCloudBlock",
+            # 'Done' XBlocks-- ones that are ready for general use today,
+            # and have been migrated fully from edx-platform or their original
+            # repository.
+            "pdf = xblock_pdf:PDFBlock",
         ]
     },
-    package_data=package_data("xblocks_contrib", ["static", "public", "templates"]),
+    package_data={
+        **package_data(
+            "xblocks_contrib", ["static", "public", "templates"],
+        ),
+        **package_data(
+            "xblock_pdf", ["static", "templates"],
+        ),
+    },
+    cmdclass={
+        "build_py": JSBuildPy,
+        "develop": JSDevelop,
+        "sdist": JSSdist,
+    }
 )

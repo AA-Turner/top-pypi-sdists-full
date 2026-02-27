@@ -25,6 +25,7 @@ class ApplicationApiAccessArgs:
                  scope_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ApplicationApiAccess resource.
+
         :param pulumi.Input[_builtins.str] api_client_id: The client ID of the API to which access is being granted. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_ids: A set of role IDs to be granted to the application, as published by the API.
@@ -99,6 +100,7 @@ class _ApplicationApiAccessState:
                  scope_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering ApplicationApiAccess resources.
+
         :param pulumi.Input[_builtins.str] api_client_id: The client ID of the API to which access is being granted. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] role_ids: A set of role IDs to be granted to the application, as published by the API.
@@ -178,6 +180,20 @@ class ApplicationApiAccess(pulumi.CustomResource):
                  scope_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
+        Manages the API permissions for an application registration.
+
+        This resource is analogous to the `required_resource_access` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -216,6 +232,7 @@ class ApplicationApiAccess(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationApiAccess:ApplicationApiAccess example /applications/00000000-0000-0000-0000-000000000000/apiAccess/11111111-1111-1111-1111-111111111111
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -233,6 +250,20 @@ class ApplicationApiAccess(pulumi.CustomResource):
                  args: ApplicationApiAccessArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages the API permissions for an application registration.
+
+        This resource is analogous to the `required_resource_access` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -271,6 +302,7 @@ class ApplicationApiAccess(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationApiAccess:ApplicationApiAccess example /applications/00000000-0000-0000-0000-000000000000/apiAccess/11111111-1111-1111-1111-111111111111
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationApiAccessArgs args: The arguments to use to populate this resource's properties.

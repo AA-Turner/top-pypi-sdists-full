@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import multiprocessing as mp
 import pathlib
+import threading
 import warnings
 
 import hdf5plugin
@@ -70,6 +72,17 @@ def compress(
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         with h5py.File(path_in) as h5, h5py.File(path_temp, "w") as hc:
+            bytes_total = mp.Value("Q")
+            bytes_written = mp.Value("Q")
+            stop_event = threading.Event()
+
+            monitor_thread = threading.Thread(
+                target=common.monitor,
+                args=("Compression", bytes_total, bytes_written, stop_event),
+                name="Compression",
+                daemon=True)
+            monitor_thread.start()
+
             rtdc_copy(src_h5file=h5,
                       dst_h5file=hc,
                       features="all",
@@ -77,7 +90,12 @@ def compress(
                       include_logs=True,
                       include_tables=True,
                       meta_prefix="",
+                      bytes_total=bytes_total,
+                      bytes_written=bytes_written,
                       )
+
+            stop_event.set()
+            monitor_thread.join()
 
             hc.require_group("logs")
             # rename old dclab-compress logs
@@ -105,6 +123,8 @@ def compress(
 
     if ret_path:
         return path_out
+    else:
+        return None
 
 
 def compress_parser():

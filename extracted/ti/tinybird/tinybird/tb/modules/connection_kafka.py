@@ -115,9 +115,9 @@ def connection_create_kafka(
         except Exception as e:
             raise CLIConnectionException(FeedbackManager.error(message=str(e)))
 
-    security_protocol_options = ["SASL_SSL", "PLAINTEXT"]
+    security_protocol_options = ["SASL_SSL", "SASL_PLAINTEXT", "PLAINTEXT"]
     security_protocol = security_protocol or click.prompt(
-        FeedbackManager.highlight(message="? Security Protocol (SASL_SSL, PLAINTEXT) [SASL_SSL]"),
+        FeedbackManager.highlight(message="? Security Protocol (SASL_SSL, SASL_PLAINTEXT, PLAINTEXT) [SASL_SSL]"),
         type=click.Choice(security_protocol_options),
         show_default=False,
         show_choices=False,

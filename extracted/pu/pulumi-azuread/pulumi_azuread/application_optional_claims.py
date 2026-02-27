@@ -27,6 +27,7 @@ class ApplicationOptionalClaimsInitArgs:
                  saml2_tokens: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsSaml2TokenArgs']]]] = None):
         """
         The set of arguments for constructing a ApplicationOptionalClaims resource.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsAccessTokenArgs']]] access_tokens: One or more `access_token` blocks as documented below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsIdTokenArgs']]] id_tokens: One or more `id_token` blocks as documented below.
@@ -102,6 +103,7 @@ class _ApplicationOptionalClaimsState:
                  saml2_tokens: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsSaml2TokenArgs']]]] = None):
         """
         Input properties used for looking up and filtering ApplicationOptionalClaims resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsAccessTokenArgs']]] access_tokens: One or more `access_token` blocks as documented below.
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationOptionalClaimsIdTokenArgs']]] id_tokens: One or more `id_token` blocks as documented below.
@@ -181,6 +183,20 @@ class ApplicationOptionalClaims(pulumi.CustomResource):
                  saml2_tokens: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationOptionalClaimsSaml2TokenArgs', 'ApplicationOptionalClaimsSaml2TokenArgsDict']]]]] = None,
                  __props__=None):
         """
+        Manages optional claims for an application registration.
+
+        This resource is analogous to the `optional_claims` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -216,6 +232,7 @@ class ApplicationOptionalClaims(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationOptionalClaims:ApplicationOptionalClaims example /applications/00000000-0000-0000-0000-000000000000
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -233,6 +250,20 @@ class ApplicationOptionalClaims(pulumi.CustomResource):
                  args: ApplicationOptionalClaimsInitArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages optional claims for an application registration.
+
+        This resource is analogous to the `optional_claims` block in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -268,6 +299,7 @@ class ApplicationOptionalClaims(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationOptionalClaims:ApplicationOptionalClaims example /applications/00000000-0000-0000-0000-000000000000
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationOptionalClaimsInitArgs args: The arguments to use to populate this resource's properties.

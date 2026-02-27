@@ -601,6 +601,16 @@ class SpotLightProps:
 
 
 @dataclasses.dataclass
+class FogMessage(Message):
+    """Fog message."""
+
+    near: float
+    far: float
+    color: Tuple[int, int, int]
+    enabled: bool
+
+
+@dataclasses.dataclass
 class EnvironmentMapMessage(Message):
     """Environment Map message."""
 

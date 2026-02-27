@@ -4,6 +4,7 @@ import torch
 
 from stanza.models.common.bert_embedding import filter_data, needs_length_filter
 from stanza.models.common.data import map_to_ids, get_long_tensor, get_float_tensor, sort_all
+from stanza.models.common.utils import DEFAULT_WORD_CUTOFF, simplify_punct
 from stanza.models.common.vocab import PAD_ID, VOCAB_PREFIX, ROOT_ID, CompositeVocab, CharVocab
 from stanza.models.pos.vocab import WordVocab, XPOSVocab, FeatureVocab, MultiVocab
 from stanza.models.pos.xpos_vocab_factory import xpos_vocab_factory
@@ -106,12 +107,13 @@ class DataLoader:
 
     def init_vocab(self, data):
         assert self.eval == False # for eval vocab must exist
+        cutoff = self.args['word_cutoff'] if self.args.get('word_cutoff') is not None else DEFAULT_WORD_CUTOFF
         charvocab = CharVocab(data, self.args['shorthand'])
-        wordvocab = WordVocab(data, self.args['shorthand'], cutoff=7, lower=True)
+        wordvocab = WordVocab(data, self.args['shorthand'], cutoff=cutoff, lower=True)
         uposvocab = WordVocab(data, self.args['shorthand'], idx=1)
         xposvocab = xpos_vocab_factory(data, self.args['shorthand'])
         featsvocab = FeatureVocab(data, self.args['shorthand'], idx=3)
-        lemmavocab = WordVocab(data, self.args['shorthand'], cutoff=7, idx=4, lower=True)
+        lemmavocab = WordVocab(data, self.args['shorthand'], cutoff=cutoff, idx=4, lower=True)
         deprelvocab = WordVocab(data, self.args['shorthand'], idx=6)
         vocab = MultiVocab({'char': charvocab,
                             'word': wordvocab,
@@ -190,6 +192,7 @@ class DataLoader:
     def load_doc(self, doc):
         data = doc.get([TEXT, UPOS, XPOS, FEATS, LEMMA, HEAD, DEPREL], as_sentences=True)
         data = self.resolve_none(data)
+        data = simplify_punct(data)
         return data
 
     def resolve_none(self, data):

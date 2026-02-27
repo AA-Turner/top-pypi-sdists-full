@@ -1,11 +1,14 @@
 import ast
-from collections.abc import Mapping
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from typing import ClassVar, TypeAlias, final
 
 from wemake_python_styleguide.compat.aliases import TextNodes
 from wemake_python_styleguide.logic import walk
+from wemake_python_styleguide.logic.nodes import get_parent
 from wemake_python_styleguide.logic.tree.operators import (
     count_unary_operator,
+    get_reduced_unary_operators,
     unwrap_unary_node,
 )
 from wemake_python_styleguide.types import AnyNodes
@@ -20,6 +23,7 @@ _MeaninglessOperators: TypeAlias = Mapping[
     tuple[type[ast.operator], ...],
 ]
 _OperatorLimits: TypeAlias = Mapping[type[ast.unaryop], int]
+_UnaryOperatorsChain: TypeAlias = Sequence[type[ast.unaryop]]
 
 
 @final
@@ -30,7 +34,7 @@ _OperatorLimits: TypeAlias = Mapping[type[ast.unaryop], int]
         'visit_NameConstant',
     ),
 )
-class UselessOperatorsVisitor(base.BaseNodeVisitor):
+class UselessOperatorsVisitor(base.BaseNodeVisitor):  # noqa: WPS214
     """Checks operators used in the code."""
 
     _unary_limits: ClassVar[_OperatorLimits] = {
@@ -84,6 +88,13 @@ class UselessOperatorsVisitor(base.BaseNodeVisitor):
         """Visits binary operators."""
         self._check_zero_division(node.op, node.right)
         self._check_useless_math_operator(node.op, node.left, node.right)
+        self._check_useless_symmetric_operator(node.op, node.left, node.right)
+        self.generic_visit(node)
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
+        """Visit boolean operators."""
+        self._check_useless_bool_op_constants(node.op, node.values)
+        self._check_useless_bool_op_names(node.op, node.values)
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
@@ -113,6 +124,50 @@ class UselessOperatorsVisitor(base.BaseNodeVisitor):
         if is_zero_division:
             self.add_violation(consistency.ZeroDivisionViolation(number))
 
+    def _check_useless_bool_op_constants(
+        self,
+        op: ast.boolop,
+        nodes: list[ast.expr],
+    ) -> None:
+        for position, node in enumerate(nodes, 1):
+            unwrapped = unwrap_unary_node(node)
+
+            # `and` containing at least one constant
+            # `or` containing bool or everything after non-bool constant
+            has_useless_constant = isinstance(unwrapped, ast.Constant) and (
+                isinstance(op, ast.And)
+                or isinstance(unwrapped.value, bool)
+                or position < len(nodes)
+            )
+            if has_useless_constant:
+                self.add_violation(
+                    consistency.MeaninglessBooleanOperationViolation(node)
+                )
+                return
+
+    def _check_useless_bool_op_names(
+        self,
+        op: ast.boolop,
+        nodes: list[ast.expr],
+    ) -> None:
+        unary_chains: dict[str, set[_UnaryOperatorsChain]] = defaultdict(set)
+        for node in nodes:
+            unwrapped = unwrap_unary_node(node)
+
+            # `and`/`or` operators containing a duplicate name
+            # with identical unary operations
+            has_useless_name = False
+            if isinstance(unwrapped, ast.Name):
+                opchain = tuple(get_reduced_unary_operators(unwrapped))
+                has_useless_name = opchain in unary_chains[unwrapped.id]
+                unary_chains[unwrapped.id].add(opchain)
+
+            if has_useless_name:
+                self.add_violation(
+                    consistency.MeaninglessBooleanOperationViolation(node)
+                )
+                return
+
     def _check_useless_math_operator(
         self,
         op: ast.operator,
@@ -134,6 +189,32 @@ class UselessOperatorsVisitor(base.BaseNodeVisitor):
             if forbidden and isinstance(op, forbidden):
                 self.add_violation(
                     consistency.MeaninglessNumberOperationViolation(number),
+                )
+
+    def _check_useless_symmetric_operator(
+        self,
+        op: ast.operator,
+        left: ast.AST,
+        right: ast.AST,
+    ) -> None:
+        real_left = unwrap_unary_node(left)
+        real_right = unwrap_unary_node(right)
+        if not (
+            isinstance(real_left, ast.Constant)
+            and isinstance(real_right, ast.Constant)
+        ):
+            return
+
+        left_unary_ops = get_reduced_unary_operators(real_left)
+        right_unary_ops = get_reduced_unary_operators(real_right)
+        if isinstance(op, (ast.BitAnd, ast.BitOr, ast.BitXor)):
+            is_identical_constants = (
+                real_left.value == real_right.value
+                and left_unary_ops == right_unary_ops
+            )
+            if is_identical_constants:
+                self.add_violation(
+                    consistency.MeaninglessNumberOperationViolation(right)
                 )
 
     def _get_non_negative_nodes(
@@ -228,7 +309,7 @@ class WrongMathOperatorVisitor(base.BaseNodeVisitor):
 class WalrusVisitor(base.BaseNodeVisitor):
     """We use this visitor to find walrus operators and ban them."""
 
-    _available_parents: ClassVar[AnyNodes] = (
+    _comprehensions: ClassVar[AnyNodes] = (
         ast.ListComp,
         ast.SetComp,
         ast.DictComp,
@@ -239,16 +320,23 @@ class WalrusVisitor(base.BaseNodeVisitor):
         self,
         node: ast.NamedExpr,
     ) -> None:
-        """Disallows walrus ``:=`` operator outside comprehensions."""
-        self._check_walrus_in_comprehesion(node)
+        """Disallows walrus ``:=`` operator in most cases."""
+        self._check_walrus_parent(node)
         self.generic_visit(node)
 
-    def _check_walrus_in_comprehesion(
+    def _check_walrus_parent(
         self,
         node: ast.NamedExpr,
     ) -> None:
-        is_comprension = walk.get_closest_parent(node, self._available_parents)
-        if is_comprension:
+        is_comprehension = walk.get_closest_parent(node, self._comprehensions)
+        if is_comprehension:
+            return
+
+        parent = get_parent(node)
+        is_while_condition = (
+            isinstance(parent, ast.While) and node is parent.test
+        )
+        if is_while_condition:
             return
 
         self.add_violation(consistency.WalrusViolation(node))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlrun-pipelines-kfp-common
-Version: 0.6.3
+Version: 0.6.4
 Summary: MLRun Pipelines adapter package for providing KFP common functionality
 Author-email: Yaron Haviv <yaronh@iguazio.com>
 License: Apache License 2.0

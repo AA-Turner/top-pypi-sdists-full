@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: judoscale
-Version: 1.13.0
+Version: 1.13.1
 Summary: Official Python package for the Judoscale autoscaler
 Home-page: https://github.com/judoscale/judoscale-python
 License: MIT

@@ -25,6 +25,7 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
         git_repo_resource_path (str):
         use_individual_branch (Union[Unset, bool]):
         group_by_folder (Union[Unset, bool]):
+        force_branch (Union[Unset, str]):
         collapsed (Union[Unset, bool]):
         settings (Union[Unset, GetSettingsResponse200GitSyncRepositoriesItemSettings]):
         exclude_types_override (Union[Unset,
@@ -35,6 +36,7 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
     git_repo_resource_path: str
     use_individual_branch: Union[Unset, bool] = UNSET
     group_by_folder: Union[Unset, bool] = UNSET
+    force_branch: Union[Unset, str] = UNSET
     collapsed: Union[Unset, bool] = UNSET
     settings: Union[Unset, "GetSettingsResponse200GitSyncRepositoriesItemSettings"] = UNSET
     exclude_types_override: Union[
@@ -47,6 +49,7 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
         git_repo_resource_path = self.git_repo_resource_path
         use_individual_branch = self.use_individual_branch
         group_by_folder = self.group_by_folder
+        force_branch = self.force_branch
         collapsed = self.collapsed
         settings: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.settings, Unset):
@@ -72,6 +75,8 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
             field_dict["use_individual_branch"] = use_individual_branch
         if group_by_folder is not UNSET:
             field_dict["group_by_folder"] = group_by_folder
+        if force_branch is not UNSET:
+            field_dict["force_branch"] = force_branch
         if collapsed is not UNSET:
             field_dict["collapsed"] = collapsed
         if settings is not UNSET:
@@ -96,6 +101,8 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
 
         group_by_folder = d.pop("group_by_folder", UNSET)
 
+        force_branch = d.pop("force_branch", UNSET)
+
         collapsed = d.pop("collapsed", UNSET)
 
         _settings = d.pop("settings", UNSET)
@@ -119,6 +126,7 @@ class GetSettingsResponse200GitSyncRepositoriesItem:
             git_repo_resource_path=git_repo_resource_path,
             use_individual_branch=use_individual_branch,
             group_by_folder=group_by_folder,
+            force_branch=force_branch,
             collapsed=collapsed,
             settings=settings,
             exclude_types_override=exclude_types_override,

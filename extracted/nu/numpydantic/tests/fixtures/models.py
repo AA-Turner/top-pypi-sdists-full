@@ -1,4 +1,5 @@
-from typing import Any, Callable, Optional, Tuple, Type, Union
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -9,12 +10,10 @@ from numpydantic.dtype import Number
 
 
 @pytest.fixture(scope="function")
-def array_model() -> (
-    Callable[[Tuple[int, ...], Union[Type, np.dtype]], Type[BaseModel]]
-):
+def array_model() -> Callable[[tuple[int, ...], type | np.dtype], type[BaseModel]]:
     def _model(
-        shape: Tuple[int, ...] = (10, 10), dtype: Union[Type, np.dtype] = float
-    ) -> Type[BaseModel]:
+        shape: tuple[int, ...] = (10, 10), dtype: type | np.dtype = float
+    ) -> type[BaseModel]:
         shape_str = ", ".join([str(s) for s in shape])
 
         class MyModel(BaseModel):
@@ -26,21 +25,20 @@ def array_model() -> (
 
 
 @pytest.fixture(scope="session")
-def model_rgb() -> Type[BaseModel]:
+def model_rgb() -> type[BaseModel]:
     class RGB(BaseModel):
-        array: Optional[
-            Union[
-                NDArray[Shape["* x, * y"], Number],
-                NDArray[Shape["* x, * y, 3 r_g_b"], Number],
-                NDArray[Shape["* x, * y, 3 r_g_b, 4 r_g_b_a"], Number],
-            ]
-        ] = Field(None)
+        array: (
+            NDArray[Shape["* x, * y"], Number]
+            | NDArray[Shape["* x, * y, 3 r_g_b"], Number]
+            | NDArray[Shape["* x, * y, 3 r_g_b, 4 r_g_b_a"], Number]
+            | None
+        ) = Field(None)
 
     return RGB
 
 
 @pytest.fixture(scope="session")
-def model_blank() -> Type[BaseModel]:
+def model_blank() -> type[BaseModel]:
     """A model with any shape and dtype"""
 
     class BlankModel(BaseModel):

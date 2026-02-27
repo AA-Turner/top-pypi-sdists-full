@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
 
 import cv2
 import dask.array as da
@@ -30,10 +29,10 @@ class NumpyCase(InterfaceCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
+        path: Path | None = None,
+        array: NDArrayType | None = None,
     ) -> np.ndarray:
         if array is not None:
             return np.array(array, dtype=dtype)
@@ -51,7 +50,7 @@ class _HDF5MetaCase(InterfaceCase):
     interface = H5Interface
 
     @classmethod
-    def skip(cls, shape: Tuple[int, ...], dtype: DtypeType) -> bool:
+    def skip(cls, shape: tuple[int, ...], dtype: DtypeType) -> bool:
         return issubclass(dtype, BaseModel)
 
 
@@ -61,11 +60,11 @@ class HDF5Case(_HDF5MetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[H5ArrayPath]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> H5ArrayPath | None:
         if cls.skip(shape, dtype):  # pragma: no cover
             return None
 
@@ -98,11 +97,11 @@ class HDF5CompoundCase(_HDF5MetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[H5ArrayPath]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> H5ArrayPath | None:
         if cls.skip(shape, dtype):  # pragma: no cover
             return None
 
@@ -138,10 +137,10 @@ class DaskCase(InterfaceCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
+        path: Path | None = None,
+        array: NDArrayType | None = None,
     ) -> da.Array:
         if array is not None:
             return da.array(array, dtype=dtype)
@@ -157,7 +156,7 @@ class _ZarrMetaCase(InterfaceCase):
     interface = ZarrInterface
 
     @classmethod
-    def skip(cls, shape: Tuple[int, ...], dtype: DtypeType) -> bool:
+    def skip(cls, shape: tuple[int, ...], dtype: DtypeType) -> bool:
         return issubclass(dtype, BaseModel) or dtype is str
 
 
@@ -167,11 +166,11 @@ class ZarrCase(_ZarrMetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[zarr.Array]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> zarr.Array | None:
         if array is not None:
             return zarr.array(array, dtype=dtype, chunks=-1)
         else:
@@ -184,11 +183,11 @@ class ZarrDirCase(_ZarrMetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[zarr.Array]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> zarr.Array | None:
         store = zarr.DirectoryStore(str(path / "array.zarr"))
         if array is not None:
             return zarr.array(array, dtype=dtype, store=store, chunks=-1)
@@ -202,11 +201,11 @@ class ZarrZipCase(_ZarrMetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[zarr.Array]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> zarr.Array | None:
         store = zarr.ZipStore(str(path / "array.zarr"), mode="w")
         if array is not None:
             return zarr.array(array, dtype=dtype, store=store, chunks=-1)
@@ -220,10 +219,10 @@ class ZarrNestedCase(_ZarrMetaCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10),
+        shape: tuple[int, ...] = (10, 10),
         dtype: DtypeType = float,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
+        path: Path | None = None,
+        array: NDArrayType | None = None,
     ) -> ZarrArrayPath:
         file = str(path / "nested.zarr")
         root = zarr.open(file, mode="w")
@@ -243,11 +242,11 @@ class VideoCase(InterfaceCase):
     @classmethod
     def make_array(
         cls,
-        shape: Tuple[int, ...] = (10, 10, 10, 3),
+        shape: tuple[int, ...] = (10, 10, 10, 3),
         dtype: DtypeType = np.uint8,
-        path: Optional[Path] = None,
-        array: Optional[NDArrayType] = None,
-    ) -> Optional[Path]:
+        path: Path | None = None,
+        array: NDArrayType | None = None,
+    ) -> Path | None:
         if cls.skip(shape, dtype):  # pragma: no cover
             return None
 
@@ -278,7 +277,7 @@ class VideoCase(InterfaceCase):
         return video_path
 
     @classmethod
-    def skip(cls, shape: Tuple[int, ...], dtype: DtypeType) -> bool:
+    def skip(cls, shape: tuple[int, ...], dtype: DtypeType) -> bool:
         """
         We really can only handle 4 dimensional cases in 8-bit rn lol
 

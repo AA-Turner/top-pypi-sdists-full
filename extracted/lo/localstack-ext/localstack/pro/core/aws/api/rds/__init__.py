@@ -242,6 +242,12 @@ class SourceType(StrEnum):
     zero_etl = "zero-etl"
 
 
+class StorageEncryptionType(StrEnum):
+    none = "none"
+    sse_kms = "sse-kms"
+    sse_rds = "sse-rds"
+
+
 class TargetConnectionNetworkType(StrEnum):
     IPV4 = "IPV4"
     IPV6 = "IPV6"
@@ -2274,6 +2280,9 @@ class DBClusterSnapshot(TypedDict, total=False):
     SnapshotType: String | None
     PercentProgress: Integer | None
     StorageEncrypted: Boolean | None
+    StorageEncryptionType: StorageEncryptionType | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     KmsKeyId: String | None
     DBClusterSnapshotArn: String | None
     SourceDBClusterSnapshotArn: String | None
@@ -2419,6 +2428,9 @@ class DBSnapshot(TypedDict, total=False):
     StorageType: String | None
     TdeCredentialArn: String | None
     Encrypted: Boolean | None
+    StorageEncryptionType: StorageEncryptionType | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     KmsKeyId: String | None
     DBSnapshotArn: String | None
     Timezone: String | None
@@ -2877,6 +2889,7 @@ class DBCluster(TypedDict, total=False):
     VpcSecurityGroups: VpcSecurityGroupMembershipList | None
     HostedZoneId: String | None
     StorageEncrypted: Boolean | None
+    StorageEncryptionType: StorageEncryptionType | None
     KmsKeyId: String | None
     DbClusterResourceId: String | None
     DBClusterArn: String | None
@@ -3291,6 +3304,7 @@ class DBInstance(TypedDict, total=False):
     PubliclyAccessible: Boolean | None
     StatusInfos: DBInstanceStatusInfoList | None
     StorageType: String | None
+    StorageEncryptionType: StorageEncryptionType | None
     TdeCredentialArn: String | None
     DbInstancePort: Integer | None
     DBClusterIdentifier: String | None
@@ -3596,6 +3610,7 @@ class GlobalCluster(TypedDict, total=False):
     EngineLifecycleSupport: String | None
     DatabaseName: String | None
     StorageEncrypted: BooleanOptional | None
+    StorageEncryptionType: StorageEncryptionType | None
     DeletionProtection: BooleanOptional | None
     GlobalClusterMembers: GlobalClusterMemberList | None
     Endpoint: String | None
@@ -3713,10 +3728,12 @@ class DBClusterAutomatedBackup(TypedDict, total=False):
     IAMDatabaseAuthenticationEnabled: Boolean | None
     ClusterCreateTime: TStamp | None
     StorageEncrypted: Boolean | None
+    StorageEncryptionType: StorageEncryptionType | None
     AllocatedStorage: Integer | None
     EngineVersion: String | None
     DBClusterArn: String | None
     BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     EngineMode: String | None
     AvailabilityZones: AvailabilityZones | None
     Port: Integer | None
@@ -4042,11 +4059,13 @@ class DBInstanceAutomatedBackup(TypedDict, total=False):
     OptionGroupName: String | None
     TdeCredentialArn: String | None
     Encrypted: Boolean | None
+    StorageEncryptionType: StorageEncryptionType | None
     StorageType: String | None
     KmsKeyId: String | None
     Timezone: String | None
     IAMDatabaseAuthenticationEnabled: Boolean | None
     BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     DBInstanceAutomatedBackupsArn: String | None
     DBInstanceAutomatedBackupsReplications: DBInstanceAutomatedBackupsReplicationList | None
     BackupTarget: String | None
@@ -6199,6 +6218,8 @@ class RestoreDBClusterFromSnapshotMessage(ServiceRequest):
     EnablePerformanceInsights: BooleanOptional | None
     PerformanceInsightsKMSKeyId: String | None
     PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     EngineLifecycleSupport: String | None
     TagSpecifications: TagSpecificationList | None
 
@@ -6242,6 +6263,8 @@ class RestoreDBClusterToPointInTimeMessage(ServiceRequest):
     EnablePerformanceInsights: BooleanOptional | None
     PerformanceInsightsKMSKeyId: String | None
     PerformanceInsightsRetentionPeriod: IntegerOptional | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     EngineLifecycleSupport: String | None
     TagSpecifications: TagSpecificationList | None
 
@@ -6290,6 +6313,8 @@ class RestoreDBInstanceFromDBSnapshotMessage(ServiceRequest):
     CustomIamInstanceProfile: String | None
     AllocatedStorage: IntegerOptional | None
     DBClusterSnapshotIdentifier: String | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     DedicatedLogVolume: BooleanOptional | None
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
@@ -6408,6 +6433,8 @@ class RestoreDBInstanceToPointInTimeMessage(ServiceRequest):
     BackupTarget: String | None
     CustomIamInstanceProfile: String | None
     AllocatedStorage: IntegerOptional | None
+    BackupRetentionPeriod: IntegerOptional | None
+    PreferredBackupWindow: String | None
     DedicatedLogVolume: BooleanOptional | None
     CACertificateIdentifier: String | None
     EngineLifecycleSupport: String | None
@@ -12106,6 +12133,8 @@ class RdsApi:
         enable_performance_insights: BooleanOptional | None = None,
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
+        backup_retention_period: IntegerOptional | None = None,
+        preferred_backup_window: String | None = None,
         engine_lifecycle_support: String | None = None,
         tag_specifications: TagSpecificationList | None = None,
         **kwargs,
@@ -12182,6 +12211,10 @@ class RdsApi:
         :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
+        :param backup_retention_period: The number of days for which automated backups are retained.
+        :param preferred_backup_window: The daily time range during which automated backups are created if
+        automated backups are enabled, using the ``BackupRetentionPeriod``
+        parameter.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterFromSnapshotResult
@@ -12249,6 +12282,8 @@ class RdsApi:
         enable_performance_insights: BooleanOptional | None = None,
         performance_insights_kms_key_id: String | None = None,
         performance_insights_retention_period: IntegerOptional | None = None,
+        backup_retention_period: IntegerOptional | None = None,
+        preferred_backup_window: String | None = None,
         engine_lifecycle_support: String | None = None,
         tag_specifications: TagSpecificationList | None = None,
         **kwargs,
@@ -12327,6 +12362,10 @@ class RdsApi:
         :param performance_insights_kms_key_id: The Amazon Web Services KMS key identifier for encryption of Performance
         Insights data.
         :param performance_insights_retention_period: The number of days to retain Performance Insights data.
+        :param backup_retention_period: The number of days for which automated backups are retained.
+        :param preferred_backup_window: The daily time range during which automated backups are created if
+        automated backups are enabled, using the ``BackupRetentionPeriod``
+        parameter.
         :param engine_lifecycle_support: The life cycle type for this DB cluster.
         :param tag_specifications: Tags to assign to resources associated with the DB cluster.
         :returns: RestoreDBClusterToPointInTimeResult
@@ -12399,6 +12438,8 @@ class RdsApi:
         custom_iam_instance_profile: String | None = None,
         allocated_storage: IntegerOptional | None = None,
         db_cluster_snapshot_identifier: String | None = None,
+        backup_retention_period: IntegerOptional | None = None,
+        preferred_backup_window: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
@@ -12497,6 +12538,10 @@ class RdsApi:
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
         instance.
         :param db_cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from.
+        :param backup_retention_period: The number of days to retain automated backups.
+        :param preferred_backup_window: The daily time range during which automated backups are created if
+        automated backups are enabled, as determined by the
+        ``BackupRetentionPeriod`` parameter.
         :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
         instance.
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
@@ -12758,6 +12803,8 @@ class RdsApi:
         backup_target: String | None = None,
         custom_iam_instance_profile: String | None = None,
         allocated_storage: IntegerOptional | None = None,
+        backup_retention_period: IntegerOptional | None = None,
+        preferred_backup_window: String | None = None,
         dedicated_log_volume: BooleanOptional | None = None,
         ca_certificate_identifier: String | None = None,
         engine_lifecycle_support: String | None = None,
@@ -12847,6 +12894,10 @@ class RdsApi:
         of an RDS Custom DB instance.
         :param allocated_storage: The amount of storage (in gibibytes) to allocate initially for the DB
         instance.
+        :param backup_retention_period: The number of days to retain automated backups.
+        :param preferred_backup_window: The daily time range during which automated backups are created if
+        automated backups are enabled, as determined by the
+        ``BackupRetentionPeriod`` parameter.
         :param dedicated_log_volume: Specifies whether to enable a dedicated log volume (DLV) for the DB
         instance.
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server

@@ -78,6 +78,9 @@ def map_synonyms(
     if field == synonyms_field:
         raise KeyError("synonyms_field must be different from field!")
 
+    # Track None positions before pandas converts them to NaN (pandas 3.0 + PyArrow)
+    _none_positions = [i for i, v in enumerate(identifiers) if v is None]
+
     # Initialize mapping dataframe
     mapped_df = pd.DataFrame({"orig_ids": identifiers})
     mapped_df["__lookup__"] = to_str(
@@ -127,9 +130,14 @@ def map_synonyms(
             ].map(syn_map)
 
     # Log mapping statistics (only count actual changes, not exact matches)
-    changed_mask = (~mapped_df["mapped"].isna()) & (
-        mapped_df["mapped"] != mapped_df["orig_ids"]
-    )
+    if keep is False:
+        changed_mask = (~mapped_df["mapped"].isna()) & (
+            mapped_df.apply(lambda row: row["mapped"] != row["orig_ids"], axis=1)
+        )
+    else:
+        changed_mask = (~mapped_df["mapped"].isna()) & (
+            mapped_df["mapped"] != mapped_df["orig_ids"]
+        )
     n_mapped = changed_mask.sum()
     if n_mapped > 0 and not mute:
         s = "" if n_mapped == 1 else "s"
@@ -139,7 +147,11 @@ def map_synonyms(
     if return_mapper:
         return _build_mapper(mapped_df, keep, mute_warning)
     else:
-        return _build_result_list(mapped_df, keep, mute_warning)
+        result = _build_result_list(mapped_df, keep, mute_warning)
+        # Restore None for originally-None inputs (pandas 3.0 PyArrow coerces None → NaN)
+        for i in _none_positions:
+            result[i] = None
+        return result
 
 
 def _build_synonym_map(
@@ -177,7 +189,7 @@ def _build_mapper(
 ) -> dict:
     """Build the mapper dictionary from mapped dataframe."""
     mapper_df = mapped_df[~mapped_df["mapped"].isna()].copy()
-    mapper = dict(zip(mapper_df["orig_ids"], mapper_df["mapped"]))
+    mapper = dict(zip(mapper_df["orig_ids"], mapper_df["mapped"], strict=False))
     # Only include entries where mapping changed the value
     mapper = {k: v for k, v in mapper.items() if k != v}
 
@@ -199,7 +211,12 @@ def _build_result_list(
     mute_warning: bool,
 ) -> list:
     """Build the result list from mapped dataframe."""
-    result = mapped_df["mapped"].fillna(mapped_df["orig_ids"]).tolist()
+    import pandas as pd
+
+    result = [
+        m if not (m is None or (not isinstance(m, list) and pd.isna(m))) else o
+        for m, o in zip(mapped_df["mapped"], mapped_df["orig_ids"], strict=False)
+    ]
 
     if keep is False:
         if not mute_warning:
@@ -222,9 +239,9 @@ def to_str(
             values = categorical.add_categories("")
         else:
             values = series_values
-        values = values.infer_objects(copy=False).fillna("").astype(str)
+        values = values.infer_objects().fillna("").astype(str)
     else:
-        values = series_values.infer_objects(copy=False).fillna("")
+        values = series_values.infer_objects().fillna("")
     if case_sensitive is False:
         values = values.str.lower()
     return values
@@ -238,7 +255,7 @@ def not_empty_none_na(values: Iterable) -> pd.Series:
         pd.Series(values) if not isinstance(values, (pd.Series, pd.Index)) else values
     )
 
-    return series[pd.Series(series).infer_objects(copy=False).fillna("").astype(bool)]
+    return series[pd.Series(series).infer_objects().fillna("").astype(bool)]
 
 
 def explode_aggregated_column_to_map(

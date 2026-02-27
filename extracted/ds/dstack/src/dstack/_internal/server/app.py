@@ -44,6 +44,7 @@ from dstack._internal.server.routers import (
     runs,
     secrets,
     server,
+    templates,
     users,
     volumes,
 )
@@ -167,8 +168,9 @@ async def lifespan(app: FastAPI):
     pipeline_manager = None
     if settings.SERVER_BACKGROUND_PROCESSING_ENABLED:
         scheduler = start_scheduled_tasks()
-        pipeline_manager = start_pipeline_tasks()
-        app.state.pipeline_manager = pipeline_manager
+        if core_settings.FeatureFlags.PIPELINE_PROCESSING_ENABLED:
+            pipeline_manager = start_pipeline_tasks()
+            app.state.pipeline_manager = pipeline_manager
     else:
         logger.info("Background processing is disabled")
     PROBES_SCHEDULER.start()
@@ -250,6 +252,7 @@ def register_routes(app: FastAPI, ui: bool = True):
     app.include_router(prometheus.router)
     app.include_router(files.router)
     app.include_router(events.root_router)
+    app.include_router(templates.router)
 
     @app.exception_handler(ForbiddenError)
     async def forbidden_error_handler(request: Request, exc: ForbiddenError):

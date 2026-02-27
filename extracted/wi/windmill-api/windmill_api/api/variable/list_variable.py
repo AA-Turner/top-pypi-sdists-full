@@ -16,6 +16,7 @@ def _get_kwargs(
     path: Union[Unset, None, str] = UNSET,
     description: Union[Unset, None, str] = UNSET,
     value: Union[Unset, None, str] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Dict[str, Any]:
@@ -29,6 +30,8 @@ def _get_kwargs(
     params["description"] = description
 
     params["value"] = value
+
+    params["broad_filter"] = broad_filter
 
     params["page"] = page
 
@@ -82,6 +85,7 @@ def sync_detailed(
     path: Union[Unset, None, str] = UNSET,
     description: Union[Unset, None, str] = UNSET,
     value: Union[Unset, None, str] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListVariableResponse200Item"]]:
@@ -93,6 +97,7 @@ def sync_detailed(
         path (Union[Unset, None, str]):
         description (Union[Unset, None, str]):
         value (Union[Unset, None, str]):
+        broad_filter (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -110,6 +115,7 @@ def sync_detailed(
         path=path,
         description=description,
         value=value,
+        broad_filter=broad_filter,
         page=page,
         per_page=per_page,
     )
@@ -129,6 +135,7 @@ def sync(
     path: Union[Unset, None, str] = UNSET,
     description: Union[Unset, None, str] = UNSET,
     value: Union[Unset, None, str] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListVariableResponse200Item"]]:
@@ -140,6 +147,7 @@ def sync(
         path (Union[Unset, None, str]):
         description (Union[Unset, None, str]):
         value (Union[Unset, None, str]):
+        broad_filter (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -158,6 +166,7 @@ def sync(
         path=path,
         description=description,
         value=value,
+        broad_filter=broad_filter,
         page=page,
         per_page=per_page,
     ).parsed
@@ -171,6 +180,7 @@ async def asyncio_detailed(
     path: Union[Unset, None, str] = UNSET,
     description: Union[Unset, None, str] = UNSET,
     value: Union[Unset, None, str] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListVariableResponse200Item"]]:
@@ -182,6 +192,7 @@ async def asyncio_detailed(
         path (Union[Unset, None, str]):
         description (Union[Unset, None, str]):
         value (Union[Unset, None, str]):
+        broad_filter (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -199,6 +210,7 @@ async def asyncio_detailed(
         path=path,
         description=description,
         value=value,
+        broad_filter=broad_filter,
         page=page,
         per_page=per_page,
     )
@@ -216,6 +228,7 @@ async def asyncio(
     path: Union[Unset, None, str] = UNSET,
     description: Union[Unset, None, str] = UNSET,
     value: Union[Unset, None, str] = UNSET,
+    broad_filter: Union[Unset, None, str] = UNSET,
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListVariableResponse200Item"]]:
@@ -227,6 +240,7 @@ async def asyncio(
         path (Union[Unset, None, str]):
         description (Union[Unset, None, str]):
         value (Union[Unset, None, str]):
+        broad_filter (Union[Unset, None, str]):
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
 
@@ -246,6 +260,7 @@ async def asyncio(
             path=path,
             description=description,
             value=value,
+            broad_filter=broad_filter,
             page=page,
             per_page=per_page,
         )

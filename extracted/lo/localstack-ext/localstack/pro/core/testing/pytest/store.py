@@ -1,5 +1,7 @@
+_C='pickle'
+_B=True
 _A=None
-import dataclasses,os,typing as t
+import dataclasses,os,traceback,typing as t
 from functools import singledispatchmethod
 import pytest
 from _pytest.config import Config
@@ -7,38 +9,51 @@ from _pytest.reports import TestReport
 from _pytest.runner import CallInfo
 from localstack.aws.chain import Handler
 from localstack.constants import ENV_PRO_ACTIVATED
+from localstack.pro.core.persistence.avro.codec import AvroEncoder
+from localstack.pro.core.persistence.utils.avro import supports_avro
 from localstack.services.plugins import SERVICE_PLUGINS,ServiceManager
 from localstack.services.stores import AccountRegionBundle,BaseStore
-from localstack.state import StateContainer,StateVisitor,pickle
+from localstack.state import StateContainer,StateVisitor
+from localstack.state.pickle import PickleEncoder
 from localstack.utils.objects import singleton_factory
 from moto.core.base_backend import BackendDict,BaseBackend
 from pluggy import Result
 from pytest import Item
 class StoreSerializationCheckerPlugin:
+	def __init__(A,with_pickle:bool=_B):A.pickle_enabled=with_pickle
 	@pytest.hookimpl()
-	def pytest_configure(self,config:Config):from localstack.aws.handlers import serve_custom_service_request_handlers as A;from localstack.pro.core.persistence.pickling import reducers as B;B.register();A.append(get_dirty_marker_handler());config.addinivalue_line('markers','skip_store_check(reason=None): skip the store serialization check')
-	@pytest.hookimpl(hookwrapper=True)
+	def pytest_configure(self,config:Config):
+		from localstack.aws.handlers import serve_custom_service_request_handlers as A;from localstack.pro.core.persistence.avro import reducers as B;from localstack.pro.core.persistence.avro.aws.plugins import register_aws_avro_plugins as C;C();B.register()
+		if self.pickle_enabled:from localstack.pro.core.persistence.pickling import reducers as D;D.register()
+		A.append(get_dirty_marker_handler());config.addinivalue_line('markers','skip_store_check(reason=None): skip the store serialization check')
+	@pytest.hookimpl(hookwrapper=_B)
 	def pytest_runtest_call(self,item:Item)->_A:
 		C:CallInfo=(yield)
 		if C.excinfo:return
 		if item.get_closest_marker('skip_store_check'):return
-		D=PicklingErrorCollector(SERVICE_PLUGINS);A=get_dirty_marker_handler();B=D.try_pickle_state_containers(A.dirty);A.clear()
-		if B.errors:raise PicklingTestException(B)
-	@pytest.hookimpl(hookwrapper=True)
+		D=StateSerializationErrorCollector(SERVICE_PLUGINS,with_pickle=self.pickle_enabled);A=get_dirty_marker_handler();B=D.try_serialize_state_containers(A.dirty);A.clear()
+		if B.errors:raise StateSerializationTestException(B)
+	@pytest.hookimpl(hookwrapper=_B)
 	def pytest_runtest_makereport(self,item:Item,call:CallInfo[_A])->TestReport|_A:
 		A=call;C:Result=(yield);B:TestReport=C.get_result()
-		if A.excinfo is not _A and isinstance(A.excinfo.value,PicklingTestException):D:PicklingTestException=A.excinfo.value;B.longrepr='\n'.join([str(A)for A in D.result.errors])
+		if A.excinfo is not _A and isinstance(A.excinfo.value,StateSerializationTestException):D:StateSerializationTestException=A.excinfo.value;B.longrepr=D.result.render_errors()
 		return B
 @singleton_factory
 def get_dirty_marker_handler():return DirtyMarkerHandler()
 @dataclasses.dataclass
-class PicklingError:service:str;state_container:StateContainer;exception:Exception
-class PicklingTestResult:
-	errors:list[PicklingError]
+class StateSerializationError:service:str;state_container:StateContainer;exception:Exception;serialization_backend:t.Literal[_C,'avro'];account_id:str|_A=_A;region:str|_A=_A
+class StateSerializationTestResult:
+	errors:list[StateSerializationError]
 	def __init__(A):A.errors=[]
-class PicklingTestException(Exception):
-	result:PicklingTestResult
-	def __init__(A,result:PicklingTestResult):super().__init__();A.result=result
+	def render_errors(A)->str:return'\n'.join([A.render_error(B)for B in A.errors])
+	@staticmethod
+	def render_error(error:StateSerializationError)->str:
+		A=error;C=A.exception;B=f"Store {A.serialization_backend} serialization Error: {A.service}\n";B+=f"\t current stores: {A.state_container}\n"
+		if A.account_id:B+=f"\t failing store: {A.account_id}:{A.region}\n"
+		B+=f"\t error: {C}\n";B+='\t\t'.join(traceback.format_exception(C));return B
+class StateSerializationTestException(Exception):
+	result:StateSerializationTestResult
+	def __init__(A,result:StateSerializationTestResult):super().__init__();A.result=result
 class DirtyMarkerHandler(Handler):
 	dirty:set[str]
 	def __init__(A):A.dirty=set()
@@ -48,28 +63,48 @@ class DirtyMarkerHandler(Handler):
 		B.dirty.add(A.service.service_name)
 	def clear(A):A.dirty.clear()
 class PicklingVisitor(StateVisitor):
-	errors:list[PicklingError]
-	def __init__(A,service:str):A.errors=[];A.service=service
+	errors:list[StateSerializationError]
+	def __init__(A,service_name:str):A.errors=[];A.service_name=service_name;A.pickle_encoder=PickleEncoder()
 	def visit(A,state_container:StateContainer):
 		B=state_container
-		try:pickle.dumps(B)
-		except Exception as C:A.errors.append(PicklingError(A.service,B,C))
-class PicklingErrorCollector:
-	def __init__(A,service_manager:ServiceManager):A.service_manager=service_manager
-	def try_pickle_state_containers(E,services:set[str])->PicklingTestResult:
-		A=PicklingTestResult()
-		for B in services.copy():
-			C=E.service_manager.get_service(B)
-			if not C:continue
-			D=PicklingVisitor(B);C.accept_state_visitor(D);A.errors.extend(D.errors)
-		return A
+		try:A.pickle_encoder.encodes(B)
+		except Exception as C:D=StateSerializationError(service=A.service_name,state_container=B,exception=C,serialization_backend=_C);A.errors.append(D)
+class AvroPicklingVisitor(StateVisitor):
+	errors:list[StateSerializationError]
+	def __init__(A,service_name:str,with_pickle:bool=_B):A.errors=[];A.service_name=service_name;A.avro_encoder=AvroEncoder();A.pickle_encoder=PickleEncoder()if with_pickle else _A
+	@singledispatchmethod
+	def visit(self,state_container:StateContainer):0
+	@visit.register(AccountRegionBundle)
+	def _(self,state_container:AccountRegionBundle):
+		B=state_container;A=self
+		for(C,D,E)in B.iter_stores():
+			try:A.avro_encoder.encodes(E)
+			except Exception as F:G=StateSerializationError(service=A.service_name,state_container=B,exception=F,serialization_backend='avro',account_id=C,region=D);A.errors.append(G)
+	@visit.register(BackendDict)
+	def _(self,state_container:BackendDict):
+		B=state_container;A=self
+		if not A.pickle_encoder:return
+		try:A.pickle_encoder.encodes(B)
+		except Exception as C:D=StateSerializationError(service=A.service_name,state_container=B,exception=C,serialization_backend=_C);A.errors.append(D)
+class StateSerializationErrorCollector:
+	def __init__(A,service_manager:ServiceManager,with_pickle:bool=_B):A.service_manager=service_manager;A.pickle_enabled=with_pickle
+	def try_serialize_state_containers(B,services:set[str])->StateSerializationTestResult:
+		C=StateSerializationTestResult()
+		for A in services.copy():
+			E=B.service_manager.get_service(A)
+			if not E:continue
+			if supports_avro(A):D=AvroPicklingVisitor(A,with_pickle=B.pickle_enabled)
+			elif B.pickle_enabled:D=PicklingVisitor(A)
+			else:return C
+			E.accept_state_visitor(D);C.errors.extend(D.errors)
+		return C
 class LocalstackStateContainerCollector(StateVisitor):
 	stores:dict[str,type[BaseStore]];backends:dict[str,type[BaseBackend]]
 	def __init__(A)->_A:A._stores={};A._backends={}
 	@staticmethod
 	def get_collector()->'LocalstackStateContainerCollector':return LocalstackStateContainerCollector()
 	def _collect_all_state_containers(F):
-		os.environ[ENV_PRO_ACTIVATED]='1';from localstack.pro.core import config as A;from localstack.services.plugins import SERVICE_PLUGINS as B;G=A.ENABLE_DMS;A.ENABLE_DMS=True
+		os.environ[ENV_PRO_ACTIVATED]='1';from localstack.pro.core import config as A;from localstack.services.plugins import SERVICE_PLUGINS as B;G=A.ENABLE_DMS;A.ENABLE_DMS=_B
 		for(C,H)in sorted(B.api_provider_specs.items()):
 			if'pro'in H:D=f"{C}:pro"
 			else:D=f"{C}:default"

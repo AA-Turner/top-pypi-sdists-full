@@ -1187,7 +1187,7 @@ class ElementService(ObjectService):
          to return, can be None or empty
         :param element_properties: list of element properties (e.g., Name, UniqueName, Type, Level, Index,
         Attributes/Color) to return, can be empty
-        :return: dictionary of members, unique names, weights, types, and parents
+        :return: dictionary of members, unique names, weights, types, and parents or async id when return_async_id is True
         """
 
         top = f"$top={top_records};" if top_records else ""
@@ -1241,8 +1241,11 @@ class ElementService(ObjectService):
 
         payload = {"MDX": mdx}
         response = self._rest.POST(url, json.dumps(payload, ensure_ascii=False), **kwargs)
-        raw_dict = response.json()
-        return [tuples["Members"] for tuples in raw_dict["Tuples"]]
+        if kwargs.get("return_async_id", False):
+            return response
+        else:
+            raw_dict = response.json()
+            return [tuples["Members"] for tuples in raw_dict["Tuples"]]
 
     def remove_edge(self, dimension_name: str, hierarchy_name: str, parent: str, component: str, **kwargs) -> Response:
         """Remove one edge from hierarchy. Fails if parent or child element doesn't exist.

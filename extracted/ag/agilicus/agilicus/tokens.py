@@ -61,7 +61,7 @@ def _create_token(
     if roles:
         obj.roles = roles
     if scopes:
-        obj.scopes = scopes
+        obj.scopes = [agilicus.TokenScope(scope) for scope in scopes]
     if create_refresh_token:
         obj.create_refresh_token = create_refresh_token
 

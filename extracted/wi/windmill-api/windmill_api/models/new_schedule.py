@@ -59,6 +59,10 @@ class NewSchedule:
             features
         dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
             scheduled_for datetime and returns boolean to skip (true) or run (false)
+        email (Union[Unset, str]): Email of the user who the scheduled jobs run as. Used during deployment to preserve
+            the original schedule owner.
+        preserve_email (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group, preserves
+            the original email value instead of overwriting it.
     """
 
     path: str
@@ -86,6 +90,8 @@ class NewSchedule:
     paused_until: Union[Unset, None, datetime.datetime] = UNSET
     cron_version: Union[Unset, None, str] = UNSET
     dynamic_skip: Union[Unset, None, str] = UNSET
+    email: Union[Unset, str] = UNSET
+    preserve_email: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -130,6 +136,8 @@ class NewSchedule:
 
         cron_version = self.cron_version
         dynamic_skip = self.dynamic_skip
+        email = self.email
+        preserve_email = self.preserve_email
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -181,6 +189,10 @@ class NewSchedule:
             field_dict["cron_version"] = cron_version
         if dynamic_skip is not UNSET:
             field_dict["dynamic_skip"] = dynamic_skip
+        if email is not UNSET:
+            field_dict["email"] = email
+        if preserve_email is not UNSET:
+            field_dict["preserve_email"] = preserve_email
 
         return field_dict
 
@@ -283,6 +295,10 @@ class NewSchedule:
 
         dynamic_skip = d.pop("dynamic_skip", UNSET)
 
+        email = d.pop("email", UNSET)
+
+        preserve_email = d.pop("preserve_email", UNSET)
+
         new_schedule = cls(
             path=path,
             schedule=schedule,
@@ -309,6 +325,8 @@ class NewSchedule:
             paused_until=paused_until,
             cron_version=cron_version,
             dynamic_skip=dynamic_skip,
+            email=email,
+            preserve_email=preserve_email,
         )
 
         new_schedule.additional_properties = d

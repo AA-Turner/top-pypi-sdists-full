@@ -47,13 +47,14 @@ SENTIMENT = 'sentiment'
 CONSTITUENCY = 'constituency'
 COREF_CHAINS = 'coref_chains'
 LINE_NUMBER = 'line_number'
+MORPHEMES = 'morphemes'
 
 # field indices when converting the document to conll
 FIELD_TO_IDX = {ID: 0, TEXT: 1, LEMMA: 2, UPOS: 3, XPOS: 4, FEATS: 5, HEAD: 6, DEPREL: 7, DEPS: 8, MISC: 9}
 FIELD_NUM = len(FIELD_TO_IDX)
 
-DEFAULT_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, START_CHAR, END_CHAR, NER, MULTI_NER, MEXP, COREF_CHAINS]
-NO_OFFSETS_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, NER, MULTI_NER, MEXP, COREF_CHAINS]
+DEFAULT_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, START_CHAR, END_CHAR, NER, MULTI_NER, MEXP, COREF_CHAINS, MORPHEMES]
+NO_OFFSETS_OUTPUT_FIELDS = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, NER, MULTI_NER, MEXP, COREF_CHAINS, MORPHEMES]
 
 class DocJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -229,6 +230,14 @@ class Document(StanzaObject):
                 # no sent_id found.  add a comment with our enumerated id
                 # setting the sent_id on the sentence will automatically add the comment
                 sentence.sent_id = str(sentence.index)
+
+            # look for speaker in the comments
+            for comment in sentence_comments:
+                if comment.startswith("# speaker"):
+                    sentence.speaker = comment.split("=", 1)[-1].strip()
+                    break
+            else:
+                sentence.speaker = None
 
     def _count_words(self):
         """
@@ -619,6 +628,19 @@ class Sentence(StanzaObject):
         return self._enhanced_dependencies is not None and len(self._enhanced_dependencies) > 0
 
     @property
+    def enhanced_dependencies(self):
+        """
+        Returns the enhanced_dependencies graph.
+
+        Creates an empty one if one currently does not exist.
+        """
+        graph = self._enhanced_dependencies
+        if graph is None:
+            graph = nx.MultiDiGraph()
+            self._enhanced_dependencies = graph
+        return graph
+
+    @property
     def index(self):
         """
         Access the index of this sentence within the doc.
@@ -666,6 +688,29 @@ class Sentence(StanzaObject):
                 break
         else: # this is intended to be a for/else loop
             self._comments.append(sent_id_comment)
+
+    @property
+    def speaker(self):
+        """ conll-style speaker - adopt the EN GUM formatting """
+        return self._speaker
+
+    @speaker.setter
+    def speaker(self, value):
+        """ Set the sentence's speaker value. """
+        self._speaker = value
+        speaker_comment = "# speaker = " + str(value)
+        if not value:
+            for comment_idx, comment in enumerate(self._comments):
+                if comment.startswith("# speaker = "):
+                    self._comments.pop(comment_idx)
+                    break
+        else:
+            for comment_idx, comment in enumerate(self._comments):
+                if comment.startswith("# speaker = "):
+                    self._comments[comment_idx] = speaker_comment
+                    break
+            else: # this is intended to be a for/else loop
+                self._comments.append(speaker_comment)
 
     @property
     def doc_id(self):

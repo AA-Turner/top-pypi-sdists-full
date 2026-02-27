@@ -24,6 +24,7 @@ class ApplicationRedirectUrisArgs:
                  type: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ApplicationRedirectUris resource.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] redirect_uris: A set of redirect URIs to assign to the application.
         :param pulumi.Input[_builtins.str] type: The type of redirect URIs to manage. Must be one of: `PublicClient`, `SPA`, or `Web`. Changing this forces a new resource to be created.
@@ -77,6 +78,7 @@ class _ApplicationRedirectUrisState:
                  type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ApplicationRedirectUris resources.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] redirect_uris: A set of redirect URIs to assign to the application.
         :param pulumi.Input[_builtins.str] type: The type of redirect URIs to manage. Must be one of: `PublicClient`, `SPA`, or `Web`. Changing this forces a new resource to be created.
@@ -136,6 +138,20 @@ class ApplicationRedirectUris(pulumi.CustomResource):
                  type: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        Manages the redirect URIs for an application registration.
+
+        > This resource is incompatible with the `Application` resource, instead use this with the `ApplicationRegistration` resource.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -178,6 +194,7 @@ class ApplicationRedirectUris(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationRedirectUris:ApplicationRedirectUris example /applications/00000000-0000-0000-0000-000000000000/redirectUris/Web
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -192,6 +209,20 @@ class ApplicationRedirectUris(pulumi.CustomResource):
                  args: ApplicationRedirectUrisArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages the redirect URIs for an application registration.
+
+        > This resource is incompatible with the `Application` resource, instead use this with the `ApplicationRegistration` resource.
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -234,6 +265,7 @@ class ApplicationRedirectUris(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationRedirectUris:ApplicationRedirectUris example /applications/00000000-0000-0000-0000-000000000000/redirectUris/Web
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationRedirectUrisArgs args: The arguments to use to populate this resource's properties.

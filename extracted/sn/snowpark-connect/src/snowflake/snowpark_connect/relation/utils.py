@@ -2,8 +2,8 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
-import random
 import re
+import secrets
 import string
 import time
 import uuid
@@ -164,9 +164,9 @@ def random_string(
         suffix: Suffix to add to random string generated.
         choices: A generator of things to choose from.
     """
-    random_part = "".join([random.choice(choices) for _ in range(length)]) + str(
-        time.time_ns()
-    )
+    random_chars = "".join(secrets.choice(choices) for _ in range(length))
+    # Keep a numeric suffix shape for compatibility while reducing collision odds.
+    random_part = f"{random_chars}{time.time_ns()}{secrets.randbelow(1_000_000):06d}"
 
     return "".join([prefix, random_part, suffix])
 

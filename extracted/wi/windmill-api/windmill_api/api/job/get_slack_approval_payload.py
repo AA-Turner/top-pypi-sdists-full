@@ -19,6 +19,8 @@ def _get_kwargs(
     flow_step_id: str,
     default_args_json: Union[Unset, None, str] = UNSET,
     dynamic_enums_json: Union[Unset, None, str] = UNSET,
+    resume_button_text: Union[Unset, None, str] = UNSET,
+    cancel_button_text: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -36,6 +38,10 @@ def _get_kwargs(
     params["default_args_json"] = default_args_json
 
     params["dynamic_enums_json"] = dynamic_enums_json
+
+    params["resume_button_text"] = resume_button_text
+
+    params["cancel_button_text"] = cancel_button_text
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -79,6 +85,8 @@ def sync_detailed(
     flow_step_id: str,
     default_args_json: Union[Unset, None, str] = UNSET,
     dynamic_enums_json: Union[Unset, None, str] = UNSET,
+    resume_button_text: Union[Unset, None, str] = UNSET,
+    cancel_button_text: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """generate interactive slack approval for suspended job
 
@@ -92,6 +100,8 @@ def sync_detailed(
         flow_step_id (str):
         default_args_json (Union[Unset, None, str]):
         dynamic_enums_json (Union[Unset, None, str]):
+        resume_button_text (Union[Unset, None, str]):
+        cancel_button_text (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,6 +121,8 @@ def sync_detailed(
         flow_step_id=flow_step_id,
         default_args_json=default_args_json,
         dynamic_enums_json=dynamic_enums_json,
+        resume_button_text=resume_button_text,
+        cancel_button_text=cancel_button_text,
     )
 
     response = client.get_httpx_client().request(
@@ -132,6 +144,8 @@ async def asyncio_detailed(
     flow_step_id: str,
     default_args_json: Union[Unset, None, str] = UNSET,
     dynamic_enums_json: Union[Unset, None, str] = UNSET,
+    resume_button_text: Union[Unset, None, str] = UNSET,
+    cancel_button_text: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """generate interactive slack approval for suspended job
 
@@ -145,6 +159,8 @@ async def asyncio_detailed(
         flow_step_id (str):
         default_args_json (Union[Unset, None, str]):
         dynamic_enums_json (Union[Unset, None, str]):
+        resume_button_text (Union[Unset, None, str]):
+        cancel_button_text (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,6 +180,8 @@ async def asyncio_detailed(
         flow_step_id=flow_step_id,
         default_args_json=default_args_json,
         dynamic_enums_json=dynamic_enums_json,
+        resume_button_text=resume_button_text,
+        cancel_button_text=cancel_button_text,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

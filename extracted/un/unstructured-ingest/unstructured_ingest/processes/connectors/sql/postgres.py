@@ -66,8 +66,10 @@ class PostgresConnectionConfig(SQLConnectionConfig):
         try:
             yield connection
         finally:
-            connection.commit()
-            connection.close()
+            try:
+                connection.commit()
+            finally:
+                connection.close()
 
     @contextmanager
     def get_cursor(self) -> Generator["PostgresCursor", None, None]:
@@ -110,7 +112,10 @@ class PostgresDownloader(SQLDownloader):
 
         with self.connection_config.get_cursor() as cursor:
             fields = (
-                sql.SQL(",").join(sql.Identifier(field) for field in self.download_config.fields)
+                sql.SQL(",").join(
+                    sql.Identifier(field)
+                    for field in list(dict.fromkeys([id_column] + self.download_config.fields))
+                )
                 if self.download_config.fields
                 else sql.SQL("*")
             )

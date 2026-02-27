@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19                                                                                #
-# Generated on 2026-02-09T14:58:07.155672                                                            #
+# MF version: 2.19.20                                                                                #
+# Generated on 2026-02-26T21:59:51.251543                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
-import metaflow
 import collections
 import abc
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.user_configs.config_parameters
     import collections.abc
-    import typing
     import abc
+    import metaflow.user_configs.config_parameters
     import metaflow.parameters
+    import typing
 
 from ..exception import MetaflowException as MetaflowException
 from ..parameters import Parameter as Parameter

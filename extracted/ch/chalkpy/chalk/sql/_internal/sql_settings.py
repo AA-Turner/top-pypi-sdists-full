@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Mapping
 
 from chalk.sql._internal.incremental import IncrementalSettings
@@ -15,3 +15,4 @@ class SQLResolverSettings:
     incremental_settings: IncrementalSettings | None
     fields_root_fqn: Mapping[str, str]  # column name -> root fqn of output feature
     params_to_root_fqn: Mapping[str, str]  # escaped param name -> root fqn of input feature
+    field_types: Mapping[str, str] = field(default_factory=dict)  # column name -> SQL type string (e.g., "uuid")

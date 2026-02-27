@@ -94,8 +94,10 @@ ClientToken = str
 ClusterArn = str
 ClusterAvailabilityZone = str
 ClusterAvailabilityZoneId = str
+ClusterDnsName = str
 ClusterEbsVolumeSizeInGB = int
 ClusterEventMaxResults = int
+ClusterFsxMountPath = str
 ClusterInstanceCount = int
 ClusterInstanceGroupName = str
 ClusterInstanceMemoryAllocationPercentage = int
@@ -104,11 +106,13 @@ ClusterKubernetesLabelValue = str
 ClusterKubernetesTaintKey = str
 ClusterKubernetesTaintValue = str
 ClusterLifeCycleConfigFileName = str
+ClusterMountName = str
 ClusterName = str
 ClusterNameOrArn = str
 ClusterNodeId = str
 ClusterNodeLogicalId = str
 ClusterNonNegativeInstanceCount = int
+ClusterPartitionName = str
 ClusterPrivateDnsHostname = str
 ClusterPrivatePrimaryIp = str
 ClusterPrivatePrimaryIpv6 = str
@@ -1470,6 +1474,18 @@ class ClusterNodeRecovery(StrEnum):
     None_ = "None"
 
 
+class ClusterSlurmConfigStrategy(StrEnum):
+    Overwrite = "Overwrite"
+    Managed = "Managed"
+    Merge = "Merge"
+
+
+class ClusterSlurmNodeType(StrEnum):
+    Controller = "Controller"
+    Login = "Login"
+    Compute = "Compute"
+
+
 class ClusterSortBy(StrEnum):
     CREATION_TIME = "CREATION_TIME"
     NAME = "NAME"
@@ -1869,6 +1885,11 @@ class HyperParameterTuningJobWarmStartType(StrEnum):
 class IPAddressType(StrEnum):
     ipv4 = "ipv4"
     dualstack = "dualstack"
+
+
+class IdleResourceSharing(StrEnum):
+    Enabled = "Enabled"
+    Disabled = "Disabled"
 
 
 class ImageSortBy(StrEnum):
@@ -2825,6 +2846,12 @@ class ProcessingInstanceType(StrEnum):
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
     ml_p5_4xlarge = "ml.p5.4xlarge"
+    ml_g7e_2xlarge = "ml.g7e.2xlarge"
+    ml_g7e_4xlarge = "ml.g7e.4xlarge"
+    ml_g7e_8xlarge = "ml.g7e.8xlarge"
+    ml_g7e_12xlarge = "ml.g7e.12xlarge"
+    ml_g7e_24xlarge = "ml.g7e.24xlarge"
+    ml_g7e_48xlarge = "ml.g7e.48xlarge"
 
 
 class ProcessingJobStatus(StrEnum):
@@ -3372,6 +3399,12 @@ class ScheduleStatus(StrEnum):
     Stopped = "Stopped"
 
 
+class SchedulerConfigComponent(StrEnum):
+    PriorityClasses = "PriorityClasses"
+    FairShare = "FairShare"
+    IdleResourceSharing = "IdleResourceSharing"
+
+
 class SchedulerResourceStatus(StrEnum):
     Creating = "Creating"
     CreateFailed = "CreateFailed"
@@ -3868,6 +3901,12 @@ class TrainingInstanceType(StrEnum):
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_p5_4xlarge = "ml.p5.4xlarge"
     ml_p6_b300_48xlarge = "ml.p6-b300.48xlarge"
+    ml_g7e_2xlarge = "ml.g7e.2xlarge"
+    ml_g7e_4xlarge = "ml.g7e.4xlarge"
+    ml_g7e_8xlarge = "ml.g7e.8xlarge"
+    ml_g7e_12xlarge = "ml.g7e.12xlarge"
+    ml_g7e_24xlarge = "ml.g7e.24xlarge"
+    ml_g7e_48xlarge = "ml.g7e.48xlarge"
 
 
 class TrainingJobEarlyStoppingType(StrEnum):
@@ -4165,6 +4204,22 @@ class AcceleratorPartitionConfig(TypedDict, total=False):
 
     Type: MIGProfileType
     Count: AcceleratorPartitionConfigCountInteger
+
+
+class ComputeQuotaResourceConfig(TypedDict, total=False):
+    """Configuration of the resources used for the compute allocation
+    definition.
+    """
+
+    InstanceType: ClusterInstanceType
+    Count: InstanceCount | None
+    Accelerators: AcceleratorsAmount | None
+    VCpu: VCpuAmount | None
+    MemoryInGiB: MemoryInGiBAmount | None
+    AcceleratorPartition: AcceleratorPartitionConfig | None
+
+
+AbsoluteBorrowLimitResourceList = list[ComputeQuotaResourceConfig]
 
 
 class ActionSource(TypedDict, total=False):
@@ -6551,6 +6606,37 @@ class ClusterEventSummary(TypedDict, total=False):
 ClusterEventSummaries = list[ClusterEventSummary]
 
 
+class ClusterFsxLustreConfig(TypedDict, total=False):
+    """Defines the configuration for attaching an Amazon FSx for Lustre file
+    system to instances in a SageMaker HyperPod cluster instance group.
+    """
+
+    DnsName: ClusterDnsName
+    MountName: ClusterMountName
+    MountPath: ClusterFsxMountPath | None
+
+
+class ClusterFsxOpenZfsConfig(TypedDict, total=False):
+    """Defines the configuration for attaching an Amazon FSx for OpenZFS file
+    system to instances in a SageMaker HyperPod cluster instance group.
+    """
+
+    DnsName: ClusterDnsName
+    MountPath: ClusterFsxMountPath | None
+
+
+ClusterPartitionNames = list[ClusterPartitionName]
+
+
+class ClusterSlurmConfigDetails(TypedDict, total=False):
+    """The Slurm configuration details for an instance group in a SageMaker
+    HyperPod cluster.
+    """
+
+    NodeType: ClusterSlurmNodeType
+    PartitionNames: ClusterPartitionNames | None
+
+
 class RollingDeploymentPolicy(TypedDict, total=False):
     """The configurations that SageMaker uses when updating the AMI versions."""
 
@@ -6609,6 +6695,8 @@ class ClusterInstanceStorageConfig(TypedDict, total=False):
     """
 
     EbsVolumeConfig: ClusterEbsVolumeConfig | None
+    FsxLustreConfig: ClusterFsxLustreConfig | None
+    FsxOpenZfsConfig: ClusterFsxOpenZfsConfig | None
 
 
 ClusterInstanceStorageConfigs = list[ClusterInstanceStorageConfig]
@@ -6647,9 +6735,19 @@ class ClusterInstanceGroupDetails(TypedDict, total=False):
     TargetStateCount: ClusterInstanceCount | None
     SoftwareUpdateStatus: SoftwareUpdateStatus | None
     ActiveSoftwareUpdateConfig: DeploymentConfiguration | None
+    SlurmConfig: ClusterSlurmConfigDetails | None
 
 
 ClusterInstanceGroupDetailsList = list[ClusterInstanceGroupDetails]
+
+
+class ClusterSlurmConfig(TypedDict, total=False):
+    """The Slurm configuration for an instance group in a SageMaker HyperPod
+    cluster.
+    """
+
+    NodeType: ClusterSlurmNodeType
+    PartitionNames: ClusterPartitionNames | None
 
 
 class ClusterKubernetesConfig(TypedDict, total=False):
@@ -6678,6 +6776,7 @@ class ClusterInstanceGroupSpecification(TypedDict, total=False):
     ScheduledUpdateConfig: ScheduledUpdateConfig | None
     ImageId: ImageId | None
     KubernetesConfig: ClusterKubernetesConfig | None
+    SlurmConfig: ClusterSlurmConfig | None
     CapacityRequirements: ClusterCapacityRequirements | None
 
 
@@ -6766,6 +6865,14 @@ class ClusterNodeSummary(TypedDict, total=False):
 ClusterNodeSummaries = list[ClusterNodeSummary]
 
 
+class ClusterOrchestratorSlurmConfig(TypedDict, total=False):
+    """The configuration settings for the Slurm orchestrator used with the
+    SageMaker HyperPod cluster.
+    """
+
+    SlurmConfigStrategy: ClusterSlurmConfigStrategy | None
+
+
 class ClusterOrchestratorEksConfig(TypedDict, total=False):
     """The configuration settings for the Amazon EKS cluster used as the
     orchestrator for the SageMaker HyperPod cluster.
@@ -6778,6 +6885,7 @@ class ClusterOrchestrator(TypedDict, total=False):
     """The type of orchestrator used for the SageMaker HyperPod cluster."""
 
     Eks: ClusterOrchestratorEksConfig | None
+    Slurm: ClusterOrchestratorSlurmConfig | None
 
 
 class FSxLustreConfig(TypedDict, total=False):
@@ -7031,19 +7139,7 @@ class ResourceSharingConfig(TypedDict, total=False):
 
     Strategy: ResourceSharingStrategy
     BorrowLimit: BorrowLimit | None
-
-
-class ComputeQuotaResourceConfig(TypedDict, total=False):
-    """Configuration of the resources used for the compute allocation
-    definition.
-    """
-
-    InstanceType: ClusterInstanceType
-    Count: InstanceCount | None
-    Accelerators: AcceleratorsAmount | None
-    VCpu: VCpuAmount | None
-    MemoryInGiB: MemoryInGiBAmount | None
-    AcceleratorPartition: AcceleratorPartitionConfig | None
+    AbsoluteBorrowLimits: AbsoluteBorrowLimitResourceList | None
 
 
 ComputeQuotaResourceConfigList = list[ComputeQuotaResourceConfig]
@@ -7418,6 +7514,7 @@ class SchedulerConfig(TypedDict, total=False):
 
     PriorityClasses: PriorityClassList | None
     FairShare: FairShare | None
+    IdleResourceSharing: IdleResourceSharing | None
 
 
 class CreateClusterSchedulerConfigRequest(ServiceRequest):
@@ -11797,6 +11894,9 @@ class DescribeClusterSchedulerConfigRequest(ServiceRequest):
     ClusterSchedulerConfigVersion: Integer | None
 
 
+StatusDetailsMap = dict[SchedulerConfigComponent, SchedulerResourceStatus]
+
+
 class DescribeClusterSchedulerConfigResponse(TypedDict, total=False):
     ClusterSchedulerConfigArn: ClusterSchedulerConfigArn
     ClusterSchedulerConfigId: ClusterSchedulerConfigId
@@ -11804,6 +11904,7 @@ class DescribeClusterSchedulerConfigResponse(TypedDict, total=False):
     ClusterSchedulerConfigVersion: Integer
     Status: SchedulerResourceStatus
     FailureReason: FailureReason | None
+    StatusDetails: StatusDetailsMap | None
     ClusterArn: ClusterArn | None
     SchedulerConfig: SchedulerConfig | None
     Description: EntityDescription | None
@@ -17891,6 +17992,7 @@ class UpdateClusterRequest(ServiceRequest):
     NodeProvisioningMode: ClusterNodeProvisioningMode | None
     ClusterRole: RoleArn | None
     AutoScaling: ClusterAutoScalingConfig | None
+    Orchestrator: ClusterOrchestrator | None
 
 
 class UpdateClusterResponse(TypedDict, total=False):
@@ -27315,6 +27417,7 @@ class SagemakerApi:
         node_provisioning_mode: ClusterNodeProvisioningMode | None = None,
         cluster_role: RoleArn | None = None,
         auto_scaling: ClusterAutoScalingConfig | None = None,
+        orchestrator: ClusterOrchestrator | None = None,
         **kwargs,
     ) -> UpdateClusterResponse:
         """Updates a SageMaker HyperPod cluster.
@@ -27332,6 +27435,7 @@ class SagemakerApi:
         :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes for
         cluster autoscaling operations.
         :param auto_scaling: Updates the autoscaling configuration for the cluster.
+        :param orchestrator: The type of orchestrator used for the SageMaker HyperPod cluster.
         :returns: UpdateClusterResponse
         :raises ConflictException:
         :raises ResourceNotFound:

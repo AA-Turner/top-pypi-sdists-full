@@ -5,8 +5,8 @@ from typing import Any
 
 from pandas import DataFrame
 
+from graphdatascience.graph.v2.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.base_result import BaseResult
-from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 
@@ -70,7 +70,7 @@ class SteinerTreeEndpoints(ABC):
         source_node
             Node id to use as the starting point.
         target_nodes : list[int]
-            The list of target nodes (terminals) that must be connected.
+            List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
         delta : float, default=2.0
@@ -126,7 +126,7 @@ class SteinerTreeEndpoints(ABC):
         source_node
             Node id to use as the starting point.
         target_nodes : list[int]
-            The list of target nodes (terminals) that must be connected.
+            List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
         delta : float, default=2.0
@@ -188,7 +188,7 @@ class SteinerTreeEndpoints(ABC):
         source_node
             Node id to use as the starting point.
         target_nodes : list[int]
-            The list of target nodes (terminals) that must be connected.
+            List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
         delta : float, default=2.0
@@ -251,7 +251,7 @@ class SteinerTreeEndpoints(ABC):
         source_node
             Node id to use as the starting point.
         target_nodes : list[int]
-            The list of target nodes (terminals) that must be connected.
+            List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
         delta : float, default=2.0
@@ -305,7 +305,7 @@ class SteinerTreeEndpoints(ABC):
         source_node
             Node id to use as the starting point.
         target_nodes : list[int]
-            The list of target nodes (terminals) that must be connected.
+            List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
         delta : float, default=2.0

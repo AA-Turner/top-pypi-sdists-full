@@ -24,6 +24,7 @@ class AccessPackageResourceCatalogAssociationArgs:
                  resource_origin_system: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a AccessPackageResourceCatalogAssociation resource.
+
         :param pulumi.Input[_builtins.str] catalog_id: The unique ID of the access package catalog. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] resource_origin_id: The unique identifier of the resource in the origin system. In the case of an Azure AD group, this is the identifier of the group. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] resource_origin_system: The type of the resource in the origin system, such as `SharePointOnline`, `AadApplication` or `AadGroup`. Changing this forces a new resource to be created.
@@ -77,6 +78,7 @@ class _AccessPackageResourceCatalogAssociationState:
                  resource_origin_system: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AccessPackageResourceCatalogAssociation resources.
+
         :param pulumi.Input[_builtins.str] catalog_id: The unique ID of the access package catalog. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] resource_origin_id: The unique identifier of the resource in the origin system. In the case of an Azure AD group, this is the identifier of the group. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] resource_origin_system: The type of the resource in the origin system, such as `SharePointOnline`, `AadApplication` or `AadGroup`. Changing this forces a new resource to be created.
@@ -172,7 +174,8 @@ class AccessPackageResourceCatalogAssociation(pulumi.CustomResource):
         $ pulumi import azuread:index/accessPackageResourceCatalogAssociation:AccessPackageResourceCatalogAssociation example 00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Catalog ID and the Resource Origin ID in the format `{CatalogID}/{ResourceOriginID}`.
+        > This ID format is unique to Terraform and is composed of the Catalog ID and the Resource Origin ID in the format `{CatalogID}/{ResourceOriginID}`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -223,7 +226,8 @@ class AccessPackageResourceCatalogAssociation(pulumi.CustomResource):
         $ pulumi import azuread:index/accessPackageResourceCatalogAssociation:AccessPackageResourceCatalogAssociation example 00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111
         ```
 
-        -> This ID format is unique to Terraform and is composed of the Catalog ID and the Resource Origin ID in the format `{CatalogID}/{ResourceOriginID}`.
+        > This ID format is unique to Terraform and is composed of the Catalog ID and the Resource Origin ID in the format `{CatalogID}/{ResourceOriginID}`.
+
 
         :param str resource_name: The name of the resource.
         :param AccessPackageResourceCatalogAssociationArgs args: The arguments to use to populate this resource's properties.

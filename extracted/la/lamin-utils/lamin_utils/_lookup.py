@@ -226,15 +226,28 @@ class Lookup:
 
         # Process values, wrapping lists in warning wrapper
         processed_dict = {}
+        duplicate_counts: dict[str, int] = {}
         for key, value in lookup_dict_copy.items():
             # Handle Python keywords by appending an underscore
             if keyword.iskeyword(key):
                 key = f"{key}_"
             if isinstance(value, list) and len(value) > 1:
-                # Wrap list values that have more than one item
-                processed_dict[key] = _ListValueWrapper(
-                    key, value, self._keep, return_field
-                )
+                if self._keep is False:
+                    # Keep all duplicates and warn lazily on access.
+                    processed_dict[key] = _ListValueWrapper(
+                        key, value, self._keep, return_field
+                    )
+                else:
+                    # Eagerly resolve duplicates for keep="first"/"last" so attribute
+                    # values have the selected element type.
+                    selected_value = value[0] if self._keep == "first" else value[-1]
+                    duplicate_counts[key] = len(value)
+                    if return_field is not None and hasattr(
+                        selected_value, return_field
+                    ):
+                        processed_dict[key] = getattr(selected_value, return_field)
+                    else:
+                        processed_dict[key] = selected_value
             else:
                 # Handle single values or single-item lists
                 if isinstance(value, list) and len(value) == 1:
@@ -247,5 +260,26 @@ class Lookup:
 
         keys: list = list(processed_dict.keys()) + ["dict"]
         MyTuple = namedtuple("Lookup", keys)  # type:ignore
+
+        if self._keep is not False and duplicate_counts:
+            # Warn once per duplicated key on first attribute access while keeping
+            # eager value resolution (non-wrapper return types).
+            MyTuple._duplicate_counts = duplicate_counts  # type:ignore[attr-defined]
+            MyTuple._warned_duplicate_keys = set()  # type:ignore[attr-defined]
+            MyTuple._keep = self._keep  # type:ignore[attr-defined]
+
+            def _lookup_getattribute(instance, name):
+                cls = tuple.__getattribute__(instance, "__class__")
+                duplicate_map = cls._duplicate_counts  # type:ignore[attr-defined]
+                warned_keys = cls._warned_duplicate_keys  # type:ignore[attr-defined]
+                if name in duplicate_map and name not in warned_keys:
+                    logger.warning(
+                        f"{duplicate_map[name]} records found for '{name}'. "
+                        f"Returning based on keep='{cls._keep}'."  # type:ignore[attr-defined]
+                    )
+                    warned_keys.add(name)
+                return tuple.__getattribute__(instance, name)
+
+            MyTuple.__getattribute__ = _lookup_getattribute  # type:ignore[method-assign]
 
         return MyTuple(**processed_dict, dict=self.dict)  # type:ignore

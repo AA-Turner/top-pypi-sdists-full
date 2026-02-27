@@ -2813,8 +2813,8 @@ class EcrApi:
     ) -> GetAccountSettingResponse:
         """Retrieves the account setting value for the specified setting name.
 
-        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION`` or
-        ``REGISTRY_POLICY_SCOPE``.
+        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``,
+        ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
         :returns: GetAccountSettingResponse
         :raises ServerException:
         :raises ValidationException:
@@ -3050,6 +3050,9 @@ class EcrApi:
     ) -> ListImageReferrersResponse:
         """Lists the artifacts associated with a specified subject image.
 
+        The IAM principal invoking this operation must have the
+        ``ecr:BatchGetImage`` permission.
+
         :param repository_name: The name of the repository that contains the subject image.
         :param subject_id: An object containing the image digest of the subject image for which to
         retrieve associated artifacts.
@@ -3157,8 +3160,8 @@ class EcrApi:
         """Allows you to change the basic scan type version or registry policy
         scope.
 
-        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION`` or
-        ``REGISTRY_POLICY_SCOPE``.
+        :param name: The name of the account setting, such as ``BASIC_SCAN_TYPE_VERSION``,
+        ``REGISTRY_POLICY_SCOPE``, or ``BLOB_MOUNTING``.
         :param value: Setting value that is specified.
         :returns: PutAccountSettingResponse
         :raises ServerException:

@@ -1,5 +1,5 @@
 #
-#  Copyright © 2021-2024 Mergify SAS
+#  Copyright © 2021-2026 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -202,6 +202,11 @@ class Changes:
     stack_prefix: str
     locals: list[LocalChange] = dataclasses.field(default_factory=list)
     orphans: list[OrphanChange] = dataclasses.field(default_factory=list)
+
+    def replace_local_action(self, old: ActionT, new: ActionT) -> None:
+        for change in self.locals:
+            if change.action == old:
+                change.action = new
 
 
 def display_plan(

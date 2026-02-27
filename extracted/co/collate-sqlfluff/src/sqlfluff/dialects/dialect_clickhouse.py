@@ -1184,10 +1184,79 @@ class CreateViewStatementSegment(BaseSegment):
     )
 
 
+class RefreshClauseSegment(BaseSegment):
+    """A `REFRESH` clause for refreshable materialized views.
+
+    https://clickhouse.com/docs/en/sql-reference/statements/create/view#refreshable-materialized-view
+    """
+
+    type = "refresh_clause"
+
+    match_grammar = Sequence(
+        "REFRESH",
+        OneOf("EVERY", "AFTER"),
+        Ref("NumericLiteralSegment"),
+        Ref("DatetimeUnitSegment"),
+        Sequence(
+            "OFFSET",
+            Ref("NumericLiteralSegment"),
+            Ref("DatetimeUnitSegment"),
+            optional=True,
+        ),
+        Sequence(
+            "RANDOMIZE",
+            "FOR",
+            Ref("NumericLiteralSegment"),
+            Ref("DatetimeUnitSegment"),
+            optional=True,
+        ),
+        Sequence(
+            "DEPENDS",
+            "ON",
+            Delimited(Ref("TableReferenceSegment")),
+            optional=True,
+        ),
+        Ref("SettingsClauseSegment", optional=True),
+    )
+
+
+class DefinerClauseSegment(BaseSegment):
+    """A `DEFINER` clause for views.
+
+    https://clickhouse.com/docs/en/sql-reference/statements/create/view
+    """
+
+    type = "definer_clause"
+
+    match_grammar = Sequence(
+        "DEFINER",
+        Ref("EqualsSegment"),
+        OneOf(
+            "CURRENT_USER",
+            Ref("SingleIdentifierGrammar"),
+        ),
+    )
+
+
+class SqlSecurityClauseSegment(BaseSegment):
+    """A `SQL SECURITY` clause for views.
+
+    https://clickhouse.com/docs/en/sql-reference/statements/create/view
+    """
+
+    type = "sql_security_clause"
+
+    match_grammar = Sequence(
+        "SQL",
+        "SECURITY",
+        OneOf("DEFINER", "INVOKER", "NONE"),
+    )
+
+
 class CreateMaterializedViewStatementSegment(BaseSegment):
     """A `CREATE MATERIALIZED VIEW` statement.
 
-    https://clickhouse.com/docs/en/sql-reference/statements/create/table/
+    https://clickhouse.com/docs/en/sql-reference/statements/create/view
     """
 
     type = "create_materialized_view_statement"
@@ -1199,17 +1268,34 @@ class CreateMaterializedViewStatementSegment(BaseSegment):
         Ref("IfNotExistsGrammar", optional=True),
         Ref("TableReferenceSegment"),
         Ref("OnClusterClauseSegment", optional=True),
+        # Refreshable materialized view syntax
+        Ref("RefreshClauseSegment", optional=True),
+        # APPEND mode for refreshable views
+        Ref.keyword("APPEND", optional=True),
         OneOf(
             Sequence(
                 "TO",
                 Ref("TableReferenceSegment"),
+                # Column definitions for refreshable views
+                Bracketed(
+                    Delimited(
+                        Ref("ColumnDefinitionSegment"),
+                    ),
+                    optional=True,
+                ),
                 Ref("TableEngineSegment", optional=True),
             ),
             Sequence(
                 Ref("TableEngineSegment", optional=True),
                 Sequence("POPULATE", optional=True),
             ),
+            optional=True,
         ),
+        # EMPTY clause for refreshable views
+        Ref.keyword("EMPTY", optional=True),
+        # Security clauses
+        Ref("DefinerClauseSegment", optional=True),
+        Ref("SqlSecurityClauseSegment", optional=True),
         "AS",
         Ref("SelectableGrammar"),
         Ref("TableEndClauseSegment", optional=True),

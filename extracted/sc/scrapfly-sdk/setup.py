@@ -48,7 +48,8 @@ EXTRA_DEPENDENCIES = {
         'twine',
         'setuptools',
         'wheel',
-        'pdoc3'
+        'pdoc3',
+        'python-dotenv',
     ],
     'deploy': [
         'bumpversion',
@@ -73,7 +74,8 @@ EXTRA_DEPENDENCIES = {
     ],
     'speedups': [
         'brotlipy',
-        'msgpack'
+        'msgpack',
+        'zstandard; python_version < "3.14"'
     ],
     'webhook-server': [
         'flask',

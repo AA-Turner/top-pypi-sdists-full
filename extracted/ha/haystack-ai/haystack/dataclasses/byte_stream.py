@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from haystack.utils.dataclasses import _warn_on_inplace_mutation
 from haystack.utils.misc import _guess_mime_type
 
 
+@_warn_on_inplace_mutation
 @dataclass(repr=False)
 class ByteStream:
     """
@@ -73,7 +75,7 @@ class ByteStream:
 
         :param encoding: The encoding used to convert the bytes to a string. Defaults to "utf-8".
         :returns: The string representation of the ByteStream.
-        :raises: UnicodeDecodeError: If the ByteStream data cannot be decoded with the specified encoding.
+        :raises UnicodeDecodeError: If the ByteStream data cannot be decoded with the specified encoding.
         """
         return self.data.decode(encoding)
 

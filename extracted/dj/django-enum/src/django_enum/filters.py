@@ -2,13 +2,19 @@
 Support for :doc:`django-filter <django-filter:index>`.
 """
 
+from __future__ import annotations
+
 import typing as t
 from enum import Enum, Flag
 
 from django.db.models import Field as ModelField
 from django.db.models import Q
 from django_filters import filterset
-from django_filters.filters import Filter, TypedChoiceFilter, TypedMultipleChoiceFilter
+from django_filters.filters import (
+    Filter,
+    TypedChoiceFilter,
+    TypedMultipleChoiceFilter,
+)
 from django_filters.utils import try_dbfield
 
 from django_enum.fields import EnumField, FlagField
@@ -57,11 +63,11 @@ class EnumFilter(TypedChoiceFilter):
         (:class:`~django_filters.filters.TypedChoiceFilter`)
     """
 
-    enum: t.Type[Enum]
+    enum: type[Enum]
     strict: bool
     field_class = EnumChoiceField
 
-    def __init__(self, *, enum: t.Type[Enum], strict: bool = True, **kwargs):
+    def __init__(self, *, enum: type[Enum], strict: bool = True, **kwargs):
         self.enum = enum
         self.strict = strict
         super().__init__(
@@ -87,14 +93,14 @@ class MultipleEnumFilter(TypedMultipleChoiceFilter):
         (:class:`~django_filters.filters.TypedMultipleChoiceFilter`)
     """
 
-    enum: t.Type[Enum]
+    enum: type[Enum]
     strict: bool
     field_class = EnumMultipleChoiceField
 
     def __init__(
         self,
         *,
-        enum: t.Type[Enum],
+        enum: type[Enum],
         strict: bool = True,
         conjoined: bool = False,
         **kwargs,
@@ -114,10 +120,12 @@ class EnumFlagFilter(TypedMultipleChoiceFilter):
     """
     Use this filter class with :class:`~django_enum.fields.FlagField` fields. It will
     allow the field to be listed multiple times in URL query strings
-    (e.g. ``field=value&field=value``). By default the filter will query on these values with
-    :ref:`has_any` these values together. Use ``conjoined`` to use :ref:`has_all` instead.
+    (e.g. ``field=value&field=value``). By default the filter will query on these values
+    with :ref:`has_any` these values together. Use ``conjoined`` to use
+    :ref:`has_all` instead.
 
-    This filter also respects the :class:`~django_filters.filters.TypedMultipleChoiceFilter`
+    This filter also respects the
+    :class:`~django_filters.filters.TypedMultipleChoiceFilter`
     base class parameters such as ``exclude``.
 
     :param enum: The class of the enumeration containing the values to
@@ -130,13 +138,15 @@ class EnumFlagFilter(TypedMultipleChoiceFilter):
         (:class:`~django_filters.filters.TypedMultipleChoiceFilter`)
     """
 
-    enum: t.Type[Flag]
+    enum: type[Flag]
     field_class = EnumFlagField
+
+    parent: FilterSet | None = None
 
     def __init__(
         self,
         *,
-        enum: t.Type[Flag],
+        enum: type[Flag],
         strict: bool = True,
         conjoined: bool = False,
         **kwargs,
@@ -166,13 +176,14 @@ class EnumFlagFilter(TypedMultipleChoiceFilter):
                 return self.get_method(qs)(Q(**{f"{self.field_name}": 0}))
             return qs
 
-        qs = self.get_method(qs)(Q(**self.get_filter_predicate(value)))
+        qs = self.get_method(qs)(Q(**self.get_filter_predicate(value)))  # type: ignore
         return qs.distinct() if self.distinct else qs
 
 
 class FilterSet(filterset.FilterSet):
     """
-    This filterset behaves the same way as the :doc:`django-filter <django-filter:index>`
+    This filterset behaves the same way as the
+    :doc:`django-filter <django-filter:index>`
     :class:`~django_filters.filterset.FilterSet` except the following fields will be set
     to the following filter types:
 
@@ -184,7 +195,7 @@ class FilterSet(filterset.FilterSet):
     """
 
     @staticmethod
-    def enum_extra(f: EnumField) -> t.Dict[str, t.Any]:
+    def enum_extra(f: EnumField) -> dict[str, t.Any]:
         return {"enum": f.enum, "strict": f.strict, "choices": f.choices}
 
     FILTER_DEFAULTS = {
@@ -204,7 +215,7 @@ class FilterSet(filterset.FilterSet):
     @classmethod
     def filter_for_lookup(
         cls, field: ModelField, lookup_type: str
-    ) -> t.Tuple[t.Optional[t.Type[Filter]], t.Dict[str, t.Any]]:
+    ) -> tuple[type[Filter], dict[str, t.Any]]:
         """For EnumFields use the EnumFilter class by default"""
         # we can't just pass this up to the base implementation because if it sees
         # choices on a field it will hard set to ChoiceField

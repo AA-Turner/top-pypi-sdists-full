@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: massive
-Version: 2.3.1
+Version: 2.3.2
 Summary: Official Massive (formerly Polygon.io) REST and Websocket client.
 License: MIT
 License-File: LICENSE

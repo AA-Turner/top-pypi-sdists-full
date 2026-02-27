@@ -1,5 +1,7 @@
 import ast
 
+from wemake_python_styleguide.logic.walk import get_closest_parent
+
 
 def is_doc_string(node: ast.AST) -> bool:
     """
@@ -13,4 +15,15 @@ def is_doc_string(node: ast.AST) -> bool:
     return isinstance(node.value, ast.Constant) and isinstance(
         node.value.value,
         str,
+    )
+
+
+def has_fstring_conversion(component: ast.AST) -> bool:
+    """Checks whether f-string with the component has a conversion specifier."""
+    formatted_component = (
+        get_closest_parent(component, ast.FormattedValue) or component
+    )
+    return (
+        isinstance(formatted_component, ast.FormattedValue)
+        and formatted_component.conversion != -1
     )

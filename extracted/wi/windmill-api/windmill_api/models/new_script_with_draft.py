@@ -56,6 +56,8 @@ class NewScriptWithDraft:
         codebase (Union[Unset, str]):
         has_preprocessor (Union[Unset, bool]):
         on_behalf_of_email (Union[Unset, str]):
+        preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
+            preserves the original on_behalf_of_email value instead of overwriting it.
         assets (Union[Unset, List['NewScriptWithDraftAssetsItem']]):
         draft (Union[Unset, NewScriptWithDraftDraft]):
     """
@@ -96,6 +98,7 @@ class NewScriptWithDraft:
     codebase: Union[Unset, str] = UNSET
     has_preprocessor: Union[Unset, bool] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
+    preserve_on_behalf_of: Union[Unset, bool] = UNSET
     assets: Union[Unset, List["NewScriptWithDraftAssetsItem"]] = UNSET
     draft: Union[Unset, "NewScriptWithDraftDraft"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -150,6 +153,7 @@ class NewScriptWithDraft:
         codebase = self.codebase
         has_preprocessor = self.has_preprocessor
         on_behalf_of_email = self.on_behalf_of_email
+        preserve_on_behalf_of = self.preserve_on_behalf_of
         assets: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.assets, Unset):
             assets = []
@@ -234,6 +238,8 @@ class NewScriptWithDraft:
             field_dict["has_preprocessor"] = has_preprocessor
         if on_behalf_of_email is not UNSET:
             field_dict["on_behalf_of_email"] = on_behalf_of_email
+        if preserve_on_behalf_of is not UNSET:
+            field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
         if assets is not UNSET:
             field_dict["assets"] = assets
         if draft is not UNSET:
@@ -330,6 +336,8 @@ class NewScriptWithDraft:
 
         on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
 
+        preserve_on_behalf_of = d.pop("preserve_on_behalf_of", UNSET)
+
         assets = []
         _assets = d.pop("assets", UNSET)
         for assets_item_data in _assets or []:
@@ -381,6 +389,7 @@ class NewScriptWithDraft:
             codebase=codebase,
             has_preprocessor=has_preprocessor,
             on_behalf_of_email=on_behalf_of_email,
+            preserve_on_behalf_of=preserve_on_behalf_of,
             assets=assets,
             draft=draft,
         )

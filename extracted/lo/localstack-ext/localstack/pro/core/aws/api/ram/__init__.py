@@ -66,11 +66,15 @@ class ResourceShareAssociationStatus(StrEnum):
     FAILED = "FAILED"
     DISASSOCIATING = "DISASSOCIATING"
     DISASSOCIATED = "DISASSOCIATED"
+    SUSPENDED = "SUSPENDED"
+    SUSPENDING = "SUSPENDING"
+    RESTORING = "RESTORING"
 
 
 class ResourceShareAssociationType(StrEnum):
     PRINCIPAL = "PRINCIPAL"
     RESOURCE = "RESOURCE"
+    SOURCE = "SOURCE"
 
 
 class ResourceShareFeatureSet(StrEnum):
@@ -303,8 +307,9 @@ class ResourceShareInvitationExpiredException(ServiceException):
 
 class ResourceShareLimitExceededException(ServiceException):
     """The operation failed because it would exceed the limit for resource
-    shares for your account. To view the limits for your Amazon Web Services
-    account, see the `RAM page in the Service Quotas
+    shares for your account. You can associate up to 100 resources per call.
+    To view the limits for your Amazon Web Services account, see the `RAM
+    page in the Service Quotas
     console <https://console.aws.amazon.com/servicequotas/home/services/ram/quotas>`__.
     """
 
@@ -478,6 +483,23 @@ class AssociatedPermission(TypedDict, total=False):
 
 
 AssociatedPermissionList = list[AssociatedPermission]
+
+
+class AssociatedSource(TypedDict, total=False):
+    """Information about a source association in a resource share. Source
+    associations control which sources can be used with service principals.
+    """
+
+    resourceShareArn: String | None
+    sourceId: String | None
+    sourceType: String | None
+    status: String | None
+    lastUpdatedTime: DateTime | None
+    creationTime: DateTime | None
+    statusMessage: String | None
+
+
+AssociatedSourceList = list[AssociatedSource]
 
 
 class Tag(TypedDict, total=False):
@@ -723,6 +745,8 @@ TagValueList = list[TagValue]
 class TagFilter(TypedDict, total=False):
     """A tag key and optional list of possible values that you can use to
     filter results for tagged resources.
+
+    Multiple tag filters are evaluated as an OR condition.
     """
 
     tagKey: TagKey | None
@@ -934,6 +958,20 @@ class ListResourcesResponse(TypedDict, total=False):
     nextToken: String | None
 
 
+class ListSourceAssociationsRequest(ServiceRequest):
+    resourceShareArns: ResourceShareArnList | None
+    sourceId: String | None
+    sourceType: String | None
+    associationStatus: ResourceShareAssociationStatus | None
+    nextToken: String | None
+    maxResults: MaxResults | None
+
+
+class ListSourceAssociationsResponse(TypedDict, total=False):
+    sourceAssociations: AssociatedSourceList | None
+    nextToken: String | None
+
+
 class PromotePermissionCreatedFromPolicyRequest(ServiceRequest):
     permissionArn: String
     name: String
@@ -1067,11 +1105,11 @@ class RamApi:
         sources: SourceArnOrAccountList | None = None,
         **kwargs,
     ) -> AssociateResourceShareResponse:
-        """Adds the specified list of principals and list of resources to a
-        resource share. Principals that already have access to this resource
-        share immediately receive access to the added resources. Newly added
-        principals immediately receive access to the resources shared in this
-        resource share.
+        """Adds the specified list of principals, resources, and source constraints
+        to a resource share. Principals that already have access to this
+        resource share immediately receive access to the added resources. Newly
+        added principals immediately receive access to the resources shared in
+        this resource share.
 
         :param resource_share_arn: Specifies the `Amazon Resource Name
         (ARN) <https://docs.
@@ -1080,8 +1118,9 @@ class RamApi:
         :param principals: Specifies a list of principals to whom you want to the resource share.
         :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
         the idempotency of the request.
-        :param sources: Specifies from which source accounts the service principal has access to
-        the resources in this resource share.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
+        organization paths) that limit when service principals can access
+        resources in this resource share.
         :returns: AssociateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises UnknownResourceException:
@@ -1237,8 +1276,9 @@ class RamApi:
         Names
         (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`__
         for the resources that you want to share, a list of principals you want
-        to share the resources with, and the permissions to grant those
-        principals.
+        to share the resources with, the permissions to grant those principals,
+        and optionally source constraints to enhance security for service
+        principal sharing.
 
         Sharing a resource makes it available for use by principals outside of
         the Amazon Web Services account that created the resource. Sharing
@@ -1257,8 +1297,9 @@ class RamApi:
         the idempotency of the request.
         :param permission_arns: Specifies the `Amazon Resource Names
         (ARNs) <https://docs.
-        :param sources: Specifies from which source accounts the service principal has access to
-        the resources in this resource share.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
+        organization paths) that limit when service principals can access
+        resources in this resource share.
         :returns: CreateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises InvalidStateTransitionException:
@@ -1272,6 +1313,7 @@ class RamApi:
         :raises TagLimitExceededException:
         :raises ServerInternalException:
         :raises ServiceUnavailableException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -1365,6 +1407,7 @@ class RamApi:
         :raises InvalidParameterException:
         :raises ServerInternalException:
         :raises ServiceUnavailableException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -1379,8 +1422,8 @@ class RamApi:
         sources: SourceArnOrAccountList | None = None,
         **kwargs,
     ) -> DisassociateResourceShareResponse:
-        """Removes the specified principals or resources from participating in the
-        specified resource share.
+        """Removes the specified principals, resources, or source constraints from
+        participating in the specified resource share.
 
         :param resource_share_arn: Specifies `Amazon Resource Name
         (ARN) <https://docs.
@@ -1390,8 +1433,8 @@ class RamApi:
         access to the resources in this resource share.
         :param client_token: Specifies a unique, case-sensitive identifier that you provide to ensure
         the idempotency of the request.
-        :param sources: Specifies from which source accounts the service principal no longer has
-        access to the resources in this resource share.
+        :param sources: Specifies source constraints (accounts, ARNs, organization IDs, or
+        organization paths) to remove from the resource share.
         :returns: DisassociateResourceShareResponse
         :raises IdempotentParameterMismatchException:
         :raises ResourceShareLimitExceededException:
@@ -1403,6 +1446,7 @@ class RamApi:
         :raises ServerInternalException:
         :raises ServiceUnavailableException:
         :raises UnknownResourceException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -1500,6 +1544,12 @@ class RamApi:
         """Retrieves the resource policies for the specified resources that you own
         and have shared.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param resource_arns: Specifies the `Amazon Resource Names
         (ARNs) <https://docs.
         :param principal: Specifies the principal.
@@ -1531,6 +1581,12 @@ class RamApi:
     ) -> GetResourceShareAssociationsResponse:
         """Retrieves the lists of resources and principals that associated for
         resource shares that you own.
+
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
 
         :param association_type: Specifies whether you want to retrieve the associations that involve a
         specified resource or principal.
@@ -1569,6 +1625,12 @@ class RamApi:
         """Retrieves details about invitations that you have received for resource
         shares.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param resource_share_invitation_arns: Specifies the `Amazon Resource Names
         (ARNs) <https://docs.
         :param resource_share_arns: Specifies that you want details about invitations only for the resource
@@ -1606,6 +1668,12 @@ class RamApi:
     ) -> GetResourceSharesResponse:
         """Retrieves details about the resource shares that you own or that are
         shared with you.
+
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
 
         :param resource_owner: Specifies that you want to retrieve details of only those resource
         shares that match the following:
@@ -1655,6 +1723,12 @@ class RamApi:
         which the invitation is still ``PENDING``. That means that you haven't
         accepted or rejected the invitation and the invitation hasn't expired.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param resource_share_invitation_arn: Specifies the `Amazon Resource Name
         (ARN) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
@@ -1694,6 +1768,12 @@ class RamApi:
         which resource shares use which versions of the specified managed
         permission.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param permission_arn: Specifies the `Amazon Resource Name
         (ARN) <https://docs.
         :param permission_version: Specifies that you want to list only those associations with resource
@@ -1730,6 +1810,12 @@ class RamApi:
     ) -> ListPermissionVersionsResponse:
         """Lists the available versions of the specified RAM permission.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param permission_arn: Specifies the `Amazon Resource Name
         (ARN) <https://docs.
         :param next_token: Specifies that you want to receive the next page of results.
@@ -1758,6 +1844,12 @@ class RamApi:
     ) -> ListPermissionsResponse:
         """Retrieves a list of available RAM permissions that you can use for the
         supported resource types.
+
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
 
         :param resource_type: Specifies that you want to list only those permissions that apply to the
         specified resource type.
@@ -1791,6 +1883,12 @@ class RamApi:
     ) -> ListPrincipalsResponse:
         """Lists the principals that you are sharing resources with or that are
         sharing resources with you.
+
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
 
         :param resource_owner: Specifies that you want to list information for only resource shares
         that match the following:
@@ -1837,6 +1935,12 @@ class RamApi:
         """Retrieves the current status of the asynchronous tasks performed by RAM
         when you perform the ReplacePermissionAssociationsWork operation.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param work_ids: A list of IDs.
         :param status: Specifies that you want to see only the details about requests with a
         status that matches this value.
@@ -1861,6 +1965,12 @@ class RamApi:
         **kwargs,
     ) -> ListResourceSharePermissionsResponse:
         """Lists the RAM permissions that are associated with a resource share.
+
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
 
         :param resource_share_arn: Specifies the `Amazon Resource Name
         (ARN) <https://docs.
@@ -1919,6 +2029,12 @@ class RamApi:
         """Lists the resources that you added to a resource share or the resources
         that are shared with you.
 
+        Always check the ``NextToken`` response parameter for a ``null`` value
+        when calling a paginated operation. These operations can occasionally
+        return an empty set of results even when there are more results
+        available. The ``NextToken`` response parameter value is ``null`` *only*
+        when there are no more results to display.
+
         :param resource_owner: Specifies that you want to list only the resource shares that match the
         following:
 
@@ -1943,6 +2059,46 @@ class RamApi:
         the specified scope.
         :returns: ListResourcesResponse
         :raises InvalidResourceTypeException:
+        :raises UnknownResourceException:
+        :raises MalformedArnException:
+        :raises InvalidNextTokenException:
+        :raises InvalidParameterException:
+        :raises ServerInternalException:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("ListSourceAssociations")
+    def list_source_associations(
+        self,
+        context: RequestContext,
+        resource_share_arns: ResourceShareArnList | None = None,
+        source_id: String | None = None,
+        source_type: String | None = None,
+        association_status: ResourceShareAssociationStatus | None = None,
+        next_token: String | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListSourceAssociationsResponse:
+        """Lists source associations for resource shares. Source associations
+        control which sources can be used with service principals in resource
+        shares. This operation provides visibility into source associations for
+        resource share owners.
+
+        You can filter the results by resource share Amazon Resource Name (ARN),
+        source ID, source type, or association status. We recommend using
+        pagination to ensure that the operation returns quickly and
+        successfully.
+
+        :param resource_share_arns: The Amazon Resource Names (ARNs) of the resource shares for which you
+        want to retrieve source associations.
+        :param source_id: The identifier of the source for which you want to retrieve
+        associations.
+        :param source_type: The type of source for which you want to retrieve associations.
+        :param association_status: The status of the source associations that you want to retrieve.
+        :param next_token: The pagination token that indicates the next set of results to retrieve.
+        :param max_results: The maximum number of results to return in a single call.
+        :returns: ListSourceAssociationsResponse
         :raises UnknownResourceException:
         :raises MalformedArnException:
         :raises InvalidNextTokenException:
@@ -2000,6 +2156,7 @@ class RamApi:
         the idempotency of the request.
         :returns: PromotePermissionCreatedFromPolicyResponse
         :raises MalformedArnException:
+        :raises InvalidPolicyException:
         :raises OperationNotPermittedException:
         :raises InvalidParameterException:
         :raises MissingRequiredParameterException:

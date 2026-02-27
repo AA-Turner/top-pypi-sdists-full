@@ -23,6 +23,7 @@ class ApplicationIdentifierUriArgs:
                  identifier_uri: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ApplicationIdentifierUri resource.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] identifier_uri: The user-defined URI that uniquely identifies an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Changing this forces a new resource to be created.
         """
@@ -61,6 +62,7 @@ class _ApplicationIdentifierUriState:
                  identifier_uri: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ApplicationIdentifierUri resources.
+
         :param pulumi.Input[_builtins.str] application_id: The resource ID of the application registration. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] identifier_uri: The user-defined URI that uniquely identifies an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Changing this forces a new resource to be created.
         """
@@ -104,6 +106,20 @@ class ApplicationIdentifierUri(pulumi.CustomResource):
                  identifier_uri: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        Manages a single Identifier URI for an application registration.
+
+        This resource is analogous to the `identifier_uris` property in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -135,6 +151,7 @@ class ApplicationIdentifierUri(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationIdentifierUri:ApplicationIdentifierUri example /applications/00000000-0000-0000-0000-000000000000/identifierUris/aHR0cHM6Ly9leGFtcGxlLm5ldC8=
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -148,6 +165,20 @@ class ApplicationIdentifierUri(pulumi.CustomResource):
                  args: ApplicationIdentifierUriArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Manages a single Identifier URI for an application registration.
+
+        This resource is analogous to the `identifier_uris` property in the `Application` resource. When using these resources together, you should use the `ignore_changes` lifecycle meta-argument (see example below).
+
+        ## API Permissions
+
+        The following API permissions are required in order to use this resource.
+
+        When authenticated with a service principal, this resource requires one of the following application roles: `Application.ReadWrite.OwnedBy` or `Application.ReadWrite.All`
+
+        > When using the `Application.ReadWrite.OwnedBy` application role, the principal being used to run Terraform must be an owner of the application.
+
+        When authenticated with a user principal, this resource may require one of the following directory roles: `Application Administrator` or `Global Administrator`
+
         ## Example Usage
 
         ```python
@@ -179,6 +210,7 @@ class ApplicationIdentifierUri(pulumi.CustomResource):
         ```sh
         $ pulumi import azuread:index/applicationIdentifierUri:ApplicationIdentifierUri example /applications/00000000-0000-0000-0000-000000000000/identifierUris/aHR0cHM6Ly9leGFtcGxlLm5ldC8=
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ApplicationIdentifierUriArgs args: The arguments to use to populate this resource's properties.

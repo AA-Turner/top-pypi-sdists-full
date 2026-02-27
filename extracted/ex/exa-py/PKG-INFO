@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: exa-py
-Version: 2.5.0
+Version: 2.6.0
 Summary: Python SDK for Exa API.
 License: MIT
 Author: Exa AI
@@ -86,7 +86,6 @@ results = exa.search(
 results = exa.search(
     "What are the latest battery breakthroughs?",
     type="deep",
-    answer=True,
     output_schema={
         "type": "object",
         "properties": {
@@ -96,8 +95,13 @@ results = exa.search(
         "required": ["summary", "key_companies"],
     },
 )
-print(results.answer)
+print(results.output.content if results.output else None)
 ```
+
+Deep search variants:
+- `deep`: light mode
+- `deep-reasoning`: base reasoning mode
+- `deep-max`: max-effort mode
 
 ## Contents
 

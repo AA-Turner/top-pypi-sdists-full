@@ -81,12 +81,14 @@ setup(
     install_requires=[
         'emoji', 
         'numpy', 
+        'platformdirs',
         'protobuf>=3.15.0',
         'requests', 
         'networkx',
         'tomli;python_version<"3.11"',
         'torch>=1.13.0',
         'tqdm',
+        'udtools>=0.2.4',
     ],
 
     # List required Python versions
@@ -124,6 +126,9 @@ setup(
             'streamlit',
             'ipython',
         ],
+        'morphseg': [
+            'morphseg>=0.2.0',
+        ]
     },
 
     # If there are data files included in your packages that need to be

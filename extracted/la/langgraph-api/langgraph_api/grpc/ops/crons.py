@@ -16,7 +16,7 @@ from langgraph_grpc_common.proto import (
 )
 from langgraph_sdk import Auth
 
-from langgraph_api.graph import get_assistant_id
+from langgraph_api.graph import SYSTEM_ASSISTANT_IDS, get_assistant_id
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
@@ -227,13 +227,14 @@ class Crons(Authenticated):
         cron_filters = await Crons.handle_event(ctx, "create", cron_request_data)
 
         assistant_filters: list[Any] = []
-        assistant_request_data = Auth.types.AssistantsRead(
-            assistant_id=str(payload["assistant_id"])
-        )
-        assistant_request_data["metadata"] = metadata  # type: ignore[typeddict-unknown-key]
-        assistant_filters = await Assistants.handle_event(
-            ctx, "read", assistant_request_data
-        )
+        if payload["assistant_id"] not in SYSTEM_ASSISTANT_IDS:
+            assistant_request_data = Auth.types.AssistantsRead(
+                assistant_id=str(payload["assistant_id"])
+            )
+            assistant_request_data["metadata"] = metadata  # type: ignore[typeddict-unknown-key]
+            assistant_filters = await Assistants.handle_event(
+                ctx, "read", assistant_request_data
+            )
 
         # Thread-scoped auth filters (only when thread_id is provided)
         thread_filters: list[Any] = []

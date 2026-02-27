@@ -1,3 +1,5 @@
+from django.db import connection
+
 import pytest
 
 pytest.importorskip("enum_properties")
@@ -94,6 +96,10 @@ class TestRequestsProps(TestRequests):
                 skip_non_strict=False,
             )
 
+        @pytest.mark.skipif(
+            connection.vendor == "oracle",
+            reason="strict NULL behavior on Oracle >21c breaks exclude filter tests",
+        )
         def test_django_filter_exclude(self):
             self.do_test_django_filter(
                 reverse(f"{self.NAMESPACE}:enum-filter-symmetric-exclude"),
@@ -108,6 +114,10 @@ class TestRequestsProps(TestRequests):
                 skip_non_strict=False,
             )
 
+        @pytest.mark.skipif(
+            connection.vendor == "oracle",
+            reason="strict NULL behavior on Oracle >21c breaks this test",
+        )
         def test_django_filter_multiple_exclude(self):
             self.do_test_django_filter(
                 reverse(f"{self.NAMESPACE}:enum-filter-multiple-exclude"),

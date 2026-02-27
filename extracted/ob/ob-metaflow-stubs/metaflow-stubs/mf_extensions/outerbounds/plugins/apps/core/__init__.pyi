@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-20T21:41:16.008846                                                            #
+# MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-27T00:13:09.793319                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from . import deployer as deployer
 from .deployer import AppDeployer as AppDeployer
 from .deployer import bake_image as bake_image
 from .deployer import package_code as package_code
+from .deployer import load_code_package as load_code_package
 from .deployer import DeployedApp as DeployedApp
 from .config.unified_config import BakedImage as BakedImage
 from .config.unified_config import PackagedCode as PackagedCode

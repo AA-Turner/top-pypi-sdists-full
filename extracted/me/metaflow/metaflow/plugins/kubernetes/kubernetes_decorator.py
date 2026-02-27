@@ -366,6 +366,10 @@ class KubernetesDecorator(StepDecorator):
                     if k == "gpu" and v != None:
                         self.attributes["gpu"] = v
 
+                    # If shared memory is specified, explicitly set it in self.attributes.
+                    if k == "shared_memory" and v != None:
+                        self.attributes["shared_memory"] = v
+
                     if k in self.attributes:
                         if self.defaults[k] is None:
                             # skip if expected value isn't an int/float
@@ -636,7 +640,7 @@ class KubernetesDecorator(StepDecorator):
         try:
             self._save_logs_sidecar.terminate()
             self._spot_monitor_sidecar.terminate()
-        except:
+        except Exception:
             # Best effort kill
             pass
 

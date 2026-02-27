@@ -26,13 +26,14 @@ from dstack._internal.server.models import (
 from dstack._internal.server.services import backends as backends_services
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.placement import placement_group_model_to_placement_group
+from dstack._internal.server.utils import sentry_utils
 from dstack._internal.utils.common import get_current_datetime, run_async
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class PlacementGroupPipeline(Pipeline):
+class PlacementGroupPipeline(Pipeline[PipelineItem]):
     def __init__(
         self,
         workers_num: int = 10,
@@ -50,7 +51,7 @@ class PlacementGroupPipeline(Pipeline):
             lock_timeout=lock_timeout,
             heartbeat_trigger=heartbeat_trigger,
         )
-        self.__heartbeater = Heartbeater[PlacementGroupModel](
+        self.__heartbeater = Heartbeater[PipelineItem](
             model_type=PlacementGroupModel,
             lock_timeout=self._lock_timeout,
             heartbeat_trigger=self._heartbeat_trigger,
@@ -72,11 +73,11 @@ class PlacementGroupPipeline(Pipeline):
         return PlacementGroupModel.__name__
 
     @property
-    def _heartbeater(self) -> Heartbeater:
+    def _heartbeater(self) -> Heartbeater[PipelineItem]:
         return self.__heartbeater
 
     @property
-    def _fetcher(self) -> Fetcher:
+    def _fetcher(self) -> Fetcher[PipelineItem]:
         return self.__fetcher
 
     @property
@@ -84,14 +85,14 @@ class PlacementGroupPipeline(Pipeline):
         return self.__workers
 
 
-class PlacementGroupFetcher(Fetcher):
+class PlacementGroupFetcher(Fetcher[PipelineItem]):
     def __init__(
         self,
         queue: asyncio.Queue[PipelineItem],
         queue_desired_minsize: int,
         min_processing_interval: timedelta,
         lock_timeout: timedelta,
-        heartbeater: Heartbeater[PlacementGroupModel],
+        heartbeater: Heartbeater[PipelineItem],
         queue_check_delay: float = 1.0,
     ) -> None:
         super().__init__(
@@ -103,6 +104,7 @@ class PlacementGroupFetcher(Fetcher):
             queue_check_delay=queue_check_delay,
         )
 
+    @sentry_utils.instrument_named_task("pipeline_tasks.PlacementGroupFetcher.fetch")
     async def fetch(self, limit: int) -> list[PipelineItem]:
         placement_group_lock, _ = get_locker(get_db().dialect_name).get_lockset(
             PlacementGroupModel.__tablename__
@@ -159,17 +161,18 @@ class PlacementGroupFetcher(Fetcher):
         return items
 
 
-class PlacementGroupWorker(Worker):
+class PlacementGroupWorker(Worker[PipelineItem]):
     def __init__(
         self,
         queue: asyncio.Queue[PipelineItem],
-        heartbeater: Heartbeater[PlacementGroupModel],
+        heartbeater: Heartbeater[PipelineItem],
     ) -> None:
         super().__init__(
             queue=queue,
             heartbeater=heartbeater,
         )
 
+    @sentry_utils.instrument_named_task("pipeline_tasks.PlacementGroupWorker.process")
     async def process(self, item: PipelineItem):
         async with get_session_ctx() as session:
             res = await session.execute(
@@ -230,6 +233,7 @@ async def _delete_placement_group(placement_group_model: PlacementGroupModel) ->
         backend_type=placement_group.provisioning_data.backend,
     )
     if backend is None:
+        # TODO: Retry deletion
         logger.error(
             "Failed to delete placement group %s. Backend not available. Please delete it manually.",
             placement_group.name,
@@ -245,6 +249,7 @@ async def _delete_placement_group(placement_group_model: PlacementGroupModel) ->
         )
         return {}
     except Exception:
+        # TODO: Retry deletion
         logger.exception(
             "Got exception when deleting placement group %s. Please delete it manually.",
             placement_group.name,

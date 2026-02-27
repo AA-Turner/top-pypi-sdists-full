@@ -321,6 +321,10 @@ class IdentityProviderTypeType(StrEnum):
     OIDC = "OIDC"
 
 
+class InboundFederationLambdaVersionType(StrEnum):
+    V1_0 = "V1_0"
+
+
 class LogLevel(StrEnum):
     ERROR = "ERROR"
     INFO = "INFO"
@@ -2492,6 +2496,13 @@ UsernameAttributesListType = list[UsernameAttributeType]
 VerifiedAttributesListType = list[VerifiedAttributeType]
 
 
+class InboundFederationLambdaType(TypedDict, total=False):
+    """The properties of an inbound federation Lambda trigger."""
+
+    LambdaVersion: InboundFederationLambdaVersionType
+    LambdaArn: ArnType
+
+
 class CustomEmailLambdaVersionConfigType(TypedDict, total=False):
     """The properties of a custom email sender Lambda trigger."""
 
@@ -2533,6 +2544,7 @@ class LambdaConfigType(TypedDict, total=False):
     CustomSMSSender: CustomSMSLambdaVersionConfigType | None
     CustomEmailSender: CustomEmailLambdaVersionConfigType | None
     KMSKeyID: ArnType | None
+    InboundFederation: InboundFederationLambdaType | None
 
 
 class SignInPolicyType(TypedDict, total=False):
@@ -6446,7 +6458,7 @@ class CognitoIdpApi:
         your Amazon Web Services account. Amazon Cognito retains deleted user
         pools in an inactive state for 14 days, then begins a cleanup process
         that fully removes them from Amazon Web Services systems. In case of
-        accidental deletion, contact Amazon Web ServicesSupport within 14 days
+        accidental deletion, contact Amazon Web Services Support within 14 days
         for restoration assistance.
 
         Amazon Cognito begins full deletion of all resources from deleted user

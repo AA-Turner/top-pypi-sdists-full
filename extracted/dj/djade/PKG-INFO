@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djade
-Version: 1.8.0
+Version: 1.9.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
@@ -283,12 +283,28 @@ Extra rules:
     -{#choo choo#}
     +{# choo choo #}
 
+* Label ``{% endpartialdef %}`` tags that aren’t on the same line as their opening ``{% partialdef %}`` tag:
+
+  .. code-block:: diff
+
+    {% partialdef whistle %}
+    ...
+    -{% endpartialdef %}
+    +{% endpartialdef whistle %}
+
 * No labels in ``{% endblock %}`` tags on the same line as their opening ``{% block %}`` tag:
 
   .. code-block:: diff
 
     -{% block funnel %}...{% endblock funnel %}
     +{% block funnel %}...{% endblock %}
+
+* No labels in ``{% endpartialdef %}`` tags on the same line as their opening ``{% partialdef %}`` tag:
+
+  .. code-block:: diff
+
+    -{% partialdef whistle %}...{% endpartialdef whistle %}
+    +{% partialdef whistle %}...{% endpartialdef %}
 
 * Merge consecutive ``{% load %}`` tags:
 
