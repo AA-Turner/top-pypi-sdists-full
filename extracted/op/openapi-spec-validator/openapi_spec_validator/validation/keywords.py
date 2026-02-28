@@ -3,6 +3,7 @@ from collections.abc import Callable
 from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
+from functools import partial
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
@@ -11,11 +12,16 @@ from jsonschema._format import FormatChecker
 from jsonschema.exceptions import SchemaError
 from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
+from jsonschema.validators import validator_for
 from jsonschema_path.paths import SchemaPath
+from openapi_schema_validator import OAS31_BASE_DIALECT_ID
+from openapi_schema_validator import OAS32_BASE_DIALECT_ID
 from openapi_schema_validator import oas30_format_checker
 from openapi_schema_validator import oas31_format_checker
+from openapi_schema_validator import oas32_format_checker
 from openapi_schema_validator.validators import OAS30Validator
 from openapi_schema_validator.validators import OAS31Validator
+from openapi_schema_validator.validators import OAS32Validator
 
 from openapi_spec_validator.validation.exceptions import (
     DuplicateOperationIDError,
@@ -66,6 +72,11 @@ class OpenAPIV31ValueValidator(ValueValidator):
     value_validator_format_checker = oas31_format_checker
 
 
+class OpenAPIV32ValueValidator(ValueValidator):
+    value_validator_cls = OAS32Validator
+    value_validator_format_checker = oas32_format_checker
+
+
 class SchemaValidator(KeywordValidator):
     def __init__(self, registry: "KeywordValidatorRegistry"):
         super().__init__(registry)
@@ -101,6 +112,26 @@ class SchemaValidator(KeywordValidator):
 
         return props
 
+    def _get_schema_checker(
+        self, schema: SchemaPath, schema_value: Any
+    ) -> Callable[[Any], None]:
+        raise NotImplementedError
+
+    def _validate_schema_meta(
+        self, schema: SchemaPath, schema_value: Any
+    ) -> OpenAPIValidationError | None:
+        try:
+            schema_checker = self._get_schema_checker(schema, schema_value)
+        except ValueError as exc:
+            return OpenAPIValidationError(str(exc))
+        try:
+            schema_checker(schema_value)
+        except (SchemaError, ValidationError) as err:
+            return cast(
+                OpenAPIValidationError, OpenAPIValidationError.create_from(err)
+            )
+        return None
+
     def __call__(
         self,
         schema: SchemaPath,
@@ -114,23 +145,17 @@ class SchemaValidator(KeywordValidator):
             )
             return
 
+        schema_id = id(schema_value)
         if not meta_checked:
             assert self.meta_checked_schema_ids is not None
-            schema_id = id(schema_value)
             if schema_id not in self.meta_checked_schema_ids:
-                try:
-                    schema_check = getattr(
-                        self.default_validator.value_validator_cls,
-                        "check_schema",
-                    )
-                    schema_check(schema_value)
-                except (SchemaError, ValidationError) as err:
-                    yield OpenAPIValidationError.create_from(err)
-                    return
                 self.meta_checked_schema_ids.append(schema_id)
+                err = self._validate_schema_meta(schema, schema_value)
+                if err is not None:
+                    yield err
+                    return
 
         assert self.visited_schema_ids is not None
-        schema_id = id(schema_value)
         if schema_id in self.visited_schema_ids:
             return
         self.visited_schema_ids.append(schema_id)
@@ -218,6 +243,114 @@ class SchemaValidator(KeywordValidator):
                 yield from self.default_validator(schema, default_value)
 
 
+class OpenAPIV30SchemaValidator(SchemaValidator):
+    schema_validator_cls = OAS30Validator
+
+    def _get_schema_checker(
+        self, schema: SchemaPath, schema_value: Any
+    ) -> Callable[[Any], None]:
+        return cast(
+            Callable[[Any], None],
+            self.schema_validator_cls.check_schema,
+        )
+
+
+class OpenAPIV31SchemaValidator(SchemaValidator):
+    default_jsonschema_dialect_id = OAS31_BASE_DIALECT_ID
+    schema_validator_format_checker = oas31_format_checker
+
+    def __init__(self, registry: "KeywordValidatorRegistry"):
+        super().__init__(registry)
+        self._default_jsonschema_dialect_id: str | None = None
+        self._validator_classes_by_dialect: dict[
+            str, type[Validator] | None
+        ] = {}
+
+    def _get_schema_checker(
+        self, schema: SchemaPath, schema_value: Any
+    ) -> Callable[[Any], None]:
+        dialect_id = self._get_schema_dialect_id(
+            schema,
+            schema_value,
+        )
+
+        validator_cls = self._get_validator_class_for_dialect(dialect_id)
+        if validator_cls is None:
+            raise ValueError(f"Unknown JSON Schema dialect: {dialect_id!r}")
+
+        return partial(
+            validator_cls.check_schema,
+            format_checker=self.schema_validator_format_checker,
+        )
+
+    def _get_schema_dialect_id(
+        self, schema: SchemaPath, schema_value: Any
+    ) -> str:
+        if isinstance(schema_value, Mapping):
+            schema_to_check = dict(schema_value)
+            if "$schema" in schema_to_check:
+                dialect_value = schema_to_check["$schema"]
+                if not isinstance(dialect_value, str):
+                    raise ValueError(
+                        "Unknown JSON Schema dialect: " f"{dialect_value!r}"
+                    )
+                dialect_id = dialect_value
+            else:
+                jsonschema_dialect_id = (
+                    self._get_default_jsonschema_dialect_id(schema)
+                )
+                schema_to_check = {
+                    **schema_to_check,
+                    "$schema": jsonschema_dialect_id,
+                }
+                dialect_id = jsonschema_dialect_id
+        else:
+            jsonschema_dialect_id = self._get_default_jsonschema_dialect_id(
+                schema
+            )
+            schema_to_check = schema_value
+            dialect_id = jsonschema_dialect_id
+
+        return dialect_id
+
+    def _get_validator_class_for_dialect(
+        self, dialect_id: str
+    ) -> type[Validator] | None:
+        if dialect_id in self._validator_classes_by_dialect:
+            return self._validator_classes_by_dialect[dialect_id]
+
+        validator_cls = cast(
+            type[Validator] | None,
+            validator_for(
+                {"$schema": dialect_id},
+                default=cast(Any, None),
+            ),
+        )
+        self._validator_classes_by_dialect[dialect_id] = validator_cls
+        return validator_cls
+
+    def _get_default_jsonschema_dialect_id(self, schema: SchemaPath) -> str:
+        if self._default_jsonschema_dialect_id is not None:
+            return self._default_jsonschema_dialect_id
+
+        spec_root = self._get_spec_root(schema)
+        dialect_id = (spec_root / "jsonSchemaDialect").read_str(
+            default=self.default_jsonschema_dialect_id
+        )
+
+        self._default_jsonschema_dialect_id = dialect_id
+        return dialect_id
+
+    def _get_spec_root(self, schema: SchemaPath) -> SchemaPath:
+        # jsonschema-path currently has no public API for root traversal.
+        return schema._clone_with_parts(())
+
+
+class OpenAPIV32SchemaValidator(OpenAPIV31SchemaValidator):
+    default_jsonschema_dialect_id = OAS32_BASE_DIALECT_ID
+    schema_validator_format_checker = oas32_format_checker
+
+
 class SchemasValidator(KeywordValidator):
     @property
     def schema_validator(self) -> SchemaValidator:
@@ -267,7 +400,7 @@ class ParametersValidator(KeywordValidator):
             key = (parameter["name"], parameter["in"])
             if key in seen:
                 yield ParameterDuplicateError(
-                    f"Duplicate parameter `{parameter['name']}`"
+                    f"Duplicate parameter '{parameter['name']}'"
                 )
             seen.add(key)
 
@@ -457,6 +590,36 @@ class PathValidator(KeywordValidator):
             )
 
 
+class OpenAPIV32PathValidator(PathValidator):
+    OPERATIONS = [*PathValidator.OPERATIONS, "query"]
+
+    def __call__(
+        self, url: str, path_item: SchemaPath
+    ) -> Iterator[ValidationError]:
+        parameters = None
+        if "parameters" in path_item:
+            parameters = path_item / "parameters"
+            yield from self.parameters_validator(parameters)
+
+        for field_name, operation in path_item.items():
+            assert isinstance(field_name, str)
+            if field_name in self.OPERATIONS:
+                yield from self.operation_validator(
+                    url, field_name, operation, parameters
+                )
+                continue
+
+            if field_name == "additionalOperations":
+                for operation_name, additional_operation in operation.items():
+                    assert isinstance(operation_name, str)
+                    yield from self.operation_validator(
+                        url,
+                        operation_name,
+                        additional_operation,
+                        parameters,
+                    )
+
+
 class PathsValidator(KeywordValidator):
     @property
     def path_validator(self) -> PathValidator:
@@ -479,6 +642,65 @@ class ComponentsValidator(KeywordValidator):
             yield from self.schemas_validator(schemas)
 
 
+class TagsValidator(KeywordValidator):
+    def __call__(self, tags: SchemaPath) -> Iterator[ValidationError]:
+        seen: set[str] = set()
+        for tag in tags:
+            tag_name = (tag / "name").read_str()
+            if tag_name in seen:
+                yield OpenAPIValidationError(
+                    f"Duplicate tag name '{tag_name}'"
+                )
+            seen.add(tag_name)
+
+
+class OpenAPIV32TagsValidator(TagsValidator):
+    def __call__(self, tags: SchemaPath) -> Iterator[ValidationError]:
+        yield from super().__call__(tags)
+
+        seen: set[str] = set()
+        parent_by_tag_name: dict[str, str | None] = {}
+        for tag in tags:
+            tag_name = (tag / "name").read_str()
+            seen.add(tag_name)
+
+            if "parent" in tag:
+                parent_by_tag_name[tag_name] = (tag / "parent").read_str()
+            else:
+                parent_by_tag_name[tag_name] = None
+
+        for tag_name, parent in parent_by_tag_name.items():
+            if parent is not None and parent not in seen:
+                yield OpenAPIValidationError(
+                    f"Tag '{tag_name}' references unknown parent tag '{parent}'"
+                )
+
+        reported_cycles: set[str] = set()
+        for start_tag_name in parent_by_tag_name:
+            tag_name = start_tag_name
+            trail: list[str] = []
+            trail_pos: dict[str, int] = {}
+
+            while True:
+                if tag_name in trail_pos:
+                    cycle = trail[trail_pos[tag_name] :] + [tag_name]
+                    cycle_str = " -> ".join(cycle)
+                    if cycle_str not in reported_cycles:
+                        reported_cycles.add(cycle_str)
+                        yield OpenAPIValidationError(
+                            f"Circular tag hierarchy detected: {cycle_str}"
+                        )
+                    break
+
+                trail_pos[tag_name] = len(trail)
+                trail.append(tag_name)
+
+                parent = parent_by_tag_name.get(tag_name)
+                if parent is None or parent not in seen:
+                    break
+                tag_name = parent
+
+
 class RootValidator(KeywordValidator):
     @property
     def paths_validator(self) -> PathsValidator:
@@ -489,6 +711,11 @@ class RootValidator(KeywordValidator):
         return cast(ComponentsValidator, self.registry["components"])
 
     def __call__(self, spec: SchemaPath) -> Iterator[ValidationError]:
+        if "tags" in spec and "tags" in self.registry.keyword_validators:
+            tags = spec / "tags"
+            tags_validator = cast(Any, self.registry["tags"])
+            yield from tags_validator(tags)
+
         if "paths" in spec:
             paths = spec / "paths"
             yield from self.paths_validator(paths)

@@ -19,11 +19,16 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from worker_automate_hub.api.datalake_service import send_file_to_datalake
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    TimeoutException,
+)
 
 from worker_automate_hub.utils.credentials_manager import CredentialsManager
 from worker_automate_hub.api.client import get_config_by_name
-from worker_automate_hub.models.dto.rpa_processo_entrada_dto import RpaProcessoEntradaDTO
+from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
+    RpaProcessoEntradaDTO,
+)
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
     RpaRetornoProcessoDTO,
@@ -46,6 +51,7 @@ class ConfigEntradaSAP(BaseModel):
     Configuração de entrada do processo
     (EXATAMENTE a configEntrada do main)
     """
+
     materialInicial: str
     materialFinal: str
     centroInicial: str
@@ -62,16 +68,18 @@ class ExtracaoPedidosCompra:
     # ==========
     X_MATERIAL_INI = "(//input[@title='Nº do material'])[1]"
     X_MATERIAL_FIM = "(//input[@title='Nº do material'])[2]"
-    X_CENTRO_INI   = "(//input[@title='Centro'])[1]"
-    X_CENTRO_FIM   = "(//input[@title='Centro'])[2]"
-    X_ABRANGENCIA  = "//input[@title='Parâmetros de abrangência das listas de compra']"
-    X_EXECUTAR     = "//div[@title='Executar (F8)']"
-    X_BAIXAR       = "//div[@title='Planilha eletrônica... (Ctrl+Shift+F7)']"
-    X_EXPORTAR     = "//div[@title='Exportar dados (Shift+F8)']"
-    X_OK           = "//div[@id='UpDownDialogChoose']"
+    X_CENTRO_INI = "(//input[@title='Centro'])[1]"
+    X_CENTRO_FIM = "(//input[@title='Centro'])[2]"
+    X_ABRANGENCIA = "//input[@title='Parâmetros de abrangência das listas de compra']"
+    X_EXECUTAR = "//div[@title='Executar (F8)']"
+    X_BAIXAR = "//div[@title='Planilha eletrônica... (Ctrl+Shift+F7)']"
+    X_EXPORTAR = "//div[@title='Exportar dados (Shift+F8)']"
+    X_OK = "//div[@id='UpDownDialogChoose']"
 
     # IFRAME
-    X_APP_IFRAME   = "//iframe[contains(@name,'application-PurchaseOrder-displayByMaterial')]"
+    X_APP_IFRAME = (
+        "//iframe[contains(@name,'application-PurchaseOrder-displayByMaterial')]"
+    )
 
     def __init__(
         self,
@@ -102,7 +110,6 @@ class ExtracaoPedidosCompra:
         # Pasta padrão de downloads (Windows)
         self.download_dir = Path.home() / "Downloads"
         self.download_dir.mkdir(parents=True, exist_ok=True)
-        
 
         # diretório do datalake
         self.directory = directory
@@ -126,7 +133,9 @@ class ExtracaoPedidosCompra:
 
         self.driver.switch_to.default_content()
         wait.until(EC.presence_of_element_located((By.XPATH, self.X_APP_IFRAME)))
-        wait.until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, self.X_APP_IFRAME)))
+        wait.until(
+            EC.frame_to_be_available_and_switch_to_it((By.XPATH, self.X_APP_IFRAME))
+        )
 
         console.print("[STEP] OK: dentro do iframe do app SAP.")
         await worker_sleep(0.2)
@@ -139,12 +148,16 @@ class ExtracaoPedidosCompra:
 
     async def _scroll_center(self, el) -> None:
         try:
-            self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", el
+            )
         except Exception:
             pass
         await worker_sleep(0.15)
 
-    async def _limpar_e_digitar(self, xpath: str, valor: str, timeout: int = 30) -> None:
+    async def _limpar_e_digitar(
+        self, xpath: str, valor: str, timeout: int = 30
+    ) -> None:
         wait = WebDriverWait(self.driver, timeout)
 
         el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
@@ -225,7 +238,9 @@ class ExtracaoPedidosCompra:
     # ==========================================================
     # Eesperar download XLSX
     # ==========================================================
-    async def _aguardar_xlsx_baixado(self, timeout: int = 240, quiet_window_sec: float = 1.2) -> Path:
+    async def _aguardar_xlsx_baixado(
+        self, timeout: int = 240, quiet_window_sec: float = 1.2
+    ) -> Path:
         """
         Espera surgir um .xlsx novo no Downloads e terminar (.crdownload sumir e tamanho estabilizar).
         Retorna o Path do arquivo baixado.
@@ -299,8 +314,12 @@ class ExtracaoPedidosCompra:
 
         return candidato
 
-    async def rename_file(self, company: str, file_type: str, timeout: int = 240) -> Path:
-        console.print("[RF] Iniciando renomeação + envio pro datalake (mantendo sua função).")
+    async def rename_file(
+        self, company: str, file_type: str, timeout: int = 240
+    ) -> Path:
+        console.print(
+            "[RF] Iniciando renomeação + envio pro datalake (mantendo sua função)."
+        )
         try:
             # 1) aguarda o xlsx baixar de verdade (sem depender de export.xlsx)
             baixado = await self._aguardar_xlsx_baixado(timeout=timeout)
@@ -329,18 +348,24 @@ class ExtracaoPedidosCompra:
 
             # 5) envia pro datalake (mantido)
             if not self.directory:
-                raise RuntimeError("self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento.")
+                raise RuntimeError(
+                    "self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento."
+                )
 
             try:
                 console.print(f"[RF] directory: {self.directory}")
                 console.print(f"[RF] file: {final_path}")
 
                 send_file_request = await send_file_to_datalake(
-                    self.directory, file_bytes, filename, "xlsx"
+                    "qd_comercial/raw", file_bytes, filename, "xlsx"
                 )
-                console.print(f"[RF] Resposta send_file_to_datalake: {send_file_request}")
+                console.print(
+                    f"[RF] Resposta send_file_to_datalake: {send_file_request}"
+                )
             except Exception as e:
-                console.print(f"[RF][ERRO] Erro ao enviar o arquivo: {e}", style="bold red")
+                console.print(
+                    f"[RF][ERRO] Erro ao enviar o arquivo: {e}", style="bold red"
+                )
                 console.print("[RF][ERRO] Traceback:")
                 console.print(traceback.format_exc())
                 raise
@@ -480,7 +505,9 @@ class ExtracaoPedidosCompra:
 
             for i in range(10):
                 btn = self.driver.find_elements(By.ID, "LOGIN_SUBMIT_BLOCK")
-                console.print(f"[LOGIN] Tentativa {i+1}/10 | botão encontrado? {bool(btn)}")
+                console.print(
+                    f"[LOGIN] Tentativa {i+1}/10 | botão encontrado? {bool(btn)}"
+                )
                 if btn:
                     btn[0].click()
                     console.print("[LOGIN] Botão de login clicado.")
@@ -505,19 +532,27 @@ class ExtracaoPedidosCompra:
         await self._entrar_no_iframe_app(timeout=60)
 
         console.print(f"[STEP] Material inicial: {self.config_entrada.materialInicial}")
-        await self._limpar_e_digitar(self.X_MATERIAL_INI, self.config_entrada.materialInicial)
+        await self._limpar_e_digitar(
+            self.X_MATERIAL_INI, self.config_entrada.materialInicial
+        )
 
         console.print(f"[STEP] Material final: {self.config_entrada.materialFinal}")
-        await self._limpar_e_digitar(self.X_MATERIAL_FIM, self.config_entrada.materialFinal)
+        await self._limpar_e_digitar(
+            self.X_MATERIAL_FIM, self.config_entrada.materialFinal
+        )
 
         console.print(f"[STEP] Centro inicial: {self.config_entrada.centroInicial}")
-        await self._limpar_e_digitar(self.X_CENTRO_INI, self.config_entrada.centroInicial)
+        await self._limpar_e_digitar(
+            self.X_CENTRO_INI, self.config_entrada.centroInicial
+        )
 
         console.print(f"[STEP] Centro final: {self.config_entrada.centroFinal}")
         await self._limpar_e_digitar(self.X_CENTRO_FIM, self.config_entrada.centroFinal)
 
         console.print(f"[STEP] Abrangência: {self.config_entrada.abrangencia}")
-        await self._limpar_e_digitar(self.X_ABRANGENCIA, self.config_entrada.abrangencia)
+        await self._limpar_e_digitar(
+            self.X_ABRANGENCIA, self.config_entrada.abrangencia
+        )
 
         console.print("[STEP] Clicando em Executar (F8)")
         await self._clicar(self.X_EXECUTAR)
@@ -539,7 +574,9 @@ class ExtracaoPedidosCompra:
         console.print("[STEP] OK clicado com sucesso.")
 
         # Função rename+upload, mas agora ela aguarda o XLSX baixar
-        console.print("[STEP] Aguardando XLSX baixar + renomeando + enviando datalake...")
+        console.print(
+            "[STEP] Aguardando XLSX baixar + renomeando + enviando datalake..."
+        )
         final_path = await self.rename_file(
             company="PEDIDOS_DE_COMPRAS",
             file_type="VS_FORNECEDOR",

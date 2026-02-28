@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-from typing import List, Optional, Tuple, Union
+from __future__ import annotations
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import IndexType, LinearOperator
@@ -38,7 +37,9 @@ class MulLinearOperator(LinearOperator):
         self.left_linear_op = left_linear_op
         self.right_linear_op = right_linear_op
 
-    def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
+    def _diagonal(
+        self: LinearOperator,  # shape: (..., M, N)
+    ) -> torch.Tensor:  # shape: (..., N)
         res = self.left_linear_op._diagonal() * self.right_linear_op._diagonal()
         return res
 
@@ -48,9 +49,9 @@ class MulLinearOperator(LinearOperator):
         return left_res * right_res
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
         output_batch_shape = output_shape[:-2]
 
@@ -79,8 +80,8 @@ class MulLinearOperator(LinearOperator):
         return res
 
     def _mul_constant(
-        self: Float[LinearOperator, "*batch M N"], other: Union[float, torch.Tensor]
-    ) -> Float[LinearOperator, "*batch M N"]:
+        self: LinearOperator, other: float | torch.Tensor  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, M, N)
         if other > 0:
             res = self.__class__(self.left_linear_op._mul_constant(other), self.right_linear_op)
         else:
@@ -89,7 +90,7 @@ class MulLinearOperator(LinearOperator):
             res = super()._mul_constant(other)
         return res
 
-    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> Tuple[Optional[Tensor], ...]:
+    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> tuple[Tensor | None, ...]:
         if left_vecs.ndimension() == 1:
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
@@ -129,24 +130,28 @@ class MulLinearOperator(LinearOperator):
         return tuple(list(left_deriv_args) + list(right_deriv_args))
 
     def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
+        self: LinearOperator, batch_shape: torch.Size | list[int]  # shape: (..., M, N)
+    ) -> LinearOperator:  # shape: (..., M, N)
         return self.__class__(
             self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
         )
 
     @cached
-    def to_dense(self: Float[LinearOperator, "*batch M N"]) -> Float[Tensor, "*batch M N"]:
+    def to_dense(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> Tensor:  # shape: (*batch, M, N)
         return self.left_linear_op.to_dense() * self.right_linear_op.to_dense()
 
     def _size(self) -> torch.Size:
         return self.left_linear_op.size()
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         # mul.linear_op only works with symmetric matrices
         return self
 
-    def representation(self) -> Tuple[torch.Tensor, ...]:
+    def representation(self) -> tuple[torch.Tensor, ...]:
         """
         Returns the Tensors that are used to define the LinearOperator
         """

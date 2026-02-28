@@ -160,7 +160,7 @@ class Flow(object):
 
         # these args cannot be passed to requests_oauthlib.OAuth2Session
         code_verifier = kwargs.pop("code_verifier", None)
-        autogenerate_code_verifier = kwargs.pop("autogenerate_code_verifier", None)
+        autogenerate_code_verifier = kwargs.pop("autogenerate_code_verifier", True)
 
         (
             session,
@@ -237,7 +237,7 @@ class Flow(object):
                 specify the ``state`` when constructing the :class:`Flow`.
         """
         kwargs.setdefault("access_type", "offline")
-        if self.autogenerate_code_verifier:
+        if self.code_verifier is None and self.autogenerate_code_verifier:
             chars = ascii_letters + digits + "-._~"
             rnd = SystemRandom()
             random_verifier = [rnd.choice(chars) for _ in range(0, 128)]
@@ -410,8 +410,9 @@ class InstalledAppFlow(Flow):
                 in the user's browser.
             redirect_uri_trailing_slash (bool): whether or not to add trailing
                 slash when constructing the redirect_uri. Default value is True.
-            timeout_seconds (int): It will raise an error after the timeout timing
-                if there are no credentials response. The value is in seconds.
+            timeout_seconds (int): It will raise a WSGITimeoutError exception after the
+                timeout timing if there are no credentials response. The value is in
+                seconds.
                 When set to None there is no timeout.
                 Default value is None.
             token_audience (str): Passed along with the request for an access
@@ -425,6 +426,10 @@ class InstalledAppFlow(Flow):
         Returns:
             google.oauth2.credentials.Credentials: The OAuth 2.0 credentials
                 for the user.
+
+        Raises:
+            WSGITimeoutError: If there is a timeout when waiting for the response from the
+                authorization server.
         """
         wsgi_app = _RedirectWSGIApp(success_message)
         # Fail fast if the address is occupied
@@ -447,6 +452,7 @@ class InstalledAppFlow(Flow):
                 webbrowser.get(browser).open(auth_url, new=1, autoraise=True)
 
             if authorization_prompt_message:
+                _LOGGER.info(authorization_prompt_message.format(url=auth_url))
                 print(authorization_prompt_message.format(url=auth_url))
 
             local_server.timeout = timeout_seconds
@@ -454,7 +460,15 @@ class InstalledAppFlow(Flow):
 
             # Note: using https here because oauthlib is very picky that
             # OAuth 2.0 should only occur over https.
-            authorization_response = wsgi_app.last_request_uri.replace("http", "https")
+            try:
+                authorization_response = wsgi_app.last_request_uri.replace(
+                    "http", "https"
+                )
+            except AttributeError as e:
+                raise WSGITimeoutError(
+                    "Timed out waiting for response from authorization server"
+                ) from e
+
             self.fetch_token(
                 authorization_response=authorization_response, audience=token_audience
             )
@@ -505,3 +519,7 @@ class _RedirectWSGIApp(object):
         start_response("200 OK", [("Content-type", "text/plain; charset=utf-8")])
         self.last_request_uri = wsgiref.util.request_uri(environ)
         return [self._success_message.encode("utf-8")]
+
+
+class WSGITimeoutError(AttributeError):
+    """Raised when the WSGI server times out waiting for a response."""

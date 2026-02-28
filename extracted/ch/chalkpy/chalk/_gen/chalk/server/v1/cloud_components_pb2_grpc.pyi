@@ -14,6 +14,10 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingClusterGatewayResponse,
     CreateBindingClusterTelemetryDeploymentRequest,
     CreateBindingClusterTelemetryDeploymentResponse,
+    CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+    CreateBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    CreateBindingEnvironmentGatewayRequest,
+    CreateBindingEnvironmentGatewayResponse,
     CreateBindingPrivateGatewayRequest,
     CreateBindingPrivateGatewayResponse,
     CreateCloudComponentClusterRequest,
@@ -28,6 +32,10 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteBindingClusterGatewayResponse,
     DeleteBindingClusterTelemetryDeploymentRequest,
     DeleteBindingClusterTelemetryDeploymentResponse,
+    DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+    DeleteBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    DeleteBindingEnvironmentGatewayRequest,
+    DeleteBindingEnvironmentGatewayResponse,
     DeleteBindingPrivateGatewayRequest,
     DeleteBindingPrivateGatewayResponse,
     DeleteCloudComponentClusterRequest,
@@ -42,6 +50,10 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetBindingClusterGatewayResponse,
     GetBindingClusterTelemetryDeploymentRequest,
     GetBindingClusterTelemetryDeploymentResponse,
+    GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+    GetBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    GetBindingEnvironmentGatewayRequest,
+    GetBindingEnvironmentGatewayResponse,
     GetBindingPrivateGatewayRequest,
     GetBindingPrivateGatewayResponse,
     GetCloudComponentClusterRequest,
@@ -173,6 +185,30 @@ class CloudComponentsServiceStub:
     DeleteBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
         DeleteBindingClusterTelemetryDeploymentRequest,
         DeleteBindingClusterTelemetryDeploymentResponse,
+    ]
+    CreateBindingEnvironmentGateway: UnaryUnaryMultiCallable[
+        CreateBindingEnvironmentGatewayRequest,
+        CreateBindingEnvironmentGatewayResponse,
+    ]
+    GetBindingEnvironmentGateway: UnaryUnaryMultiCallable[
+        GetBindingEnvironmentGatewayRequest,
+        GetBindingEnvironmentGatewayResponse,
+    ]
+    DeleteBindingEnvironmentGateway: UnaryUnaryMultiCallable[
+        DeleteBindingEnvironmentGatewayRequest,
+        DeleteBindingEnvironmentGatewayResponse,
+    ]
+    CreateBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        CreateBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    ]
+    GetBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        GetBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    ]
+    DeleteBindingEnvironmentBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        DeleteBindingEnvironmentBackgroundPersistenceDeploymentResponse,
     ]
 
 class CloudComponentsServiceServicer(metaclass=ABCMeta):
@@ -332,5 +368,41 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: DeleteBindingClusterTelemetryDeploymentRequest,
         context: ServicerContext,
     ) -> DeleteBindingClusterTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def CreateBindingEnvironmentGateway(
+        self,
+        request: CreateBindingEnvironmentGatewayRequest,
+        context: ServicerContext,
+    ) -> CreateBindingEnvironmentGatewayResponse: ...
+    @abstractmethod
+    def GetBindingEnvironmentGateway(
+        self,
+        request: GetBindingEnvironmentGatewayRequest,
+        context: ServicerContext,
+    ) -> GetBindingEnvironmentGatewayResponse: ...
+    @abstractmethod
+    def DeleteBindingEnvironmentGateway(
+        self,
+        request: DeleteBindingEnvironmentGatewayRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingEnvironmentGatewayResponse: ...
+    @abstractmethod
+    def CreateBindingEnvironmentBackgroundPersistenceDeployment(
+        self,
+        request: CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> CreateBindingEnvironmentBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def GetBindingEnvironmentBackgroundPersistenceDeployment(
+        self,
+        request: GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> GetBindingEnvironmentBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def DeleteBindingEnvironmentBackgroundPersistenceDeployment(
+        self,
+        request: DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingEnvironmentBackgroundPersistenceDeploymentResponse: ...
 
 def add_CloudComponentsServiceServicer_to_server(servicer: CloudComponentsServiceServicer, server: Server) -> None: ...

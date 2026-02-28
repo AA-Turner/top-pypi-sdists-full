@@ -1,7 +1,8 @@
-from typing import Callable, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Callable
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import LinearOperator
@@ -13,28 +14,30 @@ class AbstractPermutationLinearOperator(LinearOperator):
     3) the fact that permutation matrices' transposes are their inverses.
     """
 
-    def inverse(self: Float[LinearOperator, "*batch N N"]) -> Float[LinearOperator, "*batch N N"]:
+    def inverse(
+        self: LinearOperator,  # shape: (*batch, N, N)
+    ) -> LinearOperator:  # shape: (*batch, N, N)
         return self._transpose_nonbatch()
 
     def _solve(
-        self: Float[LinearOperator, "... N N"],
-        rhs: Float[torch.Tensor, "... N C"],
-        preconditioner: Optional[Callable[[Float[torch.Tensor, "... N C"]], Float[torch.Tensor, "... N C"]]] = None,
-        num_tridiag: Optional[int] = 0,
-    ) -> Union[
-        Float[torch.Tensor, "... N C"],
-        Tuple[
-            Float[torch.Tensor, "... N C"],
-            Float[torch.Tensor, "..."],  # Note that in case of a tuple the second term size depends on num_tridiag
-        ],
-    ]:
+        self: LinearOperator,  # shape: (..., N, N)
+        rhs: torch.Tensor,  # shape: (..., N, C)
+        preconditioner: Callable[[torch.Tensor], torch.Tensor] | None = None,  # shape: (..., N, C)
+        num_tridiag: int | None = 0,
+    ) -> (
+        torch.Tensor  # shape: (..., N, C)
+        | tuple[
+            torch.Tensor,  # shape: (..., N, C)
+            torch.Tensor,  # Note that in case of a tuple the second term size depends on num_tridiag  # shape: (...)
+        ]
+    ):
         self._matmul_check_shape(rhs)
         return self.inverse() @ rhs
 
     def _matmul_check_shape(self, rhs: Tensor) -> None:
         if rhs.shape[-2] != self.shape[-1]:
             raise ValueError(
-                f"{rhs.shape[0] = } incompatible with first dimensions of"
+                f"rhs.shape[0]={rhs.shape[0]} incompatible with first dimensions of "
                 f"permutation operator with shape {self.shape}."
             )
 
@@ -42,7 +45,7 @@ class AbstractPermutationLinearOperator(LinearOperator):
         return torch.broadcast_shapes(self.batch_shape, rhs.shape[:-2])
 
     @property
-    def dtype(self) -> Optional[torch.dtype]:
+    def dtype(self) -> torch.dtype | None:
         return self._dtype
 
 
@@ -64,7 +67,7 @@ class PermutationLinearOperator(AbstractPermutationLinearOperator):
     def __init__(
         self,
         perm: Tensor,
-        inv_perm: Optional[Tensor] = None,
+        inv_perm: Tensor | None = None,
         validate_args: bool = True,
     ):
         if not isinstance(perm, Tensor):
@@ -87,7 +90,7 @@ class PermutationLinearOperator(AbstractPermutationLinearOperator):
                 if (sorted_perm[..., i] != i).any():
                     raise ValueError(
                         f"Invalid perm-inv_perm input, index {i} missing or not at "
-                        f"correct index for permutation with {perm.shape = }."
+                        f"correct index for permutation with perm.shape={perm.shape}."
                     )
 
         self.perm = perm
@@ -96,9 +99,9 @@ class PermutationLinearOperator(AbstractPermutationLinearOperator):
         super().__init__(perm, inv_perm, validate_args=validate_args)
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         # input rhs is guaranteed to be at least two-dimensional due to matmul implementation
         self._matmul_check_shape(rhs)
 
@@ -114,7 +117,7 @@ class PermutationLinearOperator(AbstractPermutationLinearOperator):
         indices = batch_indices + (perm_indices, final_indices)
         return expanded_rhs[indices]
 
-    def _batch_indexing_helper(self, batch_shape: torch.Size) -> Tuple:
+    def _batch_indexing_helper(self, batch_shape: torch.Size) -> tuple:
         """Creates a tuple of indices with broadcastable shapes to preserve the
         batch dimensions when indexing into the non-batch dimensions with `perm`.
 
@@ -131,7 +134,9 @@ class PermutationLinearOperator(AbstractPermutationLinearOperator):
     def _size(self) -> torch.Size:
         return torch.Size((*self.perm.shape, self.perm.shape[-1]))
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         return PermutationLinearOperator(perm=self.inv_perm, inv_perm=self.perm, validate_args=False)
 
     def to_sparse(self) -> Tensor:
@@ -167,20 +172,22 @@ class TransposePermutationLinearOperator(AbstractPermutationLinearOperator):
         self._dtype = torch.float32
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         self._matmul_check_shape(rhs)
         return rhs.unflatten(dim=-2, sizes=(self.m, self.m)).transpose(-3, -2).flatten(start_dim=-3, end_dim=-2)
 
     def _size(self) -> torch.Size:
         return torch.Size((self.n, self.n))
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         return self
 
     @property
-    def dtype(self) -> Optional[torch.dtype]:
+    def dtype(self) -> torch.dtype | None:
         return self._dtype
 
     def type(self: LinearOperator, dtype: torch.dtype) -> LinearOperator:
@@ -188,5 +195,5 @@ class TransposePermutationLinearOperator(AbstractPermutationLinearOperator):
         return self
 
     @property
-    def device(self) -> Optional[torch.device]:
+    def device(self) -> torch.device | None:
         return None

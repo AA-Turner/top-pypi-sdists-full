@@ -21,6 +21,12 @@ frozenset collections that organize traits into logical categories.
 
 from __future__ import annotations
 
+from .agent_data import (
+    CLAUDE_CODE,
+    CLINE,
+    CURSOR,
+    UNKNOWN_AGENT,
+)
 from .architecture_data import (
     AARCH64,
     ARM,
@@ -81,6 +87,7 @@ from .platform_data import (
     EXHERBO,
     FEDORA,
     FREEBSD,
+    GENERIC_LINUX,
     GENTOO,
     GUIX,
     HAIKU,
@@ -399,6 +406,7 @@ ALL_PLATFORMS: Group = Group(
         EXHERBO,
         FEDORA,
         FREEBSD,
+        GENERIC_LINUX,
         GENTOO,
         GUIX,
         HAIKU,
@@ -525,6 +533,7 @@ LINUX = Group(
         DEBIAN,
         EXHERBO,
         FEDORA,
+        GENERIC_LINUX,
         GENTOO,
         GUIX,
         IBM_POWERKVM,
@@ -833,6 +842,27 @@ ALL_CI = Group(
 
 
 # =============================================================================
+# Agent groups
+# =============================================================================
+
+ALL_AGENTS = Group(
+    "all_agents",
+    "AI coding agents",
+    "🧠",
+    (
+        CLAUDE_CODE,
+        CLINE,
+        CURSOR,
+    ),
+)
+"""All recognized AI coding agents.
+
+.. caution::
+    This group does not contain the :data:`~extra_platforms.UNKNOWN_AGENT` trait.
+"""
+
+
+# =============================================================================
 # Mixed groups
 # =============================================================================
 
@@ -846,6 +876,7 @@ UNKNOWN = Group(
         UNKNOWN_SHELL,
         UNKNOWN_TERMINAL,
         UNKNOWN_CI,
+        UNKNOWN_AGENT,
     ),
 )
 """Unknown or unrecognized traits."""
@@ -853,7 +884,7 @@ UNKNOWN = Group(
 
 ALL_TRAITS = Group(
     "all_traits",
-    "All architectures, platforms, shells, terminals, and CI systems",
+    "All architectures, platforms, shells, terminals, CI systems, and agents",
     "⁕",
     tuple(
         ALL_ARCHITECTURES
@@ -861,10 +892,11 @@ ALL_TRAITS = Group(
         | ALL_SHELLS
         | ALL_TERMINALS
         | ALL_CI
+        | ALL_AGENTS
         | UNKNOWN
     ),
 )
-"""All predefined architectures, platforms, shells, terminals, and CI systems.
+"""All predefined architectures, platforms, shells, terminals, CI systems, and agents.
 
 .. hint::
     This group includes all ``UNKNOWN_*`` traits.
@@ -947,11 +979,20 @@ ALL_TERMINAL_GROUPS: frozenset[Group] = frozenset(
 ALL_CI_GROUPS: frozenset[Group] = frozenset((ALL_CI,))
 
 
+#: All groups whose members are :class:`~extra_platforms.Agent`.
+#:
+#: .. note::
+#:     Not that useful as there is only one agent group, but provided for symmetry with
+#:     :data:`ALL_ARCHITECTURE_GROUPS` and :data:`ALL_PLATFORM_GROUPS`.
+ALL_AGENT_GROUPS: frozenset[Group] = frozenset((ALL_AGENTS,))
+
+
 #: Non-overlapping groups.
 #:
 #: .. hint::
 #:     These groups together cover all :class:`~extra_platforms.Architecture`,
-#:     :class:`~extra_platforms.Platform`, and :class:`~extra_platforms.CI` traits,
+#:     :class:`~extra_platforms.Platform`, :class:`~extra_platforms.CI`,
+#:     and :class:`~extra_platforms.Agent` traits,
 #:     including traits from the :data:`~extra_platforms.UNKNOWN` group.
 #:
 #:     All groups in this collection are marked as :attr:`~extra_platforms.Group.canonical`.
@@ -987,6 +1028,8 @@ NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
         WEB_TERMINALS,
         # CI groups.
         ALL_CI,
+        # Agent groups.
+        ALL_AGENTS,
         # Mixed groups.
         UNKNOWN,
     ),

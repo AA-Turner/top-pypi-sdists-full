@@ -1,8 +1,8 @@
 name: Python package
 
 on:
-  - push
-  - pull_request
+- push
+- pull_request
 
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
         python-version: ["3.8", "3.12"]
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     # set up conda
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
@@ -26,13 +26,15 @@ jobs:
           **/pyproject.toml
         cache-suffix: "py${{ matrix.python-version }}"
     - name: Install dependencies
-      run: uv pip install --system .[test,amber,ase,pymatgen] coverage ./tests/plugin 'rdkit<2025.3.3' openbabel-wheel 'numpy<2.3'
+      run: uv pip install --system .[test,amber,ase,pymatgen] coverage ./tests/plugin rdkit openbabel-wheel
     - name: Test
       run: cd tests && coverage run --source=../dpdata -m unittest && cd .. && coverage combine tests/.coverage && coverage report
     - name: Run codecov
       uses: codecov/codecov-action@v5
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      with:
+        use_oidc: true
   pass:
     needs: [build]
     runs-on: ubuntu-latest
@@ -42,3 +44,5 @@ jobs:
       uses: re-actors/alls-green@release/v1
       with:
         jobs: ${{ toJSON(needs) }}
+permissions:
+  id-token: write

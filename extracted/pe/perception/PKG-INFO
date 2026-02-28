@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: Perception
-Version: 0.8.2
+Version: 0.8.3
 Summary: Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use.
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Author: Thorn
 Author-email: info@wearethorn.org
 Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -17,26 +16,27 @@ Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: benchmarking
 Provides-Extra: experimental
 Provides-Extra: matching
-Requires-Dist: Cython (>=3,<4)
+Provides-Extra: pdq
+Requires-Dist: Cython (>=3.0.0,<4.0.0)
 Requires-Dist: Pillow
 Requires-Dist: aiohttp ; extra == "matching"
-Requires-Dist: faiss-cpu (>=1.8.0.post1,<2.0.0) ; extra == "experimental"
+Requires-Dist: albumentations (>=2.0.8,<3.0.0) ; extra == "benchmarking"
+Requires-Dist: faiss-cpu (>=1.8.0,<2.0.0) ; extra == "experimental"
 Requires-Dist: ffmpeg-python ; extra == "benchmarking"
-Requires-Dist: imgaug ; extra == "benchmarking"
 Requires-Dist: matplotlib ; extra == "benchmarking"
-Requires-Dist: networkit (>=11,<12) ; extra == "experimental"
-Requires-Dist: numpy (>=1.26,<2.0)
-Requires-Dist: opencv-contrib-python-headless (>=4.10,<5.0)
+Requires-Dist: networkit (>=11.1,<12.0.0) ; extra == "experimental"
+Requires-Dist: numpy (>=1.26.4,<3.0.0)
+Requires-Dist: opencv-contrib-python-headless (>=4.10.0,<5.0.0)
 Requires-Dist: pandas
-Requires-Dist: pdqhash
+Requires-Dist: pdqhash (>=0.2.7,<0.3.0) ; extra == "pdq"
 Requires-Dist: python-json-logger ; extra == "matching"
 Requires-Dist: pywavelets (>=1.5.0,<2.0.0)
 Requires-Dist: rich (>=13.7.0,<14.0.0)
 Requires-Dist: scikit-learn ; extra == "benchmarking"
-Requires-Dist: scipy ; extra == "benchmarking"
+Requires-Dist: scipy
 Requires-Dist: tabulate ; extra == "benchmarking"
-Requires-Dist: tqdm
-Requires-Dist: validators (>=0.22,<1.0)
+Requires-Dist: tqdm (>=4.67.1,<5.0.0)
+Requires-Dist: validators (>=0.22.0,<1.0.0)
 Description-Content-Type: text/markdown
 
 # perception ![ci](https://github.com/thorn-oss/perception/workflows/ci/badge.svg)

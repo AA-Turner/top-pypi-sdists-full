@@ -28,7 +28,6 @@ def test_gobject_weak_ref():
     obj.weak_ref(callback, 1)
     del obj
     gc.collect()
-    gc.collect()
     assert called == [1]
     del called[:]
 
@@ -308,7 +307,7 @@ class A(GObject.GObject):
 
 
 class TestPythonReferenceCounting(unittest.TestCase):
-    # Newly created instances should alwayshave two references: one for
+    # Newly created instances should always have two references: one for
     # the GC, and one for the bound variable in the local scope.
 
     def test_new_instance_has_two_refs(self):
@@ -513,9 +512,6 @@ class TestContextManagers(unittest.TestCase):
         self.assertEqual(self.tracking, [2])
 
 
-@unittest.skipUnless(
-    hasattr(GObject.Binding, "unbind"), "Requires newer GLib which has g_binding_unbind"
-)
 class TestPropertyBindings(unittest.TestCase):
     class TestObject(GObject.GObject):
         int_prop = GObject.Property(default=0, type=int)
@@ -797,46 +793,6 @@ class TestGValue(unittest.TestCase):
         value = GObject.Value(GObject.TYPE_OBJECT, obj)
         self.assertEqual(value.get_value(), obj)
 
-    def test_dispose(self):
-        class TestObject(GObject.Object):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked = False
-
-            def do_dispose(self):
-                self.dispose_invoked = True
-                super().do_dispose()
-
-        obj = TestObject()
-        obj.run_dispose()
-
-        assert obj.dispose_invoked
-
-    def test_dispose_with_python_base_class(self):
-        class TestBaseObject(GObject.Object):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked_base = False
-
-            def do_dispose(self):
-                self.dispose_invoked_base = True
-                super().do_dispose()
-
-        class TestObject(TestBaseObject):
-            def __init__(self):
-                super().__init__()
-                self.dispose_invoked = False
-
-            def do_dispose(self):
-                self.dispose_invoked = True
-                super().do_dispose()
-
-        obj = TestObject()
-        obj.run_dispose()
-
-        assert obj.dispose_invoked_base
-        assert obj.dispose_invoked
-
     def test_value_array(self):
         value = GObject.Value(GObject.ValueArray)
         self.assertEqual(value.g_type, GObject.type_from_name("GValueArray"))
@@ -893,6 +849,62 @@ class TestGValue(unittest.TestCase):
         self.assertEqual(value.get_value(), None)
 
 
+class TestDispose(unittest.TestCase):
+    def test_dispose(self):
+        class TestObject(GObject.Object):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked = False
+
+            def do_dispose(self):
+                self.dispose_invoked = True
+                super().do_dispose()
+
+        obj = TestObject()
+        obj.run_dispose()
+
+        assert obj.dispose_invoked
+
+    def test_dispose_with_python_base_class(self):
+        class TestBaseObject(GObject.Object):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked_base = False
+
+            def do_dispose(self):
+                self.dispose_invoked_base = True
+                super().do_dispose()
+
+        class TestObject(TestBaseObject):
+            def __init__(self):
+                super().__init__()
+                self.dispose_invoked = False
+
+            def do_dispose(self):
+                self.dispose_invoked = True
+                super().do_dispose()
+
+        obj = TestObject()
+        obj.run_dispose()
+
+        assert obj.dispose_invoked_base
+        assert obj.dispose_invoked
+
+    @unittest.skipIf(platform.python_implementation() == "PyPy", "CPython only")
+    def test_dispose_on_object_destruction(self):
+        dispose_invoked = False
+
+        class TestObject(GObject.Object):
+            def do_dispose(self):
+                nonlocal dispose_invoked
+                dispose_invoked = True
+                super().do_dispose()
+
+        TestObject()
+
+        assert dispose_invoked
+
+
 def test_list_properties():
     def find_param(props, name):
         for param in props:
@@ -933,3 +945,23 @@ def test_list_properties():
     for obj in [Gio.ActionEntry, Gio.DBusError, 0, object()]:
         with pytest.raises(TypeError):
             list_props(obj)
+
+
+def test_custom_class_update():
+    # Example from Gaupol <https://github.com/otsaloma/gaupol>
+
+    class CustomAction(Gio.SimpleAction):
+        def __new__(cls):
+            action = Gio.SimpleAction.new("custom-action")
+            action.__class__ = cls
+            return action
+
+    action = CustomAction()
+    assert type(action) is CustomAction
+
+    group = Gio.SimpleActionGroup()
+    group.insert(action)
+    del action
+    new_action = group.lookup("custom-action")
+
+    assert type(new_action) is CustomAction

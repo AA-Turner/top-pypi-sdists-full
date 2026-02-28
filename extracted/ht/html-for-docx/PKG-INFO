@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: html-for-docx
-Version: 1.1.3
+Version: 1.1.4
 Summary: Convert HTML to Docx easily and fastly
 Home-page: https://github.com/dfop02/html4docx
-Download-URL: https://github.com/dfop02/html4docx/archive/1.1.3.tar.gz
+Download-URL: https://github.com/dfop02/html4docx/archive/1.1.4.tar.gz
 Author: Diogo Fernandes
 Author-email: diogofernandesop@gmail.com
 Maintainer: Diogo Fernandes
@@ -229,6 +229,22 @@ tag_overrides = {
 
 parser = HtmlToDocx(tag_style_overrides=tag_overrides)
 ```
+
+**Custom styles from a Word template:** Use a document created from a `.docx` that already defines the styles (e.g. "Code Block", "Custom Markdown"). Pass **that same document** to the parser and save it so the custom styles are preserved:
+
+```python
+from docx import Document
+from html4docx import HtmlToDocx
+
+doc = Document("path/to/template.docx")  # template has Code Block, Custom Markdown, etc.
+parser = HtmlToDocx(tag_style_overrides={"code": "Custom Markdown", "pre": "Code Block"})
+parser.add_html_to_document(html, doc)
+doc.save("output.docx")  # save the template-based doc so custom styles are preserved
+```
+
+If you save a different document (for example, by creating a new `Document()` instead of loading your template), the output file will **not** contain the template’s custom styles.
+
+If a referenced custom style does not exist in the document at generation time, a warning will be logged to help you detect the missing style.
 
 ### Default Paragraph Style
 

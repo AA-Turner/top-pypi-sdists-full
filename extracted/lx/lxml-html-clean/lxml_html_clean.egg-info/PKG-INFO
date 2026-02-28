@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lxml_html_clean
-Version: 0.4.3
+Version: 0.4.4
 Summary: HTML cleaner from lxml project
 Home-page: https://github.com/fedora-python/lxml_html_clean/
 Author: Lumír Balhar
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: lxml
@@ -25,7 +26,7 @@ Dynamic: license-file
 
 This project was initially a part of [lxml](https://github.com/lxml/lxml). Because HTML cleaner is designed as blocklist-based, many reports about possible security vulnerabilities were filed for lxml and that make the project problematic for security-sensitive environments. Therefore we decided to extract the problematic part to a separate project.
 
-**Important**: the HTML Cleaner in ``lxml_html_clean`` is **not** considered appropriate **for security sensitive environments**. See e.g. [bleach](https://pypi.org/project/bleach/) for an alternative.
+**Important**: the HTML Cleaner in ``lxml_html_clean`` is **not** considered appropriate **for security sensitive environments**. See e.g. [nh3](https://pypi.org/project/nh3/) for an alternative.
 
 This project uses functions from Python's `urllib.parse` for URL parsing which **do not validate inputs**. For more information on potential security risks, refer to the [URL parsing security](https://docs.python.org/3/library/urllib.parse.html#url-parsing-security) documentation. A maliciously crafted URL could potentially bypass the allowed hosts check in `Cleaner`.
 

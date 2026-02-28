@@ -293,6 +293,7 @@ BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=86400)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
+FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=False)
 
 # Internal flag intended for testing only
 CRON_SCHEDULER_SLEEP_TIME = env("CRON_SCHEDULER_SLEEP_TIME", cast=int, default=5)
@@ -491,6 +492,7 @@ __all__ = [
     "FF_LOG_QUERY_AND_PARAMS",
     "FF_PYSPY_PROFILING_ENABLED",
     "FF_PYSPY_PROFILING_MAX_DURATION_SECS",
+    "FF_USE_REDIS_QUEUE",
     "GRPC_CLIENT_MAX_RECV_MSG_BYTES",
     "GRPC_CLIENT_MAX_SEND_MSG_BYTES",
     "GRPC_CLIENT_POOL_SIZE",

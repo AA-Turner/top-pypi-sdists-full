@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pi_heif
-Version: 1.2.1
+Version: 1.3.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -132,12 +132,12 @@ if im.info["depth_images"]:
 
 | **_Wheels table_** | macOS<br/>Intel | macOS<br/>Silicon | Windows<br/> | musllinux* | manylinux* |
 |--------------------|:---------------:|:-----------------:|:------------:|:----------:|:----------:|
-| CPython 3.9        |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.10       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.11       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.12       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | CPython 3.13       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
-| PyPy 3.10 v7.3     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
+| CPython 3.14       |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
+| CPython 3.14t      |        ✅        |         ✅         |      ✅       |     ✅      |     ✅      |
 | PyPy 3.11 v7.3     |        ✅        |         ✅         |      ✅       |    N/A     |     ✅      |
 
 &ast; **x86_64**, **aarch64** wheels.

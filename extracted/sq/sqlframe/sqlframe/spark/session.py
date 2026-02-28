@@ -3,10 +3,10 @@ from __future__ import annotations
 import typing as t
 
 from sqlglot import exp
-from sqlglot.helper import classproperty, ensure_list
+from sqlglot.helper import ensure_list
 
 from sqlframe.base.session import _BaseSession
-from sqlframe.base.util import normalize_string
+from sqlframe.base.util import classproperty, normalize_string
 from sqlframe.spark.catalog import SparkCatalog
 from sqlframe.spark.dataframe import SparkDataFrame
 from sqlframe.spark.readwriter import (
@@ -28,13 +28,13 @@ else:
 
 
 class SparkSession(
-    _BaseSession[  # type: ignore
+    _BaseSession[
         SparkCatalog,
         SparkDataFrameReader,
         SparkDataFrameWriter,
         SparkDataFrame,
         SparkTable,
-        PySparkSession,  # type: ignore
+        PySparkSession,  # type: ignore[type-var]
         SparkUDFRegistration,
     ],
 ):
@@ -115,15 +115,6 @@ class SparkSession(
     def _has_connection(self) -> bool:
         return True
 
-    @classproperty
-    def builder(cls) -> Builder:  # type: ignore
-        """Creates a :class:`Builder` for constructing a :class:`SparkSession`.
-
-        .. versionchanged:: 3.4.0
-            Supports Spark Connect.
-        """
-        return cls.Builder()
-
     @property
     def _is_spark(self) -> bool:
         return True
@@ -144,7 +135,7 @@ class SparkSession(
             map: t.Optional[t.Dict[str, OptionalPrimitiveType]] = None,
         ) -> SparkSession.Builder:
             super().config(key, value, map=map)
-            self.builder = self.builder.config(key, value, conf, map=map)
+            self.builder = self.builder.config(key, value, conf, map=map)  # type: ignore[call-overload]
             return self
 
         def master(self, master: str) -> SparkSession.Builder:
@@ -171,3 +162,7 @@ class SparkSession(
 
         def getOrCreate(self) -> SparkSession:
             return super().getOrCreate()  # type: ignore
+
+    @classproperty
+    def builder(cls) -> "Builder":
+        return cls.Builder()

@@ -175,7 +175,7 @@ class MatchVariables(TransformerMixin, BaseEstimator, GetFeatureNamesOutMixin):
 
         if not isinstance(verbose, bool):
             raise ValueError(
-                "verbose takes only booleans True and False." f"Got '{verbose} instead."
+                f"verbose takes only booleans True and False. Got '{verbose} instead."
             )
 
         # note: np.nan is an instance of float!!!
@@ -262,7 +262,10 @@ class MatchVariables(TransformerMixin, BaseEstimator, GetFeatureNamesOutMixin):
 
         X = X.drop(_columns_to_drop, axis=1)
 
-        X = X.reindex(columns=self.feature_names_in_, fill_value=self.fill_value)
+        # Add missing columns first and then reorder to avoid
+        # Pandas 3 StringDtype reindex issue (before we used reindex)
+        X[_columns_to_add] = self.fill_value
+        X = X[self.feature_names_in_]
 
         if self.match_dtypes:
             _current_dtypes = X.dtypes.to_dict()
@@ -272,12 +275,17 @@ class MatchVariables(TransformerMixin, BaseEstimator, GetFeatureNamesOutMixin):
                 if new_dtype != _current_dtypes[column]
             }
 
-            if self.verbose:
-                for column, new_dtype in _columns_to_update.items():
+            for column, new_dtype in _columns_to_update.items():
+                if self.verbose:
                     print(
                         f"The {column} dtype is changing from ",
                         f"{_current_dtypes[column]} to {new_dtype}",
                     )
+
+                # Handle pandas 4 future warning
+                if isinstance(new_dtype, pd.CategoricalDtype):
+                    cats = new_dtype.categories
+                    X[column] = X[column].where(X[column].isin(cats))
 
             X = X.astype(_columns_to_update)
 

@@ -22,10 +22,9 @@
 #define __PYGI_TYPE_H__
 
 #include <girepository/girepository.h>
-#include <glib-object.h>
 #include <pythoncapi_compat.h>
 
-#include "pygobject-internal.h"
+#include "pygobject-types.h"
 
 extern PyTypeObject PyGTypeWrapper_Type;
 
@@ -36,6 +35,16 @@ typedef struct {
     fromvaluefunc fromvalue;
     tovaluefunc tovalue;
 } PyGTypeMarshal;
+
+typedef enum {
+    PYGI_INTERFACE_TYPE_TAG_FLAGS,
+    PYGI_INTERFACE_TYPE_TAG_ENUM,
+    PYGI_INTERFACE_TYPE_TAG_INTERFACE,
+    PYGI_INTERFACE_TYPE_TAG_OBJECT,
+    PYGI_INTERFACE_TYPE_TAG_STRUCT,
+    PYGI_INTERFACE_TYPE_TAG_UNION,
+    PYGI_INTERFACE_TYPE_TAG_CALLBACK
+} PyGIInterfaceTypeTag;
 
 PyGTypeMarshal *pyg_type_lookup (GType type);
 
@@ -51,17 +60,15 @@ PyObject *pyg_type_wrapper_new (GType type);
 GType pyg_type_from_object_strict (PyObject *obj, gboolean strict);
 GType pyg_type_from_object (PyObject *obj);
 
-int pyg_pyobj_to_unichar_conv (PyObject *py_obj, void *ptr);
-
 GClosure *pyg_closure_new (PyObject *callback, PyObject *extra_args,
                            PyObject *swap_data);
 GClosure *pyg_signal_class_closure_get (void);
-void pyg_closure_set_exception_handler (GClosure *closure,
-                                        PyClosureExceptionHandler handler);
 
 PyObject *pygi_type_import_by_g_type (GType g_type);
 PyObject *pygi_type_import_by_name (const char *namespace_, const char *name);
 PyObject *pygi_type_import_by_gi_info (GIBaseInfo *info);
 PyObject *pygi_type_get_from_g_type (GType g_type);
+
+PyGIInterfaceTypeTag pygi_interface_type_tag (GIBaseInfo *info);
 
 #endif /* __PYGI_TYPE_H__ */

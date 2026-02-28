@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Sequence
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import IndexType, LinearOperator, to_dense
@@ -104,7 +103,7 @@ class CatLinearOperator(LinearOperator):
             (*rep_tensor.shape[:positive_dim], cat_dim_cum_sizes[-1].item(), *rep_tensor.shape[positive_dim + 1 :])
         )
 
-    def _split_slice(self, slice_idx: slice) -> Tuple[Sequence[int], List[slice]]:
+    def _split_slice(self, slice_idx: slice) -> tuple[Sequence[int], list[slice]]:
         """
         Splits a slice(a, b, None) in to a list of slices [slice(a1, b1, None), slice(a2, b2, None), ...]
         so that each slice in the list slices in to a single tensor that we have concatenated with this LinearOperator.
@@ -134,7 +133,9 @@ class CatLinearOperator(LinearOperator):
                 [first_slice] + [_noop_index] * num_middle_tensors + [last_slice],
             )
 
-    def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
+    def _diagonal(
+        self: LinearOperator,  # shape: (..., M, N)
+    ) -> torch.Tensor:  # shape: (..., N)
         if self.cat_dim == -2:
             res = []
             curr_col = 0
@@ -160,8 +161,8 @@ class CatLinearOperator(LinearOperator):
         return res
 
     def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
+        self: LinearOperator, batch_shape: torch.Size | list[int]  # shape: (..., M, N)
+    ) -> LinearOperator:  # shape: (..., M, N)
         batch_dim = self.cat_dim + 2
         if batch_dim < 0:
             if batch_shape[batch_dim] != self.batch_shape[batch_dim]:
@@ -304,9 +305,9 @@ class CatLinearOperator(LinearOperator):
             return res
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         output_device = self.device if self.device is not None else rhs.device
         # make a copy of `rhs` on each device
         rhs_ = []
@@ -361,7 +362,9 @@ class CatLinearOperator(LinearOperator):
     def _size(self) -> torch.Size:
         return self._shape
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         if self.cat_dim == -2:
             new_dim = -1
         elif self.cat_dim == -1:
@@ -380,34 +383,40 @@ class CatLinearOperator(LinearOperator):
         )
         return res
 
-    def to_dense(self: Float[LinearOperator, "*batch M N"]) -> Float[Tensor, "*batch M N"]:
+    def to_dense(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> Tensor:  # shape: (*batch, M, N)
         return torch.cat([to_dense(L) for L in self.linear_ops], dim=self.cat_dim)
 
     def inv_quad_logdet(
-        self: Float[LinearOperator, "*batch N N"],
-        inv_quad_rhs: Optional[Union[Float[Tensor, "*batch N M"], Float[Tensor, "*batch N"]]] = None,
-        logdet: Optional[bool] = False,
-        reduce_inv_quad: Optional[bool] = True,
-    ) -> Tuple[
-        Optional[Union[Float[Tensor, "*batch M"], Float[Tensor, " *batch"], Float[Tensor, " 0"]]],
-        Optional[Float[Tensor, "..."]],
-    ]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        inv_quad_rhs: Tensor | None = None,  # shape: (*batch, N, M) or (*batch, N)
+        logdet: bool | None = False,
+        reduce_inv_quad: bool | None = True,
+    ) -> tuple[  # fmt: off
+        Tensor | None,  # shape: (*batch, M) or (*batch) or (0)
+        Tensor | None,  # shape: (...)
+    ]:  # fmt: on
         res = super().inv_quad_logdet(inv_quad_rhs, logdet, reduce_inv_quad)
         return tuple(r.to(self.device) for r in res)
 
     @property
-    def device(self) -> Optional[torch.device]:
+    def device(self) -> torch.device | None:
         return self.output_device
 
     @property
-    def devices(self) -> List[torch.device]:
+    def devices(self) -> list[torch.device]:
         return [t.device for t in self.linear_ops]
 
     @property
     def device_count(self) -> int:
         return len(set(self.devices))
 
-    def to(self: Float[LinearOperator, "*batch M N"], *args, **kwargs) -> Float[LinearOperator, "*batch M N"]:
+    def to(
+        self: LinearOperator,  # shape: (*batch, M, N)
+        *args,
+        **kwargs,
+    ) -> LinearOperator:  # shape: (*batch, M, N)
         """
         Returns a new CatLinearOperator with device as the output_device and dtype
         as the dtype.

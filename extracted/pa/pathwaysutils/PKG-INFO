@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pathwaysutils
-Version: 0.1.4
+Version: 0.1.6
 Summary: Package of Pathways-on-Cloud utilities.
 Keywords: 
 Author-email: Pathways-on-Cloud Utilities Developers <pathwaysutils-dev@google.com>
@@ -10,10 +10,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
 Requires-Dist: absl-py
 Requires-Dist: fastapi
-Requires-Dist: jax>=0.6.2
+Requires-Dist: jax>=0.7.2
 Requires-Dist: orbax-checkpoint
 Requires-Dist: uvicorn
 Requires-Dist: requests
+Requires-Dist: packaging
 Requires-Dist: pylint>=2.6.0 ; extra == "dev"
 Requires-Dist: pyink ; extra == "dev"
 Project-URL: changelog, https://github.com/AI-Hypercomputer/pathways-utils/blob/main/CHANGELOG.md

@@ -32,6 +32,7 @@ from .errors import (
     AlexapyConnectionError,
     AlexapyLoginCloseRequested,
     AlexapyLoginError,
+    AlexapyTooManyRequestsError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -184,6 +185,9 @@ def _catch_all_exceptions(func):
             # propagate cancellation correctly.
             raise
         except AlexapyLoginCloseRequested:
+            raise
+        except AlexapyTooManyRequestsError:
+            # Rate limiting is expected under bursty workloads; let callers back off.
             raise
         except Exception as ex:
             _LOGGER.warning(

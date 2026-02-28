@@ -826,6 +826,9 @@ class TestProperty(unittest.TestCase):
 
         PropertyObjectSubclass(obj=ObjectSubclass())
 
+    def test_generic_instance_property(self):
+        GObject.Property(type=Gio.ListStore[Gio.File])
+
     def test_property_subclass(self):
         # test for #470718
         class A(GObject.GObject):
@@ -1290,6 +1293,16 @@ class CPropertiesTestBase:
 
         self.assertAlmostEqual(self.get_prop(obj, "some-double"), 42.0)
 
+    def test_byte_array(self):
+        self.assertEqual(self.get_prop(self.obj, "some-byte-array"), b"")
+        self.set_prop(self.obj, "some-byte-array", b"hello world")
+        self.assertEqual(self.get_prop(self.obj, "some-byte-array"), b"hello world")
+
+        self.assertRaises(TypeError, self.set_prop, self.obj, "some-byte-array", 1)
+        self.assertRaises(
+            TypeError, self.set_prop, self.obj, "some-byte-array", "normal string"
+        )
+
     def test_strv(self):
         self.assertEqual(self.get_prop(self.obj, "some-strv"), [])
         self.set_prop(self.obj, "some-strv", ["hello", "world"])
@@ -1309,6 +1322,18 @@ class CPropertiesTestBase:
         obj = GIMarshallingTests.PropertiesObject(some_strv=["foo"])
         self.assertEqual(self.get_prop(obj, "some-strv"), ["foo"])
         self.assertRaises(TypeError, self.set_prop, self.obj, "some-strv", ["foo", 1])
+
+    def test_some_hash_table(self):
+        self.assertEqual(self.get_prop(self.obj, "some-hash-table"), None)
+        self.set_prop(self.obj, "some-hash-table", {1: "foo", 2: "bar"})
+        self.assertEqual(
+            self.get_prop(self.obj, "some-hash-table"), {1: "foo", 2: "bar"}
+        )
+
+        self.assertRaises(TypeError, self.set_prop, self.obj, "some-hash-table", 1)
+        self.assertRaises(
+            TypeError, self.set_prop, self.obj, "some-hash-table", {"a": "b"}
+        )
 
     def test_boxed_struct(self):
         self.assertEqual(self.get_prop(self.obj, "some-boxed-struct"), None)
@@ -1352,7 +1377,6 @@ class CPropertiesTestBase:
         self.assertTrue(isinstance(self.get_prop(obj, "list"), list))
         self.assertEqual(self.get_prop(obj, "list"), ["1", "2", "3"])
 
-    @unittest.expectedFailure
     def test_boxed_glist_ctor(self):
         list_ = [GLib.MININT, 42, GLib.MAXINT]
         obj = GIMarshallingTests.PropertiesObject(some_boxed_glist=list_)
@@ -1397,15 +1421,23 @@ class CPropertiesTestBase:
         self.set_prop(obj, "gtype", str)
         self.assertEqual(self.get_prop(obj, "gtype"), GObject.TYPE_STRING)
 
+    def test_unichar(self):
+        obj = Regress.TestObj()
+        self.assertEqual(self.get_prop(obj, "unichar"), "")
+
+        self.set_prop(obj, "unichar", "🙃")
+        self.assertEqual(self.get_prop(obj, "unichar"), "🙃")
+
+        with pytest.raises(TypeError):
+            self.set_prop(obj, "unichar", "🙃🙃🙃")
+
     def test_hash_table(self):
         obj = Regress.TestObj()
         self.assertEqual(self.get_prop(obj, "hash-table"), None)
 
         self.set_prop(obj, "hash-table", {"mec": 56})
         self.assertTrue(isinstance(self.get_prop(obj, "hash-table"), dict))
-        self.assertEqual(
-            next(iter(self.get_prop(obj, "hash-table").items())), ("mec", 56)
-        )
+        self.assertEqual(list(self.get_prop(obj, "hash-table").items()), [("mec", 56)])
 
     def test_parent_class(self):
         class A(Regress.TestObj):
@@ -1513,9 +1545,6 @@ def test_gobject_inheritance_with_incomplete_initialization():
         bomb.qdata
 
 
-@pytest.mark.skipif(
-    not hasattr(Regress, "AnnotationObject"), reason="no Regress.AnnotationObject"
-)
 def test_get_function_property():
     obj = Regress.AnnotationObject()
 
@@ -1523,9 +1552,6 @@ def test_get_function_property():
         assert obj.props.function_property
 
 
-@pytest.mark.skipif(
-    not hasattr(Regress, "AnnotationObject"), reason="no Regress.AnnotationObject"
-)
 def test_set_function_property():
     obj = Regress.AnnotationObject()
 

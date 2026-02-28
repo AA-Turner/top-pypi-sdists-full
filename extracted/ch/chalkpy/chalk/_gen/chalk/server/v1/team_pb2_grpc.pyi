@@ -46,6 +46,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     GetEnvResponse,
     GetEnvironmentsRequest,
     GetEnvironmentsResponse,
+    GetPermissionsForEnvironmentRequest,
+    GetPermissionsForEnvironmentResponse,
     GetProjectRequest,
     GetProjectResponse,
     GetTeamPermissionsRequest,
@@ -183,6 +185,10 @@ class TeamServiceStub:
        option (chalk.auth.v1.permission) = PERMISSION_DEPLOY_CREATE;
      }
     """
+    GetPermissionsForEnvironment: UnaryUnaryMultiCallable[
+        GetPermissionsForEnvironmentRequest,
+        GetPermissionsForEnvironmentResponse,
+    ]
     ArchiveEnvironment: UnaryUnaryMultiCallable[
         ArchiveEnvironmentRequest,
         ArchiveEnvironmentResponse,
@@ -367,6 +373,12 @@ class TeamServiceServicer(metaclass=ABCMeta):
           option (chalk.auth.v1.permission) = PERMISSION_DEPLOY_CREATE;
         }
         """
+    @abstractmethod
+    def GetPermissionsForEnvironment(
+        self,
+        request: GetPermissionsForEnvironmentRequest,
+        context: ServicerContext,
+    ) -> GetPermissionsForEnvironmentResponse: ...
     @abstractmethod
     def ArchiveEnvironment(
         self,

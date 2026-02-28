@@ -25,7 +25,6 @@ from snowflake.snowpark.types import (
     DataType,
     DateType,
     DayTimeIntervalType,
-    DecFloatType,
     DecimalType,
     DoubleType,
     FileType,
@@ -363,9 +362,6 @@ def to_sql(
     if isinstance(datatype, (FloatType, DoubleType)):
         if value is None:
             return "NULL :: FLOAT"
-    if isinstance(datatype, DecFloatType):
-        if value is None:
-            return "NULL :: DECFLOAT"
     if isinstance(datatype, StringType):
         if value is None:
             return f"NULL :: {analyzer_utils.string(datatype.length)}"
@@ -406,13 +402,6 @@ def to_sql(
 
     if isinstance(datatype, BooleanType):
         return f"{value} :: BOOLEAN"
-
-    # DecFloatType must use DECFLOAT 'value' syntax (not value::DECFLOAT) to preserve precision
-    if isinstance(datatype, DecFloatType):
-        if isinstance(value, str):
-            return f"DECFLOAT {str_to_sql(value)}"
-        else:
-            return f"DECFLOAT '{value}'"
 
     if isinstance(value, float) and isinstance(datatype, _FractionalType):
         if math.isnan(value) or math.isinf(value):
@@ -506,8 +495,6 @@ def schema_expression(data_type: DataType, is_nullable: bool) -> str:
             return "PARSE_JSON('NULL') :: VARIANT"
         return "NULL :: " + convert_sp_to_sf_type(data_type)
 
-    if isinstance(data_type, DecFloatType):
-        return "DECFLOAT '0'"
     if isinstance(data_type, _NumericType):
         return "0 :: " + convert_sp_to_sf_type(data_type)
     if isinstance(data_type, StringType):
@@ -606,7 +593,7 @@ def numeric_to_sql_without_cast(value: Any, datatype: DataType) -> str:
 
     if not isinstance(datatype, _NumericType):
         # if the value is not numeric or the datatype is not numeric, fallback to the
-        # regular to_sql generation.
+        # regular to_sql generation
         return to_sql(value, datatype)
 
     if isinstance(value, float) and isinstance(datatype, _FractionalType):

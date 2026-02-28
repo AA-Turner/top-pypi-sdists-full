@@ -1232,6 +1232,18 @@ class QrackSystem:
         self.qrack_lib.SetSparseAceMaxMb.restype = None
         self.qrack_lib.SetSparseAceMaxMb.argtypes = [c_ulonglong, c_size_t]
 
+        self.qrack_lib.SetStochastic.restype = None
+        self.qrack_lib.SetStochastic.argtypes = [c_ulonglong, c_bool]
+
+        self.qrack_lib.SetMajorQuadrant.restype = None
+        self.qrack_lib.SetMajorQuadrant.argtypes = [c_ulonglong, c_bool]
+
+        self.qrack_lib.FlipQuadrant.restype = None
+        self.qrack_lib.FlipQuadrant.argtypes = [c_ulonglong, c_ulonglong]
+
+        self.qrack_lib.SetQuadrant.restype = None
+        self.qrack_lib.SetQuadrant.argtypes = [c_ulonglong, c_ulonglong, c_bool]
+
         self.qrack_lib.Normalize.restype = None
         self.qrack_lib.Normalize.argtypes = [c_ulonglong]
 

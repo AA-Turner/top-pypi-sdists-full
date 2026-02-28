@@ -1,4 +1,5 @@
 """Engines to perform different roles"""
+
 import datetime
 import sys
 from functools import wraps
@@ -122,7 +123,7 @@ class NotebookExecutionManager:
 
     def now(self):
         """Helper to return current UTC time"""
-        return datetime.datetime.utcnow()
+        return datetime.datetime.now(datetime.timezone.utc)
 
     def set_timer(self):
         """

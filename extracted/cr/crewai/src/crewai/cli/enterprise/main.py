@@ -1,7 +1,7 @@
-import json
 from typing import Any, cast
 
-import httpx
+import requests
+from requests.exceptions import JSONDecodeError, RequestException
 from rich.console import Console
 
 from crewai.cli.authentication.main import Oauth2Settings, ProviderFactory
@@ -47,12 +47,12 @@ class EnterpriseConfigureCommand(BaseCommand):
                 "User-Agent": f"CrewAI-CLI/{get_crewai_version()}",
                 "X-Crewai-Version": get_crewai_version(),
             }
-            response = httpx.get(oauth_endpoint, timeout=30, headers=headers)
+            response = requests.get(oauth_endpoint, timeout=30, headers=headers)
             response.raise_for_status()
 
             try:
                 oauth_config = response.json()
-            except json.JSONDecodeError as e:
+            except JSONDecodeError as e:
                 raise ValueError(f"Invalid JSON response from {oauth_endpoint}") from e
 
             self._validate_oauth_config(oauth_config)
@@ -62,7 +62,7 @@ class EnterpriseConfigureCommand(BaseCommand):
             )
             return cast(dict[str, Any], oauth_config)
 
-        except httpx.HTTPError as e:
+        except RequestException as e:
             raise ValueError(f"Failed to connect to enterprise URL: {e!s}") from e
         except Exception as e:
             raise ValueError(f"Error fetching OAuth2 configuration: {e!s}") from e

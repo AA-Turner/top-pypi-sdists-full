@@ -96,6 +96,7 @@ from chalk.client.models import (
     DatasetResponse,
     DatasetRevisionPreviewResponse,
     DatasetRevisionSummaryResponse,
+    DownloadModelArtifactResult,
     ErrorCode,
     ExchangeCredentialsRequest,
     ExchangeCredentialsResponse,
@@ -5348,13 +5349,14 @@ https://docs.chalk.ai/cli/apply
         self,
         name: str,
         version: Optional[int] = None,
+        environment: Optional[EnvironmentId] = None,
     ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
         from chalk.client.client_grpc import ChalkGRPCClient
 
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,
             client_secret=self._client_secret,
-            environment=self._primary_environment,
+            environment=environment or self._primary_environment,
             api_server=self._api_server,
         )
 
@@ -5367,13 +5369,14 @@ https://docs.chalk.ai/cli/apply
         name: str,
         description: str,
         metadata: Optional[Mapping[str, Any]] = None,
+        environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,
             client_secret=self._client_secret,
-            environment=self._primary_environment,
+            environment=environment or self._primary_environment,
             api_server=self._api_server,
         )
 
@@ -5402,13 +5405,14 @@ https://docs.chalk.ai/cli/apply
         output_features: Optional[list[str]] = None,
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
+        environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,
             client_secret=self._client_secret,
-            environment=self._primary_environment,
+            environment=environment or self._primary_environment,
             api_server=self._api_server,
         )
 
@@ -5432,6 +5436,30 @@ https://docs.chalk.ai/cli/apply
 
         return resp
 
+    def download_model_artifact(
+        self,
+        name: str,
+        version: int,
+        download_dir: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> DownloadModelArtifactResult:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=environment or self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.download_model_artifact(
+            name=name,
+            version=version,
+            download_dir=download_dir,
+        )
+
+        return resp
+
     def promote_model_artifact(
         self,
         name: str,
@@ -5440,13 +5468,14 @@ https://docs.chalk.ai/cli/apply
         run_name: Optional[str] = None,
         criterion: Optional[ModelRunCriterion] = None,
         aliases: Optional[List[str]] = None,
+        environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,
             client_secret=self._client_secret,
-            environment=self._primary_environment,
+            environment=environment or self._primary_environment,
             api_server=self._api_server,
         )
 
@@ -5471,6 +5500,7 @@ https://docs.chalk.ai/cli/apply
         env_overrides: Optional[Mapping[str, str]] = None,
         enable_profiling: bool = False,
         max_retries: int = 0,
+        environment: Optional[EnvironmentId] = None,
     ) -> CreateModelTrainingJobResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -5500,7 +5530,7 @@ https://docs.chalk.ai/cli/apply
         client_grpc = ChalkGRPCClient(
             client_id=self._client_id,
             client_secret=self._client_secret,
-            environment=self._primary_environment,
+            environment=environment or self._primary_environment,
             api_server=self._api_server,
         )
 

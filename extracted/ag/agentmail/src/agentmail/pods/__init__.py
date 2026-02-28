@@ -7,7 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import ClientId, CreatePodRequest, ListPodsResponse, Name, Pod, PodId
-    from . import domains, drafts, inboxes, threads
+    from . import domains, drafts, inboxes, lists, threads
 _dynamic_imports: typing.Dict[str, str] = {
     "ClientId": ".types",
     "CreatePodRequest": ".types",
@@ -18,6 +18,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "domains": ".domains",
     "drafts": ".drafts",
     "inboxes": ".inboxes",
+    "lists": ".lists",
     "threads": ".threads",
 }
 
@@ -53,5 +54,6 @@ __all__ = [
     "domains",
     "drafts",
     "inboxes",
+    "lists",
     "threads",
 ]

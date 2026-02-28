@@ -93,6 +93,7 @@ __all__ = (
     "ModelCustomizationType",
     "ModelImportJobStatusType",
     "ModelInvocationJobStatusType",
+    "ModelInvocationTypeType",
     "ModelModalityType",
     "ModelStatusType",
     "OfferTypeType",
@@ -280,6 +281,7 @@ ModelInvocationJobStatusType = Literal[
     "Submitted",
     "Validating",
 ]
+ModelInvocationTypeType = Literal["Converse", "InvokeModel"]
 ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
 ModelStatusType = Literal["Active", "Creating", "Failed"]
 OfferTypeType = Literal["ALL", "PUBLIC"]

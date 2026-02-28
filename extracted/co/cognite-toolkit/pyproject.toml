@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.7.138"
+version = "0.7.139"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = [
     {name ="Cognite AS", email="support@cognite.com"}
@@ -83,7 +83,7 @@ sql = [
 ]
 v08 = [
 
-    "cognite-neat >=1.0.40"
+    "cognite-neat >=1.0.43"
 ]
 
 [project.scripts]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphrag
-Version: 3.0.4
+Version: 3.0.5
 Summary: GraphRAG: A graph-based retrieval-augmented generation (RAG) system.
 Project-URL: Source, https://github.com/microsoft/graphrag
 Author: Mónica Carvajal
@@ -17,13 +17,13 @@ Requires-Dist: azure-search-documents~=11.5
 Requires-Dist: azure-storage-blob~=12.24
 Requires-Dist: blis~=1.0
 Requires-Dist: devtools~=0.12
-Requires-Dist: graphrag-cache==3.0.4
-Requires-Dist: graphrag-chunking==3.0.4
-Requires-Dist: graphrag-common==3.0.4
-Requires-Dist: graphrag-input==3.0.4
-Requires-Dist: graphrag-llm==3.0.4
-Requires-Dist: graphrag-storage==3.0.4
-Requires-Dist: graphrag-vectors==3.0.4
+Requires-Dist: graphrag-cache==3.0.5
+Requires-Dist: graphrag-chunking==3.0.5
+Requires-Dist: graphrag-common==3.0.5
+Requires-Dist: graphrag-input==3.0.5
+Requires-Dist: graphrag-llm==3.0.5
+Requires-Dist: graphrag-storage==3.0.5
+Requires-Dist: graphrag-vectors==3.0.5
 Requires-Dist: graspologic-native~=1.2
 Requires-Dist: json-repair~=0.30
 Requires-Dist: networkx~=3.4

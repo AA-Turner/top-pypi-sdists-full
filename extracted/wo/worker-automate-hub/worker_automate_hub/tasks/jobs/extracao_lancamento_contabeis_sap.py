@@ -28,7 +28,9 @@ from selenium.webdriver.common.keys import Keys
 from worker_automate_hub.api.datalake_service import send_file_to_datalake
 from worker_automate_hub.utils.credentials_manager import CredentialsManager
 from worker_automate_hub.api.client import get_config_by_name
-from worker_automate_hub.models.dto.rpa_processo_entrada_dto import RpaProcessoEntradaDTO
+from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
+    RpaProcessoEntradaDTO,
+)
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
     RpaRetornoProcessoDTO,
@@ -61,7 +63,9 @@ mes_num = now.strftime("%m")
 ano = now.strftime("%Y")
 
 
-def limpar_downloads(download_path: str, extensoes: tuple = (".xlsx", ".pdf", ".crdownload")) -> int:
+def limpar_downloads(
+    download_path: str, extensoes: tuple = (".xlsx", ".pdf", ".crdownload")
+) -> int:
     pasta = Path(download_path)
     if not pasta.exists() or not pasta.is_dir():
         raise ValueError(f"DOWNLOAD_PATH inválido: {download_path}")
@@ -108,11 +112,14 @@ class ConfigEntradaSAP(BaseModel):
       - conta_razao: "3111101,3111102,41111001"
     Observação: para não quebrar seu payload antigo, aceitamos também "centros" como alias.
     """
+
     empresa: str
     conta_razao: str = Field(..., alias="centros")
 
     class Config:
-        allow_population_by_field_name = True  # permite usar "conta_razao" OU alias "centros"
+        allow_population_by_field_name = (
+            True  # permite usar "conta_razao" OU alias "centros"
+        )
         extra = "ignore"
 
 
@@ -123,14 +130,20 @@ class ExtracaoLancamentoContabeis:
     # ==========================================================
     # XPATHs (SEM IFRAME)
     # ==========================================================
-    X_EMPRESA       = "(//input[@aria-roledescription='Entrada de valores múltiplos'])[1]"
-    X_CONTA_RAZAO   = "(//input[@aria-roledescription='Entrada de valores múltiplos'])[2]"
-    X_PERIODO       = "//input[@aria-roledescription='Entrada de data dinâmica']"
-    X_BTN_INICIAR   = "//bdi[text()='Iniciar']"
-    X_EXPORTAR      = "//span[contains(@id,'btnExcelExport-internalSplitBtn-textButton-img')]"
+    X_EMPRESA = "(//input[@aria-roledescription='Entrada de valores múltiplos'])[1]"
+    X_CONTA_RAZAO = "(//input[@aria-roledescription='Entrada de valores múltiplos'])[2]"
+    X_PERIODO = "//input[@aria-roledescription='Entrada de data dinâmica']"
+    X_BTN_INICIAR = "//bdi[text()='Iniciar']"
+    X_EXPORTAR = (
+        "//span[contains(@id,'btnExcelExport-internalSplitBtn-textButton-img')]"
+    )
 
-
-    def __init__(self, task: RpaProcessoEntradaDTO, base_url: str, directory: Optional[str] = None):
+    def __init__(
+        self,
+        task: RpaProcessoEntradaDTO,
+        base_url: str,
+        directory: Optional[str] = None,
+    ):
         console.print("[STEP 0.1] Inicializando ExtracaoLancamentoContabeis")
 
         self.task = task
@@ -144,11 +157,17 @@ class ExtracaoLancamentoContabeis:
         self.password = CredentialsManager().get_by_key("SAP_PASSWORD_BI")
 
         # Valida configEntrada
-        self.config_entrada = ConfigEntradaSAP(**(getattr(task, "configEntrada", {}) or {}))
+        self.config_entrada = ConfigEntradaSAP(
+            **(getattr(task, "configEntrada", {}) or {})
+        )
 
         # Parse empresa e contas razão (lote com ENTER)
-        self.empresas: List[str] = [p.strip() for p in self.config_entrada.empresa.split(",") if p.strip()]
-        self.contas_razao: List[str] = [c.strip() for c in self.config_entrada.conta_razao.split(",") if c.strip()]
+        self.empresas: List[str] = [
+            p.strip() for p in self.config_entrada.empresa.split(",") if p.strip()
+        ]
+        self.contas_razao: List[str] = [
+            c.strip() for c in self.config_entrada.conta_razao.split(",") if c.strip()
+        ]
 
         if not self.empresas:
             raise ValueError("configEntrada.empresa está vazio.")
@@ -178,7 +197,9 @@ class ExtracaoLancamentoContabeis:
     # ==========================================================
     async def _scroll_center(self, el) -> None:
         try:
-            self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", el
+            )
         except Exception:
             pass
         await worker_sleep(0.15)
@@ -192,7 +213,9 @@ class ExtracaoLancamentoContabeis:
         except (ElementClickInterceptedException, TimeoutException):
             self.driver.execute_script("arguments[0].click();", el)
 
-    async def _limpar_e_digitar(self, xpath: str, valor: str, timeout: int = 30) -> None:
+    async def _limpar_e_digitar(
+        self, xpath: str, valor: str, timeout: int = 30
+    ) -> None:
         wait = WebDriverWait(self.driver, timeout)
 
         for tentativa in range(1, 4):
@@ -201,7 +224,10 @@ class ExtracaoLancamentoContabeis:
                 await self._scroll_center(el)
                 try:
                     el.click()
-                except (ElementClickInterceptedException, StaleElementReferenceException):
+                except (
+                    ElementClickInterceptedException,
+                    StaleElementReferenceException,
+                ):
                     el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
                     await self._scroll_center(el)
                     self.driver.execute_script("arguments[0].click();", el)
@@ -226,10 +252,14 @@ class ExtracaoLancamentoContabeis:
                 return
 
             except StaleElementReferenceException:
-                console.print(f"[WARN] StaleElement em _limpar_e_digitar (tentativa {tentativa}/3)")
+                console.print(
+                    f"[WARN] StaleElement em _limpar_e_digitar (tentativa {tentativa}/3)"
+                )
                 await worker_sleep(0.6)
 
-        raise StaleElementReferenceException(f"Elemento ficou stale após 3 tentativas: {xpath}")
+        raise StaleElementReferenceException(
+            f"Elemento ficou stale após 3 tentativas: {xpath}"
+        )
 
     async def _digitar_em_lote_com_enter(
         self,
@@ -254,7 +284,10 @@ class ExtracaoLancamentoContabeis:
                 await self._scroll_center(el)
                 try:
                     el.click()
-                except (ElementClickInterceptedException, StaleElementReferenceException):
+                except (
+                    ElementClickInterceptedException,
+                    StaleElementReferenceException,
+                ):
                     el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
                     await self._scroll_center(el)
                     self.driver.execute_script("arguments[0].click();", el)
@@ -263,7 +296,9 @@ class ExtracaoLancamentoContabeis:
 
                 if limpar_antes:
                     try:
-                        el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+                        el = wait.until(
+                            EC.presence_of_element_located((By.XPATH, xpath))
+                        )
                         el.send_keys(Keys.CONTROL, "a")
                         await worker_sleep(0.05)
                         el.send_keys(Keys.DELETE)
@@ -273,18 +308,20 @@ class ExtracaoLancamentoContabeis:
 
                 for v in valores:
                     el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
-                    el.send_keys(v)
-                    await worker_sleep(2)
-                    el.send_keys(Keys.ENTER)
+                    el.send_keys(v + Keys.ENTER)
                     await worker_sleep(pausa_entre)
 
                 return
 
             except StaleElementReferenceException:
-                console.print(f"[WARN] StaleElement em _digitar_em_lote_com_enter (tentativa {tentativa}/3)")
+                console.print(
+                    f"[WARN] StaleElement em _digitar_em_lote_com_enter (tentativa {tentativa}/3)"
+                )
                 await worker_sleep(0.6)
 
-        raise StaleElementReferenceException(f"Falha ao digitar em lote após 3 tentativas: {xpath}")
+        raise StaleElementReferenceException(
+            f"Falha ao digitar em lote após 3 tentativas: {xpath}"
+        )
 
     # ==========================================================
     # Esperar download XLSX
@@ -315,7 +352,9 @@ class ExtracaoLancamentoContabeis:
                 await worker_sleep(0.5)
 
             if not candidato.exists():
-                raise TimeoutError(f"[DL] Arquivo esperado não apareceu: {expected_name} em {timeout}s")
+                raise TimeoutError(
+                    f"[DL] Arquivo esperado não apareceu: {expected_name} em {timeout}s"
+                )
 
             console.print(f"[DL] Candidato detectado (por nome): {candidato.name}")
             # espera estabilizar
@@ -333,7 +372,10 @@ class ExtracaoLancamentoContabeis:
                     last_size = size
                     stable_since = time.time()
                 else:
-                    if stable_since and (time.time() - stable_since) >= quiet_window_sec:
+                    if (
+                        stable_since
+                        and (time.time() - stable_since) >= quiet_window_sec
+                    ):
                         return candidato
 
                 await worker_sleep(0.4)
@@ -369,7 +411,9 @@ class ExtracaoLancamentoContabeis:
             await worker_sleep(0.5)
 
         if not candidato:
-            raise TimeoutError(f"[DL] Nenhum .xlsx apareceu/atualizou em {timeout}s em {pasta}")
+            raise TimeoutError(
+                f"[DL] Nenhum .xlsx apareceu/atualizou em {timeout}s em {pasta}"
+            )
 
         console.print(f"[DL] Candidato detectado: {candidato.name}")
 
@@ -406,11 +450,13 @@ class ExtracaoLancamentoContabeis:
             await worker_sleep(0.4)
 
         return candidato
-        
+
     # ==========================================================
     # Renomear + Upload
     # ==========================================================
-    async def rename_file(self, empresa: str, conta_tag: str, timeout: int = 240) -> Path:
+    async def rename_file(
+        self, empresa: str, conta_tag: str, timeout: int = 240
+    ) -> Path:
         """
         Nome final:
           CR41111001-MES-ANO-DATE_NOW.xlsx
@@ -433,10 +479,12 @@ class ExtracaoLancamentoContabeis:
         await worker_sleep(1)
 
         if not self.directory:
-            raise RuntimeError("self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento.")
+            raise RuntimeError(
+                "self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento."
+            )
 
         console.print(f"[RF] Enviando datalake: {filename}")
-        await send_file_to_datalake(self.directory, file_bytes, filename, "xlsx")
+        await send_file_to_datalake("qd_comercial/raw", file_bytes, filename, "xlsx")
 
         await worker_sleep(1)
 
@@ -603,8 +651,9 @@ class ExtracaoLancamentoContabeis:
             await self._clicar(self.X_EXPORTAR)
             await worker_sleep(2)
 
-
-            console.print("[STEP] Aguardando XLSX baixar + renomeando + enviando datalake...")
+            console.print(
+                "[STEP] Aguardando XLSX baixar + renomeando + enviando datalake..."
+            )
             final_path = await self.rename_file(
                 empresa=empresa,
                 conta_tag=conta_tag,
@@ -622,7 +671,9 @@ class ExtracaoLancamentoContabeis:
 # ==========================================================
 # FLUXO PRINCIPAL
 # ==========================================================
-async def extracao_lancamento_contabeis_sap(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
+async def extracao_lancamento_contabeis_sap(
+    task: RpaProcessoEntradaDTO,
+) -> RpaRetornoProcessoDTO:
     console.print("[MAIN] Iniciando fluxo principal: extracao_lancamento_contabeis_sap")
 
     bot: Optional[ExtracaoLancamentoContabeis] = None
@@ -632,7 +683,9 @@ async def extracao_lancamento_contabeis_sap(task: RpaProcessoEntradaDTO) -> RpaR
         base_url = cfg.conConfiguracao.get("baseUrl")
         directory = cfg.conConfiguracao.get("directoryBucket")
 
-        bot = ExtracaoLancamentoContabeis(task=task, base_url=base_url, directory=directory)
+        bot = ExtracaoLancamentoContabeis(
+            task=task, base_url=base_url, directory=directory
+        )
 
         ret = await bot.iniciar_sessao_sap()
         if not ret.sucesso:

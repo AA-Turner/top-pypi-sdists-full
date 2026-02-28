@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.6.0
+Version: 0.7.0
 Summary: SDK for integrating Braintrust
 Home-page: https://www.braintrust.dev
 Author: Braintrust
 Author-email: info@braintrust.dev
-Project-URL: Source Code, https://github.com/braintrustdata/braintrust-sdk
-Project-URL: Bug Tracker, https://github.com/braintrustdata/braintrust-sdk/issues
+Project-URL: Source Code, https://github.com/braintrustdata/braintrust-sdk-python
+Project-URL: Bug Tracker, https://github.com/braintrustdata/braintrust-sdk-python/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Operating System :: OS Independent
@@ -66,7 +66,7 @@ Dynamic: summary
 
 A Python library for logging data to Braintrust. `braintrust` is distributed as
 a [library on PyPI](https://pypi.org/project/braintrust/). It is open source and
-[available on GitHub](https://github.com/braintrustdata/braintrust-sdk/tree/main/py).
+[available on GitHub](https://github.com/braintrustdata/braintrust-sdk-python/tree/main/py).
 
 ### Quickstart
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deadline
-Version: 0.54.0
+Version: 0.54.1
 Summary: Multi-purpose library and command line tool that implements functionality to support applications using AWS Deadline Cloud.
 Project-URL: Homepage, https://github.com/aws-deadline/deadline-cloud
 Project-URL: Source, https://github.com/aws-deadline/deadline-cloud
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <3.14,>=3.8
 Requires-Dist: boto3>=1.36.8; python_version < '3.9'
-Requires-Dist: boto3>=1.39.10; python_version >= '3.9'
+Requires-Dist: boto3>=1.42.29; python_version >= '3.9'
 Requires-Dist: click>=8.1.7
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: pywin32<311,>=307; sys_platform == 'win32'

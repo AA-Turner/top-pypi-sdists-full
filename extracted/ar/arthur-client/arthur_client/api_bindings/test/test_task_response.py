@@ -42,6 +42,7 @@ class TestTaskResponse(unittest.TestCase):
                 is_agentic = True,
                 is_system_task = True,
                 is_autocreated = True,
+                is_archived = True,
                 agent_metadata = arthur_client.api_bindings.models.agent_metadata_response.AgentMetadataResponse(
                     provider = 'gcp', 
                     gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata_response.GCPAgentMetadataResponse(

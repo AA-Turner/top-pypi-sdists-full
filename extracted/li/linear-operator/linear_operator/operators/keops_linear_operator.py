@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import warnings
 
-from typing import Optional, Tuple, Union
-
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import IndexType, LinearOperator
@@ -28,7 +25,9 @@ class KeOpsLinearOperator(LinearOperator):
         self.params = params
 
     @cached(name="kernel_diag")
-    def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
+    def _diagonal(
+        self: LinearOperator,  # shape: (..., M, N)
+    ) -> torch.Tensor:  # shape: (..., N)
         """
         Explicitly compute kernel diag via covar_func when it is needed rather than relying on lazy tensor ops.
         """
@@ -40,15 +39,17 @@ class KeOpsLinearOperator(LinearOperator):
         return self.covar_func(self.x1, self.x2, **self.params)
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         return self.covar_mat @ rhs.contiguous()
 
     def _size(self) -> torch.Size:
         return torch.Size(self.covar_mat.shape)
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         return KeOpsLinearOperator(self.x2, self.x1, self.covar_func)
 
     def _get_indices(self, row_index: IndexType, col_index: IndexType, *batch_indices: IndexType) -> torch.Tensor:
@@ -99,7 +100,7 @@ class KeOpsLinearOperator(LinearOperator):
         # Now construct a kernel with those indices
         return self.__class__(x1, x2, covar_func=self.covar_func, **self.params)
 
-    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> Tuple[Optional[Tensor], ...]:
+    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> tuple[Tensor | None, ...]:
         """
         Use default behavior, but KeOps does not automatically make args contiguous like torch.matmul.
 

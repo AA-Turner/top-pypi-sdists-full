@@ -6,10 +6,7 @@ and memory management.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import inspect
 import logging
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -22,7 +19,6 @@ from crewai.agents.parser import (
     AgentFinish,
     OutputParserError,
 )
-from crewai.core.providers.human_input import ExecutorContext, get_provider
 from crewai.events.event_bus import crewai_event_bus
 from crewai.events.types.logging_events import (
     AgentLogsExecutionEvent,
@@ -50,7 +46,6 @@ from crewai.utilities.agent_utils import (
     handle_unknown_error,
     has_reached_max_iterations,
     is_context_length_exceeded,
-    parse_tool_call_args,
     process_llm_response,
     track_delegation_if_needed,
 )
@@ -180,16 +175,15 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         """
         return self.llm.supports_stop_words() if self.llm else False
 
-    def _setup_messages(self, inputs: dict[str, Any]) -> None:
-        """Set up messages for the agent execution.
+    def invoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        """Execute the agent with given inputs.
 
         Args:
             inputs: Input dictionary containing prompt variables.
-        """
-        provider = get_provider()
-        if provider.setup_messages(cast(ExecutorContext, cast(object, self))):
-            return
 
+        Returns:
+            Dictionary with agent output.
+        """
         if "system" in self.prompt:
             system_prompt = self._format_prompt(
                 cast(str, self.prompt.get("system", "")), inputs
@@ -202,19 +196,6 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         else:
             user_prompt = self._format_prompt(self.prompt.get("prompt", ""), inputs)
             self.messages.append(format_message_for_llm(user_prompt))
-
-        provider.post_setup_messages(cast(ExecutorContext, cast(object, self)))
-
-    def invoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        """Execute the agent with given inputs.
-
-        Args:
-            inputs: Input dictionary containing prompt variables.
-
-        Returns:
-            Dictionary with agent output.
-        """
-        self._setup_messages(inputs)
 
         self._inject_multimodal_files(inputs)
 
@@ -238,7 +219,9 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         if self.ask_for_human_input:
             formatted_answer = self._handle_human_feedback(formatted_answer)
 
-        self._save_to_memory(formatted_answer)
+        self._create_short_term_memory(formatted_answer)
+        self._create_long_term_memory(formatted_answer)
+        self._create_external_memory(formatted_answer)
         return {"output": formatted_answer.output}
 
     def _inject_multimodal_files(self, inputs: dict[str, Any] | None = None) -> None:
@@ -689,142 +672,30 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         Returns:
             AgentFinish if tool has result_as_answer=True, None otherwise.
         """
+        from datetime import datetime
+        import json
+
+        from crewai.events import crewai_event_bus
+        from crewai.events.types.tool_usage_events import (
+            ToolUsageErrorEvent,
+            ToolUsageFinishedEvent,
+            ToolUsageStartedEvent,
+        )
+
         if not tool_calls:
             return None
 
-        parsed_calls = [
-            parsed
-            for tool_call in tool_calls
-            if (parsed := self._parse_native_tool_call(tool_call)) is not None
-        ]
-        if not parsed_calls:
-            return None
+        # Only process the FIRST tool call for sequential execution with reflection
+        tool_call = tool_calls[0]
 
-        original_tools_by_name: dict[str, Any] = {}
-        for tool in self.original_tools or []:
-            original_tools_by_name[sanitize_tool_name(tool.name)] = tool
-
-        if len(parsed_calls) > 1:
-            has_result_as_answer_in_batch = any(
-                bool(
-                    original_tools_by_name.get(func_name)
-                    and getattr(
-                        original_tools_by_name.get(func_name), "result_as_answer", False
-                    )
-                )
-                for _, func_name, _ in parsed_calls
-            )
-            has_max_usage_count_in_batch = any(
-                bool(
-                    original_tools_by_name.get(func_name)
-                    and getattr(
-                        original_tools_by_name.get(func_name),
-                        "max_usage_count",
-                        None,
-                    )
-                    is not None
-                )
-                for _, func_name, _ in parsed_calls
-            )
-
-            # Preserve historical sequential behavior for result_as_answer batches.
-            # Also avoid threading around usage counters for max_usage_count tools.
-            if has_result_as_answer_in_batch or has_max_usage_count_in_batch:
-                logger.debug(
-                    "Skipping parallel native execution because batch includes result_as_answer or max_usage_count tool"
-                )
-            else:
-                execution_plan: list[
-                    tuple[str, str, str | dict[str, Any], Any | None]
-                ] = []
-                for call_id, func_name, func_args in parsed_calls:
-                    original_tool = original_tools_by_name.get(func_name)
-                    execution_plan.append(
-                        (call_id, func_name, func_args, original_tool)
-                    )
-
-                self._append_assistant_tool_calls_message(
-                    [
-                        (call_id, func_name, func_args)
-                        for call_id, func_name, func_args, _ in execution_plan
-                    ]
-                )
-
-                max_workers = min(8, len(execution_plan))
-                ordered_results: list[dict[str, Any] | None] = [None] * len(
-                    execution_plan
-                )
-                with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                    futures = {
-                        pool.submit(
-                            self._execute_single_native_tool_call,
-                            call_id=call_id,
-                            func_name=func_name,
-                            func_args=func_args,
-                            available_functions=available_functions,
-                            original_tool=original_tool,
-                            should_execute=True,
-                        ): idx
-                        for idx, (
-                            call_id,
-                            func_name,
-                            func_args,
-                            original_tool,
-                        ) in enumerate(execution_plan)
-                    }
-                    for future in as_completed(futures):
-                        idx = futures[future]
-                        ordered_results[idx] = future.result()
-
-                for execution_result in ordered_results:
-                    if not execution_result:
-                        continue
-                    tool_finish = self._append_tool_result_and_check_finality(
-                        execution_result
-                    )
-                    if tool_finish:
-                        return tool_finish
-
-                reasoning_prompt = self._i18n.slice("post_tool_reasoning")
-                reasoning_message: LLMMessage = {
-                    "role": "user",
-                    "content": reasoning_prompt,
-                }
-                self.messages.append(reasoning_message)
-                return None
-
-        # Sequential behavior: process only first tool call, then force reflection.
-        call_id, func_name, func_args = parsed_calls[0]
-        self._append_assistant_tool_calls_message([(call_id, func_name, func_args)])
-
-        execution_result = self._execute_single_native_tool_call(
-            call_id=call_id,
-            func_name=func_name,
-            func_args=func_args,
-            available_functions=available_functions,
-            original_tool=original_tools_by_name.get(func_name),
-            should_execute=True,
-        )
-        tool_finish = self._append_tool_result_and_check_finality(execution_result)
-        if tool_finish:
-            return tool_finish
-
-        reasoning_prompt = self._i18n.slice("post_tool_reasoning")
-        reasoning_message = {
-            "role": "user",
-            "content": reasoning_prompt,
-        }
-        self.messages.append(reasoning_message)
-        return None
-
-    def _parse_native_tool_call(
-        self, tool_call: Any
-    ) -> tuple[str, str, str | dict[str, Any]] | None:
+        # Extract tool call info - handle OpenAI-style, Anthropic-style, and Gemini-style
         if hasattr(tool_call, "function"):
+            # OpenAI-style: has .function.name and .function.arguments
             call_id = getattr(tool_call, "id", f"call_{id(tool_call)}")
             func_name = sanitize_tool_name(tool_call.function.name)
-            return call_id, func_name, tool_call.function.arguments
-        if hasattr(tool_call, "function_call") and tool_call.function_call:
+            func_args = tool_call.function.arguments
+        elif hasattr(tool_call, "function_call") and tool_call.function_call:
+            # Gemini-style: has .function_call.name and .function_call.args
             call_id = f"call_{id(tool_call)}"
             func_name = sanitize_tool_name(tool_call.function_call.name)
             func_args = (
@@ -832,12 +703,13 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                 if tool_call.function_call.args
                 else {}
             )
-            return call_id, func_name, func_args
-        if hasattr(tool_call, "name") and hasattr(tool_call, "input"):
+        elif hasattr(tool_call, "name") and hasattr(tool_call, "input"):
+            # Anthropic format: has .name and .input (ToolUseBlock)
             call_id = getattr(tool_call, "id", f"call_{id(tool_call)}")
             func_name = sanitize_tool_name(tool_call.name)
-            return call_id, func_name, tool_call.input
-        if isinstance(tool_call, dict):
+            func_args = tool_call.input  # Already a dict in Anthropic
+        elif isinstance(tool_call, dict):
+            # Support OpenAI "id", Bedrock "toolUseId", or generate one
             call_id = (
                 tool_call.get("id")
                 or tool_call.get("toolUseId")
@@ -848,15 +720,10 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                 func_info.get("name", "") or tool_call.get("name", "")
             )
             func_args = func_info.get("arguments", "{}") or tool_call.get("input", {})
-            return call_id, func_name, func_args
-        return None
+        else:
+            return None
 
-    def _append_assistant_tool_calls_message(
-        self,
-        parsed_calls: list[tuple[str, str, str | dict[str, Any]]],
-    ) -> None:
-        import json
-
+        # Append assistant message with single tool call
         assistant_message: LLMMessage = {
             "role": "assistant",
             "content": None,
@@ -871,54 +738,42 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                         else json.dumps(func_args),
                     },
                 }
-                for call_id, func_name, func_args in parsed_calls
             ],
         }
+
         self.messages.append(assistant_message)
 
-    def _execute_single_native_tool_call(
-        self,
-        *,
-        call_id: str,
-        func_name: str,
-        func_args: str | dict[str, Any],
-        available_functions: dict[str, Callable[..., Any]],
-        original_tool: Any | None = None,
-        should_execute: bool = True,
-    ) -> dict[str, Any]:
-        from datetime import datetime
-        import json
+        # Parse arguments for the single tool call
+        if isinstance(func_args, str):
+            try:
+                args_dict = json.loads(func_args)
+            except json.JSONDecodeError:
+                args_dict = {}
+        else:
+            args_dict = func_args
 
-        from crewai.events.types.tool_usage_events import (
-            ToolUsageErrorEvent,
-            ToolUsageFinishedEvent,
-            ToolUsageStartedEvent,
-        )
+        agent_key = getattr(self.agent, "key", "unknown") if self.agent else "unknown"
 
-        args_dict, parse_error = parse_tool_call_args(func_args, func_name, call_id, original_tool)
-        if parse_error is not None:
-            return parse_error
+        # Find original tool by matching sanitized name (needed for cache_function and result_as_answer)
 
-        if original_tool is None:
-            for tool in self.original_tools or []:
-                if sanitize_tool_name(tool.name) == func_name:
-                    original_tool = tool
-                    break
+        original_tool = None
+        for tool in self.original_tools or []:
+            if sanitize_tool_name(tool.name) == func_name:
+                original_tool = tool
+                break
 
+        # Check if tool has reached max usage count
         max_usage_reached = False
-        if not should_execute and original_tool:
-            max_usage_reached = True
-        elif (
-            should_execute
-            and original_tool
-            and (max_count := getattr(original_tool, "max_usage_count", None))
-            is not None
-            and getattr(original_tool, "current_usage_count", 0) >= max_count
-        ):
-            max_usage_reached = True
+        if original_tool:
+            if (
+                hasattr(original_tool, "max_usage_count")
+                and original_tool.max_usage_count is not None
+                and original_tool.current_usage_count >= original_tool.max_usage_count
+            ):
+                max_usage_reached = True
 
+        # Check cache before executing
         from_cache = False
-        result: str = "Tool not found"
         input_str = json.dumps(args_dict) if args_dict else ""
         if self.tools_handler and self.tools_handler.cache:
             cached_result = self.tools_handler.cache.read(
@@ -932,7 +787,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                 )
                 from_cache = True
 
-        agent_key = getattr(self.agent, "key", "unknown") if self.agent else "unknown"
+        # Emit tool usage started event
         started_at = datetime.now()
         crewai_event_bus.emit(
             self,
@@ -944,16 +799,17 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                 agent_key=agent_key,
             ),
         )
-        error_event_emitted = False
 
         track_delegation_if_needed(func_name, args_dict, self.task)
 
+        # Find the structured tool for hook context
         structured_tool: CrewStructuredTool | None = None
         for structured in self.tools or []:
             if sanitize_tool_name(structured.name) == func_name:
                 structured_tool = structured
                 break
 
+        # Execute before_tool_call hooks
         hook_blocked = False
         before_hook_context = ToolCallHookContext(
             tool_name=func_name,
@@ -977,48 +833,57 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                     color="red",
                 )
 
+        # If hook blocked execution, set result and skip tool execution
         if hook_blocked:
             result = f"Tool execution blocked by hook. Tool: {func_name}"
+        # Execute the tool (only if not cached, not at max usage, and not blocked by hook)
+        elif not from_cache and not max_usage_reached:
+            result = "Tool not found"
+            if func_name in available_functions:
+                try:
+                    tool_func = available_functions[func_name]
+                    raw_result = tool_func(**args_dict)
+
+                    # Add to cache after successful execution (before string conversion)
+                    if self.tools_handler and self.tools_handler.cache:
+                        should_cache = True
+                        if (
+                            original_tool
+                            and hasattr(original_tool, "cache_function")
+                            and callable(original_tool.cache_function)
+                        ):
+                            should_cache = original_tool.cache_function(
+                                args_dict, raw_result
+                            )
+                        if should_cache:
+                            self.tools_handler.cache.add(
+                                tool=func_name, input=input_str, output=raw_result
+                            )
+
+                    # Convert to string for message
+                    result = (
+                        str(raw_result)
+                        if not isinstance(raw_result, str)
+                        else raw_result
+                    )
+                except Exception as e:
+                    result = f"Error executing tool: {e}"
+                    if self.task:
+                        self.task.increment_tools_errors()
+                    crewai_event_bus.emit(
+                        self,
+                        event=ToolUsageErrorEvent(
+                            tool_name=func_name,
+                            tool_args=args_dict,
+                            from_agent=self.agent,
+                            from_task=self.task,
+                            agent_key=agent_key,
+                            error=e,
+                        ),
+                    )
         elif max_usage_reached and original_tool:
+            # Return error message when max usage limit is reached
             result = f"Tool '{func_name}' has reached its usage limit of {original_tool.max_usage_count} times and cannot be used anymore."
-        elif not from_cache and func_name in available_functions:
-            try:
-                raw_result = available_functions[func_name](**args_dict)
-
-                if self.tools_handler and self.tools_handler.cache:
-                    should_cache = True
-                    if (
-                        original_tool
-                        and hasattr(original_tool, "cache_function")
-                        and callable(original_tool.cache_function)
-                    ):
-                        should_cache = original_tool.cache_function(
-                            args_dict, raw_result
-                        )
-                    if should_cache:
-                        self.tools_handler.cache.add(
-                            tool=func_name, input=input_str, output=raw_result
-                        )
-
-                result = (
-                    str(raw_result) if not isinstance(raw_result, str) else raw_result
-                )
-            except Exception as e:
-                result = f"Error executing tool: {e}"
-                if self.task:
-                    self.task.increment_tools_errors()
-                crewai_event_bus.emit(
-                    self,
-                    event=ToolUsageErrorEvent(
-                        tool_name=func_name,
-                        tool_args=args_dict,
-                        from_agent=self.agent,
-                        from_task=self.task,
-                        agent_key=agent_key,
-                        error=e,
-                    ),
-                )
-                error_event_emitted = True
 
         after_hook_context = ToolCallHookContext(
             tool_name=func_name,
@@ -1043,38 +908,22 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
                     color="red",
                 )
 
-        if not error_event_emitted:
-            crewai_event_bus.emit(
-                self,
-                event=ToolUsageFinishedEvent(
-                    output=result,
-                    tool_name=func_name,
-                    tool_args=args_dict,
-                    from_agent=self.agent,
-                    from_task=self.task,
-                    agent_key=agent_key,
-                    started_at=started_at,
-                    finished_at=datetime.now(),
-                ),
-            )
+        # Emit tool usage finished event
+        crewai_event_bus.emit(
+            self,
+            event=ToolUsageFinishedEvent(
+                output=result,
+                tool_name=func_name,
+                tool_args=args_dict,
+                from_agent=self.agent,
+                from_task=self.task,
+                agent_key=agent_key,
+                started_at=started_at,
+                finished_at=datetime.now(),
+            ),
+        )
 
-        return {
-            "call_id": call_id,
-            "func_name": func_name,
-            "result": result,
-            "from_cache": from_cache,
-            "original_tool": original_tool,
-        }
-
-    def _append_tool_result_and_check_finality(
-        self, execution_result: dict[str, Any]
-    ) -> AgentFinish | None:
-        call_id = cast(str, execution_result["call_id"])
-        func_name = cast(str, execution_result["func_name"])
-        result = cast(str, execution_result["result"])
-        from_cache = cast(bool, execution_result["from_cache"])
-        original_tool = execution_result["original_tool"]
-
+        # Append tool result message
         tool_message: LLMMessage = {
             "role": "tool",
             "tool_call_id": call_id,
@@ -1083,6 +932,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         }
         self.messages.append(tool_message)
 
+        # Log the tool execution
         if self.agent and self.agent.verbose:
             cache_info = " (from cache)" if from_cache else ""
             self._printer.print(
@@ -1095,11 +945,20 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
             and hasattr(original_tool, "result_as_answer")
             and original_tool.result_as_answer
         ):
+            # Return immediately with tool result as final answer
             return AgentFinish(
                 thought="Tool result is the final answer",
                 output=result,
                 text=result,
             )
+
+        # Inject post-tool reasoning prompt to enforce analysis
+        reasoning_prompt = self._i18n.slice("post_tool_reasoning")
+        reasoning_message: LLMMessage = {
+            "role": "user",
+            "content": reasoning_prompt,
+        }
+        self.messages.append(reasoning_message)
         return None
 
     async def ainvoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
@@ -1111,7 +970,18 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         Returns:
             Dictionary with agent output.
         """
-        self._setup_messages(inputs)
+        if "system" in self.prompt:
+            system_prompt = self._format_prompt(
+                cast(str, self.prompt.get("system", "")), inputs
+            )
+            user_prompt = self._format_prompt(
+                cast(str, self.prompt.get("user", "")), inputs
+            )
+            self.messages.append(format_message_for_llm(system_prompt, role="system"))
+            self.messages.append(format_message_for_llm(user_prompt))
+        else:
+            user_prompt = self._format_prompt(self.prompt.get("prompt", ""), inputs)
+            self.messages.append(format_message_for_llm(user_prompt))
 
         await self._ainject_multimodal_files(inputs)
 
@@ -1133,9 +1003,11 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
             raise
 
         if self.ask_for_human_input:
-            formatted_answer = await self._ahandle_human_feedback(formatted_answer)
+            formatted_answer = self._handle_human_feedback(formatted_answer)
 
-        self._save_to_memory(formatted_answer)
+        self._create_short_term_memory(formatted_answer)
+        self._create_long_term_memory(formatted_answer)
+        self._create_external_memory(formatted_answer)
         return {"output": formatted_answer.output}
 
     async def _ainvoke_loop(self) -> AgentFinish:
@@ -1497,9 +1369,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
             formatted_answer: Current agent response.
         """
         if self.step_callback:
-            cb_result = self.step_callback(formatted_answer)
-            if inspect.iscoroutine(cb_result):
-                asyncio.run(cb_result)
+            self.step_callback(formatted_answer)
 
     def _append_message(
         self, text: str, role: Literal["user", "assistant", "system"] = "assistant"
@@ -1621,7 +1491,7 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         return prompt.replace("{tools}", inputs["tools"])
 
     def _handle_human_feedback(self, formatted_answer: AgentFinish) -> AgentFinish:
-        """Process human feedback via the configured provider.
+        """Process human feedback.
 
         Args:
             formatted_answer: Initial agent result.
@@ -1629,22 +1499,17 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         Returns:
             Final answer after feedback.
         """
-        provider = get_provider()
-        return provider.handle_feedback(formatted_answer, self)
+        output_str = (
+            formatted_answer.output
+            if isinstance(formatted_answer.output, str)
+            else formatted_answer.output.model_dump_json()
+        )
+        human_feedback = self._ask_human_input(output_str)
 
-    async def _ahandle_human_feedback(
-        self, formatted_answer: AgentFinish
-    ) -> AgentFinish:
-        """Process human feedback asynchronously via the configured provider.
+        if self._is_training_mode():
+            return self._handle_training_feedback(formatted_answer, human_feedback)
 
-        Args:
-            formatted_answer: Initial agent result.
-
-        Returns:
-            Final answer after feedback.
-        """
-        provider = get_provider()
-        return await provider.handle_feedback_async(formatted_answer, self)
+        return self._handle_regular_feedback(formatted_answer, human_feedback)
 
     def _is_training_mode(self) -> bool:
         """Check if training mode is active.
@@ -1654,18 +1519,74 @@ class CrewAgentExecutor(CrewAgentExecutorMixin):
         """
         return bool(self.crew and self.crew._train)
 
-    def _format_feedback_message(self, feedback: str) -> LLMMessage:
-        """Format feedback as a message for the LLM.
+    def _handle_training_feedback(
+        self, initial_answer: AgentFinish, feedback: str
+    ) -> AgentFinish:
+        """Process training feedback.
 
         Args:
-            feedback: User feedback string.
+            initial_answer: Initial agent output.
+            feedback: Training feedback.
 
         Returns:
-            Formatted message dict.
+            Improved answer.
         """
-        return format_message_for_llm(
-            self._i18n.slice("feedback_instructions").format(feedback=feedback)
+        self._handle_crew_training_output(initial_answer, feedback)
+        self.messages.append(
+            format_message_for_llm(
+                self._i18n.slice("feedback_instructions").format(feedback=feedback)
+            )
         )
+        improved_answer = self._invoke_loop()
+        self._handle_crew_training_output(improved_answer)
+        self.ask_for_human_input = False
+        return improved_answer
+
+    def _handle_regular_feedback(
+        self, current_answer: AgentFinish, initial_feedback: str
+    ) -> AgentFinish:
+        """Process regular feedback iteratively.
+
+        Args:
+            current_answer: Current agent output.
+            initial_feedback: Initial user feedback.
+
+        Returns:
+            Final answer after iterations.
+        """
+        feedback = initial_feedback
+        answer = current_answer
+
+        while self.ask_for_human_input:
+            # If the user provides a blank response, assume they are happy with the result
+            if feedback.strip() == "":
+                self.ask_for_human_input = False
+            else:
+                answer = self._process_feedback_iteration(feedback)
+                output_str = (
+                    answer.output
+                    if isinstance(answer.output, str)
+                    else answer.output.model_dump_json()
+                )
+                feedback = self._ask_human_input(output_str)
+
+        return answer
+
+    def _process_feedback_iteration(self, feedback: str) -> AgentFinish:
+        """Process single feedback iteration.
+
+        Args:
+            feedback: User feedback.
+
+        Returns:
+            Updated agent response.
+        """
+        self.messages.append(
+            format_message_for_llm(
+                self._i18n.slice("feedback_instructions").format(feedback=feedback)
+            )
+        )
+        return self._invoke_loop()
 
     @classmethod
     def __get_pydantic_core_schema__(

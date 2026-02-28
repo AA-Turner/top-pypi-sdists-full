@@ -35,6 +35,7 @@ from .._common import (
     _handle_error,
     _ProgressBarCallbackManager,
     _parse_multi_format_parameters,
+    _suggest_resources_on_client_error,
 )
 from .._main import deadline as main
 from ._sigint_handler import SigIntHandler
@@ -216,6 +217,13 @@ def _interactive_confirmation_prompt(message: str, default_response: bool) -> bo
     " It includes the job attachments and parameters for creating the job."
     " You can later run the bash script in the snapshot to submit the job using AWS CLI commands.",
 )
+@click.option(
+    "--force-s3-check/--no-force-s3-check",
+    default=None,
+    help="Force verification that job attachments exist in S3 before skipping upload. "
+    "Use when S3 bucket contents may be out of sync with local caches. "
+    "Overrides the 'settings.force_s3_check' config setting.",
+)
 @click.argument("job_bundle_dir")
 @_handle_error
 def bundle_submit(
@@ -232,6 +240,7 @@ def bundle_submit(
     require_paths_exist,
     submitter_name,
     save_debug_snapshot,
+    force_s3_check,
     **args,
 ):
     """
@@ -244,6 +253,12 @@ def bundle_submit(
     """
     # Apply the CLI args to the config
     config = _apply_cli_options_to_config(required_options={"farm_id", "queue_id"}, **args)
+
+    # Resolve force_s3_check: CLI flag takes precedence, otherwise use config setting
+    if force_s3_check is None:
+        force_s3_check = config_file.str2bool(
+            config_file.get_setting("settings.force_s3_check", config=config)
+        )
 
     hash_callback_manager = _ProgressBarCallbackManager(length=100, label="Hashing Attachments")
     upload_callback_manager = _ProgressBarCallbackManager(length=100, label="Uploading Attachments")
@@ -280,6 +295,7 @@ def bundle_submit(
             submitter_name=submitter_name or "CLI",
             known_asset_paths=known_asset_path,
             debug_snapshot_dir=snapshot_tmpdir.name if snapshot_tmpdir else save_debug_snapshot,
+            force_s3_check=force_s3_check,
         )
 
         if snapshot_tmpdir:
@@ -320,8 +336,14 @@ def bundle_submit(
             click.echo("Canceled waiting for final status of CreateJob.")
             sys.exit(1)
     except ClientError as exc:
+        suggestion = _suggest_resources_on_client_error(
+            exc,
+            farm_id=config_file.get_setting("defaults.farm_id", config=config),
+            queue_id=config_file.get_setting("defaults.queue_id", config=config),
+            config=config,
+        )
         raise DeadlineOperationError(
-            f"Failed to submit the job bundle to AWS Deadline Cloud:\n{exc}"
+            f"Failed to submit the job bundle to AWS Deadline Cloud:\n{exc}{suggestion}"
         ) from exc
     except MisconfiguredInputsError as exc:
         click.echo(str(exc))

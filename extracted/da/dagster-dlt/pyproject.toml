@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-dlt"
-version = "0.28.15"
+version = "0.28.17"
 description = "Package for performing ETL/ELT tasks with dlt in Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
+    "dagster==1.12.17",
     "dlt>=0.4",
 ]
 
@@ -35,22 +35,5 @@ dagster_dlt = "dagster_dlt"
 [project.optional-dependencies]
 test = [
     "duckdb",
-    "dagster-dg-cli==1.12.15",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_dlt_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_dlt_tests/**",
+    "dagster-dg-cli==1.12.17",
 ]

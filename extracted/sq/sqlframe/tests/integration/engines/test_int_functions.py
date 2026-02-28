@@ -84,7 +84,7 @@ def get_window() -> t.Callable:
             from pyspark.sql import Window
 
             return Window
-        from sqlframe.base.window import Window  # type: ignore
+        from sqlframe.base.window import Window
 
         return Window
 
@@ -98,7 +98,7 @@ def get_types() -> t.Callable:
             from pyspark.sql import types
 
             return types
-        from sqlframe.base import types  # type: ignore
+        from sqlframe.base import types
 
         return types
 
@@ -714,6 +714,17 @@ def test_skewness(get_session_and_func):
     assert df.agg(skewness(df.a)).collect() == [Row(value=None)]
     df = session.createDataFrame([{"a": 1}, {"a": 2}])
     assert df.agg(skewness(df.a)).collect() == [Row(value=0.0)]
+
+
+def test_skewness_over_window(get_session_and_func, get_window):
+    session, skewness = get_session_and_func("skewness")
+    Window = get_window(session)
+    df = session.createDataFrame(
+        [[1, "a"], [1, "a"], [2, "a"], [3, "b"], [3, "b"], [4, "b"]], ["c", "g"]
+    )
+    result = df.withColumn("skew", skewness("c").over(Window.partitionBy("g"))).collect()
+    assert result is not None
+    assert len(result) == 6
 
 
 def test_kurtosis(get_session_and_func):
@@ -1461,6 +1472,10 @@ def test_to_date(get_session_and_func):
         assert result == datetime.date(1997, 2, 28)
     else:
         assert result == datetime.date(1997, 2, 28)
+    # Compact date format exposes double PARSE_TIMESTAMP bug on BigQuery
+    df2 = session.createDataFrame([("19970228",)], ["t"])
+    result2 = df2.select(to_date(df2.t, "yyyyMMdd").alias("date")).first()[0]
+    assert result2 == datetime.date(1997, 2, 28)
 
 
 def test_to_timestamp(get_session_and_func):
@@ -1534,6 +1549,12 @@ def test_unix_timestamp(get_session_and_func, get_func):
     df = session.createDataFrame([(datetime.datetime(2015, 4, 8),)], schema=f"ts {ts_type}")
     result = df.select(unix_timestamp("ts").alias("unix_time")).first()[0]
     assert result == 1428451200
+    # Regression test: unix_timestamp on a TIMESTAMP column (TIMESTAMPTZ in DuckDB)
+    # should not fail with STRPTIME type mismatch. See: https://github.com/eakmanrq/sqlframe/issues/474
+    if isinstance(session, DuckDBSession):
+        df = session.createDataFrame([(datetime.datetime(2015, 4, 8),)], schema="ts TIMESTAMP")
+        result = df.select(unix_timestamp("ts").alias("unix_time")).first()[0]
+        assert result == 1428451200
 
 
 def test_from_utc_timestamp(get_session_and_func):
@@ -2139,6 +2160,13 @@ def test_array_append(get_session_and_func, get_func):
     ]
     assert df.select(array_append(df.c1, "x")).collect() == [
         Row(value=["b", "a", "c", "x"]),
+    ]
+    # NULL array should return NULL, not [value]
+    when = get_func("when", session)
+    col = get_func("col", session)
+    df_null = session.range(1).select(when(lit(False), lit(["a"])).alias("c1"))
+    assert df_null.select(array_append(col("c1"), "x")).collect() == [
+        Row(value=None),
     ]
 
 
@@ -3309,7 +3337,7 @@ def test_to_binary(get_session_and_func, get_func):
     df = session.createDataFrame([("abc",)], ["e"])
     value = df.select(to_binary(df.e, lit("utf-8")).alias("r")).first()[0]
     if isinstance(session, DuckDBSession):
-        assert value == "011000010110001001100011"
+        assert value == b"abc"
     else:
         assert value == bytearray(b"abc")
     df = session.createDataFrame([("414243",)], ["e"])
@@ -5059,6 +5087,12 @@ def test_to_unix_timestamp(get_session_and_func, get_func):
         to_unix_timestamp("ts", lit("yyyy-MM-dd HH:mm:ss")).alias("unix_time")
     ).first()[0]
     assert result == 1428451200
+    # Regression test: to_unix_timestamp on a TIMESTAMP column (TIMESTAMPTZ in DuckDB)
+    # should not fail with STRPTIME type mismatch. See: https://github.com/eakmanrq/sqlframe/issues/474
+    if isinstance(session, DuckDBSession):
+        df = session.createDataFrame([(datetime.datetime(2015, 4, 8),)], schema="ts TIMESTAMP")
+        result = df.select(to_unix_timestamp("ts").alias("unix_time")).first()[0]
+        assert result == 1428451200
 
 
 def test_to_varchar(get_session_and_func, get_func):

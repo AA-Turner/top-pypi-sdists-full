@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from functools import cache
-from typing import Literal, Mapping, Optional, Tuple
+from typing import Any, List, Literal, Mapping, Optional, Tuple
 
 import pyarrow as pa
 
@@ -141,6 +141,12 @@ def model_type_from_proto(mt: pb.ModelType) -> ModelType:
     return _mt
 
 
+def model_class_from_proto(mc: str) -> Optional[ModelClass]:
+    if not mc:
+        return None
+    return ModelClass(mc)
+
+
 def model_encoding_from_proto(me: pb.ModelEncoding) -> ModelEncoding:
     mapping = {
         pb.ModelEncoding.MODEL_ENCODING_PICKLE: ModelEncoding.PICKLE,
@@ -156,9 +162,6 @@ def model_encoding_from_proto(me: pb.ModelEncoding) -> ModelEncoding:
     if _me is None:
         raise ValueError(f"Unsupported model encoding: {me}")
     return _me
-
-
-from typing import Any, List, Optional, Tuple
 
 
 class ModelAttributeExtractor:

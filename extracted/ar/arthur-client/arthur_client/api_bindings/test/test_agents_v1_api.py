@@ -82,6 +82,13 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_update_unregistered_agent(self) -> None:
+        """Test case for update_unregistered_agent
+
+        Update An Unregistered Agent.
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

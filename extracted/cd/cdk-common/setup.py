@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-common",
-    "version": "2.0.1400",
+    "version": "2.0.1402",
     "description": "Common AWS CDK librarys.",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-common.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_common._jsii": [
-            "cdk-common@2.0.1400.jsii.tgz"
+            "cdk-common@2.0.1402.jsii.tgz"
         ],
         "cdk_common": [
             "py.typed"
@@ -35,8 +35,8 @@ kwargs = json.loads(
     "python_requires": "~=3.9",
     "install_requires": [
         "aws-cdk-lib>=2.188.0, <3.0.0",
-        "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.126.0, <2.0.0",
+        "constructs>=10.5.1, <11.0.0",
+        "jsii>=1.127.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

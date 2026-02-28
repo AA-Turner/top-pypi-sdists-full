@@ -249,6 +249,7 @@ class CreateOdbPeeringConnectionInputTypeDef(TypedDict):
     peerNetworkId: str
     displayName: NotRequired[str]
     peerNetworkCidrsToBeAdded: NotRequired[Sequence[str]]
+    peerNetworkRouteTableIds: NotRequired[Sequence[str]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 

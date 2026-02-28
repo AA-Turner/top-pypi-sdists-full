@@ -1,25 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: phx-class-registry
-Version: 5.1.1
+Version: 5.2.1
 Summary: Factory+Registry pattern for Python classes
-Home-page: https://github.com/todofixthis/class-registry
-License: MIT
+Project-URL: Repository, https://github.com/todofixthis/class-registry
+Project-URL: Documentation, https://class-registry.readthedocs.io/
+Project-URL: Changelog, https://github.com/todofixthis/class-registry/releases
+Project-URL: Issues, https://github.com/todofixthis/class-registry/issues
+Author-email: Phoenix Zerin <phx@phx.nz>
+License-Expression: MIT
+License-File: LICENCE.txt
 Keywords: design pattern,factory pattern,registry pattern,service registry
-Author: Phoenix Zerin
-Author-email: phx@phx.nz
-Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Project-URL: Changelog, https://github.com/todofixthis/class-registry/releases
-Project-URL: Documentation, https://class-registry.readthedocs.io/
-Project-URL: Issues, https://github.com/todofixthis/class-registry/issues
-Project-URL: Repository, https://github.com/todofixthis/class-registry
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 
 .. image:: https://github.com/todofixthis/class-registry/actions/workflows/build.yml/badge.svg
@@ -115,9 +109,9 @@ Requirements
 ------------
 ClassRegistry is known to be compatible with the following Python versions:
 
+- 3.14
 - 3.13
 - 3.12
-- 3.11
 
 .. note::
 
@@ -142,23 +136,26 @@ Maintainers
 ===========
 To install the distribution for local development, some additional setup is required:
 
-#. `Install poetry <https://python-poetry.org/docs/#installation>`_ (only needs to be
-   done once).
+#. `Install uv <https://docs.astral.sh/uv/getting-started/installation/>`_ (only needs
+   to be done once).
 
 #. Run the following command to install additional dependencies::
 
-      poetry install --with=dev
+      uv sync --group=dev
 
 #. Activate pre-commit hook::
 
-      poetry run autohooks activate --mode=poetry
+      uv run autohooks activate --mode=pythonpath
 
 Running Unit Tests and Type Checker
 -----------------------------------
 Run the tests for all supported versions of Python using
 `tox <https://tox.readthedocs.io/>`_::
 
-   poetry run tox -p
+   uv run tox -p
+
+The ``-p`` flag runs tests for each version of Python in parallel. Omit it if you want
+to see the tests run for one Python version at a time.
 
 .. note::
 
@@ -168,12 +165,12 @@ Run the tests for all supported versions of Python using
 If you just want to run unit tests in the current virtualenv (using
 `pytest <https://docs.pytest.org>`_)::
 
-   poetry run pytest
+   uv run pytest
 
 If you just want to run type checking in the current virtualenv (using
 `mypy <https://mypy.readthedocs.io>`_)::
 
-   poetry run mypy src test
+   uv run mypy src test
 
 Documentation
 -------------
@@ -185,7 +182,7 @@ To build the documentation locally:
 
 #. Build the documentation::
 
-    make html
+    uv run make html
 
 Releases
 --------
@@ -197,6 +194,21 @@ Steps to build releases are based on
    Make sure to build releases off of the ``main`` branch, and check that all changes
    from ``develop`` have been merged before creating the release!
 
+One-time Setup
+~~~~~~~~~~~~~~
+#. Install the ``keyring`` tool and add it to your ``PATH``::
+
+      uv tool install keyring
+      uv tool update-shell
+
+   Restart your shell after running ``update-shell``.
+#. `Create a PyPI API token <https://pypi.org/manage/account/#api-tokens>`_ and store it
+   in the OS keychain::
+
+      keyring set https://upload.pypi.org/legacy/ __token__
+
+   Paste the ``pypi-...`` token when prompted.
+
 1. Build the Project
 ~~~~~~~~~~~~~~~~~~~~
 #. Delete artefacts from previous builds, if applicable::
@@ -205,28 +217,27 @@ Steps to build releases are based on
 
 #. Run the build::
 
-    poetry build
+    uv build
 
 #. The build artefacts will be located in the ``dist`` directory at the top
    level of the project.
 
 2. Upload to PyPI
 ~~~~~~~~~~~~~~~~~
-#. `Create a PyPI API token <https://pypi.org/manage/account/token/>`_ (you only have to
-   do this once).
-#. Increment the version number in ``pyproject.toml``.
+#. Bump the version (also updates ``uv.lock``)::
+
+      uv version <version>
+
 #. Upload build artefacts to PyPI::
 
-    poetry publish
+    uv publish --username __token__
 
 3. Create GitHub Release
 ~~~~~~~~~~~~~~~~~~~~~~~~
 #. Create a tag and push to GitHub::
 
-      git tag <version>
-      git push <version>
-
-   ``<version>`` must match the updated version number in ``pyproject.toml``.
+      git tag -a <version> -m "Release <version>"
+      git push origin <version>
 
 #. Go to the `Releases page for the repo`_.
 #. Click ``Draft a new release``.
@@ -242,4 +253,3 @@ Steps to build releases are based on
 #. Click ``Publish release``.
 
 .. _Releases page for the repo: https://github.com/todofixthis/class-registry/releases
-

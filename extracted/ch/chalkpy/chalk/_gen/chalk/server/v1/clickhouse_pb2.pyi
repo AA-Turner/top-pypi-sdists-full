@@ -7,14 +7,30 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetClickhouseUriRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("env_id", "cluster_name")
+    ENV_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    env_id: str
+    cluster_name: str
+    def __init__(self, env_id: _Optional[str] = ..., cluster_name: _Optional[str] = ...) -> None: ...
 
 class GetClickhouseUriResponse(_message.Message):
-    __slots__ = ("uri",)
+    __slots__ = ("uri", "username", "host", "secret_name")
     URI_FIELD_NUMBER: _ClassVar[int]
+    USERNAME_FIELD_NUMBER: _ClassVar[int]
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
     uri: str
-    def __init__(self, uri: _Optional[str] = ...) -> None: ...
+    username: str
+    host: str
+    secret_name: str
+    def __init__(
+        self,
+        uri: _Optional[str] = ...,
+        username: _Optional[str] = ...,
+        host: _Optional[str] = ...,
+        secret_name: _Optional[str] = ...,
+    ) -> None: ...
 
 class OtelTtls(_message.Message):
     __slots__ = ("log_ttl_minutes", "trace_ttl_minutes")

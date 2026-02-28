@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import itertools
-from typing import List, Optional, Tuple, Union
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator import settings
@@ -40,8 +38,8 @@ class BatchRepeatLinearOperator(LinearOperator):
 
     @cached(name="cholesky")
     def _cholesky(
-        self: Float[LinearOperator, "*batch N N"], upper: Optional[bool] = False
-    ) -> Float[LinearOperator, "*batch N N"]:
+        self: LinearOperator, upper: bool | None = False  # shape: (*batch, N, N)
+    ) -> LinearOperator:  # shape: (*batch, N, N)
         from linear_operator.operators.triangular_linear_operator import TriangularLinearOperator
 
         res = self.base_linear_op.cholesky(upper=upper)._tensor
@@ -49,10 +47,10 @@ class BatchRepeatLinearOperator(LinearOperator):
         return TriangularLinearOperator(res, upper=upper)
 
     def _cholesky_solve(
-        self: Float[LinearOperator, "*batch N N"],
-        rhs: Union[Float[LinearOperator, "*batch2 N M"], Float[Tensor, "*batch2 N M"]],
-        upper: Optional[bool] = False,
-    ) -> Union[Float[LinearOperator, "... N M"], Float[Tensor, "... N M"]]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        rhs: LinearOperator | Tensor,  # shape: (*batch2, N, M)
+        upper: bool | None = False,
+    ) -> LinearOperator | Tensor:  # shape: (..., N, M)
         # TODO: Figure out how to deal with this with TriangularLinearOperator if returned by _cholesky
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
         if rhs.shape != output_shape:
@@ -64,7 +62,7 @@ class BatchRepeatLinearOperator(LinearOperator):
         return res
 
     def _compute_batch_repeat_size(
-        self, current_batch_shape: Union[torch.Size, List[int]], desired_batch_shape: Union[torch.Size, List[int]]
+        self, current_batch_shape: torch.Size | list[int], desired_batch_shape: torch.Size | list[int]
     ) -> torch.Size:
         batch_repeat = torch.Size(
             desired_batch_size // current_batch_size
@@ -73,8 +71,8 @@ class BatchRepeatLinearOperator(LinearOperator):
         return batch_repeat
 
     def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
+        self: LinearOperator, batch_shape: torch.Size | list[int]  # shape: (..., M, N)
+    ) -> LinearOperator:  # shape: (..., M, N)
         padding_dims = torch.Size(tuple(1 for _ in range(max(len(batch_shape) + 2 - self.base_linear_op.dim(), 0))))
         current_batch_shape = padding_dims + self.base_linear_op.batch_shape
         return self.__class__(
@@ -111,9 +109,9 @@ class BatchRepeatLinearOperator(LinearOperator):
         return new_linear_op._getitem(row_index, col_index, *batch_indices)
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         output_shape = _matmul_broadcast_shape(self.shape, rhs.shape)
 
         # only attempt broadcasting if the non-batch dimensions are the same
@@ -198,7 +196,7 @@ class BatchRepeatLinearOperator(LinearOperator):
         res = self.__class__(self.base_linear_op._permute_batch(*dims), batch_repeat=new_batch_repeat)
         return res
 
-    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> Tuple[Optional[Tensor], ...]:
+    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> tuple[Tensor | None, ...]:
         if self.is_square:
             left_output_shape = _matmul_broadcast_shape(self.shape, left_vecs.shape)
             if left_output_shape != left_vecs.shape:
@@ -216,15 +214,15 @@ class BatchRepeatLinearOperator(LinearOperator):
             return super()._bilinear_derivative(left_vecs, right_vecs)
 
     def _root_decomposition(
-        self: Float[LinearOperator, "... N N"]
-    ) -> Union[Float[torch.Tensor, "... N N"], Float[LinearOperator, "... N N"]]:
+        self: LinearOperator,  # shape: (..., N, N)
+    ) -> torch.Tensor | LinearOperator:  # shape: (..., N, N)
         return self.base_linear_op._root_decomposition().repeat(*self.batch_repeat, 1, 1)
 
     def _root_inv_decomposition(
-        self: Float[LinearOperator, "*batch N N"],
-        initial_vectors: Optional[torch.Tensor] = None,
-        test_vectors: Optional[torch.Tensor] = None,
-    ) -> Union[Float[LinearOperator, "... N N"], Float[Tensor, "... N N"]]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        initial_vectors: torch.Tensor | None = None,
+        test_vectors: torch.Tensor | None = None,
+    ) -> LinearOperator | Tensor:  # shape: (..., N, N)
         return self.base_linear_op._root_inv_decomposition().repeat(*self.batch_repeat, 1, 1)
 
     def _size(self) -> torch.Size:
@@ -234,7 +232,9 @@ class BatchRepeatLinearOperator(LinearOperator):
         res = torch.Size(repeated_batch_shape + self.base_linear_op.matrix_shape)
         return res
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         return self.__class__(self.base_linear_op._transpose_nonbatch(), batch_repeat=self.batch_repeat)
 
     def _unsqueeze_batch(self, dim: int) -> LinearOperator:
@@ -250,19 +250,19 @@ class BatchRepeatLinearOperator(LinearOperator):
         return self.__class__(base_linear_op, batch_repeat=batch_repeat)
 
     def add_jitter(
-        self: Float[LinearOperator, "*batch N N"], jitter_val: float = 1e-3
-    ) -> Float[LinearOperator, "*batch N N"]:
+        self: LinearOperator, jitter_val: float = 1e-3  # shape: (*batch, N, N)
+    ) -> LinearOperator:  # shape: (*batch, N, N)
         return self.__class__(self.base_linear_op.add_jitter(jitter_val=jitter_val), batch_repeat=self.batch_repeat)
 
     def inv_quad_logdet(
-        self: Float[LinearOperator, "*batch N N"],
-        inv_quad_rhs: Optional[Union[Float[Tensor, "*batch N M"], Float[Tensor, "*batch N"]]] = None,
-        logdet: Optional[bool] = False,
-        reduce_inv_quad: Optional[bool] = True,
-    ) -> Tuple[
-        Optional[Union[Float[Tensor, "*batch M"], Float[Tensor, " *batch"], Float[Tensor, " 0"]]],
-        Optional[Float[Tensor, "..."]],
-    ]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        inv_quad_rhs: Tensor | None = None,  # shape: (*batch, N, M) or (*batch, N)
+        logdet: bool | None = False,
+        reduce_inv_quad: bool | None = True,
+    ) -> tuple[  # fmt: off
+        Tensor | None,  # shape: (*batch, M) or (*batch) or (0)
+        Tensor | None,  # shape: (...)
+    ]:  # fmt: on
         if not self.is_square:
             raise RuntimeError(
                 "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LinearOperators. "
@@ -301,7 +301,7 @@ class BatchRepeatLinearOperator(LinearOperator):
 
         return inv_quad_term, logdet_term
 
-    def repeat(self, *sizes: Union[int, Tuple[int, ...]]) -> LinearOperator:
+    def repeat(self, *sizes: int | tuple[int, ...]) -> LinearOperator:
         if len(sizes) < 3 or tuple(sizes[-2:]) != (1, 1):
             raise RuntimeError(
                 "Invalid repeat arguments {}. Currently, repeat only works to create repeated "
@@ -319,8 +319,8 @@ class BatchRepeatLinearOperator(LinearOperator):
 
     @cached(name="svd")
     def _svd(
-        self: Float[LinearOperator, "*batch N N"]
-    ) -> Tuple[Float[LinearOperator, "*batch N N"], Float[Tensor, "... N"], Float[LinearOperator, "*batch N N"]]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+    ) -> tuple[LinearOperator, Tensor, LinearOperator]:  # shape: (*batch, N, N), (..., N), (*batch, N, N)
         U_, S_, V_ = self.base_linear_op.svd()
         U = U_.repeat(*self.batch_repeat, 1, 1)
         S = S_.repeat(*self.batch_repeat, 1)
@@ -328,10 +328,10 @@ class BatchRepeatLinearOperator(LinearOperator):
         return U, S, V
 
     def _symeig(
-        self: Float[LinearOperator, "*batch N N"],
+        self: LinearOperator,  # shape: (*batch, N, N)
         eigenvectors: bool = False,
-        return_evals_as_lazy: Optional[bool] = False,
-    ) -> Tuple[Float[Tensor, "*batch M"], Optional[Float[LinearOperator, "*batch N M"]]]:
+        return_evals_as_lazy: bool | None = False,
+    ) -> tuple[Tensor, LinearOperator | None]:  # shape: (*batch, M), (*batch, N, M)
         evals, evecs = self.base_linear_op._symeig(eigenvectors=eigenvectors)
         evals = evals.repeat(*self.batch_repeat, 1)
         if eigenvectors:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-docs-theme
-Version: 2025.12
+Version: 2026.2
 Summary: The Sphinx theme for the CPython docs and related projects
 Author: Python Docs Sphinx Theme maintainers
 Requires-Python: >=3.12

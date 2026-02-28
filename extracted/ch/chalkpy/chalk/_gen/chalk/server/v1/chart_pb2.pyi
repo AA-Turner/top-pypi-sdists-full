@@ -5,6 +5,7 @@ from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,6 +17,18 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class MetricFormulaOperandKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: _ClassVar[MetricFormulaOperandKind]
+    METRIC_FORMULA_OPERAND_KIND_SERIES: _ClassVar[MetricFormulaOperandKind]
+    METRIC_FORMULA_OPERAND_KIND_DATASET: _ClassVar[MetricFormulaOperandKind]
+    METRIC_FORMULA_OPERAND_KIND_FEATURE: _ClassVar[MetricFormulaOperandKind]
+
+METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: MetricFormulaOperandKind
+METRIC_FORMULA_OPERAND_KIND_SERIES: MetricFormulaOperandKind
+METRIC_FORMULA_OPERAND_KIND_DATASET: MetricFormulaOperandKind
+METRIC_FORMULA_OPERAND_KIND_FEATURE: MetricFormulaOperandKind
 
 class Series(_message.Message):
     __slots__ = ("points", "label", "units")
@@ -287,3 +300,103 @@ class DeleteChartRequest(_message.Message):
 class DeleteChartResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetChartOptionsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class FilterOptionNamespace(_message.Message):
+    __slots__ = ("namespace", "values")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, namespace: _Optional[str] = ..., values: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class FilterOption(_message.Message):
+    __slots__ = ("display_name", "kind", "namespaced_values")
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACED_VALUES_FIELD_NUMBER: _ClassVar[int]
+    display_name: str
+    kind: _chart_pb2.FilterKind
+    namespaced_values: _containers.RepeatedCompositeFieldContainer[FilterOptionNamespace]
+    def __init__(
+        self,
+        display_name: _Optional[str] = ...,
+        kind: _Optional[_Union[_chart_pb2.FilterKind, str]] = ...,
+        namespaced_values: _Optional[_Iterable[_Union[FilterOptionNamespace, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GroupOption(_message.Message):
+    __slots__ = ("display_name", "kind")
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    display_name: str
+    kind: _chart_pb2.GroupByKind
+    def __init__(
+        self, display_name: _Optional[str] = ..., kind: _Optional[_Union[_chart_pb2.GroupByKind, str]] = ...
+    ) -> None: ...
+
+class WindowFunctionOption(_message.Message):
+    __slots__ = ("display_name", "window_function")
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    display_name: str
+    window_function: _chart_pb2.WindowFunctionKind
+    def __init__(
+        self,
+        display_name: _Optional[str] = ...,
+        window_function: _Optional[_Union[_chart_pb2.WindowFunctionKind, str]] = ...,
+    ) -> None: ...
+
+class MetricOptions(_message.Message):
+    __slots__ = ("kind", "filters", "groups", "window_functions")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    GROUPS_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_FUNCTIONS_FIELD_NUMBER: _ClassVar[int]
+    kind: _chart_pb2.MetricKind
+    filters: _containers.RepeatedCompositeFieldContainer[FilterOption]
+    groups: _containers.RepeatedCompositeFieldContainer[GroupOption]
+    window_functions: _containers.RepeatedCompositeFieldContainer[WindowFunctionOption]
+    def __init__(
+        self,
+        kind: _Optional[_Union[_chart_pb2.MetricKind, str]] = ...,
+        filters: _Optional[_Iterable[_Union[FilterOption, _Mapping]]] = ...,
+        groups: _Optional[_Iterable[_Union[GroupOption, _Mapping]]] = ...,
+        window_functions: _Optional[_Iterable[_Union[WindowFunctionOption, _Mapping]]] = ...,
+    ) -> None: ...
+
+class MetricFormulaOperand(_message.Message):
+    __slots__ = ("kind",)
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    kind: MetricFormulaOperandKind
+    def __init__(self, kind: _Optional[_Union[MetricFormulaOperandKind, str]] = ...) -> None: ...
+
+class MetricFormulaOption(_message.Message):
+    __slots__ = ("display_name", "kind", "operands")
+    DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    OPERANDS_FIELD_NUMBER: _ClassVar[int]
+    display_name: str
+    kind: _chart_pb2.MetricFormulaKind
+    operands: _containers.RepeatedCompositeFieldContainer[MetricFormulaOperand]
+    def __init__(
+        self,
+        display_name: _Optional[str] = ...,
+        kind: _Optional[_Union[_chart_pb2.MetricFormulaKind, str]] = ...,
+        operands: _Optional[_Iterable[_Union[MetricFormulaOperand, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetChartOptionsResponse(_message.Message):
+    __slots__ = ("metrics", "formulas")
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    FORMULAS_FIELD_NUMBER: _ClassVar[int]
+    metrics: _containers.RepeatedCompositeFieldContainer[MetricOptions]
+    formulas: _containers.RepeatedCompositeFieldContainer[MetricFormulaOption]
+    def __init__(
+        self,
+        metrics: _Optional[_Iterable[_Union[MetricOptions, _Mapping]]] = ...,
+        formulas: _Optional[_Iterable[_Union[MetricFormulaOption, _Mapping]]] = ...,
+    ) -> None: ...

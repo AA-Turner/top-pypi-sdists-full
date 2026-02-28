@@ -1,16 +1,5 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import re
 import shutil
@@ -32,7 +21,6 @@ from compressed_tensors.quantization import (
 )
 from compressed_tensors.quantization.lifecycle import apply_quantization_config
 from compressed_tensors.utils import is_match, match_named_modules
-from tests.testing_utils import requires_accelerate
 from transformers import AutoModelForCausalLM
 
 
@@ -322,7 +310,6 @@ def get_sample_tinyllama_quant_config(
     return QuantizationConfig.model_validate(config_dict)
 
 
-@requires_accelerate()
 @pytest.mark.parametrize(
     "target,should_raise_warning",
     [
@@ -462,12 +449,8 @@ def test_multi_apply_quantization_config():
             )
 
 
-@requires_accelerate()
 def test_apply_kv_cache():
-    from accelerate import init_empty_weights
-
-    with init_empty_weights():
-        model = AutoModelForCausalLM.from_pretrained("nm-testing/llama2.c-stories15M")
+    model = AutoModelForCausalLM.from_pretrained("nm-testing/llama2.c-stories15M")
 
     args = QuantizationArgs(
         num_bits=8,
@@ -486,12 +469,8 @@ def test_apply_kv_cache():
         assert hasattr(layer.self_attn, "v_scale")
 
 
-@requires_accelerate()
 def test_apply_attention():
-    from accelerate import init_empty_weights
-
-    with init_empty_weights():
-        model = AutoModelForCausalLM.from_pretrained("nm-testing/llama2.c-stories15M")
+    model = AutoModelForCausalLM.from_pretrained("nm-testing/llama2.c-stories15M")
 
     scheme = QuantizationScheme(
         targets=["LlamaAttention"],

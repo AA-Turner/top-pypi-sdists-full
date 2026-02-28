@@ -62,6 +62,8 @@ FEDORA = Platform("fedora", "Fedora", "🎩", "https://fedoraproject.org")
 
 FREEBSD = Platform("freebsd", "FreeBSD", "😈", "https://freebsd.org")
 
+GENERIC_LINUX = Platform("generic_linux", "Generic Linux", "🥚", "https://kernel.org")
+
 GENTOO = Platform("gentoo", "Gentoo Linux", "🗜️", "https://gentoo.org")
 
 GUIX = Platform("guix", "Guix System", "🐃", "https://guix.gnu.org")

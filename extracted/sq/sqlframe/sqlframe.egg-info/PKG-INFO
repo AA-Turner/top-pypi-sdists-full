@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlframe
-Version: 3.46.2
+Version: 3.47.0
 Summary: Turning PySpark Into a Universal DataFrame API
-Home-page: https://github.com/eakmanrq/sqlframe
-Author: Ryan Eakman
-Author-email: eakmanrq@gmail.com
+Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
+Project-URL: Homepage, https://github.com/eakmanrq/sqlframe
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -13,20 +12,59 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: SQL
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: bigquery
-Provides-Extra: databricks
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: duckdb
-Provides-Extra: openai
-Provides-Extra: pandas
-Provides-Extra: postgres
-Provides-Extra: redshift
-Provides-Extra: snowflake
-Provides-Extra: spark
 License-File: LICENSE
+Requires-Dist: prettytable<4
+Requires-Dist: sqlglot<29.1,>=28.0.0
+Requires-Dist: typing_extensions
+Requires-Dist: more-itertools
+Provides-Extra: bigquery
+Requires-Dist: google-cloud-bigquery[pandas]<4,>=3; extra == "bigquery"
+Requires-Dist: google-cloud-bigquery-storage<3,>=2; extra == "bigquery"
+Provides-Extra: databricks
+Requires-Dist: databricks-sql-connector[pyarrow]<5,>=3.6; extra == "databricks"
+Provides-Extra: dev
+Requires-Dist: duckdb<1.5,>=1.2; extra == "dev"
+Requires-Dist: findspark<3,>=2; extra == "dev"
+Requires-Dist: mirakuru<3.0.3; extra == "dev"
+Requires-Dist: ty>=0.0.18; extra == "dev"
+Requires-Dist: openai<3,>=1.30; extra == "dev"
+Requires-Dist: pandas<4,>=2; extra == "dev"
+Requires-Dist: pandas-stubs<4,>=2; extra == "dev"
+Requires-Dist: psycopg<4,>=3.1; extra == "dev"
+Requires-Dist: pyarrow<24,>=10; extra == "dev"
+Requires-Dist: pyspark<3.6,>=2; extra == "dev"
+Requires-Dist: pytest<9.1,>=8.2.0; extra == "dev"
+Requires-Dist: pytest-forked; extra == "dev"
+Requires-Dist: pytest-postgresql<9,>=6; extra == "dev"
+Requires-Dist: pytest-rerunfailures; extra == "dev"
+Requires-Dist: pytest-xdist<3.9,>=3.6; extra == "dev"
+Requires-Dist: pre-commit<5,>=3.7; extra == "dev"
+Requires-Dist: ruff<0.16,>=0.4.4; extra == "dev"
+Requires-Dist: types-psycopg2<3,>=2.9; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs==1.4.2; extra == "docs"
+Requires-Dist: mkdocs-include-markdown-plugin==6.0.6; extra == "docs"
+Requires-Dist: mkdocs-material==9.0.5; extra == "docs"
+Requires-Dist: mkdocs-material-extensions==1.1.1; extra == "docs"
+Requires-Dist: pymdown-extensions; extra == "docs"
+Provides-Extra: duckdb
+Requires-Dist: duckdb<1.5,>=1.2; extra == "duckdb"
+Requires-Dist: pandas<4,>=2; extra == "duckdb"
+Provides-Extra: openai
+Requires-Dist: openai<3,>=1.30; extra == "openai"
+Provides-Extra: pandas
+Requires-Dist: pandas<4,>=2; extra == "pandas"
+Provides-Extra: postgres
+Requires-Dist: psycopg2<3,>=2.8; extra == "postgres"
+Provides-Extra: redshift
+Requires-Dist: redshift_connector<2.2.0,>=2.1.1; extra == "redshift"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-connector-python[secure-local-storage]<4.4,>=3.10.0; extra == "snowflake"
+Provides-Extra: spark
+Requires-Dist: pyspark<3.6,>=2; extra == "spark"
+Dynamic: license-file
 
 <div align="center">
   <img src="https://sqlframe.readthedocs.io/en/stable/docs/images/sqlframe_logo.png" alt="SQLFrame Logo" width="400"/>

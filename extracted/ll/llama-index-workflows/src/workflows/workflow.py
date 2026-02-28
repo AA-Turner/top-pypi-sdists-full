@@ -153,6 +153,7 @@ class Workflow(metaclass=WorkflowMeta):
         self._resource_manager = resource_manager or ResourceManager()
         # Instrumentation
         self._dispatcher = dispatcher
+        self._runtime_locked = False
 
         # Runtime registration: explicit > context-scoped > basic_runtime
         from workflows.plugins._context import get_current_runtime
@@ -162,6 +163,12 @@ class Workflow(metaclass=WorkflowMeta):
         else:
             # get_current_runtime() falls back to basic_runtime
             self._runtime = get_current_runtime()
+
+        # Wrap with verbose decorator if requested
+        if self._verbose:
+            from workflows.runtime.verbose import VerboseDecorator
+
+            self._runtime = VerboseDecorator(self._runtime)
 
         # Register with runtime for tracking (no-op for BasicRuntime)
         self._runtime.track_workflow(self)
@@ -183,6 +190,18 @@ class Workflow(metaclass=WorkflowMeta):
         """The runtime this workflow is registered with."""
         return self._runtime
 
+    def _switch_runtime(self, new_runtime: Runtime) -> None:
+        if new_runtime is self._runtime:
+            return
+        if self._runtime_locked:
+            raise RuntimeError(
+                "Cannot reassign runtime after workflow has been launched"
+            )
+        old = self._runtime
+        old.untrack_workflow(self)
+        self._runtime = new_runtime
+        new_runtime.track_workflow(self)
+
     @property
     def workflow_name(self) -> str:
         """
@@ -202,6 +221,13 @@ class Workflow(metaclass=WorkflowMeta):
             return self._workflow_name
         cls = self.__class__
         return f"{cls.__module__}.{cls.__qualname__}"
+
+    def _switch_workflow_name(self, name: str) -> None:
+        if self._runtime_locked and name != self._workflow_name:
+            raise RuntimeError(
+                "Cannot change workflow_name after workflow has been launched"
+            )
+        self._workflow_name = name
 
     def _ensure_start_event_class(self) -> type[StartEvent]:
         """
@@ -413,6 +439,10 @@ class Workflow(metaclass=WorkflowMeta):
             ```
         """
         from workflows.context import Context
+
+        if not self._runtime_locked:
+            # don't allow switching runtime after a workflow has been launched
+            self._runtime_locked = True
 
         # Manually manage span to keep it open until workflow completes
         # llama-index-instrumentation currently does not manage Awaitable's well (i.e. the workflow handler)

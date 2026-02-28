@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-snowflake-pandas"
-version = "0.28.15"
+version = "0.28.17"
 description = "Package for integrating Snowflake and Pandas with Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,8 +22,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
-    "dagster-snowflake==0.28.15",
+    "dagster==1.12.17",
+    "dagster-snowflake==0.28.17",
     "pandas<3.0.0",
     "requests",
     "snowflake-connector-python[pandas]>=3.4.0",
@@ -37,21 +37,4 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/lib
 [project.optional-dependencies]
 test = [
     "certifi==2025.1.31",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_snowflake_pandas_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_snowflake_pandas_tests/**",
 ]

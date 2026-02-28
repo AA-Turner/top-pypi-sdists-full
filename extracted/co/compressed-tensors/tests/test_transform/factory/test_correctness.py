@@ -1,19 +1,9 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import pytest
 import torch
+from compressed_tensors.offload import offload_model
 from compressed_tensors.transform import (
     TransformArgs,
     TransformConfig,
@@ -21,9 +11,8 @@ from compressed_tensors.transform import (
     TransformScheme,
     apply_transform_config,
 )
-from compressed_tensors.utils import offloaded_dispatch
 from tests.test_transform.conftest import MockAttention, MockAttentionModel
-from tests.testing_utils import requires_accelerate, requires_gpu
+from tests.testing_utils import requires_gpu
 
 
 @pytest.mark.parametrize("type", ("hadamard", "random-hadamard", "random-matrix"))
@@ -89,16 +78,16 @@ def test_correctness_embedding(type, randomize, embed_loc, linear_loc):
     assert torch.allclose(true_output, output, atol=1e-5, rtol=0.0)
 
 
+@requires_gpu
 @pytest.mark.parametrize("type", ("hadamard", "random-hadamard", "random-matrix"))
 @pytest.mark.parametrize("randomize", (True, False))
 @pytest.mark.parametrize("input_batch_size", (1, 5, 17))
-def test_correctness_model(
-    type, randomize, input_batch_size, model_apply, offload=False
-):
+@pytest.mark.parametrize("offload", (True, False))
+def test_correctness_model(type, randomize, input_batch_size, model_apply, offload):
     # load model
     model = model_apply[0]
     if offload:
-        model = offloaded_dispatch(model, torch.device("cuda"))
+        offload_model(model, torch.device("cuda"))
 
     # get output
     input = torch.rand((input_batch_size, 5, model.fcs[0].in_features))
@@ -117,15 +106,6 @@ def test_correctness_model(
     # compare outputs
     output = model(input)
     assert torch.allclose(true_output, output, atol=1e-5, rtol=0.0)
-
-
-@requires_gpu
-@requires_accelerate()
-@pytest.mark.parametrize("type", ("hadamard", "random-hadamard", "random-matrix"))
-@pytest.mark.parametrize("randomize", (True, False))
-@pytest.mark.parametrize("input_batch_size", (1, 5, 17))
-def test_correctness_model_offload(type, randomize, input_batch_size, model_apply):
-    test_correctness_model(type, randomize, input_batch_size, model_apply, offload=True)
 
 
 @pytest.mark.parametrize("type", ("hadamard", "random-hadamard", "random-matrix"))

@@ -24,9 +24,7 @@
  */
 
 
-#include <girepository/girepository.h>
-
-#include "pygobject-internal.h"
+#include "pygobject-types.h"
 #include "pygi-info.h"
 #include "pygi-util.h"
 #include "pygi-fundamental.h"

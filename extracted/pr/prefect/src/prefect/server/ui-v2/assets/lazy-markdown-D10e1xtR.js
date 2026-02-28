@@ -1,0 +1,3 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/vendor-markdown-DuvZjpJR.js","assets/vendor-tanstack-DVj8cQpY.js"])))=>i.map(i=>d[i]);
+import{co as r,bd as _}from"./index-Ch2Eckby.js";import{r as e,j as s}from"./vendor-tanstack-DVj8cQpY.js";function f({children:a,...i}){const[o,u]=e.useState(null),[n,l]=e.useState(null);return e.useEffect(()=>{Promise.all([r(()=>import("./vendor-markdown-DuvZjpJR.js").then(t=>t.i),__vite__mapDeps([0,1])),r(()=>import("./vendor-markdown-DuvZjpJR.js").then(t=>t.a),__vite__mapDeps([0,1]))]).then(([t,m])=>{u(()=>t.default),l(()=>m.default)})},[]),!o||!n?s.jsx(_,{className:"min-h-[100px]"}):s.jsx(o,{remarkPlugins:[n],...i,children:a})}export{f as L};
+//# sourceMappingURL=lazy-markdown-D10e1xtR.js.map

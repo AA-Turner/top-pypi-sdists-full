@@ -36,10 +36,11 @@ class TaskResponse(BaseModel):
     is_agentic: Optional[StrictBool] = None
     is_system_task: Optional[StrictBool] = None
     is_autocreated: Optional[StrictBool] = None
+    is_archived: Optional[StrictBool] = None
     agent_metadata: Optional[AgentMetadataResponse] = None
     rules: List[RuleResponse] = Field(description="List of all the rules for the task.")
     metrics: Optional[List[MetricResponse]] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "created_at", "updated_at", "is_agentic", "is_system_task", "is_autocreated", "agent_metadata", "rules", "metrics"]
+    __properties: ClassVar[List[str]] = ["id", "name", "created_at", "updated_at", "is_agentic", "is_system_task", "is_autocreated", "is_archived", "agent_metadata", "rules", "metrics"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,6 +113,11 @@ class TaskResponse(BaseModel):
         if self.is_autocreated is None and "is_autocreated" in self.model_fields_set:
             _dict['is_autocreated'] = None
 
+        # set to None if is_archived (nullable) is None
+        # and model_fields_set contains the field
+        if self.is_archived is None and "is_archived" in self.model_fields_set:
+            _dict['is_archived'] = None
+
         # set to None if agent_metadata (nullable) is None
         # and model_fields_set contains the field
         if self.agent_metadata is None and "agent_metadata" in self.model_fields_set:
@@ -141,6 +147,7 @@ class TaskResponse(BaseModel):
             "is_agentic": obj.get("is_agentic"),
             "is_system_task": obj.get("is_system_task"),
             "is_autocreated": obj.get("is_autocreated"),
+            "is_archived": obj.get("is_archived"),
             "agent_metadata": AgentMetadataResponse.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "metrics": [MetricResponse.from_dict(_item) for _item in obj["metrics"]] if obj.get("metrics") is not None else None

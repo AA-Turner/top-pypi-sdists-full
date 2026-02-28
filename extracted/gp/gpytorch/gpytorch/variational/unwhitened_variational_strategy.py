@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import math
-from typing import Optional, Tuple
 
 import torch
 from linear_operator import to_dense
@@ -67,14 +68,13 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
 
     @property
     @cached(name="pseudo_points_memo")
-    def pseudo_points(self) -> Tuple[Tensor, Tensor]:
+    def pseudo_points(self) -> tuple[Tensor, Tensor]:
         # TODO: implement for other distributions
         # retrieve the variational mean, m and covariance matrix, S.
         if not isinstance(self._variational_distribution, CholeskyVariationalDistribution):
             raise NotImplementedError(
-                "Only CholeskyVariationalDistribution has pseudo-point support currently, ",
-                "but your _variational_distribution is a ",
-                self._variational_distribution.__name__,
+                "Only CholeskyVariationalDistribution has pseudo-point support currently, "
+                f"but your _variational_distribution is a {type(self._variational_distribution).__name__}"
             )
 
         # retrieve the variational mean, m and covariance matrix, S.
@@ -124,7 +124,7 @@ class UnwhitenedVariationalStrategy(_VariationalStrategy):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:

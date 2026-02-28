@@ -47,6 +47,26 @@ class OfflineStoreConnectionServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionResponse.FromString,
         )
+        self.CreateBindingEnvironmentOfflineStoreConnection = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/CreateBindingEnvironmentOfflineStoreConnection",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+        )
+        self.GetBindingEnvironmentOfflineStoreConnection = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/GetBindingEnvironmentOfflineStoreConnection",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+        )
+        self.DeleteBindingEnvironmentOfflineStoreConnection = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/DeleteBindingEnvironmentOfflineStoreConnection",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+        )
+        self.MigrateOfflineStoreConnection = channel.unary_unary(
+            "/chalk.server.v1.OfflineStoreConnectionService/MigrateOfflineStoreConnection",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionResponse.FromString,
+        )
 
 
 class OfflineStoreConnectionServiceServicer(object):
@@ -88,6 +108,30 @@ class OfflineStoreConnectionServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateBindingEnvironmentOfflineStoreConnection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingEnvironmentOfflineStoreConnection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingEnvironmentOfflineStoreConnection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def MigrateOfflineStoreConnection(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_OfflineStoreConnectionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -120,6 +164,26 @@ def add_OfflineStoreConnectionServiceServicer_to_server(servicer, server):
             servicer.TestOfflineStoreConnection,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionResponse.SerializeToString,
+        ),
+        "CreateBindingEnvironmentOfflineStoreConnection": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingEnvironmentOfflineStoreConnection,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionResponse.SerializeToString,
+        ),
+        "GetBindingEnvironmentOfflineStoreConnection": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingEnvironmentOfflineStoreConnection,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionResponse.SerializeToString,
+        ),
+        "DeleteBindingEnvironmentOfflineStoreConnection": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingEnvironmentOfflineStoreConnection,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionResponse.SerializeToString,
+        ),
+        "MigrateOfflineStoreConnection": grpc.unary_unary_rpc_method_handler(
+            servicer.MigrateOfflineStoreConnection,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -296,6 +360,122 @@ class OfflineStoreConnectionService(object):
             "/chalk.server.v1.OfflineStoreConnectionService/TestOfflineStoreConnection",
             chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.TestOfflineStoreConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingEnvironmentOfflineStoreConnection(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/CreateBindingEnvironmentOfflineStoreConnection",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.CreateBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingEnvironmentOfflineStoreConnection(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/GetBindingEnvironmentOfflineStoreConnection",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.GetBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingEnvironmentOfflineStoreConnection(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/DeleteBindingEnvironmentOfflineStoreConnection",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.DeleteBindingEnvironmentOfflineStoreConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def MigrateOfflineStoreConnection(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineStoreConnectionService/MigrateOfflineStoreConnection",
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__store__connection__pb2.MigrateOfflineStoreConnectionResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -7,7 +7,7 @@ import time
 import re
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from ftplib import FTP
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,15 +30,11 @@ from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaTagDTO,
     RpaTagEnum,
 )
-from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
-    RpaProcessoEntradaDTO,
-)
 
 # =========================================================
 # CAMINHOS FIXOS
 # =========================================================
 EQUALS_OPENSSH_KEY_FIXED = r"assets\ssh_key\redesim-07473735000262.com.br.openssh.key"
-
 
 # =========================
 # LOGGER / CONSOLE (fallback)
@@ -55,7 +51,6 @@ except Exception:
         def print(self, msg, style=None):
             print(msg, flush=True)
     console = _ConsoleFallback()
-
 
 # =========================
 # HELPERS
@@ -88,8 +83,80 @@ def is_sftp_file(attr: paramiko.SFTPAttributes) -> bool:
     return stat.S_ISREG(attr.st_mode)
 
 
+# Caracteres frequentemente problemáticos em FTP/FS remotos
+_BAD_NAME_RE = re.compile(r'[|<>:"/\\?*\x00-\x1F]')  # inclui controle ASCII
 def ftp_safe_name(name: str) -> str:
-    return re.sub(r'[|<>:"/\\?*]', "_", name)
+    # além dos proibidos clássicos, troca também pipes etc.
+    safe = _BAD_NAME_RE.sub("_", name)
+    # opcional: reduzir múltiplos underscores
+    safe = re.sub(r"_+", "_", safe).strip("_")
+    return safe or "arquivo"
+
+
+def should_sanitize_ftp_name(name: str) -> bool:
+    # sanitiza se tiver caracteres problemáticos OU se tiver '|' que seu caso tem bastante
+    return bool(_BAD_NAME_RE.search(name)) or ("|" in name)
+
+
+def parse_ddmmyyyy(s: Any) -> Optional[date]:
+    """
+    Aceita:
+      - '26/02/2026'
+      - '2026-02-26'
+      - datetime/date
+    Retorna date ou None.
+    """
+    if s is None:
+        return None
+    if isinstance(s, date) and not isinstance(s, datetime):
+        return s
+    if isinstance(s, datetime):
+        return s.date()
+
+    txt = str(s).strip()
+    if not txt:
+        return None
+
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(txt, fmt).date()
+        except Exception:
+            pass
+    return None
+
+
+def get_ref_date_from_task(task: Any, log) -> date:
+    """
+    Se task.configEntrada['dataArquivo'] vier preenchido, usa essa data.
+    Se vier vazio/None/ausente/invalid, usa D-1 (comportamento original).
+    """
+    cfg_entrada = getattr(task, "configEntrada", None) or {}
+    data_cfg = None
+    try:
+        data_cfg = cfg_entrada.get("dataArquivo")
+    except Exception:
+        data_cfg = None
+
+    parsed = parse_ddmmyyyy(data_cfg)
+    if parsed:
+        log(f"Data de referência vinda da configEntrada['dataArquivo']: {parsed.strftime('%d/%m/%Y')}")
+        return parsed
+
+    fallback = (datetime.now() - timedelta(days=1)).date()
+    log(f"configEntrada['dataArquivo'] vazia/ inválida. Usando fallback D-1: {fallback.strftime('%d/%m/%Y')}")
+    return fallback
+
+
+def is_transient_network_error(e: Exception) -> bool:
+    """
+    Erros transitórios comuns em FTP:
+      - WinError 10053/10054 (conexão abortada/reset)
+      - BrokenPipeError / ConnectionResetError / Timeout / EOFError
+    """
+    msg = str(e).lower()
+    if "10053" in msg or "10054" in msg:
+        return True
+    return isinstance(e, (TimeoutError, ConnectionResetError, BrokenPipeError, EOFError, OSError))
 
 
 # =========================
@@ -169,26 +236,30 @@ async def load_equals_ftp_cfg(get_config_by_name, log) -> EqualsSftpConfig:
 # =========================
 # CONEXÕES
 # =========================
-def sftp_connect(
-    cfg: EqualsSftpConfig, log
-) -> Tuple[paramiko.SFTPClient, paramiko.Transport]:
+def sftp_connect(cfg: EqualsSftpConfig, log) -> Tuple[paramiko.SFTPClient, paramiko.Transport]:
     key_file = cfg.key_path
 
     if not Path(key_file).exists():
         raise FileNotFoundError(f"Arquivo de chave não encontrado: {key_file}")
 
-    # 1) tenta auto-detect (melhor caminho)
     last_ex = None
+
+    # 1) tenta auto-detect
     try:
         pkey = paramiko.PKey.from_private_key_file(key_file, password=cfg.passphrase)
         t = paramiko.Transport((cfg.host, cfg.porta))
         t.connect(username=cfg.usuario, pkey=pkey)
+        # keepalive para reduzir quedas
+        try:
+            t.set_keepalive(30)
+        except Exception:
+            pass
         sftp = paramiko.SFTPClient.from_transport(t)
         return sftp, t
     except Exception as e:
         last_ex = e
 
-    # 2) fallback explícito por tipo (caso auto-detect falhe)
+    # 2) fallback por tipo
     for cls_name in ("Ed25519Key", "ECDSAKey", "RSAKey"):
         cls = getattr(paramiko, cls_name, None)
         if not cls:
@@ -197,6 +268,10 @@ def sftp_connect(
             pkey = cls.from_private_key_file(key_file, password=cfg.passphrase)
             t = paramiko.Transport((cfg.host, cfg.porta))
             t.connect(username=cfg.usuario, pkey=pkey)
+            try:
+                t.set_keepalive(30)
+            except Exception:
+                pass
             sftp = paramiko.SFTPClient.from_transport(t)
             return sftp, t
         except Exception as e:
@@ -218,6 +293,11 @@ def ftp_connect(cfg: NetunnaFtpConfig) -> FTP:
     ftp.connect(cfg.host, cfg.porta, timeout=60)
     ftp.login(cfg.usuario, cfg.senha)
     ftp.set_pasv(True)
+    # manter socket mais “vivo” reduzindo inatividade
+    try:
+        ftp.sock.settimeout(120)
+    except Exception:
+        pass
     return ftp
 
 
@@ -272,8 +352,8 @@ def sftp_to_ftp_batch(
     noop_every: int = 1,
 ) -> Tuple[int, List[Tuple[str, str]]]:
     """
-    Mantém o comportamento original (retry, noop, fallback 550, reconecta),
-    e AGORA retorna (enviados, erros) para o retorno final do processo.
+    Mantém retry/noop/fallback 550/reconecta,
+    com reforço para WinError 10053/10054 (queda de conexão) e sanitização proativa.
     """
     ftp_cwd_safe(ftp, ftp_cfg.pasta_destino)
 
@@ -281,17 +361,40 @@ def sftp_to_ftp_batch(
     erros: List[Tuple[str, str]] = []
     enviados = 0
 
+    def reconnect_ftp() -> FTP:
+        try:
+            try:
+                ftp_noop_safe(ftp)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        try:
+            try:
+                ftp.quit()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        new_ftp = ftp_connect(ftp_cfg)
+        ftp_cwd_safe(new_ftp, ftp_cfg.pasta_destino)
+        return new_ftp
+
     for idx, attr in enumerate(files, 1):
         original = attr.filename
-        dest = original
+
+        # Sanitização proativa se tiver caracteres problemáticos
+        dest = ftp_safe_name(original) if should_sanitize_ftp_name(original) else original
+
         last_err = None
         ok = False
 
         for attempt in range(1, retry_per_file + 2):
             try:
-                log(
-                    f"[{idx}/{total}] Transferindo: {dest} (tentativa {attempt}/{retry_per_file + 1})"
-                )
+                log(f"[{idx}/{total}] Transferindo: {dest} (tentativa {attempt}/{retry_per_file + 1})")
+
                 sftp_to_ftp_stream(
                     sftp=sftp,
                     remote_dir=remote_dir,
@@ -300,6 +403,7 @@ def sftp_to_ftp_batch(
                     dest_name=dest,
                     blocksize=blocksize,
                 )
+
                 enviados += 1
                 ok = True
 
@@ -307,34 +411,37 @@ def sftp_to_ftp_batch(
                     ftp_noop_safe(ftp)
 
                 if dest != original:
-                    log(f"[{idx}/{total}] Nome alternativo usado: {original} -> {dest}")
+                    log(f"[{idx}/{total}] Nome usado: {original} -> {dest}")
                 break
 
             except Exception as e:
                 last_err = e
                 msg = str(e)
 
-                # Se 550 e era o nome original, tenta fallback uma vez
+                # 1) Se 550 e ainda estava com nome original, tenta sanitizado
                 if "550" in msg and dest == original:
                     alt = ftp_safe_name(original)
                     if alt != original:
-                        log(
-                            f"[{idx}/{total}] FTP recusou nome original (550). Tentando nome alternativo: {alt}"
-                        )
+                        log(f"[{idx}/{total}] FTP recusou nome (550). Tentando alternativo: {alt}")
                         dest = alt
                         continue
 
-                # tenta NOOP
-                ftp_noop_safe(ftp)
-
-                # tenta reconectar FTP
-                try:
+                # 2) Se erro de rede transitório (10053/10054), reconecta e tenta de novo
+                if is_transient_network_error(e):
+                    log(f"[{idx}/{total}] Conexão caiu (provável 10053/10054). Reconectando FTP e retry...")
                     try:
-                        ftp.quit()
-                    except Exception:
-                        pass
-                    ftp = ftp_connect(ftp_cfg)
-                    ftp_cwd_safe(ftp, ftp_cfg.pasta_destino)
+                        ftp = reconnect_ftp()
+                    except Exception as ex2:
+                        log(f"[{idx}/{total}] Falha ao reconectar FTP: {ex2}")
+                        time.sleep(2)
+                    # pequeno backoff
+                    time.sleep(1)
+                    continue
+
+                # 3) tenta NOOP + reconectar como fallback geral
+                ftp_noop_safe(ftp)
+                try:
+                    ftp = reconnect_ftp()
                 except Exception:
                     time.sleep(2)
 
@@ -342,9 +449,7 @@ def sftp_to_ftp_batch(
             erros.append((original, str(last_err)))
             log(f"[{idx}/{total}] ERRO ao transferir: {original} -> {last_err}")
 
-    log(
-        f"Transferência concluída: {enviados} sucesso, {len(erros)} erro(s), total {total}"
-    )
+    log(f"Transferência concluída: {enviados} sucesso, {len(erros)} erro(s), total {total}")
     if erros:
         log("Arquivos com erro:")
         for n, m in erros:
@@ -373,10 +478,11 @@ async def sftp_equals_netunna(task):
         log("Conectando no SFTP (Equals)")
         sftp, transport = sftp_connect(equals_cfg, log)
 
-        # lista D-1
-        sftp.chdir(equals_cfg.pasta_remota)
-        ref = (datetime.now() - timedelta(days=1)).date()
+        # ✅ ref date: configEntrada['dataArquivo'] ou fallback D-1
+        ref = get_ref_date_from_task(task, log)
 
+        # lista arquivos pela data de modificação D-1 (ou data recebida)
+        sftp.chdir(equals_cfg.pasta_remota)
         items = sftp.listdir_attr(".")
         files = [
             f
@@ -384,10 +490,10 @@ async def sftp_equals_netunna(task):
             if is_sftp_file(f) and datetime.fromtimestamp(f.st_mtime).date() == ref
         ]
 
-        log(f"Arquivos D-1 encontrados: {len(files)}")
+        log(f"Arquivos da data {ref.strftime('%d/%m/%Y')} encontrados: {len(files)}")
 
         if not files:
-            msg = "Nenhum arquivo D-1 encontrado"
+            msg = f"Nenhum arquivo encontrado para a data {ref.strftime('%d/%m/%Y')}"
             log(msg)
             return RpaRetornoProcessoDTO(
                 sucesso=True,
@@ -411,12 +517,10 @@ async def sftp_equals_netunna(task):
             noop_every=1,
         )
 
-        # Retorno final do processo
         if erros:
             observacao = f"[FALHA PARCIAL] {enviados} enviado(s) com sucesso, {len(erros)} erro(s)."
             logger.error(observacao)
             console.print(observacao, style="bold red")
-            # (Opcional) acrescenta uma lista curta no retorno
             detalhes = "\n".join([f"- {n}: {m}" for n, m in erros[:10]])
             if len(erros) > 10:
                 detalhes += f"\n... e mais {len(erros) - 10} erro(s)."

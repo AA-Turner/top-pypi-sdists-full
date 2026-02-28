@@ -1,6 +1,6 @@
 import traceback
 
-from langgraph.errors import GraphInterrupt, ParentCommand
+from langgraph.errors import GraphInterrupt, GraphRecursionError, ParentCommand
 from langgraph.types import Interrupt
 
 from langgraph_grpc_common import serde
@@ -47,6 +47,7 @@ def exception_to_proto(
     errors_pb2.UserCodeExecutionError
     | engine_common_pb2.WrappedInterrupts
     | engine_common_pb2.ParentCommand
+    | errors_pb2.GraphRecursionLimitError
 ):
     if isinstance(exc, GraphInterrupt):
         if exc.args[0]:
@@ -67,6 +68,8 @@ def exception_to_proto(
     elif isinstance(exc, ParentCommand):
         cmd = exc.args[0]
         return engine_common_pb2.ParentCommand(command=command_to_proto(cmd))
+    elif isinstance(exc, GraphRecursionError):
+        return errors_pb2.GraphRecursionLimitError()
     elif isinstance(exc, ExecutorDependencyError):
         # Internal executor errors (e.g., gRPC failures from RemoteCheckpointer)
         # should be re-raised to be handled as internal errors, not user code errors

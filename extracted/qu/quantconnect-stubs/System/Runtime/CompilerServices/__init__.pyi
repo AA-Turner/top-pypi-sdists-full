@@ -262,6 +262,8 @@ class RuntimeFeature(System.Object):
 
     NUMERIC_INT_PTR: str = ...
 
+    IS_MULTITHREADING_SUPPORTED: bool
+
     @staticmethod
     def is_supported(feature: str) -> bool:
         ...

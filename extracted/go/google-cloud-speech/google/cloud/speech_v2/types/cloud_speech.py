@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -694,6 +694,7 @@ class Recognizer(proto.Message):
             DELETED (4):
                 This Recognizer has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4
@@ -865,6 +866,7 @@ class ExplicitDecodingConfig(proto.Message):
             MOV_AAC (12):
                 AAC audio frames in an MOV container.
         """
+
         AUDIO_ENCODING_UNSPECIFIED = 0
         LINEAR16 = 1
         MULAW = 2
@@ -1003,6 +1005,7 @@ class RecognitionFeatures(proto.Message):
                 selected [model][google.cloud.speech.v2.Recognizer.model] is
                 ``latest_short``.
         """
+
         MULTI_CHANNEL_MODE_UNSPECIFIED = 0
         SEPARATE_RECOGNITION_PER_CHANNEL = 1
 
@@ -1650,7 +1653,42 @@ class StreamingRecognitionFeatures(proto.Message):
             the specified duration has elapsed after the last
             VOICE_ACTIVITY speech event has been sent. The field
             ``voice_activity_events`` must also be set to true.
+        endpointing_sensitivity (google.cloud.speech_v2.types.StreamingRecognitionFeatures.EndpointingSensitivity):
+            Optional. Endpointing sensitivity for this
+            stream.
     """
+
+    class EndpointingSensitivity(proto.Enum):
+        r"""Endpointing sensitivity is intended for applications that
+        want to minimize result latency, possibly at the expense of
+        quality. Some utterances may be broken up into multiple
+        fragments.
+
+        Values:
+            ENDPOINTING_SENSITIVITY_UNSPECIFIED (0):
+                If no value is specified, the values for
+                ENDPOINTING_SENSITIVITY_STANDARD will be used.
+            ENDPOINTING_SENSITIVITY_STANDARD (1):
+                Standard sensitivity, no optimization for
+                latency.
+            ENDPOINTING_SENSITIVITY_SUPERSHORT (2):
+                Super short sensitivity, optimized for super
+                short utterances like single words ("Yes", "No",
+                "Hello", etc.) or a single phrase, command or
+                short query (e.g. "check balance", "five
+                dollars", "call Mom").
+            ENDPOINTING_SENSITIVITY_SHORT (3):
+                Short sensitivity, optimized for short
+                utterances like single sentences. (e.g. "Remind
+                me to call the dentist tomorrow morning at
+                nine", "Navigate to the nearest coffee shop that
+                is currently open")
+        """
+
+        ENDPOINTING_SENSITIVITY_UNSPECIFIED = 0
+        ENDPOINTING_SENSITIVITY_STANDARD = 1
+        ENDPOINTING_SENSITIVITY_SUPERSHORT = 2
+        ENDPOINTING_SENSITIVITY_SHORT = 3
 
     class VoiceActivityTimeout(proto.Message):
         r"""Events that a timeout can be set on for voice activity.
@@ -1691,6 +1729,11 @@ class StreamingRecognitionFeatures(proto.Message):
         proto.MESSAGE,
         number=3,
         message=VoiceActivityTimeout,
+    )
+    endpointing_sensitivity: EndpointingSensitivity = proto.Field(
+        proto.ENUM,
+        number=8,
+        enum=EndpointingSensitivity,
     )
 
 
@@ -1872,6 +1915,7 @@ class BatchRecognizeRequest(proto.Message):
                 lower utilization periods for a price discount.
                 The request is fulfilled within 24 hours.
         """
+
         PROCESSING_STRATEGY_UNSPECIFIED = 0
         DYNAMIC_BATCHING = 1
 
@@ -2493,6 +2537,7 @@ class StreamingRecognizeResponse(proto.Message):
                 repeatedly throughout the stream. This event is only sent if
                 ``voice_activity_events`` is set to true.
         """
+
         SPEECH_EVENT_TYPE_UNSPECIFIED = 0
         END_OF_SINGLE_UTTERANCE = 1
         SPEECH_ACTIVITY_BEGIN = 2
@@ -2678,6 +2723,7 @@ class CustomClass(proto.Message):
             DELETED (4):
                 This CustomClass has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4
@@ -2840,6 +2886,7 @@ class PhraseSet(proto.Message):
             DELETED (4):
                 This PhraseSet has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4

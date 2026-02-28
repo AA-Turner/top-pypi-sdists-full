@@ -1,146 +1,141 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: papermill
-Version: 2.6.0
+Version: 2.7.0
 Summary: Parameterize and run Jupyter and nteract Notebooks
-Home-page: https://github.com/nteract/papermill
-Author: nteract contributors
-Author-email: nteract@googlegroups.com
+Author-email: nteract contributors <nteract@googlegroups.com>
 License: BSD
 Project-URL: Documentation, https://papermill.readthedocs.io
 Project-URL: Funding, https://nteract.io
 Project-URL: Source, https://github.com/nteract/papermill/
 Project-URL: Tracker, https://github.com/nteract/papermill/issues
-Keywords: jupyter mapreduce nteract pipeline notebook
+Keywords: jupyter,mapreduce,notebook,nteract,pipeline
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: aiohttp>=3.9; python_version == "3.12"
 Requires-Dist: click
-Requires-Dist: pyyaml
-Requires-Dist: nbformat>=5.2.0
-Requires-Dist: nbclient>=0.2.0
-Requires-Dist: tqdm>=4.32.2
-Requires-Dist: requests
 Requires-Dist: entrypoints
+Requires-Dist: nbclient>=0.2
+Requires-Dist: nbformat>=5.2
+Requires-Dist: pyyaml
+Requires-Dist: requests
 Requires-Dist: tenacity>=5.0.2
-Requires-Dist: aiohttp>=3.9.0; python_version == "3.12"
-Requires-Dist: ansicolors
-Provides-Extra: test
-Requires-Dist: boto3; extra == "test"
-Requires-Dist: botocore; extra == "test"
-Requires-Dist: codecov; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: google_compute_engine; extra == "test"
-Requires-Dist: ipython>=5.0; extra == "test"
-Requires-Dist: ipywidgets; extra == "test"
-Requires-Dist: notebook; extra == "test"
-Requires-Dist: moto<5.1.0,>=5.0.0; extra == "test"
-Requires-Dist: pytest>=4.1; extra == "test"
-Requires-Dist: pytest-cov>=2.6.1; extra == "test"
-Requires-Dist: pytest-mock>=1.10; extra == "test"
-Requires-Dist: pytest-env>=0.6.2; extra == "test"
-Requires-Dist: requests>=2.21.0; extra == "test"
-Requires-Dist: check-manifest; extra == "test"
-Requires-Dist: attrs>=17.4.0; extra == "test"
-Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: tox; extra == "test"
-Requires-Dist: bumpversion; extra == "test"
-Requires-Dist: recommonmark; extra == "test"
-Requires-Dist: pip>=18.1; extra == "test"
-Requires-Dist: wheel>=0.31.0; extra == "test"
-Requires-Dist: setuptools>=38.6.0; extra == "test"
-Requires-Dist: twine>=1.11.0; extra == "test"
-Requires-Dist: boto3; extra == "test"
-Requires-Dist: azure-datalake-store>=0.0.30; extra == "test"
-Requires-Dist: azure-storage-blob>=12.1.0; extra == "test"
-Requires-Dist: requests>=2.21.0; extra == "test"
-Requires-Dist: azure-identity>=1.3.1; extra == "test"
-Requires-Dist: gcsfs>=0.2.0; extra == "test"
-Requires-Dist: black>=19.3b0; extra == "test"
-Provides-Extra: dev
-Requires-Dist: boto3; extra == "dev"
-Requires-Dist: botocore; extra == "dev"
-Requires-Dist: codecov; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: google_compute_engine; extra == "dev"
-Requires-Dist: ipython>=5.0; extra == "dev"
-Requires-Dist: ipywidgets; extra == "dev"
-Requires-Dist: notebook; extra == "dev"
-Requires-Dist: moto<5.1.0,>=5.0.0; extra == "dev"
-Requires-Dist: pytest>=4.1; extra == "dev"
-Requires-Dist: pytest-cov>=2.6.1; extra == "dev"
-Requires-Dist: pytest-mock>=1.10; extra == "dev"
-Requires-Dist: pytest-env>=0.6.2; extra == "dev"
-Requires-Dist: requests>=2.21.0; extra == "dev"
-Requires-Dist: check-manifest; extra == "dev"
-Requires-Dist: attrs>=17.4.0; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: tox; extra == "dev"
-Requires-Dist: bumpversion; extra == "dev"
-Requires-Dist: recommonmark; extra == "dev"
-Requires-Dist: pip>=18.1; extra == "dev"
-Requires-Dist: wheel>=0.31.0; extra == "dev"
-Requires-Dist: setuptools>=38.6.0; extra == "dev"
-Requires-Dist: twine>=1.11.0; extra == "dev"
-Requires-Dist: boto3; extra == "dev"
-Requires-Dist: azure-datalake-store>=0.0.30; extra == "dev"
-Requires-Dist: azure-storage-blob>=12.1.0; extra == "dev"
-Requires-Dist: requests>=2.21.0; extra == "dev"
-Requires-Dist: azure-identity>=1.3.1; extra == "dev"
-Requires-Dist: gcsfs>=0.2.0; extra == "dev"
-Requires-Dist: black>=19.3b0; extra == "dev"
+Requires-Dist: tqdm>=4.32.2
 Provides-Extra: all
-Requires-Dist: boto3; extra == "all"
-Requires-Dist: azure-datalake-store>=0.0.30; extra == "all"
-Requires-Dist: azure-storage-blob>=12.1.0; extra == "all"
-Requires-Dist: requests>=2.21.0; extra == "all"
+Requires-Dist: azure-datalake-store<1.0.0a0,>=0.0.30; extra == "all"
 Requires-Dist: azure-identity>=1.3.1; extra == "all"
-Requires-Dist: gcsfs>=0.2.0; extra == "all"
-Requires-Dist: pyarrow>=2.0; extra == "all"
-Requires-Dist: PyGithub>=1.55; extra == "all"
+Requires-Dist: azure-storage-blob>=12.1; extra == "all"
 Requires-Dist: black>=19.3b0; extra == "all"
-Provides-Extra: s3
-Requires-Dist: boto3; extra == "s3"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: gcsfs>=0.2; extra == "all"
+Requires-Dist: pyarrow>=2; extra == "all"
+Requires-Dist: pygithub>=1.55; extra == "all"
+Requires-Dist: requests>=2.21; extra == "all"
 Provides-Extra: azure
-Requires-Dist: azure-datalake-store>=0.0.30; extra == "azure"
-Requires-Dist: azure-storage-blob>=12.1.0; extra == "azure"
-Requires-Dist: requests>=2.21.0; extra == "azure"
+Requires-Dist: azure-datalake-store<1.0.0a0,>=0.0.30; extra == "azure"
 Requires-Dist: azure-identity>=1.3.1; extra == "azure"
-Provides-Extra: gcs
-Requires-Dist: gcsfs>=0.2.0; extra == "gcs"
-Provides-Extra: hdfs
-Requires-Dist: pyarrow>=2.0; extra == "hdfs"
-Provides-Extra: github
-Requires-Dist: PyGithub>=1.55; extra == "github"
+Requires-Dist: azure-storage-blob>=12.1; extra == "azure"
+Requires-Dist: requests>=2.21; extra == "azure"
 Provides-Extra: black
 Requires-Dist: black>=19.3b0; extra == "black"
+Provides-Extra: dev
+Requires-Dist: attrs>=17.4; extra == "dev"
+Requires-Dist: azure-datalake-store<1.0.0a0,>=0.0.30; extra == "dev"
+Requires-Dist: azure-identity>=1.3.1; extra == "dev"
+Requires-Dist: azure-storage-blob>=12.1; extra == "dev"
+Requires-Dist: black>=19.3b0; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: botocore; extra == "dev"
+Requires-Dist: bumpversion; extra == "dev"
+Requires-Dist: check-manifest; extra == "dev"
+Requires-Dist: codecov; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: gcsfs>=0.2; extra == "dev"
+Requires-Dist: google-compute-engine; extra == "dev"
+Requires-Dist: ipython<9,>=5; extra == "dev"
+Requires-Dist: ipywidgets; extra == "dev"
+Requires-Dist: moto<5.1,>=5; extra == "dev"
+Requires-Dist: notebook; extra == "dev"
+Requires-Dist: pip>=18.1; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pyarrow>=2; extra == "dev"
+Requires-Dist: pygithub>=1.55; extra == "dev"
+Requires-Dist: pytest>=4.1; extra == "dev"
+Requires-Dist: pytest-cov>=2.6.1; extra == "dev"
+Requires-Dist: pytest-env>=0.6.2; extra == "dev"
+Requires-Dist: pytest-mock>=1.10; extra == "dev"
+Requires-Dist: recommonmark; extra == "dev"
+Requires-Dist: requests>=2.21; extra == "dev"
+Requires-Dist: setuptools>=38.6; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: twine>=1.11; extra == "dev"
+Requires-Dist: wheel>=0.31; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: boto3; extra == "docs"
-Requires-Dist: azure-datalake-store>=0.0.30; extra == "docs"
-Requires-Dist: azure-storage-blob>=12.1.0; extra == "docs"
-Requires-Dist: requests>=2.21.0; extra == "docs"
+Requires-Dist: azure-datalake-store<1.0.0a0,>=0.0.30; extra == "docs"
 Requires-Dist: azure-identity>=1.3.1; extra == "docs"
-Requires-Dist: gcsfs>=0.2.0; extra == "docs"
-Requires-Dist: pyarrow>=2.0; extra == "docs"
-Requires-Dist: PyGithub>=1.55; extra == "docs"
+Requires-Dist: azure-storage-blob>=12.1; extra == "docs"
 Requires-Dist: black>=19.3b0; extra == "docs"
-Requires-Dist: Sphinx>=7.2.6; extra == "docs"
+Requires-Dist: boto3; extra == "docs"
 Requires-Dist: furo>=2023.9.10; extra == "docs"
-Requires-Dist: myst-parser>=2.0.0; extra == "docs"
+Requires-Dist: gcsfs>=0.2; extra == "docs"
 Requires-Dist: moto>=4.2.8; extra == "docs"
+Requires-Dist: myst-parser>=2; extra == "docs"
+Requires-Dist: pyarrow>=2; extra == "docs"
+Requires-Dist: pygithub>=1.55; extra == "docs"
+Requires-Dist: requests>=2.21; extra == "docs"
+Requires-Dist: sphinx>=7.2.6; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
-Requires-Dist: nbformat; extra == "docs"
-Requires-Dist: entrypoints; extra == "docs"
+Provides-Extra: gcs
+Requires-Dist: gcsfs>=0.2; extra == "gcs"
+Provides-Extra: github
+Requires-Dist: pygithub>=1.55; extra == "github"
+Provides-Extra: hdfs
+Requires-Dist: pyarrow>=2; extra == "hdfs"
+Provides-Extra: s3
+Requires-Dist: boto3; extra == "s3"
+Provides-Extra: test
+Requires-Dist: attrs>=17.4; extra == "test"
+Requires-Dist: azure-datalake-store<1.0.0a0,>=0.0.30; extra == "test"
+Requires-Dist: azure-identity>=1.3.1; extra == "test"
+Requires-Dist: azure-storage-blob>=12.1; extra == "test"
+Requires-Dist: black>=19.3b0; extra == "test"
+Requires-Dist: boto3; extra == "test"
+Requires-Dist: botocore; extra == "test"
+Requires-Dist: bumpversion; extra == "test"
+Requires-Dist: check-manifest; extra == "test"
+Requires-Dist: codecov; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: gcsfs>=0.2; extra == "test"
+Requires-Dist: google-compute-engine; extra == "test"
+Requires-Dist: ipython<9,>=5; extra == "test"
+Requires-Dist: ipywidgets; extra == "test"
+Requires-Dist: moto<5.1,>=5; extra == "test"
+Requires-Dist: notebook; extra == "test"
+Requires-Dist: pip>=18.1; extra == "test"
+Requires-Dist: pre-commit; extra == "test"
+Requires-Dist: pyarrow>=2; extra == "test"
+Requires-Dist: pygithub>=1.55; extra == "test"
+Requires-Dist: pytest>=4.1; extra == "test"
+Requires-Dist: pytest-cov>=2.6.1; extra == "test"
+Requires-Dist: pytest-env>=0.6.2; extra == "test"
+Requires-Dist: pytest-mock>=1.10; extra == "test"
+Requires-Dist: recommonmark; extra == "test"
+Requires-Dist: requests>=2.21; extra == "test"
+Requires-Dist: setuptools>=38.6; extra == "test"
+Requires-Dist: tox; extra == "test"
+Requires-Dist: twine>=1.11; extra == "test"
+Requires-Dist: wheel>=0.31; extra == "test"
+Dynamic: license-file
 
 # <a href="https://github.com/nteract/papermill"><img src="https://media.githubusercontent.com/media/nteract/logos/master/nteract_papermill/exports/images/png/papermill_logo_wide.png" height="48px" /></a>
 
@@ -191,7 +186,7 @@ pip install papermill
 ```
 
 For all optional io dependencies, you can specify individual bundles
-like `s3`, or `azure` -- or use `all`. To use Black to format parameters you can add as an extra requires \['black'\].
+like `s3`, or `azure` -- or use `all`. To use Black to format parameters you can add as an extra requires ['black'].
 
 ```{.sourceCode .bash}
 pip install papermill[all]
@@ -199,7 +194,7 @@ pip install papermill[all]
 
 ## Python Version Support
 
-This library currently supports Python 3.8+ versions. As minor Python
+This library currently supports Python 3.10+ versions. As minor Python
 versions are officially sunset by the Python org papermill will similarly
 drop support in the future.
 
@@ -244,7 +239,7 @@ $ papermill local/input.ipynb s3://bkt/output.ipynb -p alpha 0.6 -p l1_ratio 0.1
 ```
 
 **NOTE:**
-If you use multiple AWS accounts, and you have [properly configured your AWS  credentials](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html), then you can specify which account to use by setting the `AWS_PROFILE` environment variable at the command-line. For example:
+If you use multiple AWS accounts, and you have [properly configured your AWS credentials](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html), then you can specify which account to use by setting the `AWS_PROFILE` environment variable at the command-line. For example:
 
 ```{.sourceCode .bash}
 $ AWS_PROFILE=dev_account papermill local/input.ipynb s3://bkt/output.ipynb -p alpha 0.6 -p l1_ratio 0.1
@@ -298,7 +293,7 @@ Papermill supports the following name handlers for input and output paths during
 
 - Local file system: `local`
 
-- HTTP, HTTPS protocol:  `http://, https://`
+- HTTP, HTTPS protocol: `http://, https://`
 
 - Amazon Web Services: [AWS S3](https://aws.amazon.com/s3/) `s3://`
 

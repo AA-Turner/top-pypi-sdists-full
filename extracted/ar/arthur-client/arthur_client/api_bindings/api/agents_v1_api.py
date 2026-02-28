@@ -16,11 +16,12 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictStr
+from pydantic import Field, StrictBool, StrictStr
 from typing import List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.agent_response import AgentResponse
 from arthur_client.api_bindings.models.agent_sort import AgentSort
+from arthur_client.api_bindings.models.patch_unregistered_agent_request import PatchUnregisteredAgentRequest
 from arthur_client.api_bindings.models.put_agents import PutAgents
 from arthur_client.api_bindings.models.put_agents_response import PutAgentsResponse
 from arthur_client.api_bindings.models.resource_list_agent_response import ResourceListAgentResponse
@@ -2656,6 +2657,7 @@ class AgentsV1Api:
         tool_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these tool names.")] = None,
         llm_model_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these llm model names.")] = None,
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2695,6 +2697,8 @@ class AgentsV1Api:
         :type llm_model_names: List[str]
         :param data_source_urls: Filter agents that use any of these data source URLs.
         :type data_source_urls: List[str]
+        :param show_muted: Filter agents that are muted.
+        :type show_muted: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2732,6 +2736,7 @@ class AgentsV1Api:
             tool_names=tool_names,
             llm_model_names=llm_model_names,
             data_source_urls=data_source_urls,
+            show_muted=show_muted,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2769,6 +2774,7 @@ class AgentsV1Api:
         tool_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these tool names.")] = None,
         llm_model_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these llm model names.")] = None,
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2808,6 +2814,8 @@ class AgentsV1Api:
         :type llm_model_names: List[str]
         :param data_source_urls: Filter agents that use any of these data source URLs.
         :type data_source_urls: List[str]
+        :param show_muted: Filter agents that are muted.
+        :type show_muted: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2845,6 +2853,7 @@ class AgentsV1Api:
             tool_names=tool_names,
             llm_model_names=llm_model_names,
             data_source_urls=data_source_urls,
+            show_muted=show_muted,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2882,6 +2891,7 @@ class AgentsV1Api:
         tool_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these tool names.")] = None,
         llm_model_names: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these llm model names.")] = None,
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
+        show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -2921,6 +2931,8 @@ class AgentsV1Api:
         :type llm_model_names: List[str]
         :param data_source_urls: Filter agents that use any of these data source URLs.
         :type data_source_urls: List[str]
+        :param show_muted: Filter agents that are muted.
+        :type show_muted: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -2958,6 +2970,7 @@ class AgentsV1Api:
             tool_names=tool_names,
             llm_model_names=llm_model_names,
             data_source_urls=data_source_urls,
+            show_muted=show_muted,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -2990,6 +3003,7 @@ class AgentsV1Api:
         tool_names,
         llm_model_names,
         data_source_urls,
+        show_muted,
         page,
         page_size,
         _request_auth,
@@ -3057,6 +3071,10 @@ class AgentsV1Api:
         if data_source_urls is not None:
             
             _query_params.append(('data_source_urls', data_source_urls))
+            
+        if show_muted is not None:
+            
+            _query_params.append(('show_muted', show_muted))
             
         if page is not None:
             
@@ -3389,6 +3407,304 @@ class AgentsV1Api:
         return self.api_client.param_serialize(
             method='PUT',
             resource_path='/api/v1/workspaces/{workspace_id}/agents',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def update_unregistered_agent(
+        self,
+        agent_id: StrictStr,
+        patch_unregistered_agent_request: PatchUnregisteredAgentRequest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> AgentResponse:
+        """Update An Unregistered Agent.
+
+        Update an unregistered agent. Requires unregistered_agent_patch permission.
+
+        :param agent_id: (required)
+        :type agent_id: str
+        :param patch_unregistered_agent_request: (required)
+        :type patch_unregistered_agent_request: PatchUnregisteredAgentRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_unregistered_agent_serialize(
+            agent_id=agent_id,
+            patch_unregistered_agent_request=patch_unregistered_agent_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AgentResponse",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_unregistered_agent_with_http_info(
+        self,
+        agent_id: StrictStr,
+        patch_unregistered_agent_request: PatchUnregisteredAgentRequest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[AgentResponse]:
+        """Update An Unregistered Agent.
+
+        Update an unregistered agent. Requires unregistered_agent_patch permission.
+
+        :param agent_id: (required)
+        :type agent_id: str
+        :param patch_unregistered_agent_request: (required)
+        :type patch_unregistered_agent_request: PatchUnregisteredAgentRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_unregistered_agent_serialize(
+            agent_id=agent_id,
+            patch_unregistered_agent_request=patch_unregistered_agent_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AgentResponse",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_unregistered_agent_without_preload_content(
+        self,
+        agent_id: StrictStr,
+        patch_unregistered_agent_request: PatchUnregisteredAgentRequest,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Update An Unregistered Agent.
+
+        Update an unregistered agent. Requires unregistered_agent_patch permission.
+
+        :param agent_id: (required)
+        :type agent_id: str
+        :param patch_unregistered_agent_request: (required)
+        :type patch_unregistered_agent_request: PatchUnregisteredAgentRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._update_unregistered_agent_serialize(
+            agent_id=agent_id,
+            patch_unregistered_agent_request=patch_unregistered_agent_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AgentResponse",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _update_unregistered_agent_serialize(
+        self,
+        agent_id,
+        patch_unregistered_agent_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if agent_id is not None:
+            _path_params['agent_id'] = agent_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if patch_unregistered_agent_request is not None:
+            _body_params = patch_unregistered_agent_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v1/agents/unregistered/{agent_id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulp-glue
-Version: 0.38.0
+Version: 0.38.1
 Summary: Version agnostic glue library to talk to pulpcore's REST API.
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later

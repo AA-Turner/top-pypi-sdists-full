@@ -32,7 +32,7 @@ with io.open("README.rst", "r") as fh:
     long_description = fh.read()
 
 
-version = "1.2.4"
+version = "1.3.0"
 
 setup(
     name="google-auth-oauthlib",
@@ -41,7 +41,7 @@ setup(
     author_email="googleapis-packages@google.com",
     description="Google Authentication Library",
     long_description=long_description,
-    url="https://github.com/GoogleCloudPlatform/google-auth-library-python-oauthlib",
+    url="https://github.com/googleapis/google-cloud-python/tree/main/packages/google-auth-oauthlib",
     packages=find_namespace_packages(
         exclude=(
             "docs*",

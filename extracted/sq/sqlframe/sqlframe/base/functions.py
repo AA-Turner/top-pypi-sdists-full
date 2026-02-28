@@ -39,18 +39,28 @@ def _get_session() -> _BaseSession:
 def col(column_name: t.Union[ColumnOrName, t.Any]) -> Column:
     dialect = _get_session().input_dialect
     if isinstance(column_name, str):
-        col_expression = expression.to_column(column_name, dialect=dialect).transform(
-            dialect.normalize_identifier
-        )
         case_sensitive_expression = expression.to_column(column_name, dialect=dialect)
         if not isinstance(
-            case_sensitive_expression, (expression.Star, expression.Literal, expression.Null)
+            case_sensitive_expression,
+            (expression.Column, expression.Star, expression.Literal, expression.Null),
         ):
-            col_expression._meta = {
-                "display_name": case_sensitive_expression.this.this,
-                **(col_expression._meta or {}),
-            }
-
+            # Reserved word parsed as a non-Column node (e.g. EndStatement in sqlglot v29).
+            # Force a quoted identifier so it is emitted as "end" rather than the keyword END.
+            col_expression = expression.column(expression.to_identifier(column_name, quoted=True))
+            col_expression._meta = {"display_name": column_name, **(col_expression._meta or {})}
+        else:
+            col_expression = case_sensitive_expression.transform(dialect.normalize_identifier)
+            if (
+                not isinstance(
+                    case_sensitive_expression,
+                    (expression.Star, expression.Literal, expression.Null),
+                )
+                and case_sensitive_expression.this is not None
+            ):
+                col_expression._meta = {
+                    "display_name": case_sensitive_expression.this.this,
+                    **(col_expression._meta or {}),
+                }
         return Column(col_expression)
     return Column(column_name)
 
@@ -534,12 +544,16 @@ def skewness(col: ColumnOrName) -> Column:
             * (count_col - lit_func(2))
             / (sqrt_func(count_col * (count_col - lit_func(1))))
         )
-        return (
+        result = (
             when_func(count_col == lit_func(0), lit_func(None))
             .when(count_col == lit_func(1), lit_func(None))
             .when(count_col == lit_func(2), lit_func(0.0))
             .otherwise(full_calc)
         )
+        window_func_expr = Column.invoke_anonymous_function(col, func_name).column_expression
+        result.column_expression._meta = result.column_expression._meta or {}
+        result.column_expression._meta["window_func"] = window_func_expr
+        return result
 
     return Column.invoke_anonymous_function(col, func_name)
 
@@ -1367,6 +1381,7 @@ def to_date(col: ColumnOrName, format: t.Optional[str] = None) -> Column:
     if session._is_bigquery:
         to_timestamp_func = get_func_from_session("to_timestamp")
         col = to_timestamp_func(col, format)
+        return Column.invoke_expression_over_column(col, expression.TsOrDsToDate)
 
     if session._is_snowflake:
         format = format or session.default_time_format
@@ -1470,7 +1485,20 @@ def unix_timestamp(
 
     session = _get_session()
 
-    if session._is_duckdb or session._is_postgres or session._is_snowflake or session._is_bigquery:
+    if session._is_duckdb:
+        if format is not None:
+            timestamp = Column.ensure_col(timestamp).cast("string")
+            return Column.invoke_expression_over_column(
+                timestamp,
+                expression.StrToUnix,
+                format=session.format_time(format),
+            ).cast("bigint")
+        return Column.invoke_expression_over_column(
+            Column.ensure_col(timestamp).cast("timestampntz"),
+            expression.TimeToUnix,
+        ).cast("bigint")
+
+    if session._is_postgres or session._is_snowflake or session._is_bigquery:
         timestamp = Column.ensure_col(timestamp).cast("string")
 
     if session._is_bigquery:
@@ -1519,7 +1547,7 @@ def timestamp_add(unit: str, quantity: ColumnOrName, ts: ColumnOrName) -> Column
             expr = expression.DateSub
             quantity.expression.set("this", str(-int(quantity.expression.this)))
         else:
-            expr = expression.DateAdd  # type: ignore
+            expr = expression.DateAdd
         return Column.invoke_expression_over_column(
             ts, expr, expression=quantity, unit=expression.Var(this=unit.upper())
         )
@@ -2128,8 +2156,12 @@ def array_append(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
         return array_append_using_array_cat(col, value)
 
     value = value if isinstance(value, Column) else lit(value)
-    return Column.invoke_expression_over_column(
-        col, expression.ArrayAppend, expression=value.column_expression
+    return Column(
+        expression.ArrayAppend(
+            this=Column.ensure_col(col).column_expression,
+            expression=value.column_expression,
+            null_propagation=True,
+        )
     )
 
 
@@ -2194,9 +2226,9 @@ def bit_count(col: ColumnOrName) -> Column:
     return Column.invoke_expression_over_column(col, expression.BitwiseCount)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
 def bit_get(col: ColumnOrName, pos: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BIT_GET", pos)
+    return Column.invoke_expression_over_column(col, expression.Getbit, expression=pos)
 
 
 @meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
@@ -2349,15 +2381,15 @@ def array_position(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
 
 @meta()
 def element_at(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
-    from sqlframe.base.function_alternatives import element_at_using_brackets
-
-    session = _get_session()
-
-    if session._is_bigquery or session._is_duckdb or session._is_postgres or session._is_snowflake:
-        return element_at_using_brackets(col, value)
-
     value_col = value if isinstance(value, Column) else lit(value)
-    return Column.invoke_anonymous_function(col, "ELEMENT_AT", value_col)
+    return Column(
+        expression.Bracket(
+            this=Column.ensure_col(col).column_expression,
+            expressions=[value_col.column_expression],
+            offset=1,
+            safe=False,
+        )
+    )
 
 
 @meta()
@@ -2370,22 +2402,17 @@ def array_remove(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
 
 @meta(unsupported_engines="postgres")
 def array_distinct(col: ColumnOrName) -> Column:
-    from sqlframe.base.function_alternatives import array_distinct_bgutil
-
     session = _get_session()
 
-    if session._is_bigquery:
-        return array_distinct_bgutil(col)
-
     if session._is_duckdb:
-        # DuckDB's array_distinct removes nulls, but we need to preserve them
+        # DuckDB's LIST_DISTINCT removes nulls, but we need to preserve them
         # Check if original array contains null and append it back if needed
         original_col = Column.ensure_col(col)
-        distinct_result = Column.invoke_anonymous_function(col, "ARRAY_DISTINCT")
+        distinct_result = Column.invoke_expression_over_column(col, expression.ArrayDistinct)
         has_null = array_position(original_col, lit(None)) > lit(0)
         return when(has_null, array_append(distinct_result, lit(None))).otherwise(distinct_result)
 
-    return Column.invoke_anonymous_function(col, "ARRAY_DISTINCT")
+    return Column.invoke_expression_over_column(col, expression.ArrayDistinct)
 
 
 @meta(unsupported_engines=["bigquery", "postgres"])
@@ -2418,9 +2445,11 @@ def array_union(col1: ColumnOrName, col2: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(col1, "ARRAY_UNION", Column.ensure_col(col2))
 
 
-@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
+@meta(unsupported_engines="postgres")
 def array_except(col1: ColumnOrName, col2: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col1, "ARRAY_EXCEPT", Column.ensure_col(col2))
+    return Column.invoke_expression_over_column(
+        col1, expression.ArrayExcept, expression=Column.ensure_col(col2)
+    )
 
 
 @meta()
@@ -2543,38 +2572,21 @@ def size(col: ColumnOrName) -> Column:
 
 @meta()
 def array_min(col: ColumnOrName) -> Column:
-    from sqlframe.base.function_alternatives import (
-        array_min_bgutil,
-        array_min_from_sort,
-        array_min_from_subquery,
-    )
+    from sqlframe.base.function_alternatives import array_min_from_subquery
 
     session = _get_session()
-
-    if session._is_bigquery:
-        return array_min_bgutil(col)
-
-    if session._is_duckdb:
-        return array_min_from_sort(col)
 
     if session._is_postgres:
         return array_min_from_subquery(col)
 
-    return Column.invoke_anonymous_function(col, "ARRAY_MIN")
+    return Column.invoke_expression_over_column(col, expression.ArrayMin)
 
 
 @meta()
 def array_max(col: ColumnOrName) -> Column:
-    from sqlframe.base.function_alternatives import (
-        array_max_bgutil,
-        array_max_from_sort,
-        array_max_from_subquery,
-    )
+    from sqlframe.base.function_alternatives import array_max_from_sort, array_max_from_subquery
 
     session = _get_session()
-
-    if session._is_bigquery:
-        return array_max_bgutil(col)
 
     if session._is_duckdb:
         return array_max_from_sort(col)
@@ -2582,7 +2594,7 @@ def array_max(col: ColumnOrName) -> Column:
     if session._is_postgres:
         return array_max_from_subquery(col)
 
-    return Column.invoke_anonymous_function(col, "ARRAY_MAX")
+    return Column.invoke_expression_over_column(col, expression.ArrayMax)
 
 
 @meta(unsupported_engines="postgres")
@@ -3200,7 +3212,7 @@ def count_min_sketch(
     return Column.invoke_anonymous_function(col, "count_min_sketch", eps, confidence, seed)
 
 
-@meta(unsupported_engines="*")
+@meta()
 def curdate() -> Column:
     """
     Returns the current date at the start of query evaluation as a :class:`DateType` column.
@@ -3223,7 +3235,7 @@ def curdate() -> Column:
     |    2022-08-26|
     +--------------+
     """
-    return Column.invoke_anonymous_function(None, "curdate")
+    return Column.invoke_expression_over_column(None, expression.CurrentDate)
 
 
 @meta(unsupported_engines=["bigquery", "snowflake"])
@@ -4339,7 +4351,7 @@ def make_dt_interval(
     return Column.invoke_anonymous_function(_days, "make_dt_interval", _hours, _mins, _secs)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["duckdb", "postgres"])
 def make_timestamp(
     years: ColumnOrName,
     months: ColumnOrName,
@@ -4401,14 +4413,17 @@ def make_timestamp(
     +-----------------------+
     >>> spark.conf.unset("spark.sql.session.timeZone")
     """
+    kwargs: t.Dict[str, expression.Expression] = {
+        "year": Column.ensure_col(years).column_expression,
+        "month": Column.ensure_col(months).column_expression,
+        "day": Column.ensure_col(days).column_expression,
+        "hour": Column.ensure_col(hours).column_expression,
+        "min": Column.ensure_col(mins).column_expression,
+        "sec": Column.ensure_col(secs).column_expression,
+    }
     if timezone is not None:
-        return Column.invoke_anonymous_function(
-            years, "make_timestamp", months, days, hours, mins, secs, timezone
-        )
-    else:
-        return Column.invoke_anonymous_function(
-            years, "make_timestamp", months, days, hours, mins, secs
-        )
+        kwargs["zone"] = Column.ensure_col(timezone).column_expression
+    return Column(expression.TimestampFromParts(**kwargs))
 
 
 @meta(unsupported_engines=["*", "databricks"])
@@ -4994,8 +5009,8 @@ def pmod(dividend: t.Union[ColumnOrName, float], divisor: t.Union[ColumnOrName, 
     |       1.0|
     +----------+
     """
-    dividend = lit(dividend) if isinstance(dividend, float) else dividend
-    divisor = lit(divisor) if isinstance(divisor, float) else divisor
+    dividend = lit(dividend) if isinstance(dividend, (int, float)) else dividend
+    divisor = lit(divisor) if isinstance(divisor, (int, float)) else divisor
     return Column.invoke_anonymous_function(dividend, "pmod", divisor)
 
 
@@ -6407,8 +6422,15 @@ def to_unix_timestamp(
     session = _get_session()
 
     if session._is_duckdb:
-        format = format or session.default_time_format
-        timestamp = Column.ensure_col(timestamp).cast("string")
+        if format is not None:
+            timestamp = Column.ensure_col(timestamp).cast("string")
+            return Column.invoke_expression_over_column(
+                timestamp, expression.StrToUnix, format=session.format_time(format)
+            )
+        return Column.invoke_expression_over_column(
+            Column.ensure_col(timestamp).cast("timestampntz"),
+            expression.TimeToUnix,
+        ).cast("bigint")
 
     if format is not None:
         return Column.invoke_expression_over_column(
@@ -7243,11 +7265,14 @@ def _get_lambda_from_func(lambda_expression: t.Callable):
     # Check if function has __code__ attribute (regular Python functions/lambdas)
     if hasattr(lambda_expression, "__code__"):
         # Use __code__ for regular functions and lambdas (preserves exact parameter names)
-        var_names = lambda_expression.__code__.co_varnames[: lambda_expression.__code__.co_argcount]
+        import types as _types
+
+        func_with_code = t.cast(_types.FunctionType, lambda_expression)
+        var_names = func_with_code.__code__.co_varnames[: func_with_code.__code__.co_argcount]
     else:
         # Built-in function without __code__ - use parameter names from signature
         # This handles operator.add, operator.sub, and other built-in functions
-        var_names = param_names  # type: ignore
+        var_names = param_names
 
     variables = [expression.to_identifier(x, quoted=_lambda_quoted(x)) for x in var_names]
 

@@ -1,16 +1,5 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 from unittest.mock import patch
 
@@ -43,41 +32,35 @@ class DummyModel(nn.Module):
     """Test model for unit tests. Weights are initialized on meta device"""
 
     def __init__(self):
-        try:
-            from accelerate import init_empty_weights
-        except ImportError:
-            pytest.skip("Skipping weight init requires accelerate")
-
         super().__init__()
-        with init_empty_weights():
-            self.layer1 = nn.Linear(10, 20)
-            self.layer2 = nn.Linear(20, 30)
-            self.norm = nn.LayerNorm(30)
-            self.attention = nn.MultiheadAttention(30, 2)
+        self.layer1 = nn.Linear(10, 20)
+        self.layer2 = nn.Linear(20, 30)
+        self.norm = nn.LayerNorm(30)
+        self.attention = nn.MultiheadAttention(30, 2)
 
-            # Create nested structure
-            self.transformer = nn.ModuleDict(
-                {
-                    "layers": nn.ModuleList(
-                        [
-                            nn.ModuleDict(
-                                {
-                                    "self_attn": nn.ModuleDict(
-                                        {
-                                            "q_proj": nn.Linear(30, 30),
-                                            "k_proj": nn.Linear(30, 30),
-                                            "v_proj": nn.Linear(30, 30),
-                                        }
-                                    ),
-                                    "norm": nn.LayerNorm(30),
-                                    "mlp": nn.Linear(30, 30),
-                                }
-                            )
-                            for _ in range(3)
-                        ]
-                    )
-                }
-            )
+        # Create nested structure
+        self.transformer = nn.ModuleDict(
+            {
+                "layers": nn.ModuleList(
+                    [
+                        nn.ModuleDict(
+                            {
+                                "self_attn": nn.ModuleDict(
+                                    {
+                                        "q_proj": nn.Linear(30, 30),
+                                        "k_proj": nn.Linear(30, 30),
+                                        "v_proj": nn.Linear(30, 30),
+                                    }
+                                ),
+                                "norm": nn.LayerNorm(30),
+                                "mlp": nn.Linear(30, 30),
+                            }
+                        )
+                        for _ in range(3)
+                    ]
+                )
+            }
+        )
 
 
 class DummyMoEModel(nn.Module):

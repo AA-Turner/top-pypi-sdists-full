@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socketdev
-Version: 3.0.31
+Version: 3.0.32
 Summary: Socket Security Python SDK
 Project-URL: Homepage, https://github.com/socketdev/socketdev
 Author-email: Douglas Coburn <douglas@socket.dev>

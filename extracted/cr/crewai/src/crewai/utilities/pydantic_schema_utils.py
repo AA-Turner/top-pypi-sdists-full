@@ -19,10 +19,9 @@ from collections.abc import Callable
 from copy import deepcopy
 import datetime
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, Final, Literal, TypedDict, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 import uuid
 
-import jsonref  # type: ignore[import-untyped]
 from pydantic import (
     UUID1,
     UUID3,
@@ -68,21 +67,6 @@ else:
             extra={"missing_package": "email_validator"},
         )
         EmailStr = str
-
-
-class JsonSchemaInfo(TypedDict):
-    """Inner structure for JSON schema metadata."""
-
-    name: str
-    strict: Literal[True]
-    schema: dict[str, Any]
-
-
-class ModelDescription(TypedDict):
-    """Return type for generate_model_description."""
-
-    type: Literal["json_schema"]
-    json_schema: JsonSchemaInfo
 
 
 def resolve_refs(schema: dict[str, Any]) -> dict[str, Any]:
@@ -140,102 +124,6 @@ def add_key_in_dict_recursively(
     elif isinstance(d, list):
         for i in d:
             add_key_in_dict_recursively(i, key, value, criteria)
-    return d
-
-
-def force_additional_properties_false(d: Any) -> Any:
-    """Force additionalProperties=false on all object-type dicts recursively.
-
-    OpenAI strict mode requires all objects to have additionalProperties=false.
-    This function overwrites any existing value to ensure compliance.
-
-    Also ensures objects have properties and required arrays, even if empty,
-    as OpenAI strict mode requires these for all object types.
-
-    Args:
-        d: The dictionary/list to modify.
-
-    Returns:
-        The modified dictionary/list.
-    """
-    if isinstance(d, dict):
-        if d.get("type") == "object":
-            d["additionalProperties"] = False
-            if "properties" not in d:
-                d["properties"] = {}
-            if "required" not in d:
-                d["required"] = []
-        for v in d.values():
-            force_additional_properties_false(v)
-    elif isinstance(d, list):
-        for i in d:
-            force_additional_properties_false(i)
-    return d
-
-
-OPENAI_SUPPORTED_FORMATS: Final[
-    set[Literal["date-time", "date", "time", "duration"]]
-] = {
-    "date-time",
-    "date",
-    "time",
-    "duration",
-}
-
-
-def strip_unsupported_formats(d: Any) -> Any:
-    """Remove format annotations that OpenAI strict mode doesn't support.
-
-    OpenAI only supports: date-time, date, time, duration.
-    Other formats like uri, email, uuid etc. cause validation errors.
-
-    Args:
-        d: The dictionary/list to modify.
-
-    Returns:
-        The modified dictionary/list.
-    """
-    if isinstance(d, dict):
-        format_value = d.get("format")
-        if (
-            isinstance(format_value, str)
-            and format_value not in OPENAI_SUPPORTED_FORMATS
-        ):
-            del d["format"]
-        for v in d.values():
-            strip_unsupported_formats(v)
-    elif isinstance(d, list):
-        for i in d:
-            strip_unsupported_formats(i)
-    return d
-
-
-def ensure_type_in_schemas(d: Any) -> Any:
-    """Ensure all schema objects in anyOf/oneOf have a 'type' key.
-
-    OpenAI strict mode requires every schema to have a 'type' key.
-    Empty schemas {} in anyOf/oneOf are converted to {"type": "object"}.
-
-    Args:
-        d: The dictionary/list to modify.
-
-    Returns:
-        The modified dictionary/list.
-    """
-    if isinstance(d, dict):
-        for key in ("anyOf", "oneOf"):
-            if key in d:
-                schema_list = d[key]
-                for i, schema in enumerate(schema_list):
-                    if isinstance(schema, dict) and schema == {}:
-                        schema_list[i] = {"type": "object"}
-                    else:
-                        ensure_type_in_schemas(schema)
-        for v in d.values():
-            ensure_type_in_schemas(v)
-    elif isinstance(d, list):
-        for item in d:
-            ensure_type_in_schemas(item)
     return d
 
 
@@ -375,53 +263,7 @@ def ensure_all_properties_required(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
-def strip_null_from_types(schema: dict[str, Any]) -> dict[str, Any]:
-    """Remove null type from anyOf/type arrays.
-
-    Pydantic generates `T | None` for optional fields, which creates schemas with
-    null in the type. However, for MCP tools, optional fields should be omitted
-    entirely rather than sent as null. This function strips null from types.
-
-    Args:
-        schema: JSON schema dictionary.
-
-    Returns:
-        Modified schema with null types removed.
-    """
-    if isinstance(schema, dict):
-        if "anyOf" in schema:
-            any_of = schema["anyOf"]
-            non_null = [opt for opt in any_of if opt.get("type") != "null"]
-            if len(non_null) == 1:
-                schema.pop("anyOf")
-                schema.update(non_null[0])
-            elif len(non_null) > 1:
-                schema["anyOf"] = non_null
-
-        type_value = schema.get("type")
-        if isinstance(type_value, list) and "null" in type_value:
-            non_null_types = [t for t in type_value if t != "null"]
-            if len(non_null_types) == 1:
-                schema["type"] = non_null_types[0]
-            elif len(non_null_types) > 1:
-                schema["type"] = non_null_types
-
-        for value in schema.values():
-            if isinstance(value, dict):
-                strip_null_from_types(value)
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        strip_null_from_types(item)
-
-    return schema
-
-
-def generate_model_description(
-    model: type[BaseModel],
-    *,
-    strip_null_types: bool = True,
-) -> ModelDescription:
+def generate_model_description(model: type[BaseModel]) -> dict[str, Any]:
     """Generate JSON schema description of a Pydantic model.
 
     This function takes a Pydantic model class and returns its JSON schema,
@@ -430,18 +272,19 @@ def generate_model_description(
 
     Args:
         model: A Pydantic model class.
-        strip_null_types: When ``True`` (default), remove ``null`` from
-            ``anyOf`` / ``type`` arrays.  Set to ``False`` to allow sending ``null`` for
-            optional fields.
 
     Returns:
-        A ModelDescription with JSON schema representation of the model.
+        A JSON schema dictionary representation of the model.
     """
     json_schema = model.model_json_schema(ref_template="#/$defs/{model}")
 
-    json_schema = force_additional_properties_false(json_schema)
-    json_schema = strip_unsupported_formats(json_schema)
-    json_schema = ensure_type_in_schemas(json_schema)
+    json_schema = add_key_in_dict_recursively(
+        json_schema,
+        key="additionalProperties",
+        value=False,
+        criteria=lambda d: d.get("type") == "object"
+        and "additionalProperties" not in d,
+    )
 
     json_schema = resolve_refs(json_schema)
 
@@ -449,9 +292,6 @@ def generate_model_description(
     json_schema = fix_discriminator_mappings(json_schema)
     json_schema = convert_oneof_to_anyof(json_schema)
     json_schema = ensure_all_properties_required(json_schema)
-
-    if strip_null_types:
-        json_schema = strip_null_from_types(json_schema)
 
     return {
         "type": "json_schema",
@@ -491,66 +331,10 @@ FORMAT_TYPE_MAP: dict[str, type[Any]] = {
 }
 
 
-def build_rich_field_description(prop_schema: dict[str, Any]) -> str:
-    """Build a comprehensive field description including constraints.
-
-    Embeds format, enum, pattern, min/max, and example constraints into the
-    description text so that LLMs can understand tool parameter requirements
-    without inspecting the raw JSON Schema.
-
-    Args:
-        prop_schema: Property schema with description and constraints.
-
-    Returns:
-        Enhanced description with format, enum, and other constraints.
-    """
-    parts: list[str] = []
-
-    description = prop_schema.get("description", "")
-    if description:
-        parts.append(description)
-
-    format_type = prop_schema.get("format")
-    if format_type:
-        parts.append(f"Format: {format_type}")
-
-    enum_values = prop_schema.get("enum")
-    if enum_values:
-        enum_str = ", ".join(repr(v) for v in enum_values)
-        parts.append(f"Allowed values: [{enum_str}]")
-
-    pattern = prop_schema.get("pattern")
-    if pattern:
-        parts.append(f"Pattern: {pattern}")
-
-    minimum = prop_schema.get("minimum")
-    maximum = prop_schema.get("maximum")
-    if minimum is not None:
-        parts.append(f"Minimum: {minimum}")
-    if maximum is not None:
-        parts.append(f"Maximum: {maximum}")
-
-    min_length = prop_schema.get("minLength")
-    max_length = prop_schema.get("maxLength")
-    if min_length is not None:
-        parts.append(f"Min length: {min_length}")
-    if max_length is not None:
-        parts.append(f"Max length: {max_length}")
-
-    examples = prop_schema.get("examples")
-    if examples:
-        examples_str = ", ".join(repr(e) for e in examples[:3])
-        parts.append(f"Examples: {examples_str}")
-
-    return ". ".join(parts) if parts else ""
-
-
 def create_model_from_schema(  # type: ignore[no-any-unimported]
     json_schema: dict[str, Any],
     *,
     root_schema: dict[str, Any] | None = None,
-    model_name: str | None = None,
-    enrich_descriptions: bool = False,
     __config__: ConfigDict | None = None,
     __base__: type[BaseModel] | None = None,
     __module__: str = __name__,
@@ -568,13 +352,6 @@ def create_model_from_schema(  # type: ignore[no-any-unimported]
         json_schema: A dictionary representing the JSON schema.
         root_schema: The root schema containing $defs. If not provided, the
             current schema is treated as the root schema.
-        model_name: Override for the model name. If not provided, the schema
-            ``title`` field is used, falling back to ``"DynamicModel"``.
-        enrich_descriptions: When True, augment field descriptions with
-            constraint info (format, enum, pattern, min/max, examples) via
-            :func:`build_rich_field_description`.  Useful for LLM-facing tool
-            schemas where constraints in the description help the model
-            understand parameter requirements.
         __config__: Pydantic configuration for the generated model.
         __base__: Base class for the generated model. Defaults to BaseModel.
         __module__: Module name for the generated model class.
@@ -599,35 +376,24 @@ def create_model_from_schema(  # type: ignore[no-any-unimported]
         >>> person.name
         'John'
     """
-    json_schema = dict(jsonref.replace_refs(json_schema, proxies=False))
-
     effective_root = root_schema or json_schema
-
-    json_schema = force_additional_properties_false(json_schema)
-    effective_root = force_additional_properties_false(effective_root)
 
     if "allOf" in json_schema:
         json_schema = _merge_all_of_schemas(json_schema["allOf"], effective_root)
         if "title" not in json_schema and "title" in (root_schema or {}):
             json_schema["title"] = (root_schema or {}).get("title")
 
-    effective_name = model_name or json_schema.get("title") or "DynamicModel"
+    model_name = json_schema.get("title", "DynamicModel")
     field_definitions = {
         name: _json_schema_to_pydantic_field(
-            name,
-            prop,
-            json_schema.get("required", []),
-            effective_root,
-            enrich_descriptions=enrich_descriptions,
+            name, prop, json_schema.get("required", []), effective_root
         )
         for name, prop in (json_schema.get("properties", {}) or {}).items()
     }
 
-    effective_config = __config__ or ConfigDict(extra="forbid")
-
     return create_model_base(
-        effective_name,
-        __config__=effective_config,
+        model_name,
+        __config__=__config__,
         __base__=__base__,
         __module__=__module__,
         __validators__=__validators__,
@@ -641,8 +407,6 @@ def _json_schema_to_pydantic_field(
     json_schema: dict[str, Any],
     required: list[str],
     root_schema: dict[str, Any],
-    *,
-    enrich_descriptions: bool = False,
 ) -> Any:
     """Convert a JSON schema property to a Pydantic field definition.
 
@@ -651,29 +415,20 @@ def _json_schema_to_pydantic_field(
         json_schema: The JSON schema for this field.
         required: List of required field names.
         root_schema: The root schema for resolving $ref.
-        enrich_descriptions: When True, embed constraints in the description.
 
     Returns:
         A tuple of (type, Field) for use with create_model.
     """
-    type_ = _json_schema_to_pydantic_type(
-        json_schema, root_schema, name_=name.title(), enrich_descriptions=enrich_descriptions
-    )
+    type_ = _json_schema_to_pydantic_type(json_schema, root_schema, name_=name.title())
+    description = json_schema.get("description")
+    examples = json_schema.get("examples")
     is_required = name in required
 
     field_params: dict[str, Any] = {}
     schema_extra: dict[str, Any] = {}
 
-    if enrich_descriptions:
-        rich_desc = build_rich_field_description(json_schema)
-        if rich_desc:
-            field_params["description"] = rich_desc
-    else:
-        description = json_schema.get("description")
-        if description:
-            field_params["description"] = description
-
-    examples = json_schema.get("examples")
+    if description:
+        field_params["description"] = description
     if examples:
         schema_extra["examples"] = examples
 
@@ -789,7 +544,6 @@ def _json_schema_to_pydantic_type(
     root_schema: dict[str, Any],
     *,
     name_: str | None = None,
-    enrich_descriptions: bool = False,
 ) -> Any:
     """Convert a JSON schema to a Python/Pydantic type.
 
@@ -797,7 +551,6 @@ def _json_schema_to_pydantic_type(
         json_schema: The JSON schema to convert.
         root_schema: The root schema for resolving $ref.
         name_: Optional name for nested models.
-        enrich_descriptions: Propagated to nested model creation.
 
     Returns:
         A Python type corresponding to the JSON schema.
@@ -805,9 +558,7 @@ def _json_schema_to_pydantic_type(
     ref = json_schema.get("$ref")
     if ref:
         ref_schema = _resolve_ref(ref, root_schema)
-        return _json_schema_to_pydantic_type(
-            ref_schema, root_schema, name_=name_, enrich_descriptions=enrich_descriptions
-        )
+        return _json_schema_to_pydantic_type(ref_schema, root_schema, name_=name_)
 
     enum_values = json_schema.get("enum")
     if enum_values:
@@ -821,13 +572,8 @@ def _json_schema_to_pydantic_type(
         any_of_schemas = json_schema.get("anyOf", []) + json_schema.get("oneOf", [])
     if any_of_schemas:
         any_of_types = [
-            _json_schema_to_pydantic_type(
-                schema,
-                root_schema,
-                name_=f"{name_ or 'Union'}Option{i}",
-                enrich_descriptions=enrich_descriptions,
-            )
-            for i, schema in enumerate(any_of_schemas)
+            _json_schema_to_pydantic_type(schema, root_schema)
+            for schema in any_of_schemas
         ]
         return Union[tuple(any_of_types)]  # noqa: UP007
 
@@ -835,14 +581,10 @@ def _json_schema_to_pydantic_type(
     if all_of_schemas:
         if len(all_of_schemas) == 1:
             return _json_schema_to_pydantic_type(
-                all_of_schemas[0], root_schema, name_=name_,
-                enrich_descriptions=enrich_descriptions,
+                all_of_schemas[0], root_schema, name_=name_
             )
         merged = _merge_all_of_schemas(all_of_schemas, root_schema)
-        return _json_schema_to_pydantic_type(
-            merged, root_schema, name_=name_,
-            enrich_descriptions=enrich_descriptions,
-        )
+        return _json_schema_to_pydantic_type(merged, root_schema, name_=name_)
 
     type_ = json_schema.get("type")
 
@@ -858,8 +600,7 @@ def _json_schema_to_pydantic_type(
         items_schema = json_schema.get("items")
         if items_schema:
             item_type = _json_schema_to_pydantic_type(
-                items_schema, root_schema, name_=name_,
-                enrich_descriptions=enrich_descriptions,
+                items_schema, root_schema, name_=name_
             )
             return list[item_type]  # type: ignore[valid-type]
         return list
@@ -868,11 +609,8 @@ def _json_schema_to_pydantic_type(
         if properties:
             json_schema_ = json_schema.copy()
             if json_schema_.get("title") is None:
-                json_schema_["title"] = name_ or "DynamicModel"
-            return create_model_from_schema(
-                json_schema_, root_schema=root_schema,
-                enrich_descriptions=enrich_descriptions,
-            )
+                json_schema_["title"] = name_
+            return create_model_from_schema(json_schema_, root_schema=root_schema)
         return dict
     if type_ == "null":
         return None

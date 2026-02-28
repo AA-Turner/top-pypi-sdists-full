@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-graphql"
-version = "1.12.15"
+version = "1.12.17"
 description = "The GraphQL API for Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
+    "dagster==1.12.17",
     "graphene>=3,<4",
     "gql[requests]>=3,<5",
     "requests",
@@ -38,22 +38,4 @@ dagster-graphql = "dagster_graphql.cli:main"
 [project.optional-dependencies]
 test = [
     "dagster-test",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_graphql_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "pytest.ini",
-    "tox.ini",
-    "tox_postgres.ini",
-    "dagster_graphql_tests/**",
 ]

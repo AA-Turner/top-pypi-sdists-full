@@ -42,12 +42,12 @@ issues = "https://github.com/tianocore/edk2-pytool-extensions/issues"
 [project.optional-dependencies]
 dev = [
     "edk2-pytool-extensions[openssl]",
-    "ruff == 0.14.1",
+    "ruff == 0.15.0",
     "pytest == 8.4.2",
-    "coverage == 7.11.0",
+    "coverage == 7.13.3",
     "robotframework == 7.3.2",
-    "regex == 2025.9.18",
-    "pre-commit == 4.1.0",
+    "regex == 2026.1.15",
+    "pre-commit == 4.5.1",
 ]
 publish = [
     "setuptools == 80.9.0",
@@ -57,7 +57,7 @@ publish = [
 docs = [
     "black==25.9.0",
     "mkdocs==1.6.1",
-    "mkdocs-material==9.6.22",
+    "mkdocs-material==9.7.1",
     "mkdocstrings[python]==0.30.1",
     "mkdocstrings-python==1.18.2",
     "markdown-include==0.8.1",
@@ -93,6 +93,7 @@ validate_image_tool = "edk2toolext.image_validation:main"
 fpdt_parser = "edk2toolext.perf.fpdt_parser:main"
 perf_report_generator = "edk2toolext.perf.perf_report_generator:main"
 secureboot_audit = "edk2toolext.windows.secureboot.secureboot_audit:main"
+statuscode_processor = "edk2toolext.status_code_processor:main"
 
 [tool.setuptools]
 packages = ["edk2toolext"]

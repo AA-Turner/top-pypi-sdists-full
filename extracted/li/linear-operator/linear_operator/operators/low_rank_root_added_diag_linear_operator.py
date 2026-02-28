@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-from typing import Callable, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Callable
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators import to_dense
@@ -46,8 +47,8 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
         return chol_cap_mat
 
     def _mul_constant(
-        self: Float[LinearOperator, "*batch M N"], other: Union[float, torch.Tensor]
-    ) -> Float[LinearOperator, "*batch M N"]:
+        self: LinearOperator, other: float | torch.Tensor  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, M, N)
         # We have to over-ride this here for the case where the constant is negative
         if other > 0:
             res = super()._mul_constant(other)
@@ -55,21 +56,21 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
             res = AddedDiagLinearOperator(self._linear_op._mul_constant(other), self._diag_tensor._mul_constant(other))
         return res
 
-    def _preconditioner(self) -> Tuple[Optional[Callable], Optional[LinearOperator], Optional[torch.Tensor]]:
+    def _preconditioner(self) -> tuple[Callable | None, LinearOperator | None, torch.Tensor | None]:
         return None, None, None
 
     def _solve(
-        self: Float[LinearOperator, "... N N"],
-        rhs: Float[torch.Tensor, "... N C"],
-        preconditioner: Optional[Callable[[Float[torch.Tensor, "... N C"]], Float[torch.Tensor, "... N C"]]] = None,
-        num_tridiag: Optional[int] = 0,
-    ) -> Union[
-        Float[torch.Tensor, "... N C"],
-        Tuple[
-            Float[torch.Tensor, "... N C"],
-            Float[torch.Tensor, "..."],  # Note that in case of a tuple the second term size depends on num_tridiag
-        ],
-    ]:
+        self: LinearOperator,  # shape: (..., N, N)
+        rhs: torch.Tensor,  # shape: (..., N, C)
+        preconditioner: Callable[[torch.Tensor], torch.Tensor] | None = None,  # shape: (..., N, C)
+        num_tridiag: int | None = 0,
+    ) -> (
+        torch.Tensor  # shape: (..., N, C)
+        | tuple[
+            torch.Tensor,  # shape: (..., N, C)
+            torch.Tensor,  # Note that in case of a tuple the second term size depends on num_tridiag  # shape: (...)
+        ]
+    ):
         A_inv = self._diag_tensor.inverse()  # This is fine since it's a DiagLinearOperator
         U = self._linear_op.root
         V = self._linear_op.root.mT
@@ -83,7 +84,7 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
 
         return solve
 
-    def _solve_preconditioner(self) -> Optional[Callable]:
+    def _solve_preconditioner(self) -> Callable | None:
         return None
 
     def _sum_batch(self, dim: int) -> LinearOperator:
@@ -98,9 +99,9 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
         return logdet_term
 
     def __add__(
-        self: Float[LinearOperator, "... #M #N"],
-        other: Union[Float[Tensor, "... #M #N"], Float[LinearOperator, "... #M #N"], float],
-    ) -> Union[Float[LinearOperator, "... M N"], Float[Tensor, "... M N"]]:
+        self: LinearOperator,  # shape: (..., #M, #N)
+        other: Tensor | LinearOperator | float,  # shape: (..., #M, #N)
+    ) -> LinearOperator | Tensor:  # shape: (..., M, N)
         from linear_operator.operators.diag_linear_operator import DiagLinearOperator
 
         if isinstance(other, DiagLinearOperator):
@@ -109,14 +110,14 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
             return AddedDiagLinearOperator(self._linear_op + other, self._diag_tensor)
 
     def inv_quad_logdet(
-        self: Float[LinearOperator, "*batch N N"],
-        inv_quad_rhs: Optional[Union[Float[Tensor, "*batch N M"], Float[Tensor, "*batch N"]]] = None,
-        logdet: Optional[bool] = False,
-        reduce_inv_quad: Optional[bool] = True,
-    ) -> Tuple[
-        Optional[Union[Float[Tensor, "*batch M"], Float[Tensor, " *batch"], Float[Tensor, " 0"]]],
-        Optional[Float[Tensor, "..."]],
-    ]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        inv_quad_rhs: Tensor | None = None,  # shape: (*batch, N, M) or (*batch, N)
+        logdet: bool | None = False,
+        reduce_inv_quad: bool | None = True,
+    ) -> tuple[  # fmt: off
+        Tensor | None,  # shape: (*batch, M) or (*batch) or (0)
+        Tensor | None,  # shape: (...)
+    ]:  # fmt: on
         if not self.is_square:
             raise RuntimeError(
                 "inv_quad_logdet only operates on (batches of) square (positive semi-definite) LinearOperators. "
@@ -157,10 +158,10 @@ class LowRankRootAddedDiagLinearOperator(AddedDiagLinearOperator):
         return inv_quad_term, logdet_term
 
     def solve(
-        self: Float[LinearOperator, "... N N"],
-        right_tensor: Union[Float[Tensor, "... N P"], Float[Tensor, " N"]],
-        left_tensor: Optional[Float[Tensor, "... O N"]] = None,
-    ) -> Union[Float[Tensor, "... N P"], Float[Tensor, "... N"], Float[Tensor, "... O P"], Float[Tensor, "... O"]]:
+        self: LinearOperator,  # shape: (..., N, N)
+        right_tensor: Tensor,  # shape: (..., N, P) or (N)
+        left_tensor: Tensor | None = None,  # shape: (..., O, N)
+    ) -> Tensor:  # shape: (..., N, P) or (..., N) or (..., O, P) or (..., O)
         if not self.is_square:
             raise RuntimeError(
                 "solve only operates on (batches of) square (positive semi-definite) LinearOperators. "

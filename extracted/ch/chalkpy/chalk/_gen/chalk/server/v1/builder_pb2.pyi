@@ -736,6 +736,7 @@ class ClusterTimescaleSpecs(_message.Message):
         "gateway_port",
         "gateway_id",
         "shared_preload_libraries",
+        "require_infrastructure_nodepool",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -783,6 +784,7 @@ class ClusterTimescaleSpecs(_message.Message):
     GATEWAY_PORT_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     SHARED_PRELOAD_LIBRARIES_FIELD_NUMBER: _ClassVar[int]
+    REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -813,6 +815,7 @@ class ClusterTimescaleSpecs(_message.Message):
     gateway_port: int
     gateway_id: str
     shared_preload_libraries: _containers.RepeatedScalarFieldContainer[str]
+    require_infrastructure_nodepool: bool
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -845,6 +848,7 @@ class ClusterTimescaleSpecs(_message.Message):
         gateway_port: _Optional[int] = ...,
         gateway_id: _Optional[str] = ...,
         shared_preload_libraries: _Optional[_Iterable[str]] = ...,
+        require_infrastructure_nodepool: bool = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
@@ -1054,6 +1058,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "node_selector",
         "prevent_disruption",
         "allow_colocation_with_chalk_workloads",
+        "require_infrastructure_nodepool",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1074,6 +1079,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     PREVENT_DISRUPTION_FIELD_NUMBER: _ClassVar[int]
     ALLOW_COLOCATION_WITH_CHALK_WORKLOADS_FIELD_NUMBER: _ClassVar[int]
+    REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -1085,6 +1091,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     node_selector: _containers.ScalarMap[str, str]
     prevent_disruption: bool
     allow_colocation_with_chalk_workloads: bool
+    require_infrastructure_nodepool: bool
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -1098,6 +1105,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         node_selector: _Optional[_Mapping[str, str]] = ...,
         prevent_disruption: bool = ...,
         allow_colocation_with_chalk_workloads: bool = ...,
+        require_infrastructure_nodepool: bool = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -1790,6 +1798,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "aggregator",
         "observability_daemons",
         "customer_collector",
+        "require_infrastructure_nodepool",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -1799,6 +1808,7 @@ class TelemetryDeploymentSpec(_message.Message):
     AGGREGATOR_FIELD_NUMBER: _ClassVar[int]
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
+    REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -1807,6 +1817,7 @@ class TelemetryDeploymentSpec(_message.Message):
     aggregator: AggregatorSpec
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     customer_collector: CustomerCollectorConfig
+    require_infrastructure_nodepool: bool
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1817,6 +1828,7 @@ class TelemetryDeploymentSpec(_message.Message):
         aggregator: _Optional[_Union[AggregatorSpec, _Mapping]] = ...,
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
         customer_collector: _Optional[_Union[CustomerCollectorConfig, _Mapping]] = ...,
+        require_infrastructure_nodepool: bool = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):

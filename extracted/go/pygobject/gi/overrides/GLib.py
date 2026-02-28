@@ -15,40 +15,56 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301
 # USA
+
+from __future__ import annotations
+
 import contextlib
 import warnings
 import sys
 import socket
+import typing
 
 from .._ossighelper import register_sigint_fallback, get_event_loop
-from ..module import get_introspection_module
+from ..module import (
+    get_fallback_platform_specific_module_symbol,
+    get_platform_specific_module,
+)
 from .._gi import (
     variant_type_from_string,
     source_new,
     source_set_callback,
     io_channel_read,
     main_context_query,
+    PyGIWarning,
 )
 from ..overrides import override, deprecated, deprecated_attr
 from gi import PyGIDeprecationWarning, version_info
 
-GLib = get_introspection_module("GLib")
+# Typing relies on https://github.com/pygobject/pygobject-stubs.
+if typing.TYPE_CHECKING:
+    # Import stubs for type checking this file.
+    # FIXME: For IDE typing support, you need to copy
+    # pygobject-stubs/src/gi-stubs/repository/*.pyi to gi/repository/
+    from gi.repository import GLib
+    from typing_extensions import Self
+
+    # Type annotations cannot have `GLib.` prefix because they are copied into
+    # GLib stubs module which cannot refer to itself. Use type aliases.
+    IOChannel = GLib.IOChannel
+    IOCondition = GLib.IOCondition
+    PollFD = GLib.PollFD
+else:
+    from gi.module import get_introspection_module
+
+    GLib = get_introspection_module("GLib")
 
 __all__ = []
-
-from gi import _option as option
-
-option
-__all__.append("option")
-
 
 # Types and functions still needed from static bindings
 from gi import _gi
 from gi._error import GError
 
 Error = GError
-OptionContext = _gi.OptionContext
-OptionGroup = _gi.OptionGroup
 Pid = _gi.Pid
 spawn_async = _gi.spawn_async
 
@@ -62,7 +78,7 @@ def threads_init():
     )
 
 
-def gerror_matches(self, domain, code):
+def gerror_matches(self, domain: str | int, code: int) -> bool:
     # Handle cases where self.domain was set to an integer for compatibility
     # with the introspected GLib.Error.
     if isinstance(self.domain, str):
@@ -72,7 +88,7 @@ def gerror_matches(self, domain, code):
     return (self_domain_quark, self.code) == (domain, code)
 
 
-def gerror_new_literal(domain, message, code):
+def gerror_new_literal(domain: int, message: str, code: int) -> GError:
     domain_quark = GLib.quark_to_string(domain)
     return GError(message, domain_quark, code)
 
@@ -88,8 +104,6 @@ Error.new_literal = staticmethod(gerror_new_literal)
 __all__ += [
     "Error",
     "GError",
-    "OptionContext",
-    "OptionGroup",
     "Pid",
     "spawn_async",
     "threads_init",
@@ -170,25 +184,9 @@ class _VariantCreator:
         return builder.end()
 
 
-LEAF_ACCESSORS = {
-    "b": "get_boolean",
-    "y": "get_byte",
-    "n": "get_int16",
-    "q": "get_uint16",
-    "i": "get_int32",
-    "u": "get_uint32",
-    "x": "get_int64",
-    "t": "get_uint64",
-    "h": "get_handle",
-    "d": "get_double",
-    "s": "get_string",
-    "o": "get_string",  # object path
-    "g": "get_string",  # signature
-}
-
-
 class Variant(GLib.Variant):
-    def __new__(cls, format_string, value):
+    @staticmethod
+    def __new__(cls: type[Self], format_string: str, value: typing.Any) -> Self:
         """Create a GVariant from a native Python object.
 
         format_string is a standard GVariant type signature, value is a Python
@@ -209,8 +207,8 @@ class Variant(GLib.Variant):
         return v
 
     @staticmethod
-    def new_tuple(*elements):
-        return GLib.Variant.new_tuple(elements)
+    def new_tuple(*elements: Variant) -> Variant:  # type: ignore[override]
+        return GLib.Variant.new_tuple(elements)  # type: ignore[arg-type, return-value]
 
     def __del__(self):
         with contextlib.suppress(ImportError):
@@ -222,42 +220,70 @@ class Variant(GLib.Variant):
             # up, anyway.
             self.unref()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.print_(True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if hasattr(self, "format_string"):
             f = self.format_string
         else:
             f = self.get_type_string()
         return f"GLib.Variant('{f}', {self.print_(False)})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Variant):
+            return False
         try:
             return self.equal(other)
         except TypeError:
             return False
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
+        if not isinstance(other, Variant):
+            return True
         try:
             return not self.equal(other)
         except TypeError:
             return True
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # We're not using just hash(self.unpack()) because otherwise we'll have
         # hash collisions between the same content in different variant types,
         # which will cause a performance issue in set/dict/etc.
         return hash((self.get_type_string(), self.unpack()))
 
-    def unpack(self):
+    def unpack(self) -> typing.Any:
         """Decompose a GVariant into a native Python object."""
         type_string = self.get_type_string()
 
         # simple values
-        la = LEAF_ACCESSORS.get(type_string)
-        if la:
-            return getattr(self, la)()
+        match type_string:
+            case "b":
+                return self.get_boolean()
+            case "y":
+                return self.get_byte()
+            case "n":
+                return self.get_int16()
+            case "q":
+                return self.get_uint16()
+            case "i":
+                return self.get_int32()
+            case "u":
+                return self.get_uint32()
+            case "x":
+                return self.get_int64()
+            case "t":
+                return self.get_uint64()
+            case "h":
+                return self.get_handle()
+            case "d":
+                return self.get_double()
+            case "s":
+                return self.get_string()
+            case "o":
+                return self.get_string()  # object path
+            case "g":
+                return self.get_string()  # signature
 
         # tuple
         if type_string.startswith("("):
@@ -267,7 +293,7 @@ class Variant(GLib.Variant):
 
         # dictionary
         if type_string.startswith("a{"):
-            res = {}
+            res: dict[bool | float | str, typing.Any] = {}
             for i in range(self.n_children()):
                 v = self.get_child_value(i)
                 res[v.get_child_value(0).unpack()] = v.get_child_value(1).unpack()
@@ -340,7 +366,7 @@ class Variant(GLib.Variant):
     # Pythonic iterators
     #
 
-    def __len__(self):
+    def __len__(self) -> int:
         if self.get_type_string() in ["s", "o", "g"]:
             return len(self.get_string())
         # Array, dict, tuple
@@ -352,29 +378,30 @@ class Variant(GLib.Variant):
             f"GVariant type {self.get_type_string()} does not have a length"
         )
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str | int) -> typing.Any:
         # dict
         if self.get_type_string().startswith("a{"):
-            try:
+            if isinstance(key, str):
                 val = self.lookup_value(key, variant_type_from_string("*"))
                 if val is None:
                     raise KeyError(key)
                 return val.unpack()
-            except TypeError:
-                # lookup_value() only works for string keys, which is certainly
-                # the common case; we have to do painful iteration for other
-                # key types
-                for i in range(self.n_children()):
-                    v = self.get_child_value(i)
-                    if v.get_child_value(0).unpack() == key:
-                        return v.get_child_value(1).unpack()
-                raise KeyError(key)
+            # lookup_value() only works for string keys, which is certainly
+            # the common case; we have to do painful iteration for other
+            # key types
+            for i in range(self.n_children()):
+                v = self.get_child_value(i)
+                if v.get_child_value(0).unpack() == key:
+                    return v.get_child_value(1).unpack()
+            raise KeyError(key)
+
+        if not isinstance(key, int):
+            raise ValueError("Key must be an integer for arrays, tuples and strings")
 
         # array/tuple
         if self.get_type_string().startswith("a") or self.get_type_string().startswith(
             "("
         ):
-            key = int(key)
             if key < 0:
                 key = self.n_children() + key
             if key < 0 or key >= self.n_children():
@@ -394,7 +421,7 @@ class Variant(GLib.Variant):
     def __nonzero__(self):
         return self.__bool__()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         if self.get_type_string() in ["y", "n", "q", "i", "u", "x", "t", "h", "d"]:
             return self.unpack() != 0
         if self.get_type_string() in ["b"]:
@@ -409,7 +436,7 @@ class Variant(GLib.Variant):
         # unpack works recursively, hence bool also works recursively
         return bool(self.unpack())
 
-    def keys(self):
+    def keys(self) -> typing.Iterable[bool | float | str]:
         if not self.get_type_string().startswith("a{"):
             raise TypeError(
                 f"GVariant type {self.get_type_string()} is not a dictionary"
@@ -421,18 +448,16 @@ class Variant(GLib.Variant):
             res.append(v.get_child_value(0).unpack())
         return res
 
+    def get_string(self) -> str:
+        value: str
+        value, _length = super().get_string()  # type: ignore[misc]
+        return value
 
-def get_string(self):
-    value, _length = GLib.Variant.get_string(self)
-    return value
-
-
-setattr(Variant, "get_string", get_string)
 
 __all__.append("Variant")
 
 
-def markup_escape_text(text, length=-1):
+def markup_escape_text(text: str | bytes, length: int = -1) -> str:
     if isinstance(text, bytes):
         return GLib.markup_escape_text(text.decode("UTF-8"), length)
     return GLib.markup_escape_text(text, length)
@@ -549,14 +574,11 @@ for name in [
 
 
 class MainLoop(GLib.MainLoop):
-    # Backwards compatible constructor API
-    def __new__(cls, context=None):
-        return GLib.MainLoop.new(context, False)
+    @staticmethod
+    def __new__(cls: type[Self], context: MainContext | None = None) -> Self:
+        return GLib.MainLoop.new(context, False)  # type: ignore[return-value]
 
-    def __init__(self, context=None):
-        pass
-
-    def run(self):
+    def run(self) -> None:
         with (
             register_sigint_fallback(self.quit),
             get_event_loop(self.get_context()).running(self.quit),
@@ -570,11 +592,11 @@ __all__.append("MainLoop")
 
 class MainContext(GLib.MainContext):
     # Backwards compatible API with default value
-    def iteration(self, may_block=True):
+    def iteration(self, may_block: bool = True) -> bool:
         with get_event_loop(self).paused():
             return super().iteration(may_block)
 
-    def query(self, max_priority: int) -> tuple[int, list[GLib.PollFD]]:
+    def query(self, max_priority: int) -> tuple[int, list[PollFD]]:
         """Determines information necessary to poll this main loop.
 
         :param max_priority: maximum priority source to check
@@ -593,7 +615,10 @@ __all__.append("MainContext")
 
 
 class Source(GLib.Source):
-    def __new__(cls, *args, **kwargs):
+    # *args, **kwargs are kept for backwards compatibility.
+    # See https://gitlab.gnome.org/GNOME/pygobject/-/merge_requests/506#note_2652436.
+    @staticmethod
+    def __new__(cls: type[Self], *args, **kwargs) -> Self:
         # use our custom pygi_source_new() here as g_source_new() is not
         # bindable
         source = source_new()
@@ -601,10 +626,7 @@ class Source(GLib.Source):
         setattr(source, "__pygi_custom_source", True)
         return source
 
-    def __init__(self, *args, **kwargs):
-        return super().__init__()
-
-    def __del__(self):
+    def __del__(self) -> None:
         if hasattr(self, "__pygi_custom_source"):
             # We destroy and finalize the box from here, as GLib might hold
             # a reference (e.g. while the source is pending), delaying the
@@ -613,19 +635,21 @@ class Source(GLib.Source):
             self.finalize()
             self._clear_boxed()
 
-    def finalize(self):
+    def finalize(self) -> None:
         pass
 
-    def set_callback(self, fn, user_data=None):
+    def set_callback(
+        self, func: typing.Callable[..., bool], *user_data: typing.Any
+    ) -> None:
         if hasattr(self, "__pygi_custom_source"):
             # use our custom pygi_source_set_callback() if for a GSource object
             # with custom functions
-            source_set_callback(self, fn, user_data)
+            source_set_callback(self, func, *user_data)
         else:
             # otherwise, for Idle and Timeout, use the standard method
-            super().set_callback(fn, user_data)
+            super().set_callback(func, *user_data)
 
-    def get_current_time(self):
+    def get_current_time(self) -> float:
         return GLib.get_real_time() * 0.000001
 
     get_current_time = deprecated(
@@ -634,18 +658,18 @@ class Source(GLib.Source):
 
     # as get/set_priority are introspected, we can't use the static
     # property(get_priority, ..) here
-    def __get_priority(self):
+    def __get_priority(self) -> int:
         return self.get_priority()
 
-    def __set_priority(self, value):
+    def __set_priority(self, value: int) -> None:
         self.set_priority(value)
 
     priority = property(__get_priority, __set_priority)
 
-    def __get_can_recurse(self):
+    def __get_can_recurse(self) -> bool:
         return self.get_can_recurse()
 
-    def __set_can_recurse(self, value):
+    def __set_can_recurse(self, value: bool) -> None:
         self.set_can_recurse(value)
 
     can_recurse = property(__get_can_recurse, __set_can_recurse)
@@ -656,13 +680,13 @@ __all__.append("Source")
 
 
 class Idle(Source):
-    def __new__(cls, priority=GLib.PRIORITY_DEFAULT):
+    @staticmethod
+    def __new__(cls: type[Self], priority: int = GLib.PRIORITY_DEFAULT) -> Self:
         source = GLib.idle_source_new()
         source.__class__ = cls
-        return source
+        return source  # type: ignore[return-value]
 
-    def __init__(self, priority=GLib.PRIORITY_DEFAULT):
-        super(Source, self).__init__()
+    def __init__(self, priority: int = GLib.PRIORITY_DEFAULT) -> None:
         if priority != GLib.PRIORITY_DEFAULT:
             self.set_priority(priority)
 
@@ -671,12 +695,17 @@ __all__.append("Idle")
 
 
 class Timeout(Source):
-    def __new__(cls, interval=0, priority=GLib.PRIORITY_DEFAULT):
+    @staticmethod
+    def __new__(
+        cls: type[Self], interval: int = 0, priority: int = GLib.PRIORITY_DEFAULT
+    ) -> Self:
         source = GLib.timeout_source_new(interval)
         source.__class__ = cls
-        return source
+        return source  # type: ignore[return-value]
 
-    def __init__(self, interval=0, priority=GLib.PRIORITY_DEFAULT):
+    def __init__(
+        self, interval: int = 0, priority: int = GLib.PRIORITY_DEFAULT
+    ) -> None:
         if priority != GLib.PRIORITY_DEFAULT:
             self.set_priority(priority)
 
@@ -685,21 +714,35 @@ __all__.append("Timeout")
 
 
 # backwards compatible API
-def idle_add(function, *user_data, priority=GLib.PRIORITY_DEFAULT_IDLE):
+def idle_add(
+    function: typing.Callable[..., bool | None],
+    *user_data: typing.Any,
+    priority: int = GLib.PRIORITY_DEFAULT_IDLE,
+) -> int:
     return GLib.idle_add(priority, function, *user_data)
 
 
 __all__.append("idle_add")
 
 
-def timeout_add(interval, function, *user_data, priority=GLib.PRIORITY_DEFAULT):
+def timeout_add(
+    interval: int,
+    function: typing.Callable[..., bool | None],
+    *user_data: typing.Any,
+    priority: int = GLib.PRIORITY_DEFAULT,
+) -> int:
     return GLib.timeout_add(priority, interval, function, *user_data)
 
 
 __all__.append("timeout_add")
 
 
-def timeout_add_seconds(interval, function, *user_data, priority=GLib.PRIORITY_DEFAULT):
+def timeout_add_seconds(
+    interval: int,
+    function: typing.Callable[..., bool | None],
+    *user_data: typing.Any,
+    priority: int = GLib.PRIORITY_DEFAULT,
+) -> int:
     return GLib.timeout_add_seconds(priority, interval, function, *user_data)
 
 
@@ -776,7 +819,7 @@ def _io_add_watch_get_args(channel, priority_, condition, *cb_and_user_data, **k
 __all__.append("_io_add_watch_get_args")
 
 
-def io_add_watch(*args, **kwargs):
+def io_add_watch(*args, **kwargs) -> int:
     """io_add_watch(channel, priority, condition, func, *user_data) -> event_source_id."""
     channel, priority, condition, func, user_data = _io_add_watch_get_args(
         *args, **kwargs
@@ -789,29 +832,37 @@ __all__.append("io_add_watch")
 
 # backwards compatible API
 class IOChannel(GLib.IOChannel):
-    def __new__(cls, filedes=None, filename=None, mode=None, hwnd=None):
+    @staticmethod
+    def __new__(
+        cls: type[Self],
+        filedes: int | None = None,
+        filename: str | None = None,
+        mode: str | None = None,
+        hwnd: int | None = None,
+    ) -> Self:
         if filedes is not None:
-            return GLib.IOChannel.unix_new(filedes)
+            return GLib.IOChannel.unix_new(filedes)  # type: ignore[return-value]
         if filename is not None:
-            return GLib.IOChannel.new_file(filename, mode or "r")
+            return GLib.IOChannel.new_file(filename, mode or "r")  # type: ignore[return-value]
         if hwnd is not None:
-            return GLib.IOChannel.win32_new_fd(hwnd)
+            return GLib.IOChannel.win32_new_fd(hwnd)  # type: ignore[return-value]
         raise TypeError(
             "either a valid file descriptor, file name, or window handle must be supplied"
         )
 
     def __init__(self, *args, **kwargs):
+        # Call super without arguments to avoid deprecation warning
         return super().__init__()
 
-    def read(self, max_count=-1):
+    def read(self, max_count: int = -1) -> bytes:
         """Reads data from a :obj:`~gi.repository.GLib.IOChannel`."""
         return io_channel_read(self, max_count)
 
-    def read_chars(self, max_count=-1):
+    def read_chars(self, max_count: int = -1) -> bytes:
         """Alias for GLib.IOChannel.read()."""
         return self.read(max_count)
 
-    def readline(self, size_hint=-1):
+    def readline(self, size_hint: int = -1) -> str:
         # note, size_hint is just to maintain backwards compatible API; the
         # old static binding did not actually use it
         (_status, buf, _length, _terminator_pos) = self.read_line()
@@ -819,7 +870,7 @@ class IOChannel(GLib.IOChannel):
             return ""
         return buf
 
-    def readlines(self, size_hint=-1):
+    def readlines(self, size_hint: int = -1) -> list[str]:
         # note, size_hint is just to maintain backwards compatible API;
         # the old static binding did not actually use it
         lines = []
@@ -833,7 +884,7 @@ class IOChannel(GLib.IOChannel):
             lines.append(buf)
         return lines
 
-    def write(self, buf, buflen=-1):
+    def write(self, buf: str | bytes, buflen: int = -1) -> int:
         if not isinstance(buf, bytes):
             buf = buf.encode("UTF-8")
         if buflen == -1:
@@ -841,13 +892,13 @@ class IOChannel(GLib.IOChannel):
         (_status, written) = self.write_chars(buf, buflen)
         return written
 
-    def writelines(self, lines):
+    def writelines(self, lines: typing.Iterable[str | bytes]) -> None:
         for line in lines:
             self.write(line)
 
     _whence_map = {0: GLib.SeekType.SET, 1: GLib.SeekType.CUR, 2: GLib.SeekType.END}
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset: int, whence: int = 0) -> GLib.IOStatus:
         try:
             w = self._whence_map[whence]
         except KeyError:
@@ -855,8 +906,12 @@ class IOChannel(GLib.IOChannel):
         return self.seek_position(offset, w)
 
     def add_watch(
-        self, condition, callback, *user_data, priority=GLib.PRIORITY_DEFAULT
-    ):
+        self,
+        condition: IOCondition,
+        callback: typing.Callable[..., bool | None],
+        *user_data: typing.Any,
+        priority: int = GLib.PRIORITY_DEFAULT,
+    ) -> int:
         return io_add_watch(self, priority, condition, callback, *user_data)
 
     add_watch = deprecated(add_watch, "GLib.io_add_watch()")
@@ -864,7 +919,7 @@ class IOChannel(GLib.IOChannel):
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def __next__(self) -> str:
         (status, buf, _length, _terminator_pos) = self.read_line()
         if status == GLib.IOStatus.NORMAL:
             return buf
@@ -876,12 +931,13 @@ __all__.append("IOChannel")
 
 
 class PollFD(GLib.PollFD):
-    def __new__(cls, fd, events):
+    @staticmethod
+    def __new__(cls: type[Self], fd: int, events: IOCondition) -> Self:
         pollfd = GLib.PollFD()
         pollfd.__class__ = cls
         return pollfd
 
-    def __init__(self, fd, events):
+    def __init__(self, fd: int, events: IOCondition) -> None:
         self.fd = fd
         self.events = events
 
@@ -949,7 +1005,7 @@ def child_watch_add(*args, **kwargs):
 __all__.append("child_watch_add")
 
 
-def get_current_time():
+def get_current_time() -> float:
     return GLib.get_real_time() * 0.000001
 
 
@@ -960,7 +1016,7 @@ __all__.append("get_current_time")
 
 # backwards compatible API with default argument, and ignoring bytes_read
 # output argument
-def filename_from_utf8(utf8string, len=-1):
+def filename_from_utf8(utf8string: str, len: int = -1) -> str:
     return GLib.filename_from_utf8(utf8string, len)[0]
 
 
@@ -985,3 +1041,49 @@ deprecated_attr(
 pyglib_version = version_info
 __all__.append("pyglib_version")
 deprecated_attr("GLib", "pyglib_version", "gi.version_info")
+
+GLibPlatform = get_platform_specific_module(GLib)
+
+if GLibPlatform:
+    # Add support for using platform-specific GLib symbols.
+    glib_globals = globals()
+
+    for attr in dir(GLibPlatform):
+        if attr.startswith("_"):
+            continue
+
+        original_attr, wrapper_attr = get_fallback_platform_specific_module_symbol(
+            GLib, GLibPlatform, attr
+        )
+
+        if (
+            wrapper_attr == attr
+            and (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 88)
+            and hasattr(GLib, wrapper_attr)
+        ):
+            warnings.warn(
+                (
+                    f"Name conflict for platform-specific symbol {GLibPlatform._namespace}.{attr}."
+                    + " No wrapper will be created."
+                ),
+                PyGIWarning,
+                stacklevel=2,
+            )
+
+        if (
+            wrapper_attr in __all__
+            or wrapper_attr in glib_globals
+            or hasattr(GLib, wrapper_attr)
+        ):
+            continue
+
+        glib_globals[wrapper_attr] = original_attr
+        deprecated_attr(
+            GLib._namespace, wrapper_attr, f"{GLibPlatform._namespace}.{attr}"
+        )
+        __all__.append(wrapper_attr)
+
+if hasattr(GLibPlatform, "signal_add"):
+    deprecated_attr(
+        "GLib", "unix_signal_add_full", f"{GLibPlatform._namespace}.signal_add"
+    )

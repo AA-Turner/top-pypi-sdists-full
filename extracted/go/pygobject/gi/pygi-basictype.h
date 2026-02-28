@@ -20,39 +20,25 @@
 #ifndef __PYGI_ARG_BASICTYPE_H__
 #define __PYGI_ARG_BASICTYPE_H__
 
-#include <girepository/girepository.h>
 #include "pygi-cache.h"
 
 G_BEGIN_DECLS
 
-gboolean pygi_marshal_from_py_basic_type (PyObject *object, /* in */
-                                          GIArgument *arg,  /* out */
-                                          GITypeTag type_tag,
-                                          GITransfer transfer,
-                                          gpointer *cleanup_data);
-gboolean pygi_marshal_from_py_basic_type_cache_adapter (
-    PyGIInvokeState *state, PyGICallableCache *callable_cache,
-    PyGIArgCache *arg_cache, PyObject *py_arg, GIArgument *arg,
-    gpointer *cleanup_data);
+GIArgument pygi_marshal_from_py_basic_type (PyObject *object,
+                                            GITypeTag type_tag,
+                                            GITransfer transfer,
+                                            gpointer *cleanup_data);
 
-PyObject *pygi_marshal_to_py_basic_type (GIArgument *arg, /* in */
-                                         GITypeTag type_tag,
+PyObject *pygi_marshal_to_py_basic_type (GIArgument arg, GITypeTag type_tag,
                                          GITransfer transfer);
-PyObject *pygi_marshal_to_py_basic_type_cache_adapter (
-    PyGIInvokeState *state, PyGICallableCache *callable_cache,
-    PyGIArgCache *arg_cache, GIArgument *arg, gpointer *cleanup_data);
 
-PyGIArgCache *pygi_arg_basic_type_new_from_info (
-    GITypeInfo *type_info, GIArgInfo *arg_info, /* may be null */
-    GITransfer transfer, PyGIDirection direction);
+gboolean pygi_gpointer_from_py (PyObject *py_arg, gpointer *result);
 
 PyObject *pygi_gint64_to_py (gint64 value);
 PyObject *pygi_guint64_to_py (guint64 value);
 PyObject *pygi_gfloat_to_py (gfloat value);
 PyObject *pygi_gdouble_to_py (gdouble value);
 PyObject *pygi_gboolean_to_py (gboolean value);
-PyObject *pygi_gint8_to_py (gint8 value);
-PyObject *pygi_guint8_to_py (guint8 value);
 PyObject *pygi_utf8_to_py (gchar *value);
 PyObject *pygi_gint_to_py (gint value);
 PyObject *pygi_glong_to_py (glong value);
@@ -62,6 +48,7 @@ PyObject *pygi_filename_to_py (gchar *value);
 PyObject *pygi_gsize_to_py (gsize value);
 PyObject *pygi_gssize_to_py (gssize value);
 PyObject *pygi_guint32_to_py (guint32 value);
+PyObject *pygi_gunichar_to_py (gunichar value);
 
 gboolean pygi_gboolean_from_py (PyObject *object, gboolean *result);
 gboolean pygi_gint64_from_py (PyObject *object, gint64 *result);
@@ -74,9 +61,7 @@ gboolean pygi_gulong_from_py (PyObject *object, gulong *result);
 gboolean pygi_gint_from_py (PyObject *object, gint *result);
 gboolean pygi_guint_from_py (PyObject *object, guint *result);
 gboolean pygi_gunichar_from_py (PyObject *py_arg, gunichar *result);
-gboolean pygi_gint8_from_py (PyObject *object, gint8 *result);
 gboolean pygi_gschar_from_py (PyObject *object, gint8 *result);
-gboolean pygi_guint8_from_py (PyObject *object, guint8 *result);
 gboolean pygi_guchar_from_py (PyObject *object, guchar *result);
 
 G_END_DECLS

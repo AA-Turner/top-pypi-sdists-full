@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     CreateChartResponse,
     DeleteChartRequest,
     DeleteChartResponse,
+    GetChartOptionsRequest,
+    GetChartOptionsResponse,
     GetChartSnapshotRequest,
     GetChartSnapshotResponse,
     ListChartsRequest,
@@ -48,6 +50,10 @@ class ChartsServiceStub:
         DeleteChartRequest,
         DeleteChartResponse,
     ]
+    GetChartOptions: UnaryUnaryMultiCallable[
+        GetChartOptionsRequest,
+        GetChartOptionsResponse,
+    ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -80,5 +86,11 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: DeleteChartRequest,
         context: ServicerContext,
     ) -> DeleteChartResponse: ...
+    @abstractmethod
+    def GetChartOptions(
+        self,
+        request: GetChartOptionsRequest,
+        context: ServicerContext,
+    ) -> GetChartOptionsResponse: ...
 
 def add_ChartsServiceServicer_to_server(servicer: ChartsServiceServicer, server: Server) -> None: ...

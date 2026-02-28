@@ -372,7 +372,7 @@ class NotasFaturamentoSAP:
         console.print(f"[DW] Acessando a URL do documento: {doc_url}")
         self.driver.get(doc_url)
         console.print("[DW] URL do documento carregada.")
-        await worker_sleep(40)
+        await worker_sleep(50)
 
         campo = None
 

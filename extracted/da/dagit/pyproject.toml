@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagit"
-version = "1.12.15"
+version = "1.12.17"
 description = "Web UI for dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -23,7 +23,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster-webserver==1.12.15",
+    "dagster-webserver==1.12.17",
 ]
 
 [project.urls]
@@ -35,24 +35,8 @@ dagit-debug = "dagster_webserver.debug:main"
 
 [project.optional-dependencies]
 notebook = [
-    "dagster-webserver[notebook]==1.12.15",
+    "dagster-webserver[notebook]==1.12.17",
 ]
 test = [
-    "dagster-webserver[test]==1.12.15",
-]
-
-[tool.setuptools]
-include-package-data = true
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagit_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "dagit_tests/**",
-    "build_js.sh",
+    "dagster-webserver[test]==1.12.17",
 ]

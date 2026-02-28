@@ -23,6 +23,7 @@ from abstra_internals.interface.sdk.forms.deprecated.widgets.response_abc import
 )
 from abstra_internals.repositories.ai import AIRepository
 from abstra_internals.utils.ai import build_function_tool_call
+from abstra_internals.utils.image import constrain_image_size
 
 Prompt = Union[
     str, io.IOBase, pathlib.Path, AbstractFileResponse, DeprecatedAbstractFileResponse
@@ -42,6 +43,7 @@ class AiSDKController:
                 rotation=0,
             )
             pil_image = bitmap.to_pil()
+            pil_image = constrain_image_size(pil_image)
             image_io = io.BytesIO()
             pil_image.save(image_io, format="png")
             images.append(image_io)

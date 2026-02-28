@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-manilaclient
-Version: 5.7.1
+Version: 6.0.0
 Summary: Client library for OpenStack Shared File System Storage
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: oslo.utils>=3.33.0
 Requires-Dist: PrettyTable>=0.7.1
 Requires-Dist: requests>=2.14.2
 Requires-Dist: osc-lib>=3.2.0
-Requires-Dist: python-keystoneclient>=3.8.0
+Requires-Dist: keystoneauth1>=3.0.0
 Requires-Dist: debtcollector>=1.2.0
 Dynamic: license-file
 Dynamic: requires-dist

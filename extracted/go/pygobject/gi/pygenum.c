@@ -19,14 +19,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
-#include <pythoncapi_compat.h>
-
-#include "pygi-type.h"
-
 #include "pygenum.h"
 #include "pygi-basictype.h"
+#include "pygi-type.h"
 #include "pygi-util.h"
 
 GQuark pygenum_class_key;
@@ -177,7 +172,8 @@ pyg_enum_add_full (PyObject *module, const char *typename, GType gtype,
             GIValueInfo *v = gi_enum_info_get_value (info, i);
 
             add_value (values, gi_base_info_get_name (GI_BASE_INFO (v)),
-                       gi_value_info_get_value (v));
+                       (int)gi_value_info_get_value (v));
+            gi_base_info_unref (v);
         }
     }
 
@@ -302,7 +298,7 @@ pyg_enum_register (PyTypeObject *enum_class, char *type_name)
             goto out;
         }
 
-        enum_values[i].value = PyLong_AsLong (value);
+        enum_values[i].value = (int)PyLong_AsLong (value);
         enum_values[i].value_name =
             g_strdup (PyUnicode_AsUTF8AndSize (name, NULL));
         c = g_ascii_strdown (enum_values[i].value_name, -1);
@@ -433,29 +429,6 @@ pyg_enum_get_value_nick (PyObject *self, void *closure)
     g_type_class_unref (enum_class);
 
     return retval;
-}
-
-int
-pyg_enum_check_type (PyObject *obj, GType expected_type)
-{
-    GType gtype;
-
-    if (expected_type == G_TYPE_NONE) return 0;
-
-    /* Only match the GType if this is a PyGEnum_Type subclass */
-    if (!PyObject_TypeCheck (obj, PyGEnum_Type)) return 0;
-
-    gtype = get_enum_gtype (Py_TYPE (obj));
-    if (gtype == G_TYPE_INVALID) return -1;
-
-    if (gtype != expected_type) {
-        PyErr_Format (PyExc_TypeError,
-                      "expected enumeration type %s, but got %s instead",
-                      g_type_name (expected_type), g_type_name (gtype));
-        return -1;
-    }
-
-    return 0;
 }
 
 static PyGetSetDef pyg_enum_getsets[] = {

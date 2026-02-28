@@ -5884,6 +5884,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSSERVICE_ROLE_FOR_AI_DEV_OPS_POLICY = "AWSSERVICE_ROLE_FOR_AI_DEV_OPS_POLICY"
+    '''
+    :stability: experimental
+    '''
+    CLOUD_WATCH_LOGS_API_KEY_ACCESS = "CLOUD_WATCH_LOGS_API_KEY_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

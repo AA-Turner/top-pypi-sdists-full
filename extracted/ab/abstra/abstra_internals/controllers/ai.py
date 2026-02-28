@@ -20,6 +20,7 @@ from abstra_internals.credentials import resolve_headers
 from abstra_internals.repositories.project.project import StageWithFile
 from abstra_internals.settings import Settings
 from abstra_internals.utils.file import silent_traverse_code
+from abstra_internals.utils.image import constrain_image_size
 from abstra_internals.utils.packages import get_local_package_version
 from abstra_internals.utils.paths import get_relative_path
 from abstra_internals.utils.string import sanitize_filename
@@ -119,6 +120,7 @@ class AiController:
                 rotation=0,
             )
             pil_image = bitmap.to_pil()
+            pil_image = constrain_image_size(pil_image)
             image_io = io.BytesIO()
             pil_image.save(image_io, format="png")
             image_io.seek(0)

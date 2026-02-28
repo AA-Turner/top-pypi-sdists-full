@@ -1,9 +1,13 @@
 project(
   'pygobject',
   'c',
-  version : '3.54.5',
+  version : '3.56.0',
   meson_version : '>= 0.64.0',
-  default_options : ['warning_level=1', 'buildtype=debugoptimized']
+  default_options : [
+    'warning_level=1',
+    'buildtype=debugoptimized',
+    'c_std=gnu99,c99'
+  ]
 )
 
 pygobject_version = meson.project_version()
@@ -47,9 +51,6 @@ pythoncapi_compat = subproject('pythoncapi-compat')
 pythoncapi_compat_dep = declare_dependency(
     include_directories: pythoncapi_compat.get_variable('incdir')
 )
-meson.add_dist_script(
-    python,
-    join_paths(meson.current_source_dir(), 'subprojects', 'packagefiles', 'pythoncapi-compat-dist.py'))
 
 if not with_pycairo.disabled()
   cairo_dep = dependency('cairo', required: with_pycairo.enabled() and cc.get_id() != 'msvc')
@@ -113,6 +114,7 @@ else
     '-Wall',
     '-Warray-bounds',
     '-Wcast-align',
+    '-Wconversion',
     '-Wduplicated-branches',
     '-Wextra',
     '-Wformat=2',
@@ -138,6 +140,7 @@ else
     '-Wstrict-aliasing',
     '-Wstrict-prototypes',
     '-Wswitch-default',
+    '-Wswitch-enum',
     '-Wundef',
     '-Wunused-but-set-variable',
     '-Wwrite-strings',
@@ -150,13 +153,17 @@ else
     '-Wno-discarded-qualifiers',
     '-Wno-sign-conversion',
     '-Wno-cast-function-type',
-    '-Wno-int-conversion',
   ]
 
   main_c_args += [
     '-fno-strict-aliasing',
     '-fvisibility=hidden',
   ]
+
+  # On MSys2, the compiler errors 'cause it wants a `gnu_printf` format attributes
+  if host_machine.system() == 'windows' and cc.get_id() == 'gcc'
+    main_c_args += ['-Wno-suggest-attribute=format']
+  endif
 
   main_c_args = cc.get_supported_arguments(main_c_args)
 endif
@@ -168,10 +175,6 @@ cdata = configuration_data()
 cdata.set('PYGOBJECT_MAJOR_VERSION', pygobject_version_major)
 cdata.set('PYGOBJECT_MINOR_VERSION', pygobject_version_minor)
 cdata.set('PYGOBJECT_MICRO_VERSION', pygobject_version_micro)
-
-if gio_dep.version().version_compare('< 2.67.4')
-  cdata.set('g_memdup2(ptr,sz)', '(G_LIKELY(((guint64)(sz)) < G_MAXUINT)) ? g_memdup(ptr,sz) : (g_abort(),NULL)')
-endif
 
 configure_file(output : 'config.h', configuration : cdata)
 
@@ -215,7 +218,6 @@ pygobject_dep = declare_dependency(
 
 
 subdir('gi')
-subdir('pygtkcompat')
 
 with_tests = get_option('tests')
 if with_tests

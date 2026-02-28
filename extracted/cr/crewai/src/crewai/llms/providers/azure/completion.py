@@ -43,7 +43,7 @@ try:
     )
 
     from crewai.events.types.llm_events import LLMCallType
-    from crewai.llms.base_llm import BaseLLM, llm_call_context
+    from crewai.llms.base_llm import BaseLLM
 
 except ImportError:
     raise ImportError(
@@ -293,44 +293,32 @@ class AzureCompletion(BaseLLM):
         Returns:
             Chat completion response or tool call result
         """
-        with llm_call_context():
-            try:
-                # Emit call started event
-                self._emit_call_started_event(
-                    messages=messages,
-                    tools=tools,
-                    callbacks=callbacks,
-                    available_functions=available_functions,
-                    from_task=from_task,
-                    from_agent=from_agent,
-                )
+        try:
+            # Emit call started event
+            self._emit_call_started_event(
+                messages=messages,
+                tools=tools,
+                callbacks=callbacks,
+                available_functions=available_functions,
+                from_task=from_task,
+                from_agent=from_agent,
+            )
+            effective_response_model = response_model or self.response_format
 
-                effective_response_model = response_model or self.response_format
+            # Format messages for Azure
+            formatted_messages = self._format_messages_for_azure(messages)
 
-                # Format messages for Azure
-                formatted_messages = self._format_messages_for_azure(messages)
+            if not self._invoke_before_llm_call_hooks(formatted_messages, from_agent):
+                raise ValueError("LLM call blocked by before_llm_call hook")
 
-                if not self._invoke_before_llm_call_hooks(
-                    formatted_messages, from_agent
-                ):
-                    raise ValueError("LLM call blocked by before_llm_call hook")
+            # Prepare completion parameters
+            completion_params = self._prepare_completion_params(
+                formatted_messages, tools, effective_response_model
+            )
 
-                # Prepare completion parameters
-                completion_params = self._prepare_completion_params(
-                    formatted_messages, tools, effective_response_model
-                )
-
-                # Handle streaming vs non-streaming
-                if self.stream:
-                    return self._handle_streaming_completion(
-                        completion_params,
-                        available_functions,
-                        from_task,
-                        from_agent,
-                        effective_response_model,
-                    )
-
-                return self._handle_completion(
+            # Handle streaming vs non-streaming
+            if self.stream:
+                return self._handle_streaming_completion(
                     completion_params,
                     available_functions,
                     from_task,
@@ -338,8 +326,16 @@ class AzureCompletion(BaseLLM):
                     effective_response_model,
                 )
 
-            except Exception as e:
-                return self._handle_api_error(e, from_task, from_agent)  # type: ignore[func-returns-value]
+            return self._handle_completion(
+                completion_params,
+                available_functions,
+                from_task,
+                from_agent,
+                effective_response_model,
+            )
+
+        except Exception as e:
+            return self._handle_api_error(e, from_task, from_agent)  # type: ignore[func-returns-value]
 
     async def acall(  # type: ignore[return]
         self,
@@ -365,35 +361,25 @@ class AzureCompletion(BaseLLM):
         Returns:
             Chat completion response or tool call result
         """
-        with llm_call_context():
-            try:
-                self._emit_call_started_event(
-                    messages=messages,
-                    tools=tools,
-                    callbacks=callbacks,
-                    available_functions=available_functions,
-                    from_task=from_task,
-                    from_agent=from_agent,
-                )
+        try:
+            self._emit_call_started_event(
+                messages=messages,
+                tools=tools,
+                callbacks=callbacks,
+                available_functions=available_functions,
+                from_task=from_task,
+                from_agent=from_agent,
+            )
+            effective_response_model = response_model or self.response_format
 
-                effective_response_model = response_model or self.response_format
+            formatted_messages = self._format_messages_for_azure(messages)
 
-                formatted_messages = self._format_messages_for_azure(messages)
+            completion_params = self._prepare_completion_params(
+                formatted_messages, tools, effective_response_model
+            )
 
-                completion_params = self._prepare_completion_params(
-                    formatted_messages, tools, effective_response_model
-                )
-
-                if self.stream:
-                    return await self._ahandle_streaming_completion(
-                        completion_params,
-                        available_functions,
-                        from_task,
-                        from_agent,
-                        effective_response_model,
-                    )
-
-                return await self._ahandle_completion(
+            if self.stream:
+                return await self._ahandle_streaming_completion(
                     completion_params,
                     available_functions,
                     from_task,
@@ -401,8 +387,16 @@ class AzureCompletion(BaseLLM):
                     effective_response_model,
                 )
 
-            except Exception as e:
-                self._handle_api_error(e, from_task, from_agent)
+            return await self._ahandle_completion(
+                completion_params,
+                available_functions,
+                from_task,
+                from_agent,
+                effective_response_model,
+            )
+
+        except Exception as e:
+            self._handle_api_error(e, from_task, from_agent)
 
     def _prepare_completion_params(
         self,
@@ -425,9 +419,8 @@ class AzureCompletion(BaseLLM):
             "stream": self.stream,
         }
 
-        model_extras: dict[str, Any] = {}
         if self.stream:
-            model_extras["stream_options"] = {"include_usage": True}
+            params["model_extras"] = {"stream_options": {"include_usage": True}}
 
         if response_model and self.is_openai_model:
             model_description = generate_model_description(response_model)
@@ -464,13 +457,6 @@ class AzureCompletion(BaseLLM):
         if tools and self.is_openai_model:
             params["tools"] = self._convert_tools_for_interference(tools)
             params["tool_choice"] = "auto"
-
-        prompt_cache_key = self.additional_params.get("prompt_cache_key")
-        if prompt_cache_key:
-            model_extras["prompt_cache_key"] = prompt_cache_key
-
-        if model_extras:
-            params["model_extras"] = model_extras
 
         additional_params = self.additional_params
         additional_drop_params = additional_params.get("additional_drop_params")
@@ -1071,15 +1057,10 @@ class AzureCompletion(BaseLLM):
         """Extract token usage from Azure response."""
         if hasattr(response, "usage") and response.usage:
             usage = response.usage
-            cached_tokens = 0
-            prompt_details = getattr(usage, "prompt_tokens_details", None)
-            if prompt_details:
-                cached_tokens = getattr(prompt_details, "cached_tokens", 0) or 0
             return {
                 "prompt_tokens": getattr(usage, "prompt_tokens", 0),
                 "completion_tokens": getattr(usage, "completion_tokens", 0),
                 "total_tokens": getattr(usage, "total_tokens", 0),
-                "cached_prompt_tokens": cached_tokens,
             }
         return {"total_tokens": 0}
 

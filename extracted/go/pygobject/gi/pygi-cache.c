@@ -18,70 +18,14 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <girepository/girepository.h>
-#include <pythoncapi_compat.h>
-
-#include "pygi-array.h"
 #include "pygi-basictype.h"
-#include "pygi-cache.h"
 #include "pygi-closure.h"
-#include "pygi-enum-marshal.h"
 #include "pygi-error.h"
-#include "pygi-hashtable.h"
-#include "pygi-info.h"
 #include "pygi-invoke.h"
-#include "pygi-list.h"
-#include "pygi-marshal-cleanup.h"
-#include "pygi-object.h"
 #include "pygi-repository.h"
 #include "pygi-resulttuple.h"
-#include "pygi-struct-marshal.h"
 #include "pygi-type.h"
-
-/* pygi_arg_base_setup:
- * arg_cache: argument cache to initialize
- * type_info: source for type related attributes to cache
- * arg_info: (allow-none): source for argument related attributes to cache
- * transfer: transfer mode to store in the argument cache
- * direction: marshaling direction to store in the cache
- *
- * Initializer for PyGIArgCache
- *
- * Returns: TRUE on success and FALSE on failure
- */
-gboolean
-pygi_arg_base_setup (
-    PyGIArgCache *arg_cache, GITypeInfo *type_info,
-    GIArgInfo *arg_info, /* may be NULL for return arguments */
-    GITransfer transfer, PyGIDirection direction)
-{
-    arg_cache->direction = direction;
-    arg_cache->transfer = transfer;
-    arg_cache->py_arg_index = -1;
-    arg_cache->c_arg_index = -1;
-
-    if (type_info != NULL) {
-        arg_cache->is_pointer = gi_type_info_is_pointer (type_info);
-        arg_cache->type_tag = gi_type_info_get_tag (type_info);
-        gi_base_info_ref ((GIBaseInfo *)type_info);
-        arg_cache->type_info = type_info;
-    }
-
-    if (arg_info != NULL) {
-        arg_cache->arg_name = gi_base_info_get_name ((GIBaseInfo *)arg_info);
-        arg_cache->allow_none = gi_arg_info_may_be_null (arg_info)
-                                || (direction & PYGI_DIRECTION_FROM_PYTHON
-                                    && gi_arg_info_is_optional (arg_info));
-
-        if (arg_cache->type_tag == GI_TYPE_TAG_INTERFACE
-            || arg_cache->type_tag == GI_TYPE_TAG_ARRAY)
-            arg_cache->is_caller_allocates =
-                gi_arg_info_is_caller_allocates (arg_info);
-        else
-            arg_cache->is_caller_allocates = FALSE;
-    }
-    return TRUE;
-}
+#include "pygi-cache-private.h"
 
 void
 pygi_arg_cache_free (PyGIArgCache *cache)
@@ -90,93 +34,42 @@ pygi_arg_cache_free (PyGIArgCache *cache)
 
     if (cache->type_info != NULL)
         gi_base_info_unref ((GIBaseInfo *)cache->type_info);
+    if (cache->arg_info != NULL)
+        gi_base_info_unref ((GIBaseInfo *)cache->arg_info);
     if (cache->destroy_notify)
         cache->destroy_notify (cache);
     else
         g_slice_free (PyGIArgCache, cache);
 }
 
-/* PyGIInterfaceCache */
-
-static void
-_interface_cache_free_func (PyGIInterfaceCache *cache)
+const char *
+pygi_arg_cache_get_name (PyGIArgCache *cache)
 {
-    if (cache != NULL) {
-        Py_XDECREF (cache->py_type);
-        if (cache->type_name != NULL) g_free (cache->type_name);
-        if (cache->interface_info != NULL)
-            gi_base_info_unref ((GIBaseInfo *)cache->interface_info);
-        g_slice_free (PyGIInterfaceCache, cache);
-    }
+    if (cache->arg_info == NULL) return NULL;
+
+    return gi_base_info_get_name ((GIBaseInfo *)cache->arg_info);
 }
 
-/* pygi_arg_interface_setup:
- * arg_cache: argument cache to initialize
- * type_info: source for type related attributes to cache
- * arg_info: (allow-none): source for argument related attributes to cache
- * transfer: transfer mode to store in the argument cache
- * direction: marshaling direction to store in the cache
- * iface_info: interface info to cache
- *
- * Initializer for PyGIInterfaceCache
- *
- * Returns: TRUE on success and FALSE on failure
- */
-static gboolean
-pygi_arg_interface_setup (
-    PyGIInterfaceCache *iface_cache, GITypeInfo *type_info,
-    GIArgInfo *arg_info, /* may be NULL for return arguments */
-    GITransfer transfer, PyGIDirection direction,
-    GIRegisteredTypeInfo *iface_info)
+gboolean
+pygi_arg_cache_allow_none (PyGIArgCache *cache)
 {
-    GIBaseInfo *base_info = GI_BASE_INFO (iface_info);
-
-    if (!pygi_arg_base_setup ((PyGIArgCache *)iface_cache, type_info, arg_info,
-                              transfer, direction)) {
-        return FALSE;
-    }
-
-    ((PyGIArgCache *)iface_cache)->destroy_notify =
-        (GDestroyNotify)_interface_cache_free_func;
-
-    gi_base_info_ref (base_info);
-    iface_cache->interface_info = iface_info;
-    iface_cache->arg_cache.type_tag = GI_TYPE_TAG_INTERFACE;
-    iface_cache->type_name = _pygi_gi_base_info_get_fullname (base_info);
-    iface_cache->g_type = gi_registered_type_info_get_g_type (iface_info);
-    iface_cache->py_type = pygi_type_import_by_gi_info (base_info);
-
-    if (g_type_is_a (iface_cache->g_type, G_TYPE_OBJECT)) {
-        if (g_str_equal (g_type_name (iface_cache->g_type), "GCancellable"))
-            iface_cache->arg_cache.async_context =
-                PYGI_ASYNC_CONTEXT_CANCELLABLE;
-    }
-
-    if (iface_cache->py_type == NULL) {
-        return FALSE;
-    }
-
-    return TRUE;
+    return (cache->arg_info
+            && (gi_arg_info_may_be_null (cache->arg_info)
+                || (cache->direction & PYGI_DIRECTION_FROM_PYTHON
+                    && gi_arg_info_is_optional (cache->arg_info))))
+           || cache->type_tag == GI_TYPE_TAG_BOOLEAN;
 }
 
-PyGIArgCache *
-pygi_arg_interface_new_from_info (
-    GITypeInfo *type_info,
-    GIArgInfo *arg_info, /* may be NULL for return arguments */
-    GITransfer transfer, PyGIDirection direction,
-    GIRegisteredTypeInfo *iface_info)
+gboolean
+pygi_arg_cache_is_caller_allocates (PyGIArgCache *cache)
 {
-    PyGIInterfaceCache *ic;
-
-    ic = g_slice_new0 (PyGIInterfaceCache);
-    if (!pygi_arg_interface_setup (ic, type_info, arg_info, transfer,
-                                   direction, iface_info)) {
-        pygi_arg_cache_free ((PyGIArgCache *)ic);
-        return NULL;
-    }
-
-    return (PyGIArgCache *)ic;
+    if (cache->arg_info
+        && (cache->type_tag == GI_TYPE_TAG_INTERFACE
+            || cache->type_tag == GI_TYPE_TAG_ARRAY))
+        return gi_arg_info_is_caller_allocates (cache->arg_info);
+    return FALSE;
 }
+
 
 /* PyGISequenceCache */
 
@@ -212,10 +105,8 @@ pygi_arg_sequence_setup (
     GITypeInfo *item_type_info;
     GITransfer item_transfer;
 
-    if (!pygi_arg_base_setup ((PyGIArgCache *)seq_cache, type_info, arg_info,
-                              transfer, direction)) {
-        return FALSE;
-    }
+    pygi_arg_base_setup ((PyGIArgCache *)seq_cache, type_info, arg_info,
+                         transfer, direction);
 
     seq_cache->arg_cache.destroy_notify =
         (GDestroyNotify)_sequence_cache_free_func;
@@ -247,30 +138,31 @@ _arg_cache_new_for_interface (GIBaseInfo *iface_info, GITypeInfo *type_info,
                               PyGIDirection direction,
                               PyGICallableCache *callable_cache)
 {
-    if (GI_IS_CALLBACK_INFO (iface_info)) {
+    switch (pygi_interface_type_tag (iface_info)) {
+    case PYGI_INTERFACE_TYPE_TAG_CALLBACK:
         return pygi_arg_callback_new_from_info (
             type_info, arg_info, transfer, direction,
             GI_CALLBACK_INFO (iface_info), callable_cache);
-    } else if (GI_IS_OBJECT_INFO (iface_info)
-               || GI_IS_INTERFACE_INFO (iface_info)) {
+    case PYGI_INTERFACE_TYPE_TAG_OBJECT:
+    case PYGI_INTERFACE_TYPE_TAG_INTERFACE:
         return pygi_arg_gobject_new_from_info (
             type_info, arg_info, transfer, direction,
             GI_REGISTERED_TYPE_INFO (iface_info), callable_cache);
-    } else if (GI_IS_STRUCT_INFO (iface_info)
-               || GI_IS_UNION_INFO (iface_info)) {
+    case PYGI_INTERFACE_TYPE_TAG_STRUCT:
+    case PYGI_INTERFACE_TYPE_TAG_UNION:
         return pygi_arg_struct_new_from_info (
             type_info, arg_info, transfer, direction,
             GI_REGISTERED_TYPE_INFO (iface_info));
-    } else if (GI_IS_FLAGS_INFO (iface_info)) {
+    case PYGI_INTERFACE_TYPE_TAG_FLAGS:
         /* Check flags before enums: flags are a subtype of enum. */
         return pygi_arg_flags_new_from_info (type_info, arg_info, transfer,
                                              direction,
                                              GI_FLAGS_INFO (iface_info));
-    } else if (GI_IS_ENUM_INFO (iface_info)) {
+    case PYGI_INTERFACE_TYPE_TAG_ENUM:
         return pygi_arg_enum_new_from_info (type_info, arg_info, transfer,
                                             direction,
                                             GI_ENUM_INFO (iface_info));
-    } else {
+    default:
         g_assert_not_reached ();
     }
 
@@ -291,6 +183,9 @@ pygi_arg_cache_new (GITypeInfo *type_info,
 
     switch (type_tag) {
     case GI_TYPE_TAG_VOID:
+        arg_cache = pygi_arg_void_type_new_from_info (type_info, arg_info,
+                                                      transfer, direction);
+        break;
     case GI_TYPE_TAG_BOOLEAN:
     case GI_TYPE_TAG_INT8:
     case GI_TYPE_TAG_UINT8:
@@ -304,12 +199,14 @@ pygi_arg_cache_new (GITypeInfo *type_info,
     case GI_TYPE_TAG_DOUBLE:
     case GI_TYPE_TAG_UNICHAR:
     case GI_TYPE_TAG_GTYPE:
+        arg_cache = pygi_arg_numeric_type_new_from_info (type_info, arg_info,
+                                                         transfer, direction);
+        break;
     case GI_TYPE_TAG_UTF8:
     case GI_TYPE_TAG_FILENAME:
-        arg_cache = pygi_arg_basic_type_new_from_info (type_info, arg_info,
-                                                       transfer, direction);
+        arg_cache = pygi_arg_string_type_new_from_info (type_info, arg_info,
+                                                        transfer, direction);
         break;
-
     case GI_TYPE_TAG_ARRAY:
         arg_cache = pygi_arg_garray_new_from_info (
             type_info, arg_info, transfer, direction, callable_cache,
@@ -345,7 +242,7 @@ pygi_arg_cache_new (GITypeInfo *type_info,
                                                    transfer, direction);
         break;
     default:
-        break;
+        g_assert_not_reached ();
     }
 
     if (arg_cache != NULL) {
@@ -381,13 +278,11 @@ static gboolean
 _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
                                           GICallableInfo *callable_info)
 {
-    gssize i;
-    guint arg_index;
     GITypeInfo *return_info;
     GITransfer return_transfer;
     PyGIArgCache *return_cache;
     PyGIDirection return_direction;
-    gssize last_explicit_arg_index;
+    gboolean has_last_explicit_arg_index;
     PyObject *tuple_names;
     GSList *arg_cache_item;
     PyTypeObject *resulttuple_type;
@@ -403,13 +298,12 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
                                        -1);
     if (return_cache == NULL) return FALSE;
 
-    return_cache->is_skipped = gi_callable_info_skip_return (callable_info);
     callable_cache->return_cache = return_cache;
     gi_base_info_unref (return_info);
 
     callable_cache->has_user_data = FALSE;
 
-    for (i = 0, arg_index = (guint)callable_cache->args_offset;
+    for (guint i = 0, arg_index = (guint)callable_cache->args_offset;
          arg_index < _pygi_callable_cache_args_len (callable_cache);
          i++, arg_index++) {
         PyGIArgCache *arg_cache = NULL;
@@ -421,7 +315,7 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
 
         /* This only happens when dealing with callbacks */
         if (gi_arg_info_get_closure_index (arg_info, &closure_index)
-            && ((gssize)closure_index) == i) {
+            && closure_index == i) {
             callable_cache->user_data_index = i;
             callable_cache->has_user_data = TRUE;
 
@@ -500,11 +394,12 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
             gi_base_info_unref (type_info);
         }
 
-        /* Ensure arguments always have a name when available */
-        arg_cache->arg_name = gi_base_info_get_name ((GIBaseInfo *)arg_info);
-        /* Some property (notably booleans), can allow None */
-        arg_cache->allow_none = arg_cache->allow_none
-                                || gi_arg_info_may_be_null (arg_info);
+        /* Ensure arguments always arg info available */
+        g_assert (arg_cache->arg_info == NULL
+                  || arg_cache->arg_info == arg_info);
+        if (arg_cache->arg_info == NULL)
+            arg_cache->arg_info =
+                (GIArgInfo *)gi_base_info_ref ((GIBaseInfo *)arg_info);
 
         gi_base_info_unref ((GIBaseInfo *)arg_info);
     }
@@ -517,27 +412,27 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
     }
     callable_cache->user_data_varargs_arg = NULL;
 
-    last_explicit_arg_index = -1;
+    has_last_explicit_arg_index = FALSE;
 
     /* Reverse loop through all the arguments to setup arg_name_hash
      * and find the number of required arguments */
-    for (i = ((gssize)_pygi_callable_cache_args_len (callable_cache)) - 1;
-         i >= 0; i--) {
+    for (guint i = _pygi_callable_cache_args_len (callable_cache); i > 0;
+         i--) {
         PyGIArgCache *arg_cache =
-            _pygi_callable_cache_get_arg (callable_cache, i);
+            _pygi_callable_cache_get_arg (callable_cache, i - 1);
 
         if (arg_cache->meta_type != PYGI_META_ARG_TYPE_CHILD
             && arg_cache->meta_type != PYGI_META_ARG_TYPE_CLOSURE
             && arg_cache->direction & PYGI_DIRECTION_FROM_PYTHON) {
             /* Setup arg_name_hash */
-            gpointer arg_name = (gpointer)arg_cache->arg_name;
+            gpointer arg_name = (gpointer)pygi_arg_cache_get_name (arg_cache);
             if (arg_name != NULL) {
                 g_hash_table_insert (callable_cache->arg_name_hash, arg_name,
                                      arg_cache);
             }
 
-            if (last_explicit_arg_index == -1) {
-                last_explicit_arg_index = i;
+            if (!has_last_explicit_arg_index) {
+                has_last_explicit_arg_index = TRUE;
 
                 /* If the last "from python" argument in the args list is a child
                 * with pyarg (currently only callback user_data). Set it to eat
@@ -550,7 +445,7 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
         }
     }
 
-    if (!return_cache->is_skipped
+    if (!pygi_callable_cache_skip_return (callable_cache)
         && return_cache->type_tag != GI_TYPE_TAG_VOID) {
         callable_cache->has_return = TRUE;
     }
@@ -563,7 +458,7 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
     arg_cache_item = callable_cache->to_py_args;
     while (arg_cache_item) {
         const gchar *arg_name =
-            ((PyGIArgCache *)arg_cache_item->data)->arg_name;
+            pygi_arg_cache_get_name ((PyGIArgCache *)arg_cache_item->data);
         PyObject *arg_string = PyUnicode_FromString (arg_name);
         PyList_Append (tuple_names, arg_string);
         Py_DECREF (arg_string);
@@ -588,6 +483,7 @@ _callable_cache_generate_args_cache_real (PyGICallableCache *callable_cache,
 static void
 _callable_cache_deinit_real (PyGICallableCache *cache)
 {
+    g_clear_pointer (&cache->info, gi_base_info_unref);
     g_clear_pointer (&cache->to_py_args, g_slist_free);
     g_clear_pointer (&cache->arg_name_hash, g_hash_table_unref);
     g_clear_pointer (&cache->args_cache, g_ptr_array_unref);
@@ -596,27 +492,30 @@ _callable_cache_deinit_real (PyGICallableCache *cache)
     g_clear_pointer (&cache->return_cache, pygi_arg_cache_free);
 }
 
+static void
+ensure_callable_args_cache (PyGICallableCache *cache,
+                            GICallableInfo *callable_info)
+{
+    gint n_args;
+
+    if (cache->args_cache != NULL) return;
+
+    n_args = (gint)cache->args_offset
+             + gi_callable_info_get_n_args (callable_info);
+
+    if (n_args >= 0) {
+        cache->args_cache =
+            g_ptr_array_new_full (n_args, (GDestroyNotify)pygi_arg_cache_free);
+        g_ptr_array_set_size (cache->args_cache, n_args);
+    }
+}
+
 static gboolean
 _callable_cache_init (PyGICallableCache *cache, GICallableInfo *callable_info)
 {
-    gint n_args;
-    GIBaseInfo *container;
+    cache->info = gi_base_info_ref (GI_BASE_INFO (callable_info));
 
     if (cache->deinit == NULL) cache->deinit = _callable_cache_deinit_real;
-
-    if (cache->generate_args_cache == NULL)
-        cache->generate_args_cache = _callable_cache_generate_args_cache_real;
-
-    cache->name = gi_base_info_get_name ((GIBaseInfo *)callable_info);
-    cache->namespace =
-        gi_base_info_get_namespace ((GIBaseInfo *)callable_info);
-    container = gi_base_info_get_container ((GIBaseInfo *)callable_info);
-    cache->container_name = NULL;
-    /* https://bugzilla.gnome.org/show_bug.cgi?id=709456 */
-    if (container != NULL && !GI_IS_TYPE_INFO (container)) {
-        cache->container_name = gi_base_info_get_name (container);
-    }
-    cache->throws = gi_callable_info_can_throw_gerror (callable_info);
 
     if (gi_base_info_is_deprecated (GI_BASE_INFO (callable_info))) {
         const gchar *deprecated = gi_base_info_get_attribute (
@@ -633,16 +532,9 @@ _callable_cache_init (PyGICallableCache *cache, GICallableInfo *callable_info)
         g_free (warning);
     }
 
-    n_args = (gint)cache->args_offset
-             + gi_callable_info_get_n_args (callable_info);
+    ensure_callable_args_cache (cache, callable_info);
 
-    if (n_args >= 0) {
-        cache->args_cache =
-            g_ptr_array_new_full (n_args, (GDestroyNotify)pygi_arg_cache_free);
-        g_ptr_array_set_size (cache->args_cache, n_args);
-    }
-
-    if (!cache->generate_args_cache (cache, callable_info)) {
+    if (!_callable_cache_generate_args_cache_real (cache, callable_info)) {
         _callable_cache_deinit_real (cache);
         return FALSE;
     }
@@ -653,12 +545,34 @@ _callable_cache_init (PyGICallableCache *cache, GICallableInfo *callable_info)
 gchar *
 pygi_callable_cache_get_full_name (PyGICallableCache *cache)
 {
-    if (cache->container_name != NULL) {
-        return g_strjoin (".", cache->namespace, cache->container_name,
-                          cache->name, NULL);
-    } else {
-        return g_strjoin (".", cache->namespace, cache->name, NULL);
+    GIBaseInfo *container = gi_base_info_get_container (cache->info);
+    const char *container_name = NULL;
+
+    /* https://bugzilla.gnome.org/show_bug.cgi?id=709456 */
+    if (container != NULL && !GI_IS_TYPE_INFO (container)) {
+        container_name = gi_base_info_get_name (container);
     }
+
+    if (container_name != NULL) {
+        return g_strjoin (".", gi_base_info_get_namespace (cache->info),
+                          container_name, gi_base_info_get_name (cache->info),
+                          NULL);
+    } else {
+        return g_strjoin (".", gi_base_info_get_namespace (cache->info),
+                          gi_base_info_get_name (cache->info), NULL);
+    }
+}
+
+gboolean
+pygi_callable_cache_skip_return (PyGICallableCache *cache)
+{
+    return gi_callable_info_skip_return (GI_CALLABLE_INFO (cache->info));
+}
+
+gboolean
+pygi_callable_cache_can_throw_gerror (PyGICallableCache *cache)
+{
+    return gi_callable_info_can_throw_gerror (GI_CALLABLE_INFO (cache->info));
 }
 
 void
@@ -697,7 +611,6 @@ _function_cache_init (PyGIFunctionCache *function_cache,
     PyGICallableCache *callable_cache = (PyGICallableCache *)function_cache;
     GIFunctionInvoker *invoker = &function_cache->invoker;
     GError *error = NULL;
-    guint i;
 
     callable_cache->calling_context = PYGI_CALLING_CONTEXT_IS_FROM_PY;
 
@@ -716,7 +629,8 @@ _function_cache_init (PyGIFunctionCache *function_cache,
         PyGIArgCache *cancellable = NULL;
         PyGIArgCache *async_callback = NULL;
 
-        for (i = 0; i < _pygi_callable_cache_args_len (callable_cache); i++) {
+        for (guint i = 0; i < _pygi_callable_cache_args_len (callable_cache);
+             i++) {
             PyGIArgCache *arg_cache =
                 _pygi_callable_cache_get_arg (callable_cache, i);
 
@@ -740,21 +654,21 @@ _function_cache_init (PyGIFunctionCache *function_cache,
         if (cancellable && async_callback) {
             GIBaseInfo *container =
                 gi_base_info_get_container ((GIBaseInfo *)callable_info);
+            const char *name = gi_base_info_get_name (callable_cache->info);
             GIBaseInfo *async_finish = NULL;
-            gint name_len;
+            size_t name_len;
             gchar *finish_name = NULL;
 
             /* This appears to be an async routine. As we have the
              * GCallableInfo at this point, so guess the finish name and look
              * up that information.
              */
-            name_len = strlen (callable_cache->name);
-            if (g_str_has_suffix (callable_cache->name, "_async"))
-                name_len -= 6;
+            name_len = strlen (name);
+            if (g_str_has_suffix (name, "_async")) name_len -= 6;
 
             /* Original name without _async if it is there, _finish + NUL byte */
             finish_name = g_malloc0 (name_len + 7 + 1);
-            strncat (finish_name, callable_cache->name, name_len);
+            strncat (finish_name, name, name_len);
             strcat (finish_name, "_finish");
 
             if (container && GI_IS_OBJECT_INFO (container)) {
@@ -768,7 +682,9 @@ _function_cache_init (PyGIFunctionCache *function_cache,
 
                 repository = pygi_repository_get_default ();
                 async_finish = gi_repository_find_by_name (
-                    repository, callable_cache->namespace, finish_name);
+                    repository,
+                    gi_base_info_get_namespace (callable_cache->info),
+                    finish_name);
             } else {
                 g_debug (
                     "Awaitable async functions only work on GObjects and as "
@@ -834,7 +750,6 @@ pygi_function_cache_invoke (PyGIFunctionCache *function_cache,
     PyGIInvokeState state = {
         0,
     };
-
     return function_cache->invoke (function_cache, &state, py_args, py_nargsf,
                                    py_kwnames);
 }
@@ -905,7 +820,7 @@ _constructor_cache_invoke_real (PyGIFunctionCache *function_cache,
     ret = _function_cache_invoke_real (function_cache, state, py_args + 1,
                                        nargs - 1, py_kwnames);
 
-    if (ret == NULL || cache->return_cache->is_skipped) return ret;
+    if (ret == NULL || pygi_callable_cache_skip_return (cache)) return ret;
 
     if (!Py_IsNone (ret)) {
         if (!PyTuple_Check (ret)) return ret;
@@ -941,7 +856,7 @@ pygi_constructor_cache_new (GICallableInfo *info)
 /* PyGIFunctionWithInstanceCache */
 
 static gboolean
-_function_with_instance_cache_generate_args_cache_real (
+_function_with_instance_cache_generate_self_arg (
     PyGICallableCache *callable_cache, GICallableInfo *callable_info)
 {
     GIBaseInfo *interface_info;
@@ -964,23 +879,24 @@ _function_with_instance_cache_generate_args_cache_real (
     instance_cache->py_arg_index = 0;
     instance_cache->c_arg_index = 0;
 
+    callable_cache->args_offset += 1;
+
+    ensure_callable_args_cache (callable_cache, callable_info);
+
     _pygi_callable_cache_set_arg (callable_cache, 0, instance_cache);
 
-    callable_cache->n_py_args++;
+    callable_cache->n_py_args += 1;
 
-    return _callable_cache_generate_args_cache_real (callable_cache,
-                                                     callable_info);
+    return TRUE;
 }
 
 static gboolean
 _function_with_instance_cache_init (PyGIFunctionWithInstanceCache *fwi_cache,
                                     GICallableInfo *info)
 {
-    PyGICallableCache *callable_cache = (PyGICallableCache *)fwi_cache;
-
-    callable_cache->args_offset += 1;
-    callable_cache->generate_args_cache =
-        _function_with_instance_cache_generate_args_cache_real;
+    if (!_function_with_instance_cache_generate_self_arg (
+            (PyGICallableCache *)fwi_cache, info))
+        return FALSE;
 
     return _function_cache_init ((PyGIFunctionCache *)fwi_cache, info);
 }
@@ -1011,7 +927,6 @@ _vfunc_cache_invoke_real (PyGIFunctionCache *function_cache,
                           PyGIInvokeState *state, PyObject *const *py_args,
                           size_t py_nargsf, PyObject *py_kwnames)
 {
-    PyGIVFuncCache *vfunc_cache = (PyGIVFuncCache *)function_cache;
     Py_ssize_t nargs = PyVectorcall_NARGS (py_nargsf);
     PyObject *py_gtype;
     GType implementor_gtype;
@@ -1034,7 +949,8 @@ _vfunc_cache_invoke_real (PyGIFunctionCache *function_cache,
      * retrieve a different vfunc address but GI gives us the same vfunc info.
      */
     state->function_ptr = gi_vfunc_info_get_address (
-        (GIVFuncInfo *)vfunc_cache->info, implementor_gtype, &error);
+        GI_VFUNC_INFO (function_cache->callable_cache.info), implementor_gtype,
+        &error);
     if (pygi_error_check (&error)) {
         return FALSE;
     }
@@ -1048,8 +964,6 @@ _vfunc_cache_invoke_real (PyGIFunctionCache *function_cache,
 static void
 _vfunc_cache_deinit_real (PyGICallableCache *callable_cache)
 {
-    gi_base_info_unref (((PyGIVFuncCache *)callable_cache)->info);
-
     _function_cache_deinit_real (callable_cache);
 }
 
@@ -1078,9 +992,6 @@ pygi_vfunc_cache_new (GICallableInfo *info)
         return NULL;
     }
 
-    /* Required by _vfunc_cache_invoke_real() */
-    vfunc_cache->info = gi_base_info_ref ((GIBaseInfo *)info);
-
     return function_cache;
 }
 
@@ -1089,7 +1000,6 @@ pygi_vfunc_cache_new (GICallableInfo *info)
 PyGIClosureCache *
 pygi_closure_cache_new (GICallableInfo *info)
 {
-    gssize i;
     PyGIClosureCache *closure_cache;
     PyGICallableCache *callable_cache;
 
@@ -1107,7 +1017,7 @@ pygi_closure_cache_new (GICallableInfo *info)
      *
      * See: https://bugzilla.gnome.org/show_bug.cgi?id=652115
      */
-    for (i = 0; (gsize)i < _pygi_callable_cache_args_len (callable_cache);
+    for (guint i = 0; i < _pygi_callable_cache_args_len (callable_cache);
          i++) {
         PyGIArgCache *arg_cache;
         PyGIArgGArray *garray_cache;
@@ -1129,7 +1039,7 @@ pygi_closure_cache_new (GICallableInfo *info)
      * do not recognize user_data/data arguments correctly.
      */
     if (!callable_cache->has_user_data) {
-        for (i = 0; (gsize)i < _pygi_callable_cache_args_len (callable_cache);
+        for (guint i = 0; i < _pygi_callable_cache_args_len (callable_cache);
              i++) {
             PyGIArgCache *arg_cache;
 

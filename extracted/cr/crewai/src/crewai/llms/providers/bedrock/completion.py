@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing_extensions import Required
 
 from crewai.events.types.llm_events import LLMCallType
-from crewai.llms.base_llm import BaseLLM, llm_call_context
+from crewai.llms.base_llm import BaseLLM
 from crewai.utilities.agent_utils import is_context_length_exceeded
 from crewai.utilities.exceptions.context_window_exceeding_exception import (
     LLMContextLengthExceededError,
@@ -234,7 +234,7 @@ class BedrockCompletion(BaseLLM):
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
         aws_session_token: str | None = None,
-        region_name: str | None = None,
+        region_name: str = "us-east-1",
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
@@ -287,6 +287,15 @@ class BedrockCompletion(BaseLLM):
             **kwargs,
         )
 
+        # Initialize Bedrock client with proper configuration
+        session = Session(
+            aws_access_key_id=aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=aws_secret_access_key
+            or os.getenv("AWS_SECRET_ACCESS_KEY"),
+            aws_session_token=aws_session_token or os.getenv("AWS_SESSION_TOKEN"),
+            region_name=region_name,
+        )
+
         # Configure client with timeouts and retries following AWS best practices
         config = Config(
             read_timeout=300,
@@ -297,28 +306,14 @@ class BedrockCompletion(BaseLLM):
             tcp_keepalive=True,
         )
 
-        self.region_name = (
-            region_name
-            or os.getenv("AWS_DEFAULT_REGION")
-            or os.getenv("AWS_REGION_NAME")
-            or "us-east-1"
-        )
+        self.client = session.client("bedrock-runtime", config=config)
+        self.region_name = region_name
 
         self.aws_access_key_id = aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID")
         self.aws_secret_access_key = aws_secret_access_key or os.getenv(
             "AWS_SECRET_ACCESS_KEY"
         )
         self.aws_session_token = aws_session_token or os.getenv("AWS_SESSION_TOKEN")
-
-        # Initialize Bedrock client with proper configuration
-        session = Session(
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
-            aws_session_token=self.aws_session_token,
-            region_name=self.region_name,
-        )
-
-        self.client = session.client("bedrock-runtime", config=config)
 
         self._async_exit_stack = AsyncExitStack() if AIOBOTOCORE_AVAILABLE else None
         self._async_client_initialized = False
@@ -383,90 +378,77 @@ class BedrockCompletion(BaseLLM):
         """Call AWS Bedrock Converse API."""
         effective_response_model = response_model or self.response_format
 
-        with llm_call_context():
-            try:
-                # Emit call started event
-                self._emit_call_started_event(
-                    messages=messages,
-                    tools=tools,
-                    callbacks=callbacks,
-                    available_functions=available_functions,
-                    from_task=from_task,
-                    from_agent=from_agent,
+        try:
+            # Emit call started event
+            self._emit_call_started_event(
+                messages=messages,
+                tools=tools,
+                callbacks=callbacks,
+                available_functions=available_functions,
+                from_task=from_task,
+                from_agent=from_agent,
+            )
+
+            # Format messages for Converse API
+            formatted_messages, system_message = self._format_messages_for_converse(
+                messages
+            )
+
+            if not self._invoke_before_llm_call_hooks(formatted_messages, from_agent):
+                raise ValueError("LLM call blocked by before_llm_call hook")
+
+            # Prepare request body
+            body: BedrockConverseRequestBody = {
+                "inferenceConfig": self._get_inference_config(),
+            }
+
+            # Add system message if present
+            if system_message:
+                body["system"] = cast(
+                    "list[SystemContentBlockTypeDef]",
+                    cast(object, [{"text": system_message}]),
                 )
 
-                # Format messages for Converse API
-                formatted_messages, system_message = self._format_messages_for_converse(
-                    messages
-                )
-
-                if not self._invoke_before_llm_call_hooks(
-                    formatted_messages, from_agent
-                ):
-                    raise ValueError("LLM call blocked by before_llm_call hook")
-
-                # Prepare request body
-                body: BedrockConverseRequestBody = {
-                    "inferenceConfig": self._get_inference_config(),
+            # Add tool config if present or if messages contain tool content
+            # Bedrock requires toolConfig when messages have toolUse/toolResult
+            if tools:
+                tool_config: ToolConfigurationTypeDef = {
+                    "tools": cast(
+                        "Sequence[ToolTypeDef]",
+                        cast(object, self._format_tools_for_converse(tools)),
+                    )
                 }
-
-                # Add system message if present
-                if system_message:
-                    body["system"] = cast(
-                        "list[SystemContentBlockTypeDef]",
-                        cast(object, [{"text": system_message}]),
+                body["toolConfig"] = tool_config
+            elif self._messages_contain_tool_content(formatted_messages):
+                # Create minimal toolConfig from tool history in messages
+                tools_from_history = self._extract_tools_from_message_history(
+                    formatted_messages
+                )
+                if tools_from_history:
+                    body["toolConfig"] = cast(
+                        "ToolConfigurationTypeDef",
+                        cast(object, {"tools": tools_from_history}),
                     )
 
-                # Add tool config if present or if messages contain tool content
-                # Bedrock requires toolConfig when messages have toolUse/toolResult
-                if tools:
-                    tool_config: ToolConfigurationTypeDef = {
-                        "tools": cast(
-                            "Sequence[ToolTypeDef]",
-                            cast(object, self._format_tools_for_converse(tools)),
-                        )
-                    }
-                    body["toolConfig"] = tool_config
-                elif self._messages_contain_tool_content(formatted_messages):
-                    # Create minimal toolConfig from tool history in messages
-                    tools_from_history = self._extract_tools_from_message_history(
-                        formatted_messages
-                    )
-                    if tools_from_history:
-                        body["toolConfig"] = cast(
-                            "ToolConfigurationTypeDef",
-                            cast(object, {"tools": tools_from_history}),
-                        )
+            # Add optional advanced features if configured
+            if self.guardrail_config:
+                guardrail_config: GuardrailConfigurationTypeDef = cast(
+                    "GuardrailConfigurationTypeDef", cast(object, self.guardrail_config)
+                )
+                body["guardrailConfig"] = guardrail_config
 
-                # Add optional advanced features if configured
-                if self.guardrail_config:
-                    guardrail_config: GuardrailConfigurationTypeDef = cast(
-                        "GuardrailConfigurationTypeDef",
-                        cast(object, self.guardrail_config),
-                    )
-                    body["guardrailConfig"] = guardrail_config
+            if self.additional_model_request_fields:
+                body["additionalModelRequestFields"] = (
+                    self.additional_model_request_fields
+                )
 
-                if self.additional_model_request_fields:
-                    body["additionalModelRequestFields"] = (
-                        self.additional_model_request_fields
-                    )
+            if self.additional_model_response_field_paths:
+                body["additionalModelResponseFieldPaths"] = (
+                    self.additional_model_response_field_paths
+                )
 
-                if self.additional_model_response_field_paths:
-                    body["additionalModelResponseFieldPaths"] = (
-                        self.additional_model_response_field_paths
-                    )
-
-                if self.stream:
-                    return self._handle_streaming_converse(
-                        formatted_messages,
-                        body,
-                        available_functions,
-                        from_task,
-                        from_agent,
-                        effective_response_model,
-                    )
-
-                return self._handle_converse(
+            if self.stream:
+                return self._handle_streaming_converse(
                     formatted_messages,
                     body,
                     available_functions,
@@ -475,17 +457,26 @@ class BedrockCompletion(BaseLLM):
                     effective_response_model,
                 )
 
-            except Exception as e:
-                if is_context_length_exceeded(e):
-                    logging.error(f"Context window exceeded: {e}")
-                    raise LLMContextLengthExceededError(str(e)) from e
+            return self._handle_converse(
+                formatted_messages,
+                body,
+                available_functions,
+                from_task,
+                from_agent,
+                effective_response_model,
+            )
 
-                error_msg = f"AWS Bedrock API call failed: {e!s}"
-                logging.error(error_msg)
-                self._emit_call_failed_event(
-                    error=error_msg, from_task=from_task, from_agent=from_agent
-                )
-                raise
+        except Exception as e:
+            if is_context_length_exceeded(e):
+                logging.error(f"Context window exceeded: {e}")
+                raise LLMContextLengthExceededError(str(e)) from e
+
+            error_msg = f"AWS Bedrock API call failed: {e!s}"
+            logging.error(error_msg)
+            self._emit_call_failed_event(
+                error=error_msg, from_task=from_task, from_agent=from_agent
+            )
+            raise
 
     async def acall(
         self,
@@ -523,80 +514,69 @@ class BedrockCompletion(BaseLLM):
                 'Install with: uv add "crewai[bedrock-async]"'
             )
 
-        with llm_call_context():
-            try:
-                self._emit_call_started_event(
-                    messages=messages,
-                    tools=tools,
-                    callbacks=callbacks,
-                    available_functions=available_functions,
-                    from_task=from_task,
-                    from_agent=from_agent,
+        try:
+            self._emit_call_started_event(
+                messages=messages,
+                tools=tools,
+                callbacks=callbacks,
+                available_functions=available_functions,
+                from_task=from_task,
+                from_agent=from_agent,
+            )
+
+            formatted_messages, system_message = self._format_messages_for_converse(
+                messages
+            )
+
+            body: BedrockConverseRequestBody = {
+                "inferenceConfig": self._get_inference_config(),
+            }
+
+            if system_message:
+                body["system"] = cast(
+                    "list[SystemContentBlockTypeDef]",
+                    cast(object, [{"text": system_message}]),
                 )
 
-                formatted_messages, system_message = self._format_messages_for_converse(
-                    messages
-                )
-
-                body: BedrockConverseRequestBody = {
-                    "inferenceConfig": self._get_inference_config(),
+            # Add tool config if present or if messages contain tool content
+            # Bedrock requires toolConfig when messages have toolUse/toolResult
+            if tools:
+                tool_config: ToolConfigurationTypeDef = {
+                    "tools": cast(
+                        "Sequence[ToolTypeDef]",
+                        cast(object, self._format_tools_for_converse(tools)),
+                    )
                 }
-
-                if system_message:
-                    body["system"] = cast(
-                        "list[SystemContentBlockTypeDef]",
-                        cast(object, [{"text": system_message}]),
+                body["toolConfig"] = tool_config
+            elif self._messages_contain_tool_content(formatted_messages):
+                # Create minimal toolConfig from tool history in messages
+                tools_from_history = self._extract_tools_from_message_history(
+                    formatted_messages
+                )
+                if tools_from_history:
+                    body["toolConfig"] = cast(
+                        "ToolConfigurationTypeDef",
+                        cast(object, {"tools": tools_from_history}),
                     )
 
-                # Add tool config if present or if messages contain tool content
-                # Bedrock requires toolConfig when messages have toolUse/toolResult
-                if tools:
-                    tool_config: ToolConfigurationTypeDef = {
-                        "tools": cast(
-                            "Sequence[ToolTypeDef]",
-                            cast(object, self._format_tools_for_converse(tools)),
-                        )
-                    }
-                    body["toolConfig"] = tool_config
-                elif self._messages_contain_tool_content(formatted_messages):
-                    # Create minimal toolConfig from tool history in messages
-                    tools_from_history = self._extract_tools_from_message_history(
-                        formatted_messages
-                    )
-                    if tools_from_history:
-                        body["toolConfig"] = cast(
-                            "ToolConfigurationTypeDef",
-                            cast(object, {"tools": tools_from_history}),
-                        )
+            if self.guardrail_config:
+                guardrail_config: GuardrailConfigurationTypeDef = cast(
+                    "GuardrailConfigurationTypeDef", cast(object, self.guardrail_config)
+                )
+                body["guardrailConfig"] = guardrail_config
 
-                if self.guardrail_config:
-                    guardrail_config: GuardrailConfigurationTypeDef = cast(
-                        "GuardrailConfigurationTypeDef",
-                        cast(object, self.guardrail_config),
-                    )
-                    body["guardrailConfig"] = guardrail_config
+            if self.additional_model_request_fields:
+                body["additionalModelRequestFields"] = (
+                    self.additional_model_request_fields
+                )
 
-                if self.additional_model_request_fields:
-                    body["additionalModelRequestFields"] = (
-                        self.additional_model_request_fields
-                    )
+            if self.additional_model_response_field_paths:
+                body["additionalModelResponseFieldPaths"] = (
+                    self.additional_model_response_field_paths
+                )
 
-                if self.additional_model_response_field_paths:
-                    body["additionalModelResponseFieldPaths"] = (
-                        self.additional_model_response_field_paths
-                    )
-
-                if self.stream:
-                    return await self._ahandle_streaming_converse(
-                        formatted_messages,
-                        body,
-                        available_functions,
-                        from_task,
-                        from_agent,
-                        effective_response_model,
-                    )
-
-                return await self._ahandle_converse(
+            if self.stream:
+                return await self._ahandle_streaming_converse(
                     formatted_messages,
                     body,
                     available_functions,
@@ -605,17 +585,26 @@ class BedrockCompletion(BaseLLM):
                     effective_response_model,
                 )
 
-            except Exception as e:
-                if is_context_length_exceeded(e):
-                    logging.error(f"Context window exceeded: {e}")
-                    raise LLMContextLengthExceededError(str(e)) from e
+            return await self._ahandle_converse(
+                formatted_messages,
+                body,
+                available_functions,
+                from_task,
+                from_agent,
+                effective_response_model,
+            )
 
-                error_msg = f"AWS Bedrock API call failed: {e!s}"
-                logging.error(error_msg)
-                self._emit_call_failed_event(
-                    error=error_msg, from_task=from_task, from_agent=from_agent
-                )
-                raise
+        except Exception as e:
+            if is_context_length_exceeded(e):
+                logging.error(f"Context window exceeded: {e}")
+                raise LLMContextLengthExceededError(str(e)) from e
+
+            error_msg = f"AWS Bedrock API call failed: {e!s}"
+            logging.error(error_msg)
+            self._emit_call_failed_event(
+                error=error_msg, from_task=from_task, from_agent=from_agent
+            )
+            raise
 
     def _handle_converse(
         self,

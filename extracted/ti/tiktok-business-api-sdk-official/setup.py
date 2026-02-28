@@ -9,7 +9,7 @@
 from setuptools import setup, find_packages  # noqa: H301
 
 NAME = "tiktok-business-api-sdk-official"
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 
 REQUIRES = ["urllib3 >= 1.15", "six >= 1.10", "certifi", "python-dateutil"]
 

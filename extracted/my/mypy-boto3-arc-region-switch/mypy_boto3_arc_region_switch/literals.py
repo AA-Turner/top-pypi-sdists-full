@@ -81,7 +81,7 @@ EcsCapacityMonitoringApproachType = Literal[
 ]
 EksCapacityMonitoringApproachType = Literal["sampledMaxInLast24Hours"]
 EvaluationStatusType = Literal["actionRequired", "passed", "pendingEvaluation", "unknown"]
-ExecutionActionType = Literal["activate", "deactivate"]
+ExecutionActionType = Literal["activate", "deactivate", "postRecovery"]
 ExecutionBlockTypeType = Literal[
     "ARCRegionSwitchPlan",
     "ARCRoutingControl",
@@ -93,6 +93,8 @@ ExecutionBlockTypeType = Literal[
     "EKSResourceScaling",
     "ManualApproval",
     "Parallel",
+    "RdsCreateCrossRegionReplica",
+    "RdsPromoteReadReplica",
     "Route53HealthCheck",
 ]
 ExecutionEventTypeType = Literal[
@@ -154,7 +156,9 @@ ListRoute53HealthChecksPaginatorName = Literal["list_route53_health_checks"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
 PlanExecutionCompletedWaiterName = Literal["plan_execution_completed"]
 RecoveryApproachType = Literal["activeActive", "activePassive"]
-RegionToRunInType = Literal["activatingRegion", "deactivatingRegion"]
+RegionToRunInType = Literal[
+    "activatingRegion", "activeRegion", "deactivatingRegion", "inactiveRegion"
+]
 ResourceWarningStatusType = Literal["active", "resolved"]
 Route53HealthCheckStatusType = Literal["healthy", "unhealthy", "unknown"]
 RoutingControlStateChangeType = Literal["Off", "On"]
@@ -163,7 +167,7 @@ StepStatusType = Literal[
 ]
 UpdatePlanExecutionActionType = Literal["pause", "resume", "switchToGraceful", "switchToUngraceful"]
 UpdatePlanExecutionStepActionType = Literal["skip", "switchToUngraceful"]
-WorkflowTargetActionType = Literal["activate", "deactivate"]
+WorkflowTargetActionType = Literal["activate", "deactivate", "postRecovery"]
 ARCRegionswitchServiceName = Literal["arc-region-switch"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -308,13 +312,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -354,7 +358,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -529,6 +532,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

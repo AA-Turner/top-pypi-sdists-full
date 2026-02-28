@@ -42,10 +42,13 @@ class ConflictingNameIssue(LinterIssue):
         self.fixes = [AddPreffix(file)]
 
 
-def reserved_names():
-    local_modules = list(iter_modules([str(Settings.root_path)]))
-
-    return [m.name for m in iter_modules() if m not in local_modules]
+def reserved_names() -> List[str]:
+    project_path = Path(Settings.root_path).resolve()
+    return [
+        m.name
+        for m in iter_modules()
+        if Path(getattr(m.module_finder, "path", "")).resolve() != project_path
+    ]
 
 
 class ConflictingName(LinterRule):

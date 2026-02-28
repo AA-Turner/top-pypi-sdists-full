@@ -33,6 +33,12 @@ class S3SourceConfig(SourceConfig):
         self.aws_region = aws_region
 
 
+class GCSSourceConfig(SourceConfig):
+    def __init__(self, gcp_project: Optional[str] = None):
+        super().__init__("gcs")
+        self.gcp_project = gcp_project
+
+
 class HFSourceConfig(SourceConfig):
     def __init__(self, token: Optional[str] = None):
         super().__init__("hf")
@@ -168,6 +174,57 @@ class S3FileUploader(FileUploader):
         self.s3_client = session.client("s3")
 
 
+class GCSFileUploader(FileUploader):
+    def __init__(self, config: GCSSourceConfig):
+        super().__init__(config)
+        self.gcs_client = None
+
+    def can_handle(self, file_path: str) -> bool:
+        parsed_path = urlparse(file_path)
+        return parsed_path.scheme == "gs"
+
+    def upload(
+        self, filename: str, file_path: str, presigned_url: str, dir_allowlist: Optional[List[str]] = None
+    ) -> FileInfo:
+        if self.gcs_client is None:
+            self._setup_gcs_client()
+
+        assert self.gcs_client is not None, "Unable to initialize GCS client."
+        parsed_path = urlparse(file_path)
+        src_bucket = parsed_path.netloc
+        src_key = parsed_path.path.lstrip("/")
+
+        try:
+            bucket = self.gcs_client.bucket(src_bucket)
+            blob = bucket.blob(src_key)
+            file_data = blob.download_as_bytes()
+
+            file_hash = hashlib.sha256(file_data).digest()
+            filesize_kb = ceil(len(file_data) / 1024.0)
+
+            content_type = blob.content_type or "application/octet-stream"
+            put_response = requests.put(presigned_url, data=file_data, headers={"Content-Type": content_type})
+
+            if put_response.status_code != 200:
+                raise RuntimeError(
+                    f"Failed to upload to presigned URL for {filename}: "
+                    + f"{put_response.status_code} {put_response.text}"
+                )
+
+            return FileInfo(filename, filesize_kb, file_hash)
+        except Exception as e:
+            raise RuntimeError(f"Unable to get object from {file_path}. {e}")
+
+    def _setup_gcs_client(self):
+        try:
+            from google.cloud import storage  # type: ignore[reportMissingImports]
+        except ImportError:
+            raise ImportError("Please install google-cloud-storage to enable model registration.")
+
+        project = getattr(self.config, "gcp_project", None) or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        self.gcs_client = storage.Client(project=project)
+
+
 class HFFileUploader(FileUploader):
     def __init__(self, config: HFSourceConfig):
         super().__init__(config)
@@ -185,6 +242,7 @@ class HFFileUploader(FileUploader):
 CONFIG_UPLOADER_MAP: Dict[Type[SourceConfig], Type[FileUploader]] = {
     LocalSourceConfig: LocalFileUploader,
     S3SourceConfig: S3FileUploader,
+    GCSSourceConfig: GCSFileUploader,
     HFSourceConfig: HFFileUploader,
 }
 
@@ -207,6 +265,7 @@ class ModelFileUploader:
         for fallback_config_cls, fallback_uploader_cls in [
             (LocalSourceConfig, LocalFileUploader),
             (S3SourceConfig, S3FileUploader),
+            (GCSSourceConfig, GCSFileUploader),
         ]:
             if fallback_uploader_cls not in existing_types:
                 uploaders.append(fallback_uploader_cls(fallback_config_cls()))  # pyright: ignore[reportArgumentType]

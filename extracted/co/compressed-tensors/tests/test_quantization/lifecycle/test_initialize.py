@@ -1,22 +1,11 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import math
 
 import pytest
 import torch
+from compressed_tensors.offload import offload_model
 from compressed_tensors.quantization import (
     FP8_E4M3_DATA,
     ActivationOrdering,
@@ -28,7 +17,7 @@ from compressed_tensors.quantization import (
 from compressed_tensors.quantization.lifecycle.initialize import (
     initialize_module_for_quantization,
 )
-from tests.testing_utils import requires_accelerate
+from tests.testing_utils import requires_gpu
 from torch.nn import Linear
 
 
@@ -98,7 +87,7 @@ def test_initialize_module_for_quantization(
     assert layer.quantization_status == QuantizationStatus.INITIALIZED
 
 
-@requires_accelerate()
+@requires_gpu
 @pytest.mark.parametrize(
     "weights,input_activations",
     [
@@ -119,9 +108,7 @@ def test_initialize_module_for_quantization(
 def test_initialize_module_for_quantization_offloaded(
     create_quantization_scheme, weights, input_activations, layer
 ):
-    from accelerate.hooks import attach_align_device_hook
-
-    attach_align_device_hook(layer, offload=True)
+    offload_model(layer, "cuda:0")
 
     test_initialize_module_for_quantization(
         create_quantization_scheme,

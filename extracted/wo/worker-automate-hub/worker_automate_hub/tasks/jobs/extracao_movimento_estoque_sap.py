@@ -27,7 +27,9 @@ from worker_automate_hub.api.datalake_service import send_file_to_datalake
 from selenium.webdriver.common.keys import Keys
 from worker_automate_hub.utils.credentials_manager import CredentialsManager
 from worker_automate_hub.api.client import get_config_by_name
-from worker_automate_hub.models.dto.rpa_processo_entrada_dto import RpaProcessoEntradaDTO
+from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
+    RpaProcessoEntradaDTO,
+)
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
     RpaRetornoProcessoDTO,
@@ -47,7 +49,9 @@ mes = now.strftime("%m")
 ano = now.strftime("%Y")
 
 
-def limpar_downloads(download_path: str, extensoes: tuple = (".xlsx", ".pdf", ".crdownload")) -> int:
+def limpar_downloads(
+    download_path: str, extensoes: tuple = (".xlsx", ".pdf", ".crdownload")
+) -> int:
     """
     Deleta arquivos dentro de download_path (somente arquivos, não apaga pastas).
     Retorna quantos arquivos foram removidos.
@@ -93,7 +97,6 @@ def limpar_downloads(download_path: str, extensoes: tuple = (".xlsx", ".pdf", ".
     return removidos
 
 
-
 # ==========================
 # CONFIG DE ENTRADA (AJUSTADA)
 # ==========================
@@ -103,6 +106,7 @@ class ConfigEntradaSAP(BaseModel):
       - produtos: "2000011,2000025"
       - centros:  "2501,2502,2503,..."
     """
+
     produtos: str
     centros: str
     abrangencia: str = ""
@@ -115,23 +119,24 @@ class ExtracaoMovimentoEstoque:
     # ==========
     # XPATHs
     # ==========
-    X_MATERIAL     = "//input[@title='Nº do material']"
-    X_CENTRO       = "//input[@title='Centro']"
-    X_PERIODO      = "//input[@title='Período contábil']"
-    X_ANO          = "//input[@title='Data de lançamento AAAA']"
-    X_ATUALIZAR    = "//*[@role='button' and @title='Atualizar (Shift+F1)']"
-    X_PRECO        = "(//div[@title='Expandir campos de seleção'])[2]"
-    X_VISAO        = "//input[@title='Exibição análise do preço de material: seleção de visões']"
-    X_SELECAO      = "//input[@value='Histórico de preços']"
-    X_BAIXAR       = "//div[@title='Planilha eletrônica... (Ctrl+Shift+F7)']"
-    X_EXPORTAR     = "//*[@role='button' and @title='Exportar']"
+    X_MATERIAL = "//input[@title='Nº do material']"
+    X_CENTRO = "//input[@title='Centro']"
+    X_PERIODO = "//input[@title='Período contábil']"
+    X_ANO = "//input[@title='Data de lançamento AAAA']"
+    X_ATUALIZAR = "//*[@role='button' and @title='Atualizar (Shift+F1)']"
+    X_PRECO = "(//div[@title='Expandir campos de seleção'])[2]"
+    X_VISAO = (
+        "//input[@title='Exibição análise do preço de material: seleção de visões']"
+    )
+    X_SELECAO = "//input[@value='Histórico de preços']"
+    X_BAIXAR = "//div[@title='Planilha eletrônica... (Ctrl+Shift+F7)']"
+    X_EXPORTAR = "//*[@role='button' and @title='Exportar']"
     X_EXPORTAR_PARA = "//*[@role='button' and @title='Exportar dados (Shift+F8)']"
-    X_OK           = "//div[@id='UpDownDialogChoose']"
+    X_OK = "//div[@id='UpDownDialogChoose']"
 
     # IFRAME
-    X_APP_IFRAME   = "//iframe[contains(@name,'application-ActualCosting-analyzeMaterialPrice-iframe')]"
+    X_APP_IFRAME = "//iframe[contains(@name,'application-ActualCosting-analyzeMaterialPrice-iframe')]"
 
- 
     def __init__(
         self,
         task: RpaProcessoEntradaDTO,
@@ -158,8 +163,12 @@ class ExtracaoMovimentoEstoque:
         )
 
         # Parse produtos/centros
-        self.produtos: List[str] = [p.strip() for p in self.config_entrada.produtos.split(",") if p.strip()]
-        self.centros: List[str] = [c.strip() for c in self.config_entrada.centros.split(",") if c.strip()]
+        self.produtos: List[str] = [
+            p.strip() for p in self.config_entrada.produtos.split(",") if p.strip()
+        ]
+        self.centros: List[str] = [
+            c.strip() for c in self.config_entrada.centros.split(",") if c.strip()
+        ]
 
         if not self.produtos:
             raise ValueError("configEntrada.produtos está vazio.")
@@ -198,7 +207,9 @@ class ExtracaoMovimentoEstoque:
 
         self.driver.switch_to.default_content()
         wait.until(EC.presence_of_element_located((By.XPATH, self.X_APP_IFRAME)))
-        wait.until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, self.X_APP_IFRAME)))
+        wait.until(
+            EC.frame_to_be_available_and_switch_to_it((By.XPATH, self.X_APP_IFRAME))
+        )
 
         console.print("[STEP] OK: dentro do iframe do app SAP.")
         await worker_sleep(0.2)
@@ -211,13 +222,16 @@ class ExtracaoMovimentoEstoque:
 
     async def _scroll_center(self, el) -> None:
         try:
-            self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", el
+            )
         except Exception:
             pass
         await worker_sleep(0.15)
 
-
-    async def _limpar_e_digitar(self, xpath: str, valor: str, timeout: int = 30) -> None:
+    async def _limpar_e_digitar(
+        self, xpath: str, valor: str, timeout: int = 30
+    ) -> None:
         """
         Versão robusta contra:
         - StaleElementReferenceException (UI5 re-render)
@@ -236,7 +250,10 @@ class ExtracaoMovimentoEstoque:
                 # ===== foco/click =====
                 try:
                     el.click()
-                except (ElementClickInterceptedException, StaleElementReferenceException):
+                except (
+                    ElementClickInterceptedException,
+                    StaleElementReferenceException,
+                ):
                     # re-localiza e tenta JS click/focus
                     el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
                     await self._scroll_center(el)
@@ -276,7 +293,10 @@ class ExtracaoMovimentoEstoque:
                     el = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
                     await self._scroll_center(el)
                     el.click()
-                except (ElementClickInterceptedException, StaleElementReferenceException):
+                except (
+                    ElementClickInterceptedException,
+                    StaleElementReferenceException,
+                ):
                     el = wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
                     self.driver.execute_script("arguments[0].focus();", el)
 
@@ -324,7 +344,9 @@ class ExtracaoMovimentoEstoque:
                 return  # sucesso
 
             except StaleElementReferenceException:
-                console.print(f"[WARN] StaleElement em _limpar_e_digitar (tentativa {tentativa}/3) -> re-localizando...")
+                console.print(
+                    f"[WARN] StaleElement em _limpar_e_digitar (tentativa {tentativa}/3) -> re-localizando..."
+                )
                 # opcional: reafirma iframe (SAP UI5 às vezes recria o frame)
                 try:
                     await self._entrar_no_iframe_app(timeout=20)
@@ -333,7 +355,9 @@ class ExtracaoMovimentoEstoque:
                 await worker_sleep(0.6)
 
         # se chegar aqui, falhou todas as tentativas
-        raise StaleElementReferenceException(f"Elemento ficou stale após 3 tentativas: {xpath}")
+        raise StaleElementReferenceException(
+            f"Elemento ficou stale após 3 tentativas: {xpath}"
+        )
 
     async def _clicar(self, xpath: str, timeout: int = 60) -> None:
         wait = WebDriverWait(self.driver, timeout)
@@ -350,7 +374,9 @@ class ExtracaoMovimentoEstoque:
     # ==========================================================
     # Esperar download XLSX
     # ==========================================================
-    async def _aguardar_xlsx_baixado(self, timeout: int = 240, quiet_window_sec: float = 1.2) -> Path:
+    async def _aguardar_xlsx_baixado(
+        self, timeout: int = 240, quiet_window_sec: float = 1.2
+    ) -> Path:
         """
         Espera surgir um .xlsx novo no Downloads e terminar (.crdownload sumir e tamanho estabilizar).
         Retorna o Path do arquivo baixado.
@@ -426,10 +452,7 @@ class ExtracaoMovimentoEstoque:
     # Renomear + Upload (AJUSTADO para seu padrão de nome)
     # ==========================================================
     async def rename_file(
-        self,
-        produto: str,
-        centro_tag: str,
-        timeout: int = 240
+        self, produto: str, centro_tag: str, timeout: int = 240
     ) -> Path:
         """
         Nome final:
@@ -448,7 +471,7 @@ class ExtracaoMovimentoEstoque:
             console.print(f"[RF] Existe? {os.path.exists(current_path)}")
 
             # 2) monta nome padrão
- 
+
             # Renomear
             filename = f"{centro_tag}-{produto}-{mes}-{ano}-{date_now}.xlsx"
             final_path = os.path.join(DOWNLOADS_PATH, filename)
@@ -468,18 +491,24 @@ class ExtracaoMovimentoEstoque:
 
             # 5) envia pro datalake
             if not self.directory:
-                raise RuntimeError("self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento.")
+                raise RuntimeError(
+                    "self.directory (datalake) não foi definido. Passe pelo config SAP_Faturamento."
+                )
 
             try:
                 console.print(f"[RF] directory: {self.directory}")
                 console.print(f"[RF] file: {final_path}")
 
                 send_file_request = await send_file_to_datalake(
-                    self.directory, file_bytes, filename, "xlsx"
+                    "qd_comercial/raw", file_bytes, filename, "xlsx"
                 )
-                console.print(f"[RF] Resposta send_file_to_datalake: {send_file_request}")
+                console.print(
+                    f"[RF] Resposta send_file_to_datalake: {send_file_request}"
+                )
             except Exception as e:
-                console.print(f"[RF][ERRO] Erro ao enviar o arquivo: {e}", style="bold red")
+                console.print(
+                    f"[RF][ERRO] Erro ao enviar o arquivo: {e}", style="bold red"
+                )
                 console.print("[RF][ERRO] Traceback:")
                 console.print(traceback.format_exc())
                 raise
@@ -618,7 +647,9 @@ class ExtracaoMovimentoEstoque:
 
             for i in range(10):
                 btn = self.driver.find_elements(By.ID, "LOGIN_SUBMIT_BLOCK")
-                console.print(f"[LOGIN] Tentativa {i+1}/10 | botão encontrado? {bool(btn)}")
+                console.print(
+                    f"[LOGIN] Tentativa {i+1}/10 | botão encontrado? {bool(btn)}"
+                )
                 if btn:
                     btn[0].click()
                     console.print("[LOGIN] Botão de login clicado.")
@@ -646,12 +677,16 @@ class ExtracaoMovimentoEstoque:
         contador = 0
         primeira_vez = False
         for idx_prod, produto in enumerate(self.produtos, start=1):
-            console.print(f"[LOOP] Produto ({idx_prod}/{len(self.produtos)}): {produto} | Centros: {centro_range_tag}")
+            console.print(
+                f"[LOOP] Produto ({idx_prod}/{len(self.produtos)}): {produto} | Centros: {centro_range_tag}"
+            )
 
             for idx_ctr, centro in enumerate(self.centros, start=1):
                 limpar_downloads(DOWNLOADS_PATH)
                 contador += 1
-                console.print(f"[LOOP] ({contador}/{total_exec}) Produto: {produto} | Centro: {centro}")
+                console.print(
+                    f"[LOOP] ({contador}/{total_exec}) Produto: {produto} | Centro: {centro}"
+                )
 
                 await self._entrar_no_iframe_app(timeout=60)
 
@@ -660,7 +695,6 @@ class ExtracaoMovimentoEstoque:
 
                 console.print(f"[STEP] Centro: {centro}")
                 await self._limpar_e_digitar(self.X_CENTRO, centro)
-
 
                 if not primeira_vez:
                     mes_adapatado = mes[-1]
@@ -690,11 +724,11 @@ class ExtracaoMovimentoEstoque:
                     campo.send_keys(Keys.ENTER)
 
                 await worker_sleep(2)
-                
+
                 console.print(f"[STEP] Clicar atualizar:")
                 await self._clicar(self.X_ATUALIZAR)
 
-                await worker_sleep(2)
+                await worker_sleep(8)
 
                 console.print("[STEP] Clicando em ExportaR")
                 await self._clicar(self.X_EXPORTAR)
@@ -714,7 +748,9 @@ class ExtracaoMovimentoEstoque:
                 await self._clicar(self.X_OK)
                 console.print("[STEP] OK clicado com sucesso.")
 
-                console.print("[STEP] Aguardando XLSX baixar + renomeando + enviando datalake...")
+                console.print(
+                    "[STEP] Aguardando XLSX baixar + renomeando + enviando datalake..."
+                )
 
                 # centro_tag agora é o centro atual (um arquivo por centro)
                 final_path = await self.rename_file(
@@ -747,7 +783,9 @@ async def extracao_movimento_estoque_sap(
         base_url = cfg.conConfiguracao.get("baseUrl")
         directory = cfg.conConfiguracao.get("directoryBucket")
 
-        bot = ExtracaoMovimentoEstoque(task=task, base_url=base_url, directory=directory)
+        bot = ExtracaoMovimentoEstoque(
+            task=task, base_url=base_url, directory=directory
+        )
 
         ret = await bot.iniciar_sessao_sap()
         if not ret.sucesso:

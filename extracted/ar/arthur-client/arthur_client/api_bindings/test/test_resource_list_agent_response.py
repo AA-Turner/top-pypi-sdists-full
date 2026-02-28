@@ -60,6 +60,7 @@ class TestResourceListAgentResponse(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         id = '', 
                         workspace_id = '', 
                         tools = [
@@ -123,6 +124,7 @@ class TestResourceListAgentResponse(unittest.TestCase):
                                 config = null, )
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         id = '', 
                         workspace_id = '', 
                         tools = [

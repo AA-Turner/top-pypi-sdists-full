@@ -73,22 +73,32 @@ class AuditLog(_message.Message):
     ) -> None: ...
 
 class GetAuditLogsRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "endpoint_filter")
+    __slots__ = ("start_time", "end_time", "endpoint_filter", "limit", "cursor")
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     ENDPOINT_FILTER_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     endpoint_filter: _containers.RepeatedScalarFieldContainer[str]
+    limit: int
+    cursor: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         endpoint_filter: _Optional[_Iterable[str]] = ...,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class GetAuditLogsResponse(_message.Message):
-    __slots__ = ("logs",)
+    __slots__ = ("logs", "next_cursor")
     LOGS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     logs: _containers.RepeatedCompositeFieldContainer[AuditLog]
-    def __init__(self, logs: _Optional[_Iterable[_Union[AuditLog, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self, logs: _Optional[_Iterable[_Union[AuditLog, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
+    ) -> None: ...

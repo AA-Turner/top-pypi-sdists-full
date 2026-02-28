@@ -14,13 +14,15 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: pathways-proxy
-        image: us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.8.0@sha256:5296fa0819d8cbdfbcf951ffca2072128255411557240624ff4011522a6a2abe
+        image: ${PROXY_SERVER_IMAGE}
         imagePullPolicy: Always
         args:
         - --server_port=${PROXY_SERVER_PORT}
         - --resource_manager_address=${PATHWAYS_HEAD_HOSTNAME}:${PATHWAYS_HEAD_PORT}
         - --gcs_scratch_location=${GCS_SCRATCH_LOCATION}
         - --virtual_slices=${EXPECTED_INSTANCES}
+        env:
+${PROXY_ENV}
         ports:
         - containerPort: ${PROXY_SERVER_PORT}
           protocol: TCP
@@ -31,7 +33,7 @@ spec:
         securityContext:
           runAsUser: 1000  # go/gke-shipshape#rootless
           runAsGroup: 1000  # go/gke-shipshape#rootless
-          readOnlyRootFilesystem: true  # go/gke-shipshape#readonlyrootfs
+          readOnlyRootFilesystem: false
           capabilities:  # go/gke-shipshape#capabilities
             drop:
             - ALL

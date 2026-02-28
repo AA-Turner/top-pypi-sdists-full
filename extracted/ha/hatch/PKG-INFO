@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatch
-Version: 1.16.4
+Version: 1.16.5
 Summary: Modern, extensible Python project management
 Project-URL: Homepage, https://hatch.pypa.io/latest/
 Project-URL: Sponsor, https://github.com/sponsors/ofek
@@ -34,13 +34,14 @@ Requires-Dist: packaging>=24.2
 Requires-Dist: pexpect~=4.8
 Requires-Dist: platformdirs>=2.5.0
 Requires-Dist: pyproject-hooks
+Requires-Dist: python-discovery>=1.1
 Requires-Dist: rich>=11.2.0
 Requires-Dist: shellingham>=1.4.0
 Requires-Dist: tomli-w>=1.0
 Requires-Dist: tomlkit>=0.11.1
 Requires-Dist: userpath~=1.7
 Requires-Dist: uv>=0.5.23
-Requires-Dist: virtualenv>=20.26.6
+Requires-Dist: virtualenv>=21
 Description-Content-Type: text/markdown
 
 # Hatch

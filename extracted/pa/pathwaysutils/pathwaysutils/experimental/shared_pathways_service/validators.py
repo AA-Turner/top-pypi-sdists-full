@@ -49,7 +49,7 @@ def _validate_tpu_supported(tpu_instance_with_topology: str) -> None:
   # Regex to extract TPU type and topology.
   # Examples:
   # tpuv6e:2x4 -> type='tpuv6e', topology='2x4'
-  # tpuv5p:2x2x1 -> type='tpuv5p', topology='2x2x1'
+  # tpuv5:2x2x1 -> type='tpuv5', topology='2x2x1'
   match = re.match(
       r"^(?:tpuv(?:5e|5|6e)):(?P<topology>\d+(?:x\d+){1,2})$",
       tpu_instance_with_topology,
@@ -89,3 +89,19 @@ def validate_tpu_instances(expected_tpu_instances: Mapping[Any, Any]) -> None:
 
   inst = next(iter(expected_tpu_instances.keys()))
   _validate_tpu_supported(inst)
+
+
+def validate_proxy_server_image(proxy_server_image: str) -> None:
+  """Validates the proxy server image format."""
+  if not proxy_server_image or not proxy_server_image.strip():
+    raise ValueError("Proxy server image cannot be empty.")
+  if "/" not in proxy_server_image:
+    raise ValueError(
+        f"Proxy server image '{proxy_server_image}' must contain '/', "
+        "separating the registry or namespace from the final image name."
+    )
+  if ":" not in proxy_server_image and "@" not in proxy_server_image:
+    raise ValueError(
+        f"Proxy server image '{proxy_server_image}' must contain a tag with ':'"
+        " or a digest with '@'."
+    )

@@ -1125,7 +1125,7 @@ regress_test_glist_nothing_in2 (GList *in)
  * @in: (element-type utf8) (allow-none):
  */
 void
-regress_test_glist_null_in (GSList *in)
+regress_test_glist_null_in (GList *in)
 {
   g_assert (in == NULL);
 }
@@ -1135,7 +1135,7 @@ regress_test_glist_null_in (GSList *in)
  * @out_list: (out) (element-type utf8) (allow-none):
  */
 void
-regress_test_glist_null_out (GSList **out_list)
+regress_test_glist_null_out (GList **out_list)
 {
   *out_list = NULL;
 }
@@ -2185,6 +2185,7 @@ enum
   PROP_TEST_OBJ_GTYPE,
   PROP_TEST_OBJ_NAME_CONFLICT,
   PROP_TEST_OBJ_BYTE_ARRAY,
+  PROP_TEST_OBJ_UNICHAR,
   PROP_TEST_OBJ_WRITE_ONLY,
 };
 
@@ -2250,6 +2251,10 @@ regress_test_obj_set_property (GObject *object,
 
     case PROP_TEST_OBJ_BYTE_ARRAY:
       self->byte_array = g_value_get_boxed (value);
+      break;
+
+    case PROP_TEST_OBJ_UNICHAR:
+      self->unichar = g_value_get_uint (value);
       break;
 
     case PROP_TEST_OBJ_WRITE_ONLY:
@@ -2320,6 +2325,10 @@ regress_test_obj_get_property (GObject *object,
 
     case PROP_TEST_OBJ_BYTE_ARRAY:
       g_value_set_boxed (value, self->byte_array);
+      break;
+
+    case PROP_TEST_OBJ_UNICHAR:
+      g_value_set_uint (value, self->unichar);
       break;
 
     default:
@@ -2884,6 +2893,18 @@ regress_test_obj_class_init (RegressTestObjClass *klass)
                               G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
   g_object_class_install_property (gobject_class,
                                    PROP_TEST_OBJ_BYTE_ARRAY,
+                                   pspec);
+
+  /**
+   * RegressTestObj:unichar:
+   */
+  pspec = g_param_spec_unichar ("unichar",
+                                "unichar code point",
+                                "An unichar (UTF-32 or UCS-4) code point",
+                                0,
+                                G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+  g_object_class_install_property (gobject_class,
+                                   PROP_TEST_OBJ_UNICHAR,
                                    pspec);
 
   /**
@@ -5227,7 +5248,7 @@ regress_test_obj_function2 (RegressTestObj *self,
  *
  * Finish function for `regress_test_obj_function2_async()`.
  *
- * Returns: (type void): %FALSE on error, %TRUE otherwise
+ * Returns: %FALSE on error, %TRUE otherwise
  */
 gboolean
 regress_test_obj_function2_finish (RegressTestObj *self G_GNUC_UNUSED,

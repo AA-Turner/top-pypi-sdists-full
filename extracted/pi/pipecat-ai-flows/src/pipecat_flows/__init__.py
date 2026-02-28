@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, Daily
+# Copyright (c) 2024-2026, Daily
 #
 # SPDX-License-Identifier: BSD 2-Clause License
 #
@@ -34,6 +34,7 @@ from .types import (
     FlowsFunctionSchema,
     LegacyFunctionHandler,
     NodeConfig,
+    flows_direct_function,
 )
 
 __all__ = [
@@ -51,6 +52,7 @@ __all__ = [
     "LegacyFunctionHandler",
     "FlowsDirectFunction",
     "NodeConfig",
+    "flows_direct_function",
     # Exceptions
     "FlowError",
     "FlowInitializationError",

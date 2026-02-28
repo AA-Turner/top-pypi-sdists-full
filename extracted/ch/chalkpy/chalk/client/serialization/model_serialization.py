@@ -222,6 +222,30 @@ class ModelSerializer:
                 metadata_converted[k] = converted_v
         return metadata_converted
 
+    @staticmethod
+    def convert_metadata_from_protobuf(metadata: Optional[Mapping[str, Any]]) -> Mapping[str, Any]:
+        metadata_converted: Mapping[str, Any] = {}
+        if metadata is not None:
+            for k, v in metadata.items():
+                if isinstance(v, struct_pb2.Value):
+                    kind = v.WhichOneof("kind")
+                    if kind == "string_value":
+                        metadata_converted[k] = v.string_value
+                    elif kind == "number_value":
+                        num = v.number_value
+                        metadata_converted[k] = int(num) if float(num).is_integer() else float(num)
+                    elif kind == "bool_value":
+                        metadata_converted[k] = v.bool_value
+                    elif kind == "null_value":
+                        metadata_converted[k] = None
+                    else:
+                        raise ValueError(
+                            f"Unable to parse metadata field: `{k}:{v}`. " + f"{kind} is not currently supported."
+                        )
+                else:
+                    metadata_converted[k] = v
+        return metadata_converted
+
     def infer_input_output_schemas(
         self, model: Optional[Any] = None, model_type: Optional[ModelType] = None
     ) -> Tuple[Optional[ModelSchemaType], Optional[ModelSchemaType]]:
@@ -396,6 +420,60 @@ class ModelSerializer:
             raise ValueError(f"Invalid empty schema.")
 
         return model_schema
+
+    @staticmethod
+    def convert_schema_from_protobuf(model_schema: Optional[_model_artifact_pb2.ModelSchema]) -> Any:
+        """Inverse of `convert_schema`.
+
+        Returns:
+            - dict[str, Any] for tabular schemas (primitive dtypes are converted back to `str/int/float/bool` when
+              unambiguous; otherwise returns `pyarrow.DataType`)
+            - list[tuple[list[Any], pyarrow.DataType]] for tensor schemas
+        """
+        if model_schema is None:
+            raise ValueError("Invalid empty schema.")
+
+        schema_type = model_schema.WhichOneof("schema_type")
+        if schema_type is None:
+            raise ValueError("Invalid empty schema.")
+
+        import pyarrow as pa
+
+        from chalk.features._encoding.converter import PrimitiveFeatureConverter
+
+        if schema_type == "tabular":
+            schema: dict[str, Any] = {}
+            for col in model_schema.tabular.columns:
+                pa_dtype = PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(col.dtype)
+                if pa.types.is_string(pa_dtype) or pa.types.is_large_string(pa_dtype):
+                    schema[col.name] = str
+                elif pa.types.is_int64(pa_dtype):
+                    schema[col.name] = int
+                elif pa.types.is_float64(pa_dtype):
+                    schema[col.name] = float
+                elif pa.types.is_boolean(pa_dtype):
+                    schema[col.name] = bool
+                else:
+                    schema[col.name] = pa_dtype
+            return schema
+
+        if schema_type == "tensor":
+            tensor_specs: list[tuple[list[Any], Any]] = []
+            for tensor in model_schema.tensor.tensors:
+                pa_dtype = PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(tensor.dtype)
+                shape: list[Any] = []
+                for dim in tensor.shape:
+                    dim_kind = dim.WhichOneof("value")
+                    if dim_kind == "fixed":
+                        shape.append(dim.fixed)
+                    elif dim_kind == "named":
+                        shape.append(dim.named)
+                    else:
+                        shape.append(None)
+                tensor_specs.append((shape, pa_dtype))
+            return tensor_specs
+
+        raise ValueError(f"Invalid schema type: {schema_type}")
 
     @staticmethod
     def convert_run_criterion_to_proto(

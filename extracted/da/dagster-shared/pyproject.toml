@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-shared"
-version = "1.12.15"
+version = "1.12.17"
 description = "Shared code between dagster and dagster-dg-core."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -37,22 +37,4 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/lib
 test = [
     "pytest",
     "flaky",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_shared_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "CLAUDE.md",
-    "dagster_shared_tests/**",
 ]

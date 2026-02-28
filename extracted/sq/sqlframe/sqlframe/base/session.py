@@ -268,12 +268,12 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
             elif isinstance(data[0], dict):
                 column_mapping = {col_name.strip(): None for col_name in data[0]}
             else:
-                column_mapping = {f"_{i}": None for i in range(1, len(data[0]) + 1)}  # type: ignore
+                column_mapping = {f"_{i}": None for i in range(1, len(data[0]) + 1)}  # type: ignore[arg-type]
         else:
             column_mapping = {}
 
         empty_df = not data
-        rows = [[None] * len(column_mapping)] if empty_df else list(data)  # type: ignore
+        rows = [[None] * len(column_mapping)] if empty_df else list(data)
 
         def get_default_data_type(value: t.Any) -> t.Optional[str]:
             if isinstance(value, Row):
@@ -352,7 +352,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                 if isinstance(row, Row):
                     row = row.asDict()
                 if isinstance(row, dict):
-                    row = row.values()  # type: ignore
+                    row = row.values()
                 data_expressions.append(exp.tuple_(*[F.lit(x).column_expression for x in row]))
             else:
                 data_expressions.append(exp.tuple_(*[F.lit(row).column_expression]))
@@ -377,7 +377,14 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                     alias=exp.TableAlias(
                         this=exp.to_identifier(self._auto_incrementing_name),
                         columns=[
-                            exp.parse_identifier(col_name, dialect=self.input_dialect)
+                            parsed
+                            if isinstance(
+                                parsed := exp.parse_identifier(
+                                    col_name, dialect=self.input_dialect
+                                ),
+                                exp.Identifier,
+                            )
+                            else exp.to_identifier(col_name, quoted=True)
                             for col_name in column_mapping
                         ],
                     ),
@@ -457,7 +464,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                 select_expression.set("with_", expression.args.get("with_"))
                 expression.set("with_", None)
             del expression.args["expression"]
-            df = self._create_df(select_expression, output_expression_container=expression)  # type: ignore
+            df = self._create_df(select_expression, output_expression_container=expression)
             df = df._convert_leaf_to_cte()
         else:
             raise ValueError(
@@ -518,7 +525,8 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                     else self._to_sql(expression, quote_identifiers=quote_identifiers)
                 )
             else:
-                sql = expression  # type: ignore
+                assert isinstance(expression, str)
+                sql = expression
             self._execute(sql)
         if skip_rows:
             return []
@@ -594,7 +602,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
             schema=self.catalog._schema,
             infer_schema=True,
             quote_identifiers=quote_identifiers,
-            rules=rules,  # type: ignore
+            rules=rules,
         )
 
     def _execute(self, sql: str) -> None:

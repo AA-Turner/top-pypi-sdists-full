@@ -454,10 +454,22 @@ class DownloadModelArtifactRequest(_message.Message):
     def __init__(self, model_version_key: _Optional[_Union[ModelVersionKey, _Mapping]] = ...) -> None: ...
 
 class DownloadModelArtifactResponse(_message.Message):
-    __slots__ = ("uri",)
+    __slots__ = ("uri", "model_artifact", "model_urls", "additional_file_urls")
     URI_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
+    MODEL_URLS_FIELD_NUMBER: _ClassVar[int]
+    ADDITIONAL_FILE_URLS_FIELD_NUMBER: _ClassVar[int]
     uri: str
-    def __init__(self, uri: _Optional[str] = ...) -> None: ...
+    model_artifact: ModelArtifact
+    model_urls: _containers.RepeatedScalarFieldContainer[str]
+    additional_file_urls: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        uri: _Optional[str] = ...,
+        model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...,
+        model_urls: _Optional[_Iterable[str]] = ...,
+        additional_file_urls: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class GetModelReferencesRequest(_message.Message):
     __slots__ = ("deployment_id", "model_name", "model_version", "cursor", "limit")

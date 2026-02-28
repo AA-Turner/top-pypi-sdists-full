@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lerobot
-Version: 0.4.3
+Version: 0.4.4
 Summary: 🤗 LeRobot: State-of-the-art Machine Learning for Real-World Robotics in Pytorch
 Author-email: Rémi Cadène <re.cadene@gmail.com>, Simon Alibert <alibert.sim@gmail.com>, Alexander Soare <alexander.soare159@gmail.com>, Quentin Gallouédec <quentin.gallouedec@ec-lyon.fr>, Steven Palma <imstevenpmwork@ieee.org>, Pepijn Kooijmans <pepijnkooijmans@outlook.com>, Michel Aractingi <michel.aractingi@gmail.com>, Adil Zouitine <adilzouitinegm@gmail.com>, Dana Aubakirova <danaaubakirova17@gmail.com>, Caroline Pascal <caroline8.pascal@gmail.com>, Martino Russi <nopyeps@gmail.com>, Thomas Wolf <thomaswolfcontact@gmail.com>
 License: Apache-2.0
@@ -21,7 +21,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: datasets<4.2.0,>=4.0.0
+Requires-Dist: datasets<5.0.0,>=4.0.0
 Requires-Dist: diffusers<0.36.0,>=0.27.2
 Requires-Dist: huggingface-hub[cli,hf-transfer]<0.36.0,>=0.34.2
 Requires-Dist: accelerate<2.0.0,>=1.10.0
@@ -35,9 +35,9 @@ Requires-Dist: packaging<26.0,>=24.2
 Requires-Dist: pynput<1.9.0,>=1.7.7
 Requires-Dist: pyserial<4.0,>=3.5
 Requires-Dist: wandb<0.25.0,>=0.24.0
-Requires-Dist: torch<2.8.0,>=2.2.1
-Requires-Dist: torchcodec<0.6.0,>=0.2.1; sys_platform != "win32" and (sys_platform != "linux" or (platform_machine != "aarch64" and platform_machine != "arm64" and platform_machine != "armv7l")) and (sys_platform != "darwin" or platform_machine != "x86_64")
-Requires-Dist: torchvision<0.23.0,>=0.21.0
+Requires-Dist: torch<2.11.0,>=2.2.1
+Requires-Dist: torchcodec<0.11.0,>=0.2.1; sys_platform != "win32" and (sys_platform != "linux" or (platform_machine != "aarch64" and platform_machine != "arm64" and platform_machine != "armv7l")) and (sys_platform != "darwin" or platform_machine != "x86_64")
+Requires-Dist: torchvision<0.26.0,>=0.21.0
 Requires-Dist: draccus==0.10.0
 Requires-Dist: gymnasium<2.0.0,>=1.1.1
 Requires-Dist: rerun-sdk<0.27.0,>=0.24.0
@@ -53,10 +53,18 @@ Requires-Dist: transformers<5.0.0,>=4.57.1; extra == "transformers-dep"
 Provides-Extra: grpcio-dep
 Requires-Dist: grpcio==1.73.1; extra == "grpcio-dep"
 Requires-Dist: protobuf<6.32.0,>=6.31.1; extra == "grpcio-dep"
+Provides-Extra: can-dep
+Requires-Dist: python-can<5.0.0,>=4.2.0; extra == "can-dep"
 Provides-Extra: feetech
 Requires-Dist: feetech-servo-sdk<2.0.0,>=1.0.0; extra == "feetech"
 Provides-Extra: dynamixel
 Requires-Dist: dynamixel-sdk<3.9.0,>=3.7.31; extra == "dynamixel"
+Provides-Extra: damiao
+Requires-Dist: lerobot[can-dep]; extra == "damiao"
+Provides-Extra: robstride
+Requires-Dist: lerobot[can-dep]; extra == "robstride"
+Provides-Extra: openarms
+Requires-Dist: lerobot[damiao]; extra == "openarms"
 Provides-Extra: gamepad
 Requires-Dist: lerobot[pygame-dep]; extra == "gamepad"
 Requires-Dist: hidapi<0.15.0,>=0.14.0; extra == "gamepad"
@@ -69,6 +77,10 @@ Requires-Dist: pyzmq<28.0.0,>=26.2.1; extra == "lekiwi"
 Provides-Extra: unitree-g1
 Requires-Dist: pyzmq<28.0.0,>=26.2.1; extra == "unitree-g1"
 Requires-Dist: onnxruntime<2.0.0,>=1.16.0; extra == "unitree-g1"
+Requires-Dist: pin<4.0.0,>=3.0.0; extra == "unitree-g1"
+Requires-Dist: meshcat<0.4.0,>=0.3.0; extra == "unitree-g1"
+Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == "unitree-g1"
+Requires-Dist: casadi<4.0.0,>=3.6.0; extra == "unitree-g1"
 Provides-Extra: reachy2
 Requires-Dist: reachy2_sdk<1.1.0,>=1.0.15; extra == "reachy2"
 Provides-Extra: kinematics
@@ -170,7 +182,7 @@ Dynamic: description-content-type
 Dynamic: license-file
 
 <p align="center">
-  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.3/media/readme/lerobot-logo-thumbnail.png" width="100%">
+  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.4/media/readme/lerobot-logo-thumbnail.png" width="100%">
 </p>
 
 <div align="center">
@@ -210,7 +222,7 @@ lerobot-info
 ## Robots & Control
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.3/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
+  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.4/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
 </div>
 
 LeRobot provides a unified `Robot` class interface that decouples control logic from hardware specifics. It supports a wide range of robots and teleoperation devices.
@@ -260,7 +272,7 @@ Learn more about it in the [LeRobotDataset Documentation](https://huggingface.co
 LeRobot implements state-of-the-art policies in pure PyTorch, covering Imitation Learning, Reinforcement Learning, and Vision-Language-Action (VLA) models, with more coming soon. It also provides you with the tools to instrument and inspect your training process.
 
 <p align="center">
-  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.3/media/readme/VLA_architecture.jpg" width="640px">
+  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.4/media/readme/VLA_architecture.jpg" width="640px">
 </p>
 
 Training a policy is as simple as running a script configuration:
@@ -322,7 +334,7 @@ If you use LeRobot in your research, please cite:
 We welcome contributions from everyone in the community! To get started, please read our [CONTRIBUTING.md](./CONTRIBUTING.md) guide. Whether you're adding a new feature, improving documentation, or fixing a bug, your help and feedback are invaluable. We're incredibly excited about the future of open-source robotics and can't wait to work with you on what's next—thank you for your support!
 
 <p align="center">
-  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.3/media/readme/so100_video.webp" width="640px">
+  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.4.4/media/readme/so100_video.webp" width="640px">
 </p>
 
 <div align="center">

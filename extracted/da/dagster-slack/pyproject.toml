@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-slack"
-version = "0.28.15"
+version = "0.28.17"
 description = "A Slack client resource for posting to Slack"
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,26 +22,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
+    "dagster==1.12.17",
     "slack_sdk",
 ]
 
 [project.urls]
 Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-slack"
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_slack_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_slack_tests/**",
-]

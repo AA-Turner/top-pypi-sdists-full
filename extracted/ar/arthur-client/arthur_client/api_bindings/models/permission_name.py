@@ -86,6 +86,7 @@ class PermissionName(str, Enum):
     WORKSPACE_GOVERNANCE_VIEW = 'workspace_governance_view'
     WORKSPACE_UPSERT_AGENTS = 'workspace_upsert_agents'
     AGENT_READ = 'agent_read'
+    UNREGISTERED_AGENT_PATCH = 'unregistered_agent_patch'
     UNREGISTERED_AGENT_READ = 'unregistered_agent_read'
     UNREGISTERED_AGENT_UPDATE = 'unregistered_agent_update'
     UNREGISTERED_AGENT_DELETE = 'unregistered_agent_delete'

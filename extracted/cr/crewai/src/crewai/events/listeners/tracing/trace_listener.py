@@ -797,13 +797,7 @@ class TraceCollectionListener(BaseEventListener):
         from rich.console import Console
         from rich.panel import Panel
 
-        from crewai.events.listeners.tracing.utils import (
-            has_user_declined_tracing,
-            should_suppress_tracing_messages,
-        )
-
-        if should_suppress_tracing_messages():
-            return
+        from crewai.events.listeners.tracing.utils import has_user_declined_tracing
 
         console = Console()
 

@@ -109,6 +109,9 @@ class OrchestratorResult:
     dropbox_link: Optional[str] = None
     gdrive_files: Optional[Dict[str, str]] = field(default_factory=dict)
 
+    # Distribution warnings (non-fatal upload failures)
+    distribution_warnings: List[str] = field(default_factory=list)
+
     # Timing
     encoding_time_seconds: Optional[float] = None
     total_time_seconds: Optional[float] = None
@@ -228,6 +231,18 @@ class VideoWorkerOrchestrator:
                 if self.config.enable_cdg or self.config.enable_txt:
                     await self._run_packaging()
 
+                # Validate required packaging outputs before expensive encoding
+                if self.config.enable_cdg and not self.result.final_karaoke_cdg_zip:
+                    raise RuntimeError(
+                        "CDG generation was enabled but failed. "
+                        "Check worker logs for CDG-related errors."
+                    )
+                if self.config.enable_txt and not self.result.final_karaoke_txt_zip:
+                    raise RuntimeError(
+                        "TXT generation was enabled but failed. "
+                        "Check worker logs for TXT-related errors."
+                    )
+
                 # Stage 2: Encoding
                 await self._run_encoding()
 
@@ -259,6 +274,10 @@ class VideoWorkerOrchestrator:
         self.job_log.info("Starting packaging stage (CDG/TXT)")
 
         if not self.config.lrc_file_path or not os.path.isfile(self.config.lrc_file_path):
+            if self.config.enable_cdg or self.config.enable_txt:
+                raise RuntimeError(
+                    f"CDG/TXT generation enabled but LRC file not available: {self.config.lrc_file_path}"
+                )
             self.job_log.warning("No LRC file available, skipping CDG/TXT packaging")
             return
 
@@ -587,6 +606,7 @@ class VideoWorkerOrchestrator:
 
         except Exception as e:
             self.job_log.error(f"YouTube upload failed: {e}")
+            self.result.distribution_warnings.append(f"YouTube upload failed: {e}")
             # Don't fail the pipeline - YouTube is optional
 
     async def _upload_to_dropbox(self):
@@ -623,6 +643,7 @@ class VideoWorkerOrchestrator:
 
         except Exception as e:
             self.job_log.error(f"Dropbox upload failed: {e}")
+            self.result.distribution_warnings.append(f"Dropbox upload failed: {e}")
             # Don't fail the pipeline - Dropbox is optional
 
     async def _upload_to_gdrive(self):
@@ -659,6 +680,7 @@ class VideoWorkerOrchestrator:
 
         except Exception as e:
             self.job_log.error(f"Google Drive upload failed: {e}")
+            self.result.distribution_warnings.append(f"Google Drive upload failed: {e}")
             # Don't fail the pipeline - GDrive is optional
 
     async def _run_notifications(self):

@@ -1,1 +1,0 @@
-import{l as c,m as n,j as s,d}from"./index.D-NUf2mx.js";const m=t=>{const a=e=>{const{width:i,elementRef:l}=n();return s(d,{ref:l,children:s(t,{...e,width:i})})};return a.displayName=`withCalculatedWidth(${t.displayName||t.name})`,c(a,t)};export{m as w};

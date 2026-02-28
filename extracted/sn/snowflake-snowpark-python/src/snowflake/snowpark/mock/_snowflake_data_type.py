@@ -11,7 +11,6 @@ from snowflake.snowpark.types import (
     BooleanType,
     DataType,
     DateType,
-    DecFloatType,
     DecimalType,
     DoubleType,
     FloatType,
@@ -115,7 +114,6 @@ SNOW_DATA_TYPE_CONVERSION_LIST = [
     SnowDataTypeConversion(BooleanType, DecimalType, True, False),
     SnowDataTypeConversion(BooleanType, StringType, True, True),
     SnowDataTypeConversion(BooleanType, VariantType, True, True),
-    SnowDataTypeConversion(BooleanType, DecFloatType, True, True),
     SnowDataTypeConversion(DateType, TimestampType, True, False),
     SnowDataTypeConversion(DateType, StringType, True, True),
     SnowDataTypeConversion(DateType, VariantType, True, False),
@@ -123,11 +121,6 @@ SNOW_DATA_TYPE_CONVERSION_LIST = [
     SnowDataTypeConversion(FloatType, DecimalType, True, True),
     SnowDataTypeConversion(FloatType, StringType, True, True),
     SnowDataTypeConversion(FloatType, VariantType, True, True),
-    SnowDataTypeConversion(FloatType, DecFloatType, True, True),
-    SnowDataTypeConversion(DecFloatType, BooleanType, True, True),
-    SnowDataTypeConversion(DecFloatType, DecimalType, True, True),
-    SnowDataTypeConversion(DecFloatType, FloatType, True, True),
-    SnowDataTypeConversion(DecFloatType, StringType, True, True),
     SnowDataTypeConversion(GeographyType, VariantType, True, False),
     # SnowDataTypeConversion(GeometryType, VariantType, True, False),  # GeometryType isn't available yet.
     SnowDataTypeConversion(DecimalType, BooleanType, True, True),
@@ -135,7 +128,6 @@ SNOW_DATA_TYPE_CONVERSION_LIST = [
     SnowDataTypeConversion(DecimalType, TimestampType, True, True),
     SnowDataTypeConversion(DecimalType, StringType, True, True),
     SnowDataTypeConversion(DecimalType, VariantType, True, True),
-    SnowDataTypeConversion(DecimalType, DecFloatType, True, True),
     SnowDataTypeConversion(MapType, ArrayType, True, False),
     SnowDataTypeConversion(MapType, StringType, True, False),
     SnowDataTypeConversion(MapType, VariantType, True, True),
@@ -148,7 +140,6 @@ SNOW_DATA_TYPE_CONVERSION_LIST = [
     SnowDataTypeConversion(StringType, BooleanType, True, True),
     SnowDataTypeConversion(StringType, DateType, True, True),
     SnowDataTypeConversion(StringType, FloatType, True, True),
-    SnowDataTypeConversion(StringType, DecFloatType, True, True),
     SnowDataTypeConversion(StringType, DecimalType, True, True),
     SnowDataTypeConversion(StringType, TimeType, True, True),
     SnowDataTypeConversion(StringType, TimestampType, True, True),
@@ -280,9 +271,6 @@ def calculate_type(c1: ColumnType, c2: ColumnType, op: Union[str]):
                 parameters_info={"op": op},
                 raise_error=NotImplementedError,
             )
-    # DECFLOAT has highest numeric priority
-    elif isinstance(t1, DecFloatType) or isinstance(t2, DecFloatType):
-        return ColumnType(DecFloatType(), nullable)
     elif isinstance(t1, (FloatType, DoubleType)) or isinstance(
         t2, (FloatType, DoubleType)
     ):

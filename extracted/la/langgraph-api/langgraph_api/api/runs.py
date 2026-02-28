@@ -8,7 +8,6 @@ import structlog
 from starlette.exceptions import HTTPException
 from starlette.responses import Response, StreamingResponse
 
-from langgraph_api import config
 from langgraph_api.asyncio import ValueEvent
 from langgraph_api.encryption.context import get_encryption_context
 from langgraph_api.encryption.middleware import (
@@ -53,7 +52,6 @@ from langgraph_api.validation import (
     ThreadCronCreate,
 )
 from langgraph_api.webhook import validate_webhook_url_or_raise
-from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
@@ -94,14 +92,6 @@ def parse_stream_mode_param(stream_mode_param: str | None) -> list[str]:
 _StreamHandler = Any
 
 _RunResultFallback = Callable[[], Awaitable[bytes]]
-
-
-def _ensure_crons_enabled() -> None:
-    if not (config.FF_CRONS_ENABLED and plus_features_enabled()):
-        raise HTTPException(
-            status_code=403,
-            detail="Crons are currently only available in the cloud version of LangSmith Deployment or with a self-hosting enterprise license. Please visit https://docs.langchain.com/langsmith/deployments to learn more about deployment options, or contact sales@langchain.com for more information",
-        )
 
 
 def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
@@ -728,7 +718,6 @@ async def delete_run(request: ApiRequest):
 @retry_db
 async def create_cron(request: ApiRequest):
     """Create a cron with new thread."""
-    _ensure_crons_enabled()
     payload = await request.json(CronCreate)
     if webhook := payload.get("webhook"):
         await validate_webhook_url_or_raise(str(webhook))
@@ -774,7 +763,6 @@ async def create_cron(request: ApiRequest):
 @retry_db
 async def create_thread_cron(request: ApiRequest):
     """Create a thread specific cron."""
-    _ensure_crons_enabled()
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadCronCreate)
@@ -820,7 +808,6 @@ async def create_thread_cron(request: ApiRequest):
 @retry_db
 async def patch_cron(request: ApiRequest):
     """Update a cron by ID."""
-    _ensure_crons_enabled()
     cron_id = request.path_params["cron_id"]
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
@@ -863,7 +850,6 @@ async def patch_cron(request: ApiRequest):
 @retry_db
 async def delete_cron(request: ApiRequest):
     """Delete a cron by ID."""
-    _ensure_crons_enabled()
     cron_id = request.path_params["cron_id"]
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
@@ -883,7 +869,6 @@ async def delete_cron(request: ApiRequest):
 @retry_db
 async def search_crons(request: ApiRequest):
     """List all cron jobs for an assistant"""
-    _ensure_crons_enabled()
     payload = await request.json(CronSearch)
     select = validate_select_columns(payload.get("select") or None, CRON_FIELDS)
     if assistant_id := payload.get("assistant_id"):
@@ -917,7 +902,6 @@ async def search_crons(request: ApiRequest):
 @retry_db
 async def count_crons(request: ApiRequest):
     """Count cron jobs."""
-    _ensure_crons_enabled()
     payload = await request.json(CronCountRequest)
     if assistant_id := payload.get("assistant_id"):
         validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")

@@ -63,7 +63,6 @@ class BaseEvent(BaseModel):
     parent_event_id: str | None = None
     previous_event_id: str | None = None
     triggered_by_event_id: str | None = None
-    started_event_id: str | None = None
     emission_sequence: int | None = None
 
     def to_json(self, exclude: set[str] | None = None) -> Serializable:

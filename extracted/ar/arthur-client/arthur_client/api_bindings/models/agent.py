@@ -42,11 +42,12 @@ class Agent(BaseModel):
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
+    muted_until: Optional[datetime] = None
     tools: Optional[List[Tool]] = Field(default=None, description="Tools used by this agent.")
     sub_agents: Optional[List[SubAgent]] = Field(default=None, description="Sub-agents used by this agent.")
     llm_models: Optional[List[LLMModel]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSource]] = Field(default=None, description="Data sources used by this agent.")
-    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "tools", "sub_agents", "llm_models", "data_sources"]
+    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "tools", "sub_agents", "llm_models", "data_sources"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -135,6 +136,11 @@ class Agent(BaseModel):
         if self.last_fetched is None and "last_fetched" in self.model_fields_set:
             _dict['last_fetched'] = None
 
+        # set to None if muted_until (nullable) is None
+        # and model_fields_set contains the field
+        if self.muted_until is None and "muted_until" in self.model_fields_set:
+            _dict['muted_until'] = None
+
         return _dict
 
     @classmethod
@@ -156,6 +162,7 @@ class Agent(BaseModel):
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "last_fetched": obj.get("last_fetched"),
+            "muted_until": obj.get("muted_until"),
             "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
             "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
             "llm_models": [LLMModel.from_dict(_item) for _item in obj["llm_models"]] if obj.get("llm_models") is not None else None,

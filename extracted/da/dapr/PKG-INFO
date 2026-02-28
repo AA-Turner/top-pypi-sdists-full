@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dapr
-Version: 1.16.1
+Version: 1.17.0
 Summary: The official release of Dapr Python SDK.
 Home-page: https://dapr.io/
 Author: Dapr Authors
@@ -13,12 +13,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: protobuf>=4.22
 Requires-Dist: grpcio>=1.37.0

@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: gguf
-Version: 0.17.1
+Version: 0.18.0
 Summary: Read and write ML models in GGUF for GGML
+License-File: LICENSE
 Keywords: ggml,gguf,llama.cpp
 Author: GGML
 Author-email: ggml@ggml.ai
@@ -15,10 +16,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: gui
 Requires-Dist: PySide6 (>=6.9,<7.0) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "gui")
 Requires-Dist: numpy (>=1.17)
 Requires-Dist: pyyaml (>=5.1)
+Requires-Dist: requests (>=2.25)
 Requires-Dist: tqdm (>=4.27)
 Project-URL: Homepage, https://ggml.ai
 Project-URL: Repository, https://github.com/ggml-org/llama.cpp

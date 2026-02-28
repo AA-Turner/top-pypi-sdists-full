@@ -393,3 +393,195 @@ class CleanerTest(unittest.TestCase):
             self.assertEqual(len(w), 0)
         self.assertNotIn("google.com", result)
         self.assertNotIn("example.com", result)
+
+    def test_base_tag_removed_with_page_structure(self):
+        # Test that <base> tags are removed when page_structure=True (default)
+        # This prevents URL hijacking attacks where <base> redirects all relative URLs
+
+        test_cases = [
+            # <base> in proper location (inside <head>)
+            '<html><head><base href="http://evil.com/"></head><body><a href="page.html">link</a></body></html>',
+            # <base> outside <head>
+            '<div><base href="http://evil.com/"><a href="page.html">link</a></div>',
+            # Multiple <base> tags
+            '<base href="http://evil.com/"><div><base href="http://evil2.com/"></div>',
+            # <base> with target attribute
+            '<base target="_blank"><div>content</div>',
+            # <base> at various positions
+            '<html><base href="http://evil.com/"><body>test</body></html>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                # Verify <base> tag is completely removed
+                self.assertNotIn('base', cleaned.lower())
+                self.assertNotIn('evil.com', cleaned)
+                self.assertNotIn('evil2.com', cleaned)
+
+    def test_base_tag_kept_when_page_structure_false(self):
+        # When page_structure=False and head is not removed, <base> should be kept
+        cleaner = Cleaner(page_structure=False)
+        html = '<html><head><base href="http://example.com/"></head><body>test</body></html>'
+        cleaned = cleaner.clean_html(html)
+        self.assertIn('<base href="http://example.com/">', cleaned)
+
+    def test_base_tag_removed_when_head_in_remove_tags(self):
+        # Even with page_structure=False, <base> should be removed if head is manually removed
+        cleaner = Cleaner(page_structure=False, remove_tags=['head'])
+        html = '<html><head><base href="http://evil.com/"></head><body>test</body></html>'
+        cleaned = cleaner.clean_html(html)
+        self.assertNotIn('base', cleaned.lower())
+        self.assertNotIn('evil.com', cleaned)
+
+    def test_base_tag_removed_when_head_in_kill_tags(self):
+        # Even with page_structure=False, <base> should be removed if head is in kill_tags
+        cleaner = Cleaner(page_structure=False, kill_tags=['head'])
+        html = '<html><head><base href="http://evil.com/"></head><body>test</body></html>'
+        cleaned = cleaner.clean_html(html)
+        self.assertNotIn('base', cleaned.lower())
+        self.assertNotIn('evil.com', cleaned)
+
+    def test_unicode_escape_in_style(self):
+        # Test that CSS Unicode escapes are properly decoded before security checks
+        # This prevents attackers from bypassing filters using escape sequences
+        # CSS escape syntax: \HHHHHH where H is a hex digit (1-6 digits)
+
+        # Test inline style attributes (requires safe_attrs_only=False)
+        cleaner = Cleaner(safe_attrs_only=False)
+        inline_style_cases = [
+            # \6a\61\76\61\73\63\72\69\70\74 = "javascript"
+            ('<div style="background: url(\\6a\\61\\76\\61\\73\\63\\72\\69\\70\\74:alert(1))">test</div>', '<div>test</div>'),
+            # \69 = 'i', so \69mport = "import"
+            ('<div style="@\\69mport url(evil.css)">test</div>', '<div>test</div>'),
+            # \69 with space after = 'i', space consumed as part of escape
+            ('<div style="@\\69 mport url(evil.css)">test</div>', '<div>test</div>'),
+            # \65\78\70\72\65\73\73\69\6f\6e = "expression"
+            ('<div style="\\65\\78\\70\\72\\65\\73\\73\\69\\6f\\6e(alert(1))">test</div>', '<div>test</div>'),
+        ]
+
+        for html, expected in inline_style_cases:
+            with self.subTest(html=html):
+                cleaned = cleaner.clean_html(html)
+                self.assertEqual(expected, cleaned)
+
+        # Test <style> tag content (uses default clean_html)
+        style_tag_cases = [
+            # Unicode-escaped "javascript:" in url()
+            '<style>url(\\6a\\61\\76\\61\\73\\63\\72\\69\\70\\74:alert(1))</style>',
+            # Unicode-escaped "javascript:" without url()
+            '<style>\\6a\\61\\76\\61\\73\\63\\72\\69\\70\\74:alert(1)</style>',
+            # Unicode-escaped "expression"
+            '<style>\\65\\78\\70\\72\\65\\73\\73\\69\\6f\\6e(alert(1))</style>',
+            # Unicode-escaped @import with 'i'
+            '<style>@\\69mport url(evil.css)</style>',
+            # Unicode-escaped "data:" scheme
+            '<style>url(\\64\\61\\74\\61:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+)</style>',
+            # Space after escape is consumed: \69 mport = "import"
+            '<style>@\\69 mport url(evil.css)</style>',
+            # 6-digit escape: \000069 = 'i'
+            '<style>@\\000069mport url(evil.css)</style>',
+            # 6-digit escape with space
+            '<style>@\\000069 mport url(evil.css)</style>',
+        ]
+
+        for html in style_tag_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_unicode_escape_mixed_with_comments(self):
+        # Unicode escapes mixed with CSS comments should still be caught
+        test_cases = [
+            # \69 = 'i' with comment before
+            '<style>@/*comment*/\\69mport url(evil.css)</style>',
+            # \69 = 'i' with comment after
+            '<style>@\\69mport/*comment*/ url(evil.css)</style>',
+            # Multiple escapes with comments
+            '<style>\\65\\78/*comment*/\\70\\72\\65\\73\\73\\69\\6f\\6e(alert(1))</style>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_unicode_escape_case_insensitive(self):
+        # CSS hex escapes should work with both uppercase and lowercase hex digits
+        # \69 = 'i', \6D = 'm', etc.
+        test_cases = [
+            # @import with uppercase hex digits: \69\6D\70\6F\72\74
+            '<style>@\\69\\6D\\70\\6F\\72\\74 url(evil.css)</style>',
+            # @import with some uppercase
+            '<style>@\\69\\6D\\70\\6f\\72\\74 url(evil.css)</style>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_unicode_escape_various_schemes(self):
+        # Test Unicode escapes for various malicious schemes
+        test_cases = [
+            # \76\62\73\63\72\69\70\74 = "vbscript"
+            '<style>url(\\76\\62\\73\\63\\72\\69\\70\\74:alert(1))</style>',
+            # \6a\73\63\72\69\70\74 = "jscript"
+            '<style>url(\\6a\\73\\63\\72\\69\\70\\74:alert(1))</style>',
+            # \6c\69\76\65\73\63\72\69\70\74 = "livescript"
+            '<style>url(\\6c\\69\\76\\65\\73\\63\\72\\69\\70\\74:alert(1))</style>',
+            # \6d\6f\63\68\61 = "mocha"
+            '<style>url(\\6d\\6f\\63\\68\\61:alert(1))</style>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_unicode_escape_with_whitespace_variations(self):
+        # Test different whitespace characters after Unicode escapes
+        cleaner = Cleaner(safe_attrs_only=False)
+        test_cases = [
+            # Tab after escape
+            ('<div style="@\\69\tmport url(evil.css)">test</div>', '<div>test</div>'),
+            # Newline after escape (note: actual newline, not \n)
+            ('<div style="@\\69\nmport url(evil.css)">test</div>', '<div>test</div>'),
+            # Form feed after escape
+            ('<div style="@\\69\fmport url(evil.css)">test</div>', '<div>test</div>'),
+        ]
+
+        for html, expected in test_cases:
+            with self.subTest(html=html):
+                cleaned = cleaner.clean_html(html)
+                self.assertEqual(expected, cleaned)
+
+    def test_backslash_removal_after_unicode_decode(self):
+        # After decoding Unicode escapes, remaining backslashes are removed
+        # This ensures double-obfuscation (unicode + backslashes) is caught
+        test_cases = [
+            # Step 1: \69 → 'i', Step 2: remove \, Result: @import
+            '<style>@\\69\\m\\p\\o\\r\\t url(evil.css)</style>',
+            # Multiple unicode escapes with backslashes mixed in
+            '<style>@\\69\\6d\\p\\6f\\r\\t url(evil.css)</style>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_backslash_obfuscation_without_unicode(self):
+        # Test that patterns using ONLY backslash obfuscation (no unicode) are caught
+        # Step 1: No unicode escapes, Step 2: remove \, Result: malicious pattern
+        test_cases = [
+            # @\i\m\p\o\r\t → @import (caught by '@import' check)
+            '<style>@\\i\\m\\p\\o\\r\\t url(evil.css)</style>',
+            # Can also test combinations that create javascript schemes
+            '<style>@\\import url(evil.css)</style>',
+        ]
+
+        for html in test_cases:
+            with self.subTest(html=html):
+                cleaned = clean_html(html)
+                self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)

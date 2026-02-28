@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-duckdb"
-version = "0.28.15"
+version = "0.28.17"
 description = "Package for DuckDB-specific Dagster framework op and resource components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "duckdb",
-    "dagster==1.12.15",
+    "dagster==1.12.17",
 ]
 
 [project.urls]
@@ -32,21 +32,4 @@ pandas = [
 pyspark = [
     "pyspark>=4.1; python_version>='3.14'",
     "pyspark>=3.5,<4; python_version<'3.14'",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_duckdb_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_duckdb_tests/**",
 ]

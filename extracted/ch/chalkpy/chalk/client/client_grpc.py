@@ -4,6 +4,7 @@ import collections.abc
 import dataclasses
 import datetime as dt
 import json
+import os
 import random
 import typing
 import warnings
@@ -13,6 +14,7 @@ from urllib.parse import urlparse
 
 import grpc
 import grpc.experimental
+import requests
 from google.protobuf import empty_pb2, timestamp_pb2
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
@@ -66,12 +68,15 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    DownloadModelArtifactRequest,
+    DownloadModelArtifactResponse,
     GetModelArtifactUploadUrlsRequest,
     GetModelArtifactUploadUrlsResponse,
     GetModelRequest,
     GetModelResponse,
     GetModelVersionRequest,
     GetModelVersionResponse,
+    ModelVersionKey,
 )
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
 from chalk._gen.chalk.server.v1.named_query_pb2 import GetNamedQueryByNameRequest
@@ -104,11 +109,13 @@ from chalk.client.models import (
     BulkOnlineQueryResult,
     BulkUploadFeaturesResult,
     CreateBranchResponse,
+    DownloadModelArtifactResult,
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
 )
 from chalk.client.models import ManualTriggerScheduledQueryResponse as ManualTriggerScheduledQueryResponseDataclass
 from chalk.client.models import (
+    ModelArtifactSpec,
     ModelUploadUrlResponse,
     NamedQueryMetadata,
     OnlineQuery,
@@ -135,7 +142,7 @@ from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
 from chalk.ml import LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
 from chalk.ml.model_file_transfer import ModelFileUploader
-from chalk.ml.utils import ModelClass
+from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_from_proto, model_type_from_proto
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.utils import df_utils
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
@@ -1634,12 +1641,41 @@ class ChalkGRPCClient:
                         )
                     )
                 )
+
+                model_artifact = ModelArtifactSpec(
+                    model_type=model_type_from_proto(model_version_resp.model_version.model_artifact.spec.model_type),
+                    model_class=model_class_from_proto(
+                        model_version_resp.model_version.model_artifact.spec.model_class
+                    ),
+                    model_encoding=model_encoding_from_proto(
+                        model_version_resp.model_version.model_artifact.spec.model_encoding
+                    ),
+                    model_files=[
+                        file.name for file in model_version_resp.model_version.model_artifact.spec.model_files
+                    ],
+                    additional_files=[
+                        file.name for file in model_version_resp.model_version.model_artifact.spec.additional_files
+                    ],
+                    input_schema=ModelSerializer.convert_schema_from_protobuf(
+                        model_version_resp.model_version.model_artifact.spec.model_signature.inputs
+                    ),
+                    output_schema=ModelSerializer.convert_schema_from_protobuf(
+                        model_version_resp.model_version.model_artifact.spec.model_signature.outputs
+                    ),
+                    metadata=ModelSerializer.convert_metadata_from_protobuf(
+                        model_version_resp.model_version.model_artifact.metadata
+                    ),
+                    input_features=list(model_version_resp.model_version.model_artifact.spec.input_features),
+                    output_features=list(model_version_resp.model_version.model_artifact.spec.output_features),
+                    dependencies=list(model_version_resp.model_version.model_artifact.spec.python_dependencies),
+                )
+
                 return GetRegisteredModelVersionResponse(
                     model_id=model_version_resp.model_version.id,
                     model_name=model_version_resp.model_version.model_name,
                     created_by=model_version_resp.model_version.created_by,
                     created_at=model_version_resp.model_version.created_at.ToDatetime(),
-                    model_artifact=model_version_resp.model_version.model_artifact,
+                    model_artifact=model_artifact,
                 )
             except grpc.RpcError as e:
                 raise RuntimeError(f"Could not register model version. {e.details()}")
@@ -1656,7 +1692,7 @@ class ChalkGRPCClient:
                     model_id=model_resp.model.id,
                     model_name=model_resp.model.model_name,
                     description=model_resp.model.description,
-                    metadata=dict(model_resp.model.metadata),
+                    metadata=ModelSerializer.convert_metadata_from_protobuf(model_resp.model.metadata),
                     created_by=model_resp.model.created_by,
                     created_at=model_resp.model.created_at.ToDatetime(),
                     updated_at=model_resp.model.updated_at.ToDatetime(),
@@ -1967,6 +2003,96 @@ class ChalkGRPCClient:
             except Exception as e:
                 raise RuntimeError(f"Could not register model version. {e}")
         raise RuntimeError("Error creating model serializer context to register model version.")
+
+    def download_model_artifact(
+        self,
+        name: str,
+        version: int,
+        download_dir: Optional[str] = None,
+    ) -> DownloadModelArtifactResult:
+        try:
+            resp: DownloadModelArtifactResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.DownloadModelArtifact(
+                    DownloadModelArtifactRequest(model_version_key=ModelVersionKey(model_name=name, version=version))
+                )
+            )
+
+            base_dir = download_dir or "."
+            target_dir = os.path.join(base_dir, f"{name}-{version}")
+            os.makedirs(target_dir, exist_ok=True)
+
+            downloaded_model_files: List[str] = []
+            downloaded_additional_files: List[str] = []
+
+            def _filename_from_url(u: str, suffix: str) -> str:
+                parsed = urlparse(u)
+                base = os.path.basename(parsed.path.rstrip("/"))
+                return base or f"artifact_{suffix}"
+
+            def _download_file(url: str, local_path: str) -> None:
+                if os.path.exists(local_path):
+                    return
+
+                with open(local_path, "wb") as f:
+                    r = requests.get(url, stream=True)
+                    r.raise_for_status()
+                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+
+            for idx, item in enumerate(list(resp.model_urls)):
+                parsed = urlparse(item)
+                scheme = parsed.scheme
+
+                if scheme in ("http", "https"):
+                    local_path = os.path.join(target_dir, _filename_from_url(item, f"model_file_{idx}"))
+                    _download_file(item, local_path)
+                    downloaded_model_files.append(local_path)
+                    continue
+
+                raise RuntimeError(f"Unsupported url scheme: {scheme} ({item})")
+
+            for idx, item in enumerate(list(resp.additional_file_urls)):
+                parsed = urlparse(item)
+                scheme = parsed.scheme
+
+                if scheme in ("http", "https"):
+                    local_path = os.path.join(target_dir, _filename_from_url(item, f"additional_file_{idx}"))
+                    _download_file(item, local_path)
+                    downloaded_additional_files.append(local_path)
+                    continue
+
+                raise RuntimeError(f"Unsupported url scheme: {scheme} ({item})")
+
+            model_artifact = ModelArtifactSpec(
+                model_type=model_type_from_proto(resp.model_artifact.spec.model_type),
+                model_class=model_class_from_proto(resp.model_artifact.spec.model_class),
+                model_encoding=model_encoding_from_proto(resp.model_artifact.spec.model_encoding),
+                model_files=[file.name for file in resp.model_artifact.spec.model_files],
+                additional_files=[file.name for file in resp.model_artifact.spec.additional_files],
+                input_schema=ModelSerializer.convert_schema_from_protobuf(
+                    resp.model_artifact.spec.model_signature.inputs
+                ),
+                output_schema=ModelSerializer.convert_schema_from_protobuf(
+                    resp.model_artifact.spec.model_signature.outputs
+                ),
+                metadata=ModelSerializer.convert_metadata_from_protobuf(resp.model_artifact.metadata),
+                input_features=list(resp.model_artifact.spec.input_features),
+                output_features=list(resp.model_artifact.spec.output_features),
+                dependencies=list(resp.model_artifact.spec.python_dependencies),
+            )
+
+            return DownloadModelArtifactResult(
+                model_name=name,
+                model_version=version,
+                model_artifact=model_artifact,
+                downloaded_model_files=downloaded_model_files,
+                downloaded_additional_files=downloaded_additional_files,
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not download model artifact: {e.details()}")
+        except Exception as e:
+            raise RuntimeError(f"Could not download model artifact: {e}")
 
     def _upload_model_artifact(
         self,

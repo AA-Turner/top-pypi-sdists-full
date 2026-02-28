@@ -45,6 +45,7 @@ class AgentResponse(BaseModel):
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
+    muted_until: Optional[datetime] = None
     id: StrictStr = Field(description="Agent ID.")
     workspace_id: StrictStr = Field(description="UUID of the workspace this agent belongs to.")
     tools: Optional[List[ToolResponse]] = Field(default=None, description="Tools used by this agent.")
@@ -52,7 +53,7 @@ class AgentResponse(BaseModel):
     llm_models: Optional[List[LLMModelResponse]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSourceResponse]] = Field(default=None, description="Data sources used by this agent.")
     infrastructure: Infrastructure = Field(description="Infrastructure where this agent is running (derived from creation_source).")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "id", "workspace_id", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -141,6 +142,11 @@ class AgentResponse(BaseModel):
         if self.last_fetched is None and "last_fetched" in self.model_fields_set:
             _dict['last_fetched'] = None
 
+        # set to None if muted_until (nullable) is None
+        # and model_fields_set contains the field
+        if self.muted_until is None and "muted_until" in self.model_fields_set:
+            _dict['muted_until'] = None
+
         return _dict
 
     @classmethod
@@ -164,6 +170,7 @@ class AgentResponse(BaseModel):
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "last_fetched": obj.get("last_fetched"),
+            "muted_until": obj.get("muted_until"),
             "id": obj.get("id"),
             "workspace_id": obj.get("workspace_id"),
             "tools": [ToolResponse.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-glanceclient
-Version: 4.10.0
+Version: 4.11.0
 Summary: OpenStack Image API Client Library
 Home-page: https://docs.openstack.org/python-glanceclient/latest/
 Author: OpenStack
@@ -31,6 +31,16 @@ Requires-Dist: oslo.utils>=3.33.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: wrapt>=1.7.0
 Requires-Dist: pyOpenSSL>=17.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Team and repository tags

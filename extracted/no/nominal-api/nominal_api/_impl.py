@@ -18168,10 +18168,12 @@ when accounting for out-of-order points.
     _enum: Optional["scout_compute_api_EnumPlot"] = None
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None
+    _multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None
     _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
     _arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None
     _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
     _arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None
+    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
     _grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None
 
     @builtins.classmethod
@@ -18187,10 +18189,12 @@ when accounting for out-of-order points.
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumPlot),
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumPlot),
+            'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_BucketedMultivariatePlot),
             'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
             'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowEnumPlot),
             'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
             'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowBucketedEnumPlot),
+            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
             'grouped': ConjureFieldDefinition('grouped', persistent_compute_api_GroupedComputeNodeAppendResponses)
         }
 
@@ -18206,15 +18210,17 @@ when accounting for out-of-order points.
             enum: Optional["scout_compute_api_EnumPlot"] = None,
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None,
+            multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None,
             arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
             arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None,
             arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
             arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None,
+            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
             grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (single_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (grouped is not None) != 1:
+            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (single_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (multivariate is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (arrow_bucketed_multivariate is not None) + (grouped is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -18247,6 +18253,9 @@ when accounting for out-of-order points.
             if bucketed_enum is not None:
                 self._bucketed_enum = bucketed_enum
                 self._type = 'bucketedEnum'
+            if multivariate is not None:
+                self._multivariate = multivariate
+                self._type = 'multivariate'
             if arrow_numeric is not None:
                 self._arrow_numeric = arrow_numeric
                 self._type = 'arrowNumeric'
@@ -18259,6 +18268,9 @@ when accounting for out-of-order points.
             if arrow_bucketed_enum is not None:
                 self._arrow_bucketed_enum = arrow_bucketed_enum
                 self._type = 'arrowBucketedEnum'
+            if arrow_bucketed_multivariate is not None:
+                self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
+                self._type = 'arrowBucketedMultivariate'
             if grouped is not None:
                 self._grouped = grouped
                 self._type = 'grouped'
@@ -18313,6 +18325,11 @@ when accounting for out-of-order points.
                 raise ValueError('a union value must not be None')
             self._bucketed_enum = bucketed_enum
             self._type = 'bucketedEnum'
+        elif type_of_union == 'multivariate':
+            if multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._multivariate = multivariate
+            self._type = 'multivariate'
         elif type_of_union == 'arrowNumeric':
             if arrow_numeric is None:
                 raise ValueError('a union value must not be None')
@@ -18333,6 +18350,11 @@ when accounting for out-of-order points.
                 raise ValueError('a union value must not be None')
             self._arrow_bucketed_enum = arrow_bucketed_enum
             self._type = 'arrowBucketedEnum'
+        elif type_of_union == 'arrowBucketedMultivariate':
+            if arrow_bucketed_multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
+            self._type = 'arrowBucketedMultivariate'
         elif type_of_union == 'grouped':
             if grouped is None:
                 raise ValueError('a union value must not be None')
@@ -18406,6 +18428,14 @@ with the newer ones.
         return self._bucketed_enum
 
     @builtins.property
+    def multivariate(self) -> Optional["scout_compute_api_BucketedMultivariatePlot"]:
+        """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
+guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
+with the newer ones.
+        """
+        return self._multivariate
+
+    @builtins.property
     def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
         """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
@@ -18432,6 +18462,14 @@ guaranteed to align (same bucket end timestamp) and the older version of the buc
 with the newer ones.
         """
         return self._arrow_bucketed_enum
+
+    @builtins.property
+    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowBucketedMultivariatePlot"]:
+        """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
+guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
+with the newer ones.
+        """
+        return self._arrow_bucketed_multivariate
 
     @builtins.property
     def grouped(self) -> Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"]:
@@ -18462,6 +18500,8 @@ with the newer ones.
             return visitor._bucketed_numeric(self.bucketed_numeric)
         if self._type == 'bucketedEnum' and self.bucketed_enum is not None:
             return visitor._bucketed_enum(self.bucketed_enum)
+        if self._type == 'multivariate' and self.multivariate is not None:
+            return visitor._multivariate(self.multivariate)
         if self._type == 'arrowNumeric' and self.arrow_numeric is not None:
             return visitor._arrow_numeric(self.arrow_numeric)
         if self._type == 'arrowEnum' and self.arrow_enum is not None:
@@ -18470,6 +18510,8 @@ with the newer ones.
             return visitor._arrow_bucketed_numeric(self.arrow_bucketed_numeric)
         if self._type == 'arrowBucketedEnum' and self.arrow_bucketed_enum is not None:
             return visitor._arrow_bucketed_enum(self.arrow_bucketed_enum)
+        if self._type == 'arrowBucketedMultivariate' and self.arrow_bucketed_multivariate is not None:
+            return visitor._arrow_bucketed_multivariate(self.arrow_bucketed_multivariate)
         if self._type == 'grouped' and self.grouped is not None:
             return visitor._grouped(self.grouped)
 
@@ -18522,6 +18564,10 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
         pass
 
     @abstractmethod
+    def _multivariate(self, multivariate: "scout_compute_api_BucketedMultivariatePlot") -> Any:
+        pass
+
+    @abstractmethod
     def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowNumericPlot") -> Any:
         pass
 
@@ -18535,6 +18581,10 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
 
     @abstractmethod
     def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowBucketedEnumPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowBucketedMultivariatePlot") -> Any:
         pass
 
     @abstractmethod
@@ -45384,6 +45434,40 @@ scout_compute_api_ArrowBucketedEnumPlot.__qualname__ = "ArrowBucketedEnumPlot"
 scout_compute_api_ArrowBucketedEnumPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ArrowBucketedMultivariatePlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
+        }
+
+    __slots__: List[str] = ['_arrow_binary', '_group_by_keys']
+
+    def __init__(self, arrow_binary: Any, group_by_keys: Optional[List[str]] = None) -> None:
+        self._arrow_binary = arrow_binary
+        self._group_by_keys = group_by_keys
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for BucketedMultivariatePlot
+        """
+        return self._arrow_binary
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels, 
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
+
+
+scout_compute_api_ArrowBucketedMultivariatePlot.__name__ = "ArrowBucketedMultivariatePlot"
+scout_compute_api_ArrowBucketedMultivariatePlot.__qualname__ = "ArrowBucketedMultivariatePlot"
+scout_compute_api_ArrowBucketedMultivariatePlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ArrowBucketedNumericPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -46656,6 +46740,38 @@ scout_compute_api_BucketedFrequencyDomainPlot.__qualname__ = "BucketedFrequencyD
 scout_compute_api_BucketedFrequencyDomainPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_BucketedMultivariatePlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'buckets': ConjureFieldDefinition('buckets', List[scout_compute_api_MultivariateBucket]),
+            'group_by_keys': ConjureFieldDefinition('groupByKeys', OptionalTypeWrapper[List[str]])
+        }
+
+    __slots__: List[str] = ['_buckets', '_group_by_keys']
+
+    def __init__(self, buckets: List["scout_compute_api_MultivariateBucket"], group_by_keys: Optional[List[str]] = None) -> None:
+        self._buckets = buckets
+        self._group_by_keys = group_by_keys
+
+    @builtins.property
+    def buckets(self) -> List["scout_compute_api_MultivariateBucket"]:
+        return self._buckets
+
+    @builtins.property
+    def group_by_keys(self) -> Optional[List[str]]:
+        """This field specifies the tags that the final output is grouped by. When you combine multiple channels,
+this list represents the superset of all group by keys used across every individual channel.
+        """
+        return self._group_by_keys
+
+
+scout_compute_api_BucketedMultivariatePlot.__name__ = "BucketedMultivariatePlot"
+scout_compute_api_BucketedMultivariatePlot.__qualname__ = "BucketedMultivariatePlot"
+scout_compute_api_BucketedMultivariatePlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_BucketedNumericArrayPlot(ConjureBeanType):
     """The array is flattened out into a an arrow stream of bucketed primitive results, with an extra column to
 indicate the index of the array that the bucket corresponds to.
@@ -47354,6 +47470,7 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
     _frequency_v2: Optional["scout_compute_api_FrequencyDomainV2"] = None
     _histogram: Optional["scout_compute_api_Histogram"] = None
     _curve: Optional["scout_compute_api_CurveFit"] = None
+    _multivariate: Optional["scout_compute_api_SummarizeMultivariate"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -47366,7 +47483,8 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
             'frequency': ConjureFieldDefinition('frequency', scout_compute_api_FrequencyDomain),
             'frequency_v2': ConjureFieldDefinition('frequencyV2', scout_compute_api_FrequencyDomainV2),
             'histogram': ConjureFieldDefinition('histogram', scout_compute_api_Histogram),
-            'curve': ConjureFieldDefinition('curve', scout_compute_api_CurveFit)
+            'curve': ConjureFieldDefinition('curve', scout_compute_api_CurveFit),
+            'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_SummarizeMultivariate)
         }
 
     def __init__(
@@ -47380,10 +47498,11 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
             frequency_v2: Optional["scout_compute_api_FrequencyDomainV2"] = None,
             histogram: Optional["scout_compute_api_Histogram"] = None,
             curve: Optional["scout_compute_api_CurveFit"] = None,
+            multivariate: Optional["scout_compute_api_SummarizeMultivariate"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (ranges is not None) + (series is not None) + (value is not None) + (cartesian is not None) + (cartesian3d is not None) + (frequency is not None) + (frequency_v2 is not None) + (histogram is not None) + (curve is not None) != 1:
+            if (ranges is not None) + (series is not None) + (value is not None) + (cartesian is not None) + (cartesian3d is not None) + (frequency is not None) + (frequency_v2 is not None) + (histogram is not None) + (curve is not None) + (multivariate is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if ranges is not None:
@@ -47413,6 +47532,9 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
             if curve is not None:
                 self._curve = curve
                 self._type = 'curve'
+            if multivariate is not None:
+                self._multivariate = multivariate
+                self._type = 'multivariate'
 
         elif type_of_union == 'ranges':
             if ranges is None:
@@ -47459,6 +47581,11 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._curve = curve
             self._type = 'curve'
+        elif type_of_union == 'multivariate':
+            if multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._multivariate = multivariate
+            self._type = 'multivariate'
 
     @builtins.property
     def ranges(self) -> Optional["scout_compute_api_SummarizeRanges"]:
@@ -47496,6 +47623,10 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
     def curve(self) -> Optional["scout_compute_api_CurveFit"]:
         return self._curve
 
+    @builtins.property
+    def multivariate(self) -> Optional["scout_compute_api_SummarizeMultivariate"]:
+        return self._multivariate
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ComputableNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ComputableNodeVisitor'.format(visitor.__class__.__name__))
@@ -47517,6 +47648,8 @@ class scout_compute_api_ComputableNode(ConjureUnionType):
             return visitor._histogram(self.histogram)
         if self._type == 'curve' and self.curve is not None:
             return visitor._curve(self.curve)
+        if self._type == 'multivariate' and self.multivariate is not None:
+            return visitor._multivariate(self.multivariate)
 
 
 scout_compute_api_ComputableNode.__name__ = "ComputableNode"
@@ -47560,6 +47693,10 @@ class scout_compute_api_ComputableNodeVisitor:
 
     @abstractmethod
     def _curve(self, curve: "scout_compute_api_CurveFit") -> Any:
+        pass
+
+    @abstractmethod
+    def _multivariate(self, multivariate: "scout_compute_api_SummarizeMultivariate") -> Any:
         pass
 
 
@@ -47913,6 +48050,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _array: Optional["scout_compute_api_ArrowArrayPlot"] = None
     _bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None
     _full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None
+    _arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None
+    _multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -47945,7 +48084,9 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'grouped': ConjureFieldDefinition('grouped', scout_compute_api_GroupedComputeNodeResponses),
             'array': ConjureFieldDefinition('array', scout_compute_api_ArrowArrayPlot),
             'bucketed_struct': ConjureFieldDefinition('bucketedStruct', scout_compute_api_ArrowBucketedStructPlot),
-            'full_resolution': ConjureFieldDefinition('fullResolution', scout_compute_api_ArrowFullResolutionPlot)
+            'full_resolution': ConjureFieldDefinition('fullResolution', scout_compute_api_ArrowFullResolutionPlot),
+            'arrow_bucketed_multivariate': ConjureFieldDefinition('arrowBucketedMultivariate', scout_compute_api_ArrowBucketedMultivariatePlot),
+            'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_BucketedMultivariatePlot)
         }
 
     def __init__(
@@ -47979,10 +48120,12 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             array: Optional["scout_compute_api_ArrowArrayPlot"] = None,
             bucketed_struct: Optional["scout_compute_api_ArrowBucketedStructPlot"] = None,
             full_resolution: Optional["scout_compute_api_ArrowFullResolutionPlot"] = None,
+            arrow_bucketed_multivariate: Optional["scout_compute_api_ArrowBucketedMultivariatePlot"] = None,
+            multivariate: Optional["scout_compute_api_BucketedMultivariatePlot"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (bucketed_frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (full_resolution is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (frequency_domain is not None) + (frequency_domain_v2 is not None) + (bucketed_frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) + (bucketed_struct is not None) + (full_resolution is not None) + (arrow_bucketed_multivariate is not None) + (multivariate is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -48072,6 +48215,12 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if full_resolution is not None:
                 self._full_resolution = full_resolution
                 self._type = 'fullResolution'
+            if arrow_bucketed_multivariate is not None:
+                self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
+                self._type = 'arrowBucketedMultivariate'
+            if multivariate is not None:
+                self._multivariate = multivariate
+                self._type = 'multivariate'
 
         elif type_of_union == 'range':
             if range is None:
@@ -48218,6 +48367,16 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._full_resolution = full_resolution
             self._type = 'fullResolution'
+        elif type_of_union == 'arrowBucketedMultivariate':
+            if arrow_bucketed_multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_multivariate = arrow_bucketed_multivariate
+            self._type = 'arrowBucketedMultivariate'
+        elif type_of_union == 'multivariate':
+            if multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._multivariate = multivariate
+            self._type = 'multivariate'
 
     @builtins.property
     def range(self) -> Optional[List["scout_compute_api_Range"]]:
@@ -48335,6 +48494,14 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     def full_resolution(self) -> Optional["scout_compute_api_ArrowFullResolutionPlot"]:
         return self._full_resolution
 
+    @builtins.property
+    def arrow_bucketed_multivariate(self) -> Optional["scout_compute_api_ArrowBucketedMultivariatePlot"]:
+        return self._arrow_bucketed_multivariate
+
+    @builtins.property
+    def multivariate(self) -> Optional["scout_compute_api_BucketedMultivariatePlot"]:
+        return self._multivariate
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ComputeNodeResponseVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ComputeNodeResponseVisitor'.format(visitor.__class__.__name__))
@@ -48396,6 +48563,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._bucketed_struct(self.bucketed_struct)
         if self._type == 'fullResolution' and self.full_resolution is not None:
             return visitor._full_resolution(self.full_resolution)
+        if self._type == 'arrowBucketedMultivariate' and self.arrow_bucketed_multivariate is not None:
+            return visitor._arrow_bucketed_multivariate(self.arrow_bucketed_multivariate)
+        if self._type == 'multivariate' and self.multivariate is not None:
+            return visitor._multivariate(self.multivariate)
 
 
 scout_compute_api_ComputeNodeResponse.__name__ = "ComputeNodeResponse"
@@ -48519,6 +48690,14 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _full_resolution(self, full_resolution: "scout_compute_api_ArrowFullResolutionPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_multivariate(self, arrow_bucketed_multivariate: "scout_compute_api_ArrowBucketedMultivariatePlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _multivariate(self, multivariate: "scout_compute_api_BucketedMultivariatePlot") -> Any:
         pass
 
 
@@ -48852,13 +49031,15 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
     _single: Optional["scout_compute_api_UnitResult"] = None
     _cartesian: Optional["scout_compute_api_CartesianUnitResult"] = None
     _cartesian3d: Optional["scout_compute_api_Cartesian3dUnitResult"] = None
+    _multivariate: Optional["scout_compute_api_MultivariateUnitResult"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'single': ConjureFieldDefinition('single', scout_compute_api_UnitResult),
             'cartesian': ConjureFieldDefinition('cartesian', scout_compute_api_CartesianUnitResult),
-            'cartesian3d': ConjureFieldDefinition('cartesian3d', scout_compute_api_Cartesian3dUnitResult)
+            'cartesian3d': ConjureFieldDefinition('cartesian3d', scout_compute_api_Cartesian3dUnitResult),
+            'multivariate': ConjureFieldDefinition('multivariate', scout_compute_api_MultivariateUnitResult)
         }
 
     def __init__(
@@ -48866,10 +49047,11 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
             single: Optional["scout_compute_api_UnitResult"] = None,
             cartesian: Optional["scout_compute_api_CartesianUnitResult"] = None,
             cartesian3d: Optional["scout_compute_api_Cartesian3dUnitResult"] = None,
+            multivariate: Optional["scout_compute_api_MultivariateUnitResult"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (single is not None) + (cartesian is not None) + (cartesian3d is not None) != 1:
+            if (single is not None) + (cartesian is not None) + (cartesian3d is not None) + (multivariate is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if single is not None:
@@ -48881,6 +49063,9 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
             if cartesian3d is not None:
                 self._cartesian3d = cartesian3d
                 self._type = 'cartesian3d'
+            if multivariate is not None:
+                self._multivariate = multivariate
+                self._type = 'multivariate'
 
         elif type_of_union == 'single':
             if single is None:
@@ -48897,6 +49082,11 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._cartesian3d = cartesian3d
             self._type = 'cartesian3d'
+        elif type_of_union == 'multivariate':
+            if multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._multivariate = multivariate
+            self._type = 'multivariate'
 
     @builtins.property
     def single(self) -> Optional["scout_compute_api_UnitResult"]:
@@ -48910,6 +49100,10 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
     def cartesian3d(self) -> Optional["scout_compute_api_Cartesian3dUnitResult"]:
         return self._cartesian3d
 
+    @builtins.property
+    def multivariate(self) -> Optional["scout_compute_api_MultivariateUnitResult"]:
+        return self._multivariate
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ComputeUnitResultVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ComputeUnitResultVisitor'.format(visitor.__class__.__name__))
@@ -48919,6 +49113,8 @@ class scout_compute_api_ComputeUnitResult(ConjureUnionType):
             return visitor._cartesian(self.cartesian)
         if self._type == 'cartesian3d' and self.cartesian3d is not None:
             return visitor._cartesian3d(self.cartesian3d)
+        if self._type == 'multivariate' and self.multivariate is not None:
+            return visitor._multivariate(self.multivariate)
 
 
 scout_compute_api_ComputeUnitResult.__name__ = "ComputeUnitResult"
@@ -48938,6 +49134,10 @@ class scout_compute_api_ComputeUnitResultVisitor:
 
     @abstractmethod
     def _cartesian3d(self, cartesian3d: "scout_compute_api_Cartesian3dUnitResult") -> Any:
+        pass
+
+    @abstractmethod
+    def _multivariate(self, multivariate: "scout_compute_api_MultivariateUnitResult") -> Any:
         pass
 
 
@@ -50528,6 +50728,24 @@ class scout_compute_api_EnumHistogramPlot(ConjureBeanType):
 scout_compute_api_EnumHistogramPlot.__name__ = "EnumHistogramPlot"
 scout_compute_api_EnumHistogramPlot.__qualname__ = "EnumHistogramPlot"
 scout_compute_api_EnumHistogramPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EnumMultivariateAggregation(ConjureEnumType):
+    """Aggregations for enum series in multivariate queries.
+    """
+
+    MODE = 'MODE'
+    '''MODE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_EnumMultivariateAggregation.__name__ = "EnumMultivariateAggregation"
+scout_compute_api_EnumMultivariateAggregation.__qualname__ = "EnumMultivariateAggregation"
+scout_compute_api_EnumMultivariateAggregation.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_EnumPlot(ConjureBeanType):
@@ -54150,6 +54368,195 @@ scout_compute_api_ModuleVersionReferenceVisitor.__qualname__ = "ModuleVersionRef
 scout_compute_api_ModuleVersionReferenceVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_MultivariateBucket(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'timestamp': ConjureFieldDefinition('timestamp', api_Timestamp),
+            'values': ConjureFieldDefinition('values', List[scout_compute_api_Value])
+        }
+
+    __slots__: List[str] = ['_timestamp', '_values']
+
+    def __init__(self, timestamp: "api_Timestamp", values: List["scout_compute_api_Value"]) -> None:
+        self._timestamp = timestamp
+        self._values = values
+
+    @builtins.property
+    def timestamp(self) -> "api_Timestamp":
+        return self._timestamp
+
+    @builtins.property
+    def values(self) -> List["scout_compute_api_Value"]:
+        """Values for each input series in the bucket.
+        """
+        return self._values
+
+
+scout_compute_api_MultivariateBucket.__name__ = "MultivariateBucket"
+scout_compute_api_MultivariateBucket.__qualname__ = "MultivariateBucket"
+scout_compute_api_MultivariateBucket.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_MultivariateEnumInput(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'series': ConjureFieldDefinition('series', scout_compute_api_EnumSeries),
+            'aggregations': ConjureFieldDefinition('aggregations', List[scout_compute_api_EnumMultivariateAggregation])
+        }
+
+    __slots__: List[str] = ['_series', '_aggregations']
+
+    def __init__(self, aggregations: List["scout_compute_api_EnumMultivariateAggregation"], series: "scout_compute_api_EnumSeries") -> None:
+        self._series = series
+        self._aggregations = aggregations
+
+    @builtins.property
+    def series(self) -> "scout_compute_api_EnumSeries":
+        return self._series
+
+    @builtins.property
+    def aggregations(self) -> List["scout_compute_api_EnumMultivariateAggregation"]:
+        return self._aggregations
+
+
+scout_compute_api_MultivariateEnumInput.__name__ = "MultivariateEnumInput"
+scout_compute_api_MultivariateEnumInput.__qualname__ = "MultivariateEnumInput"
+scout_compute_api_MultivariateEnumInput.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_MultivariateInput(ConjureUnionType):
+    _numeric: Optional["scout_compute_api_MultivariateNumericInput"] = None
+    _enum: Optional["scout_compute_api_MultivariateEnumInput"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric': ConjureFieldDefinition('numeric', scout_compute_api_MultivariateNumericInput),
+            'enum': ConjureFieldDefinition('enum', scout_compute_api_MultivariateEnumInput)
+        }
+
+    def __init__(
+            self,
+            numeric: Optional["scout_compute_api_MultivariateNumericInput"] = None,
+            enum: Optional["scout_compute_api_MultivariateEnumInput"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric is not None) + (enum is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric is not None:
+                self._numeric = numeric
+                self._type = 'numeric'
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
+
+        elif type_of_union == 'numeric':
+            if numeric is None:
+                raise ValueError('a union value must not be None')
+            self._numeric = numeric
+            self._type = 'numeric'
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
+
+    @builtins.property
+    def numeric(self) -> Optional["scout_compute_api_MultivariateNumericInput"]:
+        return self._numeric
+
+    @builtins.property
+    def enum(self) -> Optional["scout_compute_api_MultivariateEnumInput"]:
+        return self._enum
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_MultivariateInputVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_MultivariateInputVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric' and self.numeric is not None:
+            return visitor._numeric(self.numeric)
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
+
+
+scout_compute_api_MultivariateInput.__name__ = "MultivariateInput"
+scout_compute_api_MultivariateInput.__qualname__ = "MultivariateInput"
+scout_compute_api_MultivariateInput.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_MultivariateInputVisitor:
+
+    @abstractmethod
+    def _numeric(self, numeric: "scout_compute_api_MultivariateNumericInput") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum(self, enum: "scout_compute_api_MultivariateEnumInput") -> Any:
+        pass
+
+
+scout_compute_api_MultivariateInputVisitor.__name__ = "MultivariateInputVisitor"
+scout_compute_api_MultivariateInputVisitor.__qualname__ = "MultivariateInputVisitor"
+scout_compute_api_MultivariateInputVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_MultivariateNumericInput(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'series': ConjureFieldDefinition('series', scout_compute_api_NumericSeries),
+            'aggregations': ConjureFieldDefinition('aggregations', List[scout_compute_api_NumericMultivariateAggregation])
+        }
+
+    __slots__: List[str] = ['_series', '_aggregations']
+
+    def __init__(self, aggregations: List["scout_compute_api_NumericMultivariateAggregation"], series: "scout_compute_api_NumericSeries") -> None:
+        self._series = series
+        self._aggregations = aggregations
+
+    @builtins.property
+    def series(self) -> "scout_compute_api_NumericSeries":
+        return self._series
+
+    @builtins.property
+    def aggregations(self) -> List["scout_compute_api_NumericMultivariateAggregation"]:
+        return self._aggregations
+
+
+scout_compute_api_MultivariateNumericInput.__name__ = "MultivariateNumericInput"
+scout_compute_api_MultivariateNumericInput.__qualname__ = "MultivariateNumericInput"
+scout_compute_api_MultivariateNumericInput.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_MultivariateUnitResult(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'units': ConjureFieldDefinition('units', List[scout_compute_api_UnitResult])
+        }
+
+    __slots__: List[str] = ['_units']
+
+    def __init__(self, units: List["scout_compute_api_UnitResult"]) -> None:
+        self._units = units
+
+    @builtins.property
+    def units(self) -> List["scout_compute_api_UnitResult"]:
+        return self._units
+
+
+scout_compute_api_MultivariateUnitResult.__name__ = "MultivariateUnitResult"
+scout_compute_api_MultivariateUnitResult.__qualname__ = "MultivariateUnitResult"
+scout_compute_api_MultivariateUnitResult.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NegativeValueConfiguration(ConjureUnionType):
     _allow_negative_values: Optional["scout_compute_api_AllowNegativeValues"] = None
     _set_negative_values_to_zero: Optional["scout_compute_api_SetNegativeValuesToZero"] = None
@@ -54871,6 +55278,30 @@ class scout_compute_api_NumericHistogramPlot(ConjureBeanType):
 scout_compute_api_NumericHistogramPlot.__name__ = "NumericHistogramPlot"
 scout_compute_api_NumericHistogramPlot.__qualname__ = "NumericHistogramPlot"
 scout_compute_api_NumericHistogramPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NumericMultivariateAggregation(ConjureEnumType):
+
+    MEAN = 'MEAN'
+    '''MEAN'''
+    MIN = 'MIN'
+    '''MIN'''
+    MAX = 'MAX'
+    '''MAX'''
+    FIRST = 'FIRST'
+    '''FIRST'''
+    LAST = 'LAST'
+    '''LAST'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_NumericMultivariateAggregation.__name__ = "NumericMultivariateAggregation"
+scout_compute_api_NumericMultivariateAggregation.__qualname__ = "NumericMultivariateAggregation"
+scout_compute_api_NumericMultivariateAggregation.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NumericOutputField(ConjureEnumType):
@@ -56884,6 +57315,33 @@ scout_compute_api_PercentageThreshold.__qualname__ = "PercentageThreshold"
 scout_compute_api_PercentageThreshold.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Percentile(ConjureBeanType):
+    """The value at the specified percentile within the time window.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'percentile': ConjureFieldDefinition('percentile', scout_compute_api_DoubleConstant)
+        }
+
+    __slots__: List[str] = ['_percentile']
+
+    def __init__(self, percentile: "scout_compute_api_DoubleConstant") -> None:
+        self._percentile = percentile
+
+    @builtins.property
+    def percentile(self) -> "scout_compute_api_DoubleConstant":
+        """Percentile to compute, in range [0, 1]. E.g. 0.5 for median, 0.95 for p95.
+        """
+        return self._percentile
+
+
+scout_compute_api_Percentile.__name__ = "Percentile"
+scout_compute_api_Percentile.__qualname__ = "Percentile"
+scout_compute_api_Percentile.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Periodogram(ConjureBeanType):
     """Returns the spectral density estimate (i.e. PSD) of the input series.
     """
@@ -58505,6 +58963,7 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
     _max: Optional["scout_compute_api_Maximum"] = None
     _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
     _sum: Optional["scout_compute_api_Sum"] = None
+    _percentile: Optional["scout_compute_api_Percentile"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -58514,7 +58973,8 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
             'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
             'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
             'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
-            'sum': ConjureFieldDefinition('sum', scout_compute_api_Sum)
+            'sum': ConjureFieldDefinition('sum', scout_compute_api_Sum),
+            'percentile': ConjureFieldDefinition('percentile', scout_compute_api_Percentile)
         }
 
     def __init__(
@@ -58525,10 +58985,11 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
             max: Optional["scout_compute_api_Maximum"] = None,
             standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
             sum: Optional["scout_compute_api_Sum"] = None,
+            percentile: Optional["scout_compute_api_Percentile"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (average is not None) + (count is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (sum is not None) != 1:
+            if (average is not None) + (count is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (sum is not None) + (percentile is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if average is not None:
@@ -58549,6 +59010,9 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
             if sum is not None:
                 self._sum = sum
                 self._type = 'sum'
+            if percentile is not None:
+                self._percentile = percentile
+                self._type = 'percentile'
 
         elif type_of_union == 'average':
             if average is None:
@@ -58580,6 +59044,11 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._sum = sum
             self._type = 'sum'
+        elif type_of_union == 'percentile':
+            if percentile is None:
+                raise ValueError('a union value must not be None')
+            self._percentile = percentile
+            self._type = 'percentile'
 
     @builtins.property
     def average(self) -> Optional["scout_compute_api_Average"]:
@@ -58605,6 +59074,10 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
     def sum(self) -> Optional["scout_compute_api_Sum"]:
         return self._sum
 
+    @builtins.property
+    def percentile(self) -> Optional["scout_compute_api_Percentile"]:
+        return self._percentile
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_RollingOperatorVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_RollingOperatorVisitor'.format(visitor.__class__.__name__))
@@ -58620,6 +59093,8 @@ class scout_compute_api_RollingOperator(ConjureUnionType):
             return visitor._standard_deviation(self.standard_deviation)
         if self._type == 'sum' and self.sum is not None:
             return visitor._sum(self.sum)
+        if self._type == 'percentile' and self.percentile is not None:
+            return visitor._percentile(self.percentile)
 
 
 scout_compute_api_RollingOperator.__name__ = "RollingOperator"
@@ -58651,6 +59126,10 @@ class scout_compute_api_RollingOperatorVisitor:
 
     @abstractmethod
     def _sum(self, sum: "scout_compute_api_Sum") -> Any:
+        pass
+
+    @abstractmethod
+    def _percentile(self, percentile: "scout_compute_api_Percentile") -> Any:
         pass
 
 
@@ -60552,6 +61031,65 @@ Maximum is 10,000. Defaults to 2,000 if not specified.
 scout_compute_api_SummarizeCartesian3d.__name__ = "SummarizeCartesian3d"
 scout_compute_api_SummarizeCartesian3d.__qualname__ = "SummarizeCartesian3d"
 scout_compute_api_SummarizeCartesian3d.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_SummarizeMultivariate(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'inputs': ConjureFieldDefinition('inputs', List[scout_compute_api_MultivariateInput]),
+            'output_format': ConjureFieldDefinition('outputFormat', OptionalTypeWrapper[scout_compute_api_OutputFormat]),
+            'bucket_count': ConjureFieldDefinition('bucketCount', OptionalTypeWrapper[int]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_inputs', '_output_format', '_bucket_count', '_interpolation_configuration']
+
+    def __init__(self, inputs: List["scout_compute_api_MultivariateInput"], bucket_count: Optional[int] = None, interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None) -> None:
+        self._inputs = inputs
+        self._output_format = output_format
+        self._bucket_count = bucket_count
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def inputs(self) -> List["scout_compute_api_MultivariateInput"]:
+        """List of input series to temporally align at the raw point level, then bucket the aligned 
+tuples together. The series with the largest tag group acts as the "driver" that determines 
+which raw timestamps are included in the alignment. All subsequent series are aligned to the 
+driver's raw timestamps using the interpolation configuration. After alignment, the resulting 
+(x, y, z, ...) tuples are bucketed into time windows and aggregated.
+        """
+        return self._inputs
+
+    @builtins.property
+    def output_format(self) -> Optional["scout_compute_api_OutputFormat"]:
+        """The output format of the response. Defaults to LEGACY (JSON).
+        """
+        return self._output_format
+
+    @builtins.property
+    def bucket_count(self) -> Optional[int]:
+        """The number of buckets to return in the response. Maximum is 10,000. Defaults to 1,000 if not specified.
+        """
+        return self._bucket_count
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Controls how the N input series are aligned at the raw point level when producing multivariate buckets.
+
+When present, the server may fill forward a series value from the most recent prior raw point
+(bounded by the interpolation radius). This alignment happens BEFORE bucketing,
+ensuring that aggregated values in each bucket are computed from temporally aligned raw tuples.
+
+When absent, the default interpolation configuration is used.
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_SummarizeMultivariate.__name__ = "SummarizeMultivariate"
+scout_compute_api_SummarizeMultivariate.__qualname__ = "SummarizeMultivariate"
+scout_compute_api_SummarizeMultivariate.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_SummarizeRanges(ConjureBeanType):
@@ -64990,8 +65528,6 @@ scout_compute_resolved_api_Cartesian3dNodeVisitor.__module__ = "nominal_api.scou
 
 
 class scout_compute_resolved_api_CartesianBounds(ConjureBeanType):
-    """Min/max bounds of an XY Cartesian plot, inclusive.
-    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -67533,9 +68069,142 @@ scout_compute_resolved_api_MinSeriesNode.__qualname__ = "MinSeriesNode"
 scout_compute_resolved_api_MinSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_MultivariateEnumInputNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'series': ConjureFieldDefinition('series', scout_compute_resolved_api_EnumSeriesNode),
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_api_EnumMultivariateAggregation)
+        }
+
+    __slots__: List[str] = ['_series', '_aggregation']
+
+    def __init__(self, aggregation: "scout_compute_api_EnumMultivariateAggregation", series: "scout_compute_resolved_api_EnumSeriesNode") -> None:
+        self._series = series
+        self._aggregation = aggregation
+
+    @builtins.property
+    def series(self) -> "scout_compute_resolved_api_EnumSeriesNode":
+        return self._series
+
+    @builtins.property
+    def aggregation(self) -> "scout_compute_api_EnumMultivariateAggregation":
+        return self._aggregation
+
+
+scout_compute_resolved_api_MultivariateEnumInputNode.__name__ = "MultivariateEnumInputNode"
+scout_compute_resolved_api_MultivariateEnumInputNode.__qualname__ = "MultivariateEnumInputNode"
+scout_compute_resolved_api_MultivariateEnumInputNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_MultivariateInputNode(ConjureUnionType):
+    _numeric: Optional["scout_compute_resolved_api_MultivariateNumericInputNode"] = None
+    _enum: Optional["scout_compute_resolved_api_MultivariateEnumInputNode"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric': ConjureFieldDefinition('numeric', scout_compute_resolved_api_MultivariateNumericInputNode),
+            'enum': ConjureFieldDefinition('enum', scout_compute_resolved_api_MultivariateEnumInputNode)
+        }
+
+    def __init__(
+            self,
+            numeric: Optional["scout_compute_resolved_api_MultivariateNumericInputNode"] = None,
+            enum: Optional["scout_compute_resolved_api_MultivariateEnumInputNode"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric is not None) + (enum is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric is not None:
+                self._numeric = numeric
+                self._type = 'numeric'
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
+
+        elif type_of_union == 'numeric':
+            if numeric is None:
+                raise ValueError('a union value must not be None')
+            self._numeric = numeric
+            self._type = 'numeric'
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
+
+    @builtins.property
+    def numeric(self) -> Optional["scout_compute_resolved_api_MultivariateNumericInputNode"]:
+        return self._numeric
+
+    @builtins.property
+    def enum(self) -> Optional["scout_compute_resolved_api_MultivariateEnumInputNode"]:
+        return self._enum
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_MultivariateInputNodeVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_MultivariateInputNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric' and self.numeric is not None:
+            return visitor._numeric(self.numeric)
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
+
+
+scout_compute_resolved_api_MultivariateInputNode.__name__ = "MultivariateInputNode"
+scout_compute_resolved_api_MultivariateInputNode.__qualname__ = "MultivariateInputNode"
+scout_compute_resolved_api_MultivariateInputNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_MultivariateInputNodeVisitor:
+
+    @abstractmethod
+    def _numeric(self, numeric: "scout_compute_resolved_api_MultivariateNumericInputNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum(self, enum: "scout_compute_resolved_api_MultivariateEnumInputNode") -> Any:
+        pass
+
+
+scout_compute_resolved_api_MultivariateInputNodeVisitor.__name__ = "MultivariateInputNodeVisitor"
+scout_compute_resolved_api_MultivariateInputNodeVisitor.__qualname__ = "MultivariateInputNodeVisitor"
+scout_compute_resolved_api_MultivariateInputNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_MultivariateNumericInputNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'series': ConjureFieldDefinition('series', scout_compute_resolved_api_NumericSeriesNode),
+            'aggregation': ConjureFieldDefinition('aggregation', scout_compute_api_NumericMultivariateAggregation)
+        }
+
+    __slots__: List[str] = ['_series', '_aggregation']
+
+    def __init__(self, aggregation: "scout_compute_api_NumericMultivariateAggregation", series: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._series = series
+        self._aggregation = aggregation
+
+    @builtins.property
+    def series(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._series
+
+    @builtins.property
+    def aggregation(self) -> "scout_compute_api_NumericMultivariateAggregation":
+        return self._aggregation
+
+
+scout_compute_resolved_api_MultivariateNumericInputNode.__name__ = "MultivariateNumericInputNode"
+scout_compute_resolved_api_MultivariateNumericInputNode.__qualname__ = "MultivariateNumericInputNode"
+scout_compute_resolved_api_MultivariateNumericInputNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
-    """A storage locator for Nominal data in the per-org data tables.
-    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -70016,6 +70685,7 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
     _frequency_v2: Optional["scout_compute_resolved_api_FrequencyDomainNodeV2"] = None
     _histogram: Optional["scout_compute_resolved_api_HistogramNode"] = None
     _curve: Optional["scout_compute_resolved_api_CurveFitNode"] = None
+    _multivariate: Optional["scout_compute_resolved_api_SummarizeMultivariateNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -70028,7 +70698,8 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
             'frequency': ConjureFieldDefinition('frequency', scout_compute_resolved_api_FrequencyDomainNode),
             'frequency_v2': ConjureFieldDefinition('frequencyV2', scout_compute_resolved_api_FrequencyDomainNodeV2),
             'histogram': ConjureFieldDefinition('histogram', scout_compute_resolved_api_HistogramNode),
-            'curve': ConjureFieldDefinition('curve', scout_compute_resolved_api_CurveFitNode)
+            'curve': ConjureFieldDefinition('curve', scout_compute_resolved_api_CurveFitNode),
+            'multivariate': ConjureFieldDefinition('multivariate', scout_compute_resolved_api_SummarizeMultivariateNode)
         }
 
     def __init__(
@@ -70042,10 +70713,11 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
             frequency_v2: Optional["scout_compute_resolved_api_FrequencyDomainNodeV2"] = None,
             histogram: Optional["scout_compute_resolved_api_HistogramNode"] = None,
             curve: Optional["scout_compute_resolved_api_CurveFitNode"] = None,
+            multivariate: Optional["scout_compute_resolved_api_SummarizeMultivariateNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (ranges is not None) + (series is not None) + (value is not None) + (cartesian is not None) + (cartesian3d is not None) + (frequency is not None) + (frequency_v2 is not None) + (histogram is not None) + (curve is not None) != 1:
+            if (ranges is not None) + (series is not None) + (value is not None) + (cartesian is not None) + (cartesian3d is not None) + (frequency is not None) + (frequency_v2 is not None) + (histogram is not None) + (curve is not None) + (multivariate is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if ranges is not None:
@@ -70075,6 +70747,9 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
             if curve is not None:
                 self._curve = curve
                 self._type = 'curve'
+            if multivariate is not None:
+                self._multivariate = multivariate
+                self._type = 'multivariate'
 
         elif type_of_union == 'ranges':
             if ranges is None:
@@ -70121,6 +70796,11 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._curve = curve
             self._type = 'curve'
+        elif type_of_union == 'multivariate':
+            if multivariate is None:
+                raise ValueError('a union value must not be None')
+            self._multivariate = multivariate
+            self._type = 'multivariate'
 
     @builtins.property
     def ranges(self) -> Optional["scout_compute_resolved_api_SummarizeRangesNode"]:
@@ -70158,6 +70838,10 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
     def curve(self) -> Optional["scout_compute_resolved_api_CurveFitNode"]:
         return self._curve
 
+    @builtins.property
+    def multivariate(self) -> Optional["scout_compute_resolved_api_SummarizeMultivariateNode"]:
+        return self._multivariate
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_ResolvedNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_ResolvedNodeVisitor'.format(visitor.__class__.__name__))
@@ -70179,6 +70863,8 @@ class scout_compute_resolved_api_ResolvedNode(ConjureUnionType):
             return visitor._histogram(self.histogram)
         if self._type == 'curve' and self.curve is not None:
             return visitor._curve(self.curve)
+        if self._type == 'multivariate' and self.multivariate is not None:
+            return visitor._multivariate(self.multivariate)
 
 
 scout_compute_resolved_api_ResolvedNode.__name__ = "ResolvedNode"
@@ -70224,16 +70910,42 @@ class scout_compute_resolved_api_ResolvedNodeVisitor:
     def _curve(self, curve: "scout_compute_resolved_api_CurveFitNode") -> Any:
         pass
 
+    @abstractmethod
+    def _multivariate(self, multivariate: "scout_compute_resolved_api_SummarizeMultivariateNode") -> Any:
+        pass
+
 
 scout_compute_resolved_api_ResolvedNodeVisitor.__name__ = "ResolvedNodeVisitor"
 scout_compute_resolved_api_ResolvedNodeVisitor.__qualname__ = "ResolvedNodeVisitor"
 scout_compute_resolved_api_ResolvedNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_ResolvedSeries(ConjureBeanType):
-    """A resolved series is a fully-formed read on a raw set of series. The data for series may be stored in the
-Nominal database or externally.
+class scout_compute_resolved_api_ResolvedPercentile(ConjureBeanType):
+    """The value at the specified percentile within the time window.
     """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'percentile': ConjureFieldDefinition('percentile', float)
+        }
+
+    __slots__: List[str] = ['_percentile']
+
+    def __init__(self, percentile: float) -> None:
+        self._percentile = percentile
+
+    @builtins.property
+    def percentile(self) -> float:
+        return self._percentile
+
+
+scout_compute_resolved_api_ResolvedPercentile.__name__ = "ResolvedPercentile"
+scout_compute_resolved_api_ResolvedPercentile.__qualname__ = "ResolvedPercentile"
+scout_compute_resolved_api_ResolvedPercentile.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ResolvedSeries(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -70269,12 +70981,12 @@ class scout_compute_resolved_api_RollingOperationSeriesNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
             'window': ConjureFieldDefinition('window', scout_compute_resolved_api_Window),
-            'operator': ConjureFieldDefinition('operator', scout_compute_api_RollingOperator)
+            'operator': ConjureFieldDefinition('operator', scout_compute_resolved_api_RollingOperator)
         }
 
     __slots__: List[str] = ['_input', '_window', '_operator']
 
-    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", operator: "scout_compute_api_RollingOperator", window: "scout_compute_resolved_api_Window") -> None:
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", operator: "scout_compute_resolved_api_RollingOperator", window: "scout_compute_resolved_api_Window") -> None:
         self._input = input
         self._window = window
         self._operator = operator
@@ -70288,13 +71000,195 @@ class scout_compute_resolved_api_RollingOperationSeriesNode(ConjureBeanType):
         return self._window
 
     @builtins.property
-    def operator(self) -> "scout_compute_api_RollingOperator":
+    def operator(self) -> "scout_compute_resolved_api_RollingOperator":
         return self._operator
 
 
 scout_compute_resolved_api_RollingOperationSeriesNode.__name__ = "RollingOperationSeriesNode"
 scout_compute_resolved_api_RollingOperationSeriesNode.__qualname__ = "RollingOperationSeriesNode"
 scout_compute_resolved_api_RollingOperationSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_RollingOperator(ConjureUnionType):
+    _average: Optional["scout_compute_api_Average"] = None
+    _count: Optional["scout_compute_api_Count"] = None
+    _min: Optional["scout_compute_api_Minimum"] = None
+    _max: Optional["scout_compute_api_Maximum"] = None
+    _percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None
+    _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
+    _sum: Optional["scout_compute_api_Sum"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'average': ConjureFieldDefinition('average', scout_compute_api_Average),
+            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
+            'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
+            'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
+            'percentile': ConjureFieldDefinition('percentile', scout_compute_resolved_api_ResolvedPercentile),
+            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
+            'sum': ConjureFieldDefinition('sum', scout_compute_api_Sum)
+        }
+
+    def __init__(
+            self,
+            average: Optional["scout_compute_api_Average"] = None,
+            count: Optional["scout_compute_api_Count"] = None,
+            min: Optional["scout_compute_api_Minimum"] = None,
+            max: Optional["scout_compute_api_Maximum"] = None,
+            percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None,
+            standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
+            sum: Optional["scout_compute_api_Sum"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (average is not None) + (count is not None) + (min is not None) + (max is not None) + (percentile is not None) + (standard_deviation is not None) + (sum is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if average is not None:
+                self._average = average
+                self._type = 'average'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
+            if min is not None:
+                self._min = min
+                self._type = 'min'
+            if max is not None:
+                self._max = max
+                self._type = 'max'
+            if percentile is not None:
+                self._percentile = percentile
+                self._type = 'percentile'
+            if standard_deviation is not None:
+                self._standard_deviation = standard_deviation
+                self._type = 'standardDeviation'
+            if sum is not None:
+                self._sum = sum
+                self._type = 'sum'
+
+        elif type_of_union == 'average':
+            if average is None:
+                raise ValueError('a union value must not be None')
+            self._average = average
+            self._type = 'average'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
+        elif type_of_union == 'min':
+            if min is None:
+                raise ValueError('a union value must not be None')
+            self._min = min
+            self._type = 'min'
+        elif type_of_union == 'max':
+            if max is None:
+                raise ValueError('a union value must not be None')
+            self._max = max
+            self._type = 'max'
+        elif type_of_union == 'percentile':
+            if percentile is None:
+                raise ValueError('a union value must not be None')
+            self._percentile = percentile
+            self._type = 'percentile'
+        elif type_of_union == 'standardDeviation':
+            if standard_deviation is None:
+                raise ValueError('a union value must not be None')
+            self._standard_deviation = standard_deviation
+            self._type = 'standardDeviation'
+        elif type_of_union == 'sum':
+            if sum is None:
+                raise ValueError('a union value must not be None')
+            self._sum = sum
+            self._type = 'sum'
+
+    @builtins.property
+    def average(self) -> Optional["scout_compute_api_Average"]:
+        return self._average
+
+    @builtins.property
+    def count(self) -> Optional["scout_compute_api_Count"]:
+        return self._count
+
+    @builtins.property
+    def min(self) -> Optional["scout_compute_api_Minimum"]:
+        return self._min
+
+    @builtins.property
+    def max(self) -> Optional["scout_compute_api_Maximum"]:
+        return self._max
+
+    @builtins.property
+    def percentile(self) -> Optional["scout_compute_resolved_api_ResolvedPercentile"]:
+        return self._percentile
+
+    @builtins.property
+    def standard_deviation(self) -> Optional["scout_compute_api_StandardDeviation"]:
+        return self._standard_deviation
+
+    @builtins.property
+    def sum(self) -> Optional["scout_compute_api_Sum"]:
+        return self._sum
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_RollingOperatorVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_RollingOperatorVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'average' and self.average is not None:
+            return visitor._average(self.average)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
+        if self._type == 'min' and self.min is not None:
+            return visitor._min(self.min)
+        if self._type == 'max' and self.max is not None:
+            return visitor._max(self.max)
+        if self._type == 'percentile' and self.percentile is not None:
+            return visitor._percentile(self.percentile)
+        if self._type == 'standardDeviation' and self.standard_deviation is not None:
+            return visitor._standard_deviation(self.standard_deviation)
+        if self._type == 'sum' and self.sum is not None:
+            return visitor._sum(self.sum)
+
+
+scout_compute_resolved_api_RollingOperator.__name__ = "RollingOperator"
+scout_compute_resolved_api_RollingOperator.__qualname__ = "RollingOperator"
+scout_compute_resolved_api_RollingOperator.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_RollingOperatorVisitor:
+
+    @abstractmethod
+    def _average(self, average: "scout_compute_api_Average") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_compute_api_Count") -> Any:
+        pass
+
+    @abstractmethod
+    def _min(self, min: "scout_compute_api_Minimum") -> Any:
+        pass
+
+    @abstractmethod
+    def _max(self, max: "scout_compute_api_Maximum") -> Any:
+        pass
+
+    @abstractmethod
+    def _percentile(self, percentile: "scout_compute_resolved_api_ResolvedPercentile") -> Any:
+        pass
+
+    @abstractmethod
+    def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
+        pass
+
+    @abstractmethod
+    def _sum(self, sum: "scout_compute_api_Sum") -> Any:
+        pass
+
+
+scout_compute_resolved_api_RollingOperatorVisitor.__name__ = "RollingOperatorVisitor"
+scout_compute_resolved_api_RollingOperatorVisitor.__qualname__ = "RollingOperatorVisitor"
+scout_compute_resolved_api_RollingOperatorVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_ScaleSeriesNode(ConjureBeanType):
@@ -71437,6 +72331,47 @@ scout_compute_resolved_api_SummarizeCartesianNode.__qualname__ = "SummarizeCarte
 scout_compute_resolved_api_SummarizeCartesianNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_SummarizeMultivariateNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'inputs': ConjureFieldDefinition('inputs', List[scout_compute_resolved_api_MultivariateInputNode]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration),
+            'output_format': ConjureFieldDefinition('outputFormat', scout_compute_api_OutputFormat),
+            'bucket_count': ConjureFieldDefinition('bucketCount', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_inputs', '_interpolation_configuration', '_output_format', '_bucket_count']
+
+    def __init__(self, inputs: List["scout_compute_resolved_api_MultivariateInputNode"], interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", output_format: "scout_compute_api_OutputFormat", bucket_count: Optional[int] = None) -> None:
+        self._inputs = inputs
+        self._interpolation_configuration = interpolation_configuration
+        self._output_format = output_format
+        self._bucket_count = bucket_count
+
+    @builtins.property
+    def inputs(self) -> List["scout_compute_resolved_api_MultivariateInputNode"]:
+        return self._inputs
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+    @builtins.property
+    def output_format(self) -> "scout_compute_api_OutputFormat":
+        return self._output_format
+
+    @builtins.property
+    def bucket_count(self) -> Optional[int]:
+        return self._bucket_count
+
+
+scout_compute_resolved_api_SummarizeMultivariateNode.__name__ = "SummarizeMultivariateNode"
+scout_compute_resolved_api_SummarizeMultivariateNode.__qualname__ = "SummarizeMultivariateNode"
+scout_compute_resolved_api_SummarizeMultivariateNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_SummarizeRangesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -71467,9 +72402,6 @@ scout_compute_resolved_api_SummarizeRangesNode.__module__ = "nominal_api.scout_c
 
 
 class scout_compute_resolved_api_SummarizeSeriesNode(ConjureBeanType):
-    """Summarizes the output of a series node. The output can be a numeric, enum, log, or cartesian series.
-Summarization strategy should be specified.
-    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -71494,8 +72426,6 @@ Summarization strategy should be specified.
 
     @builtins.property
     def summarization_strategy(self) -> "scout_compute_api_SummarizationStrategy":
-        """The strategy to use when summarizing the series.
-        """
         return self._summarization_strategy
 
     @builtins.property
@@ -95350,6 +96280,74 @@ Enforces read permission on the video.
         _decoder = ConjureDecoder()
         return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_GenerateWhepStreamResponse], self._return_none_for_unknown_union_types)
 
+    def get_stream(self, auth_header: str, stream_id: str, video_rid: str) -> Optional["scout_video_api_VideoStream"]:
+        """Returns stream session metadata for a given stream ID scoped to the video.
+Enforces read permission on the video.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'videoRid': quote(str(_conjure_encoder.default(video_rid)), safe=''),
+            'streamId': quote(str(_conjure_encoder.default(stream_id)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/video/v1/videos/{videoRid}/streaming/streams/{streamId}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_VideoStream], self._return_none_for_unknown_union_types)
+
+    def end_stream(self, auth_header: str, video_rid: str) -> "scout_video_api_EndStreamResponse":
+        """Marks the active stream session as ended for the video.
+Throws VIDEO_NOT_FOUND if no active stream exists.
+Enforces write permission on the video.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'videoRid': quote(str(_conjure_encoder.default(video_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/video/v1/videos/{videoRid}/streaming/end'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_video_api_EndStreamResponse, self._return_none_for_unknown_union_types)
+
     def upload_segment_from_media_mtx(self, auth_header: str, body: Any, content_length: int, duration: str, file_path: str, min_timestamp_nanos: int, min_timestamp_seconds: int, stream_path: str) -> None:
         """MediaMTX segment upload endpoint. Receives video segments from MediaMTX hooks.
 Validates JWT and logs session. Future: create video segments from uploaded files.
@@ -95825,6 +96823,37 @@ class scout_video_api_DetailedIngestStatusVisitor:
 scout_video_api_DetailedIngestStatusVisitor.__name__ = "DetailedIngestStatusVisitor"
 scout_video_api_DetailedIngestStatusVisitor.__qualname__ = "DetailedIngestStatusVisitor"
 scout_video_api_DetailedIngestStatusVisitor.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_EndStreamResponse(ConjureBeanType):
+    """Response payload for ending an active stream session.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'stream_id': ConjureFieldDefinition('streamId', str),
+            'ended_at': ConjureFieldDefinition('endedAt', api_Timestamp)
+        }
+
+    __slots__: List[str] = ['_stream_id', '_ended_at']
+
+    def __init__(self, ended_at: "api_Timestamp", stream_id: str) -> None:
+        self._stream_id = stream_id
+        self._ended_at = ended_at
+
+    @builtins.property
+    def stream_id(self) -> str:
+        return self._stream_id
+
+    @builtins.property
+    def ended_at(self) -> "api_Timestamp":
+        return self._ended_at
+
+
+scout_video_api_EndStreamResponse.__name__ = "EndStreamResponse"
+scout_video_api_EndStreamResponse.__qualname__ = "EndStreamResponse"
+scout_video_api_EndStreamResponse.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_EnrichedVideoIngestStatus(ConjureBeanType):
@@ -98391,6 +99420,67 @@ class scout_video_api_VideoOriginMetadata(ConjureBeanType):
 scout_video_api_VideoOriginMetadata.__name__ = "VideoOriginMetadata"
 scout_video_api_VideoOriginMetadata.__qualname__ = "VideoOriginMetadata"
 scout_video_api_VideoOriginMetadata.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_VideoStream(ConjureBeanType):
+    """Metadata for a single video stream session.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'stream_id': ConjureFieldDefinition('streamId', str),
+            'video_rid': ConjureFieldDefinition('videoRid', api_rids_VideoRid),
+            'stream_status': ConjureFieldDefinition('streamStatus', str),
+            'start': ConjureFieldDefinition('start', OptionalTypeWrapper[str]),
+            'end': ConjureFieldDefinition('end', OptionalTypeWrapper[str]),
+            'created_at': ConjureFieldDefinition('createdAt', str),
+            'updated_at': ConjureFieldDefinition('updatedAt', str)
+        }
+
+    __slots__: List[str] = ['_stream_id', '_video_rid', '_stream_status', '_start', '_end', '_created_at', '_updated_at']
+
+    def __init__(self, created_at: str, stream_id: str, stream_status: str, updated_at: str, video_rid: str, end: Optional[str] = None, start: Optional[str] = None) -> None:
+        self._stream_id = stream_id
+        self._video_rid = video_rid
+        self._stream_status = stream_status
+        self._start = start
+        self._end = end
+        self._created_at = created_at
+        self._updated_at = updated_at
+
+    @builtins.property
+    def stream_id(self) -> str:
+        return self._stream_id
+
+    @builtins.property
+    def video_rid(self) -> str:
+        return self._video_rid
+
+    @builtins.property
+    def stream_status(self) -> str:
+        return self._stream_status
+
+    @builtins.property
+    def start(self) -> Optional[str]:
+        return self._start
+
+    @builtins.property
+    def end(self) -> Optional[str]:
+        return self._end
+
+    @builtins.property
+    def created_at(self) -> str:
+        return self._created_at
+
+    @builtins.property
+    def updated_at(self) -> str:
+        return self._updated_at
+
+
+scout_video_api_VideoStream.__name__ = "VideoStream"
+scout_video_api_VideoStream.__qualname__ = "VideoStream"
+scout_video_api_VideoStream.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_VideoTimestampManifest(ConjureUnionType):

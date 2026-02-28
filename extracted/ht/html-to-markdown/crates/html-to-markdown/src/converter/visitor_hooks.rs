@@ -151,17 +151,23 @@ pub fn handle_visitor_element_end(
         is_inline: !is_block_level_element(tag_name),
     };
 
-    let element_content = &output[element_output_start..];
+    // When a child element's visitor returns Custom or Skip, the handler
+    // truncates `output` back to that child's `element_output_start`.  This
+    // can make the *parent* element's saved `element_output_start` stale —
+    // pointing past the end of the now-shorter `output`.  Clamp to prevent
+    // a panic on the string slice.
+    let safe_start = element_output_start.min(output.len());
+    let element_content = &output[safe_start..];
 
     let mut visitor = visitor_handle.borrow_mut();
     match visitor.visit_element_end(&node_ctx, element_content) {
         VisitResult::Continue => {}
         VisitResult::Custom(custom) => {
-            output.truncate(element_output_start);
+            output.truncate(safe_start);
             output.push_str(&custom);
         }
         VisitResult::Skip => {
-            output.truncate(element_output_start);
+            output.truncate(safe_start);
         }
         VisitResult::Error(err) => {
             if ctx.visitor_error.borrow().is_none() {

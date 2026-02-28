@@ -3,12 +3,13 @@ sources = [
   'pygenum.c',
   'pygflags.c',
   'pyginterface.c',
+  'pygobject-class.c',
   'pygobject-object.c',
+  'pygobject-props.c',
   'pygpointer.c',
-  'pygoptioncontext.c',
-  'pygoptiongroup.c',
   'pygspawn.c',
   'gimodule.c',
+  'pygi-capi.c',
   'pygi-repository.c',
   'pygi-info.c',
   'pygi-foreign.c',
@@ -26,20 +27,26 @@ sources = [
   'pygi-signal-closure.c',
   'pygi-invoke.c',
   'pygi-cache.c',
+  'pygi-cache-array.c',
+  'pygi-cache-basic.c',
+  'pygi-cache-closure.c',
+  'pygi-cache-enum.c',
+  'pygi-cache-error.c',
+  'pygi-cache-hashtable.c',
+  'pygi-cache-interface.c',
+  'pygi-cache-list.c',
+  'pygi-cache-object.c',
+  'pygi-cache-struct.c',
   'pygi-marshal-cleanup.c',
   'pygi-basictype.c',
-  'pygi-list.c',
-  'pygi-array.c',
   'pygi-error.c',
-  'pygi-object.c',
   'pygi-fundamental.c',
   'pygi-value.c',
-  'pygi-enum-marshal.c',
-  'pygi-struct-marshal.c',
-  'pygi-hashtable.c']
+]
 
 headers = [
-  'pygobject.h'
+  'pygobject.h',
+  'pygobject-types.h'
 ]
 
 install_headers(headers, subdir : 'pygobject-@0@'.format(platform_version))
@@ -54,10 +61,8 @@ python_sources = [
   'importer.py',
   '__init__.py',
   'module.py',
-  '_option.py',
   '_ossighelper.py',
   '_propertyhelper.py',
-  'pygtkcompat.py',
   '_signalhelper.py',
   '_signature.py',
   'types.py',
@@ -81,7 +86,7 @@ giext = python.extension_module('_gi', sources,
   dependencies : [python_ext_dep, glib_dep, gi_dep, ffi_dep, pythoncapi_compat_dep],
   install: true,
   subdir : 'gi',
-  c_args: pyext_c_args + main_c_args
+  c_args: pyext_c_args + main_c_args + ['-D_INSIDE_PYGOBJECT_']
 )
 
 if cairo_dep.found()

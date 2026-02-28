@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from crewai.events.event_listener import event_listener
-from crewai.core.providers.human_input import SyncHumanInputProvider
 
 
 class TestFlowHumanInputIntegration:
@@ -25,9 +24,14 @@ class TestFlowHumanInputIntegration:
     @patch("builtins.input", return_value="")
     def test_human_input_pauses_flow_updates(self, mock_input):
         """Test that human input pauses Flow status updates."""
-        provider = SyncHumanInputProvider()
-        crew = MagicMock()
-        crew._train = False
+        from crewai.agents.agent_builder.base_agent_executor_mixin import (
+            CrewAgentExecutorMixin,
+        )
+
+        executor = CrewAgentExecutorMixin()
+        executor.crew = MagicMock()
+        executor.crew._train = False
+        executor._printer = MagicMock()
 
         formatter = event_listener.formatter
 
@@ -35,7 +39,7 @@ class TestFlowHumanInputIntegration:
             patch.object(formatter, "pause_live_updates") as mock_pause,
             patch.object(formatter, "resume_live_updates") as mock_resume,
         ):
-            result = provider._prompt_input(crew)
+            result = executor._ask_human_input("Test result")
 
             mock_pause.assert_called_once()
             mock_resume.assert_called_once()
@@ -45,9 +49,14 @@ class TestFlowHumanInputIntegration:
     @patch("builtins.input", side_effect=["feedback", ""])
     def test_multiple_human_input_rounds(self, mock_input):
         """Test multiple rounds of human input with Flow status management."""
-        provider = SyncHumanInputProvider()
-        crew = MagicMock()
-        crew._train = False
+        from crewai.agents.agent_builder.base_agent_executor_mixin import (
+            CrewAgentExecutorMixin,
+        )
+
+        executor = CrewAgentExecutorMixin()
+        executor.crew = MagicMock()
+        executor.crew._train = False
+        executor._printer = MagicMock()
 
         formatter = event_listener.formatter
 
@@ -66,10 +75,10 @@ class TestFlowHumanInputIntegration:
                 formatter, "resume_live_updates", side_effect=track_resume
             ),
         ):
-            result1 = provider._prompt_input(crew)
+            result1 = executor._ask_human_input("Test result 1")
             assert result1 == "feedback"
 
-            result2 = provider._prompt_input(crew)
+            result2 = executor._ask_human_input("Test result 2")
             assert result2 == ""
 
             assert len(pause_calls) == 2
@@ -94,9 +103,14 @@ class TestFlowHumanInputIntegration:
 
     def test_pause_resume_exception_handling(self):
         """Test that resume is called even if exception occurs during human input."""
-        provider = SyncHumanInputProvider()
-        crew = MagicMock()
-        crew._train = False
+        from crewai.agents.agent_builder.base_agent_executor_mixin import (
+            CrewAgentExecutorMixin,
+        )
+
+        executor = CrewAgentExecutorMixin()
+        executor.crew = MagicMock()
+        executor.crew._train = False
+        executor._printer = MagicMock()
 
         formatter = event_listener.formatter
 
@@ -108,16 +122,21 @@ class TestFlowHumanInputIntegration:
             ),
         ):
             with pytest.raises(KeyboardInterrupt):
-                provider._prompt_input(crew)
+                executor._ask_human_input("Test result")
 
             mock_pause.assert_called_once()
             mock_resume.assert_called_once()
 
     def test_training_mode_human_input(self):
         """Test human input in training mode."""
-        provider = SyncHumanInputProvider()
-        crew = MagicMock()
-        crew._train = True
+        from crewai.agents.agent_builder.base_agent_executor_mixin import (
+            CrewAgentExecutorMixin,
+        )
+
+        executor = CrewAgentExecutorMixin()
+        executor.crew = MagicMock()
+        executor.crew._train = True
+        executor._printer = MagicMock()
 
         formatter = event_listener.formatter
 
@@ -127,7 +146,7 @@ class TestFlowHumanInputIntegration:
             patch.object(formatter.console, "print") as mock_console_print,
             patch("builtins.input", return_value="training feedback"),
         ):
-            result = provider._prompt_input(crew)
+            result = executor._ask_human_input("Test result")
 
             mock_pause.assert_called_once()
             mock_resume.assert_called_once()

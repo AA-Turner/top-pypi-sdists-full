@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.2.1
+Version: 2.3.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -21,16 +21,18 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.12
-Requires-Dist: agent-client-protocol==0.8.0
+Requires-Dist: agent-client-protocol==0.8.1
 Requires-Dist: anyio>=4.12.0
+Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cryptography<=46.0.3,>=44.0.0
 Requires-Dist: gitpython>=3.1.46
 Requires-Dist: giturlparse>=0.14.0
 Requires-Dist: google-auth>=2.0.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: keyring>=25.6.0
+Requires-Dist: markdownify>=1.2.2
 Requires-Dist: mcp>=1.14.0
-Requires-Dist: mistralai==1.9.11
+Requires-Dist: mistralai==1.12.4
 Requires-Dist: packaging>=24.1
 Requires-Dist: pexpect>=4.9.0
 Requires-Dist: pydantic-settings>=2.12.0
@@ -620,6 +622,16 @@ To disable auto-updates, add this to your `config.toml`:
 
 ```toml
 enable_auto_update = false
+```
+
+### Notification Settings
+
+Vibe can notify you when the agent needs your attention (awaiting approval, asking a question, or task complete). This is useful when you switch to another window while the agent works.
+
+To disable notifications:
+
+```toml
+enable_notifications = false
 ```
 
 ### Custom Vibe Home Directory

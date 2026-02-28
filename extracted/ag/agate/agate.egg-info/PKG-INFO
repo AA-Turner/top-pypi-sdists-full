@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agate
-Version: 1.14.1
+Version: 1.14.2
 Summary: A data analysis library that is optimized for humans instead of machines.
 Author-email: Christopher Groskopf <chrisgroskopf@gmail.com>
 License: MIT
@@ -46,8 +46,8 @@ Dynamic: license-file
     :target: https://github.com/wireservice/agate/actions
     :alt: Build status
 
-.. image:: https://coveralls.io/repos/wireservice/agate/badge.svg?branch=master
-    :target: https://coveralls.io/r/wireservice/agate
+.. image:: https://codecov.io/github/wireservice/agate/graph/badge.svg
+    :target: https://codecov.io/github/wireservice/agate
     :alt: Coverage status
 
 .. image:: https://img.shields.io/pypi/dm/agate.svg

@@ -1082,6 +1082,7 @@ class TaskResult(_message.Message):
     USER_ERROR_FIELD_NUMBER: _builtins.int
     INTERRUPTS_FIELD_NUMBER: _builtins.int
     PARENT_COMMAND_FIELD_NUMBER: _builtins.int
+    RECURSION_LIMIT_ERROR_FIELD_NUMBER: _builtins.int
     WRITES_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def user_error(self) -> _errors_pb2.UserCodeExecutionError: ...
@@ -1090,6 +1091,8 @@ class TaskResult(_message.Message):
     @_builtins.property
     def parent_command(self) -> Global___ParentCommand: ...
     @_builtins.property
+    def recursion_limit_error(self) -> _errors_pb2.GraphRecursionLimitError: ...
+    @_builtins.property
     def writes(self) -> _containers.RepeatedCompositeFieldContainer[Global___Write]: ...
     def __init__(
         self,
@@ -1097,13 +1100,14 @@ class TaskResult(_message.Message):
         user_error: _errors_pb2.UserCodeExecutionError | None = ...,
         interrupts: Global___WrappedInterrupts | None = ...,
         parent_command: Global___ParentCommand | None = ...,
+        recursion_limit_error: _errors_pb2.GraphRecursionLimitError | None = ...,
         writes: _abc.Iterable[Global___Write] | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["interrupts", b"interrupts", "message", b"message", "parent_command", b"parent_command", "user_error", b"user_error"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["interrupts", b"interrupts", "message", b"message", "parent_command", b"parent_command", "recursion_limit_error", b"recursion_limit_error", "user_error", b"user_error"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["interrupts", b"interrupts", "message", b"message", "parent_command", b"parent_command", "user_error", b"user_error", "writes", b"writes"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["interrupts", b"interrupts", "message", b"message", "parent_command", b"parent_command", "recursion_limit_error", b"recursion_limit_error", "user_error", b"user_error", "writes", b"writes"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["user_error", "interrupts", "parent_command"]  # noqa: Y015
+    _WhichOneofReturnType_message: _TypeAlias = _typing.Literal["user_error", "interrupts", "parent_command", "recursion_limit_error"]  # noqa: Y015
     _WhichOneofArgType_message: _TypeAlias = _typing.Literal["message", b"message"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_message) -> _WhichOneofReturnType_message | None: ...
 

@@ -257,6 +257,7 @@ from arthur_client.api_bindings.models.patch_project import PatchProject
 from arthur_client.api_bindings.models.patch_service_account_user import PatchServiceAccountUser
 from arthur_client.api_bindings.models.patch_task_request import PatchTaskRequest
 from arthur_client.api_bindings.models.patch_unregistered_agent import PatchUnregisteredAgent
+from arthur_client.api_bindings.models.patch_unregistered_agent_request import PatchUnregisteredAgentRequest
 from arthur_client.api_bindings.models.patch_user import PatchUser
 from arthur_client.api_bindings.models.patch_webhook import PatchWebhook
 from arthur_client.api_bindings.models.patch_workspace import PatchWorkspace

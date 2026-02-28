@@ -2,8 +2,8 @@ import time
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 import webbrowser
 
-import httpx
 from pydantic import BaseModel, Field
+import requests
 from rich.console import Console
 
 from crewai.cli.authentication.utils import validate_jwt_token
@@ -98,7 +98,7 @@ class AuthenticationCommand:
             "scope": " ".join(self.oauth2_provider.get_oauth_scopes()),
             "audience": self.oauth2_provider.get_audience(),
         }
-        response = httpx.post(
+        response = requests.post(
             url=self.oauth2_provider.get_authorize_url(),
             data=device_code_payload,
             timeout=20,
@@ -130,7 +130,7 @@ class AuthenticationCommand:
 
         attempts = 0
         while True and attempts < 10:
-            response = httpx.post(
+            response = requests.post(
                 self.oauth2_provider.get_token_url(), data=token_payload, timeout=30
             )
             token_data = response.json()
@@ -149,7 +149,7 @@ class AuthenticationCommand:
                 return
 
             if token_data["error"] not in ("authorization_pending", "slow_down"):
-                raise httpx.HTTPError(
+                raise requests.HTTPError(
                     token_data.get("error_description") or token_data.get("error")
                 )
 

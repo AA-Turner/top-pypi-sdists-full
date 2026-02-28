@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-nightly
-Version: 1.54.1.dev20260225
+Version: 1.54.1.dev20260226
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0

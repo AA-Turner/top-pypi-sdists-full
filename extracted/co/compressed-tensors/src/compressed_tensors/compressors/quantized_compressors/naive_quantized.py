@@ -1,18 +1,5 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from typing import Dict, Optional, Tuple
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import torch
 from compressed_tensors.compressors.base import BaseCompressor
@@ -20,9 +7,12 @@ from compressed_tensors.compressors.quantized_compressors.base import (
     BaseQuantizationCompressor,
 )
 from compressed_tensors.config import CompressionFormat
-from compressed_tensors.quantization import QuantizationArgs
+from compressed_tensors.quantization import QuantizationArgs, QuantizationStrategy
 from compressed_tensors.quantization.lifecycle.forward import dequantize, quantize
-from compressed_tensors.quantization.utils import can_quantize
+from compressed_tensors.quantization.utils import (
+    can_quantize,
+    maybe_pad_tensor_for_block_quant,
+)
 from torch import Tensor
 
 
@@ -42,7 +32,7 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
     """
 
     @property
-    def compression_param_names(self) -> Tuple[str]:
+    def compression_param_names(self) -> tuple[str, ...]:
         """
         Returns a tuple of compression parameter names introduced by
         the compressor during compression
@@ -57,8 +47,8 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
     def compression_param_info(
         self,
         weight_shape: torch.Size,
-        quantization_args: Optional[QuantizationArgs] = None,
-    ) -> Dict[str, Tuple[torch.Size, torch.dtype]]:
+        quantization_args: QuantizationArgs | None = None,
+    ) -> dict[str, tuple[torch.Size, torch.dtype]]:
         """
         Creates a dictionary of expected shapes and dtypes for each compression
             parameter used by the compressor
@@ -75,11 +65,11 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
         weight: Tensor,
         scale: Tensor,
         quantization_args: QuantizationArgs,
-        zero_point: Optional[Tensor] = None,
-        g_idx: Optional[torch.Tensor] = None,
-        device: Optional[torch.device] = None,
-        global_scale: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        zero_point: Tensor | None = None,
+        g_idx: torch.Tensor | None = None,
+        device: torch.device | None = None,
+        global_scale: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Compresses a single uncompressed weight
 
@@ -96,6 +86,18 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
                 "global_scale is not supported for the NaiveQuantizationCompressor"
             )
 
+        original_weight_shape = weight.shape
+
+        # For block quantization, pad weight to divisible dimensions
+        # This ensures proper scale alignment when layers are merged in vLLM
+        if (
+            quantization_args.strategy == QuantizationStrategy.BLOCK
+            and quantization_args.block_structure is not None
+        ):
+            block_structure = tuple(quantization_args.block_structure)
+
+            weight = maybe_pad_tensor_for_block_quant(weight, block_structure)
+
         if can_quantize(weight, quantization_args):
             quantized_weight = quantize(
                 x=weight,
@@ -111,12 +113,19 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
         if device is not None:
             quantized_weight = quantized_weight.to(device)
 
+        if quantized_weight.shape != original_weight_shape:
+            # return quantized_weight truncated back to original shape
+            return {
+                "weight": quantized_weight[
+                    tuple([slice(v) for v in original_weight_shape])
+                ]
+            }
         return {"weight": quantized_weight}
 
     def decompress_weight(
         self,
-        compressed_data: Dict[str, Tensor],
-        quantization_args: Optional[QuantizationArgs] = None,
+        compressed_data: dict[str, Tensor],
+        quantization_args: QuantizationArgs | None = None,
     ) -> torch.Tensor:
         """
         Decompresses a single compressed weight
@@ -129,6 +138,7 @@ class NaiveQuantizationCompressor(BaseQuantizationCompressor):
         scale = compressed_data["weight_scale"]
         zero_point = compressed_data.get("weight_zero_point", None)
         g_idx = compressed_data.get("weight_g_idx", None)
+
         decompressed_weight = dequantize(
             x_q=weight, scale=scale, zero_point=zero_point, g_idx=g_idx
         )

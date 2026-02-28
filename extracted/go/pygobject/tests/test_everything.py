@@ -18,13 +18,6 @@ from gi.repository import GObject
 from gi.repository import GLib
 from gi.repository import Gio
 
-try:
-    from gi.repository import Gtk
-
-    Gtk
-except ImportError:
-    Gtk = None
-
 from .helper import capture_exceptions
 
 
@@ -620,6 +613,18 @@ class TestEverything(unittest.TestCase):
         with pytest.raises(UnicodeDecodeError):
             Everything.test_array_of_non_utf8_strings()
 
+    def test_array_callback(self):
+        TestCallbacks.called = 0
+
+        def callback(ints, ints_length, strings, strings_length):
+            self.assertEqual(ints, [-1, 0, 1, 2])
+            self.assertEqual(strings, ["one", "two", "three"])
+            TestCallbacks.called += 1
+            return TestCallbacks.called
+
+        Everything.test_array_callback(callback)
+        self.assertEqual(TestCallbacks.called, 2)
+
     def test_garray_container_return(self):
         # GPtrArray transfer container
         result = Everything.test_garray_container_return()
@@ -663,10 +668,6 @@ class TestEverything(unittest.TestCase):
         Everything.test_glist_nothing_in(["1", "2", "3"])
         Everything.test_glist_nothing_in2(["1", "2", "3"])
 
-    @unittest.skipUnless(
-        hasattr(Everything, "test_glist_gtype_container_in"),
-        "Requires newer version of GI",
-    )
     def test_glist_gtype(self):
         Everything.test_glist_gtype_container_in(
             [Everything.TestObj, Everything.TestSubObj]
@@ -949,9 +950,6 @@ class TestCallbacks(unittest.TestCase):
         if hasattr(sys, "getrefcount"):
             self.assertEqual(sys.getrefcount(callback), refcount)
 
-    @unittest.skipUnless(
-        hasattr(Everything, "test_array_inout_callback"), "Requires newer version of GI"
-    )
     def test_callback_scope_call_array_inout(self):
         # This tests a callback that gets called multiple times from a
         # single scope call in python with inout array arguments
@@ -1367,7 +1365,6 @@ class TestBoxed(unittest.TestCase):
         self.assertEqual(obj.refcount, 2)
         del wrapper
         gc.collect()
-        gc.collect()
         self.assertEqual(obj.refcount, 1)
 
     def test_boxed_c_wrapper_copy(self):
@@ -1383,14 +1380,11 @@ class TestBoxed(unittest.TestCase):
         self.assertEqual(obj.refcount, 3)
         del wrapper
         gc.collect()
-        gc.collect()
         self.assertEqual(obj.refcount, 2)
         del wrapper_copy
         gc.collect()
-        gc.collect()
         self.assertEqual(obj.refcount, 1)
         del obj
-        gc.collect()
         gc.collect()
 
     def test_array_fixed_boxed_none_out(self):
@@ -1426,7 +1420,6 @@ class TestTortureProfile(unittest.TestCase):
     def test_torture_profile(self):
         total_time = 0
         object_ = Everything.TestObj()
-        sys.stdout.write("\ttorture test 1 (10000 iterations): ")
 
         start_time = timeit.default_timer()
         for i in range(10000):
@@ -1435,8 +1428,6 @@ class TestTortureProfile(unittest.TestCase):
         end_time = timeit.default_timer()
         delta_time = end_time - start_time
         total_time += delta_time
-
-        sys.stdout.write("\ttorture test 2 (10000 iterations): ")
 
         start_time = timeit.default_timer()
         for i in range(10000):
@@ -1448,7 +1439,6 @@ class TestTortureProfile(unittest.TestCase):
         delta_time = end_time - start_time
         total_time += delta_time
 
-        sys.stdout.write("\ttorture test 3 (10000 iterations): ")
         start_time = timeit.default_timer()
         for i in range(10000):
             with contextlib.suppress(Exception):
@@ -1458,8 +1448,6 @@ class TestTortureProfile(unittest.TestCase):
         end_time = timeit.default_timer()
         delta_time = end_time - start_time
         total_time += delta_time
-
-        sys.stdout.write("\ttorture test 4 (10000 iterations): ")
 
         def callback(userdata):
             return 0

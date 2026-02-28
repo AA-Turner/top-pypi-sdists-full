@@ -8,14 +8,22 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.offline_store_connection_pb2 import (
+    CreateBindingEnvironmentOfflineStoreConnectionRequest,
+    CreateBindingEnvironmentOfflineStoreConnectionResponse,
     CreateOfflineStoreConnectionRequest,
     CreateOfflineStoreConnectionResponse,
+    DeleteBindingEnvironmentOfflineStoreConnectionRequest,
+    DeleteBindingEnvironmentOfflineStoreConnectionResponse,
     DeleteOfflineStoreConnectionRequest,
     DeleteOfflineStoreConnectionResponse,
+    GetBindingEnvironmentOfflineStoreConnectionRequest,
+    GetBindingEnvironmentOfflineStoreConnectionResponse,
     GetOfflineStoreConnectionRequest,
     GetOfflineStoreConnectionResponse,
     ListOfflineStoreConnectionsRequest,
     ListOfflineStoreConnectionsResponse,
+    MigrateOfflineStoreConnectionRequest,
+    MigrateOfflineStoreConnectionResponse,
     TestOfflineStoreConnectionRequest,
     TestOfflineStoreConnectionResponse,
     UpdateOfflineStoreConnectionRequest,
@@ -53,6 +61,22 @@ class OfflineStoreConnectionServiceStub:
     TestOfflineStoreConnection: UnaryUnaryMultiCallable[
         TestOfflineStoreConnectionRequest,
         TestOfflineStoreConnectionResponse,
+    ]
+    CreateBindingEnvironmentOfflineStoreConnection: UnaryUnaryMultiCallable[
+        CreateBindingEnvironmentOfflineStoreConnectionRequest,
+        CreateBindingEnvironmentOfflineStoreConnectionResponse,
+    ]
+    GetBindingEnvironmentOfflineStoreConnection: UnaryUnaryMultiCallable[
+        GetBindingEnvironmentOfflineStoreConnectionRequest,
+        GetBindingEnvironmentOfflineStoreConnectionResponse,
+    ]
+    DeleteBindingEnvironmentOfflineStoreConnection: UnaryUnaryMultiCallable[
+        DeleteBindingEnvironmentOfflineStoreConnectionRequest,
+        DeleteBindingEnvironmentOfflineStoreConnectionResponse,
+    ]
+    MigrateOfflineStoreConnection: UnaryUnaryMultiCallable[
+        MigrateOfflineStoreConnectionRequest,
+        MigrateOfflineStoreConnectionResponse,
     ]
 
 class OfflineStoreConnectionServiceServicer(metaclass=ABCMeta):
@@ -92,6 +116,30 @@ class OfflineStoreConnectionServiceServicer(metaclass=ABCMeta):
         request: TestOfflineStoreConnectionRequest,
         context: ServicerContext,
     ) -> TestOfflineStoreConnectionResponse: ...
+    @abstractmethod
+    def CreateBindingEnvironmentOfflineStoreConnection(
+        self,
+        request: CreateBindingEnvironmentOfflineStoreConnectionRequest,
+        context: ServicerContext,
+    ) -> CreateBindingEnvironmentOfflineStoreConnectionResponse: ...
+    @abstractmethod
+    def GetBindingEnvironmentOfflineStoreConnection(
+        self,
+        request: GetBindingEnvironmentOfflineStoreConnectionRequest,
+        context: ServicerContext,
+    ) -> GetBindingEnvironmentOfflineStoreConnectionResponse: ...
+    @abstractmethod
+    def DeleteBindingEnvironmentOfflineStoreConnection(
+        self,
+        request: DeleteBindingEnvironmentOfflineStoreConnectionRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingEnvironmentOfflineStoreConnectionResponse: ...
+    @abstractmethod
+    def MigrateOfflineStoreConnection(
+        self,
+        request: MigrateOfflineStoreConnectionRequest,
+        context: ServicerContext,
+    ) -> MigrateOfflineStoreConnectionResponse: ...
 
 def add_OfflineStoreConnectionServiceServicer_to_server(
     servicer: OfflineStoreConnectionServiceServicer, server: Server

@@ -305,6 +305,30 @@ extra/test_structural_equal_hash.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_equal_hash.cc.s
 .PHONY : extra/test_structural_equal_hash.cc.s
 
+extra/test_structural_key.o: extra/test_structural_key.cc.o
+.PHONY : extra/test_structural_key.o
+
+# target to build an object file
+extra/test_structural_key.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.o
+.PHONY : extra/test_structural_key.cc.o
+
+extra/test_structural_key.i: extra/test_structural_key.cc.i
+.PHONY : extra/test_structural_key.i
+
+# target to preprocess a source file
+extra/test_structural_key.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.i
+.PHONY : extra/test_structural_key.cc.i
+
+extra/test_structural_key.s: extra/test_structural_key.cc.s
+.PHONY : extra/test_structural_key.s
+
+# target to generate assembly for a file
+extra/test_structural_key.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.s
+.PHONY : extra/test_structural_key.cc.s
+
 test_any.o: test_any.cc.o
 .PHONY : test_any.o
 
@@ -376,6 +400,30 @@ test_base.s: test_base.cc.s
 test_base.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_base.cc.s
 .PHONY : test_base.cc.s
+
+test_dict.o: test_dict.cc.o
+.PHONY : test_dict.o
+
+# target to build an object file
+test_dict.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_dict.cc.o
+.PHONY : test_dict.cc.o
+
+test_dict.i: test_dict.cc.i
+.PHONY : test_dict.i
+
+# target to preprocess a source file
+test_dict.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_dict.cc.i
+.PHONY : test_dict.cc.i
+
+test_dict.s: test_dict.cc.s
+.PHONY : test_dict.s
+
+# target to generate assembly for a file
+test_dict.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_dict.cc.s
+.PHONY : test_dict.cc.s
 
 test_dtype.o: test_dtype.cc.o
 .PHONY : test_dtype.o
@@ -449,6 +497,30 @@ test_example.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_example.cc.s
 .PHONY : test_example.cc.s
 
+test_expected.o: test_expected.cc.o
+.PHONY : test_expected.o
+
+# target to build an object file
+test_expected.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected.cc.o
+.PHONY : test_expected.cc.o
+
+test_expected.i: test_expected.cc.i
+.PHONY : test_expected.i
+
+# target to preprocess a source file
+test_expected.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected.cc.i
+.PHONY : test_expected.cc.i
+
+test_expected.s: test_expected.cc.s
+.PHONY : test_expected.s
+
+# target to generate assembly for a file
+test_expected.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_expected.cc.s
+.PHONY : test_expected.cc.s
+
 test_function.o: test_function.cc.o
 .PHONY : test_function.o
 
@@ -472,6 +544,54 @@ test_function.s: test_function.cc.s
 test_function.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_function.cc.s
 .PHONY : test_function.cc.s
+
+test_init_once.o: test_init_once.cc.o
+.PHONY : test_init_once.o
+
+# target to build an object file
+test_init_once.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_init_once.cc.o
+.PHONY : test_init_once.cc.o
+
+test_init_once.i: test_init_once.cc.i
+.PHONY : test_init_once.i
+
+# target to preprocess a source file
+test_init_once.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_init_once.cc.i
+.PHONY : test_init_once.cc.i
+
+test_init_once.s: test_init_once.cc.s
+.PHONY : test_init_once.s
+
+# target to generate assembly for a file
+test_init_once.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_init_once.cc.s
+.PHONY : test_init_once.cc.s
+
+test_list.o: test_list.cc.o
+.PHONY : test_list.o
+
+# target to build an object file
+test_list.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_list.cc.o
+.PHONY : test_list.cc.o
+
+test_list.i: test_list.cc.i
+.PHONY : test_list.i
+
+# target to preprocess a source file
+test_list.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_list.cc.i
+.PHONY : test_list.cc.i
+
+test_list.s: test_list.cc.s
+.PHONY : test_list.s
+
+# target to generate assembly for a file
+test_list.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_list.cc.s
+.PHONY : test_list.cc.s
 
 test_map.o: test_map.cc.o
 .PHONY : test_map.o
@@ -790,6 +910,9 @@ help:
 	@echo "... extra/test_structural_equal_hash.o"
 	@echo "... extra/test_structural_equal_hash.i"
 	@echo "... extra/test_structural_equal_hash.s"
+	@echo "... extra/test_structural_key.o"
+	@echo "... extra/test_structural_key.i"
+	@echo "... extra/test_structural_key.s"
 	@echo "... test_any.o"
 	@echo "... test_any.i"
 	@echo "... test_any.s"
@@ -799,6 +922,9 @@ help:
 	@echo "... test_base.o"
 	@echo "... test_base.i"
 	@echo "... test_base.s"
+	@echo "... test_dict.o"
+	@echo "... test_dict.i"
+	@echo "... test_dict.s"
 	@echo "... test_dtype.o"
 	@echo "... test_dtype.i"
 	@echo "... test_dtype.s"
@@ -808,9 +934,18 @@ help:
 	@echo "... test_example.o"
 	@echo "... test_example.i"
 	@echo "... test_example.s"
+	@echo "... test_expected.o"
+	@echo "... test_expected.i"
+	@echo "... test_expected.s"
 	@echo "... test_function.o"
 	@echo "... test_function.i"
 	@echo "... test_function.s"
+	@echo "... test_init_once.o"
+	@echo "... test_init_once.i"
+	@echo "... test_init_once.s"
+	@echo "... test_list.o"
+	@echo "... test_list.i"
+	@echo "... test_list.s"
 	@echo "... test_map.o"
 	@echo "... test_map.i"
 	@echo "... test_map.s"

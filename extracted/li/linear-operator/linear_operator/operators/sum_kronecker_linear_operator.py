@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-from typing import Callable, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Callable
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import LinearOperator
@@ -39,17 +40,17 @@ class SumKroneckerLinearOperator(SumLinearOperator):
         return inv_root_times_lt1
 
     def _solve(
-        self: Float[LinearOperator, "... N N"],
-        rhs: Float[torch.Tensor, "... N C"],
-        preconditioner: Optional[Callable[[Float[torch.Tensor, "... N C"]], Float[torch.Tensor, "... N C"]]] = None,
-        num_tridiag: Optional[int] = 0,
-    ) -> Union[
-        Float[torch.Tensor, "... N C"],
-        Tuple[
-            Float[torch.Tensor, "... N C"],
-            Float[torch.Tensor, "..."],  # Note that in case of a tuple the second term size depends on num_tridiag
-        ],
-    ]:
+        self: LinearOperator,  # shape: (..., N, N)
+        rhs: torch.Tensor,  # shape: (..., N, C)
+        preconditioner: Callable[[torch.Tensor], torch.Tensor] | None = None,  # shape: (..., N, C)
+        num_tridiag: int | None = 0,
+    ) -> (
+        torch.Tensor  # shape: (..., N, C)
+        | tuple[
+            torch.Tensor,  # shape: (..., N, C)
+            torch.Tensor,  # Note that in case of a tuple the second term size depends on num_tridiag  # shape: (...)
+        ]
+    ):
         inner_mat = self._sum_formulation
         # root decomposition may not be trustworthy if it uses a different method than
         # root_inv_decomposition. so ensure that we call this locally
@@ -64,14 +65,16 @@ class SumKroneckerLinearOperator(SumLinearOperator):
 
         return res
 
-    def _logdet(self: Float[LinearOperator, "*batch M N"]) -> Float[Tensor, " *batch"]:
+    def _logdet(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> Tensor:  # shape: (*batch)
         inner_mat = self._sum_formulation
         lt2_logdet = self.linear_ops[1].logdet()
         return inner_mat._logdet() + lt2_logdet
 
     def _root_decomposition(
-        self: Float[LinearOperator, "... N N"]
-    ) -> Union[Float[torch.Tensor, "... N N"], Float[LinearOperator, "... N N"]]:
+        self: LinearOperator,  # shape: (..., N, N)
+    ) -> torch.Tensor | LinearOperator:  # shape: (..., N, N)
         inner_mat = self._sum_formulation
         lt2_root = KroneckerProductLinearOperator(
             *[lt.root_decomposition().root for lt in self.linear_ops[1].linear_ops]
@@ -81,10 +84,10 @@ class SumKroneckerLinearOperator(SumLinearOperator):
         return root
 
     def _root_inv_decomposition(
-        self: Float[LinearOperator, "*batch N N"],
-        initial_vectors: Optional[torch.Tensor] = None,
-        test_vectors: Optional[torch.Tensor] = None,
-    ) -> Union[Float[LinearOperator, "... N N"], Float[Tensor, "... N N"]]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        initial_vectors: torch.Tensor | None = None,
+        test_vectors: torch.Tensor | None = None,
+    ) -> LinearOperator | Tensor:  # shape: (..., N, N)
         inner_mat = self._sum_formulation
         lt2_root_inv = self.linear_ops[1].root_inv_decomposition().root
         inner_mat_root_inv = inner_mat.root_inv_decomposition().root
@@ -92,14 +95,14 @@ class SumKroneckerLinearOperator(SumLinearOperator):
         return inv_root
 
     def inv_quad_logdet(
-        self: Float[LinearOperator, "*batch N N"],
-        inv_quad_rhs: Optional[Union[Float[Tensor, "*batch N M"], Float[Tensor, "*batch N"]]] = None,
-        logdet: Optional[bool] = False,
-        reduce_inv_quad: Optional[bool] = True,
-    ) -> Tuple[
-        Optional[Union[Float[Tensor, "*batch M"], Float[Tensor, " *batch"], Float[Tensor, " 0"]]],
-        Optional[Float[Tensor, "..."]],
-    ]:
+        self: LinearOperator,  # shape: (*batch, N, N)
+        inv_quad_rhs: Tensor | None = None,  # shape: (*batch, N, M) or (*batch, N)
+        logdet: bool | None = False,
+        reduce_inv_quad: bool | None = True,
+    ) -> tuple[  # fmt: off
+        Tensor | None,  # shape: (*batch, M) or (*batch) or (0)
+        Tensor | None,  # shape: (...)
+    ]:  # fmt: on
         inv_quad_term = None
         logdet_term = None
 

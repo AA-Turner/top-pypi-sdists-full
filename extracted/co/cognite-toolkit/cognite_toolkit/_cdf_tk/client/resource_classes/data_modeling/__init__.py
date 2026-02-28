@@ -1,3 +1,18 @@
+from cognite_toolkit._cdf_tk.client.identifiers._data_modeling import (
+    ContainerConstraintReference,
+    ContainerDirectReference,
+    ContainerIndexReference,
+    ContainerReference,
+    DataModelReference,
+    DataModelReferenceNoVersion,
+    EdgeReference,
+    NodeReference,
+    SpaceReference,
+    ViewDirectReference,
+    ViewReference,
+    ViewReferenceNoVersion,
+)
+
 from ._constraints import (
     Constraint,
     ConstraintAdapter,
@@ -49,6 +64,7 @@ from ._instance import (
     InstanceRequest,
     InstanceResponse,
     InstanceResponseDefinition,
+    InstanceSlimDefinition,
     InstanceSource,
     NodeRequest,
     NodeResponse,
@@ -70,20 +86,6 @@ from ._query import (
     QueryThrough,
     QueryUnitReference,
 )
-from ._references import (
-    ContainerConstraintReference,
-    ContainerDirectReference,
-    ContainerIndexReference,
-    ContainerReference,
-    DataModelReference,
-    DataModelReferenceNoVersion,
-    EdgeReference,
-    NodeReference,
-    SpaceReference,
-    ViewDirectReference,
-    ViewReference,
-    ViewReferenceNoVersion,
-)
 from ._space import Space, SpaceRequest, SpaceResponse
 from ._view import View, ViewRequest, ViewResponse
 from ._view_property import (
@@ -104,6 +106,17 @@ from ._view_property import (
     ViewRequestProperty,
     ViewRequestPropertyAdapter,
     ViewResponseProperty,
+)
+from ._wrapped import (
+    T_InstancesListRequest,
+    T_InstancesListResponse,
+    T_WrappedInstanceRequest,
+    T_WrappedInstanceResponse,
+    WrappedInstanceListRequest,
+    WrappedInstanceListResponse,
+    WrappedInstanceRequest,
+    WrappedInstanceResponse,
+    move_properties,
 )
 
 __all__ = [
@@ -148,6 +161,7 @@ __all__ = [
     "InstanceRequest",
     "InstanceResponse",
     "InstanceResponseDefinition",
+    "InstanceSlimDefinition",
     "InstanceSource",
     "Int32Property",
     "Int64Property",
@@ -186,6 +200,10 @@ __all__ = [
     "SpaceReference",
     "SpaceRequest",
     "SpaceResponse",
+    "T_InstancesListRequest",
+    "T_InstancesListResponse",
+    "T_WrappedInstanceRequest",
+    "T_WrappedInstanceResponse",
     "TextProperty",
     "TimeseriesCDFExternalIdReference",
     "TimestampProperty",
@@ -204,4 +222,9 @@ __all__ = [
     "ViewRequestPropertyAdapter",
     "ViewResponse",
     "ViewResponseProperty",
+    "WrappedInstanceListRequest",
+    "WrappedInstanceListResponse",
+    "WrappedInstanceRequest",
+    "WrappedInstanceResponse",
+    "move_properties",
 ]

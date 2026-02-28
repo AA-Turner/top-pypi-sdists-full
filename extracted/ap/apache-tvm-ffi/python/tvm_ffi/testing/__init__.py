@@ -16,8 +16,10 @@
 # under the License.
 """Testing utilities."""
 
+from ._ffi_api import *  # noqa: F403
 from .testing import (
     TestIntPair,
+    TestNonCopyable,
     TestObjectBase,
     TestObjectDerived,
     _SchemaAllTypes,
@@ -25,6 +27,7 @@ from .testing import (
     _TestCxxClassDerived,
     _TestCxxClassDerivedDerived,
     _TestCxxInitSubset,
+    _TestCxxKwOnly,
     add_one,
     create_object,
     make_unregistered_object,

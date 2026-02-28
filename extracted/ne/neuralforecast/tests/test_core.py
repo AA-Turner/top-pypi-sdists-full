@@ -32,6 +32,7 @@ from neuralforecast.auto import (
     DeepAR,
     DilatedRNN,
     Informer,
+    MLPMultivariate,
     NBEATSx,
     StemGNN,
     TSMixer,
@@ -53,6 +54,7 @@ from neuralforecast.core import (
 from neuralforecast.losses.pytorch import (
     GMM,
     MAE,
+    MASE,
     NBMM,
     PMM,
     DistributionLoss,
@@ -1039,6 +1041,46 @@ def test_save_load_no_dataset(setup_airplane_data):
     forecasts2 = fcst2.predict(df=AirPassengersPanel_train, futr_df=AirPassengersPanel_test)
     np.testing.assert_allclose(forecasts1["DilatedRNN"], forecasts2["DilatedRNN"])
 
+
+def test_save_skips_nonzero_ddp_rank(monkeypatch, tmp_path):
+    """Only rank 0 should write artifacts when DDP is initialized."""
+    dist = pytest.importorskip("torch.distributed")
+    monkeypatch.setattr(dist, "is_initialized", lambda: True)
+    monkeypatch.setattr(dist, "get_rank", lambda: 1)
+
+    fcst = NeuralForecast(
+        models=[DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1)],
+        freq="M",
+    )
+    save_path = tmp_path / "ddp_rank_1_save"
+    fcst.save(path=str(save_path), model_index=None, overwrite=True, save_dataset=False)
+
+    assert not save_path.exists()
+
+
+def test_save_runs_on_rank0_ddp(monkeypatch, tmp_path, setup_airplane_data):
+    """Rank-0 DDP process must save all artifacts normally."""
+    dist = pytest.importorskip("torch.distributed")
+
+    AirPassengersPanel_train, _ = setup_airplane_data
+    fcst = NeuralForecast(
+        models=[DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1)],
+        freq="M",
+    )
+    fcst.fit(AirPassengersPanel_train)
+
+    save_path = tmp_path / "ddp_rank_0_save"
+    with monkeypatch.context() as m:
+        m.setattr(dist, "is_initialized", lambda: True)
+        m.setattr(dist, "get_rank", lambda: 0)
+        fcst.save(
+            path=str(save_path), model_index=None, overwrite=False, save_dataset=False
+        )
+
+    assert save_path.exists()
+    assert (save_path / "alias_to_model.pkl").exists()
+    assert (save_path / "configuration.pkl").exists()
+
 # test `enable_checkpointing=True` should generate chkpt
 def test_enable_checkpointing(setup_airplane_data):
     AirPassengersPanel_train, _ = setup_airplane_data
@@ -1839,11 +1881,9 @@ def test_explainability(explainer, use_polars, horizons, recursive_horizon):
     
     for model in models:
         model_name = model.alias or model.__class__.__name__
-        
+
         # Check skip conditions
-        if model.MULTIVARIATE:
-            skipped_models.add(model_name)
-        elif hasattr(model.loss, 'is_distribution_output') and model.loss.is_distribution_output:
+        if hasattr(model.loss, 'is_distribution_output') and model.loss.is_distribution_output:
             skipped_models.add(model_name)
         elif model.RECURRENT and explainer == ExplainerEnum.IntegratedGradients:
             skipped_models.add(model_name)
@@ -1863,13 +1903,19 @@ def test_explainability(explainer, use_polars, horizons, recursive_horizon):
     # Test explained model
     for model_name in expected_explanations:
         expl = explanations[model_name]
+        model_obj = next(m for m in models if (m.alias or m.__class__.__name__) == model_name)
+
+        # Multivariate shape assertions are covered by test_explainability_multivariate
+        if model_obj.MULTIVARIATE:
+            assert expl["insample"] is not None
+            continue
 
         # Basic structure tests
         assert expl["insample"] is not None
         expected_input_size = input_size
         if model_name == "LSTM-recurrent":
             expected_input_size = input_size + h_train
-        
+
         batch_size = n_series
         n_series_ = 1
         expected_insample_shape = (
@@ -1898,34 +1944,33 @@ def test_explainability(explainer, use_polars, horizons, recursive_horizon):
             
         
         # Check exogenous if model has them
-        model = next(m for m in models if (m.alias or m.__class__.__name__) == model_name)
-        if model.futr_exog_list:
+        if model_obj.futr_exog_list:
             if recursive_horizon:
-                futr_temporal_size = model.input_size + model.h
+                futr_temporal_size = model_obj.input_size + model_obj.h
             else:
-                futr_temporal_size = model.input_size + h
+                futr_temporal_size = model_obj.input_size + h
             expected_futr_shape = (
-                batch_size,                 # batch size
-                len(horizons),              # horizons
-                n_series_,                  # n_series (1 for univariate)
-                len(outputs),               # n_outputs
-                futr_temporal_size,         # n_input_steps (past + future)
-                len(model.futr_exog_list),  # number of features
+                batch_size,                     # batch size
+                len(horizons),                  # horizons
+                n_series_,                      # n_series (1 for univariate)
+                len(outputs),                   # n_outputs
+                len(model_obj.futr_exog_list),  # number of features
+                futr_temporal_size,             # n_input_steps (past + future)
             )
             assert expl["futr_exog"] is not None
             assert expl["futr_exog"].shape == expected_futr_shape
-        if model.hist_exog_list:
+        if model_obj.hist_exog_list:
             expected_hist_shape = (
-                batch_size,                # batch size
-                len(horizons),             # horizons
-                n_series_,                 # n_series (1 for univariate)
-                len(outputs),              # n_outputs
-                model.input_size,          # n_input_steps (past)
-                len(model.hist_exog_list), # number of features
+                batch_size,                     # batch size
+                len(horizons),                  # horizons
+                n_series_,                      # n_series (1 for univariate)
+                len(outputs),                   # n_outputs
+                len(model_obj.hist_exog_list),  # number of features
+                model_obj.input_size,           # n_input_steps (past)
             )
             assert expl["hist_exog"] is not None
             assert expl["hist_exog"].shape == expected_hist_shape
-        if model.stat_exog_list:
+        if model_obj.stat_exog_list:
             expected_stat_shape = (
                 batch_size,    # batch size
                 len(horizons), # horizons
@@ -1936,39 +1981,200 @@ def test_explainability(explainer, use_polars, horizons, recursive_horizon):
             assert expl["stat_exog"] is not None
             assert expl["stat_exog"].shape == expected_stat_shape
 
-def _test_model_additivity(preds_df, expl, model_name, use_polars, n_series, h, horizons):
-    """Test if sum of attributions and baseline predictions equal forecasts"""
+def _test_model_additivity(preds_df, expl, model_name, use_polars, n_series, h, horizons, rtol=1e-3, is_multivariate=None):
+    """Test if sum of attributions and baseline predictions equal forecasts.
+
+    Works for both univariate (n_series=1) and multivariate (n_series>1) models.
+    For multivariate, attributions retain the n_series_out dimension so additivity
+    holds per series (baseline + sum(attrs) == prediction for each series).
+
+    is_multivariate can be passed explicitly for the partial-series case where
+    n_series_out=1 but the model is still multivariate (series=[0] selection).
+    """
     pred_col = [col for col in preds_df.columns if col.startswith(model_name)][0]
     if use_polars:
         preds = preds_df[pred_col].to_numpy()
     else:
         preds = preds_df[pred_col].values
 
-    # Sum over n_outputs (-1) and n_series (-2), shape (batch_size, h, n_series, n_outputs) -> (batch_size, h)
-    baseline = expl["baseline_predictions"].sum(dim=(-1, -2))  
-    
-    # Sum over channels (-1), input_sequence (-2), n_outputs (-3), n_series (-4)
-    sum_dims = (-1, -2, -3, -4) 
-    insample_attr = expl["insample"].sum(dim=sum_dims)
-    futr_attr = expl["futr_exog"].sum(dim=sum_dims) if not isinstance(expl["futr_exog"], list) else 0
-    hist_attr = expl["hist_exog"].sum(dim=sum_dims) if not isinstance(expl["hist_exog"], list) else 0
-    
-    # Static doesn't have the input_sequence dimension, as it is static across that dimension
-    sum_dims = (-1, -2, -3)  # Sum over channels (-1), n_outputs (-2), n_series (-3)
-    stat_attr = expl["stat_exog"].sum(dim=sum_dims) if not isinstance(expl["stat_exog"], list) else 0
-    
-    total_attr = insample_attr + futr_attr + hist_attr + stat_attr
-    pred_from_attr = baseline + total_attr  # Shape: (n_series, h)
+    # Detect multivariate via the n_series_out dimension of baseline_predictions,
+    # unless the caller overrides (needed when series=[0] gives n_series_out=1).
+    if is_multivariate is None:
+        is_multivariate = expl["baseline_predictions"].shape[2] > 1
 
-    preds = preds.reshape(n_series, h)
+    if is_multivariate:
+        # Keep n_series_out: (1, h, n_series, 1) -> sum over n_outputs -> (1, h, n_series)
+        baseline = expl["baseline_predictions"].sum(dim=-1)
+    else:
+        # (1, h, 1, 1) -> sum over n_outputs and n_series -> (1, h)
+        baseline = expl["baseline_predictions"].sum(dim=(-1, -2))
+
+    # Sum over all feature dims, keeping (batch, h[, n_series]) shape
+    sum_dims = (-1, -2, -3, -4)
+    insample_attr = expl["insample"].sum(dim=sum_dims)
+    futr_attr = expl["futr_exog"].sum(dim=sum_dims) if expl["futr_exog"] is not None else 0
+    hist_attr = expl["hist_exog"].sum(dim=sum_dims) if expl["hist_exog"] is not None else 0
+
+    # Static doesn't have the input_sequence dimension
+    sum_dims_stat = (-1, -2, -3)
+    stat_attr = expl["stat_exog"].sum(dim=sum_dims_stat) if expl["stat_exog"] is not None else 0
+
+    total_attr = insample_attr + futr_attr + hist_attr + stat_attr
+
+    if is_multivariate:
+        # (1, h, n_series_out) -> (n_series_out, h)
+        pred_from_attr = (baseline + total_attr).squeeze(0).T
+        # preds_df always has all n_series rows; take only the first n_series_out
+        # to match a partial-series explanation (e.g. series=[0]).
+        n_series_out = pred_from_attr.shape[0]
+        preds = preds.reshape(-1, h)[:n_series_out, :]
+    else:
+        pred_from_attr = baseline + total_attr  # (1, h)
+        preds = preds.reshape(n_series, h)
+
     preds = preds[:, horizons]
 
     np.testing.assert_allclose(
         pred_from_attr.cpu().numpy(),
         preds,
-        rtol=1e-3,
+        rtol=rtol,
         err_msg="Attribution predictions do not match model predictions"
     )
+
+def test_explainability_multivariate():
+    """Test that explanations work for multivariate models with all exogenous types (MLPMultivariate)."""
+    Y_train_df = AirPassengersPanel[
+        AirPassengersPanel["ds"] < AirPassengersPanel["ds"].values[-12]
+    ].reset_index(drop=True)
+    Y_test_df = AirPassengersPanel[
+        AirPassengersPanel["ds"] >= AirPassengersPanel["ds"].values[-12]
+    ].reset_index(drop=True)
+    futr_df = Y_test_df.drop(columns=["y", "y_[lag12]"])
+    static_df = AirPassengersStatic.drop(columns=["airline2"])
+
+    h = 12
+    input_size = 24
+    n_series = Y_train_df["unique_id"].nunique()  # 2
+    n_futr = 1   # "trend"
+    n_hist = 1   # "y_[lag12]"
+
+    # MLPMultivariate: piecewise-linear (ReLU), no RevIN, so IG integration is nearly exact
+    model = MLPMultivariate(
+        h=h,
+        input_size=input_size,
+        n_series=n_series,
+        futr_exog_list=["trend"],
+        hist_exog_list=["y_[lag12]"],
+        stat_exog_list=["airline1"],
+        max_steps=2,
+        accelerator="cpu",
+    )
+    nf = NeuralForecast(models=[model], freq="ME")
+    nf.fit(df=Y_train_df, static_df=static_df)
+
+    horizons = list(range(h))
+    outputs = [0]
+    preds_df, explanations = nf.explain(
+        outputs=outputs,
+        horizons=horizons,
+        futr_df=futr_df,
+        static_df=static_df,
+        explainer=ExplainerEnum.IntegratedGradients,
+    )
+
+    assert "MLPMultivariate" in explanations
+    expl = explanations["MLPMultivariate"]
+
+    # For multivariate: batch_size=1 (all series processed in one window).
+    # insample gets an extra n_series_in dim for cross-series attributions.
+    assert expl["insample"] is not None
+    assert expl["insample"].shape == (
+        1,           # batch_size
+        h,           # n_horizons
+        n_series,    # n_series_out
+        1,           # n_outputs
+        input_size,  # time steps
+        n_series,    # n_series_in (cross-series attributions)
+        2,           # (y attribution, mask attribution)
+    )
+
+    # futr_exog: [Ws, F, L+h, n_series_in]
+    assert expl["futr_exog"] is not None
+    assert expl["futr_exog"].shape == (
+        1,                    # batch_size
+        h,                    # n_horizons
+        n_series,             # n_series_out
+        1,                    # n_outputs
+        n_futr,               # n_futr_features
+        input_size + h,       # time steps (past + future)
+        n_series,             # n_series_in
+    )
+
+    # hist_exog: [Ws, X, L, n_series_in]
+    assert expl["hist_exog"] is not None
+    assert expl["hist_exog"].shape == (
+        1,           # batch_size
+        h,           # n_horizons
+        n_series,    # n_series_out
+        1,           # n_outputs
+        n_hist,      # n_hist_features
+        input_size,  # time steps (past only)
+        n_series,    # n_series_in
+    )
+
+    n_stat = 1   # "airline1"
+    # stat_exog: [Ws, h, n_series_out, n_outputs, n_series_in, S]
+    # stat_exog is flattened to [1, n_series * S] for captum, then reshaped back.
+    assert expl["stat_exog"] is not None
+    assert expl["stat_exog"].shape == (
+        1,        # batch_size
+        h,        # n_horizons
+        n_series, # n_series_out
+        1,        # n_outputs
+        n_series, # n_series_in (cross-series static attributions)
+        n_stat,   # n_static_features
+    )
+
+    assert expl["baseline_predictions"] is not None
+    assert expl["baseline_predictions"].shape == (1, h, n_series, 1)
+
+    # MLPMultivariate is piecewise linear (ReLU), so IG integration is nearly exact
+    # and the default tight tolerance holds.
+    _test_model_additivity(preds_df, expl, "MLPMultivariate", False, n_series, h, horizons)
+
+    # --- Partial series selection: series=[0] ---
+    preds_df_s0, explanations_s0 = nf.explain(
+        outputs=outputs,
+        horizons=horizons,
+        series=[0],
+        futr_df=futr_df,
+        static_df=static_df,
+        explainer=ExplainerEnum.IntegratedGradients,
+    )
+    expl_s0 = explanations_s0["MLPMultivariate"]
+
+    # n_series_out is 1; n_series_in is still n_series (cross-series captured)
+    assert expl_s0["insample"].shape == (1, h, 1, 1, input_size, n_series, 2)
+    assert expl_s0["futr_exog"].shape == (1, h, 1, 1, n_futr, input_size + h, n_series)
+    assert expl_s0["hist_exog"].shape == (1, h, 1, 1, n_hist, input_size, n_series)
+    assert expl_s0["stat_exog"].shape == (1, h, 1, 1, n_series, n_stat)
+    assert expl_s0["baseline_predictions"].shape == (1, h, 1, 1)
+
+    # Additivity holds for the single selected series; pass is_multivariate=True
+    # because n_series_out=1 would otherwise be misdetected as univariate.
+    _test_model_additivity(preds_df_s0, expl_s0, "MLPMultivariate", False, 1, h, horizons, is_multivariate=True)
+
+    # --- Invalid series index raises ValueError ---
+    with pytest.raises(ValueError, match="Invalid series indices"):
+        nf.explain(
+            outputs=outputs,
+            horizons=horizons,
+            series=[5],
+            futr_df=futr_df,
+            static_df=static_df,
+        )
+
+
 
 def test_compute_valid_loss_distribution_to_quantile_scale():
     """
@@ -2005,4 +2211,43 @@ def test_compute_valid_loss_distribution_to_quantile_scale():
     assert 0.8 < ratio < 1.2, (
         f"Quantiles mean ({quants_mean:.2f}) and target mean ({target_mean:.2f}) "
         f"are not on the same scale. Ratio: {ratio:.2f}"
+    )
+
+
+def test_mase_validation_loss_scale(setup_airplane_data):
+    """Test that MASE validation loss is correctly computed with proper scaling.
+
+    This test verifies the fix for the scale mismatch bug where insample_y
+    was in normalized scale while outsample_y and y_hat were in original scale.
+    With the fix, all values passed to MASE should be in the same (original) scale.
+    """
+    AirPassengersPanel_train, _ = setup_airplane_data
+
+    # Use MLP with standard scaler and MASE validation loss
+    model = MLP(
+        h=12,
+        input_size=24,
+        loss=MAE(),
+        valid_loss=MASE(seasonality=12),
+        scaler_type="standard",
+        max_steps=5,
+        val_check_steps=1,
+    )
+    nf = NeuralForecast(models=[model], freq="M")
+
+    # Fit with validation set
+    nf.fit(AirPassengersPanel_train, val_size=12)
+
+    # Get validation loss from trajectories (access fitted model from nf.models)
+    fitted_model = nf.models[0]
+    valid_trajectories = fitted_model.valid_trajectories
+    assert len(valid_trajectories) > 0, "No validation trajectories recorded"
+
+    _, valid_loss = valid_trajectories[-1]
+
+    # With the fix, MASE should be reasonable (< 50 for a minimally trained model)
+    # Before the fix, MASE was ~200+ due to scale mismatch
+    assert valid_loss < 50, (
+        f"MASE validation loss is {valid_loss}, which indicates the scale mismatch "
+        f"bug may have regressed. Expected < 50 for a properly scaled MASE."
     )

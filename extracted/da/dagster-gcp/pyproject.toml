@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-gcp"
-version = "0.28.15"
+version = "0.28.17"
 description = "Package for GCP-specific Dagster framework op and resource components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,8 +22,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
-    "dagster-pandas==0.28.15",
+    "dagster==1.12.17",
+    "dagster-pandas==0.28.17",
     "db-dtypes",
     "google-api-python-client",
     "google-cloud-bigquery>=1.28.3",
@@ -43,21 +43,4 @@ test = [
 ]
 dataproc = [
     "google-cloud-dataproc",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_gcp_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_gcp_tests/**",
 ]

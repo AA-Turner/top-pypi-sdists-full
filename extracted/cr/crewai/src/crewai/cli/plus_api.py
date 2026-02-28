@@ -1,8 +1,7 @@
-import os
 from typing import Any
 from urllib.parse import urljoin
-
-import httpx
+import os
+import requests
 
 from crewai.cli.config import Settings
 from crewai.cli.constants import DEFAULT_CREWAI_ENTERPRISE_URL
@@ -34,30 +33,24 @@ class PlusAPI:
         if settings.org_uuid:
             self.headers["X-Crewai-Organization-Id"] = settings.org_uuid
 
-        self.base_url = (
-            os.getenv("CREWAI_PLUS_URL")
-            or str(settings.enterprise_base_url)
-            or DEFAULT_CREWAI_ENTERPRISE_URL
-        )
+        self.base_url = os.getenv("CREWAI_PLUS_URL") or str(settings.enterprise_base_url) or DEFAULT_CREWAI_ENTERPRISE_URL
 
     def _make_request(
         self, method: str, endpoint: str, **kwargs: Any
-    ) -> httpx.Response:
+    ) -> requests.Response:
         url = urljoin(self.base_url, endpoint)
-        verify = kwargs.pop("verify", True)
-        with httpx.Client(trust_env=False, verify=verify) as client:
-            return client.request(method, url, headers=self.headers, **kwargs)
+        session = requests.Session()
+        session.trust_env = False
+        return session.request(method, url, headers=self.headers, **kwargs)
 
-    def login_to_tool_repository(self) -> httpx.Response:
+    def login_to_tool_repository(self) -> requests.Response:
         return self._make_request("POST", f"{self.TOOLS_RESOURCE}/login")
 
-    def get_tool(self, handle: str) -> httpx.Response:
+    def get_tool(self, handle: str) -> requests.Response:
         return self._make_request("GET", f"{self.TOOLS_RESOURCE}/{handle}")
 
-    async def get_agent(self, handle: str) -> httpx.Response:
-        url = urljoin(self.base_url, f"{self.AGENTS_RESOURCE}/{handle}")
-        async with httpx.AsyncClient() as client:
-            return await client.get(url, headers=self.headers)
+    def get_agent(self, handle: str) -> requests.Response:
+        return self._make_request("GET", f"{self.AGENTS_RESOURCE}/{handle}")
 
     def publish_tool(
         self,
@@ -67,7 +60,7 @@ class PlusAPI:
         description: str | None,
         encoded_file: str,
         available_exports: list[dict[str, Any]] | None = None,
-    ) -> httpx.Response:
+    ) -> requests.Response:
         params = {
             "handle": handle,
             "public": is_public,
@@ -78,52 +71,54 @@ class PlusAPI:
         }
         return self._make_request("POST", f"{self.TOOLS_RESOURCE}", json=params)
 
-    def deploy_by_name(self, project_name: str) -> httpx.Response:
+    def deploy_by_name(self, project_name: str) -> requests.Response:
         return self._make_request(
             "POST", f"{self.CREWS_RESOURCE}/by-name/{project_name}/deploy"
         )
 
-    def deploy_by_uuid(self, uuid: str) -> httpx.Response:
+    def deploy_by_uuid(self, uuid: str) -> requests.Response:
         return self._make_request("POST", f"{self.CREWS_RESOURCE}/{uuid}/deploy")
 
-    def crew_status_by_name(self, project_name: str) -> httpx.Response:
+    def crew_status_by_name(self, project_name: str) -> requests.Response:
         return self._make_request(
             "GET", f"{self.CREWS_RESOURCE}/by-name/{project_name}/status"
         )
 
-    def crew_status_by_uuid(self, uuid: str) -> httpx.Response:
+    def crew_status_by_uuid(self, uuid: str) -> requests.Response:
         return self._make_request("GET", f"{self.CREWS_RESOURCE}/{uuid}/status")
 
     def crew_by_name(
         self, project_name: str, log_type: str = "deployment"
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "GET", f"{self.CREWS_RESOURCE}/by-name/{project_name}/logs/{log_type}"
         )
 
-    def crew_by_uuid(self, uuid: str, log_type: str = "deployment") -> httpx.Response:
+    def crew_by_uuid(
+        self, uuid: str, log_type: str = "deployment"
+    ) -> requests.Response:
         return self._make_request(
             "GET", f"{self.CREWS_RESOURCE}/{uuid}/logs/{log_type}"
         )
 
-    def delete_crew_by_name(self, project_name: str) -> httpx.Response:
+    def delete_crew_by_name(self, project_name: str) -> requests.Response:
         return self._make_request(
             "DELETE", f"{self.CREWS_RESOURCE}/by-name/{project_name}"
         )
 
-    def delete_crew_by_uuid(self, uuid: str) -> httpx.Response:
+    def delete_crew_by_uuid(self, uuid: str) -> requests.Response:
         return self._make_request("DELETE", f"{self.CREWS_RESOURCE}/{uuid}")
 
-    def list_crews(self) -> httpx.Response:
+    def list_crews(self) -> requests.Response:
         return self._make_request("GET", self.CREWS_RESOURCE)
 
-    def create_crew(self, payload: dict[str, Any]) -> httpx.Response:
+    def create_crew(self, payload: dict[str, Any]) -> requests.Response:
         return self._make_request("POST", self.CREWS_RESOURCE, json=payload)
 
-    def get_organizations(self) -> httpx.Response:
+    def get_organizations(self) -> requests.Response:
         return self._make_request("GET", self.ORGANIZATIONS_RESOURCE)
 
-    def initialize_trace_batch(self, payload: dict[str, Any]) -> httpx.Response:
+    def initialize_trace_batch(self, payload: dict[str, Any]) -> requests.Response:
         return self._make_request(
             "POST",
             f"{self.TRACING_RESOURCE}/batches",
@@ -133,7 +128,7 @@ class PlusAPI:
 
     def initialize_ephemeral_trace_batch(
         self, payload: dict[str, Any]
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "POST",
             f"{self.EPHEMERAL_TRACING_RESOURCE}/batches",
@@ -142,7 +137,7 @@ class PlusAPI:
 
     def send_trace_events(
         self, trace_batch_id: str, payload: dict[str, Any]
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "POST",
             f"{self.TRACING_RESOURCE}/batches/{trace_batch_id}/events",
@@ -152,7 +147,7 @@ class PlusAPI:
 
     def send_ephemeral_trace_events(
         self, trace_batch_id: str, payload: dict[str, Any]
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "POST",
             f"{self.EPHEMERAL_TRACING_RESOURCE}/batches/{trace_batch_id}/events",
@@ -162,7 +157,7 @@ class PlusAPI:
 
     def finalize_trace_batch(
         self, trace_batch_id: str, payload: dict[str, Any]
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "PATCH",
             f"{self.TRACING_RESOURCE}/batches/{trace_batch_id}/finalize",
@@ -172,7 +167,7 @@ class PlusAPI:
 
     def finalize_ephemeral_trace_batch(
         self, trace_batch_id: str, payload: dict[str, Any]
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "PATCH",
             f"{self.EPHEMERAL_TRACING_RESOURCE}/batches/{trace_batch_id}/finalize",
@@ -182,7 +177,7 @@ class PlusAPI:
 
     def mark_trace_batch_as_failed(
         self, trace_batch_id: str, error_message: str
-    ) -> httpx.Response:
+    ) -> requests.Response:
         return self._make_request(
             "PATCH",
             f"{self.TRACING_RESOURCE}/batches/{trace_batch_id}",
@@ -190,20 +185,13 @@ class PlusAPI:
             timeout=30,
         )
 
-    def get_mcp_configs(self, slugs: list[str]) -> httpx.Response:
-        """Get MCP server configurations for the given slugs."""
-        return self._make_request(
-            "GET",
-            f"{self.INTEGRATIONS_RESOURCE}/mcp_configs",
-            params={"slugs": ",".join(slugs)},
-            timeout=30,
-        )
-
-    def get_triggers(self) -> httpx.Response:
+    def get_triggers(self) -> requests.Response:
         """Get all available triggers from integrations."""
         return self._make_request("GET", f"{self.INTEGRATIONS_RESOURCE}/apps")
 
-    def get_trigger_payload(self, app_slug: str, trigger_slug: str) -> httpx.Response:
+    def get_trigger_payload(
+        self, app_slug: str, trigger_slug: str
+    ) -> requests.Response:
         """Get sample payload for a specific trigger."""
         return self._make_request(
             "GET", f"{self.INTEGRATIONS_RESOURCE}/{app_slug}/{trigger_slug}/payload"

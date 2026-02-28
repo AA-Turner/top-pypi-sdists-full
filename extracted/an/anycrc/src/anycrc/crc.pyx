@@ -1,4 +1,6 @@
-# Copyright (c) 2024-2025 Hussain Al Marzooq
+# Copyright (c) 2024-2026 Hussain Al Marzooq
+
+# cython: freethreading_compatible = True
 
 from bitarray import bitarray, frozenbitarray
 from .models import models, aliases
@@ -27,7 +29,7 @@ cdef extern from '../../lib/crcany/crc.h':
     cdef word_t crc_slice16(model_t *model, word_t crc, const void *dat, size_t len)
 
     cdef void crc_table_combine(model_t *model)
-    word_t crc_combine(model_t *model, word_t crc1, word_t crc2, size_t len2, char is_bits)
+    word_t crc_combine(model_t *model, word_t crc1, word_t crc2, size_t len2)
 
 cdef class _Crc:
     cdef model_t model
@@ -82,10 +84,10 @@ cdef class _Crc:
         return crc_slice16(&self.model, init, &view[0], len(data))
 
     def combine(self, crc1, crc2, length):
-        return crc_combine(&self.model, crc1, crc2, length, 0)
+        return crc_combine(&self.model, crc1, crc2, length * 8)
 
     def combine_bits(self, crc1, crc2, length):
-        return crc_combine(&self.model, crc1, crc2, length, 1)
+        return crc_combine(&self.model, crc1, crc2, length)
 
     #byte-by-byte (for testing)
     def _calc_b(self, data):

@@ -7,7 +7,6 @@ from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
 from langgraph_api.route import ApiRequest
 from langgraph_api.schema import PoolStats, PostgresPoolStats, RedisPoolStats
-from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect, pool_stats
 from langgraph_runtime.metrics import get_metrics
 
@@ -119,14 +118,13 @@ async def meta_pool_stats(metrics_format: str) -> PoolStats | list[str]:
 
 
 async def meta_info(request: ApiRequest):
-    plus = plus_features_enabled()
     return JSONResponse(
         {
             "version": __version__,
             "langgraph_py_version": langgraph.version.__version__,
             "flags": {
                 "assistants": True,
-                "crons": plus and config.FF_CRONS_ENABLED,
+                "crons": True,
                 "langsmith": bool(config.LANGSMITH_CONTROL_PLANE_API_KEY)
                 and bool(config.TRACING),
                 "langsmith_tracing_replicas": True,

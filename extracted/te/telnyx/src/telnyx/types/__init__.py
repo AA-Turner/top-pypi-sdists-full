@@ -220,7 +220,6 @@ from .usage_payment_method import UsagePaymentMethod as UsagePaymentMethod
 from .user_tag_list_params import UserTagListParams as UserTagListParams
 from .whatsapp_interactive import WhatsappInteractive as WhatsappInteractive
 from .whatsapp_media_param import WhatsappMediaParam as WhatsappMediaParam
-from .wireguard_peer_patch import WireguardPeerPatch as WireguardPeerPatch
 from .address_create_params import AddressCreateParams as AddressCreateParams
 from .ai_summarize_response import AISummarizeResponse as AISummarizeResponse
 from .call_playback_started import CallPlaybackStarted as CallPlaybackStarted
@@ -321,7 +320,6 @@ from .credential_inbound_param import CredentialInboundParam as CredentialInboun
 from .document_delete_response import DocumentDeleteResponse as DocumentDeleteResponse
 from .document_update_response import DocumentUpdateResponse as DocumentUpdateResponse
 from .document_upload_response import DocumentUploadResponse as DocumentUploadResponse
-from .network_interface_region import NetworkInterfaceRegion as NetworkInterfaceRegion
 from .number_order_list_params import NumberOrderListParams as NumberOrderListParams
 from .oauth_client_list_params import OAuthClientListParams as OAuthClientListParams
 from .ota_update_list_response import OtaUpdateListResponse as OtaUpdateListResponse

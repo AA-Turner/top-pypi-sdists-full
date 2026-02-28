@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-zunclient
-Version: 5.3.0
+Version: 5.4.0
 Summary: Client Library for Zun
 Home-page: https://docs.openstack.org/python-zunclient/latest/
 Author: OpenStack
@@ -31,6 +31,15 @@ Requires-Dist: oslo.utils>=3.33.0
 Requires-Dist: websocket-client>=0.44.0
 Requires-Dist: docker>=2.4.2
 Requires-Dist: PyYAML>=3.13
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Team and repository tags

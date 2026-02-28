@@ -1,9 +1,7 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.12.15
+Version: 1.12.17
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
-Author-email: Dagster Labs <hello@dagsterlabs.com>
-License-Expression: Apache-2.0
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
 Project-URL: Documentation, https://docs.dagster.io
@@ -14,108 +12,109 @@ Project-URL: YouTube, https://www.youtube.com/@dagsterio
 Project-URL: Slack, https://dagster.io/slack
 Project-URL: Blog, https://dagster.io/blog
 Project-URL: Newsletter, https://dagster.io/newsletter-signup
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
+License-File: COPYING
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Classifier: Operating System :: OS Independent
+Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.15,>=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: COPYING
+Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
+Requires-Dist: antlr4-python3-runtime
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: Jinja2
-Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
-Requires-Dist: grpcio>=1.66.2; python_version >= "3.13"
-Requires-Dist: grpcio>=1.44.0; python_version < "3.13"
-Requires-Dist: grpcio-health-checking>=1.66.2; python_version >= "3.13"
-Requires-Dist: grpcio-health-checking>=1.44.0; python_version < "3.13"
-Requires-Dist: protobuf<7,>=3.20.0; python_version < "3.11"
-Requires-Dist: protobuf<7,>=4; python_version >= "3.11"
+Requires-Dist: dagster-pipes==1.12.17
+Requires-Dist: dagster-shared==1.12.17
+Requires-Dist: docstring-parser
+Requires-Dist: filelock
+Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
+Requires-Dist: grpcio-health-checking>=1.66.2; python_version >= '3.13'
+Requires-Dist: grpcio>=1.44.0; python_version < '3.13'
+Requires-Dist: grpcio>=1.66.2; python_version >= '3.13'
+Requires-Dist: jinja2
+Requires-Dist: protobuf<7,>=3.20.0; python_version < '3.11'
+Requires-Dist: protobuf<7,>=4; python_version >= '3.11'
+Requires-Dist: psutil>=1.0; platform_system == 'Windows'
 Requires-Dist: python-dotenv
 Requires-Dist: pytz
+Requires-Dist: pywin32!=226; platform_system == 'Windows'
 Requires-Dist: requests
+Requires-Dist: rich
 Requires-Dist: setuptools<82
 Requires-Dist: six
+Requires-Dist: sqlalchemy<3,>=1.0
+Requires-Dist: structlog
 Requires-Dist: tabulate
 Requires-Dist: tomli<3
+Requires-Dist: toposort>=1.0
 Requires-Dist: tqdm<5
 Requires-Dist: tzdata
-Requires-Dist: structlog
-Requires-Dist: sqlalchemy<3,>=1.0
-Requires-Dist: toposort>=1.0
+Requires-Dist: universal-pathlib; python_version < '3.12'
+Requires-Dist: universal-pathlib>=0.2.0; python_version >= '3.12'
 Requires-Dist: watchdog<7,>=0.8.3
-Requires-Dist: psutil>=1.0; platform_system == "Windows"
-Requires-Dist: pywin32!=226; platform_system == "Windows"
-Requires-Dist: docstring-parser
-Requires-Dist: universal_pathlib; python_version < "3.12"
-Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
-Requires-Dist: rich
-Requires-Dist: filelock
-Requires-Dist: dagster-pipes==1.12.15
-Requires-Dist: dagster-shared==1.12.15
-Requires-Dist: antlr4-python3-runtime
 Provides-Extra: docker
-Requires-Dist: docker; extra == "docker"
-Provides-Extra: test
-Requires-Dist: docker; extra == "test"
-Requires-Dist: grpcio-tools>=1.66.2; python_version >= "3.13" and extra == "test"
-Requires-Dist: grpcio-tools>=1.44.0; python_version < "3.13" and extra == "test"
-Requires-Dist: mypy-protobuf; extra == "test"
-Requires-Dist: objgraph; extra == "test"
-Requires-Dist: pytest-cov==5.0.0; extra == "test"
-Requires-Dist: pytest-mock==3.14.0; extra == "test"
-Requires-Dist: pytest-xdist==3.6.1; extra == "test"
-Requires-Dist: pytest>=8; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: pytest-timeout; extra == "test"
-Requires-Dist: responses<=0.23.1; extra == "test"
-Requires-Dist: syrupy>=4.0.0; extra == "test"
-Requires-Dist: tox>=4; extra == "test"
-Requires-Dist: morefs[asynclocal]; extra == "test"
-Requires-Dist: fsspec<2024.5.0; extra == "test"
-Requires-Dist: rapidfuzz; extra == "test"
-Requires-Dist: flaky; extra == "test"
-Requires-Dist: psutil; extra == "test"
-Requires-Dist: ruff==0.15.0; extra == "test"
-Provides-Extra: test-components
-Requires-Dist: tomlkit; extra == "test-components"
-Requires-Dist: jsonschema; extra == "test-components"
-Requires-Dist: pandas<3.0.0; extra == "test-components"
-Requires-Dist: duckdb; extra == "test-components"
+Requires-Dist: docker; extra == 'docker'
 Provides-Extra: mypy
-Requires-Dist: mypy==1.8.0; extra == "mypy"
+Requires-Dist: mypy==1.8.0; extra == 'mypy'
 Provides-Extra: pyright
-Requires-Dist: pyright==1.1.379; extra == "pyright"
-Requires-Dist: pandas-stubs; extra == "pyright"
-Requires-Dist: types-backports; extra == "pyright"
-Requires-Dist: types-certifi; extra == "pyright"
-Requires-Dist: types-chardet; extra == "pyright"
-Requires-Dist: types-cryptography; extra == "pyright"
-Requires-Dist: types-mock; extra == "pyright"
-Requires-Dist: types-paramiko; extra == "pyright"
-Requires-Dist: types-pyOpenSSL; extra == "pyright"
-Requires-Dist: types-python-dateutil~=2.9.0.20240316; extra == "pyright"
-Requires-Dist: types-PyYAML; extra == "pyright"
-Requires-Dist: types-pytz; extra == "pyright"
-Requires-Dist: types-requests; extra == "pyright"
-Requires-Dist: types-simplejson; extra == "pyright"
-Requires-Dist: types-six; extra == "pyright"
-Requires-Dist: types-tabulate; extra == "pyright"
-Requires-Dist: types-tzlocal; extra == "pyright"
-Requires-Dist: types-toml; extra == "pyright"
+Requires-Dist: pandas-stubs; extra == 'pyright'
+Requires-Dist: pyright==1.1.379; extra == 'pyright'
+Requires-Dist: types-backports; extra == 'pyright'
+Requires-Dist: types-certifi; extra == 'pyright'
+Requires-Dist: types-chardet; extra == 'pyright'
+Requires-Dist: types-cryptography; extra == 'pyright'
+Requires-Dist: types-mock; extra == 'pyright'
+Requires-Dist: types-paramiko; extra == 'pyright'
+Requires-Dist: types-pyopenssl; extra == 'pyright'
+Requires-Dist: types-python-dateutil~=2.9.0.20240316; extra == 'pyright'
+Requires-Dist: types-pytz; extra == 'pyright'
+Requires-Dist: types-pyyaml; extra == 'pyright'
+Requires-Dist: types-requests; extra == 'pyright'
+Requires-Dist: types-simplejson; extra == 'pyright'
+Requires-Dist: types-six; extra == 'pyright'
+Requires-Dist: types-tabulate; extra == 'pyright'
+Requires-Dist: types-toml; extra == 'pyright'
+Requires-Dist: types-tzlocal; extra == 'pyright'
 Provides-Extra: ruff
-Requires-Dist: ruff==0.15.0; extra == "ruff"
-Dynamic: license-file
+Requires-Dist: ruff==0.15.0; extra == 'ruff'
+Provides-Extra: test
+Requires-Dist: docker; extra == 'test'
+Requires-Dist: flaky; extra == 'test'
+Requires-Dist: fsspec<2024.5.0; extra == 'test'
+Requires-Dist: grpcio-tools>=1.44.0; (python_version < '3.13') and extra == 'test'
+Requires-Dist: grpcio-tools>=1.66.2; (python_version >= '3.13') and extra == 'test'
+Requires-Dist: morefs[asynclocal]; extra == 'test'
+Requires-Dist: mypy-protobuf; extra == 'test'
+Requires-Dist: objgraph; extra == 'test'
+Requires-Dist: psutil; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-cov==5.0.0; extra == 'test'
+Requires-Dist: pytest-mock==3.14.0; extra == 'test'
+Requires-Dist: pytest-timeout; extra == 'test'
+Requires-Dist: pytest-xdist==3.6.1; extra == 'test'
+Requires-Dist: pytest>=8; extra == 'test'
+Requires-Dist: rapidfuzz; extra == 'test'
+Requires-Dist: responses<=0.23.1; extra == 'test'
+Requires-Dist: ruff==0.15.0; extra == 'test'
+Requires-Dist: syrupy>=4.0.0; extra == 'test'
+Requires-Dist: tox>=4; extra == 'test'
+Provides-Extra: test-components
+Requires-Dist: duckdb; extra == 'test-components'
+Requires-Dist: jsonschema; extra == 'test-components'
+Requires-Dist: pandas<3.0.0; extra == 'test-components'
+Requires-Dist: tomlkit; extra == 'test-components'
+Description-Content-Type: text/markdown
 
 <div align="center">
   <!-- Note: Do not try adding the dark mode version here with the `picture` element, it will break formatting in PyPI -->

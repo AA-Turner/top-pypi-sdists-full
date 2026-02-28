@@ -30,9 +30,6 @@ classifiers = [
 Homepage = "https://docs.openstack.org/python-manilaclient/"
 Repository = "https://opendev.org/openstack/python-manilaclient/"
 
-[project.scripts]
-manila = "manilaclient.shell:main"
-
 [project.entry-points."oslo.config.opts"]
 "manilaclient.config" = "manilaclient.config:list_opts"
 
@@ -111,6 +108,7 @@ share_replica_delete = "manilaclient.osc.v2.share_replicas:DeleteShareReplica"
 share_replica_list = "manilaclient.osc.v2.share_replicas:ListShareReplica"
 share_replica_show = "manilaclient.osc.v2.share_replicas:ShowShareReplica"
 share_replica_set = "manilaclient.osc.v2.share_replicas:SetShareReplica"
+share_replica_unset = "manilaclient.osc.v2.share_replicas:UnsetShareReplica"
 share_replica_promote = "manilaclient.osc.v2.share_replicas:PromoteShareReplica"
 share_replica_resync = "manilaclient.osc.v2.share_replicas:ResyncShareReplica"
 share_replica_export_location_list = "manilaclient.osc.v2.share_replica_export_locations:ShareReplicaListExportLocation"
@@ -187,6 +185,12 @@ share_lock_show = "manilaclient.osc.v2.resource_locks:ShowResourceLock"
 share_lock_set = " manilaclient.osc.v2.resource_locks:SetResourceLock"
 share_lock_unset = "manilaclient.osc.v2.resource_locks:UnsetResourceLock"
 share_lock_delete = "manilaclient.osc.v2.resource_locks:DeleteResourceLock"
+share_qos_type_create = "manilaclient.osc.v2.qos_types:CreateQosType"
+share_qos_type_list = "manilaclient.osc.v2.qos_types:ListQosType"
+share_qos_type_show = "manilaclient.osc.v2.qos_types:ShowQosType"
+share_qos_type_set = "manilaclient.osc.v2.qos_types:SetQosType"
+share_qos_type_unset = "manilaclient.osc.v2.qos_types:UnsetQosType"
+share_qos_type_delete = "manilaclient.osc.v2.qos_types:DeleteQosType"
 
 [tool.setuptools]
 packages = [

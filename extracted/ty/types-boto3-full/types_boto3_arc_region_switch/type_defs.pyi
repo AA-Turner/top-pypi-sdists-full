@@ -143,6 +143,12 @@ __all__ = (
     "ParallelExecutionBlockConfigurationUnionTypeDef",
     "PlanPaginatorTypeDef",
     "PlanTypeDef",
+    "RdsCreateCrossRegionReplicaConfigurationOutputTypeDef",
+    "RdsCreateCrossRegionReplicaConfigurationTypeDef",
+    "RdsCreateCrossRegionReplicaConfigurationUnionTypeDef",
+    "RdsPromoteReadReplicaConfigurationOutputTypeDef",
+    "RdsPromoteReadReplicaConfigurationTypeDef",
+    "RdsPromoteReadReplicaConfigurationUnionTypeDef",
     "RegionSwitchPlanConfigurationTypeDef",
     "ReportConfigurationOutputTypeDef",
     "ReportConfigurationTypeDef",
@@ -195,6 +201,7 @@ class AbbreviatedExecutionTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
     comment: NotRequired[str]
     endTime: NotRequired[datetime]
+    recoveryExecutionId: NotRequired[str]
     actualRecoveryTime: NotRequired[str]
 
 class AbbreviatedPlanTypeDef(TypedDict):
@@ -294,6 +301,18 @@ class ExecutionApprovalConfigurationTypeDef(TypedDict):
 
 class ParallelExecutionBlockConfigurationOutputTypeDef(TypedDict):
     steps: list[dict[str, Any]]
+
+class RdsCreateCrossRegionReplicaConfigurationOutputTypeDef(TypedDict):
+    dbInstanceArnMap: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
+class RdsPromoteReadReplicaConfigurationOutputTypeDef(TypedDict):
+    dbInstanceArnMap: dict[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
 
 class RegionSwitchPlanConfigurationTypeDef(TypedDict):
     arn: str
@@ -410,6 +429,18 @@ class MinimalWorkflowTypeDef(TypedDict):
 class ParallelExecutionBlockConfigurationTypeDef(TypedDict):
     steps: Sequence[Mapping[str, Any]]
 
+class RdsCreateCrossRegionReplicaConfigurationTypeDef(TypedDict):
+    dbInstanceArnMap: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
+class RdsPromoteReadReplicaConfigurationTypeDef(TypedDict):
+    dbInstanceArnMap: Mapping[str, str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+
 class S3ReportOutputConfigurationTypeDef(TypedDict):
     bucketPath: NotRequired[str]
     bucketOwner: NotRequired[str]
@@ -428,6 +459,7 @@ class StartPlanExecutionRequestTypeDef(TypedDict):
     mode: NotRequired[ExecutionModeType]
     comment: NotRequired[str]
     latestVersion: NotRequired[str]
+    recoveryExecutionId: NotRequired[str]
 
 class TagResourceRequestTypeDef(TypedDict):
     arn: str
@@ -669,6 +701,13 @@ class ResourceWarningTypeDef(TypedDict):
 ParallelExecutionBlockConfigurationUnionTypeDef = Union[
     ParallelExecutionBlockConfigurationTypeDef, ParallelExecutionBlockConfigurationOutputTypeDef
 ]
+RdsCreateCrossRegionReplicaConfigurationUnionTypeDef = Union[
+    RdsCreateCrossRegionReplicaConfigurationTypeDef,
+    RdsCreateCrossRegionReplicaConfigurationOutputTypeDef,
+]
+RdsPromoteReadReplicaConfigurationUnionTypeDef = Union[
+    RdsPromoteReadReplicaConfigurationTypeDef, RdsPromoteReadReplicaConfigurationOutputTypeDef
+]
 
 class ReportOutputConfigurationTypeDef(TypedDict):
     s3Configuration: NotRequired[S3ReportOutputConfigurationTypeDef]
@@ -761,6 +800,10 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationOutputTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationOutputTypeDef]
     documentDbConfig: NotRequired[DocumentDbConfigurationOutputTypeDef]
+    rdsPromoteReadReplicaConfig: NotRequired[RdsPromoteReadReplicaConfigurationOutputTypeDef]
+    rdsCreateCrossRegionReadReplicaConfig: NotRequired[
+        RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
+    ]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -774,6 +817,10 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationOutputTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationOutputTypeDef]
     documentDbConfig: NotRequired[DocumentDbConfigurationOutputTypeDef]
+    rdsPromoteReadReplicaConfig: NotRequired[RdsPromoteReadReplicaConfigurationOutputTypeDef]
+    rdsCreateCrossRegionReadReplicaConfig: NotRequired[
+        RdsCreateCrossRegionReplicaConfigurationOutputTypeDef
+    ]
 
 Route53HealthCheckConfigurationUnionTypeDef = Union[
     Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
@@ -807,6 +854,10 @@ class ExecutionBlockConfigurationTypeDef(TypedDict):
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationUnionTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationUnionTypeDef]
     documentDbConfig: NotRequired[DocumentDbConfigurationUnionTypeDef]
+    rdsPromoteReadReplicaConfig: NotRequired[RdsPromoteReadReplicaConfigurationUnionTypeDef]
+    rdsCreateCrossRegionReadReplicaConfig: NotRequired[
+        RdsCreateCrossRegionReplicaConfigurationUnionTypeDef
+    ]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType
@@ -880,6 +931,7 @@ class GetPlanExecutionResponseTypeDef(TypedDict):
     executionState: ExecutionStateType
     executionAction: ExecutionActionType
     executionRegion: str
+    recoveryExecutionId: str
     stepStates: list[StepStateTypeDef]
     plan: PlanTypeDef
     actualRecoveryTime: str
@@ -911,6 +963,7 @@ class GetPlanExecutionResponsePaginatorTypeDef(TypedDict):
     executionState: ExecutionStateType
     executionAction: ExecutionActionType
     executionRegion: str
+    recoveryExecutionId: str
     stepStates: list[StepStateTypeDef]
     plan: PlanPaginatorTypeDef
     actualRecoveryTime: str

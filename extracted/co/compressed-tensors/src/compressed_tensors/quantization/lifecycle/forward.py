@@ -1,20 +1,8 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 from functools import wraps
 from math import ceil
-from typing import Optional
 
 import torch
 from compressed_tensors.quantization.quant_args import (
@@ -28,6 +16,7 @@ from compressed_tensors.quantization.quant_scheme import QuantizationScheme
 from compressed_tensors.quantization.utils import (
     calculate_range,
     compute_dynamic_scales_and_zp,
+    maybe_pad_tensor_for_block_quant,
 )
 from torch.nn import Module
 
@@ -47,9 +36,9 @@ def quantize(
     scale: torch.Tensor,
     zero_point: torch.Tensor,
     args: QuantizationArgs,
-    dtype: Optional[torch.dtype] = None,
-    g_idx: Optional[torch.Tensor] = None,
-    global_scale: Optional[torch.Tensor] = None,
+    dtype: torch.dtype | None = None,
+    g_idx: torch.Tensor | None = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     Quantize the input tensor x using the QuantizationStrategy specified in args.
@@ -85,11 +74,11 @@ def quantize(
 def dequantize(
     x_q: torch.Tensor,
     scale: torch.Tensor,
-    zero_point: Optional[torch.Tensor] = None,
-    args: Optional[QuantizationArgs] = None,
-    dtype: Optional[torch.dtype] = None,
-    g_idx: Optional[torch.Tensor] = None,
-    global_scale: Optional[torch.Tensor] = None,
+    zero_point: torch.Tensor | None = None,
+    args: QuantizationArgs | None = None,
+    dtype: torch.dtype | None = None,
+    g_idx: torch.Tensor | None = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     Dequantize a quantized input tensor x_q based on the strategy specified in args. If
@@ -159,8 +148,8 @@ def fake_quantize(
     scale: torch.Tensor,
     zero_point: torch.Tensor,
     args: QuantizationArgs,
-    g_idx: Optional[torch.Tensor] = None,
-    global_scale: Optional[torch.Tensor] = None,
+    g_idx: torch.Tensor | None = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     Fake quantize the input tensor x by quantizing then dequantizing with
@@ -195,11 +184,11 @@ def _process_quantization(
     scale: torch.Tensor,
     zero_point: torch.Tensor,
     args: QuantizationArgs,
-    g_idx: Optional[torch.Tensor] = None,
-    dtype: Optional[torch.dtype] = None,
+    g_idx: torch.Tensor | None = None,
+    dtype: torch.dtype | None = None,
     do_quantize: bool = True,
     do_dequantize: bool = True,
-    global_scale: Optional[torch.Tensor] = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
     q_min, q_max = calculate_range(args, x.device)
     group_size = args.group_size
@@ -208,24 +197,14 @@ def _process_quantization(
     # quantization
     if args.strategy == QuantizationStrategy.BLOCK:
         original_shape = x.shape
-        rows, cols = x.shape[-2], x.shape[-1]
         block_height, block_width = args.block_structure
 
-        # Ensure exact division (tensor dimensions must be divisible by block size)
-        if rows % block_height != 0:
-            raise ValueError(
-                f"Tensor height {rows} is not divisible by block_height {block_height}."
-                f" Block quantization requires exact division."
-            )
-        if cols % block_width != 0:
-            raise ValueError(
-                f"Tensor width {cols} is not divisible by block_width {block_width}. "
-                f"Block quantization requires exact division."
-            )
+        x = maybe_pad_tensor_for_block_quant(x, args.block_structure)
+        padded_shape = x.shape
 
         # reshape into blocks and transpose to make each block contiguous
-        num_rows_blocks = rows // block_height
-        num_cols_blocks = cols // block_width
+        num_rows_blocks = padded_shape[0] // block_height
+        num_cols_blocks = padded_shape[1] // block_width
         x_blocks = x.reshape(
             num_rows_blocks,
             block_height,
@@ -256,8 +235,11 @@ def _process_quantization(
                 zero_point=zb,
                 global_scale=global_scale,
             )
-        # restore original shape
-        output = x_blocks.transpose(1, 2).reshape(original_shape)
+        # restore padded shape
+        output = x_blocks.transpose(1, 2).reshape(padded_shape)
+        # truncate to original dimensions if padding was applied
+        if original_shape != padded_shape:
+            output = output[tuple([slice(v) for v in original_shape])]
     elif args.strategy in (
         QuantizationStrategy.GROUP,
         QuantizationStrategy.TENSOR_GROUP,
@@ -363,28 +345,28 @@ def wrap_module_forward_quantized(module: Module, scheme: QuantizationScheme):
 
     @wraps(forward_func_orig)  # ensures docstring, names, etc are propagated
     def wrapped_forward(self, *args, **kwargs):
-        if not getattr(module, "quantization_enabled", True):
+        if not getattr(self, "quantization_enabled", True):
             # quantization is disabled on forward passes, return baseline
             # forward call
-            return forward_func_orig.__get__(module, module.__class__)(*args, **kwargs)
+            return forward_func_orig.__get__(self, self.__class__)(*args, **kwargs)
 
         input_ = args[0]
 
-        compressed = module.quantization_status == QuantizationStatus.COMPRESSED
+        compressed = self.quantization_status == QuantizationStatus.COMPRESSED
 
         if scheme.input_activations is not None:
             # prehook should calibrate activations before forward call
-            input_ = forward_quantize(module, input_, "input", scheme.input_activations)
+            input_ = forward_quantize(self, input_, "input", scheme.input_activations)
 
         if scheme.weights is not None and not compressed:
             # calibrate and (fake) quantize weights when applicable
             unquantized_weight = self.weight.data.clone()
             self.weight.data = forward_quantize(
-                module, self.weight, "weight", scheme.weights
+                self, self.weight, "weight", scheme.weights
             )
 
         # perform wrapped forward call
-        output = forward_func_orig.__get__(module, module.__class__)(
+        output = forward_func_orig.__get__(self, self.__class__)(
             input_, *args[1:], **kwargs
         )
 
@@ -395,14 +377,12 @@ def wrap_module_forward_quantized(module: Module, scheme: QuantizationScheme):
         if scheme.output_activations is not None:
             # forward-hook should calibrate/forward_quantize
             if (
-                module.quantization_status == QuantizationStatus.CALIBRATION
+                self.quantization_status == QuantizationStatus.CALIBRATION
                 and not scheme.output_activations.dynamic
             ):
                 return output
 
-            output = forward_quantize(
-                module, output, "output", scheme.output_activations
-            )
+            output = forward_quantize(self, output, "output", scheme.output_activations)
         return output
 
     # bind wrapped forward to module class so reference to `self` is correct
@@ -459,8 +439,8 @@ def _quantize(
     q_min: torch.Tensor,
     q_max: torch.Tensor,
     args: QuantizationArgs,
-    dtype: Optional[torch.dtype] = None,
-    global_scale: Optional[torch.Tensor] = None,
+    dtype: torch.dtype | None = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
 
     # if a global scale is optionally provided, use it
@@ -488,9 +468,9 @@ def _quantize(
 def _dequantize(
     x_q: torch.Tensor,
     scale: torch.Tensor,
-    zero_point: torch.Tensor = None,
-    dtype: Optional[torch.dtype] = None,
-    global_scale: Optional[torch.Tensor] = None,
+    zero_point: torch.Tensor | None = None,
+    dtype: torch.dtype | None = None,
+    global_scale: torch.Tensor | None = None,
 ) -> torch.Tensor:
 
     # if a global scale is optionally provided, use it

@@ -376,6 +376,9 @@ class DeadlineWorkstationConfigWidget(QWidget):
         self.telemetry_opt_out = self._init_checkbox_setting(
             group, layout, "telemetry.opt_out", tr("Telemetry opt out")
         )
+        self.force_s3_check = self._init_checkbox_setting(
+            group, layout, "settings.force_s3_check", tr("Always check S3 job attachments")
+        )
 
         self._conflict_resolution_options = [option.name for option in FileConflictResolution]
         self.conflict_resolution_box = self._init_combobox_setting(
@@ -1027,8 +1030,15 @@ class _DeadlineResourceListComboBox(QWidget):
             index = self.box.findData(selected_id)
             if index >= 0:
                 self.box.setCurrentIndex(index)
+            elif selected_id:
+                # User has a configured ID but it's not in the list. This happens when
+                # the user has permission to use a resource (e.g., queue) but lacks
+                # permission to list resources (e.g., ListFarms). Show the raw ID so
+                # they can still see their configured resource.
+                self.box.insertItem(0, selected_id, userData=selected_id)
+                self.box.setCurrentIndex(0)
             else:
-                # Some cases allow to select "nothing" and insert an item to indicate such
+                # No ID selected
                 index = self.box.findText("<none selected>")
                 if index >= 0:
                     self.box.setCurrentIndex(index)

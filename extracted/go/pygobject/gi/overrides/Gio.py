@@ -18,8 +18,6 @@
 import asyncio
 import warnings
 
-from contextlib import suppress
-
 from .._ossighelper import register_sigint_fallback, get_event_loop
 from ..overrides import (
     override,
@@ -28,11 +26,19 @@ from ..overrides import (
     wrap_list_store_equal_func,
     wrap_list_store_sort_func,
 )
-from .._gi import CallableInfo
-from ..module import get_introspection_module
+from ..module import (
+    get_introspection_module,
+    get_fallback_platform_specific_module_symbol,
+    get_platform_specific_module,
+)
 from gi import PyGIWarning
 
+
 from gi.repository import GLib
+from gi.repository import GObject
+
+from typing import Generic, TypeVar, overload
+from collections.abc import Callable, Generator, Sequence
 
 import sys
 
@@ -476,7 +482,16 @@ DBusProxy = override(DBusProxy)
 __all__.append("DBusProxy")
 
 
-class ListModel(Gio.ListModel):
+ObjectItemType = TypeVar("ObjectItemType", bound=GObject.Object)
+
+
+class ListModel(Gio.ListModel, Generic[ObjectItemType]):
+    @overload
+    def __getitem__(self, key: slice) -> list[ObjectItemType]: ...
+
+    @overload
+    def __getitem__(self, key: int) -> ObjectItemType: ...
+
     def __getitem__(self, key):
         if isinstance(key, slice):
             return [self.get_item(i) for i in range(*key.indices(len(self)))]
@@ -491,16 +506,16 @@ class ListModel(Gio.ListModel):
             return ret
         raise TypeError
 
-    def __contains__(self, item):
+    def __contains__(self, item: ObjectItemType) -> bool:
         pytype = self.get_item_type().pytype
         if not isinstance(item, pytype):
             raise TypeError(f"Expected type {pytype.__module__}.{pytype.__name__}")
         return any(i == item for i in self)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.get_n_items()
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[ObjectItemType, None, None]:
         for i in range(len(self)):
             yield self.get_item(i)
 
@@ -509,16 +524,22 @@ ListModel = override(ListModel)
 __all__.append("ListModel")
 
 
-class ListStore(Gio.ListStore):
-    def sort(self, compare_func, *user_data):
+class ListStore(Gio.ListStore, Generic[ObjectItemType]):
+    # Describing the variadic arguments requires TypeVarTuple and unpacking syntax in type annotation:
+    #   compare_func: Callable[Concatenate[ObjectItemType, ObjectItemType, *TypedVarTuple('Args')], int]
+    #   *user_data: *TypedVarTuple('Args')
+    # Since those are only available on Python ≥ 3.11, let's keep the arguments untyped for now.
+    def sort(self, compare_func: Callable[..., int], *user_data) -> None:
         compare_func = wrap_list_store_sort_func(compare_func)
         return super().sort(compare_func, *user_data)
 
-    def insert_sorted(self, item, compare_func, *user_data):
+    def insert_sorted(
+        self, item: ObjectItemType, compare_func: Callable[..., int], *user_data
+    ) -> None:
         compare_func = wrap_list_store_sort_func(compare_func)
         return super().insert_sorted(item, compare_func, *user_data)
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             if step == 1:
@@ -536,6 +557,12 @@ class ListStore(Gio.ListStore):
             self.remove(key)
         else:
             raise TypeError
+
+    @overload
+    def __setitem__(self, key: slice, value: Sequence[ObjectItemType]) -> None: ...
+
+    @overload
+    def __setitem__(self, key: int, value: ObjectItemType) -> None: ...
 
     def __setitem__(self, key, value):
         if isinstance(key, slice):
@@ -617,54 +644,33 @@ File = override(File)
 __all__.append("File")
 
 
-GioPlatform = None
-
-with suppress(ImportError):
-    from gi.repository import GioUnix as GioPlatform
-
-if not GioPlatform:
-    with suppress(ImportError):
-        from gi.repository import GioWin32 as GioPlatform
+GioPlatform = get_platform_specific_module(Gio)
 
 if GioPlatform:
     # Add support for using platform-specific Gio symbols.
     gio_globals = globals()
 
-    platform_name = f"{GioPlatform._namespace[len(Gio._namespace) :]}"
-    platform_name_lower = platform_name.lower()
-
     for attr in dir(GioPlatform):
         if attr.startswith("_"):
             continue
 
-        original_attr = getattr(GioPlatform, attr)
-        wrapper_attr = attr
+        original_attr, wrapper_attr = get_fallback_platform_specific_module_symbol(
+            Gio, GioPlatform, attr
+        )
 
-        if isinstance(
-            original_attr, CallableInfo
-        ) and original_attr.get_symbol().startswith(f"g_{platform_name_lower}_"):
-            wrapper_attr = f"{platform_name_lower}_{attr}"
-        else:
-            try:
-                gtype = getattr(original_attr, "__gtype__")
-                if gtype.name.startswith(f"G{platform_name}"):
-                    wrapper_attr = f"{platform_name}{attr}"
-            except AttributeError:
-                pass
-
-        if wrapper_attr == attr and hasattr(Gio, wrapper_attr):
-            try:
-                name = original_attr.__name__[0]
-            except (AttributeError, IndexError):
-                name = original_attr
-
-            # Fallback if we don't have the original name.
-            if name.islower():
-                wrapper_attr = f"{platform_name_lower}_{attr}"
-            elif "_" in name:
-                wrapper_attr = f"{platform_name.upper()}_{attr}"
-            elif name:
-                wrapper_attr = f"{platform_name}{attr}"
+        if (
+            wrapper_attr == attr
+            and (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) >= (2, 86)
+            and hasattr(Gio, wrapper_attr)
+        ):
+            warnings.warn(
+                (
+                    f"Name conflict for platform-specific symbol {GioPlatform._namespace}.{attr}."
+                    + " No wrapper will be created."
+                ),
+                PyGIWarning,
+                stacklevel=2,
+            )
 
         if (
             wrapper_attr in __all__

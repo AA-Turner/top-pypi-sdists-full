@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-barbicanclient
-Version: 7.2.0
+Version: 7.3.0
 Summary: Client Library for OpenStack Barbican Key Management API
 Home-page: https://docs.openstack.org/python-barbicanclient/latest/
 Author: OpenStack
@@ -26,6 +26,15 @@ Requires-Dist: keystoneauth1>=5.1.1
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.serialization>=2.18.0
 Requires-Dist: oslo.utils>=3.33.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 python-barbicanclient
 =====================

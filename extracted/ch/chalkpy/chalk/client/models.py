@@ -17,6 +17,8 @@ from chalk.features import Feature
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features.resolver import Resolver
 from chalk.features.tag import EnvironmentId
+from chalk.ml import ModelEncoding, ModelType
+from chalk.ml.utils import ModelClass
 from chalk.prompts import Prompt
 from chalk.queries.query_context import ContextJsonDict
 from chalk.utils.df_utils import read_parquet
@@ -1660,7 +1662,7 @@ class StreamResolverTestMessagePayload(BaseModel):
         encoders = self.__config__.json_encoders or {}
         if original_headers := original_dict.get("headers"):
             new_headers: list[tuple[str, str]] = []
-            for (hk, hv) in original_headers:
+            for hk, hv in original_headers:
                 new_headers.append((hk, hv.decode("unicode_escape")))
             original_dict["headers"] = new_headers
         return {
@@ -1865,6 +1867,30 @@ class RegisterModelArtifactResponse(BaseModel):
     created_at: Optional[datetime] = None
 
 
+@dataclasses.dataclass(frozen=True)
+class ModelArtifactSpec:
+    model_type: ModelType
+    model_class: Optional[ModelClass]
+    model_encoding: ModelEncoding
+    model_files: List[str]
+    additional_files: List[str]
+    input_schema: Any
+    output_schema: Any
+    metadata: Mapping[str, Any]
+    input_features: list[str]
+    output_features: list[str]
+    dependencies: List[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class DownloadModelArtifactResult:
+    model_name: str
+    model_version: int
+    model_artifact: ModelArtifactSpec
+    downloaded_model_files: List[str]
+    downloaded_additional_files: List[str]
+
+
 class GetRegisteredModelResponse(BaseModel):
     model_id: str
     model_name: str
@@ -1884,7 +1910,7 @@ class GetRegisteredModelVersionResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     archived_at: Optional[datetime] = None
-    model_artifact: Optional[Any]
+    model_artifact: Optional[ModelArtifactSpec] = None
 
 
 class CreateModelTrainingJobResponse(BaseModel):

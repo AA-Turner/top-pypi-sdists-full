@@ -6,12 +6,15 @@
 
 G_BEGIN_DECLS
 
-PyObject *pyg_integer_richcompare (PyObject *v, PyObject *w, int op);
 PyObject *pyg_ptr_richcompare (void *a, void *b, int op);
 const gchar *pyg_constant_strip_prefix (const gchar *name,
                                         const gchar *strip_prefix);
 
 gboolean pygi_guint_from_pyssize (Py_ssize_t pyval, guint *result);
+
+PyObject *pyg_is_python_keyword (const gchar *name);
+
+void pyg_destroy_notify (gpointer user_data);
 
 #if PY_VERSION_HEX < 0x030900A4
 #define Py_SET_TYPE(obj, type) ((Py_TYPE (obj) = (type)), (void)0)

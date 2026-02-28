@@ -278,7 +278,7 @@ Global___ColumnAliasFn: _TypeAlias = ColumnAliasFn  # noqa: Y015
 
 @_typing.final
 class ColumnRef(_message.Message):
-    """type.ir:35"""
+    """type.ir:34"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -306,7 +306,7 @@ Global___ColumnRef: _TypeAlias = ColumnRef  # noqa: Y015
 
 @_typing.final
 class ColumnIdentifier(_message.Message):
-    """type.ir:36"""
+    """type.ir:35"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -324,7 +324,7 @@ Global___ColumnIdentifier: _TypeAlias = ColumnIdentifier  # noqa: Y015
 
 @_typing.final
 class ColumnName(_message.Message):
-    """type.ir:37"""
+    """type.ir:36"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -352,7 +352,6 @@ class DataType(_message.Message):
     BYTE_TYPE_FIELD_NUMBER: _builtins.int
     DATE_TYPE_FIELD_NUMBER: _builtins.int
     DAY_TIME_INTERVAL_TYPE_FIELD_NUMBER: _builtins.int
-    DEC_FLOAT_TYPE_FIELD_NUMBER: _builtins.int
     DECIMAL_TYPE_FIELD_NUMBER: _builtins.int
     DOUBLE_TYPE_FIELD_NUMBER: _builtins.int
     FILE_TYPE_FIELD_NUMBER: _builtins.int
@@ -378,7 +377,6 @@ class DataType(_message.Message):
     boolean_type: _builtins.bool
     byte_type: _builtins.bool
     date_type: _builtins.bool
-    dec_float_type: _builtins.bool
     double_type: _builtins.bool
     file_type: _builtins.bool
     float_type: _builtins.bool
@@ -423,7 +421,6 @@ class DataType(_message.Message):
         byte_type: _builtins.bool = ...,
         date_type: _builtins.bool = ...,
         day_time_interval_type: Global___DayTimeIntervalType | None = ...,
-        dec_float_type: _builtins.bool = ...,
         decimal_type: Global___DecimalType | None = ...,
         double_type: _builtins.bool = ...,
         file_type: _builtins.bool = ...,
@@ -446,11 +443,11 @@ class DataType(_message.Message):
         vector_type: Global___VectorType | None = ...,
         year_month_interval_type: Global___YearMonthIntervalType | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["array_type", b"array_type", "binary_type", b"binary_type", "boolean_type", b"boolean_type", "byte_type", b"byte_type", "date_type", b"date_type", "day_time_interval_type", b"day_time_interval_type", "dec_float_type", b"dec_float_type", "decimal_type", b"decimal_type", "double_type", b"double_type", "file_type", b"file_type", "float_type", b"float_type", "geography_type", b"geography_type", "geometry_type", b"geometry_type", "integer_type", b"integer_type", "long_type", b"long_type", "map_type", b"map_type", "null_type", b"null_type", "pandas_data_frame_type", b"pandas_data_frame_type", "pandas_series_type", b"pandas_series_type", "short_type", b"short_type", "string_type", b"string_type", "struct_field", b"struct_field", "struct_type", b"struct_type", "time_type", b"time_type", "timestamp_type", b"timestamp_type", "variant", b"variant", "variant_type", b"variant_type", "vector_type", b"vector_type", "year_month_interval_type", b"year_month_interval_type"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["array_type", b"array_type", "binary_type", b"binary_type", "boolean_type", b"boolean_type", "byte_type", b"byte_type", "date_type", b"date_type", "day_time_interval_type", b"day_time_interval_type", "decimal_type", b"decimal_type", "double_type", b"double_type", "file_type", b"file_type", "float_type", b"float_type", "geography_type", b"geography_type", "geometry_type", b"geometry_type", "integer_type", b"integer_type", "long_type", b"long_type", "map_type", b"map_type", "null_type", b"null_type", "pandas_data_frame_type", b"pandas_data_frame_type", "pandas_series_type", b"pandas_series_type", "short_type", b"short_type", "string_type", b"string_type", "struct_field", b"struct_field", "struct_type", b"struct_type", "time_type", b"time_type", "timestamp_type", b"timestamp_type", "variant", b"variant", "variant_type", b"variant_type", "vector_type", b"vector_type", "year_month_interval_type", b"year_month_interval_type"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["array_type", b"array_type", "binary_type", b"binary_type", "boolean_type", b"boolean_type", "byte_type", b"byte_type", "date_type", b"date_type", "day_time_interval_type", b"day_time_interval_type", "dec_float_type", b"dec_float_type", "decimal_type", b"decimal_type", "double_type", b"double_type", "file_type", b"file_type", "float_type", b"float_type", "geography_type", b"geography_type", "geometry_type", b"geometry_type", "integer_type", b"integer_type", "long_type", b"long_type", "map_type", b"map_type", "null_type", b"null_type", "pandas_data_frame_type", b"pandas_data_frame_type", "pandas_series_type", b"pandas_series_type", "short_type", b"short_type", "string_type", b"string_type", "struct_field", b"struct_field", "struct_type", b"struct_type", "time_type", b"time_type", "timestamp_type", b"timestamp_type", "variant", b"variant", "variant_type", b"variant_type", "vector_type", b"vector_type", "year_month_interval_type", b"year_month_interval_type"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["array_type", b"array_type", "binary_type", b"binary_type", "boolean_type", b"boolean_type", "byte_type", b"byte_type", "date_type", b"date_type", "day_time_interval_type", b"day_time_interval_type", "decimal_type", b"decimal_type", "double_type", b"double_type", "file_type", b"file_type", "float_type", b"float_type", "geography_type", b"geography_type", "geometry_type", b"geometry_type", "integer_type", b"integer_type", "long_type", b"long_type", "map_type", b"map_type", "null_type", b"null_type", "pandas_data_frame_type", b"pandas_data_frame_type", "pandas_series_type", b"pandas_series_type", "short_type", b"short_type", "string_type", b"string_type", "struct_field", b"struct_field", "struct_type", b"struct_type", "time_type", b"time_type", "timestamp_type", b"timestamp_type", "variant", b"variant", "variant_type", b"variant_type", "vector_type", b"vector_type", "year_month_interval_type", b"year_month_interval_type"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    _WhichOneofReturnType_variant: _TypeAlias = _typing.Literal["array_type", "binary_type", "boolean_type", "byte_type", "date_type", "day_time_interval_type", "dec_float_type", "decimal_type", "double_type", "file_type", "float_type", "geography_type", "geometry_type", "integer_type", "long_type", "map_type", "null_type", "pandas_data_frame_type", "pandas_series_type", "short_type", "string_type", "struct_field", "struct_type", "time_type", "timestamp_type", "variant_type", "vector_type", "year_month_interval_type"]  # noqa: Y015
+    _WhichOneofReturnType_variant: _TypeAlias = _typing.Literal["array_type", "binary_type", "boolean_type", "byte_type", "date_type", "day_time_interval_type", "decimal_type", "double_type", "file_type", "float_type", "geography_type", "geometry_type", "integer_type", "long_type", "map_type", "null_type", "pandas_data_frame_type", "pandas_series_type", "short_type", "string_type", "struct_field", "struct_type", "time_type", "timestamp_type", "variant_type", "vector_type", "year_month_interval_type"]  # noqa: Y015
     _WhichOneofArgType_variant: _TypeAlias = _typing.Literal["variant", b"variant"]  # noqa: Y015
     def WhichOneof(self, oneof_group: _WhichOneofArgType_variant) -> _WhichOneofReturnType_variant | None: ...
 
@@ -524,7 +521,7 @@ Global___DecimalType: _TypeAlias = DecimalType  # noqa: Y015
 
 @_typing.final
 class MapType(_message.Message):
-    """type.ir:18"""
+    """type.ir:17"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -552,7 +549,7 @@ Global___MapType: _TypeAlias = MapType  # noqa: Y015
 
 @_typing.final
 class StringType(_message.Message):
-    """type.ir:21"""
+    """type.ir:20"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -573,7 +570,7 @@ Global___StringType: _TypeAlias = StringType  # noqa: Y015
 
 @_typing.final
 class StructField(_message.Message):
-    """type.ir:22"""
+    """type.ir:21"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -601,7 +598,7 @@ Global___StructField: _TypeAlias = StructField  # noqa: Y015
 
 @_typing.final
 class StructType(_message.Message):
-    """type.ir:23"""
+    """type.ir:22"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -623,7 +620,7 @@ Global___StructType: _TypeAlias = StructType  # noqa: Y015
 
 @_typing.final
 class TimestampType(_message.Message):
-    """type.ir:25"""
+    """type.ir:24"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -644,7 +641,7 @@ Global___TimestampType: _TypeAlias = TimestampType  # noqa: Y015
 
 @_typing.final
 class VectorType(_message.Message):
-    """type.ir:27"""
+    """type.ir:26"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -668,7 +665,7 @@ Global___VectorType: _TypeAlias = VectorType  # noqa: Y015
 
 @_typing.final
 class YearMonthIntervalType(_message.Message):
-    """type.ir:28"""
+    """type.ir:27"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -689,7 +686,7 @@ Global___YearMonthIntervalType: _TypeAlias = YearMonthIntervalType  # noqa: Y015
 
 @_typing.final
 class PandasSeriesType(_message.Message):
-    """type.ir:30"""
+    """type.ir:29"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -710,7 +707,7 @@ Global___PandasSeriesType: _TypeAlias = PandasSeriesType  # noqa: Y015
 
 @_typing.final
 class PandasDataFrameType(_message.Message):
-    """type.ir:31"""
+    """type.ir:30"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -824,7 +821,7 @@ Global___DataframeData_Pandas: _TypeAlias = DataframeData_Pandas  # noqa: Y015
 
 @_typing.final
 class DataframeSchema(_message.Message):
-    """type.ir:47"""
+    """type.ir:46"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -852,7 +849,7 @@ Global___DataframeSchema: _TypeAlias = DataframeSchema  # noqa: Y015
 
 @_typing.final
 class DataframeSchema_List(_message.Message):
-    """type.ir:48"""
+    """type.ir:47"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -871,7 +868,7 @@ Global___DataframeSchema_List: _TypeAlias = DataframeSchema_List  # noqa: Y015
 
 @_typing.final
 class DataframeSchema_Struct(_message.Message):
-    """type.ir:49"""
+    """type.ir:48"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -1290,7 +1287,7 @@ Global___TableVariant: _TypeAlias = TableVariant  # noqa: Y015
 
 @_typing.final
 class TimestampTimeZone(_message.Message):
-    """type.ir:40"""
+    """type.ir:39"""
 
     DESCRIPTOR: _descriptor.Descriptor
 

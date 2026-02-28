@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anycrc
-Version: 1.3.7
+Version: 1.3.8
 Summary: The fastest general Python CRC Library
 License: Zlib
 Project-URL: Homepage, https://github.com/marzooqy/anycrc

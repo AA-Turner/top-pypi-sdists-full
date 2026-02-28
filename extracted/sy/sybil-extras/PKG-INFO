@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.2.26.1
+Version: 2026.2.27
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -48,7 +48,7 @@ Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sybil==9.3.0; extra == "dev"
-Requires-Dist: ty==0.0.18; extra == "dev"
+Requires-Dist: ty==0.0.19; extra == "dev"
 Requires-Dist: uv==0.10.6; extra == "dev"
 Requires-Dist: vulture==2.14; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"

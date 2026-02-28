@@ -135,6 +135,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsResponse.FromString,
         )
+        self.GetPermissionsForEnvironment = channel.unary_unary(
+            "/chalk.server.v1.TeamService/GetPermissionsForEnvironment",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentResponse.FromString,
+        )
         self.ArchiveEnvironment = channel.unary_unary(
             "/chalk.server.v1.TeamService/ArchiveEnvironment",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
@@ -329,6 +334,12 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetPermissionsForEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ArchiveEnvironment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -499,6 +510,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.GetTeamPermissions,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsResponse.SerializeToString,
+        ),
+        "GetPermissionsForEnvironment": grpc.unary_unary_rpc_method_handler(
+            servicer.GetPermissionsForEnvironment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentResponse.SerializeToString,
         ),
         "ArchiveEnvironment": grpc.unary_unary_rpc_method_handler(
             servicer.ArchiveEnvironment,
@@ -1235,6 +1251,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/GetTeamPermissions",
             chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.GetTeamPermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetPermissionsForEnvironment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/GetPermissionsForEnvironment",
+            chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.GetPermissionsForEnvironmentResponse.FromString,
             options,
             channel_credentials,
             insecure,

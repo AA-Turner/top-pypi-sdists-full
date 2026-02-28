@@ -1,27 +1,26 @@
 from collections import defaultdict
-from collections.abc import Sequence
 import json
 import os
 from pathlib import Path
 import time
-from typing import Any
 
 import certifi
 import click
-import httpx
+import requests
 
 from crewai.cli.constants import JSON_URL, MODELS, PROVIDERS
 
 
-def select_choice(prompt_message: str, choices: Sequence[str]) -> str | None:
-    """Presents a list of choices to the user and prompts them to select one.
+def select_choice(prompt_message, choices):
+    """
+    Presents a list of choices to the user and prompts them to select one.
 
     Args:
-        prompt_message: The message to display to the user before presenting the choices.
-        choices: A list of options to present to the user.
+    - prompt_message (str): The message to display to the user before presenting the choices.
+    - choices (list): A list of options to present to the user.
 
     Returns:
-        The selected choice from the list, or None if the user chooses to quit.
+    - str: The selected choice from the list, or None if the user chooses to quit.
     """
 
     provider_models = get_provider_data()
@@ -53,14 +52,16 @@ def select_choice(prompt_message: str, choices: Sequence[str]) -> str | None:
         )
 
 
-def select_provider(provider_models: dict[str, list[str]]) -> str | None | bool:
-    """Presents a list of providers to the user and prompts them to select one.
+def select_provider(provider_models):
+    """
+    Presents a list of providers to the user and prompts them to select one.
 
     Args:
-        provider_models: A dictionary of provider models.
+    - provider_models (dict): A dictionary of provider models.
 
     Returns:
-        The selected provider, None if user explicitly quits, or False if no selection.
+    - str: The selected provider
+    - None: If user explicitly quits
     """
     predefined_providers = [p.lower() for p in PROVIDERS]
     all_providers = sorted(set(predefined_providers + list(provider_models.keys())))
@@ -79,15 +80,16 @@ def select_provider(provider_models: dict[str, list[str]]) -> str | None | bool:
     return provider.lower() if provider else False
 
 
-def select_model(provider: str, provider_models: dict[str, list[str]]) -> str | None:
-    """Presents a list of models for a given provider to the user and prompts them to select one.
+def select_model(provider, provider_models):
+    """
+    Presents a list of models for a given provider to the user and prompts them to select one.
 
     Args:
-        provider: The provider for which to select a model.
-        provider_models: A dictionary of provider models.
+    - provider (str): The provider for which to select a model.
+    - provider_models (dict): A dictionary of provider models.
 
     Returns:
-        The selected model, or None if the operation is aborted or an invalid selection is made.
+    - str: The selected model, or None if the operation is aborted or an invalid selection is made.
     """
     predefined_providers = [p.lower() for p in PROVIDERS]
 
@@ -105,17 +107,16 @@ def select_model(provider: str, provider_models: dict[str, list[str]]) -> str | 
     )
 
 
-def load_provider_data(cache_file: Path, cache_expiry: int) -> dict[str, Any] | None:
-    """Loads provider data from a cache file if it exists and is not expired.
-
-    If the cache is expired or corrupted, it fetches the data from the web.
+def load_provider_data(cache_file, cache_expiry):
+    """
+    Loads provider data from a cache file if it exists and is not expired. If the cache is expired or corrupted, it fetches the data from the web.
 
     Args:
-        cache_file: The path to the cache file.
-        cache_expiry: The cache expiry time in seconds.
+    - cache_file (Path): The path to the cache file.
+    - cache_expiry (int): The cache expiry time in seconds.
 
     Returns:
-        The loaded provider data or None if the operation fails.
+    - dict or None: The loaded provider data or None if the operation fails.
     """
     current_time = time.time()
     if (
@@ -136,81 +137,79 @@ def load_provider_data(cache_file: Path, cache_expiry: int) -> dict[str, Any] | 
     return fetch_provider_data(cache_file)
 
 
-def read_cache_file(cache_file: Path) -> dict[str, Any] | None:
-    """Reads and returns the JSON content from a cache file.
+def read_cache_file(cache_file):
+    """
+    Reads and returns the JSON content from a cache file. Returns None if the file contains invalid JSON.
 
     Args:
-        cache_file: The path to the cache file.
+    - cache_file (Path): The path to the cache file.
 
     Returns:
-        The JSON content of the cache file or None if the JSON is invalid.
+    - dict or None: The JSON content of the cache file or None if the JSON is invalid.
     """
     try:
         with open(cache_file, "r") as f:
-            data: dict[str, Any] = json.load(f)
-            return data
+            return json.load(f)
     except json.JSONDecodeError:
         return None
 
 
-def fetch_provider_data(cache_file: Path) -> dict[str, Any] | None:
-    """Fetches provider data from a specified URL and caches it to a file.
+def fetch_provider_data(cache_file):
+    """
+    Fetches provider data from a specified URL and caches it to a file.
 
     Args:
-        cache_file: The path to the cache file.
+    - cache_file (Path): The path to the cache file.
 
     Returns:
-        The fetched provider data or None if the operation fails.
+    - dict or None: The fetched provider data or None if the operation fails.
     """
     ssl_config = os.environ["SSL_CERT_FILE"] = certifi.where()
 
     try:
-        with httpx.stream("GET", JSON_URL, timeout=60, verify=ssl_config) as response:
-            response.raise_for_status()
-            data = download_data(response)
-            with open(cache_file, "w") as f:
-                json.dump(data, f)
-            return data
-    except httpx.HTTPError as e:
+        response = requests.get(JSON_URL, stream=True, timeout=60, verify=ssl_config)
+        response.raise_for_status()
+        data = download_data(response)
+        with open(cache_file, "w") as f:
+            json.dump(data, f)
+        return data
+    except requests.RequestException as e:
         click.secho(f"Error fetching provider data: {e}", fg="red")
     except json.JSONDecodeError:
         click.secho("Error parsing provider data. Invalid JSON format.", fg="red")
     return None
 
 
-def download_data(response: httpx.Response) -> dict[str, Any]:
-    """Downloads data from a given HTTP response and returns the JSON content.
+def download_data(response):
+    """
+    Downloads data from a given HTTP response and returns the JSON content.
 
     Args:
-        response: The HTTP response object.
+    - response (requests.Response): The HTTP response object.
 
     Returns:
-        The JSON content of the response.
+    - dict: The JSON content of the response.
     """
     total_size = int(response.headers.get("content-length", 0))
     block_size = 8192
-    data_chunks: list[bytes] = []
-    bar: Any
+    data_chunks = []
     with click.progressbar(
         length=total_size, label="Downloading", show_pos=True
-    ) as bar:
-        for chunk in response.iter_bytes(block_size):
+    ) as progress_bar:
+        for chunk in response.iter_content(block_size):
             if chunk:
                 data_chunks.append(chunk)
-                bar.update(len(chunk))
+                progress_bar.update(len(chunk))
     data_content = b"".join(data_chunks)
-    result: dict[str, Any] = json.loads(data_content.decode("utf-8"))
-    return result
+    return json.loads(data_content.decode("utf-8"))
 
 
-def get_provider_data() -> dict[str, list[str]] | None:
-    """Retrieves provider data from a cache file.
-
-    Filters out models based on provider criteria, and returns a dictionary of providers
-    mapped to their models.
+def get_provider_data():
+    """
+    Retrieves provider data from a cache file, filters out models based on provider criteria, and returns a dictionary of providers mapped to their models.
 
     Returns:
-        A dictionary of providers mapped to their models or None if the operation fails.
+    - dict or None: A dictionary of providers mapped to their models or None if the operation fails.
     """
     cache_dir = Path.home() / ".crewai"
     cache_dir.mkdir(exist_ok=True)

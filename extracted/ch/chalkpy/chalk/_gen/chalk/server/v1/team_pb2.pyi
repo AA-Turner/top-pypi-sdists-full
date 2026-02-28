@@ -985,6 +985,24 @@ class UpdateCustomRoleResponse(_message.Message):
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
+class GetPermissionsForEnvironmentRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class GetPermissionsForEnvironmentResponse(_message.Message):
+    __slots__ = ("permissions", "roles")
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    ROLES_FIELD_NUMBER: _ClassVar[int]
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    roles: _containers.RepeatedCompositeFieldContainer[RoleDescription]
+    def __init__(
+        self,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        roles: _Optional[_Iterable[_Union[RoleDescription, _Mapping]]] = ...,
+    ) -> None: ...
+
 class GetProjectRequest(_message.Message):
     __slots__ = ("project_id",)
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]

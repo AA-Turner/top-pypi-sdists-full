@@ -270,7 +270,6 @@ class ToolUsage:
         result = None  # type: ignore
         should_retry = False
         available_tool = None
-        error_event_emitted = False
 
         try:
             if self.tools_handler and self.tools_handler.cache:
@@ -409,7 +408,6 @@ class ToolUsage:
 
                 except Exception as e:
                     self.on_tool_error(tool=tool, tool_calling=calling, e=e)
-                    error_event_emitted = True
                     self._run_attempts += 1
                     if self._run_attempts > self._max_parsing_attempts:
                         self._telemetry.tool_usage_error(llm=self.function_calling_llm)
@@ -437,7 +435,7 @@ class ToolUsage:
                 result = self._format_result(result=result)
 
         finally:
-            if started_event_emitted and not error_event_emitted:
+            if started_event_emitted:
                 self.on_tool_use_finished(
                     tool=tool,
                     tool_calling=calling,
@@ -502,7 +500,6 @@ class ToolUsage:
         result = None  # type: ignore
         should_retry = False
         available_tool = None
-        error_event_emitted = False
 
         try:
             if self.tools_handler and self.tools_handler.cache:
@@ -641,7 +638,6 @@ class ToolUsage:
 
                 except Exception as e:
                     self.on_tool_error(tool=tool, tool_calling=calling, e=e)
-                    error_event_emitted = True
                     self._run_attempts += 1
                     if self._run_attempts > self._max_parsing_attempts:
                         self._telemetry.tool_usage_error(llm=self.function_calling_llm)
@@ -669,7 +665,7 @@ class ToolUsage:
                 result = self._format_result(result=result)
 
         finally:
-            if started_event_emitted and not error_event_emitted:
+            if started_event_emitted:
                 self.on_tool_use_finished(
                     tool=tool,
                     tool_calling=calling,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-magnumclient
-Version: 4.9.0
+Version: 4.10.0
 Summary: Client library for Magnum API
 Home-page: https://docs.openstack.org/python-magnumclient/latest/
 Author: OpenStack
@@ -33,6 +33,15 @@ Requires-Dist: osc-lib>=1.8.0
 Requires-Dist: PrettyTable>=0.7.2
 Requires-Dist: cryptography>=3.0
 Requires-Dist: decorator>=3.4.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 Team and repository tags

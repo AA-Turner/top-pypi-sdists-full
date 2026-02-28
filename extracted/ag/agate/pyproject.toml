@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agate"
-version = "1.14.1"
+version = "1.14.2"
 authors = [{name = "Christopher Groskopf", email = "chrisgroskopf@gmail.com"}]
 description = "A data analysis library that is optimized for humans instead of machines."
 readme = "README.rst"
@@ -50,9 +50,6 @@ test = [
     "pytest",
     "pytest-cov",
 ]
-
-[tool.setuptools.packages.find]
-exclude = ["benchmarks", "tests", "tests.*"]
 
 [tool.isort]
 line_length = 119

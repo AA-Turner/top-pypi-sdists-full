@@ -10,6 +10,7 @@ from .._impl import (
     scout_video_api_CreateVideoRequest as CreateVideoRequest,
     scout_video_api_DetailedIngestStatus as DetailedIngestStatus,
     scout_video_api_DetailedIngestStatusVisitor as DetailedIngestStatusVisitor,
+    scout_video_api_EndStreamResponse as EndStreamResponse,
     scout_video_api_EnrichedVideoIngestStatus as EnrichedVideoIngestStatus,
     scout_video_api_ErrorIngestStatus as ErrorIngestStatus,
     scout_video_api_ErrorType as ErrorType,
@@ -73,6 +74,7 @@ from .._impl import (
     scout_video_api_VideoIngestStatus as VideoIngestStatus,
     scout_video_api_VideoIngestStatusVisitor as VideoIngestStatusVisitor,
     scout_video_api_VideoOriginMetadata as VideoOriginMetadata,
+    scout_video_api_VideoStream as VideoStream,
     scout_video_api_VideoTimestampManifest as VideoTimestampManifest,
     scout_video_api_VideoTimestampManifestVisitor as VideoTimestampManifestVisitor,
 )
@@ -88,6 +90,7 @@ __all__ = [
     'CreateVideoRequest',
     'DetailedIngestStatus',
     'DetailedIngestStatusVisitor',
+    'EndStreamResponse',
     'EnrichedVideoIngestStatus',
     'ErrorIngestStatus',
     'ErrorType',
@@ -151,6 +154,7 @@ __all__ = [
     'VideoIngestStatus',
     'VideoIngestStatusVisitor',
     'VideoOriginMetadata',
+    'VideoStream',
     'VideoTimestampManifest',
     'VideoTimestampManifestVisitor',
 ]

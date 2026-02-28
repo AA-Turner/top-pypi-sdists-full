@@ -3,12 +3,14 @@ resolver = "2"
 members = ["crates/html-to-markdown", "crates/html-to-markdown-bindings-common", "crates/html-to-markdown-py"]
 exclude = [
     "packages/elixir/native/html_to_markdown_elixir",
+    "packages/r/src/rust",
+    "packages/ruby/ext/html-to-markdown-rb/native",
     "tests/test_apps/elixir/deps",
     "packages/ruby/rust-vendor"
 ]
 
 [workspace.package]
-version = "2.25.1"
+version = "2.26.1"
 edition = "2024"
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 license = "MIT"
@@ -19,7 +21,7 @@ readme = "README.md"
 rust-version = "1.85"
 
 [workspace.dependencies]
-html-to-markdown-rs = { version = "2.25.1", path = "crates/html-to-markdown" }
+html-to-markdown-rs = { version = "2.26.1", path = "crates/html-to-markdown" }
 
 ahash = { version = "0.8", default-features = false, features = ["std", "compile-time-rng"] }
 
@@ -38,9 +40,9 @@ clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 clap_mangen = "0.2"
 
-pyo3 = { version = "0.28.1", features = ["abi3-py310"] }
+pyo3 = { version = "0.28.2", features = ["abi3-py310"] }
 
-ext-php-rs = "0.15.4"
+ext-php-rs = "0.15.6"
 
 async-trait = "0.1"
 

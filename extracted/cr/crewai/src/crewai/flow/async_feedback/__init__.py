@@ -8,12 +8,10 @@ Example:
     from crewai.flow import Flow, start, human_feedback
     from crewai.flow.async_feedback import HumanFeedbackProvider, HumanFeedbackPending
 
-
     class SlackProvider(HumanFeedbackProvider):
         def request_feedback(self, context, flow):
             self.send_slack_notification(context)
             raise HumanFeedbackPending(context=context)
-
 
     class MyFlow(Flow):
         @start()
@@ -28,30 +26,16 @@ Example:
     ```
 """
 
-from typing import Any
-
-from crewai.flow.async_feedback.providers import ConsoleProvider
 from crewai.flow.async_feedback.types import (
     HumanFeedbackPending,
     HumanFeedbackProvider,
     PendingFeedbackContext,
 )
-
+from crewai.flow.async_feedback.providers import ConsoleProvider
 
 __all__ = [
     "ConsoleProvider",
     "HumanFeedbackPending",
     "HumanFeedbackProvider",
     "PendingFeedbackContext",
-    "_extension_exports",
 ]
-
-_extension_exports: dict[str, Any] = {}
-
-
-def __getattr__(name: str) -> Any:
-    """Support extensions via dynamic attribute lookup."""
-    if name in _extension_exports:
-        return _extension_exports[name]
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)

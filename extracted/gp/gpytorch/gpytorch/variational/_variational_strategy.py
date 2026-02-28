@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import functools
 from abc import ABC, abstractproperty
 from copy import deepcopy
-from typing import Optional, Tuple, Union
 
 import torch
 from linear_operator.operators import LinearOperator
@@ -24,8 +25,8 @@ from . import _VariationalDistribution
 class _BaseExactGP(ExactGP):
     def __init__(
         self,
-        train_inputs: Optional[Union[Tensor, Tuple[Tensor, ...]]],
-        train_targets: Optional[Tensor],
+        train_inputs: Tensor | tuple[Tensor, ...] | None,
+        train_targets: Tensor | None,
         likelihood: GaussianLikelihood,
         mean_module: Mean,
         covar_module: Kernel,
@@ -57,11 +58,11 @@ class _VariationalStrategy(Module, ABC):
 
     def __init__(
         self,
-        model: Union[ApproximateGP, "_VariationalStrategy"],
+        model: ApproximateGP | _VariationalStrategy,
         inducing_points: Tensor,
         variational_distribution: _VariationalDistribution,
         learn_inducing_locations: bool = True,
-        jitter_val: Optional[float] = None,
+        jitter_val: float | None = None,
     ):
         super().__init__()
 
@@ -86,7 +87,7 @@ class _VariationalStrategy(Module, ABC):
     def _clear_cache(self) -> None:
         clear_cache_hook(self)
 
-    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> Tuple[Tensor, Tensor]:
+    def _expand_inputs(self, x: Tensor, inducing_points: Tensor) -> tuple[Tensor, Tensor]:
         """
         Pre-processing step in __call__ to make x the same batch_shape as the inducing points
         """
@@ -128,7 +129,7 @@ class _VariationalStrategy(Module, ABC):
         x: Tensor,
         inducing_points: Tensor,
         inducing_values: Tensor,
-        variational_inducing_covar: Optional[LinearOperator] = None,
+        variational_inducing_covar: LinearOperator | None = None,
         diag: bool = True,
         **kwargs,
     ) -> MultivariateNormal:
@@ -144,7 +145,7 @@ class _VariationalStrategy(Module, ABC):
         :param inducing_values: Samples of the inducing function values :math:`\mathbf u`
             (or the mean of the distribution :math:`q(\mathbf u)` if q is a Gaussian.
         :param variational_inducing_covar: If
-            the distribuiton :math:`q(\mathbf u)` is
+            the distribution :math:`q(\mathbf u)` is
             Gaussian, then this variable is the covariance matrix of that Gaussian.
             Otherwise, it will be None.
         :param diag: If true and this module is in train mode, this method is allowed to skip the off-diagonal entries
@@ -169,9 +170,7 @@ class _VariationalStrategy(Module, ABC):
         return kl_divergence
 
     @cached(name="amortized_exact_gp")
-    def amortized_exact_gp(
-        self, mean_module: Optional[Module] = None, covar_module: Optional[Module] = None
-    ) -> ExactGP:
+    def amortized_exact_gp(self, mean_module: Module | None = None, covar_module: Module | None = None) -> ExactGP:
         mean_module = self.model.mean_module if mean_module is None else mean_module
         covar_module = self.model.covar_module if covar_module is None else covar_module
 
@@ -226,15 +225,15 @@ class _VariationalStrategy(Module, ABC):
             inducing_exact_model.prediction_strategy = pred_strat
         return inducing_exact_model
 
-    def pseudo_points(self) -> Tuple[Tensor, Tensor]:
+    def pseudo_points(self) -> tuple[Tensor, Tensor]:
         raise NotImplementedError("Each variational strategy must implement its own pseudo points method")
 
     def get_fantasy_model(
         self,
         inputs: Tensor,
         targets: Tensor,
-        mean_module: Optional[Module] = None,
-        covar_module: Optional[Module] = None,
+        mean_module: Module | None = None,
+        covar_module: Module | None = None,
         **kwargs,
     ) -> ExactGP:
         r"""
@@ -377,6 +376,6 @@ class _VariationalStrategy(Module, ABC):
             )
         else:
             raise RuntimeError(
-                f"Invalid variational distribuition ({type(variational_dist_u)}). "
+                f"Invalid variational distribution ({type(variational_dist_u)}). "
                 "Expected a multivariate normal or a delta distribution."
             )

@@ -1432,29 +1432,48 @@ test_long_api(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
     PyLongWriter *writer;
     static PyLongExport long_export;
 
-    writer = PyLongWriter_Create(1, 1, (void**)&digits);
+    writer = PyLongWriter_Create(1, 1, (void **)&digits);
+    if (writer == NULL) {
+        return NULL;
+    }
     PyLongWriter_Discard(writer);
 
-    writer = PyLongWriter_Create(1, 1, (void**)&digits);
+    writer = PyLongWriter_Create(1, 1, (void **)&digits);
+    if (writer == NULL) {
+        return NULL;
+    }
     digits[0] = 123;
     obj = PyLongWriter_Finish(writer);
+    if (obj == NULL) {
+        return NULL;
+    }
 
     check_int(obj, -123);
-    PyLong_Export(obj, &long_export);
+    if (PyLong_Export(obj, &long_export) < 0) {
+        return NULL;
+    }
     assert(long_export.value == -123);
     assert(long_export.digits == NULL);
     PyLong_FreeExport(&long_export);
     Py_DECREF(obj);
 
-    writer = PyLongWriter_Create(0, 5, (void**)&digits);
+    writer = PyLongWriter_Create(0, 5, (void **)&digits);
+    if (writer == NULL) {
+        return NULL;
+    }
     digits[0] = 1;
     digits[1] = 0;
     digits[2] = 0;
     digits[3] = 0;
     digits[4] = 1;
     obj = PyLongWriter_Finish(writer);
+    if (obj == NULL) {
+        return NULL;
+    }
 
-    PyLong_Export(obj, &long_export);
+    if (PyLong_Export(obj, &long_export) < 0) {
+        return NULL;
+    }
     assert(long_export.value == 0);
     digits = (digit*)long_export.digits;
     assert(digits[0] == 1);
@@ -1847,6 +1866,11 @@ test_unicodewriter(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args))
         goto error;
     }
 
+    // test PyUnicodeWriter_WriteASCII()
+    if (PyUnicodeWriter_WriteASCII(writer, " non-ASCII", -1) < 0) {
+        goto error;
+    }
+
     // test PyUnicodeWriter_WriteUTF8()
     if (PyUnicodeWriter_WriteUTF8(writer, " valu\xC3\xA9", -1) < 0) {
         goto error;
@@ -1870,7 +1894,7 @@ test_unicodewriter(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args))
         if (result == NULL) {
             return NULL;
         }
-        assert(PyUnicode_EqualToUTF8(result, "var=long valu\xC3\xA9 'repr'"));
+        assert(PyUnicode_EqualToUTF8(result, "var=long non-ASCII valu\xC3\xA9 'repr'"));
         Py_DECREF(result);
     }
 
@@ -1948,6 +1972,25 @@ error:
 }
 #endif
 
+static PyObject *
+test_uniquely_referenced(PyObject *Py_UNUSED(self), PyObject *Py_UNUSED(args))
+{
+    PyObject *obj = Py_BuildValue("(s, s)", "hello", "world");
+    if (obj == NULL) {
+        return NULL;
+    }
+
+    assert(PyUnstable_Object_IsUniquelyReferenced(obj));
+
+    Py_INCREF(obj);
+
+    assert(!PyUnstable_Object_IsUniquelyReferenced(obj));
+
+    Py_DECREF(obj);
+    Py_DECREF(obj);
+
+    Py_RETURN_NONE;
+}
 
 static PyObject *
 test_bytes(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
@@ -2181,6 +2224,174 @@ test_config(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
 #endif
 
 
+static PyObject *
+test_sys(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    const char *stdout_str = "stdout";
+    PyObject *stdout_obj = create_string(stdout_str);
+#if PYTHON3
+    PyObject *sys_stdout = PySys_GetObject(stdout_str);  // borrowed ref
+#else
+    PyObject *sys_stdout = PySys_GetObject((char*)stdout_str);  // borrowed ref
+#endif
+    const char *nonexistent_str = "nonexistent";
+    PyObject *nonexistent_obj = create_string(nonexistent_str);
+    PyObject *error_obj = PyLong_FromLong(1);
+    PyObject *value;
+
+    // get sys.stdout
+    value = PySys_GetAttr(stdout_obj);
+    assert(value == sys_stdout);
+    Py_DECREF(value);
+
+    value = PySys_GetAttrString(stdout_str);
+    assert(value == sys_stdout);
+    Py_DECREF(value);
+
+    value = UNINITIALIZED_OBJ;
+    assert(PySys_GetOptionalAttr(stdout_obj, &value) == 1);
+    assert(value == sys_stdout);
+    Py_DECREF(value);
+
+    value = UNINITIALIZED_OBJ;
+    assert(PySys_GetOptionalAttrString(stdout_str, &value) == 1);
+    assert(value == sys_stdout);
+    Py_DECREF(value);
+
+    // non existent attribute
+    value = PySys_GetAttr(nonexistent_obj);
+    assert(value == NULL);
+    assert(PyErr_ExceptionMatches(PyExc_RuntimeError));
+    PyErr_Clear();
+
+    value = PySys_GetAttrString(nonexistent_str);
+    assert(value == NULL);
+    assert(PyErr_ExceptionMatches(PyExc_RuntimeError));
+    PyErr_Clear();
+
+    value = UNINITIALIZED_OBJ;
+    assert(PySys_GetOptionalAttr(nonexistent_obj, &value) == 0);
+    assert(value == NULL);
+
+    value = UNINITIALIZED_OBJ;
+    assert(PySys_GetOptionalAttrString(nonexistent_str, &value) == 0);
+    assert(value == NULL);
+
+    // invalid attribute type
+    value = PySys_GetAttr(error_obj);
+    assert(value == NULL);
+    assert(PyErr_ExceptionMatches(PyExc_TypeError));
+    PyErr_Clear();
+
+    value = UNINITIALIZED_OBJ;
+    assert(PySys_GetOptionalAttr(error_obj, &value) == -1);
+    assert(value == NULL);
+    assert(PyErr_ExceptionMatches(PyExc_TypeError));
+    PyErr_Clear();
+
+    Py_DECREF(stdout_obj);
+    Py_DECREF(nonexistent_obj);
+    Py_RETURN_NONE;
+}
+
+
+static int
+test_byteswriter_highlevel(void)
+{
+    PyObject *obj;
+    PyBytesWriter *writer = PyBytesWriter_Create(0);
+    if (writer == NULL) {
+        goto error;
+    }
+    if (PyBytesWriter_WriteBytes(writer, "Hello", -1) < 0) {
+        goto error;
+    }
+    if (PyBytesWriter_Format(writer, " %s!", "World") < 0) {
+        goto error;
+    }
+
+    obj = PyBytesWriter_Finish(writer);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "Hello World!") == 0);
+    Py_DECREF(obj);
+    return 0;
+
+error:
+    PyBytesWriter_Discard(writer);
+    return -1;
+}
+
+static int
+test_byteswriter_abc(void)
+{
+    PyBytesWriter *writer = PyBytesWriter_Create(3);
+    if (writer == NULL) {
+        return -1;
+    }
+
+    char *str = (char*)PyBytesWriter_GetData(writer);
+    memcpy(str, "abc", 3);
+
+    PyObject *obj = PyBytesWriter_Finish(writer);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "abc") == 0);
+    Py_DECREF(obj);
+    return 0;
+}
+
+static int
+test_byteswriter_grow(void)
+{
+    PyBytesWriter *writer = PyBytesWriter_Create(10);
+    if (writer == NULL) {
+        return -1;
+    }
+
+    char *buf = (char*)PyBytesWriter_GetData(writer);
+    memcpy(buf, "Hello ", strlen("Hello "));
+    buf += strlen("Hello ");
+
+    buf = (char*)PyBytesWriter_GrowAndUpdatePointer(writer, 10, buf);
+    if (buf == NULL) {
+        PyBytesWriter_Discard(writer);
+        return -1;
+    }
+
+    memcpy(buf, "World", strlen("World"));
+    buf += strlen("World");
+
+    PyObject *obj = PyBytesWriter_FinishWithPointer(writer, buf);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "Hello World") == 0);
+    Py_DECREF(obj);
+    return 0;
+}
+
+static PyObject *
+test_byteswriter(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    if (test_byteswriter_highlevel() < 0) {
+        return NULL;
+    }
+    if (test_byteswriter_abc() < 0) {
+        return NULL;
+    }
+    if (test_byteswriter_grow() < 0) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+
 static struct PyMethodDef methods[] = {
     {"test_object", test_object, METH_NOARGS, _Py_NULL},
     {"test_py_is", test_py_is, METH_NOARGS, _Py_NULL},
@@ -2232,6 +2443,9 @@ static struct PyMethodDef methods[] = {
 #if 0x03090000 <= PY_VERSION_HEX && !defined(PYPY_VERSION)
     {"test_config", test_config, METH_NOARGS, _Py_NULL},
 #endif
+    {"test_sys", test_sys, METH_NOARGS, _Py_NULL},
+    {"test_uniquely_referenced", test_uniquely_referenced, METH_NOARGS, _Py_NULL},
+    {"test_byteswriter", test_byteswriter, METH_NOARGS, _Py_NULL},
     {_Py_NULL, _Py_NULL, 0, _Py_NULL}
 };
 

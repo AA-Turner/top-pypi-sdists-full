@@ -8,11 +8,10 @@ from pathlib import Path
 from unittest.mock import ANY, patch
 
 import nbformat
-from colors import strip_color
 from nbformat import validate
 
 from .. import engines, translators
-from ..exceptions import PapermillExecutionError
+from ..exceptions import PapermillExecutionError, strip_color
 from ..execute import execute_notebook
 from ..iorw import load_notebook_node
 from ..log import logger
@@ -136,7 +135,7 @@ class TestBrokenNotebook1(unittest.TestCase):
         path = get_notebook_path('broken1.ipynb')
 
         # check that the notebook has two existing marker cells, so that this test is sure to be
-        # validating the removal logic (the markers are simulatin an error in the first code cell
+        # validating the removal logic (the markers are simulating an error in the first code cell
         # that has since been fixed)
         original_nb = load_notebook_node(path)
         self.assertEqual(original_nb.cells[0].metadata["tags"], ["papermill-error-cell-tag"])
@@ -447,7 +446,6 @@ class TestOutputFormatting(unittest.TestCase):
             # exception should be thrown by now
             self.assertFalse(True)
         except PapermillExecutionError as ex:
-            self.assertEqual(ex.traceback[1], "\x1b[0;31mSystemExit\x1b[0m\x1b[0;31m:\x1b[0m 1\n")
             self.assertEqual(strip_color(ex.traceback[1]), "SystemExit: 1\n")
 
         nb = load_notebook_node(result_path)

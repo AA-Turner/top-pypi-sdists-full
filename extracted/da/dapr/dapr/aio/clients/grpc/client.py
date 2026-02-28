@@ -14,96 +14,92 @@ limitations under the License.
 """
 
 import asyncio
-import time
-import socket
 import json
+import socket
+import time
 import uuid
-
 from datetime import datetime
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Text, Union
 from urllib.parse import urlencode
-
 from warnings import warn
 
-from typing import Callable, Dict, Optional, Text, Union, Sequence, List, Any, Awaitable
+import grpc.aio  # type: ignore
+from google.protobuf.any_pb2 import Any as GrpcAny
+from google.protobuf.empty_pb2 import Empty as GrpcEmpty
+from google.protobuf.message import Message as GrpcMessage
+from grpc import StatusCode  # type: ignore
+from grpc.aio import (  # type: ignore
+    AioRpcError,
+    StreamStreamClientInterceptor,
+    StreamUnaryClientInterceptor,
+    UnaryStreamClientInterceptor,
+    UnaryUnaryClientInterceptor,
+)
 from typing_extensions import Self
 
-from google.protobuf.message import Message as GrpcMessage
-from google.protobuf.empty_pb2 import Empty as GrpcEmpty
-from google.protobuf.any_pb2 import Any as GrpcAny
-
-import grpc.aio  # type: ignore
-from grpc.aio import (  # type: ignore
-    UnaryUnaryClientInterceptor,
-    UnaryStreamClientInterceptor,
-    StreamUnaryClientInterceptor,
-    StreamStreamClientInterceptor,
-    AioRpcError,
+from dapr.aio.clients.grpc._request import (
+    DecryptRequestIterator,
+    EncryptRequestIterator,
 )
-
-from dapr.aio.clients.grpc.subscription import Subscription
-from dapr.clients.exceptions import DaprInternalError, DaprGrpcError
-from dapr.clients.grpc._crypto import EncryptOptions, DecryptOptions
-from dapr.clients.grpc._state import StateOptions, StateItem
-from dapr.clients.grpc._helpers import getWorkflowRuntimeStatus
-from dapr.clients.health import DaprHealth
-from dapr.clients.retry import RetryPolicy
-from dapr.common.pubsub.subscription import StreamInactiveError
-from dapr.conf.helpers import GrpcEndpoint
-from dapr.conf import settings
-from dapr.proto import api_v1, api_service_v1, common_v1
-from dapr.proto.runtime.v1.dapr_pb2 import UnsubscribeConfigurationResponse
-from dapr.version import __version__
-
+from dapr.aio.clients.grpc._response import (
+    DecryptResponse,
+    EncryptResponse,
+)
 from dapr.aio.clients.grpc.interceptors import (
     DaprClientInterceptorAsync,
     DaprClientTimeoutInterceptorAsync,
 )
+from dapr.aio.clients.grpc.subscription import Subscription
+from dapr.clients.exceptions import DaprGrpcError, DaprInternalError
+from dapr.clients.grpc import conversation
+from dapr.clients.grpc._crypto import DecryptOptions, EncryptOptions
 from dapr.clients.grpc._helpers import (
     MetadataTuple,
-    to_bytes,
-    validateNotNone,
-    validateNotBlankString,
     convert_dict_to_grpc_dict_of_any,
     convert_value_to_struct,
+    getWorkflowRuntimeStatus,
+    to_bytes,
+    validateNotBlankString,
+    validateNotNone,
 )
-from dapr.aio.clients.grpc._request import (
-    EncryptRequestIterator,
-    DecryptRequestIterator,
-)
-from dapr.aio.clients.grpc._response import (
-    EncryptResponse,
-    DecryptResponse,
-)
+from dapr.clients.grpc._jobs import Job
 from dapr.clients.grpc._request import (
-    InvokeMethodRequest,
     BindingRequest,
+    InvokeMethodRequest,
     TransactionalStateOperation,
 )
-from dapr.clients.grpc import conversation
-
-from dapr.clients.grpc._jobs import Job
 from dapr.clients.grpc._response import (
     BindingResponse,
+    BulkPublishResponse,
+    BulkPublishResponseFailedEntry,
+    BulkStateItem,
+    BulkStatesResponse,
+    ConfigurationResponse,
+    ConfigurationWatcher,
     DaprResponse,
-    GetSecretResponse,
     GetBulkSecretResponse,
     GetMetadataResponse,
+    GetSecretResponse,
+    GetWorkflowResponse,
     InvokeMethodResponse,
-    UnlockResponseStatus,
-    StateResponse,
-    BulkStatesResponse,
-    BulkStateItem,
-    ConfigurationResponse,
     QueryResponse,
     QueryResponseItem,
     RegisteredComponents,
-    ConfigurationWatcher,
+    StartWorkflowResponse,
+    StateResponse,
+    TopicEventResponse,
     TryLockResponse,
     UnlockResponse,
-    GetWorkflowResponse,
-    StartWorkflowResponse,
-    TopicEventResponse,
+    UnlockResponseStatus,
 )
+from dapr.clients.grpc._state import StateItem, StateOptions
+from dapr.clients.health import DaprHealth
+from dapr.clients.retry import RetryPolicy
+from dapr.common.pubsub.subscription import StreamInactiveError
+from dapr.conf import settings
+from dapr.conf.helpers import GrpcEndpoint
+from dapr.proto import api_service_v1, api_v1, common_v1
+from dapr.version import __version__
 
 
 class DaprGrpcClientAsync:
@@ -170,7 +166,7 @@ class DaprGrpcClientAsync:
 
         if not address:
             address = settings.DAPR_GRPC_ENDPOINT or (
-                f'{settings.DAPR_RUNTIME_HOST}:' f'{settings.DAPR_GRPC_PORT}'
+                f'{settings.DAPR_RUNTIME_HOST}:{settings.DAPR_GRPC_PORT}'
             )
 
         try:
@@ -490,6 +486,96 @@ class DaprGrpcClientAsync:
             raise DaprGrpcError(err) from err
 
         return DaprResponse(await call.initial_metadata())
+
+    async def publish_events(
+        self,
+        pubsub_name: str,
+        topic_name: str,
+        data: Sequence[Union[bytes, str]],
+        publish_metadata: Dict[str, str] = {},
+        data_content_type: Optional[str] = None,
+    ) -> BulkPublishResponse:
+        """Bulk publish multiple events to a given topic.
+        This publishes multiple events to a specified topic and pubsub component.
+        Each event can be bytes or str. The str data is encoded into bytes with
+        default charset of utf-8.
+
+        The example publishes multiple string events to a topic:
+
+            from dapr.aio.clients import DaprClient
+            async with DaprClient() as d:
+                resp = await d.publish_events(
+                    pubsub_name='pubsub_1',
+                    topic_name='TOPIC_A',
+                    data=['message1', 'message2', 'message3'],
+                    data_content_type='text/plain',
+                )
+                # resp.failed_entries includes any entries that failed to publish.
+
+        Args:
+            pubsub_name (str): the name of the pubsub component
+            topic_name (str): the topic name to publish to
+            data (Sequence[Union[bytes, str]]): sequence of events to publish;
+                each event must be bytes or str
+            publish_metadata (Dict[str, str], optional): Dapr metadata for the
+                bulk publish request
+            data_content_type (str, optional): content type of the event data
+
+        Returns:
+            :class:`BulkPublishResponse` with any failed entries
+        """
+        entries = []
+        for event in data:
+            entry_id = str(uuid.uuid4())
+            if isinstance(event, bytes):
+                event_data = event
+                content_type = data_content_type or 'application/octet-stream'
+            elif isinstance(event, str):
+                event_data = event.encode('utf-8')
+                content_type = data_content_type or 'text/plain'
+            else:
+                raise ValueError(f'invalid type for event {type(event)}')
+
+            entries.append(
+                api_v1.BulkPublishRequestEntry(
+                    entry_id=entry_id,
+                    event=event_data,
+                    content_type=content_type,
+                )
+            )
+
+        req = api_v1.BulkPublishRequest(
+            pubsub_name=pubsub_name,
+            topic=topic_name,
+            entries=entries,
+            metadata=publish_metadata,
+        )
+
+        try:
+            call = self._stub.BulkPublishEvent(req)
+            response = await call
+        except AioRpcError as err:
+            if err.code() == StatusCode.UNIMPLEMENTED:
+                try:
+                    call = self._stub.BulkPublishEventAlpha1(req)
+                    response = await call
+                except AioRpcError as err2:
+                    raise DaprGrpcError(err2) from err2
+            else:
+                raise DaprGrpcError(err) from err
+
+        failed_entries = [
+            BulkPublishResponseFailedEntry(
+                entry_id=entry.entry_id,
+                error=entry.error,
+            )
+            for entry in response.failedEntries
+        ]
+
+        return BulkPublishResponse(
+            failed_entries=failed_entries,
+            headers=await call.initial_metadata(),
+        )
 
     async def subscribe(
         self,
@@ -1212,7 +1298,9 @@ class DaprGrpcClientAsync:
             bool: True if unsubscribed successfully, False otherwise
         """
         req = api_v1.UnsubscribeConfigurationRequest(store_name=store_name, id=id)
-        response: UnsubscribeConfigurationResponse = await self._stub.UnsubscribeConfiguration(req)
+        response: api_v1.UnsubscribeConfigurationResponse = (
+            await self._stub.UnsubscribeConfiguration(req)
+        )
         return response.ok
 
     async def try_lock(
@@ -1912,7 +2000,7 @@ class DaprGrpcClientAsync:
                     remaining = (start + timeout_s) - time.time()
                     if remaining < 0:
                         raise e
-                    asyncio.sleep(min(1, remaining))
+                    await asyncio.sleep(min(1, remaining))
 
     async def get_metadata(self) -> GetMetadataResponse:
         """Returns information about the sidecar allowing for runtime

@@ -159,6 +159,7 @@ if TYPE_CHECKING:
     skip_aarch64: MarkDecorator
     skip_aix: MarkDecorator
     skip_alacritty: MarkDecorator
+    skip_all_agents: MarkDecorator
     skip_all_architectures: MarkDecorator
     skip_all_arm: MarkDecorator
     skip_all_ci: MarkDecorator
@@ -197,11 +198,14 @@ if TYPE_CHECKING:
     skip_centos: MarkDecorator
     skip_circle_ci: MarkDecorator
     skip_cirrus_ci: MarkDecorator
+    skip_claude_code: MarkDecorator
+    skip_cline: MarkDecorator
     skip_cloudlinux: MarkDecorator
     skip_cmd: MarkDecorator
     skip_codebuild: MarkDecorator
     skip_contour: MarkDecorator
     skip_csh: MarkDecorator
+    skip_cursor: MarkDecorator
     skip_cygwin: MarkDecorator
     skip_dash: MarkDecorator
     skip_debian: MarkDecorator
@@ -211,6 +215,7 @@ if TYPE_CHECKING:
     skip_fish: MarkDecorator
     skip_foot: MarkDecorator
     skip_freebsd: MarkDecorator
+    skip_generic_linux: MarkDecorator
     skip_gentoo: MarkDecorator
     skip_ghostty: MarkDecorator
     skip_github_ci: MarkDecorator
@@ -299,6 +304,7 @@ if TYPE_CHECKING:
     skip_unix_layers: MarkDecorator
     skip_unix_not_macos: MarkDecorator
     skip_unknown: MarkDecorator
+    skip_unknown_agent: MarkDecorator
     skip_unknown_architecture: MarkDecorator
     skip_unknown_ci: MarkDecorator
     skip_unknown_platform: MarkDecorator
@@ -329,6 +335,7 @@ if TYPE_CHECKING:
     unless_altlinux: MarkDecorator
     unless_amzn: MarkDecorator
     unless_android: MarkDecorator
+    unless_any_agent: MarkDecorator
     unless_any_architecture: MarkDecorator
     unless_any_arm: MarkDecorator
     unless_any_ci: MarkDecorator
@@ -363,11 +370,14 @@ if TYPE_CHECKING:
     unless_centos: MarkDecorator
     unless_circle_ci: MarkDecorator
     unless_cirrus_ci: MarkDecorator
+    unless_claude_code: MarkDecorator
+    unless_cline: MarkDecorator
     unless_cloudlinux: MarkDecorator
     unless_cmd: MarkDecorator
     unless_codebuild: MarkDecorator
     unless_contour: MarkDecorator
     unless_csh: MarkDecorator
+    unless_cursor: MarkDecorator
     unless_cygwin: MarkDecorator
     unless_dash: MarkDecorator
     unless_debian: MarkDecorator
@@ -377,6 +387,7 @@ if TYPE_CHECKING:
     unless_fish: MarkDecorator
     unless_foot: MarkDecorator
     unless_freebsd: MarkDecorator
+    unless_generic_linux: MarkDecorator
     unless_gentoo: MarkDecorator
     unless_ghostty: MarkDecorator
     unless_github_ci: MarkDecorator
@@ -465,6 +476,7 @@ if TYPE_CHECKING:
     unless_unix_layers: MarkDecorator
     unless_unix_not_macos: MarkDecorator
     unless_unknown: MarkDecorator
+    unless_unknown_agent: MarkDecorator
     unless_unknown_architecture: MarkDecorator
     unless_unknown_ci: MarkDecorator
     unless_unknown_platform: MarkDecorator

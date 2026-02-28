@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dpdata
-Version: 1.0.0
+Version: 1.0.1
 Summary: Manipulating data formats of DeePMD-kit, VASP, QE, PWmat, and LAMMPS, etc.
 Author: DeepModeling
 Author-email: Han Wang <wang_han@iapcm.ac.cn>
@@ -187,6 +187,8 @@ Requires-Dist: monty
 Requires-Dist: scipy
 Requires-Dist: h5py
 Requires-Dist: wcmatch
+Requires-Dist: lmdb
+Requires-Dist: msgpack-numpy
 Requires-Dist: importlib_metadata>=1.4; python_version < "3.8"
 Requires-Dist: typing_extensions; python_version < "3.8"
 Provides-Extra: test

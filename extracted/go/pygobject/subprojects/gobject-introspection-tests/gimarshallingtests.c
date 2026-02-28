@@ -2840,20 +2840,35 @@ gi_marshalling_tests_length_array_utf8_full_inout (gchar ***array_inout, size_t 
 void
 gi_marshalling_tests_length_array_utf8_optional_inout (int *inout_length, char **array_inout[])
 {
-  if (*inout_length > 0)
-    gi_marshalling_tests_length_array_utf8_full_inout (array_inout, (size_t *) inout_length);
-  else {
-    gchar **array_out = g_new0 (gchar *, 2);
+  if (inout_length == NULL)
+    {
+      g_assert_null (array_inout);
+    }
+  else if (*inout_length > 0)
+    {
+      size_t size = *inout_length;
 
-    g_assert_nonnull (inout_length);
-    g_assert_nonnull (array_inout);
+      g_assert_nonnull (array_inout);
+      g_assert_nonnull (*array_inout);
 
-    array_out[0] = g_strdup ("a");
-    array_out[1] = g_strdup ("b");
+      gi_marshalling_tests_length_array_utf8_full_inout (array_inout, &size);
+      *inout_length = size;
+    }
+  else
+    {
+      g_free (*array_inout);
 
-    *array_inout = array_out;
-    *inout_length = 2;
-  }
+      gchar **array_out = g_new0 (gchar *, 2);
+
+      g_assert_nonnull (inout_length);
+      g_assert_nonnull (array_inout);
+
+      array_out[0] = g_strdup ("a");
+      array_out[1] = g_strdup ("b");
+
+      *array_inout = array_out;
+      *inout_length = 2;
+    }
 }
 
 /**
@@ -3241,6 +3256,31 @@ gi_marshalling_tests_garray_uint64_none_return (void)
       g_array_append_val (array, i);
       i = G_MAXUINT64;
       g_array_append_val (array, i);
+    }
+
+  return array;
+}
+
+/**
+ * gi_marshalling_tests_garray_enum_none_return:
+ *
+ * Returns: (element-type GIMarshallingTestsGEnum) (transfer none):
+ */
+GArray *
+gi_marshalling_tests_garray_enum_none_return (void)
+{
+  static GArray *array = NULL;
+  GIMarshallingTestsGEnum value;
+
+  if (array == NULL)
+    {
+      array = g_array_new (TRUE, TRUE, sizeof (GIMarshallingTestsGEnum));
+      value = GI_MARSHALLING_TESTS_GENUM_VALUE1;
+      g_array_append_val (array, value);
+      value = GI_MARSHALLING_TESTS_GENUM_VALUE2;
+      g_array_append_val (array, value);
+      value = GI_MARSHALLING_TESTS_GENUM_VALUE3;
+      g_array_append_val (array, value);
     }
 
   return array;
@@ -8369,6 +8409,7 @@ enum
   SOME_FLAGS_PROPERTY,
   SOME_ENUM_PROPERTY,
   SOME_BYTE_ARRAY_PROPERTY,
+  SOME_HASH_TABLE_PROPERTY,
   SOME_READONLY_PROPERTY,
   SOME_DEPRECATED_INT_PROPERTY,
   N_PROPERTIES
@@ -8397,6 +8438,7 @@ gi_marshalling_tests_properties_object_finalize (GObject *obj)
   g_clear_pointer (&self->some_strv, g_strfreev);
   g_clear_pointer (&self->some_boxed_struct, gi_marshalling_tests_boxed_struct_free);
   g_clear_pointer (&self->some_byte_array, g_byte_array_unref);
+  g_clear_pointer (&self->some_hash_table, g_hash_table_unref);
   g_clear_pointer (&self->some_variant, g_variant_unref);
   g_clear_pointer (&self->some_boxed_glist, g_list_free);
   g_clear_object (&self->some_object);
@@ -8476,6 +8518,9 @@ gi_marshalling_tests_properties_object_get_property (GObject *object,
       break;
     case SOME_BYTE_ARRAY_PROPERTY:
       g_value_set_boxed (value, self->some_byte_array);
+      break;
+    case SOME_HASH_TABLE_PROPERTY:
+      g_value_set_boxed (value, self->some_hash_table);
       break;
     case SOME_READONLY_PROPERTY:
       g_value_set_int (value, 42);
@@ -8575,6 +8620,10 @@ gi_marshalling_tests_properties_object_set_property (GObject *object,
       if (self->some_byte_array != NULL)
         g_byte_array_unref (self->some_byte_array);
       self->some_byte_array = g_value_dup_boxed (value);
+      break;
+    case SOME_HASH_TABLE_PROPERTY:
+      g_clear_pointer (&self->some_hash_table, g_hash_table_unref);
+      self->some_hash_table = g_value_dup_boxed (value);
       break;
     case SOME_DEPRECATED_INT_PROPERTY:
       self->some_deprecated_int = g_value_get_int (value);
@@ -8750,6 +8799,16 @@ gi_marshalling_tests_properties_object_class_init (GIMarshallingTestsPropertiesO
                         G_TYPE_BYTE_ARRAY,
                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
 
+  /**
+   * GIMarshallingTestsPropertiesObject:some-hash-table: (type GLib.HashTable(gint32,utf8))
+   */
+  properties_object_properties[SOME_HASH_TABLE_PROPERTY] =
+    g_param_spec_boxed ("some-hash-table",
+                        "some-hash-table",
+                        "some-hash-table",
+                        G_TYPE_HASH_TABLE,
+                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+
   properties_object_properties[SOME_READONLY_PROPERTY] =
     g_param_spec_int ("some-readonly",
                       "some-readonly",
@@ -8861,6 +8920,9 @@ gi_marshalling_tests_properties_accessors_object_get_property (GObject *object,
     case SOME_BYTE_ARRAY_PROPERTY:
       g_value_set_boxed (value, self->some_byte_array);
       break;
+    case SOME_HASH_TABLE_PROPERTY:
+      g_value_set_boxed (value, self->some_hash_table);
+      break;
     case SOME_READONLY_PROPERTY:
       g_value_set_int (value, 42);
       break;
@@ -8960,6 +9022,10 @@ gi_marshalling_tests_properties_accessors_object_set_property (GObject *object,
       if (self->some_byte_array != NULL)
         g_byte_array_unref (self->some_byte_array);
       self->some_byte_array = g_value_dup_boxed (value);
+      break;
+    case SOME_HASH_TABLE_PROPERTY:
+      g_clear_pointer (&self->some_hash_table, g_hash_table_unref);
+      self->some_hash_table = g_value_dup_boxed (value);
       break;
     case SOME_DEPRECATED_INT_PROPERTY:
       self->some_deprecated_int = g_value_get_int (value);
@@ -9219,6 +9285,16 @@ gi_marshalling_tests_properties_accessors_object_class_init (GIMarshallingTestsP
                         "some-byte-array",
                         "some-byte-array",
                         G_TYPE_BYTE_ARRAY,
+                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
+
+  /**
+   * GIMarshallingTestsPropertiesAccessorsObject:some-hash-table: (type GLib.HashTable(gint32,utf8)) (setter set_hash_table) (getter get_hash_table):
+   */
+  accessors_object_properties[SOME_HASH_TABLE_PROPERTY] =
+    g_param_spec_boxed ("some-hash-table",
+                        "some-hash-table",
+                        "some-hash-table",
+                        G_TYPE_HASH_TABLE,
                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT);
 
   /**
@@ -9574,6 +9650,22 @@ gi_marshalling_tests_properties_accessors_object_set_byte_array (GIMarshallingTe
 }
 
 /**
+ * gi_marshalling_tests_properties_accessors_object_set_hash_table: (set-property some-hash-table)
+ * @self:
+ * @some_hash_table:
+ */
+void
+gi_marshalling_tests_properties_accessors_object_set_hash_table (GIMarshallingTestsPropertiesAccessorsObject *self, GHashTable *some_hash_table)
+{
+  if (self->some_hash_table == some_hash_table)
+    return;
+
+  g_clear_pointer (&self->some_hash_table, g_hash_table_unref);
+  self->some_hash_table = g_hash_table_ref (some_hash_table);
+  g_object_notify (G_OBJECT (self), "some-hash-table");
+}
+
+/**
  * gi_marshalling_tests_properties_accessors_object_set_deprecated_int: (set-property some-deprecated-int)
  * @self:
  * @some_deprecated_int:
@@ -9810,6 +9902,18 @@ GByteArray *
 gi_marshalling_tests_properties_accessors_object_get_byte_array (GIMarshallingTestsPropertiesAccessorsObject *self)
 {
   return self->some_byte_array;
+}
+
+/**
+ * gi_marshalling_tests_properties_accessors_object_get_hash_table: (get-property some-hash-table)
+ * @self:
+ *
+ * Returns: (transfer none):
+ */
+GHashTable *
+gi_marshalling_tests_properties_accessors_object_get_hash_table (GIMarshallingTestsPropertiesAccessorsObject *self)
+{
+  return self->some_hash_table;
 }
 
 /**

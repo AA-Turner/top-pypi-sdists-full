@@ -4,6 +4,7 @@
 @created: 07.06.20
 @author: felix
 """
+
 import sys
 from typing import Any, Union
 
@@ -13,7 +14,7 @@ class CachedSet(set):
     Warning only use for caching when Memory limit is reached all items will be cleared
     """
 
-    def __init__(self, memory_limit: Union[int, float] = 1, *args, **kwargs):
+    def __init__(self, memory_limit: Union[int, float] = 1, *args: Any, **kwargs: Any) -> None:
         """
         :param memory_limit: in MB
         """

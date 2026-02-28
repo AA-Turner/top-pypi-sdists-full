@@ -27,9 +27,9 @@ class Column:
         from sqlframe.base.session import _BaseSession
 
         if isinstance(expression, Column):
-            expression = expression.expression  # type: ignore
+            expression = expression.expression
         elif expression is None or not isinstance(expression, (str, exp.Expression)):
-            expression = self._lit(expression).expression  # type: ignore
+            expression = self._lit(expression).expression  # type: ignore[arg-type]
         elif not isinstance(expression, exp.Column):
             expression = sqlglot.maybe_parse(
                 expression, dialect=_BaseSession().input_dialect
@@ -37,7 +37,7 @@ class Column:
         if expression is None:
             raise ValueError(f"Could not parse {expression}")
 
-        self.expression: exp.Expression = expression  # type: ignore
+        self.expression: exp.Expression = expression
 
     def __repr__(self):
         return repr(self.expression)
@@ -338,12 +338,17 @@ class Column:
         from sqlframe.base.session import _BaseSession
 
         dialect = _BaseSession().input_dialect
-        alias: exp.Expression = normalize_identifiers(
-            exp.parse_identifier(name, dialect=dialect), dialect=dialect
-        )
+        parsed = exp.parse_identifier(name, dialect=dialect)
+        if isinstance(parsed, exp.Identifier):
+            alias_expr: exp.Expression = normalize_identifiers(parsed, dialect=dialect)
+        elif isinstance(parsed, exp.Column):
+            alias_expr = normalize_identifiers(parsed, dialect=dialect).this
+        else:
+            # Reserved word parsed as a non-Identifier (e.g. 'end' → EndStatement in sqlglot v29)
+            alias_expr = exp.to_identifier(name, quoted=True)
         new_expression = exp.Alias(
             this=self.column_expression,
-            alias=alias.this if isinstance(alias, exp.Column) else alias,
+            alias=alias_expr,
         )
         new_expression._meta = {"display_name": name, **(new_expression._meta or {})}
         return Column(new_expression)
@@ -446,9 +451,9 @@ class Column:
         )
 
     def isin(self, *cols: t.Union[ColumnOrLiteral, t.Iterable[ColumnOrLiteral]]):
-        columns = flatten(cols) if isinstance(cols[0], (list, set, tuple)) else cols  # type: ignore
-        expressions = [self._lit(x).expression for x in columns]  # type: ignore
-        return Column.invoke_expression_over_column(self, exp.In, expressions=expressions)  # type: ignore
+        columns = flatten(cols) if isinstance(cols[0], (list, set, tuple)) else cols
+        expressions = [self._lit(x).expression for x in columns]  # type: ignore[arg-type]
+        return Column.invoke_expression_over_column(self, exp.In, expressions=expressions)
 
     def between(
         self,
@@ -514,7 +519,7 @@ class Column:
         return Column(
             exp.Bracket(
                 this=self.column_expression,
-                expressions=[key.column_expression],  # type: ignore
+                expressions=[key.column_expression],
             )
         )
 

@@ -17,9 +17,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <glib.h>
-#include <pythoncapi_compat.h>
-
 #include "pygi-resulttuple.h"
 #include "pygi-util.h"
 
@@ -335,7 +332,7 @@ resulttuple_dealloc (PyObject *self)
     Py_TYPE (self)->tp_free (self);
 
 done:
-    CPy_TRASHCAN_END (self)
+    CPy_TRASHCAN_END (self);
 }
 #endif
 

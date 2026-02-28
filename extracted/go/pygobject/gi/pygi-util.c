@@ -16,8 +16,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pythoncapi_compat.h>
-
 #include "pygi-util.h"
 
 gboolean
@@ -32,39 +30,6 @@ pygi_guint_from_pyssize (Py_ssize_t pyval, guint *result)
     }
     *result = (guint)pyval;
     return TRUE;
-}
-
-PyObject *
-pyg_integer_richcompare (PyObject *v, PyObject *w, int op)
-{
-    PyObject *result;
-    gboolean t;
-
-    switch (op) {
-    case Py_EQ:
-        t = PyLong_AS_LONG (v) == PyLong_AS_LONG (w);
-        break;
-    case Py_NE:
-        t = PyLong_AS_LONG (v) != PyLong_AS_LONG (w);
-        break;
-    case Py_LE:
-        t = PyLong_AS_LONG (v) <= PyLong_AS_LONG (w);
-        break;
-    case Py_GE:
-        t = PyLong_AS_LONG (v) >= PyLong_AS_LONG (w);
-        break;
-    case Py_LT:
-        t = PyLong_AS_LONG (v) < PyLong_AS_LONG (w);
-        break;
-    case Py_GT:
-        t = PyLong_AS_LONG (v) > PyLong_AS_LONG (w);
-        break;
-    default:
-        g_assert_not_reached ();
-    }
-
-    result = t ? Py_True : Py_False;
-    return Py_NewRef (result);
 }
 
 PyObject *
@@ -92,8 +57,7 @@ pyg_ptr_richcompare (void *a, void *b, int op)
         res = (a >= b) ? Py_True : Py_False;
         break;
     default:
-        res = Py_NotImplemented;
-        break;
+        g_assert_not_reached ();
     }
 
     return Py_NewRef (res);
@@ -136,4 +100,50 @@ pyg_constant_strip_prefix (const gchar *name, const gchar *strip_prefix)
         }
     }
     return name;
+}
+
+PyObject *
+pyg_is_python_keyword (const gchar *name)
+{
+    static PyObject *iskeyword = NULL;
+    PyObject *pyname, *result;
+
+    if (!iskeyword) {
+        PyObject *keyword_module = PyImport_ImportModule ("keyword");
+        if (!keyword_module) return NULL;
+
+        iskeyword = PyObject_GetAttrString (keyword_module, "iskeyword");
+        Py_DECREF (keyword_module);
+        if (!iskeyword) return NULL;
+    }
+
+    /* Python 3.x; note that we explicitly keep "print"; it is not a keyword
+     * any more, but we do not want to break API between Python versions */
+    if (strcmp (name, "print") == 0) Py_RETURN_TRUE;
+
+    pyname = PyUnicode_FromString (name);
+    if (!pyname) return NULL;
+
+    result = PyObject_CallOneArg (iskeyword, pyname);
+    Py_DECREF (pyname);
+
+    return result;
+}
+
+/**
+ * pyg_destroy_notify:
+ * @user_data: a PyObject pointer.
+ *
+ * A function that can be used as a GDestroyNotify callback that will
+ * call Py_DECREF on the data.
+ */
+void
+pyg_destroy_notify (gpointer user_data)
+{
+    PyObject *obj = (PyObject *)user_data;
+    PyGILState_STATE state;
+
+    state = PyGILState_Ensure ();
+    Py_DECREF (obj);
+    PyGILState_Release (state);
 }

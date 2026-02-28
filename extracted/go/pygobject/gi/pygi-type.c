@@ -16,10 +16,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
-#include <pythoncapi_compat.h>
-
 #include "pygobject-object.h"
 
 #include "pygboxed.h"
@@ -130,7 +126,6 @@ generic_gsize_richcompare (gsize a, gsize b, int op)
         Py_INCREF (res);
         break;
 
-
     case Py_LT:
         res = (a < b) ? Py_True : Py_False;
         Py_INCREF (res);
@@ -152,8 +147,7 @@ generic_gsize_richcompare (gsize a, gsize b, int op)
         break;
 
     default:
-        res = Py_NewRef (Py_NotImplemented);
-        break;
+        g_assert_not_reached ();
     }
 
     return res;
@@ -591,14 +585,11 @@ pyg_enum_get_value (GType enum_type, PyObject *obj, gint *val)
     g_return_val_if_fail (val != NULL, -1);
     if (!obj) {
         *val = 0;
-        res = 0;
-    } else if (PyLong_Check (obj)) {
-        if (!pygi_gint_from_py (obj, val))
-            res = -1;
-        else
-            res = 0;
+        return 0;
+    }
 
-        res = pyg_enum_check_type (obj, enum_type);
+    if (PyNumber_Check (obj)) {
+        if (pygi_gint_from_py (obj, val)) res = 0;
     } else if (PyUnicode_Check (obj)) {
         GEnumValue *info;
         char *str = PyUnicode_AsUTF8 (obj);
@@ -609,10 +600,9 @@ pyg_enum_get_value (GType enum_type, PyObject *obj, gint *val)
             PyErr_SetString (PyExc_TypeError,
                              "could not convert string to enum because there "
                              "is no GType associated to look up the value");
-            res = -1;
+            return -1;
         }
         info = g_enum_get_value_by_name (eclass, str);
-        g_type_class_unref (eclass);
 
         if (!info) info = g_enum_get_value_by_nick (eclass, str);
         if (info) {
@@ -622,6 +612,7 @@ pyg_enum_get_value (GType enum_type, PyObject *obj, gint *val)
             PyErr_SetString (PyExc_TypeError, "could not convert string");
             res = -1;
         }
+        g_type_class_unref (eclass);
     } else {
         PyErr_SetString (PyExc_TypeError,
                          "enum values must be strings or ints");
@@ -654,8 +645,10 @@ pyg_flags_get_value (GType flag_type, PyObject *obj, guint *val)
     g_return_val_if_fail (val != NULL, -1);
     if (!obj) {
         *val = 0;
-        res = 0;
-    } else if (PyLong_Check (obj)) {
+        return 0;
+    }
+
+    if (PyNumber_Check (obj)) {
         if (pygi_guint_from_py (obj, val)) res = 0;
     } else if (PyUnicode_Check (obj)) {
         GFlagsValue *info;
@@ -667,10 +660,9 @@ pyg_flags_get_value (GType flag_type, PyObject *obj, guint *val)
             PyErr_SetString (PyExc_TypeError,
                              "could not convert string to flag because there "
                              "is no GType associated to look up the value");
-            res = -1;
+            return -1;
         }
         info = g_flags_get_value_by_name (fclass, str);
-        g_type_class_unref (fclass);
 
         if (!info) info = g_flags_get_value_by_nick (fclass, str);
         if (info) {
@@ -680,6 +672,7 @@ pyg_flags_get_value (GType flag_type, PyObject *obj, guint *val)
             PyErr_SetString (PyExc_TypeError, "could not convert string");
             res = -1;
         }
+        g_type_class_unref (fclass);
     } else if (PyTuple_Check (obj)) {
         Py_ssize_t i, len;
 
@@ -834,7 +827,7 @@ pyg_closure_marshal (GClosure *closure, GValue *return_value,
             Py_INCREF (pc->swap_data);
             PyTuple_SetItem (params, 0, pc->swap_data);
         } else {
-            PyObject *item = pyg_value_as_pyobject (&param_values[i], FALSE);
+            PyObject *item = pyg_value_to_pyobject (&param_values[i], FALSE);
 
             /* error condition */
             if (!item) {
@@ -929,28 +922,6 @@ pyg_closure_new (PyObject *callback, PyObject *extra_args, PyObject *swap_data)
     return closure;
 }
 
-/**
- * pyg_closure_set_exception_handler:
- * @closure: a closure created with pyg_closure_new()
- * @handler: the handler to call when an exception occurs or NULL for none
- *
- * Sets the handler to call when an exception occurs during closure invocation.
- * The handler is responsible for providing a proper return value to the
- * closure invocation. If @handler is %NULL, the default handler will be used.
- * The default handler prints the exception to stderr and doesn't touch the
- * closure's return value.
- */
-void
-pyg_closure_set_exception_handler (GClosure *closure,
-                                   PyClosureExceptionHandler handler)
-{
-    PyGClosure *pygclosure;
-
-    g_return_if_fail (closure != NULL);
-
-    pygclosure = (PyGClosure *)closure;
-    pygclosure->exception_handler = handler;
-}
 /* -------------- PySignalClassClosure ----------------- */
 /* a closure used for the `class closure' of a signal.  As this gets
  * all the info from the first argument to the closure and the
@@ -1014,7 +985,7 @@ pyg_signal_class_closure_marshal (GClosure *closure, GValue *return_value,
        initially because we'll check after the call to see if a copy is needed. */
     params = PyTuple_New (n_param_values - 1);
     for (i = 1; i < n_param_values; i++) {
-        PyObject *item = pyg_value_as_pyobject (&param_values[i], FALSE);
+        PyObject *item = pyg_value_to_pyobject (&param_values[i], FALSE);
 
         /* error condition */
         if (!item) {
@@ -1257,24 +1228,6 @@ pyg_object_descr_doc_get (void)
 }
 
 
-/**
- * pyg_pyobj_to_unichar_conv:
- *
- * Converts PyObject value to a unichar and write result to memory
- * pointed to by ptr.  Follows the calling convention of a ParseArgs
- * converter (O& format specifier) so it may be used to convert function
- * arguments.
- *
- * Returns: 1 if the conversion succeeds and 0 otherwise.  If the conversion
- *          did not succeesd, a Python exception is raised
- */
-int
-pyg_pyobj_to_unichar_conv (PyObject *py_obj, void *ptr)
-{
-    if (!pygi_gunichar_from_py (py_obj, ptr)) return 0;
-    return 1;
-}
-
 gboolean
 pyg_gtype_is_custom (GType gtype)
 {
@@ -1364,4 +1317,40 @@ pygi_type_register_types (PyObject *d)
     pyg_register_gtype_custom (G_TYPE_STRV, strv_from_gvalue, strv_to_gvalue);
 
     return 0;
+}
+
+/**
+ * pygi_interface_type_tag:
+ *
+ * A simple way to map types often obtained by calling
+ * `gi_type_info_get_interface` to an enum.
+ * This makes for easier to read code.
+ */
+PyGIInterfaceTypeTag
+pygi_interface_type_tag (GIBaseInfo *info)
+{
+    PyGIInterfaceTypeTag iface_type_tag;
+
+    if (GI_IS_FLAGS_INFO (info)) {
+        /* Check flags before enums: flags are a subtype of enum. */
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_FLAGS;
+    } else if (GI_IS_ENUM_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_ENUM;
+    } else if (GI_IS_INTERFACE_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_INTERFACE;
+    } else if (GI_IS_OBJECT_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_OBJECT;
+    } else if (GI_IS_STRUCT_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_STRUCT;
+    } else if (GI_IS_UNION_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_UNION;
+    } else if (GI_IS_CALLBACK_INFO (info)) {
+        iface_type_tag = PYGI_INTERFACE_TYPE_TAG_CALLBACK;
+    } else {
+        g_critical ("Type %s is not handled",
+                    g_type_name_from_instance ((GTypeInstance *)info));
+        g_assert_not_reached ();
+    }
+
+    return iface_type_tag;
 }

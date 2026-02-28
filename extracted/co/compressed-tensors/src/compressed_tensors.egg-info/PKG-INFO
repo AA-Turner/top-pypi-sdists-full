@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: compressed-tensors
-Version: 0.13.0
+Version: 0.14.0
 Summary: Library for utilization of compressed safetensors of neural network models
 Home-page: https://github.com/vllm-project/compressed-tensors
-Author: Neuralmagic, Inc.
-Author-email: support@neuralmagic.com
+Author: The vLLM Project
+Author-email: vllm-questions@lists.berkeley.edu
 License: Apache 2.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=1.7.0
-Requires-Dist: transformers
+Requires-Dist: transformers<5.0.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: loguru
 Provides-Extra: dev
@@ -19,6 +19,8 @@ Requires-Dist: wheel>=0.36.2; extra == "dev"
 Requires-Dist: flake8>=3.8.3; extra == "dev"
 Requires-Dist: pytest>=6.0.0; extra == "dev"
 Requires-Dist: nbconvert>=7.16.3; extra == "dev"
+Requires-Dist: transformers<5.0; extra == "dev"
+Requires-Dist: accelerate; extra == "dev"
 Provides-Extra: accelerate
 Requires-Dist: accelerate; extra == "accelerate"
 Dynamic: author

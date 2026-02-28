@@ -255,7 +255,11 @@ pub fn convert_with_metadata(
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    let options = options.unwrap_or_default();
+    // Disable YAML frontmatter prepending: metadata is returned as a struct,
+    // so embedding it in the content string is redundant and pollutes the output.
+    let mut options = options.unwrap_or_default();
+    options.extract_metadata = false;
+
     let normalized_html = normalize_input(html)?;
     if !metadata_cfg.any_enabled() {
         #[cfg(feature = "visitor")]

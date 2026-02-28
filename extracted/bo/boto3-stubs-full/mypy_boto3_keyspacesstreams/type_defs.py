@@ -169,6 +169,7 @@ class KeyspacesCellValueTypeDef(TypedDict):
     dateT: NotRequired[str]
     decimalT: NotRequired[str]
     doubleT: NotRequired[str]
+    durationT: NotRequired[str]
     floatT: NotRequired[str]
     inetT: NotRequired[str]
     intT: NotRequired[str]

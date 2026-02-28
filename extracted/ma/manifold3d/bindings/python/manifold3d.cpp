@@ -368,6 +368,10 @@ NB_MODULE(manifold3d, m) {
       .def("trim_by_plane", &Manifold::TrimByPlane, nb::arg("normal"),
            nb::arg("origin_offset"),
            manifold__trim_by_plane__normal__origin_offset)
+      .def("minkowski_sum", &Manifold::MinkowskiSum, nb::arg("other"),
+           manifold__minkowski_sum__other)
+      .def("minkowski_difference", &Manifold::MinkowskiDifference,
+           nb::arg("other"), manifold__minkowski_difference__other)
       .def(
           "slice",
           [](const Manifold& self, double height) {
@@ -430,8 +434,12 @@ NB_MODULE(manifold3d, m) {
       .def_static("batch_boolean", &Manifold::BatchBoolean,
                   nb::arg("manifolds"), nb::arg("op"),
                   manifold__batch_boolean__manifolds__op)
-      .def_static("compose", &Manifold::Compose, nb::arg("manifolds"),
-                  manifold__compose__manifolds)
+      .def_static(
+          "compose",
+          [](const std::vector<Manifold>& manifolds) {
+            return Manifold::BatchBoolean(manifolds, OpType::Add);
+          },
+          nb::arg("manifolds"), manifold__compose__manifolds)
       .def_static("tetrahedron", &Manifold::Tetrahedron, manifold__tetrahedron)
       .def_static("cube", &Manifold::Cube,
                   nb::arg("size") = std::make_tuple(1.0, 1.0, 1.0),

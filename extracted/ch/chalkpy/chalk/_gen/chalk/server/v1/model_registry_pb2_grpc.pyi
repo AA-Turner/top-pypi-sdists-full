@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    DownloadModelArtifactRequest,
+    DownloadModelArtifactResponse,
     GetModelArtifactUploadUrlsRequest,
     GetModelArtifactUploadUrlsResponse,
     GetModelReferenceRequest,
@@ -83,6 +85,10 @@ class ModelRegistryServiceStub:
     UpdateModelVersion: UnaryUnaryMultiCallable[
         UpdateModelVersionRequest,
         UpdateModelVersionResponse,
+    ]
+    DownloadModelArtifact: UnaryUnaryMultiCallable[
+        DownloadModelArtifactRequest,
+        DownloadModelArtifactResponse,
     ]
     GetModelReferences: UnaryUnaryMultiCallable[
         GetModelReferencesRequest,
@@ -158,6 +164,12 @@ class ModelRegistryServiceServicer(metaclass=ABCMeta):
         request: UpdateModelVersionRequest,
         context: ServicerContext,
     ) -> UpdateModelVersionResponse: ...
+    @abstractmethod
+    def DownloadModelArtifact(
+        self,
+        request: DownloadModelArtifactRequest,
+        context: ServicerContext,
+    ) -> DownloadModelArtifactResponse: ...
     @abstractmethod
     def GetModelReferences(
         self,

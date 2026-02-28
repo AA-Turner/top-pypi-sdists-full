@@ -1,11 +1,12 @@
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import signal
 import socket
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import uvicorn
@@ -52,6 +53,139 @@ class GracefulShutdown:
         task.add_done_callback(self.tasks.discard)
 
 
+class MCPConnectionManager:
+    """
+    Manages lifecycle of the MCP ClientSession and underlying transport so that
+    we can reconnect transparently when the remote server drops the connection.
+    """
+
+    def __init__(
+        self,
+        *,
+        server_type: str,
+        command: Optional[str],
+        args: List[str],
+        env: Dict[str, str],
+        headers: Optional[Dict[str, str]],
+        connection_timeout: Optional[int],
+        auth_provider: Optional[Any] = None,
+    ):
+        self.server_type = normalize_server_type(server_type)
+        self.command = command
+        self.args = args
+        self.env = env
+        self.headers = headers
+        self.connection_timeout = connection_timeout
+        self.auth_provider = auth_provider
+
+        self._session: Optional[ClientSession] = None
+        self._client_context = None
+        self._lock = asyncio.Lock()
+        self._initialize_lock = asyncio.Lock()
+        self._initialize_result = None
+        self._initialized = False
+
+    @property
+    def current_session(self) -> Optional[ClientSession]:
+        return self._session
+
+    async def get_session(self) -> ClientSession:
+        async with self._lock:
+            if self._session is None:
+                await self._open_session_locked()
+            return self._session
+
+    async def ensure_initialized(self):
+        session = await self.get_session()
+        if self._initialized and self._initialize_result is not None:
+            return session, self._initialize_result
+
+        async with self._initialize_lock:
+            if not self._initialized or self._initialize_result is None:
+                initialize_result = await session.initialize()
+                self._initialize_result = initialize_result
+                self._initialized = True
+            else:
+                initialize_result = self._initialize_result
+
+        return session, initialize_result
+
+    async def reconnect(self):
+        async with self._lock:
+            await self._close_session_locked()
+            await self._open_session_locked()
+        # Run initialize outside of the lock to avoid deadlocks on nested calls
+        return await self.ensure_initialized()
+
+    async def close(self):
+        async with self._lock:
+            await self._close_session_locked()
+
+    async def _open_session_locked(self):
+        client_context = self._create_client_context()
+        try:
+            connection = await client_context.__aenter__()
+        except Exception:
+            # Ensure the context is closed if entering fails
+            with contextlib.suppress(Exception):
+                await client_context.__aexit__(None, None, None)
+            raise
+
+        reader, writer, *_ = connection
+        session = ClientSession(reader, writer)
+        try:
+            await session.__aenter__()
+        except Exception:
+            with contextlib.suppress(Exception):
+                await session.__aexit__(None, None, None)
+            with contextlib.suppress(Exception):
+                await client_context.__aexit__(None, None, None)
+            raise
+
+        self._client_context = client_context
+        self._session = session
+        self._initialized = False
+        self._initialize_result = None
+
+    async def _close_session_locked(self):
+        session, client_context = self._session, self._client_context
+        self._session = None
+        self._client_context = None
+        self._initialized = False
+        self._initialize_result = None
+
+        if session is not None:
+            with contextlib.suppress(Exception):
+                await session.__aexit__(None, None, None)
+
+        if client_context is not None:
+            with contextlib.suppress(Exception):
+                await client_context.__aexit__(None, None, None)
+
+    def _create_client_context(self):
+        if self.server_type == "stdio":
+            server_params = StdioServerParameters(
+                command=self.command,
+                args=self.args,
+                env={**os.environ, **self.env},
+            )
+            return stdio_client(server_params)
+        if self.server_type == "sse":
+            timeout = self.connection_timeout or 900
+            return sse_client(
+                url=self.args[0],
+                sse_read_timeout=timeout,
+                headers=self.headers,
+            )
+        if self.server_type == "streamable-http":
+            return streamablehttp_client(
+                url=self.args[0],
+                headers=self.headers,
+                auth=self.auth_provider,
+            )
+        raise ValueError(f"Unsupported server type: {self.server_type}")
+
+
 def validate_server_config(server_name: str, server_cfg: Dict[str, Any]) -> None:
     """Validate individual server configuration."""
     server_type = server_cfg.get("type")
@@ -73,17 +207,16 @@ def validate_server_config(server_name: str, server_cfg: Dict[str, Any]) -> None
     else:
         raise ValueError(f"Server '{server_name}' must have either 'command' for stdio or 'type' and 'url' for remote servers")
     
-    # Validate disabledTools
-    disabled_tools = server_cfg.get("disabled_tools")
+    # Validate disabledTools (supports camelCase & snake_case for backwards compatibility)
+    disabled_tools = server_cfg.get("disabledTools")
+    if disabled_tools is None:
+        disabled_tools = server_cfg.get("disabled_tools")
     if disabled_tools is not None:
         if not isinstance(disabled_tools, list):
             raise ValueError(f"Server '{server_name}' 'disabledTools' must be a list")
         for tool_name in disabled_tools:
             if not isinstance(tool_name, str):
                 raise ValueError(f"Server '{server_name}' 'disabledTools' must contain only strings")
-        raise ValueError(
-            f"Server '{server_name}' must have either 'command' for stdio or 'type' and 'url' for remote servers"
-        )
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
@@ -177,8 +310,11 @@ def create_sub_app(
     sub_app.state.api_dependency = api_dependency
     sub_app.state.connection_timeout = connection_timeout
 
-    # Store list of tools to be disabled, if present
-    sub_app.state.disabled_tools = server_cfg.get("disabled_tools", [])
+    # Store list of tools to be disabled, if present (accept both key styles)
+    disabled_tools = server_cfg.get("disabledTools")
+    if disabled_tools is None:
+        disabled_tools = server_cfg.get("disabled_tools", [])
+    sub_app.state.disabled_tools = disabled_tools
 
     
     # Store client header forwarding configuration
@@ -306,12 +442,20 @@ async def reload_config_handler(main_app: FastAPI, new_config_data: Dict[str, An
                     )
                     main_app.mount(f"{path_prefix}{server_name}", sub_app)
 
-                    # Start the lifespan for the new sub-app
-                    lifespan_context = sub_app.router.lifespan_context(sub_app)
-                    await lifespan_context.__aenter__()
-
-                    # Store the context manager for cleanup later
-                    main_app.state.active_lifespans[server_name] = lifespan_context
+                    # Start the lifespan for the new sub-app when available
+                    lifespan_context = None
+                    lifespan_factory = getattr(sub_app.router, "lifespan_context", None)
+                    if lifespan_factory:
+                        lifespan_context = lifespan_factory(sub_app)
+                    if lifespan_context and hasattr(lifespan_context, "__aenter__"):
+                        await lifespan_context.__aenter__()
+                        # Store the context manager for cleanup later
+                        main_app.state.active_lifespans[server_name] = lifespan_context
+                    else:
+                        logger.debug(
+                            "Skipping lifespan startup for server '%s' (no async context manager)",
+                            server_name,
+                        )
 
                     # Check if connection was successful
                     is_connected = getattr(sub_app.state, "is_connected", False)
@@ -324,6 +468,11 @@ async def reload_config_handler(main_app: FastAPI, new_config_data: Dict[str, An
                             f"Failed to connect to new server: '{server_name}'"
                         )
 
+                except asyncio.CancelledError as e:
+                    logger.error(f"Failed to create server '{server_name}' (cancelled): {e}")
+                    # Rollback on failure
+                    main_app.router.routes = backup_routes
+                    raise
                 except Exception as e:
                     logger.error(f"Failed to create server '{server_name}': {e}")
                     # Rollback on failure
@@ -342,11 +491,18 @@ async def reload_config_handler(main_app: FastAPI, new_config_data: Dict[str, An
 
 
 async def create_dynamic_endpoints(app: FastAPI, api_dependency=None):
-    session: ClientSession = app.state.session
-    if not session:
-        raise ValueError("Session is not initialized in the app state.")
+    session_manager: Optional[MCPConnectionManager] = getattr(
+        app.state, "session_manager", None
+    )
 
-    result = await session.initialize()
+    if session_manager:
+        session, result = await session_manager.ensure_initialized()
+        app.state.session = session
+    else:
+        session: Optional[ClientSession] = getattr(app.state, "session", None)
+        if not session:
+            raise ValueError("Session is not initialized in the app state.")
+        result = await session.initialize()
     server_info = getattr(result, "serverInfo", None)
     if server_info:
         app.title = server_info.name or app.title
@@ -400,7 +556,6 @@ async def create_dynamic_endpoints(app: FastAPI, api_dependency=None):
         )
 
         tool_handler = get_tool_handler(
-            session,
             endpoint_name,
             form_model_fields,
             response_model_fields,
@@ -459,6 +614,14 @@ async def lifespan(app: FastAPI):
                             f"Connection attempt for '{server_name}' finished, but status is not 'connected'."
                         )
                         failed_servers.append(server_name)
+                except asyncio.CancelledError as e:
+                    if shutdown_handler and shutdown_handler.shutdown_event.is_set():
+                        raise
+                    logger.error(
+                        f"Failed to establish connection for server: '{server_name}' - CancelledError: {e}",
+                        exc_info=True,
+                    )
+                    failed_servers.append(server_name)
                 except Exception as e:
                     error_class_name = type(e).__name__
                     if error_class_name == "ExceptionGroup" or (
@@ -534,42 +697,28 @@ async def lifespan(app: FastAPI):
                     )
                     raise
 
-            if server_type == "stdio":
-                # stdio doesn't support OAuth authentication
-                if oauth_config:
-                    logger.warning(f"OAuth not supported for stdio server type")
-                server_params = StdioServerParameters(
-                    command=command,
-                    args=args,
-                    env={**os.environ, **env},
-                )
-                client_context = stdio_client(server_params)
-            elif server_type == "sse":
-                # SSE doesn't support OAuth authentication currently
-                if oauth_config:
-                    logger.warning(f"OAuth not supported for SSE server type")
-                headers = getattr(app.state, "headers", None)
-                client_context = sse_client(
-                    url=args[0],
-                    sse_read_timeout=connection_timeout or 900,
-                    headers=headers,
-                )
-            elif server_type == "streamable-http":
-                headers = getattr(app.state, "headers", None)
-                client_context = streamablehttp_client(
-                    url=args[0],
-                    headers=headers,
-                    auth=auth_provider,  # Pass OAuth provider if configured
-                )
-            else:
-                raise ValueError(f"Unsupported server type: {server_type}")
+            if oauth_config and server_type == "stdio":
+                logger.warning("OAuth not supported for stdio server type")
+            if oauth_config and server_type == "sse":
+                logger.warning("OAuth not supported for SSE server type")
 
-            async with client_context as (reader, writer, *_):
-                async with ClientSession(reader, writer) as session:
-                    app.state.session = session
-                    await create_dynamic_endpoints(app, api_dependency=api_dependency)
-                    app.state.is_connected = True
-                    yield
+            headers = getattr(app.state, "headers", None)
+            session_manager = MCPConnectionManager(
+                server_type=server_type,
+                command=command,
+                args=args,
+                env=env,
+                headers=headers,
+                connection_timeout=connection_timeout,
+                auth_provider=auth_provider,
+            )
+            app.state.session_manager = session_manager
+
+            session = await session_manager.get_session()
+            app.state.session = session
+            await create_dynamic_endpoints(app, api_dependency=api_dependency)
+            app.state.is_connected = True
+            yield
         except Exception as e:
             # Log the full exception with traceback for debugging
             logger.error(
@@ -579,6 +728,12 @@ async def lifespan(app: FastAPI):
             app.state.is_connected = False
             # Re-raise the exception so it propagates to the main app's lifespan
             raise
+        finally:
+            session_manager = getattr(app.state, "session_manager", None)
+            if session_manager:
+                await session_manager.close()
+                app.state.session_manager = None
+            app.state.session = None
 
 
 async def run(

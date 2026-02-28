@@ -1,35 +1,37 @@
 """Integration tests for Google Vertex embeddings with Crew memory.
 
 These tests make real API calls and use VCR to record/replay responses.
-The memory save path (extract_memories + remember) requires LLM and embedding
-API calls that are difficult to capture in VCR cassettes (GCP metadata auth,
-embedding endpoints). We mock those paths and verify the crew pipeline works
-end-to-end while testing memory storage separately with a fake embedder.
 """
 
 import os
+import threading
+from collections import defaultdict
 from unittest.mock import patch
 
 import pytest
 
 from crewai import Agent, Crew, Task
-from crewai.memory.unified_memory import Memory
+from crewai.events.event_bus import crewai_event_bus
+from crewai.events.types.memory_events import (
+    MemorySaveCompletedEvent,
+    MemorySaveStartedEvent,
+)
 
 
 @pytest.fixture(autouse=True)
 def setup_vertex_ai_env():
     """Set up environment for Vertex AI tests.
-
+    
     Sets GOOGLE_GENAI_USE_VERTEXAI=true to ensure the SDK uses the Vertex AI
     backend (aiplatform.googleapis.com) which matches the VCR cassettes.
     Also mocks GOOGLE_API_KEY if not already set.
     """
     env_updates = {"GOOGLE_GENAI_USE_VERTEXAI": "true"}
-
-    # Add a mock API key
+    
+    # Add a mock API key if none exists
     if "GOOGLE_API_KEY" not in os.environ and "GEMINI_API_KEY" not in os.environ:
         env_updates["GOOGLE_API_KEY"] = "test-key"
-
+    
     with patch.dict(os.environ, env_updates):
         yield
 
@@ -40,8 +42,7 @@ def google_vertex_embedder_config():
     return {
         "provider": "google-vertex",
         "config": {
-            "project_id": os.getenv("GOOGLE_CLOUD_PROJECT", "gen-lang-client-0393486657"),
-            "location": "us-central1",
+            "api_key": os.getenv("GOOGLE_API_KEY", "test-key"),
             "model_name": "gemini-embedding-001",
         },
     }
@@ -68,67 +69,51 @@ def simple_task(simple_agent):
     )
 
 
-def _fake_embedder(texts: list[str]) -> list[list[float]]:
-    """Return deterministic fake embeddings for testing storage without real API calls."""
-    return [[0.1] * 1536 for _ in texts]
-
-
 @pytest.mark.vcr()
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(120)  # Longer timeout for VCR recording
 def test_crew_memory_with_google_vertex_embedder(
     google_vertex_embedder_config, simple_agent, simple_task
 ) -> None:
-    """Test that Crew with google-vertex embedder runs and that memory storage works.
+    """Test that Crew with memory=True works with google-vertex embedder and memory is used."""
+    # Track memory events
+    events: dict[str, list] = defaultdict(list)
+    condition = threading.Condition()
 
-    The crew kickoff uses VCR-recorded LLM responses. The memory save path
-    (extract_memories + remember) is mocked during kickoff because it requires
-    embedding/auth API calls not in the cassette. After kickoff we verify
-    memory storage works by calling remember() directly with a fake embedder.
-    """
-    from crewai.rag.embeddings.factory import build_embedder
+    @crewai_event_bus.on(MemorySaveStartedEvent)
+    def on_save_started(source, event):
+        with condition:
+            events["MemorySaveStartedEvent"].append(event)
+            condition.notify()
 
-    embedder = build_embedder(google_vertex_embedder_config)
-    memory = Memory(embedder=embedder)
+    @crewai_event_bus.on(MemorySaveCompletedEvent)
+    def on_save_completed(source, event):
+        with condition:
+            events["MemorySaveCompletedEvent"].append(event)
+            condition.notify()
 
     crew = Crew(
         agents=[simple_agent],
         tasks=[simple_task],
-        memory=memory,
-        verbose=True,
+        memory=True,
+        embedder=google_vertex_embedder_config,
+        verbose=False,
     )
 
-    assert crew._memory is memory
-
-    # Mock _save_to_memory during kickoff so it doesn't make embedding API calls
-    # that VCR can't replay (GCP metadata auth, embedding endpoints).
-    with patch(
-        "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin._save_to_memory"
-    ):
-        result = crew.kickoff()
+    result = crew.kickoff()
 
     assert result is not None
     assert result.raw is not None
     assert len(result.raw) > 0
 
-    # Now verify the memory storage path works by calling remember() directly
-    # with a fake embedder that doesn't need real API calls.
-    memory._embedder_instance = _fake_embedder
+    with condition:
+        success = condition.wait_for(
+            lambda: len(events["MemorySaveCompletedEvent"]) >= 1,
+            timeout=10,
+        )
 
-    # Pass all fields explicitly to skip LLM analysis in the encoding flow.
-    record = memory.remember(
-        content=f"AI summary: {result.raw[:100]}",
-        scope="/test",
-        categories=["ai", "summary"],
-        importance=0.7,
-    )
-    assert record is not None
-    assert record.scope == "/test"
-
-    info = memory.info("/")
-    assert info.record_count > 0, (
-        f"Expected memories to be saved after manual remember(), "
-        f"but found {info.record_count} records"
-    )
+    assert success, "Timeout waiting for memory save events - memory may not be working"
+    assert len(events["MemorySaveStartedEvent"]) >= 1, "No memory save started events"
+    assert len(events["MemorySaveCompletedEvent"]) >= 1, "Memory save completed events"
 
 
 @pytest.mark.vcr()
@@ -139,7 +124,21 @@ def test_crew_memory_with_google_vertex_project_id(simple_agent, simple_task) ->
     if not project_id:
         pytest.skip("GOOGLE_CLOUD_PROJECT environment variable not set")
 
-    from crewai.rag.embeddings.factory import build_embedder
+    # Track memory events
+    events: dict[str, list] = defaultdict(list)
+    condition = threading.Condition()
+
+    @crewai_event_bus.on(MemorySaveStartedEvent)
+    def on_save_started(source, event):
+        with condition:
+            events["MemorySaveStartedEvent"].append(event)
+            condition.notify()
+
+    @crewai_event_bus.on(MemorySaveCompletedEvent)
+    def on_save_completed(source, event):
+        with condition:
+            events["MemorySaveCompletedEvent"].append(event)
+            condition.notify()
 
     embedder_config = {
         "provider": "google-vertex",
@@ -150,22 +149,28 @@ def test_crew_memory_with_google_vertex_project_id(simple_agent, simple_task) ->
         },
     }
 
-    embedder = build_embedder(embedder_config)
-    memory = Memory(embedder=embedder)
-
     crew = Crew(
         agents=[simple_agent],
         tasks=[simple_task],
-        memory=memory,
+        memory=True,
+        embedder=embedder_config,
         verbose=False,
     )
 
-    assert crew._memory is memory
+    result = crew.kickoff()
 
-    with patch(
-        "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin._save_to_memory"
-    ):
-        result = crew.kickoff()
-
+    # Verify basic result
     assert result is not None
     assert result.raw is not None
+
+    # Wait for memory save events
+    with condition:
+        success = condition.wait_for(
+            lambda: len(events["MemorySaveCompletedEvent"]) >= 1,
+            timeout=10,
+        )
+
+    # Verify memory was actually used
+    assert success, "Timeout waiting for memory save events - memory may not be working"
+    assert len(events["MemorySaveStartedEvent"]) >= 1, "No memory save started events"
+    assert len(events["MemorySaveCompletedEvent"]) >= 1, "No memory save completed events"

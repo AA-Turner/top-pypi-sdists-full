@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final, Literal, NamedTuple
 
-from crewai.events.utils.console_formatter import should_suppress_console_output
-
 
 if TYPE_CHECKING:
     from _typeshed import SupportsWrite
@@ -79,8 +77,6 @@ class Printer:
             file: A file-like object (stream); defaults to the current sys.stdout.
             flush: Whether to forcibly flush the stream.
         """
-        if should_suppress_console_output():
-            return
         if isinstance(content, str):
             content = [ColoredText(content, color)]
         print(

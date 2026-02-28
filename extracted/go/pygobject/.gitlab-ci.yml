@@ -3,12 +3,11 @@ spec:
     python_versions:
       type: array
       default:
-        - "python-3.9"
         - "python-3.10"
         - "python-3.11"
         - "python-3.12"
         - "python-3.13"
-        - "python-3.14.0rc2"
+        - "python-3.14"
         - "pypy-3.11"
     default_version:
       default: "python-3.13"
@@ -162,7 +161,7 @@ minimal-meson:
   stage: build
   image: quay.io/fedora/fedora:40
   before_script:
-    - dnf install --assumeyes gcc meson git flex bison diffutils python3-devel python3-pytest gobject-introspection-devel
+    - dnf install --assumeyes gcc meson git flex bison diffutils python3-devel python3-test python3-pytest gobject-introspection-devel
   script:
     - meson setup _build
     - meson compile -C _build

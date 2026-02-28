@@ -19,10 +19,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <config.h>
-
-#include <pythoncapi_compat.h>
-
 #include "pygi-type.h"
 
 #include "pygflags.h"
@@ -176,7 +172,8 @@ pyg_flags_add_full (PyObject *module, const char *typename, GType gtype,
             GIValueInfo *v = gi_enum_info_get_value (GI_ENUM_INFO (info), i);
 
             add_value (values, gi_base_info_get_name (GI_BASE_INFO (v)),
-                       gi_value_info_get_value (v));
+                       (unsigned int)gi_value_info_get_value (v));
+            gi_base_info_unref (v);
         }
     }
 
@@ -302,7 +299,7 @@ pyg_flags_register (PyTypeObject *flags_class, char *type_name)
             goto out;
         }
 
-        flags_values[i].value = PyLong_AsUnsignedLongMask (value);
+        flags_values[i].value = (guint)PyLong_AsUnsignedLongMask (value);
         flags_values[i].value_name =
             g_strdup (PyUnicode_AsUTF8AndSize (name, NULL));
         c = g_ascii_strdown (flags_values[i].value_name, -1);

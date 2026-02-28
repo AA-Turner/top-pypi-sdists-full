@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools>=69.0",
+    "hatchling>=1.19.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 name = "dagster-fivetran"
-version = "0.28.15"
+version = "0.28.17"
 description = "Package for integrating Fivetran with Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.15",
+    "dagster==1.12.17",
 ]
 
 [project.urls]
@@ -36,25 +36,8 @@ dagster_fivetran = "dagster_fivetran"
 
 [project.optional-dependencies]
 managed = [
-    "dagster-managed-elements==0.28.15",
+    "dagster-managed-elements==0.28.17",
 ]
 test = [
     "pytest-order",
-]
-
-[tool.setuptools]
-include-package-data = true
-zip-safe = false
-
-[tool.setuptools.packages.find]
-exclude = [
-    "dagster_fivetran_tests*",
-]
-
-[tool.check-manifest]
-ignore = [
-    ".coveragerc",
-    "tox.ini",
-    "pytest.ini",
-    "dagster_fivetran_tests/**",
 ]

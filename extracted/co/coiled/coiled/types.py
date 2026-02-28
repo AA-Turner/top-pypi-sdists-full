@@ -447,6 +447,10 @@ class AWSOptions(BackendOptions, total=False):
     ami_version
         Use non-default type of AMI.
         Supported options include "DL" for the Deep Learning Base OSS Nvidia Driver GPU AMI.
+    capacity_reservation_id
+        Use specified existing Capacity Reservation.
+    capacity_reservation_group_arn
+        Use specified existing Capacity Reservation group.
     """
 
     keypair_name: Optional[str]
@@ -455,6 +459,8 @@ class AWSOptions(BackendOptions, total=False):
     use_efa: Optional[bool]
     use_worker_efa: Optional[bool]
     ami_version: Optional[str]
+    capacity_reservation_id: Optional[str]
+    capacity_reservation_group_arn: Optional[str]
 
 
 class GCPOptions(BackendOptions, total=False):

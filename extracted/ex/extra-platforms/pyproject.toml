@@ -5,8 +5,8 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "9.2.0"
-description = "🔎 Detect architectures, platforms, shells, terminals and CI systems, grouped by family"
+version = "10.0.0"
+description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
   "Alacritty",
@@ -35,10 +35,13 @@ keywords = [
   "CentOS",
   "Circle CI",
   "Cirrus CI",
+  "Claude Code",
+  "Cline",
   "CloudLinux OS",
   "CodeBuild",
   "Command Prompt",
   "Contour",
+  "Cursor",
   "Cygwin",
   "Dash",
   "Debian",
@@ -48,6 +51,7 @@ keywords = [
   "Fish",
   "foot",
   "FreeBSD",
+  "Generic Linux",
   "Gentoo Linux",
   "Ghostty",
   "GitHub Actions runner",
@@ -214,6 +218,12 @@ classifiers = [
   "Topic :: Utilities",
   "Typing :: Typed",
 ]
+
+[project.entry-points]
+# Make additional fixtures available to pytest.
+# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
+pytest11.extra-platforms = "extra_platforms.pytest"
+
 # Semantic versioning works in theory. In practice, it is hard to guarantee.
 # That's why we rely on >= specifier instead of ~= to relax constraints. This gives more freedom to packagers to
 # release hotfixes for security vulnerabilities in the future.
@@ -223,16 +233,6 @@ classifiers = [
 # - new code path we depends on,
 # - aligns minimal Python requirements to ours,
 # - adds new explicit support Python version.
-dependencies = [
-  # distro 1.9.0 adds support for ALT Linux.
-  "distro>=1.9",
-]
-
-[project.entry-points]
-# Make additional fixtures available to pytest.
-# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
-pytest11.extra-platforms = "extra_platforms.pytest"
-
 [project.optional-dependencies]
 pytest = [
   # pytest 8.2.1 is the first version to support Python 3.13.
@@ -245,7 +245,7 @@ extra-platforms = "extra_platforms.__main__:main"
 [project.urls]
 "Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 "Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v9.2.0"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v10.0.0"
 "Funding" = "https://github.com/sponsors/kdeldycke"
 "Homepage" = "https://github.com/kdeldycke/extra-platforms"
 "Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -293,7 +293,7 @@ typing = [
 [tool.uv]
 dependency-groups.docs = { requires-python = ">= 3.12" }
 # Cooldown period.
-exclude-newer = "2026-02-08T00:00:00Z"
+exclude-newer = "2026-02-09T00:00:00Z"
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -345,6 +345,12 @@ default.extend-ignore-identifiers-re = [
   # 57 │     ("11", None): "Big Sur",
   #    ╰╴                       ━━━
   "Sur",
+  # error: `certifi` should be `certify`, `certifies`, `certified`
+  #     ╭▸ ./docs/assets/dependencies.mmd:173:11
+  #     │
+  # 173 │     click certifi "https://pypi.org/project/certifi/" _blank
+  #     ╰╴           ^^^^^^^
+  "certifi",
 ]
 
 [tool.pytest]
@@ -368,8 +374,19 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "9.2.0"
+current_version = "10.0.0"
 allow_dirty = true
+# Parse versions with an optional .devN suffix (PEP 440).
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
+serialize = [
+  "{major}.{minor}.{patch}.dev{dev}",
+  "{major}.{minor}.{patch}",
+]
+# When dev is "release" (its optional value), the .devN suffix is omitted.
+# Bumping patch/minor/major resets dev to "0", producing X.Y.Z.dev0.
+# Bumping dev goes from "0" to "release", stripping the suffix for release.
+parts.dev.values = [ "0", "release" ]
+parts.dev.optional_value = "release"
 
 [[tool.bumpversion.files]]
 # Update Python package version in any __init__.py file.
@@ -415,6 +432,8 @@ warn_return_any = true
 warn_unreachable = true
 pretty = true
 
-[tool.gha-utils]
+[tool.repomatic]
+# We don't want repomatic's skills in this repository. And no need for custom label or zizmor configuration either.
+init-exclude = [ "skills", "labels", "zizmor" ]
 # Building the package with Nuitka is overkill.
 nuitka = false

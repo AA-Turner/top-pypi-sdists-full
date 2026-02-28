@@ -16,6 +16,7 @@ import concurrent.futures
 import datetime
 from functools import partial
 import json
+import logging
 import os
 import re
 import socket
@@ -33,6 +34,9 @@ CLIENT_SECRETS_FILE = os.path.join(DATA_DIR, "client_secrets.json")
 
 with open(CLIENT_SECRETS_FILE, "r") as fh:
     CLIENT_SECRETS_INFO = json.load(fh)
+
+VALID_PKCE_VERIFIER_REGEX = r"^[A-Za-z0-9-._~]{128}$"
+VALID_CODE_CHALLENGE_REGEX = r"^[A-Za-z0-9-_]{43}$"
 
 
 class TestFlow(object):
@@ -114,10 +118,14 @@ class TestFlow(object):
 
             assert CLIENT_SECRETS_INFO["web"]["auth_uri"] in url
             assert scope in url
+            assert "code_challenge=" in url
+            assert "code_challenge_method=S256" in url
             authorization_url_spy.assert_called_with(
                 CLIENT_SECRETS_INFO["web"]["auth_uri"],
                 access_type="offline",
                 prompt="consent",
+                code_challenge=mock.ANY,
+                code_challenge_method="S256",
             )
 
     def test_authorization_url_code_verifier(self, instance):
@@ -183,10 +191,8 @@ class TestFlow(object):
             assert kwargs["code_challenge_method"] == "S256"
             assert len(instance.code_verifier) == 128
             assert len(kwargs["code_challenge"]) == 43
-            valid_verifier = r"^[A-Za-z0-9-._~]*$"
-            valid_challenge = r"^[A-Za-z0-9-_]*$"
-            assert re.match(valid_verifier, instance.code_verifier)
-            assert re.match(valid_challenge, kwargs["code_challenge"])
+            assert re.fullmatch(VALID_PKCE_VERIFIER_REGEX, instance.code_verifier)
+            assert re.fullmatch(VALID_CODE_CHALLENGE_REGEX, kwargs["code_challenge"])
 
     def test_fetch_token(self, instance):
         instance.code_verifier = "amanaplanacanalpanama"
@@ -263,6 +269,7 @@ class TestInstalledAppFlow(object):
     @pytest.fixture
     def socket(self, port):
         s = socket.socket()
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Enable SO_REUSEADDR
         s.bind(("localhost", port))
         yield s
         s.close()
@@ -307,13 +314,13 @@ class TestInstalledAppFlow(object):
         assert credentials.id_token == mock.sentinel.id_token
         assert webbrowser_mock.get().open.called
         assert instance.redirect_uri == f"http://localhost:{port}/"
-
+        assert re.fullmatch(VALID_PKCE_VERIFIER_REGEX, instance.code_verifier)
         expected_auth_response = auth_redirect_url.replace("http", "https")
         mock_fetch_token.assert_called_with(
             CLIENT_SECRETS_INFO["web"]["token_uri"],
             client_secret=CLIENT_SECRETS_INFO["web"]["client_secret"],
             authorization_response=expected_auth_response,
-            code_verifier=None,
+            code_verifier=mock.ANY,
             audience=None,
         )
 
@@ -352,7 +359,7 @@ class TestInstalledAppFlow(object):
             CLIENT_SECRETS_INFO["web"]["token_uri"],
             client_secret=CLIENT_SECRETS_INFO["web"]["client_secret"],
             authorization_response=expected_auth_response,
-            code_verifier=None,
+            code_verifier=mock.ANY,
             audience=self.AUDIENCE,
         )
 
@@ -455,3 +462,55 @@ class TestInstalledAppFlow(object):
             instance.run_local_server()
 
         server_mock.server_close.assert_called_once()
+
+    @mock.patch("builtins.print")
+    @mock.patch("google_auth_oauthlib.flow.webbrowser", autospec=True)
+    def test_run_local_server_logs_and_prints_url(
+        self, webbrowser_mock, print_mock, instance, mock_fetch_token, port, caplog
+    ):
+        auth_redirect_url = urllib.parse.urljoin(
+            f"http://localhost:{port}", self.REDIRECT_REQUEST_PATH
+        )
+
+        # Configure caplog to capture INFO logs
+        caplog.set_level(logging.INFO, logger="google_auth_oauthlib.flow")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(partial(instance.run_local_server, port=port))
+
+            while not future.done():
+                try:
+                    requests.get(auth_redirect_url)
+                except requests.ConnectionError:
+                    pass
+
+            future.result()
+
+        # Verify log message
+        assert "Please visit this URL" in caplog.text
+        assert urllib.parse.quote(instance.redirect_uri, safe="") in caplog.text
+
+        # Verify print message
+        print_mock.assert_called_once()
+        assert "Please visit this URL" in print_mock.call_args[0][0]
+        assert (
+            urllib.parse.quote(instance.redirect_uri, safe="")
+            in print_mock.call_args[0][0]
+        )
+
+    @mock.patch("google_auth_oauthlib.flow.webbrowser", autospec=True)
+    @mock.patch("wsgiref.simple_server.make_server", autospec=True)
+    def test_run_local_server_timeout(
+        self, make_server_mock, webbrowser_mock, instance, mock_fetch_token
+    ):
+        mock_server = mock.Mock()
+        make_server_mock.return_value = mock_server
+
+        # handle_request does nothing (simulating timeout), so last_request_uri remains None
+        mock_server.handle_request.return_value = None
+
+        with pytest.raises(flow.WSGITimeoutError):
+            instance.run_local_server(timeout_seconds=1)
+
+        webbrowser_mock.get.assert_called_with(None)
+        webbrowser_mock.get.return_value.open.assert_called_once()

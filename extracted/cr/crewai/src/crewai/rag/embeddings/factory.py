@@ -216,10 +216,6 @@ def build_embedder_from_dict(
 def build_embedder_from_dict(spec: ONNXProviderSpec) -> ONNXMiniLM_L6_V2: ...
 
 
-@overload
-def build_embedder_from_dict(spec: dict[str, Any]) -> EmbeddingFunction[Any]: ...
-
-
 def build_embedder_from_dict(spec):  # type: ignore[no-untyped-def]
     """Build an embedding function instance from a dictionary specification.
 
@@ -343,10 +339,6 @@ def build_embedder(spec: Text2VecProviderSpec) -> Text2VecEmbeddingFunction: ...
 
 @overload
 def build_embedder(spec: ONNXProviderSpec) -> ONNXMiniLM_L6_V2: ...
-
-
-@overload
-def build_embedder(spec: dict[str, Any]) -> EmbeddingFunction[Any]: ...
 
 
 def build_embedder(spec):  # type: ignore[no-untyped-def]

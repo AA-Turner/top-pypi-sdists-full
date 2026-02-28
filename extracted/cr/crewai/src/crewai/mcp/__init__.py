@@ -18,7 +18,6 @@ from crewai.mcp.filters import (
     create_dynamic_tool_filter,
     create_static_tool_filter,
 )
-from crewai.mcp.tool_resolver import MCPToolResolver
 from crewai.mcp.transports.base import BaseTransport, TransportType
 
 
@@ -29,7 +28,6 @@ __all__ = [
     "MCPServerHTTP",
     "MCPServerSSE",
     "MCPServerStdio",
-    "MCPToolResolver",
     "StaticToolFilter",
     "ToolFilter",
     "ToolFilterContext",

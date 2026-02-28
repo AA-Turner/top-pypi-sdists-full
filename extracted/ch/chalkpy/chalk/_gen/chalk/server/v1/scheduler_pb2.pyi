@@ -47,6 +47,7 @@ class CronResolverRun(_message.Message):
         "upper_bound",
         "max_samples",
         "used_job_queue",
+        "gcr_execution_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -63,6 +64,7 @@ class CronResolverRun(_message.Message):
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     MAX_SAMPLES_FIELD_NUMBER: _ClassVar[int]
     USED_JOB_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    GCR_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     resolver_fqn: str
@@ -78,6 +80,7 @@ class CronResolverRun(_message.Message):
     upper_bound: _timestamp_pb2.Timestamp
     max_samples: int
     used_job_queue: bool
+    gcr_execution_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -95,6 +98,7 @@ class CronResolverRun(_message.Message):
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         max_samples: _Optional[int] = ...,
         used_job_queue: bool = ...,
+        gcr_execution_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ManualTriggerCronResolverRequest(_message.Message):

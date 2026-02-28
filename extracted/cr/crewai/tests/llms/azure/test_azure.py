@@ -102,6 +102,7 @@ def test_azure_tool_use_conversation_flow():
         # Verify that the API was called
         assert mock_complete.called
 
+
 @pytest.mark.usefixtures("mock_azure_credentials")
 def test_azure_completion_module_is_imported():
     """

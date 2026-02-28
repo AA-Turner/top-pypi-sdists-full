@@ -254,7 +254,7 @@ def test_where_clause_eq_nullsafe(
     compare_frames: t.Callable,
 ):
     employee = get_df("employee")
-    df_employee = pyspark_employee.where(F.col("age").eqNullSafe(F.lit(37)))
+    df_employee = pyspark_employee.where(F.col("age").eqNullSafe(F.lit(37)))  # type: ignore[call-overload]
     dfs_employee = employee.where(SF.col("age") == SF.lit(37))
     compare_frames(df_employee, dfs_employee)
 
@@ -1252,7 +1252,7 @@ def test_order_by_column_sort_method(
     df = (
         pyspark_store.groupBy(F.col("district_id"))
         .agg(F.min("num_sales").alias("total_sales"))
-        .orderBy(F.col("total_sales").asc(), F.col("district_id").desc())
+        .orderBy(F.col("total_sales").asc(), F.col("district_id").desc())  # type: ignore[call-overload]
     )
 
     dfs = (
@@ -1273,7 +1273,7 @@ def test_order_by_column_sort_method_nulls_last(
     df = (
         pyspark_store.groupBy(F.col("district_id"))
         .agg(F.min("num_sales").alias("total_sales"))
-        .orderBy(F.when(F.col("district_id") == F.lit(2), F.col("district_id")).asc_nulls_last())
+        .orderBy(F.when(F.col("district_id") == F.lit(2), F.col("district_id")).asc_nulls_last())  # type: ignore[call-overload]
     )
 
     dfs = (
@@ -1296,7 +1296,7 @@ def test_order_by_column_sort_method_nulls_first(
     df = (
         pyspark_store.groupBy(F.col("district_id"))
         .agg(F.min("num_sales").alias("total_sales"))
-        .orderBy(F.when(F.col("district_id") == F.lit(1), F.col("district_id")).desc_nulls_first())
+        .orderBy(F.when(F.col("district_id") == F.lit(1), F.col("district_id")).desc_nulls_first())  # type: ignore[call-overload]
     )
 
     dfs = (
@@ -1600,7 +1600,7 @@ def test_fillna_dict_replacement(
     employee = get_df("employee")
     df = pyspark_employee.select(
         F.col("fname"),
-        F.when(F.col("lname").startswith("L"), F.col("lname")).alias("l_lname"),
+        F.when(F.col("lname").startswith("L"), F.col("lname")).alias("l_lname"),  # type: ignore[call-overload]
         F.when(F.col("age") < F.lit(50), F.col("age")).alias("the_age"),
     ).fillna({"fname": "Jacob", "l_lname": "NOT_LNAME"})
 
@@ -1909,10 +1909,10 @@ def test_drop_column_join_column_df_reference(
     get_df: t.Callable[[str], BaseDataFrame],
     compare_frames: t.Callable,
 ):
-    df1 = pyspark_employee.sparkSession.createDataFrame(  # type: ignore
+    df1 = pyspark_employee.sparkSession.createDataFrame(
         [{"foo": 0, "bar": "a"}, {"foo": 1, "bar": "b"}]
     ).alias("df1")
-    df2 = pyspark_employee.sparkSession.createDataFrame([{"foo": 0, "baz": 1.5}]).alias("df2")  # type: ignore
+    df2 = pyspark_employee.sparkSession.createDataFrame([{"foo": 0, "baz": 1.5}]).alias("df2")
     df_joined = (
         df1.join(df2, on=F.col("df1.foo") == F.col("df2.foo"), how="left")
         .drop(df1.foo)
@@ -1938,10 +1938,10 @@ def test_drop_join_column_unqualified(
     get_df: t.Callable[[str], BaseDataFrame],
     compare_frames: t.Callable,
 ):
-    df1 = pyspark_employee.sparkSession.createDataFrame(  # type: ignore
+    df1 = pyspark_employee.sparkSession.createDataFrame(
         [{"foo": 0, "bar": "a"}, {"foo": 1, "bar": "b"}]
     ).alias("df1")
-    df2 = pyspark_employee.sparkSession.createDataFrame([{"foo": 0, "baz": 1.5}]).alias("df2")  # type: ignore
+    df2 = pyspark_employee.sparkSession.createDataFrame([{"foo": 0, "baz": 1.5}]).alias("df2")
     df_joined = (
         df1.join(df2, on=F.col("df1.foo") == F.col("df2.foo"), how="left").drop("foo")
         # select the columns to work around column order bug
@@ -2459,7 +2459,7 @@ def test_self_join(
     df_filtered = pyspark_employee.where(F.col("age") > 40)
     df_joined = pyspark_employee.join(
         df_filtered,
-        pyspark_employee["employee_id"].eqNullSafe(df_filtered["employee_id"]),
+        pyspark_employee["employee_id"].eqNullSafe(df_filtered["employee_id"]),  # type: ignore[call-overload]
         how="inner",
     )
 
@@ -2539,6 +2539,54 @@ def test_union_common_root_again(
     dfs_final = dfs_1.union(dfs_2).union(employee)
 
     compare_frames(df_final, dfs_final, compare_schema=False)
+
+
+# https://github.com/eakmanrq/sqlframe/issues/400
+def test_union_with_anti_join_common_root(
+    pyspark_employee: PySparkDataFrame,
+    get_df: t.Callable[[str], BaseDataFrame],
+    compare_frames: t.Callable,
+):
+    """Test that filter -> withColumn -> join -> left_anti -> left join -> unionByName
+    produces correct results (no WHERE clause duplication in UNION ALL branches)."""
+    session = get_df("employee").session
+    pyspark_session = pyspark_employee.sparkSession
+
+    # Create simple foo and bar data tables
+    foo_data = [("a", "b"), ("a", "x"), ("b", "x")]
+    bar_data = [("a", "b", 5), ("a", "c", 4)]
+
+    pyspark_foo = pyspark_session.createDataFrame(foo_data, ["key1", "key2"])
+    pyspark_bar = pyspark_session.createDataFrame(bar_data, ["key1", "key2", "value"])
+
+    foo = session.createDataFrame(foo_data, "key1 string, key2 string")
+    bar = session.createDataFrame(bar_data, "key1 string, key2 string, value int")
+
+    # ---- PySpark reference ----
+    normal_foo = pyspark_foo.filter(F.col("key2") != "x")
+    normal_foo_joined = normal_foo.join(pyspark_bar, ["key1", "key2"], "inner")
+    foo_with_x = pyspark_foo.filter(F.col("key2") == "x")
+    foo_with_x = foo_with_x.withColumn("key2", F.lit("b"))
+    found_hits = foo_with_x.join(pyspark_bar, ["key1", "key2"], "inner")
+    unfound_hits = foo_with_x.join(found_hits, ["key1", "key2"], "left_anti")
+    unfound_hits = unfound_hits.withColumn("key2", F.lit("b"))
+    unfound_hits = unfound_hits.join(pyspark_bar, ["key1", "key2"], "left")
+    foo_with_x_replaced = found_hits.unionByName(unfound_hits)
+    pyspark_df = normal_foo_joined.unionByName(foo_with_x_replaced)
+
+    # ---- sqlframe ----
+    sf_normal_foo = foo.filter(SF.col("key2") != "x")
+    sf_normal_foo_joined = sf_normal_foo.join(bar, ["key1", "key2"], "inner")
+    sf_foo_with_x = foo.filter(SF.col("key2") == "x")
+    sf_foo_with_x = sf_foo_with_x.withColumn("key2", SF.lit("b"))
+    sf_found_hits = sf_foo_with_x.join(bar, ["key1", "key2"], "inner")
+    sf_unfound_hits = sf_foo_with_x.join(sf_found_hits, ["key1", "key2"], "left_anti")
+    sf_unfound_hits = sf_unfound_hits.withColumn("key2", SF.lit("b"))
+    sf_unfound_hits = sf_unfound_hits.join(bar, ["key1", "key2"], "left")
+    sf_foo_with_x_replaced = sf_found_hits.unionByName(sf_unfound_hits)
+    sqlf_df = sf_normal_foo_joined.unionByName(sf_foo_with_x_replaced)
+
+    compare_frames(pyspark_df, sqlf_df, compare_schema=False, sort=True)
 
 
 # https://github.com/eakmanrq/sqlframe/issues/277
@@ -2952,7 +3000,7 @@ def test_float_infinity(
         {key: value[i] for key, value in data.items()}
         for i in range(len(data[next(iter(data.keys()))]))
     ]
-    df = session.createDataFrame(rows)  # type: ignore
+    df = session.createDataFrame(rows)
     df = df.withColumns({"b": F.col("a") != F.lit(float("inf"))})
 
     employee = get_df("employee")

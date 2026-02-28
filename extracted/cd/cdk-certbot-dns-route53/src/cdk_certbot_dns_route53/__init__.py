@@ -14,82 +14,11 @@ r'''
 ## Install
 
 ```bash
-Use the npm dist tag to opt in CDKv1 or CDKv2:
-
 // for CDKv2
 npm install cdk-certbot-dns-route53
 or
 npm install cdk-certbot-dns-route53@latest
-
-// for CDKv1
-npm install cdk-certbot-dns-route53@cdkv1
 ```
-
-💡💡💡 please click [here](https://github.com/neilkuan/cdk-certbot-dns-route53/tree/cdkv1#readme), if you are using aws-cdk v1.x.x version.💡💡💡
-
-```python
-import * as r53 from 'aws-cdk-lib/aws-route53';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as cdk from 'aws-cdk-lib';
-import { CertbotDnsRoute53Job } from 'cdk-certbot-dns-route53';
-
-const devEnv = {
-  account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION,
-};
-
-const app = new cdk.App();
-
-const stack = new cdk.Stack(app, 'lambda-certbot-dev', { env: devEnv });
-
-new CertbotDnsRoute53Job(stack, 'Demo', {
-  certbotOptions: {
-    domainName: '*.example.com',
-    email: 'user@example.com',
-  },
-  zone: r53.HostedZone.fromHostedZoneAttributes(stack, 'myZone', {
-    zoneName: 'example.com',
-    hostedZoneId:  'mockId',
-  }),
-  destinationBucket: s3.Bucket.fromBucketName(stack, 'myBucket', 'mybucket'),
-});
-```
-
-### You can define Lambda Image Architecture now. 2022/04/19
-
-```python
-import * as r53 from 'aws-cdk-lib/aws-route53';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as cdk from 'aws-cdk-lib';
-import { CertbotDnsRoute53Job } from 'cdk-certbot-dns-route53';
-
-const mockApp = new cdk.App();
-const stack = new cdk.Stack(mockApp, 'teststack', { env: devEnv });
-const bucket = new s3.Bucket(stack, 'testingBucket');
-const zone = r53.HostedZone.fromHostedZoneAttributes(stack, 'zone', {
-  zoneName: mock.zoneName, hostedZoneId: mock.zoneId,
-});
-new CertbotDnsRoute53Job(stack, 'Testtask', {
-  certbotOptions: {
-    domainName: 'example.com',
-    email: 'user@example.com',
-    customPrefixDirectory: '/',
-  },
-  zone,
-  destinationBucket: bucket,
-  schedule: events.Schedule.cron({ month: '2' }),
-  architecture: lambda.Architecture.ARM_64, // <- like this way.
-});
-```
-
-### Example: Invoke Lambda Function log.
-
-![](./images/lambda-logs.png)
-
-### Example: Renew certificate to store on S3 Bucket
-
-![](./images/s3-bucket.png)
 
 ### Support Python Lambda Runtime. 2023/12/17
 
@@ -120,6 +49,14 @@ new CertbotDnsRoute53JobPython(stack, 'Testtask', {
   enabledLambdaFunctionUrl: true,
 });
 ```
+
+### Example: Invoke Lambda Function log.
+
+![](./images/lambda-logs.png)
+
+### Example: Renew certificate to store on S3 Bucket
+
+![](./images/s3-bucket.png)
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -161,217 +98,6 @@ import aws_cdk.aws_lambda_python_alpha as _aws_cdk_aws_lambda_python_alpha_49328
 import aws_cdk.aws_route53 as _aws_cdk_aws_route53_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
 import constructs as _constructs_77d1e7e8
-
-
-class BashExecFunction(
-    _constructs_77d1e7e8.Construct,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-certbot-dns-route53.BashExecFunction",
-):
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        script: builtins.str,
-        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
-        dockerfile: typing.Optional[builtins.str] = None,
-        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
-        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param script: The path of the shell script to be executed.
-        :param architecture: Custom lambda Image Architecture. Default: - lambda.Architecture.X86_64
-        :param dockerfile: The path of your custom dockerfile.
-        :param environment: Lambda environment variables.
-        :param role: Custom lambda execution role. Default: - auto generated role.
-        :param timeout: The function execution time (in seconds) after which Lambda terminates the function. Because the execution time affects cost, set this value based on the function's expected execution time. Default: - Duration.seconds(60)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__815f799bcd1da799b09597ee7c6997343bfe9bc4b2fafae83eb748bb8733f0b5)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = BashExecFunctionProps(
-            script=script,
-            architecture=architecture,
-            dockerfile=dockerfile,
-            environment=environment,
-            role=role,
-            timeout=timeout,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @builtins.property
-    @jsii.member(jsii_name="handler")
-    def handler(self) -> "_aws_cdk_aws_lambda_ceddda9d.DockerImageFunction":
-        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.DockerImageFunction", jsii.get(self, "handler"))
-
-
-@jsii.data_type(
-    jsii_type="cdk-certbot-dns-route53.BashExecFunctionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "script": "script",
-        "architecture": "architecture",
-        "dockerfile": "dockerfile",
-        "environment": "environment",
-        "role": "role",
-        "timeout": "timeout",
-    },
-)
-class BashExecFunctionProps:
-    def __init__(
-        self,
-        *,
-        script: builtins.str,
-        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
-        dockerfile: typing.Optional[builtins.str] = None,
-        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
-        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-    ) -> None:
-        '''
-        :param script: The path of the shell script to be executed.
-        :param architecture: Custom lambda Image Architecture. Default: - lambda.Architecture.X86_64
-        :param dockerfile: The path of your custom dockerfile.
-        :param environment: Lambda environment variables.
-        :param role: Custom lambda execution role. Default: - auto generated role.
-        :param timeout: The function execution time (in seconds) after which Lambda terminates the function. Because the execution time affects cost, set this value based on the function's expected execution time. Default: - Duration.seconds(60)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a349fede69d30c87337677bfecf574460d5cf03361d4e1e24ce7ab874e3e6f83)
-            check_type(argname="argument script", value=script, expected_type=type_hints["script"])
-            check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
-            check_type(argname="argument dockerfile", value=dockerfile, expected_type=type_hints["dockerfile"])
-            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "script": script,
-        }
-        if architecture is not None:
-            self._values["architecture"] = architecture
-        if dockerfile is not None:
-            self._values["dockerfile"] = dockerfile
-        if environment is not None:
-            self._values["environment"] = environment
-        if role is not None:
-            self._values["role"] = role
-        if timeout is not None:
-            self._values["timeout"] = timeout
-
-    @builtins.property
-    def script(self) -> builtins.str:
-        '''The path of the shell script to be executed.'''
-        result = self._values.get("script")
-        assert result is not None, "Required property 'script' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def architecture(
-        self,
-    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"]:
-        '''Custom lambda Image Architecture.
-
-        :default: - lambda.Architecture.X86_64
-        '''
-        result = self._values.get("architecture")
-        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"], result)
-
-    @builtins.property
-    def dockerfile(self) -> typing.Optional[builtins.str]:
-        '''The path of your custom dockerfile.'''
-        result = self._values.get("dockerfile")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Lambda environment variables.'''
-        result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
-        '''Custom lambda execution role.
-
-        :default: - auto generated role.
-        '''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''The function execution time (in seconds) after which Lambda terminates the function.
-
-        Because the execution time affects cost, set this value based on the function's expected execution time.
-
-        :default: - Duration.seconds(60)
-        '''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BashExecFunctionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class CertbotDnsRoute53Job(
-    _constructs_77d1e7e8.Construct,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-certbot-dns-route53.CertbotDnsRoute53Job",
-):
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        certbot_options: typing.Union["CertbotOptions", typing.Dict[builtins.str, typing.Any]],
-        destination_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
-        zone: "_aws_cdk_aws_route53_ceddda9d.IHostedZone",
-        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
-        enabled_lambda_function_url: typing.Optional[builtins.bool] = None,
-        function_url_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param certbot_options: certbot cmd options.
-        :param destination_bucket: The S3 bucket to store certificate.
-        :param zone: The HostZone on route53 to dns-01 challenge.
-        :param architecture: Custom lambda Image Architecture. Default: - lambda.Architecture.X86_64
-        :param enabled_lambda_function_url: Enabled Lambda Function URL. Default: - false
-        :param function_url_options: Options to add a url to a Lambda function. Default: - authType: lambda.FunctionUrlAuthType.NONE
-        :param schedule: run the Job with defined schedule. Default: - no schedule
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da05d26f3781f773b2fdfb2cd3b2355cd748de456a029d8d8fc5853a09ecc6be)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CertbotDnsRoute53JobProps(
-            certbot_options=certbot_options,
-            destination_bucket=destination_bucket,
-            zone=zone,
-            architecture=architecture,
-            enabled_lambda_function_url=enabled_lambda_function_url,
-            function_url_options=function_url_options,
-            schedule=schedule,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
 
 
 @jsii.data_type(
@@ -751,9 +477,6 @@ class LambdaPythonFunction(
 
 
 __all__ = [
-    "BashExecFunction",
-    "BashExecFunctionProps",
-    "CertbotDnsRoute53Job",
     "CertbotDnsRoute53JobProps",
     "CertbotDnsRoute53JobPython",
     "CertbotOptions",
@@ -762,47 +485,6 @@ __all__ = [
 ]
 
 publication.publish()
-
-def _typecheckingstub__815f799bcd1da799b09597ee7c6997343bfe9bc4b2fafae83eb748bb8733f0b5(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    script: builtins.str,
-    architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-    dockerfile: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a349fede69d30c87337677bfecf574460d5cf03361d4e1e24ce7ab874e3e6f83(
-    *,
-    script: builtins.str,
-    architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-    dockerfile: typing.Optional[builtins.str] = None,
-    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__da05d26f3781f773b2fdfb2cd3b2355cd748de456a029d8d8fc5853a09ecc6be(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    certbot_options: typing.Union[CertbotOptions, typing.Dict[builtins.str, typing.Any]],
-    destination_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-    zone: _aws_cdk_aws_route53_ceddda9d.IHostedZone,
-    architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
-    enabled_lambda_function_url: typing.Optional[builtins.bool] = None,
-    function_url_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    schedule: typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__2babfa71523bcd78147c91e40cba55e1fb4817d7a9f75a74440df56b87a4ac77(
     *,

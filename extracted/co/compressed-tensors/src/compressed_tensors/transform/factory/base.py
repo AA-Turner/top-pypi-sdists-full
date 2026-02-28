@@ -1,19 +1,7 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 import torch
 import torch.nn.utils.parametrize as P
@@ -26,6 +14,7 @@ from compressed_tensors.modeling.kvcache import (
     initialize_hooked_kv_cache,
     register_key_hook,
 )
+from compressed_tensors.offload import OffloadCache
 from compressed_tensors.registry.registry import RegistryMixin, T
 from compressed_tensors.transform import (
     TransformArgs,
@@ -34,8 +23,6 @@ from compressed_tensors.transform import (
 )
 from compressed_tensors.utils import (
     align_module_device,
-    delete_offload_module,
-    has_offloaded_params,
     match_named_modules,
     patch_attr,
     register_offload_module,
@@ -59,9 +46,9 @@ class TransformFactory(RegistryMixin, ABC):
     :param seed: random seed used to transform weight randomization
     """
 
-    transforms: List["TransformBase"]
+    transforms: list["TransformBase"]
 
-    def __init__(self, name: str, scheme: TransformScheme, seed: Optional[int] = None):
+    def __init__(self, name: str, scheme: TransformScheme, seed: int | None = None):
         self.name = name
         self.scheme = scheme
         self.generator = torch.Generator()
@@ -116,13 +103,6 @@ class TransformFactory(RegistryMixin, ABC):
         :param module: target module to apply transforms to
         :param args: defines how the transform will be applied to the target module
         """
-        if has_offloaded_params(module):
-            if module._hf_hook.place_submodules:
-                raise NotImplementedError(
-                    "Applying transforms to offloaded submodules with "
-                    "`place_submodules=True` is not supported"
-                )
-
         # create transform as submodule
         transform_name = f"{self.name}_{args.location}"
         transform = self.create_transform(module, args)
@@ -150,13 +130,13 @@ class TransformFactory(RegistryMixin, ABC):
             if self.scheme.requires_grad:
                 # for training, the weight changes with every forward pass
                 # so we can leverage parametrization to propagate the gradient
-                if has_offloaded_params(module):
+                if isinstance(module._parameters, OffloadCache):
                     raise ValueError("Offloaded training is not supported")
                 P.register_parametrization(module, "weight", transform)
 
             else:
                 # transform is no longer needed (unfusing is not supported)
-                delete_offload_module(module, transform_name)
+                delattr(module, transform_name)
 
         # register output transformation hook
         elif args.location == TransformLocation.OUTPUT:
@@ -199,7 +179,7 @@ class TransformBase(InternalModule, ABC):
 
     args: TransformArgs
     weight: Parameter
-    _dynamic_tied_weights_keys: List[str] = ["weight"]
+    _dynamic_tied_weights_keys: list[str] = ["weight"]
 
     @abstractmethod
     def forward(self, value: Tensor) -> Tensor:

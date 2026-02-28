@@ -156,9 +156,24 @@ def check_jupyter() -> bool:
     ),
 )
 @click.option(
+    "--capacity-reservation-id",
+    default=None,
+    help="For AWS, allows you to specify existing Capacity Reservation to use.",
+)
+@click.option(
+    "--capacity-reservation-group-arn",
+    default=None,
+    help="For AWS, allows you to specify existing Capacity Reservation group to use.",
+)
+@click.option(
     "--region",
     default=None,
     help="The cloud provider region in which to run the notebook.",
+)
+@click.option(
+    "--zone",
+    default=None,
+    help="The cloud provider zone in which to run the notebook.",
 )
 @click.option(
     "--open",
@@ -256,7 +271,10 @@ def start_notebook(
     gpu: bool,
     disk_size: int | None,
     disk_config: str | None,
+    capacity_reservation_id: str | None,
+    capacity_reservation_group_arn: str | None,
     region: str | None,
+    zone: str | None,
     open: bool,
     block: bool,
     include_vcs: bool,
@@ -294,7 +312,10 @@ def start_notebook(
         gpu=gpu,
         disk_size=disk_size,
         disk_config=disk_config_dict,
+        capacity_reservation_id=capacity_reservation_id,
+        capacity_reservation_group_arn=capacity_reservation_group_arn,
         region=region,
+        zone=zone,
         open=open,
         block=block,
         include_vcs=include_vcs,
@@ -324,7 +345,10 @@ def _start_notebook(
     gpu: bool = False,
     disk_size: int | None = None,
     disk_config: dict | None = None,
+    capacity_reservation_id: str | None = None,
+    capacity_reservation_group_arn: str | None = None,
     region: str | None = None,
+    zone: str | None = None,
     open: bool = False,
     block: bool = True,
     include_vcs: bool = False,
@@ -399,6 +423,14 @@ def _start_notebook(
             except FileNotFoundError:
                 package_sync_ignore = []
 
+            backend_options = dict()
+            if zone:
+                backend_options["zone_name"] = zone
+            if capacity_reservation_id:
+                backend_options["capacity_reservation_id"] = capacity_reservation_id
+            if capacity_reservation_group_arn:
+                backend_options["capacity_reservation_group_arn"] = capacity_reservation_group_arn
+
             cluster = coiled.Cluster(
                 name=name,
                 workspace=workspace,
@@ -428,6 +460,7 @@ def _start_notebook(
                 unset_single_threading_variables=True,
                 pause_on_exit=resumable,
                 private_to_creator=private,
+                backend_options=backend_options or None,  # type: ignore
             )
             info["cluster_id"] = cluster.cluster_id
 

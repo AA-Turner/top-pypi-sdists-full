@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Trait base class for architectures, platforms, shells, terminals, CI systems, and more.
+"""Trait base class for architectures, platforms, shells, terminals, CI systems, agents, and more.
 
 A trait represents a distinguishing characteristic of a runtime environment.
 Each trait has a unique ID, a human-readable name, an icon, and the ability
@@ -33,11 +33,9 @@ from functools import cached_property, lru_cache
 from os import environ
 from typing import ClassVar
 
-import distro
-
 from ._docstrings import get_attribute_docstring
 from ._utils import _recursive_update, _remove_blanks
-from .platform_info import macos_info, windows_info
+from .platform_info import linux_info, macos_info, windows_info
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -372,8 +370,8 @@ class Platform(Trait):
             "codename": None,
         }
         if self.current:
-            # Get extra Linux distribution info from distro.
-            distro_info = dict(distro.info())
+            # Get Linux distribution info from os-release.
+            distro_info = dict(linux_info())
             # Rename distro ID to avoid conflict with our own ID.
             distro_info["distro_id"] = distro_info.pop("id")
             info = _recursive_update(info, _remove_blanks(distro_info), strict=True)
@@ -477,6 +475,24 @@ class CI(Trait):
 
     def info(self) -> dict[str, str | bool | None]:
         """Returns all CI attributes we can gather."""
+        return {**self._base_info()}
+
+
+@dataclass(frozen=True)
+class Agent(Trait):
+    """An agent identifies an AI coding agent environment."""
+
+    type_name = "agent"
+
+    all_group = "ALL_AGENTS"
+
+    def __post_init__(self) -> None:
+        """Tweak agent docstring."""
+        super().__post_init__()
+        object.__setattr__(self, "__doc__", f"Identify {self.name} environment.")
+
+    def info(self) -> dict[str, str | bool | None]:
+        """Returns all agent attributes we can gather."""
         return {**self._base_info()}
 
 

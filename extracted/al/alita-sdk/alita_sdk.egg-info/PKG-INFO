@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.4.5
+Version: 0.4.7
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -128,7 +128,6 @@ Requires-Dist: pysnc==1.1.10; extra == "tools"
 Requires-Dist: pyral==1.6.0; extra == "tools"
 Requires-Dist: shortuuid==1.0.13; extra == "tools"
 Requires-Dist: yarl==1.17.1; extra == "tools"
-Requires-Dist: langmem==0.0.27; extra == "tools"
 Requires-Dist: textract-py3==2.1.1; extra == "tools"
 Requires-Dist: slack_sdk==3.35.0; extra == "tools"
 Requires-Dist: deltalake==1.0.2; extra == "tools"

@@ -21,9 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include <girepository/girepository.h>
-
 #include "pygi-argument.h"
+#include "pygi-basictype.h"
 #include "pygi-fundamental.h"
 #include "pygi-property.h"
 #include "pygi-repository.h"
@@ -125,7 +124,6 @@ pygi_get_property_value (PyGObject *instance, GParamSpec *pspec)
     };
     PyObject *py_value = NULL;
     GType fundamental;
-    gboolean handled;
 
     if (!(pspec->flags & G_PARAM_READABLE)) {
         PyErr_Format (PyExc_TypeError, "property %s is not readable",
@@ -142,13 +140,18 @@ pygi_get_property_value (PyGObject *instance, GParamSpec *pspec)
     Py_BEGIN_ALLOW_THREADS;
     g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE (pspec));
     g_object_get_property (instance->obj, pspec->name, &value);
-    fundamental = G_TYPE_FUNDAMENTAL (G_VALUE_TYPE (&value));
     Py_END_ALLOW_THREADS;
 
+    // special case: unichar, which has a uint type
+    if (G_IS_PARAM_SPEC_UNICHAR (pspec)) {
+        py_value = pygi_gunichar_to_py (g_value_get_uint (&value));
+        goto out;
+    }
 
-    /* Fast path basic types which don't need GI type info. */
-    py_value = pygi_value_to_py_basic_type (&value, fundamental, &handled);
-    if (handled) {
+    /* Fast path: basic types which don't need GI type info. */
+    fundamental = G_TYPE_FUNDAMENTAL (G_VALUE_TYPE (&value));
+    py_value = pygi_value_to_py_basic_type (&value, fundamental);
+    if (py_value != NULL || PyErr_Occurred ()) {
         goto out;
     }
 
@@ -158,30 +161,12 @@ pygi_get_property_value (PyGObject *instance, GParamSpec *pspec)
     property_info =
         _pygi_lookup_property_from_g_type (pspec->owner_type, pspec->name);
     if (property_info) {
-        GITypeInfo *type_info = NULL;
-        gboolean free_array = FALSE;
-        GIArgument arg = {
-            0,
-        };
-        GITransfer transfer = GI_TRANSFER_NOTHING;
+        GITypeInfo *type_info = gi_property_info_get_type_info (property_info);
+        GITransfer transfer =
+            gi_property_info_get_ownership_transfer (property_info);
+        GIArgument arg = _pygi_argument_from_g_value (&value, type_info);
 
-        type_info = gi_property_info_get_type_info (property_info);
-        arg = _pygi_argument_from_g_value (&value, type_info);
-
-        /* Arrays are special cased, see note in _pygi_argument_to_array. */
-        if (gi_type_info_get_tag (type_info) == GI_TYPE_TAG_ARRAY) {
-            arg.v_pointer = _pygi_argument_to_array (&arg, NULL, NULL, NULL,
-                                                     type_info, &free_array);
-        } else if (g_type_is_a (pspec->value_type, G_TYPE_BOXED)) {
-            arg.v_pointer = g_value_dup_boxed (&value);
-            transfer = GI_TRANSFER_EVERYTHING;
-        }
-
-        py_value = _pygi_argument_to_object (&arg, type_info, transfer);
-
-        if (free_array) {
-            g_array_free (arg.v_pointer, FALSE);
-        }
+        py_value = pygi_argument_to_py (type_info, arg, transfer);
 
         gi_base_info_unref (type_info);
         gi_base_info_unref (property_info);
@@ -193,7 +178,7 @@ pygi_get_property_value (PyGObject *instance, GParamSpec *pspec)
 
     /* Fallback to GValue marshalling. */
     if (py_value == NULL) {
-        py_value = pyg_param_gvalue_as_pyobject (&value, TRUE, pspec);
+        py_value = pyg_value_to_pyobject (&value, TRUE);
     }
 
 out:
@@ -218,69 +203,58 @@ pygi_get_property_value_by_name (PyGObject *self, gchar *param_name)
     return pygi_get_property_value (self, pspec);
 }
 
-gint
-pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
-                         PyObject *py_value)
+static gint
+pygi_set_gvalue_from_property_info (GValue *value,
+                                    GIPropertyInfo *property_info,
+                                    PyObject *py_value,
+                                    PyGIArgumentFromPyCleanupData *arg_cleanup)
 {
-    GIPropertyInfo *property_info = NULL;
-    GITypeInfo *type_info = NULL;
-    GIBaseInfo *info = NULL;
+    GITypeInfo *type_info;
+    GIBaseInfo *interface = NULL;
     GITypeTag type_tag;
     GITransfer transfer;
-    GValue value = {
-        0,
-    };
-    GIArgument arg = {
-        0,
-    };
+    GIArgument arg;
     gint ret_value = -1;
-
-    /* The owner_type of the pspec gives us the exact type that introduced the
-     * property, even if it is a parent class of the instance in question. */
-    property_info =
-        _pygi_lookup_property_from_g_type (pspec->owner_type, pspec->name);
-    if (property_info == NULL) goto out;
-
-    if (!(pspec->flags & G_PARAM_WRITABLE)) goto out;
 
     type_info = gi_property_info_get_type_info (property_info);
     transfer = gi_property_info_get_ownership_transfer (property_info);
-    arg = _pygi_argument_from_object (py_value, type_info, transfer);
+    arg = pygi_argument_from_py (type_info, py_value, transfer, arg_cleanup);
 
     if (PyErr_Occurred ()) goto out;
 
-    g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE (pspec));
-
-    /* FIXME: Lots of types still unhandled */
     type_tag = gi_type_info_get_tag (type_info);
     switch (type_tag) {
     case GI_TYPE_TAG_INTERFACE: {
-        GType type;
+        interface = gi_type_info_get_interface (type_info);
 
-        info = gi_type_info_get_interface (type_info);
-        type = gi_registered_type_info_get_g_type (
-            GI_REGISTERED_TYPE_INFO (info));
-
-        if (GI_IS_FLAGS_INFO (info)) {
-            /* Check flags before enums: flags are a subtype of enum. */
-            g_value_set_flags (&value, arg.v_uint);
-        } else if (GI_IS_ENUM_INFO (info)) {
-            g_value_set_enum (&value, arg.v_int);
-        } else if (GI_IS_INTERFACE_INFO (info) || GI_IS_OBJECT_INFO (info)) {
+        switch (pygi_interface_type_tag (interface)) {
+        case PYGI_INTERFACE_TYPE_TAG_FLAGS:
+            g_value_set_flags (value, arg.v_uint);
+            break;
+        case PYGI_INTERFACE_TYPE_TAG_ENUM:
+            g_value_set_enum (value, arg.v_int);
+            break;
+        case PYGI_INTERFACE_TYPE_TAG_INTERFACE:
+        case PYGI_INTERFACE_TYPE_TAG_OBJECT:
             if (arg.v_pointer == NULL || G_IS_OBJECT (arg.v_pointer)) {
-                g_value_set_object (&value, arg.v_pointer);
-            } else if (!pygi_fundamental_set_value (&value, arg.v_pointer)) {
+                g_value_set_object (value, arg.v_pointer);
+            } else if (!pygi_fundamental_set_value (value, arg.v_pointer)) {
                 PyErr_Format (
                     PyExc_NotImplementedError,
                     "Setting properties of type '%s' is not implemented",
-                    g_type_name (type));
+                    g_type_name (G_VALUE_TYPE (value)));
                 goto out;
             }
-        } else if (GI_IS_STRUCT_INFO (info) || GI_IS_UNION_INFO (info)) {
+            break;
+        case PYGI_INTERFACE_TYPE_TAG_STRUCT:
+        case PYGI_INTERFACE_TYPE_TAG_UNION: {
+            GType type = gi_registered_type_info_get_g_type (
+                GI_REGISTERED_TYPE_INFO (interface));
+
             if (g_type_is_a (type, G_TYPE_BOXED)) {
-                g_value_set_boxed (&value, arg.v_pointer);
+                g_value_set_boxed (value, arg.v_pointer);
             } else if (g_type_is_a (type, G_TYPE_VARIANT)) {
-                g_value_set_variant (&value, arg.v_pointer);
+                g_value_set_variant (value, arg.v_pointer);
             } else {
                 PyErr_Format (
                     PyExc_NotImplementedError,
@@ -288,107 +262,184 @@ pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
                     g_type_name (type));
                 goto out;
             }
-        } else {
-            PyErr_Format (PyExc_NotImplementedError,
-                          "Setting properties of type '%s' is not implemented",
-                          g_type_name (type));
+            break;
+        }
+        case PYGI_INTERFACE_TYPE_TAG_CALLBACK:
+            PyErr_Format (PyExc_TypeError,
+                          "Setting properties of type '%s' is not supported",
+                          g_type_name (G_VALUE_TYPE (value)));
             goto out;
+        default:
+            g_assert_not_reached ();
         }
         break;
     }
     case GI_TYPE_TAG_BOOLEAN:
-        g_value_set_boolean (&value, arg.v_boolean);
+        g_value_set_boolean (value, arg.v_boolean);
         break;
     case GI_TYPE_TAG_INT8:
-        g_value_set_schar (&value, arg.v_int8);
+        g_value_set_schar (value, arg.v_int8);
         break;
     case GI_TYPE_TAG_INT16:
     case GI_TYPE_TAG_INT32:
-        if (G_VALUE_HOLDS_LONG (&value))
-            g_value_set_long (&value, arg.v_long);
+        if (G_VALUE_HOLDS_LONG (value))
+            g_value_set_long (value, arg.v_long);
         else
-            g_value_set_int (&value, arg.v_int);
+            g_value_set_int (value, arg.v_int);
         break;
     case GI_TYPE_TAG_INT64:
-        if (G_VALUE_HOLDS_LONG (&value))
-            g_value_set_long (&value, arg.v_long);
+        if (G_VALUE_HOLDS_LONG (value))
+            g_value_set_long (value, arg.v_long);
         else
-            g_value_set_int64 (&value, arg.v_int64);
+            g_value_set_int64 (value, arg.v_int64);
         break;
     case GI_TYPE_TAG_UINT8:
-        g_value_set_uchar (&value, arg.v_uint8);
+        g_value_set_uchar (value, arg.v_uint8);
         break;
     case GI_TYPE_TAG_UINT16:
     case GI_TYPE_TAG_UINT32:
-        if (G_VALUE_HOLDS_ULONG (&value))
-            g_value_set_ulong (&value, arg.v_ulong);
+    case GI_TYPE_TAG_UNICHAR:
+        if (G_VALUE_HOLDS_ULONG (value))
+            g_value_set_ulong (value, arg.v_ulong);
         else
-            g_value_set_uint (&value, arg.v_uint);
+            g_value_set_uint (value, arg.v_uint);
         break;
     case GI_TYPE_TAG_UINT64:
-        if (G_VALUE_HOLDS_ULONG (&value))
-            g_value_set_ulong (&value, arg.v_ulong);
+        if (G_VALUE_HOLDS_ULONG (value))
+            g_value_set_ulong (value, arg.v_ulong);
         else
-            g_value_set_uint64 (&value, arg.v_uint64);
+            g_value_set_uint64 (value, arg.v_uint64);
         break;
     case GI_TYPE_TAG_FLOAT:
-        g_value_set_float (&value, arg.v_float);
+        g_value_set_float (value, arg.v_float);
         break;
     case GI_TYPE_TAG_DOUBLE:
-        g_value_set_double (&value, arg.v_double);
+        g_value_set_double (value, arg.v_double);
         break;
     case GI_TYPE_TAG_GTYPE:
-        g_value_set_gtype (&value, arg.v_size);
+        g_value_set_gtype (value, arg.v_size);
         break;
     case GI_TYPE_TAG_UTF8:
     case GI_TYPE_TAG_FILENAME:
-        g_value_set_string (&value, arg.v_string);
+        g_value_set_string (value, arg.v_string);
         break;
     case GI_TYPE_TAG_GHASH:
-        g_value_set_boxed (&value, arg.v_pointer);
+        g_value_set_boxed (value, arg.v_pointer);
         break;
+    case GI_TYPE_TAG_ARRAY:
     case GI_TYPE_TAG_GLIST:
-        if (G_VALUE_HOLDS_BOXED (&value))
-            g_value_set_boxed (&value, arg.v_pointer);
+    case GI_TYPE_TAG_GSLIST:
+        if (G_VALUE_HOLDS_BOXED (value))
+            g_value_set_boxed (value, arg.v_pointer);
         else
-            g_value_set_pointer (&value, arg.v_pointer);
+            g_value_set_pointer (value, arg.v_pointer);
         break;
-    case GI_TYPE_TAG_ARRAY: {
-        /* This is assumes GI_TYPE_TAG_ARRAY is always a GStrv
-             * https://bugzilla.gnome.org/show_bug.cgi?id=688232
-             */
-        GArray *arg_items = (GArray *)arg.v_pointer;
-        gchar **strings;
-        guint i;
-
-        if (arg_items == NULL) goto out;
-
-        strings = g_new0 (char *, arg_items->len + 1);
-        for (i = 0; i < arg_items->len; ++i) {
-            strings[i] = g_array_index (arg_items, GIArgument, i).v_string;
-        }
-        strings[arg_items->len] = NULL;
-        g_value_take_boxed (&value, strings);
-        g_array_free (arg_items, TRUE);
-        break;
-    }
-    default:
+    case GI_TYPE_TAG_VOID:
+    case GI_TYPE_TAG_ERROR:
         PyErr_Format (
             PyExc_NotImplementedError,
             "Setting properties of type %s is not implemented",
             gi_type_tag_to_string (gi_type_info_get_tag (type_info)));
         goto out;
+    default:
+        g_assert_not_reached ();
     }
-
-    g_object_set_property (instance->obj, pspec->name, &value);
-    g_value_unset (&value);
 
     ret_value = 0;
 
 out:
-    if (property_info != NULL) gi_base_info_unref (property_info);
+    if (interface != NULL) gi_base_info_unref (interface);
     if (type_info != NULL) gi_base_info_unref (type_info);
-    if (info != NULL) gi_base_info_unref (info);
+
+    return ret_value;
+}
+
+gint
+pygi_set_gvalue_for_pspec (GValue *value, GParamSpec *pspec,
+                           PyObject *py_value,
+                           PyGIArgumentFromPyCleanupData *cleanup_data)
+{
+    gint ret_value;
+
+    /* The owner_type of the pspec gives us the exact type that introduced the
+     * property, even if it is a parent class of the instance in question. */
+    GIPropertyInfo *property_info =
+        _pygi_lookup_property_from_g_type (pspec->owner_type, pspec->name);
+
+    /* Set from the GIPropertyInfo, we have introspection data that we can
+     * use here */
+    if (property_info != NULL) {
+        ret_value = pygi_set_gvalue_from_property_info (
+            value, property_info, py_value, cleanup_data);
+    } else {
+        /* We don't have introspection data, use the legacy path */
+        ret_value = pyg_param_gvalue_from_pyobject (value, py_value, pspec);
+    }
+
+    if (property_info) gi_base_info_unref (property_info);
+
+    return ret_value;
+}
+
+gint
+pygi_set_property_value (PyGObject *instance, GParamSpec *pspec,
+                         PyObject *py_value)
+{
+    GValue value = { 0 };
+    PyGIArgumentFromPyCleanupData arg_cleanup = { 0 };
+    gint ret_value;
+
+    if (pspec->flags & G_PARAM_CONSTRUCT_ONLY) {
+        PyErr_Format (PyExc_TypeError,
+                      "property '%s' can only be set in constructor",
+                      pspec->name);
+        return -1;
+    }
+
+    if (!(pspec->flags & G_PARAM_WRITABLE)) {
+        PyErr_Format (PyExc_TypeError, "property '%s' is not writable",
+                      pspec->name);
+        return -1;
+    }
+
+    g_value_init (&value, G_PARAM_SPEC_VALUE_TYPE (pspec));
+
+    // special case: unichar has an internal type uint
+    if (G_IS_PARAM_SPEC_UNICHAR (pspec)) {
+        gunichar u;
+
+        if (!pygi_gunichar_from_py (py_value, &u)) {
+            return -1;
+        }
+        g_value_set_uint (&value, u);
+        g_object_set_property (instance->obj, pspec->name, &value);
+        g_value_unset (&value);
+        return 0;
+    }
+
+    ret_value =
+        pygi_set_gvalue_for_pspec (&value, pspec, py_value, &arg_cleanup);
+
+    if (ret_value == 0) {
+        g_object_set_property (instance->obj, pspec->name, &value);
+        g_value_unset (&value);
+    } else {
+        /* If we already have an error set, don't override it,
+         * otherwise raise a TypError indcating that we couldn't
+         * set the property */
+        if (!PyErr_Occurred ()) {
+            PyObject *pvalue_str = PyObject_Repr (py_value);
+            PyErr_Format (PyExc_TypeError,
+                          "could not convert %s to type '%s' when setting "
+                          "property '%s.%s'",
+                          PyUnicode_AsUTF8 (pvalue_str),
+                          g_type_name (G_PARAM_SPEC_VALUE_TYPE (pspec)),
+                          G_OBJECT_TYPE_NAME (instance->obj), pspec->name);
+            Py_DECREF (pvalue_str);
+        }
+    }
+
+    pygi_argument_from_py_cleanup (&arg_cleanup);
 
     return ret_value;
 }

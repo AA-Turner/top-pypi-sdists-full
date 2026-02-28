@@ -21,7 +21,17 @@ from __future__ import annotations
 from dataclasses import _MISSING_TYPE, MISSING
 from typing import Any, Callable, TypeVar, cast
 
+try:
+    from dataclasses import KW_ONLY  # ty: ignore[unresolved-import]
+except ImportError:
+    # Python < 3.10: define our own KW_ONLY sentinel
+    class _KW_ONLY_Sentinel:
+        __slots__ = ()
+
+    KW_ONLY = _KW_ONLY_Sentinel()
+
 _FieldValue = TypeVar("_FieldValue")
+_KW_ONLY_TYPE = type(KW_ONLY)
 
 
 class Field:
@@ -37,7 +47,7 @@ class Field:
     way the decorator understands.
     """
 
-    __slots__ = ("default_factory", "init", "name")
+    __slots__ = ("default_factory", "init", "kw_only", "name")
 
     def __init__(
         self,
@@ -45,18 +55,21 @@ class Field:
         name: str | None = None,
         default_factory: Callable[[], _FieldValue] | _MISSING_TYPE = MISSING,
         init: bool = True,
+        kw_only: bool | _MISSING_TYPE = MISSING,
     ) -> None:
         """Do not call directly; use :func:`field` instead."""
         self.name = name
         self.default_factory = default_factory
         self.init = init
+        self.kw_only = kw_only
 
 
 def field(
     *,
-    default: _FieldValue | _MISSING_TYPE = MISSING,  # type: ignore[assignment]
-    default_factory: Callable[[], _FieldValue] | _MISSING_TYPE = MISSING,  # type: ignore[assignment]
+    default: _FieldValue | _MISSING_TYPE = MISSING,
+    default_factory: Callable[[], _FieldValue] | _MISSING_TYPE = MISSING,
     init: bool = True,
+    kw_only: bool | _MISSING_TYPE = MISSING,
 ) -> _FieldValue:
     """(Experimental) Declare a dataclass-style field on a :func:`c_class` proxy.
 
@@ -78,6 +91,10 @@ def field(
     init
         If ``True`` the field is included in the generated ``__init__``.
         If ``False`` the field is omitted from input arguments of ``__init__``.
+    kw_only
+        If ``True``, the field is a keyword-only argument in ``__init__``.
+        If ``MISSING``, inherits from the class-level ``kw_only`` setting or
+        from a preceding ``KW_ONLY`` sentinel annotation.
 
     Note
     ----
@@ -118,14 +135,28 @@ def field(
         obj = PyBase(v_i64=4)
         obj.v_i32  # -> 16
 
+    Use ``kw_only=True`` to make a field keyword-only:
+
+    .. code-block:: python
+
+        @c_class("testing.TestCxxClassBase")
+        class PyBase:
+            v_i64: int
+            v_i32: int = field(kw_only=True)
+
+
+        obj = PyBase(4, v_i32=8)  # v_i32 must be keyword
+
     """
     if default is not MISSING and default_factory is not MISSING:
         raise ValueError("Cannot specify both `default` and `default_factory`")
     if not isinstance(init, bool):
         raise TypeError("`init` must be a bool")
+    if kw_only is not MISSING and not isinstance(kw_only, bool):
+        raise TypeError(f"`kw_only` must be a bool, got {type(kw_only).__name__!r}")
     if default is not MISSING:
         default_factory = _make_default_factory(default)
-    ret = Field(default_factory=default_factory, init=init)
+    ret = Field(default_factory=default_factory, init=init, kw_only=kw_only)
     return cast(_FieldValue, ret)
 
 

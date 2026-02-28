@@ -246,19 +246,21 @@ class KarpenterNodepoolStatus(_message.Message):
     ) -> None: ...
 
 class KarpenterNodepool(_message.Message):
-    __slots__ = ("api_version", "kind", "metadata", "spec", "status", "cluster")
+    __slots__ = ("api_version", "kind", "metadata", "spec", "status", "cluster", "workload_type")
     API_VERSION_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
     api_version: str
     kind: str
     metadata: KarpenterNodepoolMetadata
     spec: KarpenterNodepoolSpec
     status: KarpenterNodepoolStatus
     cluster: str
+    workload_type: str
     def __init__(
         self,
         api_version: _Optional[str] = ...,
@@ -267,4 +269,5 @@ class KarpenterNodepool(_message.Message):
         spec: _Optional[_Union[KarpenterNodepoolSpec, _Mapping]] = ...,
         status: _Optional[_Union[KarpenterNodepoolStatus, _Mapping]] = ...,
         cluster: _Optional[str] = ...,
+        workload_type: _Optional[str] = ...,
     ) -> None: ...

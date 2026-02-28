@@ -921,3 +921,61 @@ fn test_convert_with_all_features_and_visitor() {
     // Verify markdown was produced
     assert!(!result.markdown.is_empty(), "Should produce markdown output");
 }
+
+/// Regression test: image visitor returning Custom with metadata extraction used to panic
+/// with an out-of-bounds slice.
+///
+/// When metadata extraction prepends a YAML frontmatter block to `output`, every element's
+/// saved `element_output_start` is offset by the frontmatter length.  If a child visitor
+/// then returns Custom and truncates the buffer, the parent's saved offset can point
+/// past `output.len()`.
+#[test]
+fn test_image_visitor_with_metadata_does_not_panic() {
+    #[derive(Debug)]
+    struct ImageVisitor;
+
+    impl HtmlVisitor for ImageVisitor {
+        fn visit_image(&mut self, _ctx: &NodeContext, _src: &str, _alt: &str, _title: Option<&str>) -> VisitResult {
+            VisitResult::Custom("![img](rewritten.png)".to_string())
+        }
+    }
+
+    let html = r#"<html><head><meta name="description" content="x"></head><body><p><img src="a.png" alt="a"></p></body></html>"#;
+    let options = ConversionOptions {
+        extract_metadata: true,
+        ..Default::default()
+    };
+
+    let result = convert_with_visitor(html, Some(options), Some(Rc::new(RefCell::new(ImageVisitor))));
+    assert!(result.is_ok(), "conversion panicked or errored: {:?}", result.err());
+}
+
+/// Regression test: visit_element_end returning Custom/Skip with metadata extraction used
+/// to produce stale parent offsets and either panic or silently drop subsequent content.
+#[test]
+fn test_element_end_replacement_with_metadata_preserves_subsequent_content() {
+    #[derive(Debug)]
+    struct FigureReplacingVisitor;
+
+    impl HtmlVisitor for FigureReplacingVisitor {
+        fn visit_element_end(&mut self, ctx: &NodeContext, _content: &str) -> VisitResult {
+            if ctx.tag_name == "figure" {
+                return VisitResult::Custom("[figure]".to_string());
+            }
+            VisitResult::Continue
+        }
+    }
+
+    let html = r#"<html><head><meta name="description" content="x"></head><body><figure><img src="a.png"></figure><p>after</p></body></html>"#;
+    let options = ConversionOptions {
+        extract_metadata: true,
+        ..Default::default()
+    };
+
+    let result = convert_with_visitor(html, Some(options), Some(Rc::new(RefCell::new(FigureReplacingVisitor))));
+    assert!(result.is_ok(), "conversion panicked or errored: {:?}", result.err());
+    assert!(
+        result.unwrap().contains("after"),
+        "content after replaced element should not be lost"
+    );
+}

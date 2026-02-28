@@ -62,6 +62,12 @@ REATTEMPT_COUNT = 5
 REMOTEPAIRING_INTERVAL = 5
 MOBDEV2_INTERVAL = 5
 
+# USB monitor will periodically forget what interfaces it has seen
+# and force a full rescan.  The value is number of iterations of the
+# inner loop (which sleeps one second each) before blowing away the
+# `previous_ips` cache.
+USB_MONITOR_RESCAN_INTERVAL = 30
+
 USBMUX_INTERVAL = 2
 OSUTILS = get_os_utils()
 
@@ -117,12 +123,20 @@ class TunneldCore:
     async def monitor_usb_task(self) -> None:
         try:
             previous_ips = []
+            iteration = 0
             while True:
+                iteration += 1
                 current_ips = OSUTILS.get_ipv6_ips()
                 added = [ip for ip in current_ips if ip not in previous_ips]
                 removed = [ip for ip in previous_ips if ip not in current_ips]
 
-                previous_ips = current_ips
+                # periodically forget what we have seen so that we reattempt
+                # tunnels even if the interface didn't disappear / reappear
+                if iteration >= USB_MONITOR_RESCAN_INTERVAL:
+                    previous_ips = []
+                    iteration = 0
+                else:
+                    previous_ips = current_ips
 
                 # logger.debug(f'added interfaces: {added}')
                 # logger.debug(f'removed interfaces: {removed}')
@@ -377,8 +391,17 @@ class TunneldCore:
                 rsd = None
                 raise asyncio.CancelledError()
 
+            try:
+                core_device_tunnel = await create_core_device_tunnel_service_using_rsd(rsd)
+            except InvalidServiceError as e:
+                logger.warning(
+                    f"[{asyncio.current_task().get_name()}] Skipping {rsd.product_type} ({rsd.product_version}): "
+                    f"{e.__class__.__name__}: {e}"
+                )
+                raise asyncio.CancelledError() from e
+
             await asyncio.create_task(
-                self.start_tunnel_task(ip, await create_core_device_tunnel_service_using_rsd(rsd)),
+                self.start_tunnel_task(ip, core_device_tunnel),
                 name=f"start-tunnel-task-usb-{ip}",
             )
         except asyncio.CancelledError:

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-
-from typing import List, Optional, Tuple, Union
+from __future__ import annotations
 
 import torch
-from jaxtyping import Float
 from torch import Tensor
 
 from linear_operator.operators._linear_operator import IndexType, LinearOperator
@@ -47,8 +45,8 @@ class MatmulLinearOperator(LinearOperator):
             self.right_linear_op = right_linear_op
 
     def _expand_batch(
-        self: Float[LinearOperator, "... M N"], batch_shape: Union[torch.Size, List[int]]
-    ) -> Float[LinearOperator, "... M N"]:
+        self: LinearOperator, batch_shape: torch.Size | list[int]  # shape: (..., M, N)
+    ) -> LinearOperator:  # shape: (..., M, N)
         return self.__class__(
             self.left_linear_op._expand_batch(batch_shape), self.right_linear_op._expand_batch(batch_shape)
         )
@@ -69,7 +67,9 @@ class MatmulLinearOperator(LinearOperator):
         res = (left_tensor * right_tensor).sum(-1)
         return res
 
-    def _diagonal(self: Float[LinearOperator, "... M N"]) -> Float[torch.Tensor, "... N"]:
+    def _diagonal(
+        self: LinearOperator,  # shape: (..., M, N)
+    ) -> torch.Tensor:  # shape: (..., N)
         if isinstance(self.left_linear_op, DenseLinearOperator) and isinstance(
             self.right_linear_op, DenseLinearOperator
         ):
@@ -95,18 +95,18 @@ class MatmulLinearOperator(LinearOperator):
         return res
 
     def _matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[torch.Tensor, "*batch2 N C"], Float[torch.Tensor, "*batch2 N"]],
-    ) -> Union[Float[torch.Tensor, "... M C"], Float[torch.Tensor, "... M"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: torch.Tensor,  # shape: (*batch2, N, C) or (*batch2, N)
+    ) -> torch.Tensor:  # shape: (..., M, C) or (..., M)
         return self.left_linear_op._matmul(self.right_linear_op._matmul(rhs))
 
     def _t_matmul(
-        self: Float[LinearOperator, "*batch M N"],
-        rhs: Union[Float[Tensor, "*batch2 M P"], Float[LinearOperator, "*batch2 M P"]],
-    ) -> Union[Float[LinearOperator, "... N P"], Float[Tensor, "... N P"]]:
+        self: LinearOperator,  # shape: (*batch, M, N)
+        rhs: Tensor | LinearOperator,  # shape: (*batch2, M, P)
+    ) -> LinearOperator | Tensor:  # shape: (..., N, P)
         return self.right_linear_op._t_matmul(self.left_linear_op._t_matmul(rhs))
 
-    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> Tuple[Optional[Tensor], ...]:
+    def _bilinear_derivative(self, left_vecs: Tensor, right_vecs: Tensor) -> tuple[Tensor | None, ...]:
         if left_vecs.ndimension() == 1:
             left_vecs = left_vecs.unsqueeze(1)
             right_vecs = right_vecs.unsqueeze(1)
@@ -125,9 +125,20 @@ class MatmulLinearOperator(LinearOperator):
     def _size(self) -> torch.Size:
         return _matmul_broadcast_shape(self.left_linear_op.shape, self.right_linear_op.shape)
 
-    def _transpose_nonbatch(self: Float[LinearOperator, "*batch M N"]) -> Float[LinearOperator, "*batch N M"]:
+    def _transpose_nonbatch(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> LinearOperator:  # shape: (*batch, N, M)
         return self.__class__(self.right_linear_op._transpose_nonbatch(), self.left_linear_op._transpose_nonbatch())
 
     @cached
-    def to_dense(self: Float[LinearOperator, "*batch M N"]) -> Float[Tensor, "*batch M N"]:
-        return torch.matmul(self.left_linear_op.to_dense(), self.right_linear_op.to_dense())
+    def to_dense(
+        self: LinearOperator,  # shape: (*batch, M, N)
+    ) -> Tensor:  # shape: (*batch, M, N)
+        # Use element-wise multiplication for DiagLinearOperators
+        match (self.left_linear_op, self.right_linear_op):
+            case (DiagLinearOperator() as left, _):
+                return left._diag.unsqueeze(-1) * self.right_linear_op.to_dense()
+            case (_, DiagLinearOperator() as right):
+                return self.left_linear_op.to_dense() * right._diag.unsqueeze(-2)
+            case _:
+                return torch.matmul(self.left_linear_op.to_dense(), self.right_linear_op.to_dense())

@@ -16,11 +16,12 @@ _sym_db = _symbol_database.Default()
 from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
+from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n.chalk/server/v1/offline_store_connection.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x82\x01\n\x1aS3StorageIntegrationConfig\x12\x1f\n\x0b\x62ucket_name\x18\x01 \x01(\tR\nbucketName\x12\x16\n\x06region\x18\x02 \x01(\tR\x06region\x12\x1e\n\x08role_arn\x18\x03 \x01(\tH\x00R\x07roleArn\x88\x01\x01\x42\x0b\n\t_role_arn"\x80\x01\n\x1bGcpStorageIntegrationConfig\x12\x1f\n\x0b\x62ucket_name\x18\x01 \x01(\tR\nbucketName\x12,\n\x0fservice_account\x18\x02 \x01(\tH\x00R\x0eserviceAccount\x88\x01\x01\x42\x12\n\x10_service_account"\xa8\x01\n\x1bSnowflakeStorageIntegration\x12=\n\x02s3\x18\x01 \x01(\x0b\x32+.chalk.server.v1.S3StorageIntegrationConfigH\x00R\x02s3\x12@\n\x03gcp\x18\x02 \x01(\x0b\x32,.chalk.server.v1.GcpStorageIntegrationConfigH\x00R\x03gcpB\x08\n\x06\x63onfig"\xea\x02\n\x19SnowflakeCredentialsInput\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12%\n\x08password\x18\x03 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x08password\x88\x01\x01\x12*\n\x0bprivate_key\x18\x04 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\nprivateKey\x88\x01\x01\x12!\n\twarehouse\x18\x05 \x01(\tH\x02R\twarehouse\x88\x01\x01\x12\x1f\n\x08\x64\x61tabase\x18\x06 \x01(\tH\x03R\x08\x64\x61tabase\x88\x01\x01\x12\x1b\n\x06schema\x18\x07 \x01(\tH\x04R\x06schema\x88\x01\x01\x12\x17\n\x04role\x18\x08 \x01(\tH\x05R\x04role\x88\x01\x01\x42\x0b\n\t_passwordB\x0e\n\x0c_private_keyB\x0c\n\n_warehouseB\x0b\n\t_databaseB\t\n\x07_schemaB\x07\n\x05_role"\x97\x03\n\x1aSnowflakeCredentialsStored\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12\x31\n\x12password_secret_id\x18\x03 \x01(\tH\x00R\x10passwordSecretId\x88\x01\x01\x12\x36\n\x15private_key_secret_id\x18\x04 \x01(\tH\x01R\x12privateKeySecretId\x88\x01\x01\x12!\n\twarehouse\x18\x05 \x01(\tH\x02R\twarehouse\x88\x01\x01\x12\x1f\n\x08\x64\x61tabase\x18\x06 \x01(\tH\x03R\x08\x64\x61tabase\x88\x01\x01\x12\x1b\n\x06schema\x18\x07 \x01(\tH\x04R\x06schema\x88\x01\x01\x12\x17\n\x04role\x18\x08 \x01(\tH\x05R\x04role\x88\x01\x01\x42\x15\n\x13_password_secret_idB\x18\n\x16_private_key_secret_idB\x0c\n\n_warehouseB\x0b\n\t_databaseB\t\n\x07_schemaB\x07\n\x05_role"\xd9\x01\n*SnowflakeOfflineStoreConnectionConfigInput\x12L\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32*.chalk.server.v1.SnowflakeCredentialsInputR\x0b\x63redentials\x12]\n\x13storage_integration\x18\x02 \x01(\x0b\x32,.chalk.server.v1.SnowflakeStorageIntegrationR\x12storageIntegration"\xdb\x01\n+SnowflakeOfflineStoreConnectionConfigStored\x12M\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32+.chalk.server.v1.SnowflakeCredentialsStoredR\x0b\x63redentials\x12]\n\x13storage_integration\x18\x02 \x01(\x0b\x32,.chalk.server.v1.SnowflakeStorageIntegrationR\x12storageIntegration"d\n$BigQueryOfflineStoreConnectionConfig\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x1d\n\ndataset_id\x18\x02 \x01(\tR\tdatasetId"\xdf\x01\n!OfflineStoreConnectionConfigInput\x12[\n\tsnowflake\x18\x01 \x01(\x0b\x32;.chalk.server.v1.SnowflakeOfflineStoreConnectionConfigInputH\x00R\tsnowflake\x12S\n\x08\x62igquery\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.BigQueryOfflineStoreConnectionConfigH\x00R\x08\x62igqueryB\x08\n\x06\x63onfig"\xe1\x01\n"OfflineStoreConnectionConfigStored\x12\\\n\tsnowflake\x18\x01 \x01(\x0b\x32<.chalk.server.v1.SnowflakeOfflineStoreConnectionConfigStoredH\x00R\tsnowflake\x12S\n\x08\x62igquery\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.BigQueryOfflineStoreConnectionConfigH\x00R\x08\x62igqueryB\x08\n\x06\x63onfig"\xbf\x02\n\x16OfflineStoreConnection\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12\x17\n\x07team_id\x18\x03 \x01(\tR\x06teamId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12K\n\x06\x63onfig\x18\x05 \x01(\x0b\x32\x33.chalk.server.v1.OfflineStoreConnectionConfigStoredR\x06\x63onfig\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"\x85\x01\n#CreateOfflineStoreConnectionRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12J\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x32.chalk.server.v1.OfflineStoreConnectionConfigInputR\x06\x63onfig"o\n$CreateOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"2\n GetOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n!GetOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"$\n"ListOfflineStoreConnectionsRequest"p\n#ListOfflineStoreConnectionsResponse\x12I\n\x0b\x63onnections\x18\x01 \x03(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\x0b\x63onnections"\xb3\x01\n#UpdateOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12O\n\x06\x63onfig\x18\x03 \x01(\x0b\x32\x32.chalk.server.v1.OfflineStoreConnectionConfigInputH\x01R\x06\x63onfig\x88\x01\x01\x42\x07\n\x05_nameB\t\n\x07_config"o\n$UpdateOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"5\n#DeleteOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"&\n$DeleteOfflineStoreConnectionResponse"\x91\x01\n!TestOfflineStoreConnectionRequest\x12\x10\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x12L\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x32.chalk.server.v1.OfflineStoreConnectionConfigInputH\x00R\x06\x63onfigB\x0c\n\nconnection"n\n"TestOfflineStoreConnectionResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rror2\x80\x08\n\x1dOfflineStoreConnectionService\x12\xb8\x01\n\x1c\x43reateOfflineStoreConnection\x12\x34.chalk.server.v1.CreateOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.CreateOfflineStoreConnectionResponse"+\x80}\x1a\x8a\xd3\x0e$\x08\x02\x12 Created offline store connection\x12\x8a\x01\n\x19GetOfflineStoreConnection\x12\x31.chalk.server.v1.GetOfflineStoreConnectionRequest\x1a\x32.chalk.server.v1.GetOfflineStoreConnectionResponse"\x06\x90\x02\x01\x80}\x02\x12\x90\x01\n\x1bListOfflineStoreConnections\x12\x33.chalk.server.v1.ListOfflineStoreConnectionsRequest\x1a\x34.chalk.server.v1.ListOfflineStoreConnectionsResponse"\x06\x90\x02\x01\x80}\x02\x12\xb8\x01\n\x1cUpdateOfflineStoreConnection\x12\x34.chalk.server.v1.UpdateOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.UpdateOfflineStoreConnectionResponse"+\x80}\x1a\x8a\xd3\x0e$\x08\x02\x12 Updated offline store connection\x12\xb8\x01\n\x1c\x44\x65leteOfflineStoreConnection\x12\x34.chalk.server.v1.DeleteOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.DeleteOfflineStoreConnectionResponse"+\x80}\x1a\x8a\xd3\x0e$\x08\x02\x12 Deleted offline store connection\x12\x8d\x01\n\x1aTestOfflineStoreConnection\x12\x32.chalk.server.v1.TestOfflineStoreConnectionRequest\x1a\x33.chalk.server.v1.TestOfflineStoreConnectionResponse"\x06\x90\x02\x01\x80}\x02\x42\xa4\x01\n\x13\x63om.chalk.server.v1B\x1bOfflineStoreConnectionProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n.chalk/server/v1/offline_store_connection.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x82\x01\n\x1aS3StorageIntegrationConfig\x12\x1f\n\x0b\x62ucket_name\x18\x01 \x01(\tR\nbucketName\x12\x16\n\x06region\x18\x02 \x01(\tR\x06region\x12\x1e\n\x08role_arn\x18\x03 \x01(\tH\x00R\x07roleArn\x88\x01\x01\x42\x0b\n\t_role_arn"\x80\x01\n\x1bGcpStorageIntegrationConfig\x12\x1f\n\x0b\x62ucket_name\x18\x01 \x01(\tR\nbucketName\x12,\n\x0fservice_account\x18\x02 \x01(\tH\x00R\x0eserviceAccount\x88\x01\x01\x42\x12\n\x10_service_account"\xa8\x01\n\x1bSnowflakeStorageIntegration\x12=\n\x02s3\x18\x01 \x01(\x0b\x32+.chalk.server.v1.S3StorageIntegrationConfigH\x00R\x02s3\x12@\n\x03gcp\x18\x02 \x01(\x0b\x32,.chalk.server.v1.GcpStorageIntegrationConfigH\x00R\x03gcpB\x08\n\x06\x63onfig"\xea\x02\n\x19SnowflakeCredentialsInput\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12%\n\x08password\x18\x03 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x08password\x88\x01\x01\x12*\n\x0bprivate_key\x18\x04 \x01(\tB\x04\xd8\xa1\'\x01H\x01R\nprivateKey\x88\x01\x01\x12!\n\twarehouse\x18\x05 \x01(\tH\x02R\twarehouse\x88\x01\x01\x12\x1f\n\x08\x64\x61tabase\x18\x06 \x01(\tH\x03R\x08\x64\x61tabase\x88\x01\x01\x12\x1b\n\x06schema\x18\x07 \x01(\tH\x04R\x06schema\x88\x01\x01\x12\x17\n\x04role\x18\x08 \x01(\tH\x05R\x04role\x88\x01\x01\x42\x0b\n\t_passwordB\x0e\n\x0c_private_keyB\x0c\n\n_warehouseB\x0b\n\t_databaseB\t\n\x07_schemaB\x07\n\x05_role"\x97\x03\n\x1aSnowflakeCredentialsStored\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1a\n\x08username\x18\x02 \x01(\tR\x08username\x12\x31\n\x12password_secret_id\x18\x03 \x01(\tH\x00R\x10passwordSecretId\x88\x01\x01\x12\x36\n\x15private_key_secret_id\x18\x04 \x01(\tH\x01R\x12privateKeySecretId\x88\x01\x01\x12!\n\twarehouse\x18\x05 \x01(\tH\x02R\twarehouse\x88\x01\x01\x12\x1f\n\x08\x64\x61tabase\x18\x06 \x01(\tH\x03R\x08\x64\x61tabase\x88\x01\x01\x12\x1b\n\x06schema\x18\x07 \x01(\tH\x04R\x06schema\x88\x01\x01\x12\x17\n\x04role\x18\x08 \x01(\tH\x05R\x04role\x88\x01\x01\x42\x15\n\x13_password_secret_idB\x18\n\x16_private_key_secret_idB\x0c\n\n_warehouseB\x0b\n\t_databaseB\t\n\x07_schemaB\x07\n\x05_role"\xd9\x01\n*SnowflakeOfflineStoreConnectionConfigInput\x12L\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32*.chalk.server.v1.SnowflakeCredentialsInputR\x0b\x63redentials\x12]\n\x13storage_integration\x18\x02 \x01(\x0b\x32,.chalk.server.v1.SnowflakeStorageIntegrationR\x12storageIntegration"\xdb\x01\n+SnowflakeOfflineStoreConnectionConfigStored\x12M\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32+.chalk.server.v1.SnowflakeCredentialsStoredR\x0b\x63redentials\x12]\n\x13storage_integration\x18\x02 \x01(\x0b\x32,.chalk.server.v1.SnowflakeStorageIntegrationR\x12storageIntegration"d\n$BigQueryOfflineStoreConnectionConfig\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x1d\n\ndataset_id\x18\x02 \x01(\tR\tdatasetId"\xdf\x01\n!OfflineStoreConnectionConfigInput\x12[\n\tsnowflake\x18\x01 \x01(\x0b\x32;.chalk.server.v1.SnowflakeOfflineStoreConnectionConfigInputH\x00R\tsnowflake\x12S\n\x08\x62igquery\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.BigQueryOfflineStoreConnectionConfigH\x00R\x08\x62igqueryB\x08\n\x06\x63onfig"\xe1\x01\n"OfflineStoreConnectionConfigStored\x12\\\n\tsnowflake\x18\x01 \x01(\x0b\x32<.chalk.server.v1.SnowflakeOfflineStoreConnectionConfigStoredH\x00R\tsnowflake\x12S\n\x08\x62igquery\x18\x02 \x01(\x0b\x32\x35.chalk.server.v1.BigQueryOfflineStoreConnectionConfigH\x00R\x08\x62igqueryB\x08\n\x06\x63onfig"}\n\x1bOfflineStoreConnectionInput\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12J\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x32.chalk.server.v1.OfflineStoreConnectionConfigInputR\x06\x63onfig"\xbf\x02\n\x16OfflineStoreConnection\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n\x07team_id\x18\x02 \x01(\tR\x06teamId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12K\n\x06\x63onfig\x18\x05 \x01(\x0b\x32\x33.chalk.server.v1.OfflineStoreConnectionConfigStoredR\x06\x63onfig\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"s\n#CreateOfflineStoreConnectionRequest\x12L\n\nconnection\x18\x01 \x01(\x0b\x32,.chalk.server.v1.OfflineStoreConnectionInputR\nconnection"o\n$CreateOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"2\n GetOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"l\n!GetOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"$\n"ListOfflineStoreConnectionsRequest"p\n#ListOfflineStoreConnectionsResponse\x12I\n\x0b\x63onnections\x18\x01 \x03(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\x0b\x63onnections"\xc0\x01\n#UpdateOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12L\n\nconnection\x18\x02 \x01(\x0b\x32,.chalk.server.v1.OfflineStoreConnectionInputR\nconnection\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"o\n$UpdateOfflineStoreConnectionResponse\x12G\n\nconnection\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.OfflineStoreConnectionR\nconnection"5\n#DeleteOfflineStoreConnectionRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"&\n$DeleteOfflineStoreConnectionResponse"\x91\x01\n!TestOfflineStoreConnectionRequest\x12\x10\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x12L\n\x06\x63onfig\x18\x02 \x01(\x0b\x32\x32.chalk.server.v1.OfflineStoreConnectionConfigInputH\x00R\x06\x63onfigB\x0c\n\nconnection"n\n"TestOfflineStoreConnectionResponse\x12\x18\n\x07success\x18\x01 \x01(\x08R\x07success\x12\x18\n\x07message\x18\x02 \x01(\tR\x07message\x12\x14\n\x05\x65rror\x18\x03 \x01(\tR\x05\x65rror"\xb1\x01\n5CreateBindingEnvironmentOfflineStoreConnectionRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12=\n\x1boffline_store_connection_id\x18\x02 \x01(\tR\x18offlineStoreConnectionId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name"8\n6CreateBindingEnvironmentOfflineStoreConnectionResponse"[\n2GetBindingEnvironmentOfflineStoreConnectionRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId"\xaf\x01\n3GetBindingEnvironmentOfflineStoreConnectionResponse\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12=\n\x1boffline_store_connection_id\x18\x02 \x01(\tR\x18offlineStoreConnectionId\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name"\x9d\x01\n5DeleteBindingEnvironmentOfflineStoreConnectionRequest\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12=\n\x1boffline_store_connection_id\x18\x02 \x01(\tR\x18offlineStoreConnectionId"8\n6DeleteBindingEnvironmentOfflineStoreConnectionResponse"e\n$MigrateOfflineStoreConnectionRequest\x12=\n\x1boffline_store_connection_id\x18\x01 \x01(\tR\x18offlineStoreConnectionId"\'\n%MigrateOfflineStoreConnectionResponse*K\n\x0bStorageType\x12\x1c\n\x18STORAGE_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aSTORAGE_TYPE_OFFLINE_STORE\x10\x01\x32\xa4\x0f\n\x1dOfflineStoreConnectionService\x12\xb8\x01\n\x1c\x43reateOfflineStoreConnection\x12\x34.chalk.server.v1.CreateOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.CreateOfflineStoreConnectionResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Created offline store connection\x12\x8a\x01\n\x19GetOfflineStoreConnection\x12\x31.chalk.server.v1.GetOfflineStoreConnectionRequest\x1a\x32.chalk.server.v1.GetOfflineStoreConnectionResponse"\x06\x90\x02\x01\x80}\x0b\x12\x90\x01\n\x1bListOfflineStoreConnections\x12\x33.chalk.server.v1.ListOfflineStoreConnectionsRequest\x1a\x34.chalk.server.v1.ListOfflineStoreConnectionsResponse"\x06\x90\x02\x01\x80}\x0b\x12\xb8\x01\n\x1cUpdateOfflineStoreConnection\x12\x34.chalk.server.v1.UpdateOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.UpdateOfflineStoreConnectionResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Updated offline store connection\x12\xb8\x01\n\x1c\x44\x65leteOfflineStoreConnection\x12\x34.chalk.server.v1.DeleteOfflineStoreConnectionRequest\x1a\x35.chalk.server.v1.DeleteOfflineStoreConnectionResponse"+\x80}\x0c\x8a\xd3\x0e$\x08\x02\x12 Deleted offline store connection\x12\x8d\x01\n\x1aTestOfflineStoreConnection\x12\x32.chalk.server.v1.TestOfflineStoreConnectionRequest\x1a\x33.chalk.server.v1.TestOfflineStoreConnectionResponse"\x06\x90\x02\x01\x80}\x02\x12\x8e\x02\n.CreateBindingEnvironmentOfflineStoreConnection\x12\x46.chalk.server.v1.CreateBindingEnvironmentOfflineStoreConnectionRequest\x1aG.chalk.server.v1.CreateBindingEnvironmentOfflineStoreConnectionResponse"K\x80}\x0c\x8a\xd3\x0e\x44\x08\x02\x12@Created binding between environment and offline store connection\x12\xc0\x01\n+GetBindingEnvironmentOfflineStoreConnection\x12\x43.chalk.server.v1.GetBindingEnvironmentOfflineStoreConnectionRequest\x1a\x44.chalk.server.v1.GetBindingEnvironmentOfflineStoreConnectionResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8e\x02\n.DeleteBindingEnvironmentOfflineStoreConnection\x12\x46.chalk.server.v1.DeleteBindingEnvironmentOfflineStoreConnectionRequest\x1aG.chalk.server.v1.DeleteBindingEnvironmentOfflineStoreConnectionResponse"K\x80}\x0c\x8a\xd3\x0e\x44\x08\x02\x12@Deleted binding between environment and offline store connection\x12\xbc\x01\n\x1dMigrateOfflineStoreConnection\x12\x35.chalk.server.v1.MigrateOfflineStoreConnectionRequest\x1a\x36.chalk.server.v1.MigrateOfflineStoreConnectionResponse",\x80}\x0c\x8a\xd3\x0e%\x08\x02\x12!Triggered offline store migrationB\xa4\x01\n\x13\x63om.chalk.server.v1B\x1bOfflineStoreConnectionProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -38,73 +39,119 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["CreateOfflineStoreConnection"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "CreateOfflineStoreConnection"
-    ]._serialized_options = b"\200}\032\212\323\016$\010\002\022 Created offline store connection"
+    ]._serialized_options = b"\200}\014\212\323\016$\010\002\022 Created offline store connection"
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["GetOfflineStoreConnection"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "GetOfflineStoreConnection"
-    ]._serialized_options = b"\220\002\001\200}\002"
+    ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["ListOfflineStoreConnections"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "ListOfflineStoreConnections"
-    ]._serialized_options = b"\220\002\001\200}\002"
+    ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["UpdateOfflineStoreConnection"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "UpdateOfflineStoreConnection"
-    ]._serialized_options = b"\200}\032\212\323\016$\010\002\022 Updated offline store connection"
+    ]._serialized_options = b"\200}\014\212\323\016$\010\002\022 Updated offline store connection"
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["DeleteOfflineStoreConnection"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "DeleteOfflineStoreConnection"
-    ]._serialized_options = b"\200}\032\212\323\016$\010\002\022 Deleted offline store connection"
+    ]._serialized_options = b"\200}\014\212\323\016$\010\002\022 Deleted offline store connection"
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["TestOfflineStoreConnection"]._options = None
     _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
         "TestOfflineStoreConnection"
     ]._serialized_options = b"\220\002\001\200}\002"
-    _globals["_S3STORAGEINTEGRATIONCONFIG"]._serialized_start = 193
-    _globals["_S3STORAGEINTEGRATIONCONFIG"]._serialized_end = 323
-    _globals["_GCPSTORAGEINTEGRATIONCONFIG"]._serialized_start = 326
-    _globals["_GCPSTORAGEINTEGRATIONCONFIG"]._serialized_end = 454
-    _globals["_SNOWFLAKESTORAGEINTEGRATION"]._serialized_start = 457
-    _globals["_SNOWFLAKESTORAGEINTEGRATION"]._serialized_end = 625
-    _globals["_SNOWFLAKECREDENTIALSINPUT"]._serialized_start = 628
-    _globals["_SNOWFLAKECREDENTIALSINPUT"]._serialized_end = 990
-    _globals["_SNOWFLAKECREDENTIALSSTORED"]._serialized_start = 993
-    _globals["_SNOWFLAKECREDENTIALSSTORED"]._serialized_end = 1400
-    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_start = 1403
-    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_end = 1620
-    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_start = 1623
-    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_end = 1842
-    _globals["_BIGQUERYOFFLINESTORECONNECTIONCONFIG"]._serialized_start = 1844
-    _globals["_BIGQUERYOFFLINESTORECONNECTIONCONFIG"]._serialized_end = 1944
-    _globals["_OFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_start = 1947
-    _globals["_OFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_end = 2170
-    _globals["_OFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_start = 2173
-    _globals["_OFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_end = 2398
-    _globals["_OFFLINESTORECONNECTION"]._serialized_start = 2401
-    _globals["_OFFLINESTORECONNECTION"]._serialized_end = 2720
-    _globals["_CREATEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 2723
-    _globals["_CREATEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 2856
-    _globals["_CREATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 2858
-    _globals["_CREATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 2969
-    _globals["_GETOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 2971
-    _globals["_GETOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3021
-    _globals["_GETOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3023
-    _globals["_GETOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3131
-    _globals["_LISTOFFLINESTORECONNECTIONSREQUEST"]._serialized_start = 3133
-    _globals["_LISTOFFLINESTORECONNECTIONSREQUEST"]._serialized_end = 3169
-    _globals["_LISTOFFLINESTORECONNECTIONSRESPONSE"]._serialized_start = 3171
-    _globals["_LISTOFFLINESTORECONNECTIONSRESPONSE"]._serialized_end = 3283
-    _globals["_UPDATEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3286
-    _globals["_UPDATEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3465
-    _globals["_UPDATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3467
-    _globals["_UPDATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3578
-    _globals["_DELETEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3580
-    _globals["_DELETEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3633
-    _globals["_DELETEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3635
-    _globals["_DELETEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3673
-    _globals["_TESTOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3676
-    _globals["_TESTOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3821
-    _globals["_TESTOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3823
-    _globals["_TESTOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3933
-    _globals["_OFFLINESTORECONNECTIONSERVICE"]._serialized_start = 3936
-    _globals["_OFFLINESTORECONNECTIONSERVICE"]._serialized_end = 4960
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "CreateBindingEnvironmentOfflineStoreConnection"
+    ]._options = None
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "CreateBindingEnvironmentOfflineStoreConnection"
+    ]._serialized_options = (
+        b"\200}\014\212\323\016D\010\002\022@Created binding between environment and offline store connection"
+    )
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "GetBindingEnvironmentOfflineStoreConnection"
+    ]._options = None
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "GetBindingEnvironmentOfflineStoreConnection"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "DeleteBindingEnvironmentOfflineStoreConnection"
+    ]._options = None
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "DeleteBindingEnvironmentOfflineStoreConnection"
+    ]._serialized_options = (
+        b"\200}\014\212\323\016D\010\002\022@Deleted binding between environment and offline store connection"
+    )
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name["MigrateOfflineStoreConnection"]._options = None
+    _globals["_OFFLINESTORECONNECTIONSERVICE"].methods_by_name[
+        "MigrateOfflineStoreConnection"
+    ]._serialized_options = b"\200}\014\212\323\016%\010\002\022!Triggered offline store migration"
+    _globals["_STORAGETYPE"]._serialized_start = 4961
+    _globals["_STORAGETYPE"]._serialized_end = 5036
+    _globals["_S3STORAGEINTEGRATIONCONFIG"]._serialized_start = 227
+    _globals["_S3STORAGEINTEGRATIONCONFIG"]._serialized_end = 357
+    _globals["_GCPSTORAGEINTEGRATIONCONFIG"]._serialized_start = 360
+    _globals["_GCPSTORAGEINTEGRATIONCONFIG"]._serialized_end = 488
+    _globals["_SNOWFLAKESTORAGEINTEGRATION"]._serialized_start = 491
+    _globals["_SNOWFLAKESTORAGEINTEGRATION"]._serialized_end = 659
+    _globals["_SNOWFLAKECREDENTIALSINPUT"]._serialized_start = 662
+    _globals["_SNOWFLAKECREDENTIALSINPUT"]._serialized_end = 1024
+    _globals["_SNOWFLAKECREDENTIALSSTORED"]._serialized_start = 1027
+    _globals["_SNOWFLAKECREDENTIALSSTORED"]._serialized_end = 1434
+    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_start = 1437
+    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_end = 1654
+    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_start = 1657
+    _globals["_SNOWFLAKEOFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_end = 1876
+    _globals["_BIGQUERYOFFLINESTORECONNECTIONCONFIG"]._serialized_start = 1878
+    _globals["_BIGQUERYOFFLINESTORECONNECTIONCONFIG"]._serialized_end = 1978
+    _globals["_OFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_start = 1981
+    _globals["_OFFLINESTORECONNECTIONCONFIGINPUT"]._serialized_end = 2204
+    _globals["_OFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_start = 2207
+    _globals["_OFFLINESTORECONNECTIONCONFIGSTORED"]._serialized_end = 2432
+    _globals["_OFFLINESTORECONNECTIONINPUT"]._serialized_start = 2434
+    _globals["_OFFLINESTORECONNECTIONINPUT"]._serialized_end = 2559
+    _globals["_OFFLINESTORECONNECTION"]._serialized_start = 2562
+    _globals["_OFFLINESTORECONNECTION"]._serialized_end = 2881
+    _globals["_CREATEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 2883
+    _globals["_CREATEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 2998
+    _globals["_CREATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3000
+    _globals["_CREATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3111
+    _globals["_GETOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3113
+    _globals["_GETOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3163
+    _globals["_GETOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3165
+    _globals["_GETOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3273
+    _globals["_LISTOFFLINESTORECONNECTIONSREQUEST"]._serialized_start = 3275
+    _globals["_LISTOFFLINESTORECONNECTIONSREQUEST"]._serialized_end = 3311
+    _globals["_LISTOFFLINESTORECONNECTIONSRESPONSE"]._serialized_start = 3313
+    _globals["_LISTOFFLINESTORECONNECTIONSRESPONSE"]._serialized_end = 3425
+    _globals["_UPDATEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3428
+    _globals["_UPDATEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3620
+    _globals["_UPDATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3622
+    _globals["_UPDATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3733
+    _globals["_DELETEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3735
+    _globals["_DELETEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3788
+    _globals["_DELETEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3790
+    _globals["_DELETEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 3828
+    _globals["_TESTOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 3831
+    _globals["_TESTOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 3976
+    _globals["_TESTOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 3978
+    _globals["_TESTOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 4088
+    _globals["_CREATEBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 4091
+    _globals["_CREATEBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 4268
+    _globals["_CREATEBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 4270
+    _globals["_CREATEBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 4326
+    _globals["_GETBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 4328
+    _globals["_GETBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 4419
+    _globals["_GETBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 4422
+    _globals["_GETBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 4597
+    _globals["_DELETEBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 4600
+    _globals["_DELETEBINDINGENVIRONMENTOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 4757
+    _globals["_DELETEBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 4759
+    _globals["_DELETEBINDINGENVIRONMENTOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 4815
+    _globals["_MIGRATEOFFLINESTORECONNECTIONREQUEST"]._serialized_start = 4817
+    _globals["_MIGRATEOFFLINESTORECONNECTIONREQUEST"]._serialized_end = 4918
+    _globals["_MIGRATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_start = 4920
+    _globals["_MIGRATEOFFLINESTORECONNECTIONRESPONSE"]._serialized_end = 4959
+    _globals["_OFFLINESTORECONNECTIONSERVICE"]._serialized_start = 5039
+    _globals["_OFFLINESTORECONNECTIONSERVICE"]._serialized_end = 6995
 # @@protoc_insertion_point(module_scope)

@@ -1,16 +1,5 @@
-# Copyright (c) 2021 - present / Neuralmagic, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 import json
 import logging
@@ -18,7 +7,7 @@ import operator
 import os
 import re
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import compressed_tensors
 import torch
@@ -36,6 +25,8 @@ from compressed_tensors.config import CompressionFormat, SparsityCompressionConf
 from compressed_tensors.config.format import (
     infer_and_set_per_module_quantization_format,
 )
+from compressed_tensors.linear.compressed_linear import CompressedLinear
+from compressed_tensors.offload import update_offload_parameter
 from compressed_tensors.quantization import (
     DEFAULT_QUANTIZATION_METHOD,
     QuantizationConfig,
@@ -47,15 +38,11 @@ from compressed_tensors.quantization import (
 from compressed_tensors.transform import TransformConfig
 from compressed_tensors.utils import (
     align_module_device,
-    delete_offload_parameter,
     get_execution_device,
-    get_offloaded_device,
     get_safetensors_folder,
     has_offloaded_params,
     merge_names,
     patch_attr,
-    register_offload_parameter,
-    update_parameter_data,
 )
 from compressed_tensors.utils.helpers import (
     fix_fsdp_module_name,
@@ -108,16 +95,16 @@ class ModelCompressor:
     :param quantization_config: config specifying quantization compression parameters
     """
 
-    sparsity_config: Optional[SparsityCompressionConfig] = None
-    quantization_config: Optional[QuantizationConfig] = None
-    transform_config: Optional[TransformConfig] = None
+    sparsity_config: SparsityCompressionConfig | None = None
+    quantization_config: QuantizationConfig | None = None
+    transform_config: TransformConfig | None = None
 
     @classmethod
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: str,
         **kwargs,
-    ) -> Optional["ModelCompressor"]:
+    ) -> "ModelCompressor | None":
         """
         Given a path to a model config, extract the sparsity and/or quantization
         configs and load a ModelCompressor
@@ -132,7 +119,7 @@ class ModelCompressor:
     @classmethod
     def from_compression_config(
         cls,
-        compression_config: Union[Dict[str, Any], "CompressedTensorsConfig"],
+        compression_config: "dict[str, Any] | CompressedTensorsConfig",
     ):
         """
         :param compression_config:
@@ -171,10 +158,10 @@ class ModelCompressor:
     def from_pretrained_model(
         cls,
         model: Module,
-        sparsity_config_or_format: Union[SparsityCompressionConfig, str, None] = None,
-        quantization_format: Optional[str] = None,
-        sparsity_config: Union[SparsityCompressionConfig, str, None] = None,
-    ) -> Optional["ModelCompressor"]:
+        sparsity_config_or_format: SparsityCompressionConfig | str | None = None,
+        quantization_format: str | None = None,
+        sparsity_config: SparsityCompressionConfig | str | None = None,
+    ) -> "ModelCompressor | None":
         """
         Given a pytorch model and optional sparsity and/or quantization configs,
         load the appropriate compressors
@@ -231,8 +218,8 @@ class ModelCompressor:
 
     @staticmethod
     def parse_sparsity_config(
-        compression_config: Union[Dict[str, Any], "CompressedTensorsConfig"],
-    ) -> Union[Dict[str, Any], None]:
+        compression_config: "dict[str, Any] | CompressedTensorsConfig",
+    ) -> dict[str, Any] | None:
         """
         Parse sparsity config from quantization/compression config. Sparsity
         config is nested inside q/c config
@@ -252,8 +239,8 @@ class ModelCompressor:
 
     @staticmethod
     def parse_quantization_config(
-        compression_config: Union[Dict[str, Any], "CompressedTensorsConfig"],
-    ) -> Union[Dict[str, Any], None]:
+        compression_config: "dict[str, Any] | CompressedTensorsConfig",
+    ) -> dict[str, Any] | None:
         """
         Parse quantization config from quantization/compression config. The
         quantization are all the fields that are not the sparsity config or
@@ -288,7 +275,7 @@ class ModelCompressor:
 
         return quantization_config
 
-    def _fetch_unique_quantization_formats(self) -> List[str]:
+    def _fetch_unique_quantization_formats(self) -> list[str]:
         """
         Get all unique compression formats present in a model.
         :return: list of quantization formats
@@ -308,10 +295,10 @@ class ModelCompressor:
 
     def __init__(
         self,
-        sparsity_config: Optional[SparsityCompressionConfig] = None,
-        quantization_config: Optional[QuantizationConfig] = None,
-        transform_config: Optional[TransformConfig] = None,
-        compression_formats: Optional[List[str]] = None,
+        sparsity_config: SparsityCompressionConfig | None = None,
+        quantization_config: QuantizationConfig | None = None,
+        transform_config: TransformConfig | None = None,
+        compression_formats: list[str] | None = None,
     ):
         self.sparsity_config = sparsity_config
         self.quantization_config = quantization_config
@@ -319,8 +306,8 @@ class ModelCompressor:
         self.compression_formats = compression_formats
 
         self.sparsity_compressor = None
-        self.quantization_compressor: Optional[
-            Dict[str, Union[BaseQuantizationCompressor, DenseCompressor]]
+        self.quantization_compressor: dict[
+            str, BaseQuantizationCompressor | DenseCompressor
         ] = None
         # no transform compressor is required
 
@@ -344,7 +331,7 @@ class ModelCompressor:
                     format, config=quantization_config
                 )
 
-    def get_missing_module_keys(self, model: Module) -> List[str]:
+    def get_missing_module_keys(self, model: Module) -> list[str]:
         """
         Identifies the expected missing weight keys in the compressed state_dict.
 
@@ -393,7 +380,7 @@ class ModelCompressor:
 
         return list(missing_keys)
 
-    def get_unexpected_file_keys(self, model: Module) -> List[str]:
+    def get_unexpected_file_keys(self, model: Module) -> list[str]:
         """
         Identifies extra keys introduced by the compression process in the
         compressed state_dict that are not expected by the model graph.
@@ -474,6 +461,9 @@ class ModelCompressor:
             ),
             desc="Compressing model",
         ):
+            if isinstance(module, CompressedLinear):
+                continue  # already compressed
+
             module_device = get_execution_device(module)
             is_meta = module_device.type == "meta"
 
@@ -519,16 +509,15 @@ class ModelCompressor:
                 )
 
             # remove any existing parameters
-            offload_device = get_offloaded_device(module)
             for name, _ in list(module.named_parameters(recurse=False)):
-                delete_offload_parameter(module, name)
+                delattr(module, name)
 
             # replace with compressed parameters
             for name, value in state_dict.items():
                 name = name.removeprefix(f"{prefix}.")
                 value = value.to(onloading_device)
                 param = torch.nn.Parameter(value, requires_grad=False)
-                register_offload_parameter(module, name, param, offload_device)
+                module.register_parameter(name, param)
 
             module.quantization_status = QuantizationStatus.COMPRESSED
         # TODO: consider sparse compression to also be compression
@@ -603,16 +592,15 @@ class ModelCompressor:
 
             # remove any existing parameters
             exec_device = get_execution_device(module)
-            offload_device = get_offloaded_device(module)
             for name, _ in list(module.named_parameters(recurse=False)):
-                delete_offload_parameter(module, name)
+                delattr(module, name)
 
             # replace with decompressed parameters
             for name, value in state_dict.items():
                 name = name.removeprefix(f"{prefix}.")
                 value = value.to(exec_device)
                 param = torch.nn.Parameter(value, requires_grad=False)
-                register_offload_parameter(module, name, param, offload_device)
+                module.register_parameter(name, param)
 
             module.quantization_status = QuantizationStatus.FROZEN
 
@@ -621,9 +609,9 @@ class ModelCompressor:
     def compress(
         self,
         model: Module,
-        state_dict: Optional[Dict[str, Tensor]] = None,
+        state_dict: dict[str, Tensor] | None = None,
         show_progress: bool = False,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """
         Compresses a dense state dict or model with sparsity and/or quantization
 
@@ -652,7 +640,7 @@ class ModelCompressor:
                 )
 
         if self.sparsity_compressor is not None:
-            sparse_compression_targets: Set[str] = {
+            sparse_compression_targets: set[str] = {
                 module_name
                 for module_name, _module in match_named_modules(
                     model=model,
@@ -728,7 +716,7 @@ class ModelCompressor:
                 QuantizationStatus.FROZEN,
             ):
                 apply_quantization_config(model, self.quantization_config)
-                names_to_scheme: Set[QuantizationScheme] = {
+                names_to_scheme: dict[str, QuantizationScheme] = {
                     name: getattr(module, "quantization_scheme")
                     for name, module in model.named_modules()
                     if getattr(module, "quantization_scheme", None) is not None
@@ -755,7 +743,7 @@ class ModelCompressor:
                 model_path_or_state_dict, names_to_scheme=names_to_scheme
             )
             # TODO: all weight quantization params will be moved to the compressor
-            # to prevent duplicate parameter updates in update_parameter_data
+            # to prevent duplicate parameter updates in update_offload_parameter
             self._replace_weights(
                 dense_gen, model, load_weight_qparams=not load_weight_qparams
             )
@@ -843,7 +831,7 @@ class ModelCompressor:
             delattr(module, param_name)
             requires_grad = data.dtype in (torch.float16, torch.float32, torch.bfloat16)
             param = torch.nn.Parameter(data.to(device), requires_grad=requires_grad)
-            register_offload_parameter(module, param_name, param)
+            module.register_parameter(param_name, param)
 
     def _replace_weights(
         self, dense_weight_generator, model: Module, load_weight_qparams: bool = True
@@ -886,14 +874,14 @@ class ModelCompressor:
                         param = torch.nn.Parameter(
                             param_data.to(device), requires_grad=requires_grad
                         )
-                        register_offload_parameter(module, param_name, param)
+                        module.register_parameter(param_name, param)
                     elif load_weight_qparams:
                         # Should already be registered to the correct device for
                         # for scales/zero-points
-                        update_parameter_data(module, param_data, param_name)
+                        update_offload_parameter(module, param_name, param_data)
 
 
-def map_module_to_scheme(model: Module) -> Dict[str, QuantizationScheme]:
+def map_module_to_scheme(model: Module) -> dict[str, QuantizationScheme]:
     """
     Returns a dictionary which maps quantized module names to their quantization
     schemes. Only includes modules with weight quantization

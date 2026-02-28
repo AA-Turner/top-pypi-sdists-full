@@ -20,8 +20,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pythoncapi_compat.h>
-
+#include "pygi-argument.h"
 #include "pygi-async.h"
 #include "pygi-boxed.h"
 #include "pygi-error.h"
@@ -186,7 +185,7 @@ _py_args_combine_and_check_length (PyGICallableCache *cache,
             /* For varargs user_data, pass an empty tuple when nothing
              * is given. */
             PyTuple_SET_ITEM (combined_py_args, i, PyTuple_New (0));
-        } else if (arg_cache->allow_none) {
+        } else if (pygi_arg_cache_allow_none (arg_cache)) {
             /* If the argument supports a default, use a place holder in the
              * argument tuple, this will be checked later during marshaling.
              */
@@ -278,7 +277,7 @@ _invoke_state_init_from_cache (PyGIInvokeState *state,
 
     state->n_args = _pygi_callable_cache_args_len (cache);
 
-    if (cache->throws) {
+    if (pygi_callable_cache_can_throw_gerror (cache)) {
         state->n_args++;
     }
 
@@ -302,7 +301,7 @@ _invoke_state_init_from_cache (PyGIInvokeState *state,
 
     state->error = NULL;
 
-    if (cache->throws) {
+    if (pygi_callable_cache_can_throw_gerror (cache)) {
         gssize error_index = state->n_args - 1;
         /* The ffi argument for GError needs to be a triple pointer. */
         state->args[error_index].arg_pointer.v_pointer = &state->error;
@@ -347,9 +346,30 @@ _caller_alloc (PyGIArgCache *arg_cache, GIArgument *arg)
         }
     } else if (arg_cache->type_tag == GI_TYPE_TAG_ARRAY) {
         PyGIArgGArray *array_cache = (PyGIArgGArray *)arg_cache;
+        size_t fixed_size;
 
-        arg->v_pointer =
-            g_array_new (TRUE, TRUE, (guint)array_cache->item_size);
+        switch (gi_type_info_get_array_type (arg_cache->type_info)) {
+        case GI_ARRAY_TYPE_C:
+            if (gi_type_info_get_array_fixed_size (arg_cache->type_info,
+                                                   &fixed_size)) {
+                arg->v_pointer =
+                    g_malloc0 (array_cache->item_size * fixed_size);
+                break;
+            }
+            return FALSE;
+        case GI_ARRAY_TYPE_ARRAY:
+            arg->v_pointer =
+                g_array_new (TRUE, TRUE, (guint)array_cache->item_size);
+            break;
+        case GI_ARRAY_TYPE_PTR_ARRAY:
+            arg->v_pointer = g_ptr_array_new ();
+            break;
+        case GI_ARRAY_TYPE_BYTE_ARRAY:
+            arg->v_pointer = g_byte_array_new ();
+            break;
+        default:
+            g_assert_not_reached ();
+        }
     } else {
         return FALSE;
     }
@@ -393,7 +413,6 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                          PyGIFunctionCache *function_cache)
 {
     PyGICallableCache *cache = (PyGICallableCache *)function_cache;
-    gssize i;
 
     if (state->n_py_in_args > cache->n_py_args) {
         char *full_name = pygi_callable_cache_get_full_name (cache);
@@ -426,7 +445,7 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
             pygi_async_new (function_cache->async_finish, cancellable);
     }
 
-    for (i = 0; (gsize)i < _pygi_callable_cache_args_len (cache); i++) {
+    for (guint i = 0; i < _pygi_callable_cache_args_len (cache); i++) {
         GIArgument *c_arg = &state->args[i].arg_value;
         PyGIArgCache *arg_cache = g_ptr_array_index (cache->args_cache, i);
         PyObject *py_arg = NULL;
@@ -452,8 +471,8 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                 g_free (full_name);
 
                 /* clean up all of the args we have already marshalled,
-                     * since invoke will not be called
-                     */
+                 * since invoke will not be called.
+                 */
                 pygi_marshal_cleanup_args_from_py_parameter_fail (state, cache,
                                                                   i);
                 return FALSE;
@@ -485,20 +504,20 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
 
         case PYGI_DIRECTION_TO_PYTHON:
             /* arg_pointers always stores a pointer to the data to be marshaled "to python"
-                 * even in cases where arg_pointers is not being used as indirection between
-                 * ffi and arg_values. This gives a guarantee that out argument marshaling
-                 * (_invoke_marshal_out_args) can always rely on arg_pointers pointing to
-                 * the correct chunk of memory to marshal.
-                 */
+             * even in cases where arg_pointers is not being used as indirection between
+             * ffi and arg_values. This gives a guarantee that out argument marshaling
+             * (_invoke_marshal_out_args) can always rely on arg_pointers pointing to
+             * the correct chunk of memory to marshal.
+             */
             state->args[i].arg_pointer.v_pointer = c_arg;
 
-            if (arg_cache->is_caller_allocates) {
+            if (pygi_arg_cache_is_caller_allocates (arg_cache)) {
                 /* In the case of caller allocated out args, we don't use
-                     * an extra level of indirection and state->args will point
-                     * directly at the data to be marshaled. However, as noted
-                     * above, arg_pointers will also point to this caller allocated
-                     * chunk of memory used by out argument marshaling.
-                     */
+                 * an extra level of indirection and state->args will point
+                 * directly at the data to be marshaled. However, as noted
+                 * above, arg_pointers will also point to this caller allocated
+                 * chunk of memory used by out argument marshaling.
+                 */
                 state->ffi_args[i] = c_arg;
 
                 if (!_caller_alloc (arg_cache, c_arg)) {
@@ -515,14 +534,13 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                 }
             } else {
                 /* Non-caller allocated out args will use arg_pointers as an
-                     * extra level of indirection */
+                 * extra level of indirection */
                 state->ffi_args[i] = &state->args[i].arg_pointer;
             }
 
             break;
         default:
             g_assert_not_reached ();
-            break;
         }
 
         if (py_arg == _PyGIDefaultArgPlaceholder) {
@@ -550,7 +568,7 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
             gboolean success;
             gpointer cleanup_data = NULL;
 
-            if (!arg_cache->allow_none && Py_IsNone (py_arg)) {
+            if (!pygi_arg_cache_allow_none (arg_cache) && Py_IsNone (py_arg)) {
                 PyErr_Format (PyExc_TypeError,
                               "Argument %zd does not allow None as a value",
                               i);
@@ -584,7 +602,7 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
     gssize n_out_args = cache->n_to_py_args - cache->n_to_py_child_args;
 
     if (cache->return_cache) {
-        if (!cache->return_cache->is_skipped) {
+        if (!pygi_callable_cache_skip_return (cache)) {
             gpointer cleanup_data = NULL;
             py_return = cache->return_cache->to_py_marshaller (
                 state, cache, cache->return_cache, &state->return_arg,
@@ -610,7 +628,7 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
     if (state->py_async) {
         /* We must have no return value */
         g_assert (n_out_args == 0);
-        g_assert (cache->return_cache->is_skipped
+        g_assert (pygi_callable_cache_skip_return (cache)
                   || cache->return_cache->type_tag == GI_TYPE_TAG_VOID);
 
         Py_DECREF (py_return);
@@ -618,7 +636,7 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
     }
 
     if (n_out_args == 0) {
-        if (cache->return_cache->is_skipped && state->error == NULL) {
+        if (pygi_callable_cache_skip_return (cache) && state->error == NULL) {
             /* we skip the return value and have no (out) arguments to return,
              * so py_return should be NULL. But we must not return NULL,
              * otherwise Python will expect an exception.
@@ -694,7 +712,7 @@ pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
                         size_t py_nargsf, PyObject *py_kwnames)
 {
     PyGICallableCache *cache = (PyGICallableCache *)function_cache;
-    GIFFIReturnValue ffi_return_value = { 0 };
+    GIFFIReturnValue ffi_return_value = PYGI_ARG_INIT;
     PyObject *ret = NULL;
 
     if (Py_EnterRecursiveCall (" while calling a GICallable")) return NULL;

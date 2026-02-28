@@ -22,7 +22,6 @@
 #ifndef __PYGI_ERROR_H__
 #define __PYGI_ERROR_H__
 
-#include <girepository/girepository.h>
 #include "pygi-cache.h"
 
 G_BEGIN_DECLS
@@ -36,10 +35,6 @@ PyObject *pygi_error_marshal_to_py (GError **error);
 gboolean pygi_error_marshal_from_py (PyObject *pyerr, GError **error);
 
 gboolean pygi_gerror_exception_check (GError **error);
-
-PyGIArgCache *pygi_arg_gerror_new_from_info (
-    GITypeInfo *type_info, GIArgInfo *arg_info, /* may be null */
-    GITransfer transfer, PyGIDirection direction);
 
 int pygi_error_register_types (PyObject *module);
 

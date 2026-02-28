@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-cognito-idp"
-version = "1.42.37"
+version = "1.42.59"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 CognitoIdentityProvider 1.42.37 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 CognitoIdentityProvider 1.42.59 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

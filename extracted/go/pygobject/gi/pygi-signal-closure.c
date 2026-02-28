@@ -16,8 +16,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <pythoncapi_compat.h>
-
 #include "pygi-signal-closure.h"
 
 #include "pygi-argument.h"
@@ -68,6 +66,39 @@ pygi_signal_closure_invalidate (gpointer data, GClosure *closure)
     ((PyGISignalClosure *)pc)->signal_info = NULL;
 }
 
+static gboolean
+array_length_from_parameter (GICallableInfo *callable_info,
+                             GITypeInfo *type_info, GValue *values,
+                             guint n_values, gsize *array_len)
+{
+    guint length_arg_index;
+    GIArgInfo length_arg_info;
+    GITypeInfo length_type_info;
+    GIArgument length_arg;
+    gboolean result;
+
+    if (!gi_type_info_get_array_length_index (type_info, &length_arg_index)) {
+        return FALSE;
+    }
+
+    g_assert (length_arg_index + 1 < n_values);
+
+    gi_callable_info_load_arg (callable_info, length_arg_index,
+                               &length_arg_info);
+    gi_arg_info_load_type_info (&length_arg_info, &length_type_info);
+
+    /* Take the next value: values[0] is "self". */
+    length_arg = _pygi_argument_from_g_value (&(values[length_arg_index + 1]),
+                                              &length_type_info);
+    result = pygi_argument_to_gsize (
+        length_arg, gi_type_info_get_tag (&length_type_info), array_len);
+
+    gi_base_info_clear (&length_arg_info);
+    gi_base_info_clear (&length_type_info);
+
+    return result;
+}
+
 static void
 pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
                              guint n_param_values, const GValue *param_values,
@@ -104,7 +135,7 @@ pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
             PyTuple_SetItem (params, 0, pc->swap_data);
 
         } else if (i == 0) {
-            PyObject *item = pyg_value_as_pyobject (&param_values[i], FALSE);
+            PyObject *item = pyg_value_to_pyobject (&param_values[i], FALSE);
 
             if (!item) {
                 goto out;
@@ -113,29 +144,18 @@ pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
 
         } else if (i < (guint)sig_info_highest_arg) {
             GIArgInfo arg_info;
-            GITypeInfo type_info;
+            GITypeInfo *type_info;
             GITypeTag type_tag;
-            GIArgument arg = {
-                0,
-            };
+            GIArgument arg;
             PyObject *item = NULL;
-            gboolean free_array = FALSE;
             gboolean pass_struct_by_ref = FALSE;
 
             gi_callable_info_load_arg (GI_CALLABLE_INFO (signal_info), i - 1,
                                        &arg_info);
-            gi_arg_info_load_type_info (&arg_info, &type_info);
+            type_info = gi_arg_info_get_type_info (&arg_info);
 
-            arg = _pygi_argument_from_g_value (&param_values[i], &type_info);
-
-            type_tag = gi_type_info_get_tag (&type_info);
-            if (type_tag == GI_TYPE_TAG_ARRAY) {
-                /* Skip the self argument of param_values */
-                arg.v_pointer = _pygi_argument_to_array (
-                    &arg, _pygi_argument_array_length_marshal,
-                    (void *)(param_values + 1), signal_info, &type_info,
-                    &free_array);
-            }
+            arg = _pygi_argument_from_g_value (&param_values[i], type_info);
+            type_tag = gi_type_info_get_tag (type_info);
 
             /* Hack to ensure struct arguments are passed-by-reference allowing
              * callback implementors to modify the struct values. This is needed
@@ -143,10 +163,10 @@ pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
              * versions which support signal output arguments as return values.
              * See: https://bugzilla.gnome.org/show_bug.cgi?id=735486
              *
-             * Note the logic here must match the logic path taken in _pygi_argument_to_object.
+             * Note the logic here must match the logic path taken in pygi_argument_to_py.
              */
             if (type_tag == GI_TYPE_TAG_INTERFACE) {
-                GIBaseInfo *info = gi_type_info_get_interface (&type_info);
+                GIBaseInfo *info = gi_type_info_get_interface (type_info);
 
                 if (GI_IS_STRUCT_INFO (info) || GI_IS_UNION_INFO (info)) {
                     GType gtype = gi_registered_type_info_get_g_type (
@@ -165,9 +185,17 @@ pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
             }
 
             if (pass_struct_by_ref) {
-                /* transfer everything will ensure the struct is not copied when wrapped. */
-                item = _pygi_argument_to_object (&arg, &type_info,
-                                                 GI_TRANSFER_EVERYTHING);
+                gsize array_length;
+
+                if (array_length_from_parameter (
+                        GI_CALLABLE_INFO (signal_info), type_info,
+                        param_values, n_param_values, &array_length))
+                    item = pygi_argument_to_py_with_array_length (
+                        type_info, arg, GI_TRANSFER_EVERYTHING, array_length);
+                else
+                    item = pygi_argument_to_py (type_info, arg,
+                                                GI_TRANSFER_EVERYTHING);
+
                 if (item
                     && PyObject_IsInstance (item,
                                             (PyObject *)&PyGIBoxed_Type)) {
@@ -175,15 +203,21 @@ pygi_signal_closure_marshal (GClosure *closure, GValue *return_value,
                     pass_by_ref_structs =
                         g_slist_prepend (pass_by_ref_structs, item);
                 }
-
             } else {
-                item = _pygi_argument_to_object (&arg, &type_info,
-                                                 GI_TRANSFER_NOTHING);
+                gsize array_length;
+
+                if (array_length_from_parameter (
+                        GI_CALLABLE_INFO (signal_info), type_info,
+                        param_values, n_param_values, &array_length))
+                    item = pygi_argument_to_py_with_array_length (
+                        type_info, arg, GI_TRANSFER_NOTHING, array_length);
+                else
+                    item = pygi_argument_to_py (type_info, arg,
+                                                GI_TRANSFER_NOTHING);
             }
 
-            if (free_array) {
-                g_array_free (arg.v_pointer, FALSE);
-            }
+            gi_base_info_unref (type_info);
+            gi_base_info_clear (&arg_info);
 
             if (item == NULL) {
                 PyErr_Print ();

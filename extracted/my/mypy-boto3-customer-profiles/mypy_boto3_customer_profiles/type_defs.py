@@ -3,7 +3,7 @@ Type annotations for customer-profiles service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -1262,6 +1262,7 @@ class ListProfileObjectTypeItemTypeDef(TypedDict):
     LastUpdatedAt: NotRequired[datetime]
     MaxProfileObjectCount: NotRequired[int]
     MaxAvailableProfileObjectCount: NotRequired[int]
+    SourcePriority: NotRequired[int]
     Tags: NotRequired[dict[str, str]]
 
 
@@ -1919,6 +1920,7 @@ class GetProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxAvailableProfileObjectCount: int
     MaxProfileObjectCount: int
+    SourcePriority: int
     Fields: dict[str, ObjectTypeFieldTypeDef]
     Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
@@ -1948,6 +1950,7 @@ class PutProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxProfileObjectCount: int
     MaxAvailableProfileObjectCount: int
+    SourcePriority: int
     Fields: dict[str, ObjectTypeFieldTypeDef]
     Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
@@ -2529,6 +2532,7 @@ class PutProfileObjectTypeRequestTypeDef(TypedDict):
     AllowProfileCreation: NotRequired[bool]
     SourceLastUpdatedTimestampFormat: NotRequired[str]
     MaxProfileObjectCount: NotRequired[int]
+    SourcePriority: NotRequired[int]
     Fields: NotRequired[Mapping[str, ObjectTypeFieldTypeDef]]
     Keys: NotRequired[Mapping[str, Sequence[ObjectTypeKeyUnionTypeDef]]]
     Tags: NotRequired[Mapping[str, str]]

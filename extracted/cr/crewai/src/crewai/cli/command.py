@@ -1,6 +1,5 @@
-import json
-
-import httpx
+import requests
+from requests.exceptions import JSONDecodeError
 from rich.console import Console
 
 from crewai.cli.authentication.token import get_auth_token
@@ -31,16 +30,16 @@ class PlusAPIMixin:
             console.print("Run 'crewai login' to sign up/login.", style="bold green")
             raise SystemExit from None
 
-    def _validate_response(self, response: httpx.Response) -> None:
+    def _validate_response(self, response: requests.Response) -> None:
         """
         Handle and display error messages from API responses.
 
         Args:
-            response (httpx.Response): The response from the Plus API
+            response (requests.Response): The response from the Plus API
         """
         try:
             json_response = response.json()
-        except (json.JSONDecodeError, ValueError):
+        except (JSONDecodeError, ValueError):
             console.print(
                 "Failed to parse response from Enterprise API failed. Details:",
                 style="bold red",
@@ -63,7 +62,7 @@ class PlusAPIMixin:
                     )
             raise SystemExit
 
-        if not response.is_success:
+        if not response.ok:
             console.print(
                 "Request to Enterprise API failed. Details:", style="bold red"
             )

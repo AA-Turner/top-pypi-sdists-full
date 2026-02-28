@@ -75,11 +75,11 @@ class Modal(BaseView):
         from discord import ui
 
         class Questionnaire(ui.Modal, title='Questionnaire Response'):
-            name = ui.TextInput(label='Name')
-            answer = ui.TextInput(label='Answer', style=discord.TextStyle.paragraph)
+            name = ui.Label(text='Name', component=ui.TextInput())
+            answer = ui.Label(text='Answer', component=ui.TextInput(style=discord.TextStyle.paragraph))
 
             async def on_submit(self, interaction: discord.Interaction):
-                await interaction.response.send_message(f'Thanks for your response, {self.name}!', ephemeral=True)
+                await interaction.response.send_message(f'Thanks for your response, {self.name.component.value}!', ephemeral=True)
 
     Parameters
     -----------
@@ -223,7 +223,7 @@ class Modal(BaseView):
 
     def to_components(self) -> List[Dict[str, Any]]:
         def key(item: Item) -> int:
-            return item._rendered_row or 0
+            return item._rendered_row or item.row or 0
 
         children = sorted(self._children, key=key)
         components: List[Dict[str, Any]] = []

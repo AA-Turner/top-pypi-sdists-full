@@ -753,3 +753,79 @@ class GetBindingClusterTelemetryDeploymentResponse(_message.Message):
     cluster_id: str
     telemetry_deployment_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., telemetry_deployment_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingEnvironmentGatewayRequest(_message.Message):
+    __slots__ = ("environment_id", "cluster_gateway_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    cluster_gateway_id: str
+    def __init__(self, environment_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingEnvironmentGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingEnvironmentGatewayRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingEnvironmentGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingEnvironmentGatewayRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingEnvironmentGatewayResponse(_message.Message):
+    __slots__ = ("environment_id", "cluster_gateway_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    cluster_gateway_id: str
+    def __init__(self, environment_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("environment_id", "background_persistence_deployment_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BACKGROUND_PERSISTENCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    background_persistence_deployment_id: str
+    def __init__(
+        self, environment_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
+    ) -> None: ...
+
+class CreateBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingEnvironmentBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ("environment_id", "background_persistence_deployment_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BACKGROUND_PERSISTENCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    background_persistence_deployment_id: str
+    def __init__(
+        self, environment_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
+    ) -> None: ...

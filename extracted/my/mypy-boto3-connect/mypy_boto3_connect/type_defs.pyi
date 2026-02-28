@@ -5892,10 +5892,12 @@ class EvaluationSummaryTypeDef(TypedDict):
     ContactParticipant: NotRequired[EvaluationContactParticipantTypeDef]
 
 class EvaluationReviewMetadataTypeDef(TypedDict):
-    CreatedTime: datetime
-    CreatedBy: str
     ReviewRequestComments: list[EvaluationReviewRequestCommentTypeDef]
     ReviewId: NotRequired[str]
+    RequestedTime: NotRequired[datetime]
+    RequestedBy: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
 
 EvaluationReviewNotificationRecipientTypeDef = TypedDict(
     "EvaluationReviewNotificationRecipientTypeDef",

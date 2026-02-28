@@ -4,8 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from copy import copy as shallow_copy
 from hashlib import md5
-import re
-from typing import Any, Final, Literal
+from typing import Any, Literal
 import uuid
 
 from pydantic import (
@@ -35,11 +34,6 @@ from crewai.utilities.i18n import I18N, get_i18n
 from crewai.utilities.logger import Logger
 from crewai.utilities.rpm_controller import RPMController
 from crewai.utilities.string_utils import interpolate_only
-
-
-_SLUG_RE: Final[re.Pattern[str]] = re.compile(
-    r"^(?:crewai-amp:)?[a-zA-Z0-9][a-zA-Z0-9_-]*(?:#\w+)?$"
-)
 
 
 PlatformApp = Literal[
@@ -203,15 +197,7 @@ class BaseAgent(BaseModel, ABC, metaclass=AgentMeta):
     )
     mcps: list[str | MCPServerConfig] | None = Field(
         default=None,
-        description="List of MCP server references. Supports 'https://server.com/path' for external servers and bare slugs like 'notion' for connected MCP integrations. Use '#tool_name' suffix for specific tools.",
-    )
-    memory: Any = Field(
-        default=None,
-        description=(
-            "Enable agent memory. Pass True for default Memory(), "
-            "or a Memory/MemoryScope/MemorySlice instance for custom configuration. "
-            "If not set, falls back to crew memory."
-        ),
+        description="List of MCP server references. Supports 'https://server.com/path' for external servers and 'crewai-amp:mcp-name' for AMP marketplace. Use '#tool_name' suffix for specific tools.",
     )
 
     @model_validator(mode="before")
@@ -282,16 +268,14 @@ class BaseAgent(BaseModel, ABC, metaclass=AgentMeta):
         validated_mcps: list[str | MCPServerConfig] = []
         for mcp in mcps:
             if isinstance(mcp, str):
-                if mcp.startswith("https://"):
-                    validated_mcps.append(mcp)
-                elif _SLUG_RE.match(mcp):
+                if mcp.startswith(("https://", "crewai-amp:")):
                     validated_mcps.append(mcp)
                 else:
                     raise ValueError(
-                        f"Invalid MCP reference: {mcp!r}. "
-                        "String references must be an 'https://' URL or a valid "
-                        "slug (e.g. 'notion', 'notion#search', 'crewai-amp:notion')."
+                        f"Invalid MCP reference: {mcp}. "
+                        "String references must start with 'https://' or 'crewai-amp:'"
                     )
+
             elif isinstance(mcp, (MCPServerConfig)):
                 validated_mcps.append(mcp)
             else:
@@ -343,17 +327,6 @@ class BaseAgent(BaseModel, ABC, metaclass=AgentMeta):
             )
         if not self._token_process:
             self._token_process = TokenProcess()
-        return self
-
-    @model_validator(mode="after")
-    def resolve_memory(self) -> Self:
-        """Resolve memory field: True creates a default Memory(), instance is used as-is."""
-        if self.memory is True:
-            from crewai.memory.unified_memory import Memory
-
-            self.memory = Memory()
-        elif self.memory is False:
-            self.memory = None
         return self
 
     @property

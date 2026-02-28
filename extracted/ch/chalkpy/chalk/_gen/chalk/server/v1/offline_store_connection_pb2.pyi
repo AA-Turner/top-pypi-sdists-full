@@ -1,8 +1,10 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -14,6 +16,14 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class StorageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    STORAGE_TYPE_UNSPECIFIED: _ClassVar[StorageType]
+    STORAGE_TYPE_OFFLINE_STORE: _ClassVar[StorageType]
+
+STORAGE_TYPE_UNSPECIFIED: StorageType
+STORAGE_TYPE_OFFLINE_STORE: StorageType
 
 class S3StorageIntegrationConfig(_message.Message):
     __slots__ = ("bucket_name", "region", "role_arn")
@@ -172,34 +182,7 @@ class OfflineStoreConnectionConfigStored(_message.Message):
         bigquery: _Optional[_Union[BigQueryOfflineStoreConnectionConfig, _Mapping]] = ...,
     ) -> None: ...
 
-class OfflineStoreConnection(_message.Message):
-    __slots__ = ("id", "environment_id", "team_id", "name", "config", "created_at", "updated_at")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    CONFIG_FIELD_NUMBER: _ClassVar[int]
-    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
-    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    environment_id: str
-    team_id: str
-    name: str
-    config: OfflineStoreConnectionConfigStored
-    created_at: _timestamp_pb2.Timestamp
-    updated_at: _timestamp_pb2.Timestamp
-    def __init__(
-        self,
-        id: _Optional[str] = ...,
-        environment_id: _Optional[str] = ...,
-        team_id: _Optional[str] = ...,
-        name: _Optional[str] = ...,
-        config: _Optional[_Union[OfflineStoreConnectionConfigStored, _Mapping]] = ...,
-        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-    ) -> None: ...
-
-class CreateOfflineStoreConnectionRequest(_message.Message):
+class OfflineStoreConnectionInput(_message.Message):
     __slots__ = ("name", "config")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
@@ -208,6 +191,39 @@ class CreateOfflineStoreConnectionRequest(_message.Message):
     def __init__(
         self, name: _Optional[str] = ..., config: _Optional[_Union[OfflineStoreConnectionConfigInput, _Mapping]] = ...
     ) -> None: ...
+
+class OfflineStoreConnection(_message.Message):
+    __slots__ = ("id", "team_id", "environment_id", "name", "config", "created_at", "updated_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    team_id: str
+    environment_id: str
+    name: str
+    config: OfflineStoreConnectionConfigStored
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        config: _Optional[_Union[OfflineStoreConnectionConfigStored, _Mapping]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class CreateOfflineStoreConnectionRequest(_message.Message):
+    __slots__ = ("connection",)
+    CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    connection: OfflineStoreConnectionInput
+    def __init__(self, connection: _Optional[_Union[OfflineStoreConnectionInput, _Mapping]] = ...) -> None: ...
 
 class CreateOfflineStoreConnectionResponse(_message.Message):
     __slots__ = ("connection",)
@@ -238,18 +254,18 @@ class ListOfflineStoreConnectionsResponse(_message.Message):
     def __init__(self, connections: _Optional[_Iterable[_Union[OfflineStoreConnection, _Mapping]]] = ...) -> None: ...
 
 class UpdateOfflineStoreConnectionRequest(_message.Message):
-    __slots__ = ("id", "name", "config")
+    __slots__ = ("id", "connection", "update_mask")
     ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
     id: str
-    name: str
-    config: OfflineStoreConnectionConfigInput
+    connection: OfflineStoreConnectionInput
+    update_mask: _field_mask_pb2.FieldMask
     def __init__(
         self,
         id: _Optional[str] = ...,
-        name: _Optional[str] = ...,
-        config: _Optional[_Union[OfflineStoreConnectionConfigInput, _Mapping]] = ...,
+        connection: _Optional[_Union[OfflineStoreConnectionInput, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateOfflineStoreConnectionResponse(_message.Message):
@@ -287,3 +303,67 @@ class TestOfflineStoreConnectionResponse(_message.Message):
     message: str
     error: str
     def __init__(self, success: bool = ..., message: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
+
+class CreateBindingEnvironmentOfflineStoreConnectionRequest(_message.Message):
+    __slots__ = ("environment_id", "offline_store_connection_id", "name")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    offline_store_connection_id: str
+    name: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        offline_store_connection_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreateBindingEnvironmentOfflineStoreConnectionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingEnvironmentOfflineStoreConnectionRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingEnvironmentOfflineStoreConnectionResponse(_message.Message):
+    __slots__ = ("environment_id", "offline_store_connection_id", "name")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    offline_store_connection_id: str
+    name: str
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        offline_store_connection_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+    ) -> None: ...
+
+class DeleteBindingEnvironmentOfflineStoreConnectionRequest(_message.Message):
+    __slots__ = ("environment_id", "offline_store_connection_id")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    offline_store_connection_id: str
+    def __init__(
+        self, environment_id: _Optional[str] = ..., offline_store_connection_id: _Optional[str] = ...
+    ) -> None: ...
+
+class DeleteBindingEnvironmentOfflineStoreConnectionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class MigrateOfflineStoreConnectionRequest(_message.Message):
+    __slots__ = ("offline_store_connection_id",)
+    OFFLINE_STORE_CONNECTION_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_store_connection_id: str
+    def __init__(self, offline_store_connection_id: _Optional[str] = ...) -> None: ...
+
+class MigrateOfflineStoreConnectionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

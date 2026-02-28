@@ -37,11 +37,7 @@ except ImportError:
     pass
 
 # Other requirements
-install_requires += [
-    "scipy",
-    "jaxtyping",
-    "mpmath>=0.19,<=1.3",  # avoid incompatibiltiy with torch+sympy with mpmath 1.4
-]
+install_requires += ["scipy"]
 
 
 # Get version
@@ -93,8 +89,6 @@ setup(
             "flake8==5.0.4",
             "flake8-print==5.0.0",
             "pytest",
-            "typeguard~=2.13.3"  # jaxtyping seems to only be compatible with older typeguard versions
-            # https://github.com/patrick-kidger/jaxtyping/commit/77c263c3def8ea3bcb7d7642c5a8402c16cf76fb
         ],
     },
     test_suite="test",
