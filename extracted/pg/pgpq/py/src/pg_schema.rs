@@ -355,6 +355,7 @@ impl PythonRepr for PostgresType {
 #[pyclass(module = "pgpq._pgpq")]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Column {
+    #[pyo3(get)]
     name: String,
     data_type: PostgresType,
     #[pyo3(get)]

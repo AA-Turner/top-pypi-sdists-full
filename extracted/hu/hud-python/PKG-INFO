@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.5.28
+Version: 0.5.29
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -51,7 +51,6 @@ Requires-Dist: typer>=0.9.0
 Requires-Dist: watchfiles>=0.21.0
 Provides-Extra: agent
 Requires-Dist: anthropic>=0.78.0; extra == 'agent'
-Requires-Dist: datasets>=2.14.0; extra == 'agent'
 Requires-Dist: google-genai; extra == 'agent'
 Requires-Dist: langchain>=1.1.0; extra == 'agent'
 Requires-Dist: mcp-use==1.5.0; extra == 'agent'
@@ -60,7 +59,6 @@ Requires-Dist: pillow>=11.1.0; extra == 'agent'
 Requires-Dist: tornado>=6.5.2; extra == 'agent'
 Provides-Extra: agents
 Requires-Dist: anthropic>=0.78.0; extra == 'agents'
-Requires-Dist: datasets>=2.14.0; extra == 'agents'
 Requires-Dist: google-genai; extra == 'agents'
 Requires-Dist: langchain>=1.1.0; extra == 'agents'
 Requires-Dist: mcp-use==1.5.0; extra == 'agents'
@@ -71,7 +69,6 @@ Provides-Extra: bedrock
 Requires-Dist: anthropic[bedrock]>=0.78.0; extra == 'bedrock'
 Provides-Extra: dev
 Requires-Dist: anthropic>=0.78.0; extra == 'dev'
-Requires-Dist: datasets>=2.14.0; extra == 'dev'
 Requires-Dist: dotenv>=0.9.9; extra == 'dev'
 Requires-Dist: google-adk; extra == 'dev'
 Requires-Dist: google-genai; extra == 'dev'

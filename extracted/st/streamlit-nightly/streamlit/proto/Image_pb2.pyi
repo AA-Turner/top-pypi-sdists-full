@@ -60,14 +60,20 @@ class ImageList(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     IMGS_FIELD_NUMBER: _builtins.int
+    LINK_FIELD_NUMBER: _builtins.int
+    link: _builtins.str
+    """External URL to open when the image is clicked.
+    Only supported when there is exactly one image in the list.
+    """
     @_builtins.property
     def imgs(self) -> _containers.RepeatedCompositeFieldContainer[Global___Image]: ...
     def __init__(
         self,
         *,
         imgs: _abc.Iterable[Global___Image] | None = ...,
+        link: _builtins.str = ...,
     ) -> None: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["imgs", b"imgs"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["imgs", b"imgs", "link", b"link"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___ImageList: _TypeAlias = ImageList  # noqa: Y015

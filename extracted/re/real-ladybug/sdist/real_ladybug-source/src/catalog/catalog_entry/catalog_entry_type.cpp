@@ -31,8 +31,10 @@ std::string CatalogEntryTypeUtils::toString(CatalogEntryType type) {
         return "DUMMY_ENTRY";
     case CatalogEntryType::SEQUENCE_ENTRY:
         return "SEQUENCE_ENTRY";
+    case CatalogEntryType::GRAPH_ENTRY:
+        return "GRAPH_ENTRY";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -53,7 +55,7 @@ std::string FunctionEntryTypeUtils::toString(CatalogEntryType type) {
     case CatalogEntryType::COPY_FUNCTION_ENTRY:
         return "COPY FUNCTION";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 

@@ -7,7 +7,6 @@
 #include "common/exception/message.h"
 #include "common/file_system/local_file_system.h"
 #include "common/file_system/virtual_file_system.h"
-#include "common/string_format.h"
 #include "common/string_utils.h"
 #include "extension/extension_manager.h"
 #include "function/table/bind_input.h"
@@ -15,6 +14,7 @@
 #include "main/database_manager.h"
 #include "parser/expression/parsed_function_expression.h"
 #include "parser/scan_source.h"
+#include <format>
 
 using namespace lbug::parser;
 using namespace lbug::binder;
@@ -65,7 +65,7 @@ std::vector<std::string> Binder::bindFilePaths(const std::vector<std::string>& f
             VirtualFileSystem::GetUnsafe(*clientContext)->glob(clientContext, filePath);
         if (globbedFilePaths.empty()) {
             throw BinderException{
-                stringFormat("No file found that matches the pattern: {}.", filePath)};
+                std::format("No file found that matches the pattern: {}.", filePath)};
         }
         for (auto& globbedPath : globbedFilePaths) {
             boundFilePaths.push_back(globbedPath);
@@ -80,8 +80,8 @@ case_insensitive_map_t<Value> Binder::bindParsingOptions(const options_t& parsin
         auto name = option.first;
         StringUtils::toUpper(name);
         auto expr = expressionBinder.bindExpression(*option.second);
-        KU_ASSERT(expr->expressionType == ExpressionType::LITERAL);
-        auto literalExpr = ku_dynamic_cast<LiteralExpression*>(expr.get());
+        DASSERT(expr->expressionType == ExpressionType::LITERAL);
+        auto literalExpr = dynamic_cast_checked<LiteralExpression*>(expr.get());
         options.insert({name, literalExpr->getValue()});
     }
     return options;
@@ -107,7 +107,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindScanSource(const BaseScanSource
         return bindParameterScanSource(*source, options, columnNames, columnTypes);
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -139,7 +139,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindFileScanSource(const BaseScanSo
     if (fileTypeInfo.fileType != FileType::UNKNOWN) {
         for (const auto& filePath : filePaths) {
             if (!LocalFileSystem::fileExists(filePath) && LocalFileSystem::isLocalPath(filePath)) {
-                throw BinderException{stringFormat("Provided path is not a file: {}.", filePath)};
+                throw BinderException{std::format("Provided path is not a file: {}.", filePath)};
             }
         }
     }
@@ -175,7 +175,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindQueryScanSource(const BaseScanS
     auto boundStatement = bind(*querySource->statement);
     auto columns = boundStatement->getStatementResult()->getColumns();
     if (columns.size() != columnNames.size()) {
-        throw BinderException(stringFormat("Query returns {} columns but {} columns were expected.",
+        throw BinderException(std::format("Query returns {} columns but {} columns were expected.",
             columns.size(), columnNames.size()));
     }
     for (auto i = 0u; i < columns.size(); ++i) {
@@ -193,7 +193,7 @@ static TableFunction getObjectScanFunc(const std::string& dbName, const std::str
     auto entry = attachedCatalog->getTableCatalogEntry(
         transaction::Transaction::Get(*clientContext), tableName);
     auto scanFunc = entry->ptrCast<TableCatalogEntry>()->getScanFunction();
-    KU_ASSERT(scanFunc.has_value());
+    DASSERT(scanFunc.has_value());
     return *scanFunc;
 }
 
@@ -204,7 +204,7 @@ BoundTableScanInfo bindTableScanSourceInfo(Binder& binder, TableFunction func,
     if (columnTypes.empty()) {
     } else {
         if (bindData->getNumColumns() != columnTypes.size()) {
-            throw BinderException(stringFormat("{} has {} columns but {} columns were expected.",
+            throw BinderException(std::format("{} has {} columns but {} columns were expected.",
                 sourceName, bindData->getNumColumns(), columnTypes.size()));
         }
         for (auto i = 0u; i < bindData->getNumColumns(); ++i) {
@@ -226,7 +226,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindParameterScanSource(
     auto paramExpr = expressionBinder.bindParameterExpression(*paramSource->paramExpression);
     auto scanSourceValue = paramExpr->constCast<ParameterExpression>().getValue();
     if (scanSourceValue.getDataType().getLogicalTypeID() != LogicalTypeID::POINTER) {
-        throw BinderException(stringFormat(
+        throw BinderException(std::format(
             "Trying to scan from unsupported data type {}. The only parameter types that can be "
             "scanned from are pandas/polars dataframes and pyarrow tables.",
             scanSourceValue.getDataType().toString()));
@@ -284,7 +284,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScan
         bindData = func.bindFunc(clientContext, &bindInput);
     } else {
         // LCOV_EXCL_START
-        throw BinderException(stringFormat("Cannot find object {}.",
+        throw BinderException(std::format("Cannot find object {}.",
             StringUtils::join(objectSource->objectNames, ",")));
         // LCOV_EXCL_STOP
     }
@@ -305,7 +305,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindTableFuncScanSource(
     auto boundTableFunc = bindTableFunc(parsedFuncExpression.getFunctionName(),
         *tableFuncScanSource->functionExpression, {} /* yieldVariables */);
     auto& tableFunc = boundTableFunc.func;
-    KU_ASSERT(tableFunc.has_value());
+    DASSERT(tableFunc.has_value());
     auto info = bindTableScanSourceInfo(*this, *tableFunc, tableFunc->name,
         std::move(boundTableFunc.bindData), columnNames, columnTypes);
     return std::make_unique<BoundTableScanSource>(ScanSourceType::OBJECT, std::move(info));

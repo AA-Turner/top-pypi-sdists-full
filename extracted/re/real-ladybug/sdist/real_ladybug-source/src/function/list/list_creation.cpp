@@ -1,3 +1,5 @@
+#include <unordered_set>
+
 #include "binder/expression/expression_util.h"
 #include "function/list/vector_list_functions.h"
 #include "function/scalar_function.h"
@@ -29,9 +31,33 @@ void ListCreationFunction::execFunc(
 
 static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& input) {
     LogicalType combinedType(LogicalTypeID::ANY);
-    binder::ExpressionUtil::tryCombineDataType(input.arguments, combinedType);
-    if (combinedType.getLogicalTypeID() == LogicalTypeID::ANY) {
-        combinedType = LogicalType::INT64();
+    std::unordered_set<LogicalTypeID> distinctTypes;
+    for (auto& arg : input.arguments) {
+        auto typeID = arg->getDataType().getLogicalTypeID();
+        if (typeID != LogicalTypeID::ANY) {
+            distinctTypes.insert(typeID);
+        }
+    }
+    const bool mixedConcreteTypes = distinctTypes.size() > 1;
+    if (mixedConcreteTypes) {
+        binder::ExpressionUtil::tryCombineDataType(input.arguments, combinedType);
+        if (combinedType.getLogicalTypeID() == LogicalTypeID::ANY) {
+            if (distinctTypes.contains(LogicalTypeID::STRING)) {
+                combinedType = LogicalType::STRING();
+            } else {
+                for (auto& arg : input.arguments) {
+                    if (arg->getDataType().getLogicalTypeID() != LogicalTypeID::ANY) {
+                        combinedType = arg->getDataType().copy();
+                        break;
+                    }
+                }
+            }
+        }
+    } else {
+        binder::ExpressionUtil::tryCombineDataType(input.arguments, combinedType);
+        if (combinedType.getLogicalTypeID() == LogicalTypeID::ANY) {
+            combinedType = LogicalType::INT64();
+        }
     }
     auto resultType = LogicalType::LIST(combinedType.copy());
     auto bindData = std::make_unique<FunctionBindData>(std::move(resultType));

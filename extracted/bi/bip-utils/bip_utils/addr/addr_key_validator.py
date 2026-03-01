@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,14 @@
 from typing import Type, Union
 
 from bip_utils.ecc import (
-    Ed25519Blake2bPublicKey, Ed25519MoneroPublicKey, Ed25519PublicKey, EllipticCurveGetter, IPublicKey,
-    Nist256p1PublicKey, Secp256k1PublicKey, Sr25519PublicKey
+    Ed25519Blake2bPublicKey,
+    Ed25519MoneroPublicKey,
+    Ed25519PublicKey,
+    EllipticCurveGetter,
+    IPublicKey,
+    Nist256p1PublicKey,
+    Secp256k1PublicKey,
+    Sr25519PublicKey,
 )
 
 

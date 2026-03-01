@@ -744,7 +744,7 @@ def transform_gizmo_set(
     /,
     *,
     extend: bool | None = False,
-    type: set[typing.Literal["TRANSLATE", "ROTATE", "SCALE"]] | None = {},
+    type: set[typing.Literal["TRANSLATE", "ROTATE", "SCALE"]] | None = set(),
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the current transform gizmo
 

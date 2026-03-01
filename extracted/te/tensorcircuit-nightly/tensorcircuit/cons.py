@@ -16,6 +16,7 @@ import numpy as np
 import opt_einsum
 import tensornetwork as tn
 from tensornetwork.backend_contextmanager import get_default_backend
+from networkx.utils import UnionFind
 
 from .backends.numpy_backend import NumpyBackend
 from .backends import get_backend
@@ -501,6 +502,118 @@ def get_symbol(i: int) -> str:
     return chr(i)
 
 
+def _extract_topology(
+    nodes: List[tn.Node],
+) -> Tuple[List[Any], List[str], str, Dict[str, int]]:
+    """
+    Convert a physical tensor network graph (with possible CopyNodes) into
+    algebraic components for einsum/cotengra.
+    """
+    # split nodes into regular nodes and CopyNodes
+    nodes = sorted(nodes, key=lambda node: getattr(node, "_stable_id_", -1))
+    regular_nodes = [n for n in nodes if not isinstance(n, tn.CopyNode)]
+    copy_nodes = [n for n in nodes if isinstance(n, tn.CopyNode)]
+
+    uf = UnionFind()
+    all_edges = tn.get_all_edges(nodes)
+    for edge in all_edges:
+        uf[edge]  # init
+
+    for cn in copy_nodes:
+        edges = cn.edges
+        if edges:
+            root_edge = edges[0]
+            for i in range(1, len(edges)):
+                uf.union(root_edge, edges[i])
+
+    mapping_dict = {}
+    symbol_counter = 0
+
+    input_sets = []
+    raw_tensors = []
+    for node in regular_nodes:
+        node_symbols = []
+        for edge in node.edges:
+            root = uf[edge]
+            if root not in mapping_dict:
+                mapping_dict[root] = get_symbol(symbol_counter)
+                symbol_counter += 1
+            node_symbols.append(mapping_dict[root])
+        input_sets.append("".join(node_symbols))
+        raw_tensors.append(node.tensor)
+
+    dangling_edges = sorted_edges(tn.get_subgraph_dangling(nodes))
+    output_set = []
+    for edge in dangling_edges:
+        root = uf[edge]
+        if root not in mapping_dict:
+            mapping_dict[root] = get_symbol(symbol_counter)
+            symbol_counter += 1
+        output_set.append(mapping_dict[root])
+
+    size_dict = {symbol: root.dimension for root, symbol in mapping_dict.items()}
+    return (
+        raw_tensors,
+        input_sets,
+        "".join(output_set),
+        size_dict,
+    )
+
+
+def _algebraic_base_contraction(
+    nodes: List[tn.Node],
+    algorithm: Any,
+    output_edge_order: Optional[Sequence[tn.Edge]] = None,
+    ignore_edge_order: bool = False,
+) -> tn.Node:
+    """
+    Execute contraction using cotengra and autoray for bare tensors.
+    """
+    import cotengra as ctg
+
+    raw_tensors, input_sets, output_set, size_dict = _extract_topology(nodes)
+    # Use the backend of the first node
+    be = nodes[0].backend
+
+    if len(raw_tensors) == 1:
+        # Avoid cotengra bug for empty contraction paths
+        final_raw_tensor = be.einsum(input_sets[0] + "->" + output_set, *raw_tensors)
+    else:
+        path = algorithm(input_sets, output_set, size_dict)
+        logger.info("the contraction path is given as %s" % str(path))
+
+        tree = ctg.ContractionTree.from_path(
+            input_sets, output_set, size_dict, path=path
+        )
+
+        # Use autoray to keep AD and JIT support across backends
+        # Note: cotengra's make_contractor handles the orchestration
+        contractor = ctg.core.make_contractor(tree, implementation="autoray")
+        final_raw_tensor = contractor(*raw_tensors)
+
+    final_node = tn.Node(final_raw_tensor, backend=be)
+
+    # Resolve dangling edges in the same order as in _extract_topology
+    dangling_edges = sorted_edges(tn.get_subgraph_dangling(nodes))
+
+    # Update the edges to point to the new final_node
+    for i, edge in enumerate(dangling_edges):
+        if edge.node1 in nodes:
+            edge.node1 = final_node
+            edge.axis1 = i
+        else:
+            edge.node2 = final_node
+            edge.axis2 = i
+    final_node.edges = list(dangling_edges)
+
+    if not ignore_edge_order:
+        if output_edge_order is None:
+            output_edge_order = dangling_edges
+        final_node.reorder_edges(list(output_edge_order))
+
+    return final_node
+
+
 def _get_path(
     nodes: List[tn.Node], algorithm: Any
 ) -> Tuple[List[Tuple[int, int]], List[tn.Node]]:
@@ -595,6 +708,7 @@ def _base(
     ignore_edge_order: bool = False,
     total_size: Optional[int] = None,
     debug_level: int = 0,
+    use_primitives: Optional[bool] = None,
 ) -> tn.Node:
     """
     The base method for all `opt_einsum` contractors.
@@ -638,6 +752,21 @@ def _base(
                 "output edges are not equal to the remaining "
                 "non-contracted edges of the final node."
             )
+
+    # 1. Resolve topology and check for hyperedges
+    has_hyperedges = any(isinstance(n, tn.CopyNode) for n in nodes)
+
+    if use_primitives is True or (use_primitives is None and has_hyperedges):
+        # ==========================================
+        # NEW ALGEBRAIC EXECUTION PATH (Opt-in)
+        # ==========================================
+        return _algebraic_base_contraction(
+            nodes, algorithm, output_edge_order, ignore_edge_order
+        )
+
+    # ==========================================
+    # ORIGINAL EXECUTION PATH (100% Backward Compatible)
+    # ==========================================
 
     for edge in edges:
         if not edge.is_disabled:  # if its disabled we already contracted it
@@ -750,12 +879,21 @@ def custom(
     memory_limit: Optional[int] = None,
     output_edge_order: Optional[List[Any]] = None,
     ignore_edge_order: bool = False,
+    debug_level: int = 0,
+    use_primitives: Optional[bool] = None,
     **kws: Any,
 ) -> Any:
     if len(nodes) < 5:
         alg = opt_einsum.paths.optimal
         # not good at minimize WRITE actually...
-        return _base(nodes, alg, output_edge_order, ignore_edge_order)
+        return _base(
+            nodes,
+            alg,
+            output_edge_order,
+            ignore_edge_order,
+            debug_level=debug_level,
+            use_primitives=use_primitives,
+        )
 
     total_size = None
     if kws.get("preprocessing", None):
@@ -773,6 +911,7 @@ def custom(
         ignore_edge_order,
         total_size,
         debug_level=debug_level,
+        use_primitives=use_primitives,
     )
 
 
@@ -783,13 +922,20 @@ def custom_stateful(
     opt_conf: Optional[Dict[str, Any]] = None,
     output_edge_order: Optional[List[Any]] = None,
     ignore_edge_order: bool = False,
+    use_primitives: Optional[bool] = None,
     **kws: Any,
 ) -> Any:
     if len(nodes) < 5:
         alg = opt_einsum.paths.optimal
         # dynamic_programming has a potential bug for outer product
         # not good at minimize WRITE actually...
-        return _base(nodes, alg, output_edge_order, ignore_edge_order)
+        return _base(
+            nodes,
+            alg,
+            output_edge_order,
+            ignore_edge_order,
+            use_primitives=use_primitives,
+        )
 
     total_size = None
     if kws.get("preprocessing", None):
@@ -809,6 +955,7 @@ def custom_stateful(
         ignore_edge_order,
         total_size,
         debug_level=debug_level,
+        use_primitives=use_primitives,
     )
 
 
@@ -860,6 +1007,7 @@ def set_contractor(
     set_global: bool = True,
     contraction_info: bool = False,
     debug_level: int = 0,
+    use_primitives: Optional[bool] = None,
     **kws: Any,
 ) -> Callable[..., Any]:
     """
@@ -927,6 +1075,7 @@ def set_contractor(
             opt_conf=opt_conf,
             contraction_info=contraction_info,
             debug_level=debug_level,
+            use_primitives=use_primitives,
             **kws,
         )
 
@@ -947,6 +1096,7 @@ def set_contractor(
             optimizer=optimizer,
             memory_limit=memory_limit,
             debug_level=debug_level,
+            use_primitives=use_primitives,
             **kws,
         )
     if set_global:

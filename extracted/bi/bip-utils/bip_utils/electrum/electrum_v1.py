@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -285,7 +285,7 @@ class ElectrumV1:
             bytes: Sequence bytes
         """
         return DoubleSha256.QuickDigest(
-            AlgoUtils.Encode(f"{addr_idx}:{change_idx}:") +         # noqa: E231, W504
+            AlgoUtils.Encode(f"{addr_idx}:{change_idx}:") +
             self.MasterPublicKey().RawUncompressed().ToBytes()[1:]
         )
 

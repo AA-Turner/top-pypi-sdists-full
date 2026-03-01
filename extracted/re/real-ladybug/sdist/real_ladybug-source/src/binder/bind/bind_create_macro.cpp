@@ -2,10 +2,10 @@
 #include "binder/bound_create_macro.h"
 #include "catalog/catalog.h"
 #include "common/exception/binder.h"
-#include "common/string_format.h"
 #include "common/string_utils.h"
 #include "parser/create_macro.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -14,12 +14,12 @@ namespace lbug {
 namespace binder {
 
 std::unique_ptr<BoundStatement> Binder::bindCreateMacro(const Statement& statement) const {
-    auto& createMacro = ku_dynamic_cast<const CreateMacro&>(statement);
+    auto& createMacro = dynamic_cast_checked<const CreateMacro&>(statement);
     auto macroName = createMacro.getMacroName();
     StringUtils::toUpper(macroName);
     if (catalog::Catalog::Get(*clientContext)
             ->containsMacro(transaction::Transaction::Get(*clientContext), macroName)) {
-        throw BinderException{stringFormat("Macro {} already exists.", macroName)};
+        throw BinderException{std::format("Macro {} already exists.", macroName)};
     }
     parser::default_macro_args defaultArgs;
     for (auto& defaultArg : createMacro.getDefaultArgs()) {

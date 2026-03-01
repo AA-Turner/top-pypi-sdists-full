@@ -4,6 +4,7 @@
 #include "function/table/bind_input.h"
 #include "function/table/simple_table_function.h"
 #include "graph/graph_entry_set.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::main;
@@ -16,7 +17,7 @@ struct ProjectedGraphInfo {
 
     template<class TARGET>
     const TARGET& constCast() const {
-        return common::ku_dynamic_cast<const TARGET&>(*this);
+        return common::dynamic_cast_checked<const TARGET&>(*this);
     }
 
     virtual std::unique_ptr<ProjectedGraphInfo> copy() const = 0;
@@ -93,7 +94,7 @@ static offset_t internalTableFunc(const TableFuncMorsel& morsel, const TableFunc
         return 1;
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -104,7 +105,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(const ClientContext* context,
     auto graphName = input->getValue(0).toString();
     auto graphEntrySet = graph::GraphEntrySet::Get(*context);
     if (!graphEntrySet->hasGraph(graphName)) {
-        throw BinderException(stringFormat("Graph {} does not exist.", graphName));
+        throw BinderException(std::format("Graph {} does not exist.", graphName));
     }
     auto graphEntry = graphEntrySet->getEntry(graphName);
     switch (graphEntry->type) {
@@ -121,7 +122,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(const ClientContext* context,
         returnTypes.emplace_back(LogicalType::STRING());
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
     returnColumnNames =
@@ -148,7 +149,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(const ClientContext* context,
         projectedGraphInfo = std::make_unique<NativeProjectedGraphInfo>(std::move(tableInfo));
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     return std::make_unique<ProjectedGraphInfoBindData>(std::move(columns), graphEntry->type,
         std::move(projectedGraphInfo));

@@ -1,33 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: starlette-context
-Version: 0.4.0
+Version: 0.5.1
 Summary: Middleware for Starlette that allows you to store and access the context data of a request. Can be used with logging so logs automatically use request headers such as x-request-id or x-correlation-id.
-Home-page: https://github.com/tomwojcik/starlette-context
-License: MIT
-Keywords: middleware,starlette,fastapi
-Author: Tom Wojcik
-Author-email: starlette-context-pkg@tomwojcik.com
-Requires-Python: >=3.9,<4.0
+Project-URL: Homepage, https://github.com/tomwojcik/starlette-context
+Project-URL: Repository, https://github.com/tomwojcik/starlette-context
+Project-URL: Documentation, https://starlette-context.readthedocs.io/
+Author-email: Tom Wojcik <starlette-context-pkg@tomwojcik.com>
+License-Expression: MIT
+License-File: AUTHORS
+License-File: LICENSE
+Keywords: fastapi,middleware,starlette
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
-Requires-Dist: starlette (>=0.27.0)
-Project-URL: Documentation, https://starlette-context.readthedocs.io/
-Project-URL: Repository, https://github.com/tomwojcik/starlette-context
+Requires-Python: >=3.10
+Requires-Dist: starlette>=0.27.0
 Description-Content-Type: text/markdown
 
 # starlette-context
 
 [![Test Suite](https://github.com/tomwojcik/starlette-context/actions/workflows/test-suite.yml/badge.svg)](https://github.com/tomwojcik/starlette-context/actions/workflows/test-suite.yml)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![PyPI version](https://badge.fury.io/py/starlette-context.svg)](https://badge.fury.io/py/starlette-context)
 [![codecov](https://codecov.io/gh/tomwojcik/starlette-context/branch/master/graph/badge.svg)](https://codecov.io/gh/tomwojcik/starlette-context)
 [![Docs](https://readthedocs.org/projects/pip/badge/?version=latest)](https://starlette-context.readthedocs.io/)
@@ -44,7 +45,7 @@ Middleware for Starlette that allows you to store and access the context data of
 ## Installation
 
 ```bash
-# Python 3.9+
+# Python 3.10+
 pip install starlette-context
 ```
 
@@ -116,4 +117,3 @@ A huge thank you to [Adverity](https://www.adverity.com/) for sponsoring the dev
 ## Contribution
 
 See the [contributing guide](https://starlette-context.readthedocs.io/en/latest/contributing.html).
-

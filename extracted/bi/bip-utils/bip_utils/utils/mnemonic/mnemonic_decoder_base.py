@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,9 @@ from typing import Optional, Tuple, Type, Union
 
 from bip_utils.utils.mnemonic.mnemonic import Mnemonic, MnemonicLanguages
 from bip_utils.utils.mnemonic.mnemonic_utils import (
-    MnemonicWordsList, MnemonicWordsListFinderBase, MnemonicWordsListGetterBase
+    MnemonicWordsList,
+    MnemonicWordsListFinderBase,
+    MnemonicWordsListGetterBase,
 )
 
 
@@ -48,7 +50,7 @@ class MnemonicDecoderBase(ABC):
         Construct class.
 
         Args:
-            lang (MoneroLanguages, optional)                   : Language, None for automatic detection
+            lang (MnemonicLanguages, optional)                 : Language, None for automatic detection
             words_list_finder_cls (MnemonicWordsListFinderBase): Words list finder class type
             words_list_getter_cls (MnemonicWordsListGetterBase): Words list getter class type
 

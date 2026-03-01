@@ -1,10 +1,10 @@
 #include "function/cast/functions/cast_from_string_functions.h"
 
 #include "common/exception/parser.h"
-#include "common/string_format.h"
 #include "common/types/blob.h"
 #include "function/list/functions/list_unique_function.h"
 #include "utf8proc_wrapper.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -137,15 +137,15 @@ inline void CastStringHelper::cast(const char* input, uint64_t len, interval_t& 
 
 // ---------------------- cast String to Blob ------------------------------ //
 template<>
-void CastString::operation(const ku_string_t& input, blob_t& result, ValueVector* resultVector,
+void CastString::operation(const string_t& input, blob_t& result, ValueVector* resultVector,
     uint64_t /*rowToAdd*/, const CSVOption* /*option*/) {
     result.value.len = Blob::getBlobSize(input);
-    if (!ku_string_t::isShortString(result.value.len)) {
+    if (!string_t::isShortString(result.value.len)) {
         auto overflowBuffer = StringVector::getInMemOverflowBuffer(resultVector);
         auto overflowPtr = overflowBuffer->allocateSpace(result.value.len);
         result.value.overflowPtr = reinterpret_cast<int64_t>(overflowPtr);
         Blob::fromString(reinterpret_cast<const char*>(input.getData()), input.len, overflowPtr);
-        memcpy(result.value.prefix, overflowPtr, ku_string_t::PREFIX_LENGTH);
+        memcpy(result.value.prefix, overflowPtr, string_t::PREFIX_LENGTH);
     } else {
         Blob::fromString(reinterpret_cast<const char*>(input.getData()), input.len,
             result.value.prefix);
@@ -163,15 +163,15 @@ void CastStringHelper::cast(const char* input, uint64_t len, blob_t& /*result*/,
 
 //---------------------- cast String to UUID ------------------------------ //
 template<>
-void CastString::operation(const ku_string_t& input, ku_uuid_t& result,
-    ValueVector* /*result_vector*/, uint64_t /*rowToAdd*/, const CSVOption* /*option*/) {
+void CastString::operation(const string_t& input, uuid& result, ValueVector* /*result_vector*/,
+    uint64_t /*rowToAdd*/, const CSVOption* /*option*/) {
     result.value = UUID::fromString(input.getAsString());
 }
 
 // LCOV_EXCL_START
 template<>
-void CastStringHelper::cast(const char* input, uint64_t len, ku_uuid_t& result,
-    ValueVector* /*vector*/, uint64_t /*rowToAdd*/, const CSVOption* /*option*/) {
+void CastStringHelper::cast(const char* input, uint64_t len, uuid& result, ValueVector* /*vector*/,
+    uint64_t /*rowToAdd*/, const CSVOption* /*option*/) {
     result.value = UUID::fromCString(input, len);
 }
 // LCOV_EXCL_STOP
@@ -183,7 +183,7 @@ static void skipWhitespace(const char*& input, const char* end) {
             // We only skip ASCII white spaces there.
             break;
         } else {
-            KU_ASSERT(*input >= -1);
+            DASSERT(*input >= -1);
             if (!isspace(*input)) {
                 break;
             }
@@ -377,7 +377,7 @@ static inline void startListCast(const char* input, uint64_t len, T split, const
 static void validateNumElementsInArray(uint64_t numElementsRead, const LogicalType& type) {
     auto numElementsInArray = ArrayType::getNumElements(type);
     if (numElementsRead != numElementsInArray) {
-        throw ConversionException(stringFormat(
+        throw ConversionException(std::format(
             "Each array should have fixed number of elements. Expected: {}, Actual: {}.",
             numElementsInArray, numElementsRead));
     }
@@ -409,8 +409,8 @@ void CastStringHelper::cast(const char* input, uint64_t len, list_entry_t& /*res
 }
 
 template<>
-void CastString::operation(const ku_string_t& input, list_entry_t& result,
-    ValueVector* resultVector, uint64_t rowToAdd, const CSVOption* option) {
+void CastString::operation(const string_t& input, list_entry_t& result, ValueVector* resultVector,
+    uint64_t rowToAdd, const CSVOption* option) {
     CastStringHelper::cast(reinterpret_cast<const char*>(input.getData()), input.len, result,
         resultVector, rowToAdd, option);
 }
@@ -543,7 +543,7 @@ void CastStringHelper::cast(const char* input, uint64_t len, map_entry_t& /*resu
 }
 
 template<>
-void CastString::operation(const ku_string_t& input, map_entry_t& result, ValueVector* resultVector,
+void CastString::operation(const string_t& input, map_entry_t& result, ValueVector* resultVector,
     uint64_t rowToAdd, const CSVOption* option) {
     CastStringHelper::cast(reinterpret_cast<const char*>(input.getData()), input.len, result,
         resultVector, rowToAdd, option);
@@ -658,8 +658,8 @@ void CastStringHelper::cast(const char* input, uint64_t len, struct_entry_t& /*r
 }
 
 template<>
-void CastString::operation(const ku_string_t& input, struct_entry_t& result,
-    ValueVector* resultVector, uint64_t rowToAdd, const CSVOption* option) {
+void CastString::operation(const string_t& input, struct_entry_t& result, ValueVector* resultVector,
+    uint64_t rowToAdd, const CSVOption* option) {
     CastStringHelper::cast(reinterpret_cast<const char*>(input.getData()), input.len, result,
         resultVector, rowToAdd, option);
 }
@@ -769,7 +769,7 @@ static bool tryCastUnionField(ValueVector* vector, uint64_t rowToAdd, const char
             testAndSetValue(vector, rowToAdd, result, success);
         } break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     case LogicalTypeID::DATE: {
@@ -842,7 +842,7 @@ void CastStringHelper::cast(const char* input, uint64_t len, union_entry_t& /*re
     }
 
     if (selectedFieldIdx == INVALID_STRUCT_FIELD_IDX) {
-        throw ConversionException{stringFormat("Could not convert to union type {}: {}.",
+        throw ConversionException{std::format("Could not convert to union type {}: {}.",
             type.toString(), std::string{input, (size_t)len})};
     }
     StructVector::getFieldVector(vector, UnionType::TAG_FIELD_IDX)
@@ -852,8 +852,8 @@ void CastStringHelper::cast(const char* input, uint64_t len, union_entry_t& /*re
 }
 
 template<>
-void CastString::operation(const ku_string_t& input, union_entry_t& result,
-    ValueVector* resultVector, uint64_t rowToAdd, const CSVOption* CSVOption) {
+void CastString::operation(const string_t& input, union_entry_t& result, ValueVector* resultVector,
+    uint64_t rowToAdd, const CSVOption* CSVOption) {
     CastStringHelper::cast(reinterpret_cast<const char*>(input.getData()), input.len, result,
         resultVector, rowToAdd, CSVOption);
 }
@@ -961,7 +961,7 @@ void CastString::copyStringToVector(ValueVector* vector, uint64_t vectorPos,
             vector->setValue(vectorPos, val);
         } break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     case LogicalTypeID::DOUBLE: {
@@ -979,7 +979,7 @@ void CastString::copyStringToVector(ValueVector* vector, uint64_t vectorPos,
         CastStringHelper::cast(strVal.data(), strVal.length(), val, vector, vectorPos, option);
     } break;
     case LogicalTypeID::UUID: {
-        ku_uuid_t val{};
+        uuid val{};
         CastStringHelper::cast(strVal.data(), strVal.length(), val);
         vector->setValue(vectorPos, val.value);
     } break;
@@ -1047,7 +1047,7 @@ void CastString::copyStringToVector(ValueVector* vector, uint64_t vectorPos,
         CastStringHelper::cast(strVal.data(), strVal.length(), val, vector, vectorPos, option);
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }

@@ -79,16 +79,16 @@ std::string VirtualFileSystem::expandPath(main::ClientContext* context,
 
 void VirtualFileSystem::readFromFile(FileInfo& /*fileInfo*/, void* /*buffer*/,
     uint64_t /*numBytes*/, uint64_t /*position*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 int64_t VirtualFileSystem::readFile(FileInfo& /*fileInfo*/, void* /*buf*/, size_t /*nbyte*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 void VirtualFileSystem::writeFile(FileInfo& /*fileInfo*/, const uint8_t* /*buffer*/,
     uint64_t /*numBytes*/, uint64_t /*offset*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 void VirtualFileSystem::syncFile(const FileInfo& fileInfo) const {
@@ -111,15 +111,15 @@ function::TableFunction VirtualFileSystem::getHandleFunction(const std::string& 
 }
 
 int64_t VirtualFileSystem::seek(FileInfo& /*fileInfo*/, uint64_t /*offset*/, int /*whence*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 void VirtualFileSystem::truncate(FileInfo& /*fileInfo*/, uint64_t /*size*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 uint64_t VirtualFileSystem::getFileSize(const FileInfo& /*fileInfo*/) const {
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 FileSystem* VirtualFileSystem::findFileSystem(const std::string& path) const {
@@ -133,6 +133,21 @@ FileSystem* VirtualFileSystem::findFileSystem(const std::string& path) const {
 
 VirtualFileSystem* VirtualFileSystem::GetUnsafe(const main::ClientContext& context) {
     return context.getDatabase()->getVFS();
+}
+
+std::string VirtualFileSystem::resolvePath(main::ClientContext* context, const std::string& path) {
+    if (!context) {
+        return path;
+    }
+    auto vfs = GetUnsafe(*context);
+    if (!vfs) {
+        return path;
+    }
+    auto paths = vfs->glob(context, path);
+    if (!paths.empty()) {
+        return paths.front();
+    }
+    return path;
 }
 
 } // namespace common

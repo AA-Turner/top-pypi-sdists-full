@@ -6,6 +6,7 @@
 #include "common/exception/binder.h"
 #include "function/built_in_function_utils.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::catalog;
@@ -38,7 +39,7 @@ static bool isNodeOrRel(const Expression& expression) {
 std::shared_ptr<Expression> ExpressionBinder::bindComparisonExpression(
     ExpressionType expressionType, const expression_vector& children) {
     // Rewrite node or rel comparison
-    KU_ASSERT(children.size() == 2);
+    DASSERT(children.size() == 2);
     if (isNodeOrRel(*children[0]) && isNodeOrRel(*children[1])) {
         expression_vector newChildren;
         newChildren.push_back(children[0]->constCast<NodeOrRelExpression>().getInternalID());
@@ -51,7 +52,7 @@ std::shared_ptr<Expression> ExpressionBinder::bindComparisonExpression(
     auto functionName = ExpressionTypeUtil::toString(expressionType);
     LogicalType combinedType(LogicalTypeID::ANY);
     if (!ExpressionUtil::tryCombineDataType(children, combinedType)) {
-        throw BinderException(stringFormat("Type Mismatch: Cannot compare types {} and {}",
+        throw BinderException(std::format("Type Mismatch: Cannot compare types {} and {}",
             children[0]->dataType.toString(), children[1]->dataType.toString()));
     }
     if (combinedType.getLogicalTypeID() == LogicalTypeID::ANY) {

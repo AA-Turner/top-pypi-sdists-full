@@ -14,13 +14,14 @@
 #include "common/string_utils.h"
 #include "common/types/int128_t.h"
 #include "common/types/interval_t.h"
-#include "common/types/ku_list.h"
-#include "common/types/ku_string.h"
+#include "common/types/list_t.h"
+#include "common/types/string_t.h"
 #include "common/types/uint128_t.h"
 #include "function/built_in_function_utils.h"
 #include "function/cast/functions/numeric_limits.h"
 #include "storage/compression/float_compression.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using lbug::function::BuiltInFunctionsUtils;
 
@@ -100,38 +101,38 @@ void UDTTypeInfo::serializeInternal(Serializer& serializer) const {
 }
 
 uint32_t DecimalType::getPrecision(const LogicalType& type) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::DECIMAL);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::DECIMAL);
     auto decimalTypeInfo = type.extraTypeInfo->constPtrCast<DecimalTypeInfo>();
     return decimalTypeInfo->getPrecision();
 }
 
 uint32_t DecimalType::getScale(const LogicalType& type) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::DECIMAL);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::DECIMAL);
     auto decimalTypeInfo = type.extraTypeInfo->constPtrCast<DecimalTypeInfo>();
     return decimalTypeInfo->getScale();
 }
 
 const LogicalType& ListType::getChildType(const lbug::common::LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::LIST ||
-              type.getPhysicalType() == PhysicalTypeID::ARRAY);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::LIST ||
+            type.getPhysicalType() == PhysicalTypeID::ARRAY);
     auto listTypeInfo = type.extraTypeInfo->constPtrCast<ListTypeInfo>();
     return listTypeInfo->getChildType();
 }
 
 const LogicalType& ArrayType::getChildType(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::ARRAY);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::ARRAY);
     auto arrayTypeInfo = type.extraTypeInfo->constPtrCast<ArrayTypeInfo>();
     return arrayTypeInfo->getChildType();
 }
 
 uint64_t ArrayType::getNumElements(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::ARRAY);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::ARRAY);
     auto arrayTypeInfo = type.extraTypeInfo->constPtrCast<ArrayTypeInfo>();
     return arrayTypeInfo->getNumElements();
 }
 
 std::vector<const LogicalType*> StructType::getFieldTypes(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getChildrenTypes();
 }
@@ -145,53 +146,53 @@ const LogicalType& StructType::getFieldType(const LogicalType& type, const std::
 }
 
 std::vector<std::string> StructType::getFieldNames(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getChildrenNames();
 }
 
 uint64_t StructType::getNumFields(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     return getFields(type).size();
 }
 
 const std::vector<StructField>& StructType::getFields(const LogicalType& type) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getStructFields();
 }
 
 bool StructType::hasField(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->hasField(key);
 }
 
 const StructField& StructType::getField(const LogicalType& type, struct_field_idx_t idx) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getStructField(idx);
 }
 
 const StructField& StructType::getField(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getStructField(key);
 }
 
 struct_field_idx_t StructType::getFieldIdx(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getStructFieldIdx(key);
 }
 
 const LogicalType& MapType::getKeyType(const LogicalType& type) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::MAP);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::MAP);
     return *StructType::getFieldTypes(ListType::getChildType(type))[0];
 }
 
 const LogicalType& MapType::getValueType(const LogicalType& type) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::MAP);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::MAP);
     return *StructType::getFieldTypes(ListType::getChildType(type))[1];
 }
 
@@ -200,32 +201,32 @@ union_field_idx_t UnionType::getInternalFieldIdx(union_field_idx_t idx) {
 }
 
 std::string UnionType::getFieldName(const LogicalType& type, union_field_idx_t idx) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::getFieldNames(type)[getInternalFieldIdx(idx)];
 }
 
 const LogicalType& UnionType::getFieldType(const LogicalType& type, union_field_idx_t idx) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::getFieldType(type, getInternalFieldIdx(idx));
 }
 
 const LogicalType& UnionType::getFieldType(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::getFieldType(type, key);
 }
 
 uint64_t UnionType::getNumFields(const LogicalType& type) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::getNumFields(type) - 1;
 }
 
 bool UnionType::hasField(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::hasField(type, key);
 }
 
 union_field_idx_t UnionType::getFieldIdx(const LogicalType& type, const std::string& key) {
-    KU_ASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
+    DASSERT(type.getLogicalTypeID() == LogicalTypeID::UNION);
     return StructType::getFieldIdx(type, key) - 1; // inverse of getInternalFieldIdx
 }
 
@@ -277,7 +278,7 @@ std::string PhysicalTypeUtils::toString(PhysicalTypeID physicalType) {
     case PhysicalTypeID::ALP_EXCEPTION_DOUBLE:
         return "ALP_EXCEPTION_DOUBLE";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     // LCOV_EXCL_STOP
 }
@@ -319,12 +320,12 @@ uint32_t PhysicalTypeUtils::getFixedTypeSize(PhysicalTypeID physicalType) {
     case PhysicalTypeID::ALP_EXCEPTION_DOUBLE:
         return storage::EncodeException<double>::sizeInBytes();
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
 bool DecimalTypeInfo::operator==(const ExtraTypeInfo& other) const {
-    auto otherDecimalTypeInfo = ku_dynamic_cast<const DecimalTypeInfo*>(&other);
+    auto otherDecimalTypeInfo = dynamic_cast_checked<const DecimalTypeInfo*>(&other);
     if (otherDecimalTypeInfo) {
         return precision == otherDecimalTypeInfo->precision && scale == otherDecimalTypeInfo->scale;
     }
@@ -352,7 +353,7 @@ bool ListTypeInfo::containsAny() const {
 }
 
 bool ListTypeInfo::operator==(const ExtraTypeInfo& other) const {
-    auto otherListTypeInfo = ku_dynamic_cast<const ListTypeInfo*>(&other);
+    auto otherListTypeInfo = dynamic_cast_checked<const ListTypeInfo*>(&other);
     if (otherListTypeInfo) {
         return childType == otherListTypeInfo->childType;
     }
@@ -372,7 +373,7 @@ void ListTypeInfo::serializeInternal(Serializer& serializer) const {
 }
 
 bool ArrayTypeInfo::operator==(const ExtraTypeInfo& other) const {
-    auto otherArrayTypeInfo = ku_dynamic_cast<const ArrayTypeInfo*>(&other);
+    auto otherArrayTypeInfo = dynamic_cast_checked<const ArrayTypeInfo*>(&other);
     if (otherArrayTypeInfo) {
         return childType == otherArrayTypeInfo->childType &&
                numElements == otherArrayTypeInfo->numElements;
@@ -499,7 +500,7 @@ bool StructTypeInfo::containsAny() const {
 }
 
 bool StructTypeInfo::operator==(const ExtraTypeInfo& other) const {
-    auto otherStructTypeInfo = ku_dynamic_cast<const StructTypeInfo*>(&other);
+    auto otherStructTypeInfo = dynamic_cast_checked<const StructTypeInfo*>(&other);
     if (otherStructTypeInfo) {
         if (fields.size() != otherStructTypeInfo->fields.size()) {
             return false;
@@ -596,21 +597,21 @@ std::string LogicalType::toString() const {
     }
     switch (typeID) {
     case LogicalTypeID::MAP: {
-        auto structType = ku_dynamic_cast<ListTypeInfo*>(extraTypeInfo.get())->getChildType();
+        auto structType = dynamic_cast_checked<ListTypeInfo*>(extraTypeInfo.get())->getChildType();
         auto fieldTypes = StructType::getFieldTypes(structType);
         return "MAP(" + fieldTypes[0]->toString() + ", " + fieldTypes[1]->toString() + ")";
     }
     case LogicalTypeID::LIST: {
-        auto listTypeInfo = ku_dynamic_cast<ListTypeInfo*>(extraTypeInfo.get());
+        auto listTypeInfo = dynamic_cast_checked<ListTypeInfo*>(extraTypeInfo.get());
         return listTypeInfo->getChildType().toString() + "[]";
     }
     case LogicalTypeID::ARRAY: {
-        auto arrayTypeInfo = ku_dynamic_cast<ArrayTypeInfo*>(extraTypeInfo.get());
+        auto arrayTypeInfo = dynamic_cast_checked<ArrayTypeInfo*>(extraTypeInfo.get());
         return arrayTypeInfo->getChildType().toString() + "[" +
                std::to_string(arrayTypeInfo->getNumElements()) + "]";
     }
     case LogicalTypeID::UNION: {
-        auto unionTypeInfo = ku_dynamic_cast<StructTypeInfo*>(extraTypeInfo.get());
+        auto unionTypeInfo = dynamic_cast_checked<StructTypeInfo*>(extraTypeInfo.get());
         std::string dataTypeStr = LogicalTypeUtils::toString(typeID) + "(";
         auto numFields = unionTypeInfo->getChildrenTypes().size();
         auto fieldNames = unionTypeInfo->getChildrenNames();
@@ -622,7 +623,7 @@ std::string LogicalType::toString() const {
         return dataTypeStr;
     }
     case LogicalTypeID::STRUCT: {
-        auto structTypeInfo = ku_dynamic_cast<StructTypeInfo*>(extraTypeInfo.get());
+        auto structTypeInfo = dynamic_cast_checked<StructTypeInfo*>(extraTypeInfo.get());
         std::string dataTypeStr = LogicalTypeUtils::toString(typeID) + "(";
         auto numFields = structTypeInfo->getChildrenTypes().size();
         auto fieldNames = structTypeInfo->getChildrenNames();
@@ -636,7 +637,7 @@ std::string LogicalType::toString() const {
         return dataTypeStr + ")";
     }
     case LogicalTypeID::DECIMAL: {
-        auto decimalTypeInfo = ku_dynamic_cast<DecimalTypeInfo*>(extraTypeInfo.get());
+        auto decimalTypeInfo = dynamic_cast_checked<DecimalTypeInfo*>(extraTypeInfo.get());
         return "DECIMAL(" + std::to_string(decimalTypeInfo->getPrecision()) + ", " +
                std::to_string(decimalTypeInfo->getScale()) + ")";
     }
@@ -669,9 +670,10 @@ std::string LogicalType::toString() const {
     case LogicalTypeID::UUID:
     case LogicalTypeID::STRING:
     case LogicalTypeID::SERIAL:
+    case LogicalTypeID::JSON:
         return LogicalTypeUtils::toString(typeID);
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -887,7 +889,8 @@ PhysicalTypeID LogicalType::getPhysicalType(LogicalTypeID typeID,
         return PhysicalTypeID::UINT128;
     }
     case LogicalTypeID::BLOB:
-    case LogicalTypeID::STRING: {
+    case LogicalTypeID::STRING:
+    case LogicalTypeID::JSON: {
         return PhysicalTypeID::STRING;
     }
     case LogicalTypeID::MAP:
@@ -908,7 +911,7 @@ PhysicalTypeID LogicalType::getPhysicalType(LogicalTypeID typeID,
         return PhysicalTypeID::POINTER;
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -966,6 +969,8 @@ bool tryGetIDFromString(const std::string& str, LogicalTypeID& id) {
         id = LogicalTypeID::INTERVAL;
     } else if ("SERIAL" == upperStr) {
         id = LogicalTypeID::SERIAL;
+    } else if ("JSON" == upperStr) {
+        id = LogicalTypeID::JSON;
     } else {
         return false;
     }
@@ -1041,6 +1046,8 @@ std::string LogicalTypeUtils::toString(LogicalTypeID dataTypeID) {
         return "STRUCT";
     case LogicalTypeID::SERIAL:
         return "SERIAL";
+    case LogicalTypeID::JSON:
+        return "JSON";
     case LogicalTypeID::MAP:
         return "MAP";
     case LogicalTypeID::UNION:
@@ -1048,7 +1055,7 @@ std::string LogicalTypeUtils::toString(LogicalTypeID dataTypeID) {
     case LogicalTypeID::POINTER:
         return "POINTER";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     // LCOV_EXCL_STOP
 }
@@ -1080,11 +1087,11 @@ std::string LogicalTypeUtils::toString(const std::vector<LogicalTypeID>& dataTyp
 uint32_t LogicalTypeUtils::getRowLayoutSize(const LogicalType& type) {
     switch (type.getPhysicalType()) {
     case PhysicalTypeID::STRING: {
-        return sizeof(ku_string_t);
+        return sizeof(string_t);
     }
     case PhysicalTypeID::ARRAY:
     case PhysicalTypeID::LIST: {
-        return sizeof(ku_list_t);
+        return sizeof(list_t);
     }
     case PhysicalTypeID::STRUCT: {
         uint32_t size = 0;
@@ -1256,12 +1263,12 @@ std::vector<LogicalTypeID> LogicalTypeUtils::getAllValidLogicTypeIDs() {
         LogicalTypeID::INT64, LogicalTypeID::INT32, LogicalTypeID::INT16, LogicalTypeID::INT8,
         LogicalTypeID::UINT64, LogicalTypeID::UINT32, LogicalTypeID::UINT16, LogicalTypeID::UINT8,
         LogicalTypeID::INT128, LogicalTypeID::UINT128, LogicalTypeID::DOUBLE, LogicalTypeID::STRING,
-        LogicalTypeID::BLOB, LogicalTypeID::UUID, LogicalTypeID::DATE, LogicalTypeID::TIMESTAMP,
-        LogicalTypeID::TIMESTAMP_NS, LogicalTypeID::TIMESTAMP_MS, LogicalTypeID::TIMESTAMP_SEC,
-        LogicalTypeID::TIMESTAMP_TZ, LogicalTypeID::INTERVAL, LogicalTypeID::LIST,
-        LogicalTypeID::ARRAY, LogicalTypeID::MAP, LogicalTypeID::FLOAT, LogicalTypeID::SERIAL,
-        LogicalTypeID::NODE, LogicalTypeID::REL, LogicalTypeID::RECURSIVE_REL,
-        LogicalTypeID::STRUCT, LogicalTypeID::UNION};
+        LogicalTypeID::BLOB, LogicalTypeID::UUID, LogicalTypeID::JSON, LogicalTypeID::DATE,
+        LogicalTypeID::TIMESTAMP, LogicalTypeID::TIMESTAMP_NS, LogicalTypeID::TIMESTAMP_MS,
+        LogicalTypeID::TIMESTAMP_SEC, LogicalTypeID::TIMESTAMP_TZ, LogicalTypeID::INTERVAL,
+        LogicalTypeID::LIST, LogicalTypeID::ARRAY, LogicalTypeID::MAP, LogicalTypeID::FLOAT,
+        LogicalTypeID::SERIAL, LogicalTypeID::NODE, LogicalTypeID::REL,
+        LogicalTypeID::RECURSIVE_REL, LogicalTypeID::STRUCT, LogicalTypeID::UNION};
 }
 
 std::vector<LogicalType> LogicalTypeUtils::getAllValidLogicTypes() {
@@ -1282,6 +1289,7 @@ std::vector<LogicalType> LogicalTypeUtils::getAllValidLogicTypes() {
     typeVec.push_back(LogicalType::STRING());
     typeVec.push_back(LogicalType::BLOB());
     typeVec.push_back(LogicalType::UUID());
+    typeVec.push_back(LogicalType::JSON());
     typeVec.push_back(LogicalType::DATE());
     typeVec.push_back(LogicalType::TIMESTAMP());
     typeVec.push_back(LogicalType::TIMESTAMP_NS());
@@ -1368,7 +1376,7 @@ std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
     auto structFieldStrs = parseStructFields(structFieldsStr);
     auto numFields = structFieldStrs.size();
     if (numFields > INVALID_STRUCT_FIELD_IDX + 1) {
-        throw BinderException(stringFormat("Too many fields in {} definition (max {}, got {})",
+        throw BinderException(std::format("Too many fields in {} definition (max {}, got {})",
             defType, INVALID_STRUCT_FIELD_IDX + 1, numFields));
     }
     std::set<std::string> fieldNames;
@@ -1377,7 +1385,7 @@ std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
         auto fieldName = structFieldStr.substr(0, pos);
         if (!fieldNames.insert(fieldName).second) {
             throw BinderException(
-                stringFormat("Duplicate field '{}' in {} definition", fieldName, defType));
+                std::format("Duplicate field '{}' in {} definition", fieldName, defType));
         }
         auto fieldTypeString = structFieldStr.substr(pos + 1);
         LogicalType fieldType = LogicalType::convertFromString(fieldTypeString, context);
@@ -1588,8 +1596,8 @@ static bool tryCombineUnionTypes(const LogicalType& left, const LogicalType& rig
 */
 
 static LogicalTypeID joinToWiderType(const LogicalTypeID& left, const LogicalTypeID& right) {
-    KU_ASSERT(LogicalTypeUtils::isIntegral(left));
-    KU_ASSERT(LogicalTypeUtils::isIntegral(right));
+    DASSERT(LogicalTypeUtils::isIntegral(left));
+    DASSERT(LogicalTypeUtils::isIntegral(right));
     if (PhysicalTypeUtils::getFixedTypeSize(LogicalType::getPhysicalType(left)) >
         PhysicalTypeUtils::getFixedTypeSize(LogicalType::getPhysicalType(right))) {
         return left;
@@ -1843,7 +1851,7 @@ bool LogicalTypeUtils::tryGetMaxLogicalType(const LogicalType& left, const Logic
             throw ConversionException("Union casting is not supported");
             // return tryCombineUnionTypes(left, right, result);
         default:
-            throw RuntimeException(stringFormat("Casting between {} and {} is not implemented.",
+            throw RuntimeException(std::format("Casting between {} and {} is not implemented.",
                 left.toString(), right.toString()));
             // LCOV_EXCL_END
         }
@@ -1928,7 +1936,7 @@ LogicalType LogicalTypeUtils::combineTypes(const std::vector<LogicalType>& types
     if (types.empty()) {
         // LCOV_EXCL_START
         throw RuntimeException(
-            stringFormat("Trying to combine empty types. This should never happen."));
+            std::format("Trying to combine empty types. This should never happen."));
         // LCOV_EXCL_STOP
     }
     if (types.size() == 1) {

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -185,7 +185,7 @@ class Substrate:
         # Private key object
         if priv_key is not None:
             self.m_priv_key = SubstratePrivateKey.FromBytesOrKeyObject(priv_key, coin_conf)
-            # Use the provided public key if any. This is done because se25519 library returns both the
+            # Use the provided public key if any. This is done because sr25519 library returns both the
             # derived private and public keys, so we can avoid to compute the public key from the private key
             # that takes time
             self.m_pub_key = (SubstratePublicKey.FromBytesOrKeyObject(pub_key, coin_conf)

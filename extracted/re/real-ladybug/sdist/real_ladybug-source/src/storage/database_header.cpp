@@ -11,6 +11,7 @@
 #include "main/client_context.h"
 #include "storage/page_manager.h"
 #include "storage/storage_version_info.h"
+#include <format>
 
 namespace lbug::storage {
 static void validateStorageVersion(common::Deserializer& deSer) {
@@ -22,8 +23,8 @@ static void validateStorageVersion(common::Deserializer& deSer) {
     if (savedStorageVersion != storageVersion) {
         // TODO(Guodong): Add a test case for this.
         throw common::RuntimeException(
-            common::stringFormat("Trying to read a database file with a different version. "
-                                 "Database file version: {}, Current build storage version: {}",
+            std::format("Trying to read a database file with a different version. "
+                        "Database file version: {}, Current build storage version: {}",
                 savedStorageVersion, storageVersion));
     }
 }
@@ -55,6 +56,8 @@ void DatabaseHeader::freeMetadataPageRange(PageManager& pageManager) const {
     }
 }
 
+static constexpr uint8_t HEADER_FORMAT_VERSION_WITH_DATAFILE_NUM_PAGES = 2;
+
 static void writeMagicBytes(common::Serializer& serializer) {
     serializer.writeDebuggingInfo("magic");
     const auto numMagicBytes = strlen(StorageVersionInfo::MAGIC_BYTES);
@@ -75,13 +78,16 @@ void DatabaseHeader::serialize(common::Serializer& ser) const {
     ser.serializeValue(metadataPageRange.numPages);
     ser.writeDebuggingInfo("databaseID");
     ser.serializeValue(databaseID.value);
+    // No debugging info so old readers can stop here; new readers read 9 bytes (version + size).
+    ser.serializeValue(static_cast<uint8_t>(HEADER_FORMAT_VERSION_WITH_DATAFILE_NUM_PAGES));
+    ser.serializeValue(dataFileNumPages);
 }
 
 DatabaseHeader DatabaseHeader::deserialize(common::Deserializer& deSer) {
     validateMagicBytes(deSer);
     validateStorageVersion(deSer);
     PageRange catalogPageRange{}, metaPageRange{};
-    common::ku_uuid_t databaseID{};
+    common::uuid databaseID{};
     std::string key;
     deSer.validateDebuggingInfo(key, "catalog");
     deSer.deserializeValue(catalogPageRange.startPageIdx);
@@ -91,12 +97,20 @@ DatabaseHeader DatabaseHeader::deserialize(common::Deserializer& deSer) {
     deSer.deserializeValue(metaPageRange.numPages);
     deSer.validateDebuggingInfo(key, "databaseID");
     deSer.deserializeValue(databaseID.value);
-    return {catalogPageRange, metaPageRange, databaseID};
+    common::page_idx_t dataFileNumPages = 0;
+    uint8_t headerFormatVersion = 0;
+    // Old format (e.g. lbug-0.14.1) ends here; reading 9 bytes would read beyond logical header.
+    // Read one byte: only if it matches our format version do we read the following 8 bytes.
+    deSer.deserializeValue(headerFormatVersion);
+    if (headerFormatVersion == HEADER_FORMAT_VERSION_WITH_DATAFILE_NUM_PAGES) {
+        deSer.deserializeValue(dataFileNumPages);
+    }
+    return {catalogPageRange, metaPageRange, dataFileNumPages, databaseID};
 }
 
 DatabaseHeader DatabaseHeader::createInitialHeader(common::RandomEngine* randomEngine) {
     // We generate a random UUID to act as the database ID
-    return DatabaseHeader{{}, {}, common::UUID::generateRandomUUID(randomEngine)};
+    return DatabaseHeader{{}, {}, 0, common::UUID::generateRandomUUID(randomEngine)};
 }
 
 std::optional<DatabaseHeader> DatabaseHeader::readDatabaseHeader(common::FileInfo& dataFileInfo) {

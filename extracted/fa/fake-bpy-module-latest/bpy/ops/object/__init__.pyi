@@ -95,7 +95,7 @@ def align(
     bb_quality: bool | None = True,
     align_mode: typing.Literal["OPT_1", "OPT_2", "OPT_3"] | None = "OPT_2",
     relative_to: typing.Literal["OPT_1", "OPT_2", "OPT_3", "OPT_4"] | None = "OPT_4",
-    align_axis: set[typing.Literal["X", "Y", "Z"]] | None = {},
+    align_axis: set[typing.Literal["X", "Y", "Z"]] | None = set(),
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Align objects
 
@@ -190,7 +190,7 @@ def bake(
     *,
     type: Literal[bpy.stub_internal.rna_enums.BakePassTypeItems] | None = "COMBINED",
     pass_filter: set[Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]]
-    | None = {},
+    | None = set(),
     filepath: str | None = "",
     width: int | None = 512,
     height: int | None = 512,
@@ -2381,7 +2381,7 @@ def mode_set_with_submode(
     mode: Literal[bpy.stub_internal.rna_enums.ObjectModeItems] | None = "OBJECT",
     toggle: bool | None = False,
     mesh_select_mode: set[Literal[bpy.stub_internal.rna_enums.MeshSelectModeItems]]
-    | None = {},
+    | None = set(),
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets the object interaction mode
 

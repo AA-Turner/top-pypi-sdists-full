@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,8 @@
 # Imports
 from typing import Any, Union
 
+from typing_extensions import override
+
 from bip_utils.addr.eth_addr import EthAddrDecoder, EthAddrEncoder
 from bip_utils.addr.iaddr_decoder import IAddrDecoder
 from bip_utils.addr.iaddr_encoder import IAddrEncoder
@@ -42,7 +44,7 @@ class OneAddrDecoder(IAddrDecoder):
     def DecodeAddr(addr: str,
                    **kwargs: Any) -> bytes:
         """
-        Decode a OKEx Chain address to bytes.
+        Decode a Harmony One address to bytes.
 
         Args:
             addr (str): Address string
@@ -72,6 +74,7 @@ class OneAddrEncoder(IAddrEncoder):
     It allows the Harmony One address encoding.
     """
 
+    @override
     @staticmethod
     def EncodeKey(pub_key: Union[bytes, IPublicKey],
                   **kwargs: Any) -> str:

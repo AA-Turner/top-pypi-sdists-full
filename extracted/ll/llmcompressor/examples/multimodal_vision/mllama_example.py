@@ -1,14 +1,14 @@
 import requests
+from compressed_tensors.offload import dispatch_model
 from PIL import Image
 from transformers import AutoProcessor, MllamaForConditionalGeneration
 
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import GPTQModifier
-from llmcompressor.utils import dispatch_for_generation
 
 # Load model.
 model_id = "meta-llama/Llama-3.2-11B-Vision-Instruct"
-model = MllamaForConditionalGeneration.from_pretrained(model_id, torch_dtype="auto")
+model = MllamaForConditionalGeneration.from_pretrained(model_id, dtype="auto")
 processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
 
 # Oneshot arguments
@@ -42,7 +42,7 @@ oneshot(
 
 # Confirm generations of the quantized model look sane.
 print("========== SAMPLE GENERATION ==============")
-dispatch_for_generation(model)
+dispatch_model(model)
 messages = [
     {
         "role": "user",

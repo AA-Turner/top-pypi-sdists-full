@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,8 @@
 # Imports
 from enum import IntEnum, unique
 from typing import Any, Union
+
+from typing_extensions import override
 
 from bip_utils.addr.addr_dec_utils import AddrDecUtils
 from bip_utils.addr.addr_key_validator import AddrKeyValidator
@@ -95,6 +97,7 @@ class ErgoP2PKHAddrDecoder(IAddrDecoder):
     It allows the Ergo P2PKH address decoding.
     """
 
+    @override
     @staticmethod
     def DecodeAddr(addr: str,
                    **kwargs: Any) -> bytes:
@@ -146,6 +149,7 @@ class ErgoP2PKHAddrEncoder(IAddrEncoder):
     It allows the Ergo P2PKH address encoding.
     """
 
+    @override
     @staticmethod
     def EncodeKey(pub_key: Union[bytes, IPublicKey],
                   **kwargs: Any) -> str:
@@ -161,7 +165,7 @@ class ErgoP2PKHAddrEncoder(IAddrEncoder):
         Returns:
             str: Address string
 
-        Raised:
+        Raises:
             ValueError: If the public key is not valid
             TypeError: If the public key is not secp256k1 or the network tag is not a ErgoNetworkTypes enum
         """

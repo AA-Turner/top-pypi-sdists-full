@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 0.5.8
+Version: 0.6.0
 Summary: OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -8,9 +8,6 @@ License-File: LICENSE
 Keywords: LLM,NLP,biomedical,clinical,healthcare,medical,medical LLMs,medical NER,medical NLP,medical de-identification,medical extraction,medical language models,medical reasoning,natural language processing
 Requires-Python: >=3.10
 Requires-Dist: pysbd<0.4,>=0.3.4
-Provides-Extra: cli
-Requires-Dist: rich>=13.9; extra == 'cli'
-Requires-Dist: typer>=0.12; extra == 'cli'
 Provides-Extra: dev
 Requires-Dist: flake8>=7.0; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0; extra == 'dev'
@@ -29,9 +26,6 @@ Requires-Dist: accelerate>=0.29; extra == 'hf'
 Requires-Dist: huggingface-hub>=0.30; extra == 'hf'
 Requires-Dist: tokenizers>=0.15; extra == 'hf'
 Requires-Dist: transformers>=4.50; extra == 'hf'
-Provides-Extra: tui
-Requires-Dist: rich>=13.9; extra == 'tui'
-Requires-Dist: textual>=0.89; extra == 'tui'
 Description-Content-Type: text/markdown
 
 # OpenMed

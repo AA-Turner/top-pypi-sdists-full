@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,15 @@ Module for Electrum v2 mnemonic encoding.
 Reference: https://github.com/spesmilo/electrum
 """
 
-from bip_utils.bip.bip39.bip39_mnemonic_utils import Bip39WordsListGetter
-
 # Imports
+from typing_extensions import override
+
+from bip_utils.bip.bip39.bip39_mnemonic_utils import Bip39WordsListGetter
 from bip_utils.electrum.mnemonic_v2.electrum_v2_entropy_generator import ElectrumV2EntropyGenerator
 from bip_utils.electrum.mnemonic_v2.electrum_v2_mnemonic import (
-    ElectrumV2Languages, ElectrumV2Mnemonic, ElectrumV2MnemonicTypes
+    ElectrumV2Languages,
+    ElectrumV2Mnemonic,
+    ElectrumV2MnemonicTypes,
 )
 from bip_utils.electrum.mnemonic_v2.electrum_v2_mnemonic_utils import ElectrumV2MnemonicUtils
 from bip_utils.utils.misc import BytesUtils
@@ -65,6 +68,7 @@ class ElectrumV2MnemonicEncoder(MnemonicEncoderBase):
         super().__init__(lang.value, Bip39WordsListGetter)
         self.m_mnemonic_type = mnemonic_type
 
+    @override
     def Encode(self,
                entropy_bytes: bytes) -> Mnemonic:
         """

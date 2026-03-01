@@ -1,6 +1,7 @@
 #include "processor/operator/scan/scan_node_table.h"
 
 #include "binder/expression/expression_util.h"
+#include "common/file_system/virtual_file_system.h"
 #include "processor/execution_context.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/local_storage/local_node_table.h"
@@ -13,7 +14,6 @@ using namespace lbug::storage;
 
 namespace lbug {
 namespace processor {
-
 std::string ScanNodeTablePrintInfo::toString() const {
     std::string result = "Tables: ";
     for (auto& tableName : tableNames) {
@@ -46,15 +46,19 @@ void ScanNodeTableSharedState::initialize(const transaction::Transaction* transa
         // For parquet tables, set numCommittedNodeGroups to number of row groups
         std::vector<bool> columnSkips;
         try {
-            auto tempReader = std::make_unique<processor::ParquetReader>(
-                parquetTable->getParquetFilePath(), columnSkips, transaction->getClientContext());
+            auto context = transaction->getClientContext();
+            auto resolvedPath =
+                common::VirtualFileSystem::resolvePath(context, parquetTable->getParquetFilePath());
+            auto tempReader =
+                std::make_unique<processor::ParquetReader>(resolvedPath, columnSkips, context);
             this->numCommittedNodeGroups = tempReader->getNumRowsGroups();
         } catch (const std::exception& e) {
             this->numCommittedNodeGroups = 1;
         }
     } else if (const auto arrowTable = dynamic_cast<ArrowNodeTable*>(table)) {
-        // For Arrow tables, set numCommittedNodeGroups to number of batches
-        this->numCommittedNodeGroups = arrowTable->getNumBatches(transaction);
+        // For Arrow tables, set numCommittedNodeGroups to number of morsels
+        this->numCommittedNodeGroups =
+            static_cast<common::node_group_idx_t>(arrowTable->getNumScanMorsels(transaction));
     } else {
         this->numCommittedNodeGroups = table->getNumCommittedNodeGroups();
     }
@@ -65,17 +69,31 @@ void ScanNodeTableSharedState::initialize(const transaction::Transaction* transa
             this->numUnCommittedNodeGroups = localNodeTable.getNumNodeGroups();
         }
     }
-    progressSharedState.numGroups += numCommittedNodeGroups;
+    progressSharedState.numMorsels += numCommittedNodeGroups;
 }
 
 void ScanNodeTableSharedState::nextMorsel(TableScanState& scanState,
     ScanNodeTableProgressSharedState& progressSharedState) {
     std::unique_lock lck{mtx};
-    // Cast to NodeTableScanState since we know this is for node tables
+
+    // ColumnarNodeTables handle morsel assignment internally
+    // TODO: parquet tables https://github.com/LadybugDB/ladybug/issues/245
+    if (const auto arrowTable = dynamic_cast<ArrowNodeTable*>(this->table)) {
+        const auto tableSharedState = arrowTable->getTableScanSharedState();
+        if (tableSharedState->getNextMorsel(static_cast<ColumnarNodeTableScanState*>(&scanState))) {
+            scanState.source = TableScanSource::COMMITTED;
+            progressSharedState.numMorselsScanned++;
+        } else {
+            scanState.source = TableScanSource::NONE;
+        }
+
+        return;
+    }
+
     auto& nodeScanState = scanState.cast<NodeTableScanState>();
     if (currentCommittedGroupIdx < numCommittedNodeGroups) {
         nodeScanState.nodeGroupIdx = currentCommittedGroupIdx++;
-        progressSharedState.numGroupsScanned++;
+        progressSharedState.numMorselsScanned++;
         nodeScanState.source = TableScanSource::COMMITTED;
         return;
     }
@@ -89,7 +107,7 @@ void ScanNodeTableSharedState::nextMorsel(TableScanState& scanState,
 
 table_id_map_t<SemiMask*> ScanNodeTable::getSemiMasks() const {
     table_id_map_t<SemiMask*> result;
-    KU_ASSERT(tableInfos.size() == sharedStates.size());
+    DASSERT(tableInfos.size() == sharedStates.size());
     for (auto i = 0u; i < sharedStates.size(); ++i) {
         result.insert({tableInfos[i].table->getTableID(), sharedStates[i]->getSemiMask()});
     }
@@ -141,7 +159,7 @@ void ScanNodeTable::initCurrentTable(ExecutionContext* context) {
 }
 
 void ScanNodeTable::initGlobalStateInternal(ExecutionContext* context) {
-    KU_ASSERT(sharedStates.size() == tableInfos.size());
+    DASSERT(sharedStates.size() == tableInfos.size());
     for (auto i = 0u; i < tableInfos.size(); i++) {
         sharedStates[i]->initialize(transaction::Transaction::Get(*context->clientContext),
             tableInfos[i].table->ptrCast<NodeTable>(), *progressSharedState);
@@ -178,11 +196,11 @@ double ScanNodeTable::getProgress(ExecutionContext* /*context*/) const {
     if (currentTableIdx >= tableInfos.size()) {
         return 1.0;
     }
-    if (progressSharedState->numGroups == 0) {
+    if (progressSharedState->numMorsels == 0) {
         return 0.0;
     }
-    return static_cast<double>(progressSharedState->numGroupsScanned) /
-           progressSharedState->numGroups;
+    return static_cast<double>(progressSharedState->numMorselsScanned) /
+           progressSharedState->numMorsels;
 }
 
 } // namespace processor

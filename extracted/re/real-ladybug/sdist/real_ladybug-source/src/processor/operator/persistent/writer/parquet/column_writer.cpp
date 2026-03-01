@@ -1,7 +1,6 @@
 #include "processor/operator/persistent/writer/parquet/column_writer.h"
 
 #include "common/exception/runtime.h"
-#include "common/string_format.h"
 #include "function/cast/functions/numeric_limits.h"
 #include "lz4.hpp"
 #include "miniz_wrapper.hpp"
@@ -15,6 +14,7 @@
 #include "processor/operator/persistent/writer/parquet/uuid_column_writer.h"
 #include "snappy.h"
 #include "zstd.h"
+#include <format>
 
 namespace lbug {
 namespace processor {
@@ -252,6 +252,7 @@ std::unique_ptr<ColumnWriter> ColumnWriter::createWriterRecursive(
                 canHaveNullsToCreate);
         case LogicalTypeID::BLOB:
         case LogicalTypeID::STRING:
+        case LogicalTypeID::JSON:
             return std::make_unique<StringColumnWriter>(writer, schemaIdx,
                 std::move(schemaPathToCreate), maxRepeatToCreate, maxDefineToCreate,
                 canHaveNullsToCreate, mm);
@@ -264,7 +265,7 @@ std::unique_ptr<ColumnWriter> ColumnWriter::createWriterRecursive(
                 std::move(schemaPathToCreate), maxRepeatToCreate, maxDefineToCreate,
                 canHaveNullsToCreate);
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     }
     }
@@ -335,12 +336,12 @@ void ColumnWriter::compressPage(common::BufferWriter& bufferedSerializer, size_t
             bufferedSerializer.getSize(), reinterpret_cast<char*>(compressedBuf.get()),
             &compressedSize);
         compressedData = compressedBuf.get();
-        KU_ASSERT(compressedSize <= lbug_snappy::MaxCompressedLength(bufferedSerializer.getSize()));
+        DASSERT(compressedSize <= lbug_snappy::MaxCompressedLength(bufferedSerializer.getSize()));
     } break;
     case CompressionCodec::ZSTD: {
-        compressedSize = lbug_zstd::ZSTD_compressBound(bufferedSerializer.getSize());
+        compressedSize = ZSTD_compressBound(bufferedSerializer.getSize());
         compressedBuf = std::unique_ptr<uint8_t[]>(new uint8_t[compressedSize]);
-        compressedSize = lbug_zstd::ZSTD_compress((void*)compressedBuf.get(), compressedSize,
+        compressedSize = ZSTD_compress((void*)compressedBuf.get(), compressedSize,
             reinterpret_cast<const char*>(bufferedSerializer.getBlobData()),
             bufferedSerializer.getSize(), ZSTD_CLEVEL_DEFAULT);
         compressedData = compressedBuf.get();
@@ -355,21 +356,21 @@ void ColumnWriter::compressPage(common::BufferWriter& bufferedSerializer, size_t
         compressedData = compressedBuf.get();
     } break;
     case CompressionCodec::LZ4_RAW: {
-        compressedSize = lbug_lz4::LZ4_compressBound(bufferedSerializer.getSize());
+        compressedSize = LZ4_compressBound(bufferedSerializer.getSize());
         compressedBuf = std::unique_ptr<uint8_t[]>(new uint8_t[compressedSize]);
-        compressedSize = lbug_lz4::LZ4_compress_default(
-            reinterpret_cast<const char*>(bufferedSerializer.getBlobData()),
-            reinterpret_cast<char*>(compressedBuf.get()), bufferedSerializer.getSize(),
-            compressedSize);
+        compressedSize =
+            LZ4_compress_default(reinterpret_cast<const char*>(bufferedSerializer.getBlobData()),
+                reinterpret_cast<char*>(compressedBuf.get()), bufferedSerializer.getSize(),
+                compressedSize);
         compressedData = compressedBuf.get();
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 
     if (compressedSize > uint64_t(function::NumericLimits<int32_t>::maximum())) {
         throw RuntimeException(
-            stringFormat("Parquet writer: {} compressed page size out of range for type integer",
+            std::format("Parquet writer: {} compressed page size out of range for type integer",
                 bufferedSerializer.getSize()));
     }
 }

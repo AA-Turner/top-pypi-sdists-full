@@ -9,6 +9,7 @@
 #include "common/system_config.h"
 #include "common/types/types.h"
 #include <concepts>
+#include <format>
 
 namespace lbug {
 namespace storage {
@@ -68,19 +69,20 @@ public:
     }
 
     static std::string getWALFilePath(const std::string& path) {
-        return common::stringFormat("{}.{}", path, common::StorageConstants::WAL_FILE_SUFFIX);
+        return std::format("{}.{}", path, common::StorageConstants::WAL_FILE_SUFFIX);
     }
     static std::string getShadowFilePath(const std::string& path) {
-        return common::stringFormat("{}.{}", path, common::StorageConstants::SHADOWING_SUFFIX);
+        return std::format("{}.{}", path, common::StorageConstants::SHADOWING_SUFFIX);
     }
     static std::string getTmpFilePath(const std::string& path) {
-        return common::stringFormat("{}.{}", path, common::StorageConstants::TEMP_FILE_SUFFIX);
+        return std::format("{}.{}", path, common::StorageConstants::TEMP_FILE_SUFFIX);
     }
     static std::string getGraphPath(const std::string& dbPath, const std::string& graphName) {
         auto path = std::filesystem::path(dbPath);
         auto base = path.stem().string();
         auto ext = path.extension().string();
-        return base + "." + graphName + ext;
+        auto graphFile = std::filesystem::path(base + "." + graphName + ext);
+        return (path.parent_path() / graphFile).string();
     }
 
     static std::string expandPath(const main::ClientContext* context, const std::string& path);

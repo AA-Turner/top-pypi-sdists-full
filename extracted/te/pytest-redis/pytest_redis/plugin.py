@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with pytest-redis.  If not, see <http://www.gnu.org/licenses/>.
 """Plugin configuration module for pytest-redis."""
+
 from shutil import which
 
 from pytest import Parser
@@ -28,6 +29,7 @@ import pytest_redis.factories.proc
 _help_exec = "Redis server executable"
 _help_host = "Host at which Redis will accept connections"
 _help_port = "Port at which Redis will accept connections"
+_help_port_search_count = "Number of times pytest-redis will search for a free port"
 _help_username = "Username used to authenticate to Redis"
 _help_password = "Password used to authenticate to Redis"
 _help_timeout = "Client's connection timeout in seconds"
@@ -38,7 +40,7 @@ _help_rdbchecksum = "Whether to add checksum to the rdb files"
 _help_syslog = "Whether to enable logging to the system logger"
 _help_save = "Redis persistance frequency configuration - seconds keys"
 _help_decode = (
-    "Client: to decode response or not. " "See redis.StrictRedis decode_reponse client parameter."
+    "Client: to decode response or not. See redis.StrictRedis decode_response client parameter."
 )
 _help_datadir = "Directory where test Redis instance data files will be stored"
 _help_modules = "Comma separated list of paths to Redis extension modules to be loaded at startup"
@@ -54,6 +56,9 @@ def pytest_addoption(parser: Parser) -> None:
         default=None,
     )
     parser.addini(
+        name="redis_port_search_count", type="int", help=_help_port_search_count, default=5
+    )
+    parser.addini(
         name="redis_username",
         help=_help_username,
         default=None,
@@ -66,7 +71,7 @@ def pytest_addoption(parser: Parser) -> None:
     parser.addini(
         name="redis_timeout",
         help=_help_timeout,
-        default=30,
+        default=15,
     )
     parser.addini(
         name="redis_loglevel",
@@ -103,6 +108,13 @@ def pytest_addoption(parser: Parser) -> None:
         help=_help_host,
     )
     parser.addoption("--redis-port", action="store", dest="redis_port", help=_help_port)
+    parser.addoption(
+        "--redis-port-search-count",
+        action="store",
+        type=int,
+        dest="redis_port_search_count",
+        help=_help_port_search_count,
+    )
     parser.addoption("--redis-username", action="store", dest="redis_username", help=_help_username)
     parser.addoption("--redis-password", action="store", dest="redis_password", help=_help_password)
     parser.addoption("--redis-timeout", action="store", dest="redis_timeout", help=_help_timeout)
@@ -124,6 +136,6 @@ def pytest_addoption(parser: Parser) -> None:
 
 
 redis_proc = pytest_redis.factories.proc.redis_proc()
-redis_nooproc = pytest_redis.factories.noproc.redis_noproc()
+redis_noproc = pytest_redis.factories.noproc.redis_noproc()
 redisdb = pytest_redis.factories.client.redisdb("redis_proc")
 # pylint:enable=invalid-name

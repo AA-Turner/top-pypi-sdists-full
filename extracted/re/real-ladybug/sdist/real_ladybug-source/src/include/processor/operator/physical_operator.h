@@ -73,6 +73,7 @@ enum class PhysicalOperatorType : uint8_t {
     ORDER_BY_SCAN,
     UNION_ALL_SCAN,
     UNWIND,
+    UNWIND_DEDUP,
     USE_DATABASE,
     USE_GRAPH,
     UNINSTALL_EXTENSION,
@@ -146,11 +147,11 @@ public:
 
     template<class TARGET>
     TARGET* ptrCast() {
-        return common::ku_dynamic_cast<TARGET*>(this);
+        return common::dynamic_cast_checked<TARGET*>(this);
     }
     template<class TARGET>
     const TARGET& constCast() {
-        return common::ku_dynamic_cast<const TARGET&>(*this);
+        return common::dynamic_cast_checked<const TARGET&>(*this);
     }
 
 protected:

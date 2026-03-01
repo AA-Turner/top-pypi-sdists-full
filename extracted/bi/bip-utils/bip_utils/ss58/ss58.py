@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -124,7 +124,7 @@ class SS58Decoder:
         Decode bytes from a SS58 string.
 
         Args:
-            data_str (string): Data string
+            data_str (str): Data string
 
         Returns:
             tuple[int, bytes]: SS58 format and data bytes

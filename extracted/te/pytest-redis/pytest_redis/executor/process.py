@@ -6,7 +6,7 @@ import re
 from itertools import islice
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal
 
 from mirakuru import TCPExecutor
 from packaging.version import Version, parse
@@ -48,8 +48,8 @@ class RedisExecutor(TCPExecutor):
         loglevel: str,
         host: str,
         port: int,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         startup_timeout: int = 60,
         save: str = "",
         daemonize: str = "no",
@@ -57,8 +57,8 @@ class RedisExecutor(TCPExecutor):
         rdbchecksum: bool = False,
         syslog_enabled: bool = False,
         appendonly: str = "no",
-        datadir: Optional[Path] = None,
-        modules: Optional[List[str]] = None,
+        datadir: Path | None = None,
+        modules: list[str] | None = None,
     ) -> None:  # pylint:disable=too-many-locals
         """Init method of a RedisExecutor.
 
@@ -131,12 +131,12 @@ class RedisExecutor(TCPExecutor):
         if save:
             if self.version < parse("7"):
                 save_parts = save.split()
-                assert all(
-                    (part.isdigit() for part in save_parts)
-                ), "all save arguments should be numbers"
-                assert (
-                    len(save_parts) % 2 == 0
-                ), "there should be even number of elements passed to save"
+                assert all((part.isdigit() for part in save_parts)), (
+                    "all save arguments should be numbers"
+                )
+                assert len(save_parts) % 2 == 0, (
+                    "there should be even number of elements passed to save"
+                )
                 for time, change in zip(
                     islice(save_parts, 0, None, 2), islice(save_parts, 1, None, 2)
                 ):
@@ -187,8 +187,7 @@ class RedisExecutor(TCPExecutor):
             version_string = version_output.read()
         if not version_string:
             raise RedisMisconfigured(
-                f"Bad path to redis_exec is given:"
-                f" {self.executable} not exists or wrong program"
+                f"Bad path to redis_exec is given: {self.executable} not exists or wrong program"
             )
 
         return extract_version(version_string)

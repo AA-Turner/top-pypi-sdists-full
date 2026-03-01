@@ -53,6 +53,8 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
         return "EMPTY_RESULT";
     case PhysicalOperatorType::EXPORT_DATABASE:
         return "EXPORT_DATABASE";
+    case PhysicalOperatorType::EXTENSION_CLAUSE:
+        return "EXTENSION_CLAUSE";
     case PhysicalOperatorType::FILTER:
         return "FILTER";
     case PhysicalOperatorType::FLATTEN:
@@ -125,6 +127,8 @@ std::string PhysicalOperatorUtils::operatorTypeToString(PhysicalOperatorType ope
         return "UNION_ALL_SCAN";
     case PhysicalOperatorType::UNWIND:
         return "UNWIND";
+    case PhysicalOperatorType::UNWIND_DEDUP:
+        return "UNWIND_DEDUP";
     case PhysicalOperatorType::USE_DATABASE:
         return "USE_DATABASE";
     case PhysicalOperatorType::CREATE_GRAPH:
@@ -167,7 +171,7 @@ PhysicalOperator::PhysicalOperator(PhysicalOperatorType operatorType, physical_o
 }
 
 std::unique_ptr<PhysicalOperator> PhysicalOperator::moveUnaryChild() {
-    KU_ASSERT(children.size() == 1);
+    DASSERT(children.size() == 1);
     auto result = std::move(children[0]);
     children.clear();
     return result;

@@ -1,5 +1,6 @@
 #include "planner/operator/logical_noop.h"
 #include "processor/plan_mapper.h"
+#include <format>
 
 using namespace lbug::planner;
 
@@ -13,13 +14,13 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapNoop(const LogicalOperator* log
     }
     auto noop = logicalOperator->constPtrCast<LogicalNoop>();
     auto idx = noop->getMessageChildIdx();
-    KU_ASSERT(idx < children.size());
+    DASSERT(idx < children.size());
     auto child = children[idx].get();
     // LCOV_EXCL_START
     if (!child->isSink()) {
         throw common::InternalException(
-            common::stringFormat("Trying to propagate result table from a non sink operator. This "
-                                 "should never happen."));
+            std::format("Trying to propagate result table from a non sink operator. This "
+                        "should never happen."));
     }
     // LCOV_EXCL_STOP
     auto fTable = child->ptrCast<Sink>()->getResultFTable();

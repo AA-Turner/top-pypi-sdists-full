@@ -32,7 +32,7 @@ MergedKeyBlocks::MergedKeyBlocks(uint32_t numBytesPerTuple, std::shared_ptr<Data
 
 uint8_t* MergedKeyBlocks::getBlockEndTuplePtr(uint32_t blockIdx, uint64_t endTupleIdx,
     uint32_t endTupleBlockIdx) const {
-    KU_ASSERT(blockIdx < keyBlocks.size());
+    DASSERT(blockIdx < keyBlocks.size());
     if (endTupleIdx == 0) {
         return getKeyBlockBuffer(0);
     }
@@ -138,8 +138,8 @@ std::unique_ptr<KeyBlockMergeMorsel> KeyBlockMergeTask::getMorsel() {
 }
 
 void KeyBlockMerger::mergeKeyBlocks(KeyBlockMergeMorsel& keyBlockMergeMorsel) const {
-    KU_ASSERT(keyBlockMergeMorsel.leftKeyBlockStartIdx < keyBlockMergeMorsel.leftKeyBlockEndIdx ||
-              keyBlockMergeMorsel.rightKeyBlockStartIdx < keyBlockMergeMorsel.rightKeyBlockEndIdx);
+    DASSERT(keyBlockMergeMorsel.leftKeyBlockStartIdx < keyBlockMergeMorsel.leftKeyBlockEndIdx ||
+            keyBlockMergeMorsel.rightKeyBlockStartIdx < keyBlockMergeMorsel.rightKeyBlockEndIdx);
 
     auto leftBlockPtrInfo = BlockPtrInfo(keyBlockMergeMorsel.leftKeyBlockStartIdx,
         keyBlockMergeMorsel.leftKeyBlockEndIdx,
@@ -232,10 +232,10 @@ bool KeyBlockMerger::compareTuplePtrWithStringCol(uint8_t* leftTuplePtr,
                 factorizedTables[OrderByKeyEncoder::getEncodedFTIdx(leftTupleInfo)];
             auto& rightFactorizedTable =
                 factorizedTables[OrderByKeyEncoder::getEncodedFTIdx(rightTupleInfo)];
-            auto leftStr = leftFactorizedTable->getData<ku_string_t>(leftBlockIdx, leftBlockOffset,
+            auto leftStr = leftFactorizedTable->getData<string_t>(leftBlockIdx, leftBlockOffset,
                 strKeyColInfo.colOffsetInFT);
-            auto rightStr = rightFactorizedTable->getData<ku_string_t>(rightBlockIdx,
-                rightBlockOffset, strKeyColInfo.colOffsetInFT);
+            auto rightStr = rightFactorizedTable->getData<string_t>(rightBlockIdx, rightBlockOffset,
+                strKeyColInfo.colOffsetInFT);
             result = (leftStr == rightStr);
             if (result) {
                 // If the tie can't be solved, we need to check the next string column.
@@ -315,7 +315,7 @@ void KeyBlockMergeTaskDispatcher::init(MemoryManager* memoryManager,
     std::queue<std::shared_ptr<MergedKeyBlocks>>* sortedKeyBlocks,
     std::vector<FactorizedTable*> factorizedTables, std::vector<StrKeyColInfo>& strKeyColsInfo,
     uint64_t numBytesPerTuple) {
-    KU_ASSERT(this->keyBlockMerger == nullptr);
+    DASSERT(this->keyBlockMerger == nullptr);
     this->memoryManager = memoryManager;
     this->sortedKeyBlocks = sortedKeyBlocks;
     this->keyBlockMerger = std::make_unique<KeyBlockMerger>(std::move(factorizedTables),

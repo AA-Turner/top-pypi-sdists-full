@@ -2482,14 +2482,9 @@ class MeaninglessBooleanOperationViolation(ASTViolation):
 
     Explanation:
         - comparison of constants can be replaced with a single constant
-        - comparison with ``True``/``False`` can be removed or replaced
-            with ``True`` or ``False`` constant
         - comparison with constants in the ``and`` operator can lead to
             an implicit conditional assignment, which is better done explicitly
-        - comparison with false-like constants in the ``or`` operator
-            can be removed
-        - everything after the first true-like constant in ``or`` operator
-            can be removed
+        - everything after the first constant in ``or`` operator can be removed
         - comparison of duplicated variables can be reduced
 
     Solution:
@@ -2506,7 +2501,7 @@ class MeaninglessBooleanOperationViolation(ASTViolation):
         # Wrong:
         cond = 10 and 'value'
         cond = condition and 10
-        cond = condition or True
+        cond = condition or True or 2
         cond = condition or 'value' or 0
         cond = condition and condition
 

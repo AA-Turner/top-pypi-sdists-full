@@ -3,7 +3,9 @@ from enum import Enum
 import logging
 import os
 from typing import Callable
+import webbrowser
 
+from mycli.constants import DOCS_URL, ISSUES_URL
 from mycli.packages.sqlresult import SQLResult
 
 try:
@@ -165,25 +167,36 @@ def show_help(*_args) -> list[SQLResult]:
     for _, value in sorted(COMMANDS.items()):
         if not value.hidden:
             result.append((value.command, value.shortcut, value.usage, value.description))
-    return [SQLResult(results=result, headers=headers)]
+    return [SQLResult(results=result, headers=headers, postamble=f'Docs index — {DOCS_URL}')]
 
 
 def show_keyword_help(cur: Cursor, arg: str) -> list[SQLResult]:
     """
-    Call the built-in "show <command>", to display help for an SQL keyword.
+    Call the built-in "show <keyword>", to display help for an SQL keyword.
     :param cur: cursor
     :param arg: string
     :return: list
     """
-    keyword = arg.strip('"').strip("'")
-    query = f"help '{keyword}'"
+    keyword = arg.strip().strip('"\'')
+    query = 'help %s'
     logger.debug(query)
-    cur.execute(query)
+    cur.execute(query, keyword)
     if cur.description and cur.rowcount > 0:
         headers = [x[0] for x in cur.description]
-        return [SQLResult(results=cur, headers=headers, status="")]
+        return [SQLResult(results=cur, headers=headers)]
+    logger.debug(query)
+    cur.execute(query, (f'%{keyword}%',))
+    if cur.description and cur.rowcount > 0:
+        headers = [x[0] for x in cur.description]
+        return [SQLResult(title='Similar terms:', results=cur, headers=headers)]
     else:
-        return [SQLResult(status=f'No help found for {keyword}.')]
+        return [SQLResult(status=f'No help found for "{keyword}".')]
+
+
+@special_command('\\bug', '\\bug', 'File a bug on GitHub.', arg_type=ArgType.NO_QUERY)
+def file_bug(*_args) -> list[SQLResult]:
+    webbrowser.open_new_tab(ISSUES_URL)
+    return [SQLResult(status=f'{ISSUES_URL} — press "New Issue"')]
 
 
 @special_command("exit", "exit", "Exit.", arg_type=ArgType.NO_QUERY, aliases=["\\q"])
@@ -193,7 +206,12 @@ def quit_(*_args):
 
 
 @special_command(
-    "\\e", "<query>\\e | \\e <filename>", "Edit query with editor (uses $EDITOR).", arg_type=ArgType.NO_QUERY, case_sensitive=True
+    "\\edit",
+    "<query>\\edit | \\edit <filename>",
+    "Edit query with editor (uses $VISUAL or $EDITOR).",
+    arg_type=ArgType.NO_QUERY,
+    case_sensitive=True,
+    aliases=['\\e'],
 )
 @special_command("\\clip", "<query>\\clip", "Copy query to the system clipboard.", arg_type=ArgType.NO_QUERY, case_sensitive=True)
 @special_command("\\G", "<query>\\G", "Display query results vertically.", arg_type=ArgType.NO_QUERY, case_sensitive=True)
@@ -203,6 +221,13 @@ def stub():
 
 if LLM_IMPORTED:
 
-    @special_command("\\llm", "\\llm [arguments]", "Interrogate an LLM.", arg_type=ArgType.RAW_QUERY, case_sensitive=True, aliases=["\\ai"])
+    @special_command(
+        "\\llm",
+        "\\llm [arguments]",
+        "Interrogate an LLM.  See \"\\llm help\".",
+        arg_type=ArgType.RAW_QUERY,
+        case_sensitive=True,
+        aliases=["\\ai"],
+    )
     def llm_stub():
         raise NotImplementedError

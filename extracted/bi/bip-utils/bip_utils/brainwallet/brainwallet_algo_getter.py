@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,8 +24,11 @@
 from typing import Dict, Type
 
 from bip_utils.brainwallet.brainwallet_algo import (
-    BrainwalletAlgoDoubleSha256, BrainwalletAlgoPbkdf2HmacSha512, BrainwalletAlgos, BrainwalletAlgoScrypt,
-    BrainwalletAlgoSha256
+    BrainwalletAlgoDoubleSha256,
+    BrainwalletAlgoPbkdf2HmacSha512,
+    BrainwalletAlgos,
+    BrainwalletAlgoScrypt,
+    BrainwalletAlgoSha256,
 )
 from bip_utils.brainwallet.ibrainwallet_algo import IBrainwalletAlgo
 
@@ -45,7 +48,7 @@ class BrainwalletAlgoGetterConst:
 class BrainwalletAlgoGetter:
     """
     Brainwallet algorithm getter class.
-    It allows to get the a specific brainwallet algorithm.
+    It allows to get a specific brainwallet algorithm.
     """
 
     @staticmethod

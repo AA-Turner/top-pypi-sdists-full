@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,9 @@ from __future__ import annotations
 
 from typing import Union
 
+from typing_extensions import Literal
+
 from bip_utils.utils.misc import BitUtils, BytesUtils, DataBytes, IntegerUtils
-from bip_utils.utils.typing import Literal
 
 
 class Bip32KeyDataConst:
@@ -60,7 +61,7 @@ class Bip32ChainCode(DataBytes):
         Construct class.
 
         Args:
-            chaincode (bytes, optional): Fingerprint bytes (default: zero)
+            chaincode (bytes, optional): Chaincode bytes (default: zero)
 
         Raises:
             ValueError: If the chain code length is not valid

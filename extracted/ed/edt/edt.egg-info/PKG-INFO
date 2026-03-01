@@ -1,13 +1,12 @@
 Metadata-Version: 2.2
 Name: edt
-Version: 3.1.0
+Version: 3.1.1
 Summary: Multi-Label Anisotropic Euclidean Distance Transform 3D
 Home-page: https://github.com/seung-lab/euclidean-distance-transform-3d/
 Author: William Silversmith
 Author-email: ws9@princeton.edu
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

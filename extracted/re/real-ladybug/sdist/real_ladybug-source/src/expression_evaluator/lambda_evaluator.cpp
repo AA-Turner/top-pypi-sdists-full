@@ -8,6 +8,7 @@
 #include "main/client_context.h"
 #include "parser/expression/parsed_lambda_expression.h"
 #include "storage/buffer_manager/memory_manager.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::processor;
@@ -21,7 +22,7 @@ void ListLambdaEvaluator::init(const ResultSet& resultSet, ClientContext* client
     for (auto& child : children) {
         child->init(resultSet, clientContext);
     }
-    KU_ASSERT(children.size() == 1);
+    DASSERT(children.size() == 1);
     auto listInputVector = children[0]->resultVector.get();
     // Find all param in lambda, e.g. find x in x->x+1
     auto collector = LambdaParamEvaluatorCollector();
@@ -67,13 +68,13 @@ void ListLambdaEvaluator::evaluateInternal() {
 }
 
 void ListLambdaEvaluator::evaluate() {
-    KU_ASSERT(children.size() == 1);
+    DASSERT(children.size() == 1);
     children[0]->evaluate();
     evaluateInternal();
 }
 
 bool ListLambdaEvaluator::selectInternal(SelectionVector& selVector) {
-    KU_ASSERT(children.size() == 1);
+    DASSERT(children.size() == 1);
     children[0]->evaluate();
     evaluateInternal();
     return updateSelectedPos(selVector);
@@ -99,7 +100,7 @@ std::vector<idx_t> ListLambdaEvaluator::getParamIndices() {
         if (it != paramNames.end()) {
             index[i] = it - paramNames.begin();
         } else {
-            throw RuntimeException(stringFormat("Lambda paramName {} cannot found.", paramName));
+            throw RuntimeException(std::format("Lambda paramName {} cannot found.", paramName));
         }
     }
     return index;

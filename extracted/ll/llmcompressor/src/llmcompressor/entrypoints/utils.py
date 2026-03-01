@@ -10,7 +10,7 @@ workflows.
 import os
 from pathlib import PosixPath
 
-from compressed_tensors.utils import remove_dispatch
+from compressed_tensors.offload import from_accelerate
 from loguru import logger
 from transformers import (
     AutoConfig,
@@ -35,7 +35,6 @@ from llmcompressor.transformers.utils.helpers import (
 )
 from llmcompressor.typing import Processor
 from llmcompressor.utils import untie_word_embeddings
-from llmcompressor.utils.fsdp.helpers import is_fsdp_model
 
 
 def pre_process(
@@ -57,11 +56,6 @@ def pre_process(
     # Initialize model
     if isinstance(model_args.model, (str, PosixPath)):
         model = initialize_model_from_path(model_args)
-        if is_fsdp_model(model):
-            raise NotImplementedError(
-                "FSDP models are not supported in the current release but will be "
-                "suported in future releases of LLM Compressor."
-            )
         model_args.model = model
 
     # Initialize processor if dataset provided
@@ -90,6 +84,10 @@ def pre_process(
     if not model_args.tie_word_embeddings:
         untie_word_embeddings(model_args.model)
 
+    # if the model was loaded with accelerate offloading, convert to CT offloading
+    if hasattr(model_args.model, "hf_device_map"):
+        from_accelerate(model_args.model)
+
     # wrap model.save_pretrained
     modify_save_pretrained(model_args.model)
 
@@ -110,10 +108,6 @@ def post_process(
     Raises:
         ValueError: If saving fails due to an invalid `output_dir` or other issues.
     """
-    # remove any existing dispatches
-    if model_args is not None and model_args.model is not None:
-        remove_dispatch(model_args.model)
-
     if model_args is not None and output_dir is not None:
         if recipe_args is not None and getattr(recipe_args, "stage", None) is not None:
             output_dir = os.path.join(output_dir, recipe_args.stage)
@@ -168,7 +162,7 @@ def initialize_model_from_path(
         "cache_dir": None,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
-        "torch_dtype": parse_dtype(model_args.precision),
+        "dtype": parse_dtype(model_args.precision),
         "trust_remote_code": model_args.trust_remote_code_model,
     }
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,9 +26,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Type
 
+from typing_extensions import Literal
+
 from bip_utils.utils.misc import BytesUtils, IntegerUtils
 from bip_utils.utils.mnemonic.mnemonic import Mnemonic, MnemonicLanguages
-from bip_utils.utils.typing import Literal
 
 
 class MnemonicUtils:
@@ -178,7 +179,7 @@ class MnemonicWordsListFileReader:
         """
 
         # Read file
-        with open(file_path, "r", encoding="utf-8") as fin:
+        with open(file_path, encoding="utf-8") as fin:
             words_list = [word.strip()
                           for word in fin.readlines()
                           if word.strip() != "" and not word.startswith("#")]

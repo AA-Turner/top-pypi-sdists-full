@@ -35,18 +35,24 @@ def get_parent_ignoring_unary(node: ast.AST) -> ast.AST | None:
         node = parent
 
 
-def count_unary_operator(
+def count_consecutive_unary_operator(
     node: ast.AST,
     operator: type[ast.unaryop],
-    amount: int = 0,
+    counter: int = 0,
+    max_counter: int = 0,
 ) -> int:
-    """Returns amount of unary operators matching input."""
+    """Counts the maximum number of consecutive identical unary operators."""
     parent = get_parent(node)
-    if parent is None or not isinstance(parent, ast.UnaryOp):
-        return amount
+    if not isinstance(parent, ast.UnaryOp):
+        return max(counter, max_counter)
+
     if isinstance(parent.op, operator):
-        return count_unary_operator(parent, operator, amount + 1)
-    return count_unary_operator(parent, operator, amount)
+        return count_consecutive_unary_operator(
+            parent, operator, counter + 1, max_counter
+        )
+    if counter > max_counter:
+        return count_consecutive_unary_operator(parent, operator, 0, counter)
+    return count_consecutive_unary_operator(parent, operator, 0, max_counter)
 
 
 def get_reduced_unary_operators(

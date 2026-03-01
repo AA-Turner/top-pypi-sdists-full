@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: template-specialize
-Version: 1.6.1
+Version: 1.6.2
 Summary: Command-line tool for rendering Jinja2 templates
 Home-page: https://github.com/craigahobbs/template-specialize
 Author: Craig A. Hobbs

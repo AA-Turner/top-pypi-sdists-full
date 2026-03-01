@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPDFForm
-Version: 4.6.2
+Version: 4.7.0
 Summary: The Python library for PDF forms.
 Author: Jinge Li
 License-Expression: MIT
@@ -31,6 +31,8 @@ Requires-Dist: black<27.0.0,>=25.11.0; extra == "dev"
 Requires-Dist: coverage<8.0.0,>=7.12.0; extra == "dev"
 Requires-Dist: isort<9.0.0,>=7.0.0; extra == "dev"
 Requires-Dist: jsonschema<5.0.0,>=4.25.1; extra == "dev"
+Requires-Dist: mike<3.0.0,>=2.1.3; extra == "dev"
+Requires-Dist: mkdocs<2.0.0,>=1.6.1; extra == "dev"
 Requires-Dist: mkdocs-material<10.0.0,>=9.7.0; extra == "dev"
 Requires-Dist: pudb<2026.0.0,>=2025.1.3; extra == "dev"
 Requires-Dist: pylint<5.0.0,>=4.0.3; extra == "dev"
@@ -48,7 +50,7 @@ Dynamic: license-file
     <a href="https://pypi.org/project/PyPDFForm/"><img src="https://img.shields.io/pypi/v/pypdfform?label=version&color=magenta"></a>
     <a href="https://chinapandaman.github.io/PyPDFForm/"><img src="https://img.shields.io/github/v/release/chinapandaman/pypdfform?label=docs&color=cyan"></a>
     <a href="https://github.com/chinapandaman/PyPDFForm/actions/workflows/python-package.yml"><img src="https://img.shields.io/badge/coverage-100%25-green"></a>
-    <a href="https://github.com/chinapandaman/PyPDFForm/raw/master/LICENSE"><img src="https://img.shields.io/github/license/chinapandaman/pypdfform?label=license&color=orange"></a>
+    <a href="https://github.com/chinapandaman/PyPDFForm/blob/master/LICENSE"><img src="https://img.shields.io/github/license/chinapandaman/pypdfform?label=license&color=orange"></a>
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/pypi/pyversions/pypdfform?label=python&color=gold"></a>
     <a href="https://pepy.tech/projects/pypdfform"><img src="https://static.pepy.tech/badge/pypdfform/month"></a>
 </p>
@@ -102,6 +104,7 @@ The official documentation can be found on [the GitHub page](https://chinapandam
 
 ## Other Resources
 
+<!-- TODO: remove WIP when finish recording -->
 * [(WIP) Video Tutorials](https://youtube.com/playlist?list=PLNz_PBu1QA-gzYg5BvyOO98q15u5Xve1L&si=8MWasKEckBzY-NRQ)
 * [Chicago Python User Group - Dec 14, 2023](https://youtu.be/8t1RdAKwr9w?si=TLgumBNXv9H8szSn)
 

@@ -12,9 +12,12 @@ use squawk_syntax::{
 };
 
 pub fn find_references(file: &ast::SourceFile, offset: TextSize) -> Vec<Location> {
+    // TODO: we should salsa this
     let current_binder = binder::bind(file);
 
+    // TODO: we should salsa this
     let builtins_tree = ast::SourceFile::parse(BUILTINS_SQL).tree();
+    // TODO: we should salsa this
     let builtins_binder = binder::bind(&builtins_tree);
 
     let Some((target_file, target_defs)) = find_target_defs(
@@ -449,7 +452,7 @@ drop table foo_bar;
         assert_snapshot!(find_refs("
 select now$0();
 select now();
-"), @r"
+"), @"
               ╭▸ current.sql:2:8
               │
             2 │ select now();
@@ -461,9 +464,9 @@ select now();
               │        ─── 2. reference
               ╰╴
 
-              ╭▸ builtin.sql:10798:28
+              ╭▸ builtin.sql:11089:28
               │
-        10798 │ create function pg_catalog.now() returns timestamp with time zone
+        11089 │ create function pg_catalog.now() returns timestamp with time zone
               ╰╴                           ─── 3. reference
         ");
     }

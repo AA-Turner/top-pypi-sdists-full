@@ -156,7 +156,7 @@ public:
     common::column_id_t getPKColumnID() const { return pkColumnID; }
     PrimaryKeyIndex* getPKIndex() const {
         const auto index = getIndex(PrimaryKeyIndex::DEFAULT_NAME);
-        KU_ASSERT(index.has_value());
+        DASSERT(index.has_value());
         return &index.value()->cast<PrimaryKeyIndex>();
     }
     std::optional<std::reference_wrapper<IndexHolder>> getIndexHolder(const std::string& name);
@@ -165,11 +165,11 @@ public:
 
     common::column_id_t getNumColumns() const { return columns.size(); }
     Column& getColumn(common::column_id_t columnID) {
-        KU_ASSERT(columnID < columns.size());
+        DASSERT(columnID < columns.size());
         return *columns[columnID];
     }
     const Column& getColumn(common::column_id_t columnID) const {
-        KU_ASSERT(columnID < columns.size());
+        DASSERT(columnID < columns.size());
         return *columns[columnID];
     }
 
@@ -212,6 +212,12 @@ public:
     void serialize(common::Serializer& serializer) const override;
     void deserialize(main::ClientContext* context, StorageManager* storageManager,
         common::Deserializer& deSer) override;
+
+    // Apply semi-mask filter to selection vector
+    // startOffset: startOffset of the morsel in the table
+    // numRowsToScan: number of rows being scanned
+    static void applySemiMaskFilter(const TableScanState& state, common::row_idx_t startOffset,
+        common::row_idx_t numRowsToScan, common::SelectionVector& selVector);
 
 private:
     void validatePkNotExists(const transaction::Transaction* transaction,

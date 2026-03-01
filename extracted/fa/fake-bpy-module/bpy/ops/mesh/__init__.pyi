@@ -280,6 +280,39 @@ def bridge_edge_loops(
     :return: Result of the operator call.
     """
 
+def circularize(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    factor: float | None = 1.0,
+    fit_method: typing.Literal["LEAST_SQUARE", "CONTRACT"] | None = "LEAST_SQUARE",
+    angle: float | None = 0.0,
+    use_custom_radius: bool | None = False,
+    custom_radius: float | None = 1.0,
+    regular: bool | None = True,
+    flatten: float | None = 1.0,
+    lock: collections.abc.Sequence[bool] | None = (False, False, False),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Shape selected geometry into a circle
+
+        :param factor: Factor, Force of the tool (in [0, 1], optional)
+        :param fit_method: Method, Method used for fitting a circle to the vertices (optional)
+
+    LEAST_SQUARE
+    Best Fit -- Calculate a best-fit circle using non-linear least squares.
+
+    CONTRACT
+    Interior Fit -- Only move vertices towards the center.
+        :param angle: Rotation, Rotate the circle (in [-6.28319, 6.28319], optional)
+        :param use_custom_radius: Use Custom Radius, Enable custom radius (optional)
+        :param custom_radius: Radius, Radius of the circle (in [0, inf], optional)
+        :param regular: Space Evenly, Distribute vertices at constant distances along the circle, otherwise preserves original spacing (optional)
+        :param flatten: Flatten, Flatten the circle, instead of projecting it on the mesh (in [0, 1], optional)
+        :param lock: Lock, Lock editing of the axis (array of 3 items, optional)
+        :return: Result of the operator call.
+    """
+
 def colors_reverse(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -1195,7 +1228,7 @@ def loop_select(
     delimit_face_loop: set[
         Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitFaceLoopItems]
     ]
-    | None = {},
+    | None = set(),
     extend: bool | None = False,
     deselect: bool | None = False,
     toggle: bool | None = False,

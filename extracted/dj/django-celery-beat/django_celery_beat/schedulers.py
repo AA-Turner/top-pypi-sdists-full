@@ -167,7 +167,6 @@ class ModelEntry(ScheduleEntry):
         self.model.total_run_count += 1
         self.model.no_changes = True
         return self.__class__(self.model)
-    next = __next__  # for 2to3
 
     def save(self):
         # Object may not be synchronized, so only
@@ -175,7 +174,6 @@ class ModelEntry(ScheduleEntry):
         obj = type(self.model)._default_manager.get(pk=self.model.pk)
         for field in self.save_fields:
             setattr(obj, field, getattr(self.model, field))
-
         obj.save()
 
     @classmethod
@@ -314,13 +312,10 @@ class DatabaseScheduler(Scheduler):
         ]
         hours_to_include += [4]  # celery's default cleanup task
 
-        # Regex pattern to match only numbers
-        # This ensures we only process numeric hour values
-        numeric_hour_pattern = r'^\d+$'
-
         # Get all tasks with a simple numeric hour value
+        valid_numeric_hours = self._get_valid_hour_formats()
         numeric_hour_tasks = CrontabSchedule.objects.filter(
-            hour__regex=numeric_hour_pattern
+            hour__in=valid_numeric_hours
         )
 
         # Annotate these tasks with their server-hour equivalent
@@ -358,6 +353,15 @@ class DatabaseScheduler(Scheduler):
         )
 
         return exclude_query
+
+    def _get_valid_hour_formats(self):
+        """
+        Return a list of all valid hour values (0-23).
+        Both zero-padded ("00"–"09") and non-padded ("0"–"23")
+        """
+        return [str(hour) for hour in range(24)] + [
+            f"{hour:02d}" for hour in range(10)
+        ]
 
     def _get_unique_timezone_names(self):
         """Get a list of all unique timezone names used in CrontabSchedule"""
@@ -426,7 +430,7 @@ class DatabaseScheduler(Scheduler):
             return False
 
         try:
-            if ts and ts > (last if last else ts):
+            if ts and ts > (last or ts):
                 return True
         finally:
             self._last_timestamp = ts

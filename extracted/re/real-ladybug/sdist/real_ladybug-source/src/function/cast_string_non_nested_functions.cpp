@@ -7,6 +7,7 @@
 #include "common/types/uuid.h"
 #include "function/cast/functions/numeric_limits.h"
 #include "re2.h"
+#include <format>
 
 namespace lbug {
 namespace function {
@@ -57,7 +58,7 @@ bool tryCastToBool(const char* input, uint64_t len, bool& result) {
 void castStringToBool(const char* input, uint64_t len, bool& result) {
     if (!tryCastToBool(input, len, result)) {
         throw ConversionException{
-            stringFormat("Value {} is not a valid boolean", std::string{input, (size_t)len})};
+            std::format("Value {} is not a valid boolean", std::string{input, (size_t)len})};
     }
 }
 
@@ -211,7 +212,7 @@ LogicalType inferMinimalTypeFromString(std::string_view str) {
             if (NumericLimits<int64_t>::isInBounds(int128val)) {
                 return LogicalType::INT64();
             }
-            KU_ASSERT(NumericLimits<int128_t>::isInBounds(int128val));
+            DASSERT(NumericLimits<int128_t>::isInBounds(int128val));
             return LogicalType::INT128();
         } else if (trySimpleIntegerCast<uint128_t, false>(cpy.data(), cpy.length(), uint128val)) {
             return LogicalType::UINT128();
@@ -225,7 +226,7 @@ LogicalType inferMinimalTypeFromString(std::string_view str) {
         }
         if (cpy.size() <= DECIMAL_PRECISION_LIMIT) {
             auto decimalPoint = cpy.find('.');
-            KU_ASSERT(decimalPoint != std::string::npos);
+            DASSERT(decimalPoint != std::string::npos);
             return LogicalType::DECIMAL(cpy.size() - 1, cpy.size() - decimalPoint - 1);
         } else {
             return LogicalType::DOUBLE();

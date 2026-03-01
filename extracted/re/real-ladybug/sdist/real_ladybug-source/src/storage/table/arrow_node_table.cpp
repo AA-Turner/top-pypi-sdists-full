@@ -1,6 +1,10 @@
 #include "storage/table/arrow_node_table.h"
 
+#include <algorithm>
+
 #include "common/arrow/arrow_converter.h"
+#include "common/arrow/arrow_nullmask_tree.h"
+#include "common/data_chunk/sel_vector.h"
 #include "common/system_config.h"
 #include "common/types/types.h"
 #include "storage/storage_manager.h"
@@ -10,19 +14,31 @@
 namespace lbug {
 namespace storage {
 
+static uint64_t getArrowBatchLength(const ArrowArrayWrapper& array) {
+    if (array.length > 0) {
+        return array.length;
+    }
+    if (array.n_children > 0 && array.children && array.children[0]) {
+        return array.children[0]->length;
+    }
+    return 0;
+}
+
 ArrowNodeTable::ArrowNodeTable(const StorageManager* storageManager,
     const catalog::NodeTableCatalogEntry* nodeTableEntry, MemoryManager* memoryManager,
     ArrowSchemaWrapper schema, std::vector<ArrowArrayWrapper> arrays, std::string arrowId)
-    : ColumnarNodeTableBase{storageManager, nodeTableEntry, memoryManager},
+    : ColumnarNodeTableBase{storageManager, nodeTableEntry, memoryManager,
+          std::make_unique<ArrowNodeTableScanSharedState>(scanMorselSize)},
       schema{std::move(schema)}, arrays{std::move(arrays)}, totalRows{0},
       arrowId{std::move(arrowId)} {
     // Note: release may be nullptr if schema is managed by registry
     if (!this->schema.format) {
         throw common::RuntimeException("Arrow schema format cannot be null");
     }
-    // Calculate total rows from arrays
-    if (!this->arrays.empty()) {
-        totalRows = this->arrays[0].length;
+    batchStartOffsets.reserve(this->arrays.size());
+    for (const auto& array : this->arrays) {
+        batchStartOffsets.push_back(totalRows);
+        totalRows += getArrowBatchLength(array);
     }
 }
 
@@ -34,89 +50,108 @@ ArrowNodeTable::~ArrowNodeTable() {
     }
 }
 
+void ArrowNodeTable::initializeScanCoordination(const transaction::Transaction* transaction) {
+    auto arrowScanSharedState =
+        static_cast<ArrowNodeTableScanSharedState*>(tableScanSharedState.get());
+    auto batchSizes = getBatchSizes(transaction);
+    arrowScanSharedState->reset(batchSizes);
+}
+
 void ArrowNodeTable::initScanState([[maybe_unused]] transaction::Transaction* transaction,
     TableScanState& scanState, [[maybe_unused]] bool resetCachedBoundNodeSelVec) const {
     auto& arrowScanState = scanState.cast<ArrowNodeTableScanState>();
 
     // Note: We don't copy the schema/arrays as they are wrappers with release callbacks
     arrowScanState.initialized = false;
-    arrowScanState.scanCompleted = false;
-    arrowScanState.dataRead = false;
-    arrowScanState.nextRowToDistribute = 0;
+    arrowScanState.scanCompleted = true;
     arrowScanState.totalRows = totalRows;
-    arrowScanState.allData.clear();
+    arrowScanState.outputToArrowColumnIdx.assign(scanState.columnIDs.size(), -1);
+    for (size_t outCol = 0; outCol < scanState.columnIDs.size(); ++outCol) {
+        auto columnID = scanState.columnIDs[outCol];
+        if (columnID == common::INVALID_COLUMN_ID || columnID == common::ROW_IDX_COLUMN_ID) {
+            continue;
+        }
+        for (common::idx_t propIdx = 0; propIdx < nodeTableCatalogEntry->getNumProperties();
+             ++propIdx) {
+            if (nodeTableCatalogEntry->getColumnID(propIdx) == columnID) {
+                arrowScanState.outputToArrowColumnIdx[outCol] = static_cast<int64_t>(propIdx);
+                break;
+            }
+        }
+    }
+
+    if (arrowScanState.source == TableScanSource::COMMITTED &&
+        arrowScanState.currentBatchIdx != common::INVALID_NODE_GROUP_IDX &&
+        arrowScanState.currentBatchIdx < arrays.size()) {
+        arrowScanState.scanCompleted = false;
+    }
 
     // Each scan state needs to be able to read data independently for parallel scanning
     arrowScanState.initialized = true;
 }
 
+// First run always fails due to arrowScanState.scanCompleted == true because either
+// scanState.source = NONE or scanState.currentBatchIdx = INVALID_NODE_GROUP_IDX on the first
+// run(look at initScanState function) tableScanSharedState.nextMorsel will drive scanInternal
+// completely
 bool ArrowNodeTable::scanInternal([[maybe_unused]] transaction::Transaction* transaction,
     TableScanState& scanState) {
     auto& arrowScanState = scanState.cast<ArrowNodeTableScanState>();
-
-    // Read all data from Arrow table if not already done
-    if (!arrowScanState.dataRead) {
-        readArrowTableData(arrowScanState);
-        arrowScanState.dataRead = true;
+    if (arrowScanState.scanCompleted) {
+        return false;
     }
 
-    // Check if we've distributed all rows
-    if (arrowScanState.nextRowToDistribute >= arrowScanState.totalRows) {
+    if (arrowScanState.currentBatchIdx >= arrays.size() ||
+        arrowScanState.currentMorselStartOffset >= arrowScanState.currentMorselEndOffset) {
         arrowScanState.scanCompleted = true;
         return false;
     }
 
-    // Distribute one row at a time (like ParquetNodeTable does)
-    size_t rowIndex = arrowScanState.nextRowToDistribute++;
+    const auto& batch = arrays[arrowScanState.currentBatchIdx];
+    auto batchLength = getArrowBatchLength(batch);
 
-    // Check if the row index is valid
-    if (rowIndex >= arrowScanState.allData.size()) {
+    if (batchLength == 0 || !batch.children || !schema.children || batch.n_children <= 0) {
         arrowScanState.scanCompleted = true;
         return false;
     }
 
-    // Copy one row to output vectors
-    auto numColumns =
-        std::min(scanState.outputVectors.size(), arrowScanState.allData[rowIndex].size());
-    for (size_t col = 0; col < numColumns; ++col) {
-        // Ensure output vector exists
-        if (col >= scanState.outputVectors.size() || !scanState.outputVectors[col]) {
-            continue;
-        }
+    scanState.resetOutVectors();
 
-        auto& dstVector = *scanState.outputVectors[col];
+    // Calculate the size of the current morsel
+    auto morselStart = arrowScanState.currentMorselStartOffset;
+    auto morselEnd = std::min((uint64_t)arrowScanState.currentMorselEndOffset, batchLength);
+    auto outputSize = static_cast<uint64_t>(morselEnd - morselStart);
 
-        // Ensure value exists for this column
-        if (col >= arrowScanState.allData[rowIndex].size() ||
-            !arrowScanState.allData[rowIndex][col]) {
-            dstVector.setNull(0, true);
-            continue;
-        }
+    auto nextGlobalRowOffset = batchStartOffsets[arrowScanState.currentBatchIdx] + morselStart;
 
-        auto& value = *arrowScanState.allData[rowIndex][col];
+    scanState.outState->getSelVectorUnsafe().setSelSize(outputSize);
 
-        if (value.isNull()) {
-            dstVector.setNull(0, true);
-        } else {
-            dstVector.copyFromValue(0, value);
-        }
+    NodeTable::applySemiMaskFilter(scanState, nextGlobalRowOffset, outputSize,
+        scanState.outState->getSelVectorUnsafe());
+
+    if (scanState.outState->getSelVector().getSelSize() == 0) {
+        return false;
     }
 
-    // Set node ID for this row
+    DASSERT(scanState.outputVectors.size() == arrowScanState.outputToArrowColumnIdx.size());
+    copyArrowMorselToOutputVectors(batch, arrowScanState.currentMorselStartOffset, outputSize,
+        scanState.outputVectors, arrowScanState.outputToArrowColumnIdx);
+
     auto tableID = this->getTableID();
-    auto& nodeID = scanState.nodeIDVector->getValue<common::nodeID_t>(0);
-    nodeID.tableID = tableID;
-    nodeID.offset = rowIndex;
+    for (uint64_t i = 0; i < outputSize; ++i) {
+        auto& nodeID = scanState.nodeIDVector->getValue<common::nodeID_t>(i);
+        nodeID.tableID = tableID;
+        nodeID.offset = nextGlobalRowOffset + i;
+    }
 
-    scanState.outState->getSelVectorUnsafe().setSelSize(1);
+    arrowScanState.currentMorselStartOffset += outputSize;
 
     return true;
 }
 
 common::node_group_idx_t ArrowNodeTable::getNumBatches(
     [[maybe_unused]] const transaction::Transaction* transaction) const {
-    // For simplicity, we treat the entire Arrow table as a single batch
-    return 1;
+    return arrays.size();
 }
 
 common::row_idx_t ArrowNodeTable::getTotalRowCount(
@@ -124,60 +159,50 @@ common::row_idx_t ArrowNodeTable::getTotalRowCount(
     return totalRows;
 }
 
-void ArrowNodeTable::readArrowTableData(ArrowNodeTableScanState& scanState) const {
-    if (arrays.empty() || !arrays[0].release) {
-        scanState.totalRows = 0;
-        return;
+std::vector<size_t> ArrowNodeTable::getBatchSizes(
+    [[maybe_unused]] const transaction::Transaction* transaction) const {
+    std::vector<size_t> batchSizes;
+
+    for (const auto& array : arrays) {
+        batchSizes.push_back(getArrowBatchLength(array));
     }
 
-    const ArrowArray& structArray = arrays[0];
-    size_t numColumns = structArray.n_children;
-    size_t numRows = totalRows;
+    return batchSizes;
+}
 
-    scanState.allData.resize(numRows);
-    for (size_t row = 0; row < numRows; ++row) {
-        scanState.allData[row].resize(numColumns);
+size_t ArrowNodeTable::getNumScanMorsels(
+    [[maybe_unused]] const transaction::Transaction* transaction) const {
+    size_t numMorsels = 0;
+    for (const auto& array : arrays) {
+        auto batchLength = getArrowBatchLength(array);
+        numMorsels += (batchLength + scanMorselSize - 1) / scanMorselSize;
     }
+    return numMorsels;
+}
 
-    for (size_t col = 0; col < numColumns; ++col) {
-        if (!structArray.children || !structArray.children[col] ||
-            !structArray.children[col]->release || !schema.children[col]) {
-            for (size_t row = 0; row < numRows; ++row) {
-                scanState.allData[row][col] =
-                    std::make_unique<common::Value>(common::Value::createNullValue());
-            }
+void ArrowNodeTable::copyArrowMorselToOutputVectors(const ArrowArrayWrapper& batch,
+    const size_t currentMorselStartOffset, const uint64_t numRowsToCopy,
+    const std::vector<common::ValueVector*>& outputVectors,
+    const std::vector<int64_t>& outputToArrowColumnIdx) const {
+    auto numChildren = static_cast<uint64_t>(batch.n_children);
+
+    for (uint64_t outCol = 0; outCol < outputVectors.size(); ++outCol) {
+        if (!outputVectors[outCol]) {
             continue;
         }
-
-        const ArrowArray& columnArray = *structArray.children[col];
-        const ArrowSchema* columnSchema = schema.children[col];
-
-        common::LogicalType logicalType = common::ArrowConverter::fromArrowSchema(columnSchema);
-        common::ValueVector valueVector(std::move(logicalType));
-        valueVector.state = std::make_shared<common::DataChunkState>();
-        valueVector.state->getSelVectorUnsafe().setSelSize(numRows);
-
-        try {
-            common::ArrowConverter::fromArrowArray(columnSchema, &columnArray, valueVector);
-        } catch (...) {
-            for (size_t row = 0; row < numRows; ++row) {
-                scanState.allData[row][col] =
-                    std::make_unique<common::Value>(common::Value::createNullValue());
-            }
+        auto arrowColIdx = outputToArrowColumnIdx[outCol];
+        if (arrowColIdx < 0 || static_cast<uint64_t>(arrowColIdx) >= numChildren ||
+            !batch.children[arrowColIdx] || !schema.children[arrowColIdx]) {
             continue;
         }
-
-        for (size_t row = 0; row < numRows; ++row) {
-            if (valueVector.isNull(row)) {
-                scanState.allData[row][col] =
-                    std::make_unique<common::Value>(common::Value::createNullValue());
-            } else {
-                scanState.allData[row][col] = valueVector.getAsValue(row);
-            }
-        }
+        auto& outputVector = *outputVectors[outCol];
+        auto* childArray = batch.children[arrowColIdx];
+        auto* childSchema = schema.children[arrowColIdx];
+        common::ArrowNullMaskTree nullMask(childSchema, childArray, childArray->offset,
+            childArray->length);
+        common::ArrowConverter::fromArrowArray(childSchema, childArray, outputVector, &nullMask,
+            childArray->offset + currentMorselStartOffset, 0, numRowsToCopy);
     }
-
-    scanState.totalRows = numRows;
 }
 
 } // namespace storage

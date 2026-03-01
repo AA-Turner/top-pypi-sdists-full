@@ -41,7 +41,8 @@ public:
     }
     void spinLock(uint64_t oldStateAndVersion) {
         while (true) {
-            if (tryLock(oldStateAndVersion)) {
+            if (stateAndVersion.compare_exchange_strong(oldStateAndVersion,
+                    updateStateWithSameVersion(oldStateAndVersion, LOCKED))) {
                 return;
             }
         }
@@ -52,17 +53,17 @@ public:
     }
     void unlock() {
         // TODO(Keenan / Guodong): Track down this rare bug and re-enable the assert. Ref #2289.
-        // KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
+        // DASSERT(getState(stateAndVersion.load()) == LOCKED);
         stateAndVersion.store(updateStateAndIncrementVersion(stateAndVersion.load(), UNLOCKED));
     }
     void unlockUnchanged() {
         // TODO(Keenan / Guodong): Track down this rare bug and re-enable the assert. Ref #2289.
-        // KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
+        // DASSERT(getState(stateAndVersion.load()) == LOCKED);
         stateAndVersion.store(updateStateWithSameVersion(stateAndVersion.load(), UNLOCKED));
     }
     // Change page state from Mark to Unlocked.
     bool tryClearMark(uint64_t oldStateAndVersion) {
-        KU_ASSERT(getState(oldStateAndVersion) == MARKED);
+        DASSERT(getState(oldStateAndVersion) == MARKED);
         return stateAndVersion.compare_exchange_strong(oldStateAndVersion,
             updateStateWithSameVersion(oldStateAndVersion, UNLOCKED));
     }
@@ -72,11 +73,11 @@ public:
     }
 
     void setDirty() {
-        KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
+        DASSERT(getState(stateAndVersion.load()) == LOCKED);
         stateAndVersion |= DIRTY_MASK;
     }
     void clearDirty() {
-        KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
+        DASSERT(getState(stateAndVersion.load()) == LOCKED);
         stateAndVersion &= ~DIRTY_MASK;
     }
     // Meant to be used when flushing in a single thread.

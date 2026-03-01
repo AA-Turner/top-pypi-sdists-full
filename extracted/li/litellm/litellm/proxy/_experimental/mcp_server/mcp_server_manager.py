@@ -331,7 +331,7 @@ class MCPServerManager:
                 static_headers=server_config.get("static_headers", None),
                 allow_all_keys=bool(server_config.get("allow_all_keys", False)),
                 available_on_public_internet=bool(
-                    server_config.get("available_on_public_internet", False)
+                    server_config.get("available_on_public_internet", True)
                 ),
             )
             self.config_mcp_servers[server_id] = new_server
@@ -634,7 +634,7 @@ class MCPServerManager:
             disallowed_tools=getattr(mcp_server, "disallowed_tools", None),
             allow_all_keys=mcp_server.allow_all_keys,
             available_on_public_internet=bool(
-                getattr(mcp_server, "available_on_public_internet", False)
+                getattr(mcp_server, "available_on_public_internet", True)
             ),
             updated_at=getattr(mcp_server, "updated_at", None),
         )
@@ -756,14 +756,30 @@ class MCPServerManager:
 
         Returns server_ids unchanged when client_ip is None (no filtering).
         """
+        filtered, _ = self.filter_server_ids_by_ip_with_info(server_ids, client_ip)
+        return filtered
+
+    def filter_server_ids_by_ip_with_info(
+        self, server_ids: List[str], client_ip: Optional[str]
+    ) -> Tuple[List[str], int]:
+        """
+        Filter server IDs by client IP — external callers only see public servers.
+
+        Returns (filtered_ids, ip_blocked_count) where ip_blocked_count is the number
+        of servers that were blocked because the client IP is not allowed to access them.
+        Returns server_ids unchanged (with 0 blocked) when client_ip is None.
+        """
         if client_ip is None:
-            return server_ids
-        return [
-            sid
-            for sid in server_ids
-            if (s := self.get_mcp_server_by_id(sid)) is not None
-            and self._is_server_accessible_from_ip(s, client_ip)
-        ]
+            return server_ids, 0
+        allowed = []
+        blocked = 0
+        for sid in server_ids:
+            s = self.get_mcp_server_by_id(sid)
+            if s is not None and self._is_server_accessible_from_ip(s, client_ip):
+                allowed.append(sid)
+            elif s is not None:
+                blocked += 1
+        return allowed, blocked
 
     async def get_tools_for_server(self, server_id: str) -> List[MCPTool]:
         """

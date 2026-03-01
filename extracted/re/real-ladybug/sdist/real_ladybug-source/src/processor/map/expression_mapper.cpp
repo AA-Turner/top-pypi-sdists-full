@@ -9,7 +9,6 @@
 #include "binder/expression/rel_expression.h"
 #include "binder/expression_visitor.h" // IWYU pragma: keep (used in assert)
 #include "common/exception/not_implemented.h"
-#include "common/string_format.h"
 #include "expression_evaluator/case_evaluator.h"
 #include "expression_evaluator/function_evaluator.h"
 #include "expression_evaluator/lambda_evaluator.h"
@@ -18,6 +17,7 @@
 #include "expression_evaluator/pattern_evaluator.h"
 #include "expression_evaluator/reference_evaluator.h"
 #include "planner/operator/schema.h"
+#include <format>
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -74,7 +74,7 @@ std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getEvaluator(
         return getLambdaParamEvaluator(std::move(expression));
     } else {
         // LCOV_EXCL_START
-        throw NotImplementedException(stringFormat("Cannot evaluate expression with type {}.",
+        throw NotImplementedException(std::format("Cannot evaluate expression with type {}.",
             ExpressionTypeUtil::toString(expressionType)));
         // LCOV_EXCL_STOP
     }
@@ -82,7 +82,7 @@ std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getEvaluator(
 
 std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getConstantEvaluator(
     std::shared_ptr<Expression> expression) {
-    KU_ASSERT(ConstantExpressionVisitor::isConstant(*expression));
+    DASSERT(ConstantExpressionVisitor::isConstant(*expression));
     auto expressionType = expression->expressionType;
     if (ExpressionType::LITERAL == expressionType) {
         return getLiteralEvaluator(std::move(expression));
@@ -92,7 +92,7 @@ std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getConstantEvaluator(
         return getFunctionEvaluator(std::move(expression));
     } else {
         // LCOV_EXCL_START
-        throw NotImplementedException(stringFormat("Cannot evaluate expression with type {}.",
+        throw NotImplementedException(std::format("Cannot evaluate expression with type {}.",
             ExpressionTypeUtil::toString(expressionType)));
         // LCOV_EXCL_STOP
     }
@@ -114,7 +114,7 @@ std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getParameterEvaluator(
 
 std::unique_ptr<ExpressionEvaluator> ExpressionMapper::getReferenceEvaluator(
     std::shared_ptr<Expression> expression) const {
-    KU_ASSERT(schema != nullptr);
+    DASSERT(schema != nullptr);
     auto vectorPos = DataPos(schema->getExpressionPos(*expression));
     auto expressionGroup = schema->getGroup(expression->getUniqueName());
     return std::make_unique<ReferenceExpressionEvaluator>(std::move(expression),

@@ -4,8 +4,8 @@
 
 #include "common/assert.h"
 #include "common/exception/copy.h"
-#include "common/string_format.h"
 #include "main/client_context.h"
+#include <format>
 
 namespace lbug {
 using namespace common;
@@ -67,7 +67,7 @@ void SharedFileErrorHandler::tryThrowFirstCachedError() {
     std::sort(cachedErrors.begin(), cachedErrors.end());
 
     const auto error = *cachedErrors.cbegin();
-    KU_ASSERT(!error.mustThrow);
+    DASSERT(!error.mustThrow);
 
     const bool errorIsThrowable = canGetLineNumber(error.warningData.getBlockIdx());
     if (errorIsThrowable) {
@@ -78,32 +78,30 @@ void SharedFileErrorHandler::tryThrowFirstCachedError() {
 namespace {
 std::string getFilePathMessage(std::string_view filePath) {
     static constexpr std::string_view invalidFilePath = "";
-    return filePath == invalidFilePath ? std::string{} :
-                                         common::stringFormat(" in file {}", filePath);
+    return filePath == invalidFilePath ? std::string{} : std::format(" in file {}", filePath);
 }
 
 std::string getLineNumberMessage(uint64_t lineNumber) {
     static constexpr uint64_t invalidLineNumber = 0;
-    return lineNumber == invalidLineNumber ? std::string{} :
-                                             common::stringFormat(" on line {}", lineNumber);
+    return lineNumber == invalidLineNumber ? std::string{} : std::format(" on line {}", lineNumber);
 }
 
 std::string getSkippedLineMessage(std::string_view skippedLineOrRecord) {
     static constexpr std::string_view emptySkippedLine = "";
     return skippedLineOrRecord == emptySkippedLine ?
                std::string{} :
-               common::stringFormat(" Line/record containing the error: '{}'", skippedLineOrRecord);
+               std::format(" Line/record containing the error: '{}'", skippedLineOrRecord);
 }
 } // namespace
 
 std::string SharedFileErrorHandler::getErrorMessage(PopulatedCopyFromError populatedError) const {
-    return common::stringFormat("Error{}{}: {}{}", getFilePathMessage(populatedError.filePath),
+    return std::format("Error{}{}: {}{}", getFilePathMessage(populatedError.filePath),
         getLineNumberMessage(populatedError.lineNumber), populatedError.message,
         getSkippedLineMessage(populatedError.skippedLineOrRecord));
 }
 
 void SharedFileErrorHandler::throwError(CopyFromFileError error) const {
-    KU_ASSERT(populateErrorFunc);
+    DASSERT(populateErrorFunc);
     throw CopyException(getErrorMessage(populateErrorFunc(std::move(error), fileIdx)));
 }
 
@@ -136,7 +134,7 @@ uint64_t SharedFileErrorHandler::getLineNumber(uint64_t blockIdx,
     // 1-indexed
     uint64_t res = numRowsReadInBlock + headerNumRows + 1;
     for (uint64_t i = 0; i < blockIdx; ++i) {
-        KU_ASSERT(i < linesPerBlock.size());
+        DASSERT(i < linesPerBlock.size());
         res += linesPerBlock[i].numLines;
     }
     return res;
@@ -187,7 +185,7 @@ void LocalFileErrorHandler::handleError(CopyFromFileError error) {
         return;
     }
 
-    KU_ASSERT(cachedErrors.size() <= maxCachedErrorCount);
+    DASSERT(cachedErrors.size() <= maxCachedErrorCount);
     if (cachedErrors.size() == maxCachedErrorCount) {
         flushCachedErrors();
     }

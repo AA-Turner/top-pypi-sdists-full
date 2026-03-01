@@ -7,6 +7,7 @@
 #include "graph/graph_entry_set.h"
 #include "parser/parser.h"
 #include "processor/execution_context.h"
+#include <format>
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -33,7 +34,7 @@ struct ProjectGraphNativeBindData final : TableFuncBindData {
 };
 
 static offset_t tableFunc(const TableFuncInput& input, TableFuncOutput&) {
-    const auto bindData = ku_dynamic_cast<ProjectGraphNativeBindData*>(input.bindData);
+    const auto bindData = dynamic_cast_checked<ProjectGraphNativeBindData*>(input.bindData);
     auto graphEntrySet = GraphEntrySet::Get(*input.context->clientContext);
     graphEntrySet->validateGraphNotExist(bindData->graphName);
     auto entry = std::make_unique<ParsedNativeGraphEntry>(bindData->nodeInfos, bindData->relInfos);
@@ -67,7 +68,7 @@ static std::vector<ParsedNativeGraphTableInfo> extractGraphEntryTableInfos(const
     } break;
     default:
         throw BinderException(
-            stringFormat("Argument {} has data type {}. LIST or STRUCT was expected.",
+            std::format("Argument {} has data type {}. LIST or STRUCT was expected.",
                 value.toString(), value.getDataType().toString()));
     }
     return infos;

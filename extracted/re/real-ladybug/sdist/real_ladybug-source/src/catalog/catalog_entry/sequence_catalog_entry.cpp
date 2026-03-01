@@ -7,6 +7,7 @@
 #include "common/vector/value_vector.h"
 #include "function/arithmetic/add.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -68,7 +69,7 @@ void SequenceCatalogEntry::nextValNoLock() {
 
 // referenced from DuckDB
 void SequenceCatalogEntry::nextKVal(transaction::Transaction* transaction, const uint64_t& count) {
-    KU_ASSERT(count > 0);
+    DASSERT(count > 0);
     SequenceRollbackData rollbackData{};
     {
         std::lock_guard lck(mtx);
@@ -82,7 +83,7 @@ void SequenceCatalogEntry::nextKVal(transaction::Transaction* transaction, const
 
 void SequenceCatalogEntry::nextKVal(transaction::Transaction* transaction, const uint64_t& count,
     ValueVector& resultVector) {
-    KU_ASSERT(count > 0);
+    DASSERT(count > 0);
     SequenceRollbackData rollbackData{};
     {
         std::lock_guard lck(mtx);
@@ -155,10 +156,10 @@ std::unique_ptr<SequenceCatalogEntry> SequenceCatalogEntry::deserialize(
 }
 
 std::string SequenceCatalogEntry::toCypher(const ToCypherInfo& /* info */) const {
-    return stringFormat("DROP SEQUENCE IF EXISTS `{}`;\n"
-                        "CREATE SEQUENCE IF NOT EXISTS `{}` START {} INCREMENT {} MINVALUE {} "
-                        "MAXVALUE {} {} CYCLE;\n"
-                        "RETURN nextval('{}');",
+    return std::format("DROP SEQUENCE IF EXISTS `{}`;\n"
+                       "CREATE SEQUENCE IF NOT EXISTS `{}` START {} INCREMENT {} MINVALUE {} "
+                       "MAXVALUE {} {} CYCLE;\n"
+                       "RETURN nextval('{}');",
         getName(), getName(), sequenceData.currVal, sequenceData.increment, sequenceData.minValue,
         sequenceData.maxValue, sequenceData.cycle ? "" : "NO", getName());
 }

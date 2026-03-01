@@ -63,6 +63,10 @@ pub struct Context {
     pub(crate) heading_allow_inline_images: bool,
     /// Are we inside a paragraph element?
     pub(crate) in_paragraph: bool,
+    /// Output buffer position where the current block's content starts.
+    /// Used to distinguish paragraph-break newlines from a previous block
+    /// vs. newlines generated within the current block.
+    pub(crate) block_content_start: usize,
     /// Are we inside a ruby element?
     pub(crate) in_ruby: bool,
     /// Are we inside a `<strong>` / `<b>` element?
@@ -152,6 +156,7 @@ impl Context {
             in_heading: false,
             heading_allow_inline_images: false,
             in_paragraph: false,
+            block_content_start: 0,
             in_ruby: false,
             in_strong: false,
             in_link: false,

@@ -73,6 +73,10 @@ class TestArticle:
             article.parse()
             assert article.title == title
 
+    # If this test is failing, you may need to download an ntlk tokenizer
+    # try running:
+    # import ntlk
+    # nltk.download('punkt_tab')
     def test_article_nlp(self, cnn_article):
         article = newspaper.Article(cnn_article["url"], fetch_images=False)
         article.download(input_html=cnn_article["html_content"])
@@ -158,6 +162,19 @@ class TestArticle:
                         add_error(test_case["file"], k)
 
         assert len(errors) == 0, f"Test case failed on : {errors}"
+
+    def test_json_ld_with_null_entries(self):
+        html = (
+            "<html><head>"
+            '<script type="application/ld+json">'
+            '[{"@type":"Article","headline":"Test"}, null]'
+            "</script>"
+            "</head><body><p>Hello world</p></body></html>"
+        )
+        article = Article("http://example.com", fetch_images=False)
+        article.download(input_html=html)
+        article.parse()
+        assert isinstance(article.authors, list)
 
     def test_pickle(self, cnn_article):
         article = newspaper.article(

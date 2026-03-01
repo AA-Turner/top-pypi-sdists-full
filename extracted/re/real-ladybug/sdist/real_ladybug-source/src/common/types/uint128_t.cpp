@@ -8,6 +8,7 @@
 #include "function/cast/functions/numeric_limits.h"
 #include "function/hash/hash_functions.h"
 #include <bit>
+#include <format>
 
 namespace lbug::common {
 
@@ -642,7 +643,7 @@ uint128_t::operator double() const {
     double result = NAN;
     [[maybe_unused]] bool success =
         UInt128_t::tryCast(*this, result); // casting to double should always succeed
-    KU_ASSERT(success);
+    DASSERT(success);
     return result;
 }
 
@@ -650,14 +651,14 @@ uint128_t::operator float() const {
     float result = NAN;
     [[maybe_unused]] bool success = UInt128_t::tryCast(*this,
         result); // casting overly large values to float currently returns inf
-    KU_ASSERT(success);
+    DASSERT(success);
     return result;
 }
 
 uint128_t::operator int128_t() const {
     int128_t result{};
     if (!UInt128_t::tryCast(*this, result)) {
-        throw common::OverflowException(common::stringFormat("Value {} is not within INT128 range.",
+        throw common::OverflowException(std::format("Value {} is not within INT128 range.",
             common::TypeUtils::toString(*this)));
     }
     return result;

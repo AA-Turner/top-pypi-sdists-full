@@ -374,6 +374,66 @@ fn test_superscript_leading_whitespace() {
 }
 
 #[test]
+fn test_subscript_default_passthrough() {
+    let html = "<p>H<sub>2</sub>O</p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "H2O\n");
+}
+
+#[test]
+fn test_superscript_default_passthrough() {
+    let html = "<p>x<sup>2</sup> + y<sup>3</sup></p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "x2 + y3\n");
+}
+
+#[test]
+fn test_subscript_superscript_combined_default() {
+    let html = "<p>CO<sub>2</sub><sup>*</sup></p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "CO2*\n");
+}
+
+#[test]
+fn test_subscript_html_tag_symbol() {
+    let html = "<p>H<sub>2</sub>O</p>";
+    let opts = ConversionOptions {
+        sub_symbol: "<sub>".to_string(),
+        ..Default::default()
+    };
+    let result = convert(html, Some(opts)).unwrap();
+    assert_eq!(result, "H<sub>2</sub>O\n");
+}
+
+#[test]
+fn test_adjacent_links_with_newline_separator() {
+    let html = "<p>\n<a href=\"/page1\">Link 1</a>\n<a href=\"/page2\">Link 2</a>\n</p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "[Link 1](/page1) [Link 2](/page2)\n");
+}
+
+#[test]
+fn test_adjacent_links_no_whitespace() {
+    let html = "<p><a href=\"/page1\">Link 1</a><a href=\"/page2\">Link 2</a></p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "[Link 1](/page1)[Link 2](/page2)\n");
+}
+
+#[test]
+fn test_adjacent_links_with_space() {
+    let html = "<p><a href=\"/page1\">Link 1</a> <a href=\"/page2\">Link 2</a></p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "[Link 1](/page1) [Link 2](/page2)\n");
+}
+
+#[test]
+fn test_adjacent_inline_elements_with_newline() {
+    let html = "<p><strong>bold</strong>\n<em>italic</em></p>";
+    let result = convert(html, None).unwrap();
+    assert_eq!(result, "**bold** *italic*\n");
+}
+
+#[test]
 fn test_autolink() {
     let html = "<p><a href=\"https://example.com\">https://example.com</a></p>";
     let result = convert(html, None).unwrap();

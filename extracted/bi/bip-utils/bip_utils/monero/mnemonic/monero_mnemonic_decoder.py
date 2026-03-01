@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,20 @@
 # Imports
 from typing import List, Optional, Union
 
+from typing_extensions import override
+
 from bip_utils.monero.mnemonic.monero_mnemonic import MoneroLanguages, MoneroMnemonic, MoneroMnemonicConst
 from bip_utils.monero.mnemonic.monero_mnemonic_utils import (
-    MoneroMnemonicUtils, MoneroWordsListFinder, MoneroWordsListGetter
+    MoneroMnemonicUtils,
+    MoneroWordsListFinder,
+    MoneroWordsListGetter,
 )
 from bip_utils.utils.mnemonic import (
-    Mnemonic, MnemonicChecksumError, MnemonicDecoderBase, MnemonicLanguages, MnemonicUtils
+    Mnemonic,
+    MnemonicChecksumError,
+    MnemonicDecoderBase,
+    MnemonicLanguages,
+    MnemonicUtils,
 )
 
 
@@ -56,6 +64,7 @@ class MoneroMnemonicDecoder(MnemonicDecoderBase):
         """
         super().__init__(lang, MoneroWordsListFinder, MoneroWordsListGetter)
 
+    @override
     def Decode(self,
                mnemonic: Union[str, Mnemonic]) -> bytes:
         """

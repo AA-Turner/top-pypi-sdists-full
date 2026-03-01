@@ -4,10 +4,12 @@
 #include "common/enums/extend_direction_util.h"
 #include "main/client_context.h"
 #include "planner/operator/extend/logical_extend.h"
+#include "planner/operator/scan/logical_scan_node_table.h"
 #include "processor/operator/scan/scan_multi_rel_tables.h"
 #include "processor/operator/scan/scan_rel_table.h"
 #include "processor/plan_mapper.h"
 #include "storage/storage_manager.h"
+#include "storage/table/node_table.h"
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -64,7 +66,7 @@ static bool isRelTableQualifies(ExtendDirection direction, table_id_t srcTableID
         return dstTableID == boundNodeTableID && nbrTableISet.contains(srcTableID);
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -106,7 +108,7 @@ static std::vector<ScanRelTableInfo> populateRelTableCollectionScanner(table_id_
             }
         } break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     }
     return scanInfos;
@@ -143,7 +145,7 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapExtend(const LogicalOperator* l
     auto printInfo = std::make_unique<ScanRelTablePrintInfo>(tableNames, extend->getProperties(),
         boundNode, rel, nbrNode, extendDirection, rel->getVariableName());
     if (scanSingleRelTable(*rel, *boundNode, extendDirection)) {
-        KU_ASSERT(rel->getNumEntries() == 1);
+        DASSERT(rel->getNumEntries() == 1);
         auto entry = rel->getEntry(0)->ptrCast<RelGroupCatalogEntry>();
         auto relDataDirection = ExtendDirectionUtil::getRelDataDirection(extendDirection);
         auto entryInfo = entry->getSingleRelEntryInfo();
@@ -151,6 +153,31 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapExtend(const LogicalOperator* l
         auto scanRelInfo =
             getRelTableScanInfo(*entry, relDataDirection, relTable, extend->shouldScanNbrID(),
                 extend->getProperties(), extend->getPropertyPredicates(), clientContext);
+        if (logicalOperator->getChild(0)->getOperatorType() ==
+            LogicalOperatorType::SCAN_NODE_TABLE) {
+            auto* scanNode = logicalOperator->getChild(0)->ptrCast<LogicalScanNodeTable>();
+            if (scanNode->getScanType() == LogicalScanNodeTableType::SCAN &&
+                scanNode->getProperties().empty()) {
+                std::vector<NodeTable*> sourceNodeTables;
+                auto expectedBoundTableID = relDataDirection == RelDataDirection::FWD ?
+                                                relTable->getFromNodeTableID() :
+                                                relTable->getToNodeTableID();
+                for (auto tableID : scanNode->getTableIDs()) {
+                    if (tableID == expectedBoundTableID) {
+                        sourceNodeTables.push_back(
+                            storageManager->getTable(tableID)->ptrCast<NodeTable>());
+                    }
+                }
+                // Only apply optimization if scan node is not already mapped (e.g., by a
+                // semi-masker)
+                if (!sourceNodeTables.empty() &&
+                    !logicalOpToPhysicalOpMap.contains(logicalOperator->getChild(0).get())) {
+                    return std::make_unique<ScanRelTable>(std::move(scanInfo),
+                        std::move(scanRelInfo), std::move(sourceNodeTables), getOperatorID(),
+                        printInfo->copy());
+                }
+            }
+        }
         return std::make_unique<ScanRelTable>(std::move(scanInfo), std::move(scanRelInfo),
             std::move(prevOperator), getOperatorID(), printInfo->copy());
     }

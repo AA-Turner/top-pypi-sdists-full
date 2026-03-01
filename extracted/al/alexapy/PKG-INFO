@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AlexaPy
-Version: 1.29.18
+Version: 1.29.19
 Summary: Python API to control Amazon Echo Devices Programmatically.
 License: Apache-2.0
 License-File: AUTHORS.md

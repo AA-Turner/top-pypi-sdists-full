@@ -1,5 +1,7 @@
 #include "main/client_context.h"
 
+#include <cstdlib>
+
 #include "binder/binder.h"
 #include "common/exception/checkpoint.h"
 #include "common/exception/connection.h"
@@ -26,6 +28,7 @@
 #include "storage/buffer_manager/spiller.h"
 #include "storage/storage_manager.h"
 #include "transaction/transaction_context.h"
+#include <format>
 #include <processor/warning_context.h>
 
 #if defined(_WIN32)
@@ -91,7 +94,7 @@ DBConfig* ClientContext::getDBConfigUnsafe() const {
 }
 
 uint64_t ClientContext::getTimeoutRemainingInMS() const {
-    KU_ASSERT(hasTimeout());
+    DASSERT(hasTimeout());
     const auto elapsed = activeQuery.timer.getElapsedTimeInMS();
     return elapsed >= clientConfig.timeoutInMS ? 0 : clientConfig.timeoutInMS - elapsed;
 }
@@ -182,7 +185,7 @@ const main::ExtensionOption* ClientContext::getExtensionOption(std::string optio
 }
 
 std::string ClientContext::getExtensionDir() const {
-    return stringFormat("{}/.lbug/extension/{}/{}/", clientConfig.homeDirectory,
+    return std::format("{}/.lbdb/extension/{}/{}/", clientConfig.homeDirectory,
         LBUG_EXTENSION_VERSION, extension::getPlatform());
 }
 
@@ -209,11 +212,14 @@ bool ClientContext::isInMemory() const {
 std::string ClientContext::getEnvVariable(const std::string& name) {
 #if defined(_WIN32)
     auto envValue = WindowsUtils::utf8ToUnicode(name.c_str());
-    auto result = _wgetenv(envValue.c_str());
-    if (!result) {
+    wchar_t* result = nullptr;
+    size_t len = 0;
+    if (_wdupenv_s(&result, &len, envValue.c_str()) != 0 || !result) {
         return std::string();
     }
-    return WindowsUtils::unicodeToUTF8(result);
+    std::string out = WindowsUtils::unicodeToUTF8(result);
+    free(result);
+    return out;
 #else
     const char* env = getenv(name.c_str()); // NOLINT(*-mt-unsafe)
     if (!env) {
@@ -260,6 +266,24 @@ void ClientContext::removeScalarFunction(const std::string& name) {
 
 void ClientContext::cleanUp() {
     VirtualFileSystem::GetUnsafe(*this)->cleanUP(this);
+}
+
+void ClientContext::registerQueryStart() {
+    activeQueryCount++;
+}
+
+void ClientContext::registerQueryEnd() {
+    std::lock_guard lck{mtxForClose};
+    DASSERT(activeQueryCount > 0);
+    activeQueryCount--;
+    if (activeQueryCount == 0) {
+        cvForClose.notify_all();
+    }
+}
+
+void ClientContext::waitForNoActiveQuery() {
+    std::unique_lock lck{mtxForClose};
+    cvForClose.wait(lck, [this] { return activeQueryCount.load() == 0; });
 }
 
 std::unique_ptr<PreparedStatement> ClientContext::prepareWithParams(std::string_view query,
@@ -324,7 +348,7 @@ std::unique_ptr<QueryResult> ClientContext::executeWithParams(PreparedStatement*
     // The following should never happen. But we still throw just in case.
     if (!cachedPreparedStatementManager.containsStatement(name)) {
         return QueryResult::getQueryResultWithError(
-            stringFormat("Cannot find prepared statement with name {}.", name));
+            std::format("Cannot find prepared statement with name {}.", name));
     }
     // LCOV_EXCL_STOP
     auto cachedStatement = cachedPreparedStatementManager.getCachedStatement(name);
@@ -413,7 +437,7 @@ std::vector<std::shared_ptr<Statement>> ClientContext::parseQuery(std::string_vi
             parserTimer.stop();
             const auto avgRewriteParsingTime =
                 parserTimer.getElapsedTimeMS() / rewrittenStatements.size() / 1.0;
-            KU_ASSERT(rewrittenStatements.size() >= 1);
+            DASSERT(rewrittenStatements.size() >= 1);
             for (auto j = 0u; j < rewrittenStatements.size() - 1; j++) {
                 rewrittenStatements[j]->setParsingTime(avgParsingTime + avgRewriteParsingTime);
                 rewrittenStatements[j]->setToInternal();
@@ -432,7 +456,7 @@ void ClientContext::validateTransaction(bool readOnly, bool requireTransaction) 
         throw ConnectionException("Cannot execute write operations in a read-only database!");
     }
     if (requireTransaction && transactionContext->hasActiveTransaction()) {
-        KU_ASSERT(!transactionContext->isAutoTransaction());
+        DASSERT(!transactionContext->isAutoTransaction());
         transactionContext->validateManualTransaction(readOnly);
     }
 }
@@ -573,7 +597,7 @@ ClientContext::TransactionHelper::getAction(bool commitIfNew, bool commitIfAuto)
 void ClientContext::TransactionHelper::runFuncInTransaction(TransactionContext& context,
     const std::function<void()>& fun, bool readOnlyStatement, bool isTransactionStatement,
     TransactionCommitAction action) {
-    KU_ASSERT(context.isAutoTransaction() || context.hasActiveTransaction());
+    DASSERT(context.isAutoTransaction() || context.hasActiveTransaction());
     const bool requireNewTransaction =
         context.isAutoTransaction() && !context.hasActiveTransaction() && !isTransactionStatement;
     if (requireNewTransaction) {

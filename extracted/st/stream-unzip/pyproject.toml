@@ -4,13 +4,13 @@ build-backend = "maturin"
 
 [project]
 name = "stream-unzip"
-version = "0.0.99"
+version = "0.0.100"
 authors = [
   { name="Department for International Trade", email="sre@digital.trade.gov.uk" },
 ]
 description = "Python function to stream unzip all the files in a ZIP archive, without loading the entire ZIP file into memory or any of its uncompressed files"
 readme = "README.md"
-requires-python = ">=3.7.1"
+requires-python = ">=3.7.7"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -31,7 +31,10 @@ dev = [
     "trio>=0.19.0",
 ]
 ci = [
-    "mypy==1.4.1",
+    # mypy 1.4.1 requires typed_ast, which cannot be installed on Python >= 3.14
+    "mypy==1.4.1;python_version<'3.14'",
+    # mypy 1.19.1 requires Python >= 2.9
+    "mypy==1.19.1;python_version>='3.14'",
     "pycryptodome==3.10.1",
     "stream-inflate==0.0.12",
 ]

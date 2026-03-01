@@ -1,12 +1,21 @@
 #include "binder/binder.h"
 #include "binder/expression/expression_util.h"
+#include "binder/expression/node_expression.h"
 #include "binder/expression/node_rel_expression.h"
+#include "binder/expression/rel_expression.h"
 #include "binder/expression_binder.h"
+#include "catalog/catalog.h"
 #include "common/cast.h"
 #include "common/exception/binder.h"
-#include "common/string_format.h"
+#include "common/string_utils.h"
+#include "common/types/types.h"
+#include "function/schema/vector_node_rel_functions.h"
 #include "function/struct/vector_struct_functions.h"
+#include "main/client_context.h"
+#include "main/database_manager.h"
 #include "parser/expression/parsed_property_expression.h"
+#include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -25,6 +34,30 @@ static bool isStructPattern(const Expression& expression) {
            logicalTypeID == LogicalTypeID::STRUCT;
 }
 
+static bool isAnyGraphNodeOrRel(const NodeOrRelExpression& nodeOrRel,
+    main::ClientContext* context) {
+    auto transaction = transaction::Transaction::Get(*context);
+    auto useInternal = context->useInternalCatalogEntry();
+    auto dbManager = main::DatabaseManager::Get(*context);
+    auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+    auto catalog = defaultGraphCatalog != nullptr ? defaultGraphCatalog : Catalog::Get(*context);
+    for (auto& entry : nodeOrRel.getEntries()) {
+        if (entry->getType() == CatalogEntryType::NODE_TABLE_ENTRY &&
+            catalog->containsTable(transaction, "_nodes", useInternal) &&
+            entry->getTableID() ==
+                catalog->getTableCatalogEntry(transaction, "_nodes", useInternal)->getTableID()) {
+            return true;
+        }
+        if (entry->getType() == CatalogEntryType::REL_GROUP_ENTRY &&
+            catalog->containsTable(transaction, "_edges", useInternal) &&
+            entry->getTableID() ==
+                catalog->getTableCatalogEntry(transaction, "_edges", useInternal)->getTableID()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 expression_vector ExpressionBinder::bindPropertyStarExpression(
     const parser::ParsedExpression& parsedExpression) {
     auto child = bindExpression(*parsedExpression.getChild(0));
@@ -33,7 +66,7 @@ expression_vector ExpressionBinder::bindPropertyStarExpression(
     } else if (isStructPattern(*child)) {
         return bindStructPropertyStarExpression(child);
     } else {
-        throw BinderException(stringFormat("Cannot bind property for expression {} with type {}.",
+        throw BinderException(std::format("Cannot bind property for expression {} with type {}.",
             child->toString(), ExpressionTypeUtil::toString(child->expressionType)));
     }
 }
@@ -64,7 +97,7 @@ std::shared_ptr<Expression> ExpressionBinder::bindPropertyExpression(
     const ParsedExpression& parsedExpression) {
     auto& propertyExpression = parsedExpression.constCast<ParsedPropertyExpression>();
     if (propertyExpression.isStar()) {
-        throw BinderException(stringFormat("Cannot bind {} as a single property expression.",
+        throw BinderException(std::format("Cannot bind {} as a single property expression.",
             parsedExpression.toString()));
     }
     auto propertyName = propertyExpression.getPropertyName();
@@ -90,7 +123,7 @@ std::shared_ptr<Expression> ExpressionBinder::bindPropertyExpression(
     } else if (child->getDataType().getLogicalTypeID() == LogicalTypeID::ANY) {
         return createVariableExpression(LogicalType::ANY(), binder->getUniqueExpressionName(""));
     } else {
-        throw BinderException(stringFormat("Cannot bind property for expression {} with type {}.",
+        throw BinderException(std::format("Cannot bind property for expression {} with type {}.",
             child->toString(), ExpressionTypeUtil::toString(child->expressionType)));
     }
 }
@@ -98,14 +131,41 @@ std::shared_ptr<Expression> ExpressionBinder::bindPropertyExpression(
 std::shared_ptr<Expression> ExpressionBinder::bindNodeOrRelPropertyExpression(
     const Expression& child, const std::string& propertyName) {
     auto& nodeOrRel = child.constCast<NodeOrRelExpression>();
+    if (StringUtils::getUpper(propertyName) == function::RowIDFunction::name) {
+        std::shared_ptr<Expression> idExpr;
+        if (ExpressionUtil::isNodePattern(child)) {
+            auto& node = child.constCast<NodeExpression>();
+            idExpr = node.getInternalID()->copy();
+        } else {
+            auto& rel = child.constCast<RelExpression>();
+            idExpr = rel.getInternalID()->copy();
+        }
+        auto rowIDExpr = bindScalarFunctionExpression({idExpr}, function::OffsetFunction::name);
+        rowIDExpr->setAlias(std::format("{}.{}", child.toString(), propertyName));
+        return rowIDExpr;
+    }
     // TODO(Xiyang): we should be able to remove l97-l100 after removing propertyDataExprs from node
     // & rel expression.
     if (propertyName == InternalKeyword::ID &&
         child.dataType.getLogicalTypeID() == common::LogicalTypeID::NODE) {
-        auto& node = ku_dynamic_cast<const NodeExpression&>(child);
+        auto& node = dynamic_cast_checked<const NodeExpression&>(child);
         return node.getInternalID();
     }
     if (!nodeOrRel.hasPropertyExpression(propertyName)) {
+        // Check if this is an ANY graph (_nodes or _edges table)
+        // In ANY graphs, all properties are stored dynamically in the JSON data column
+        if (isAnyGraphNodeOrRel(nodeOrRel, context)) {
+            // Create a property expression with exists=true for ANY graph properties
+            table_id_map_t<SingleLabelPropertyInfo> infos;
+            for (auto& entry : nodeOrRel.getEntries()) {
+                infos.insert({entry->getTableID(),
+                    SingleLabelPropertyInfo(true /* exists */, false /* isPrimaryKey */)});
+            }
+            // Use JSON type for ANY graph properties
+            // The actual storage is as JSON in the data column
+            return std::make_shared<PropertyExpression>(LogicalType::JSON(), propertyName,
+                nodeOrRel.getUniqueName(), nodeOrRel.getVariableName(), std::move(infos));
+        }
         throw BinderException(
             "Cannot find property " + propertyName + " for " + child.toString() + ".");
     }

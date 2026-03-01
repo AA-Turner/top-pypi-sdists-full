@@ -164,6 +164,8 @@ public:
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapUnionAll(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapUnwind(const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapUnwindDedup(
+        const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapUseDatabase(
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCreateGraph(
@@ -241,11 +243,11 @@ public:
 
     void addOperatorMapping(const planner::LogicalOperator* logicalOp,
         PhysicalOperator* physicalOp) {
-        KU_ASSERT(!logicalOpToPhysicalOpMap.contains(logicalOp));
+        DASSERT(!logicalOpToPhysicalOpMap.contains(logicalOp));
         logicalOpToPhysicalOpMap.insert({logicalOp, physicalOp});
     }
     void eraseOperatorMapping(const planner::LogicalOperator* logicalOp) {
-        KU_ASSERT(logicalOpToPhysicalOpMap.contains(logicalOp));
+        DASSERT(logicalOpToPhysicalOpMap.contains(logicalOp));
         logicalOpToPhysicalOpMap.erase(logicalOp);
     }
 

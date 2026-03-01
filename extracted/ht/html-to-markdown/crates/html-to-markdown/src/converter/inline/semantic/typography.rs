@@ -87,6 +87,8 @@ pub fn handle_subscript(
             } else {
                 output.push_str(&options.sub_symbol);
             }
+        } else {
+            output.push_str(trimmed);
         }
         append_inline_suffix(output, suffix, !trimmed.is_empty(), node_handle, parser, dom_ctx);
     }
@@ -139,6 +141,8 @@ pub fn handle_superscript(
             } else {
                 output.push_str(&options.sup_symbol);
             }
+        } else {
+            output.push_str(trimmed);
         }
         append_inline_suffix(output, suffix, !trimmed.is_empty(), node_handle, parser, dom_ctx);
     }

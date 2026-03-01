@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,8 @@ References:
 
 # Imports
 from typing import Any, Union
+
+from typing_extensions import override
 
 from bip_utils.addr.addr_dec_utils import AddrDecUtils
 from bip_utils.addr.addr_key_validator import AddrKeyValidator
@@ -136,8 +138,8 @@ class _P2TRUtils:
 
 class P2TRAddrDecoder(IAddrDecoder):
     """
-    P2WPKH address decoder class.
-    It allows the Pay-to-Witness-Public-Key-Hash address decoding.
+    P2TR address decoder class.
+    It allows the Pay-to-Taproot address decoding.
     """
 
     @staticmethod
@@ -179,6 +181,7 @@ class P2TRAddrEncoder(IAddrEncoder):
     It allows the Pay-to-Taproot address encoding.
     """
 
+    @override
     @staticmethod
     def EncodeKey(pub_key: Union[bytes, IPublicKey],
                   **kwargs: Any) -> str:

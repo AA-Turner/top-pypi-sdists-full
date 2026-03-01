@@ -6,6 +6,7 @@
 #include "common/type_utils.h"
 #include "common/types/uuid.h"
 #include "py_objects.h"
+#include <format>
 
 namespace lbug {
 
@@ -41,7 +42,7 @@ PythonObjectType getPythonObjectType(py::handle& ele) {
     } else if (py::isinstance<py::dict>(ele)) {
         return PythonObjectType::Dict;
     } else {
-        throw NotImplementedException(stringFormat("Scanning of type {} has not been implemented",
+        throw NotImplementedException(std::format("Scanning of type {} has not been implemented",
             py::str(py::type::of(ele)).cast<std::string>()));
     }
 }
@@ -51,7 +52,7 @@ void tryTransformPythonNumeric(common::ValueVector* outputVector, uint64_t pos, 
     int64_t value = PyLong_AsLongLongAndOverflow(ele.ptr(), &overflow);
     if (overflow != 0) {
         PyErr_Clear();
-        throw common::ConversionException(common::stringFormat(
+        throw common::ConversionException(std::format(
             "Failed to cast value: Python value '{}' to INT64", std::string(pybind11::str(ele))));
     }
     outputVector->setNull(pos, false /* isNull */);
@@ -80,11 +81,11 @@ static std::vector<std::string> transformStructKeys(py::handle keys, idx_t size)
 
 void transformDictionaryToStruct(common::ValueVector* outputVector, uint64_t pos,
     const PyDictionary& dict) {
-    KU_ASSERT(outputVector->dataType.getLogicalTypeID() == LogicalTypeID::STRUCT);
+    DASSERT(outputVector->dataType.getLogicalTypeID() == LogicalTypeID::STRUCT);
     auto structKeys = transformStructKeys(dict.keys, dict.len);
     if (StructType::getNumFields(outputVector->dataType) != dict.len) {
         throw common::ConversionException(
-            common::stringFormat("Failed to convert python dictionary: {} to target type {}",
+            std::format("Failed to convert python dictionary: {} to target type {}",
                 dict.toString(), outputVector->dataType.toString()));
     }
 
@@ -103,7 +104,7 @@ void transformDictionaryToStruct(common::ValueVector* outputVector, uint64_t pos
 
 void transformDictionaryToMap(common::ValueVector* outputVector, uint64_t pos,
     const PyDictionary& dict) {
-    KU_ASSERT(outputVector->dataType.getLogicalTypeID() == LogicalTypeID::MAP);
+    DASSERT(outputVector->dataType.getLogicalTypeID() == LogicalTypeID::MAP);
     auto keys = dict.values.attr("__getitem__")(0);
     auto values = dict.values.attr("__getitem__")(1);
 
@@ -113,7 +114,7 @@ void transformDictionaryToMap(common::ValueVector* outputVector, uint64_t pos,
     }
 
     auto numKeys = py::len(keys);
-    KU_ASSERT(numKeys == py::len(values));
+    DASSERT(numKeys == py::len(values));
     auto listEntry = ListVector::addList(outputVector, numKeys);
     outputVector->setValue(pos, listEntry);
     auto structVector = ListVector::getDataVector(outputVector);
@@ -202,11 +203,11 @@ void transformPythonValue(common::ValueVector* outputVector, uint64_t pos, py::h
             transformDictionaryToMap(outputVector, pos, dict);
         } break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 

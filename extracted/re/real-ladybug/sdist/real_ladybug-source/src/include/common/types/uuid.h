@@ -12,12 +12,11 @@ namespace common {
 
 class RandomEngine;
 
-// Note: uuid_t is a reserved keyword in MSVC, we have to use ku_uuid_t instead.
-struct ku_uuid_t {
+struct uuid {
     int128_t value;
 };
 
-struct UUID {
+struct LBUG_API UUID {
     static constexpr const uint8_t UUID_STRING_LENGTH = 36;
     static constexpr const char HEX_DIGITS[] = "0123456789abcdef";
     static void byteToHex(char byteVal, char* buf, uint64_t& pos);
@@ -29,9 +28,9 @@ struct UUID {
     static int128_t fromCString(const char* str, uint64_t len);
     static void toString(int128_t input, char* buf);
     static std::string toString(int128_t input);
-    static std::string toString(ku_uuid_t val);
+    static std::string toString(uuid val);
 
-    static ku_uuid_t generateRandomUUID(RandomEngine* engine);
+    static uuid generateRandomUUID(RandomEngine* engine);
 
     static const regex::RE2& regexPattern();
 };

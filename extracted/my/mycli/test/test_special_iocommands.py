@@ -10,10 +10,11 @@ from pymysql import ProgrammingError
 import pytest
 
 import mycli.packages.special
-from test.utils import db_connection, dbtest, send_ctrl_c
+from test.utils import TEMPFILE_PREFIX, db_connection, dbtest, send_ctrl_c
 
 
-def test_set_get_pager():
+def test_set_get_pager(monkeypatch):
+    monkeypatch.setenv('PAGER', '')
     mycli.packages.special.set_pager_enabled(True)
     assert mycli.packages.special.is_pager_enabled()
     mycli.packages.special.set_pager_enabled(False)
@@ -42,15 +43,21 @@ def test_set_get_expanded_output():
     assert not mycli.packages.special.is_expanded_output()
 
 
-def test_editor_command():
+def test_editor_command(monkeypatch):
+    monkeypatch.setenv('EDITOR', 'true')
+    monkeypatch.setenv('VISUAL', 'true')
+
     assert mycli.packages.special.editor_command(r"hello\e")
-    assert mycli.packages.special.editor_command(r"\ehello")
+    assert mycli.packages.special.editor_command(r"hello\edit")
+    assert mycli.packages.special.editor_command(r"\e hello")
+    assert mycli.packages.special.editor_command(r"\edit hello")
+
     assert not mycli.packages.special.editor_command(r"hello")
+    assert not mycli.packages.special.editor_command(r"\ehello")
+    assert not mycli.packages.special.editor_command(r"\edithello")
 
     assert mycli.packages.special.get_filename(r"\e filename") == "filename"
 
-    os.environ["EDITOR"] = "true"
-    os.environ["VISUAL"] = "true"
     if os.name != "nt":
         assert mycli.packages.special.open_external_editor(sql=r"select 1") == ('select 1', None)
     else:
@@ -60,7 +67,7 @@ def test_editor_command():
 def test_tee_command():
     mycli.packages.special.write_tee("hello world")  # write without file set
     # keep Windows from locking the file with delete=False
-    with tempfile.NamedTemporaryFile(delete=False) as f:
+    with tempfile.NamedTemporaryFile(prefix=TEMPFILE_PREFIX, delete=False) as f:
         mycli.packages.special.execute(None, "tee " + f.name)
         mycli.packages.special.write_tee("hello world")
         if os.name == "nt":
@@ -98,7 +105,7 @@ def test_tee_command_error():
         mycli.packages.special.execute(None, "tee")
 
     with pytest.raises(OSError):
-        with tempfile.NamedTemporaryFile() as f:
+        with tempfile.NamedTemporaryFile(prefix=TEMPFILE_PREFIX) as f:
             os.chmod(f.name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
             mycli.packages.special.execute(None, f"tee {f.name}")
 
@@ -132,7 +139,7 @@ def test_once_command():
 
     mycli.packages.special.write_once("hello world")  # write without file set
     # keep Windows from locking the file with delete=False
-    with tempfile.NamedTemporaryFile(delete=False) as f:
+    with tempfile.NamedTemporaryFile(prefix=TEMPFILE_PREFIX, delete=False) as f:
         mycli.packages.special.execute(None, "\\once " + f.name)
         mycli.packages.special.write_once("hello world")
         if os.name == "nt":
@@ -170,7 +177,7 @@ def test_pipe_once_command():
         mycli.packages.special.write_once("hello world")
         mycli.packages.special.flush_pipe_once_if_written(None)
     else:
-        with tempfile.NamedTemporaryFile() as f:
+        with tempfile.NamedTemporaryFile(prefix=TEMPFILE_PREFIX) as f:
             mycli.packages.special.execute(None, "\\pipe_once tee " + f.name)
             mycli.packages.special.write_pipe_once("hello world")
             mycli.packages.special.flush_pipe_once_if_written(None)

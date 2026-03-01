@@ -191,6 +191,9 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapOperator(const LogicalOperator*
     case LogicalOperatorType::UNWIND: {
         physicalOperator = mapUnwind(logicalOperator);
     } break;
+    case LogicalOperatorType::UNWIND_DEDUPLICATE: {
+        physicalOperator = mapUnwindDedup(logicalOperator);
+    } break;
     case LogicalOperatorType::USE_DATABASE: {
         physicalOperator = mapUseDatabase(logicalOperator);
     } break;
@@ -204,7 +207,7 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapOperator(const LogicalOperator*
         physicalOperator = mapExtensionClause(logicalOperator);
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     if (!logicalOpToPhysicalOpMap.contains(logicalOperator)) {
         logicalOpToPhysicalOpMap.insert({logicalOperator, physicalOperator.get()});

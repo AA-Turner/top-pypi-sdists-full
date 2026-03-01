@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,8 @@
 from abc import ABC
 from typing import List
 
+from typing_extensions import override
+
 from bip_utils.monero.mnemonic.monero_entropy_generator import MoneroEntropyGenerator
 from bip_utils.monero.mnemonic.monero_mnemonic import MoneroLanguages, MoneroMnemonic
 from bip_utils.monero.mnemonic.monero_mnemonic_utils import MoneroMnemonicUtils, MoneroWordsListGetter
@@ -47,7 +49,7 @@ class MoneroMnemonicEncoderBase(MnemonicEncoderBase, ABC):
             lang (MoneroLanguages, optional): Language (default: English)
 
         Raises:
-            TypeError: If the language is not a Bip39Languages enum
+            TypeError: If the language is not a MoneroLanguages enum
             ValueError: If loaded words list is not valid
         """
         super().__init__(lang, MoneroWordsListGetter)
@@ -87,6 +89,7 @@ class MoneroMnemonicNoChecksumEncoder(MoneroMnemonicEncoderBase):
     It encodes bytes to the mnemonic phrase without checksum.
     """
 
+    @override
     def Encode(self,
                entropy_bytes: bytes) -> Mnemonic:
         """
@@ -110,6 +113,7 @@ class MoneroMnemonicWithChecksumEncoder(MoneroMnemonicEncoderBase):
     It encodes bytes to the mnemonic phrase with checksum.
     """
 
+    @override
     def Encode(self,
                entropy_bytes: bytes) -> Mnemonic:
         """

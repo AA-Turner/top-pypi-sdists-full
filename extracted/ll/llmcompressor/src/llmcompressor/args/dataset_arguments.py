@@ -83,9 +83,9 @@ class CustomDatasetArguments(DVCDatasetArguments):
         default="truncation",
         metadata={
             "help": (
-                "The function to used to form a batch from the dataset. Can also "
+                "The function to use to form a batch from the dataset. Can also "
                 "specify 'truncation' or 'padding' to truncate or pad non-uniform "
-                "sequence lengths in a batch. Defaults to 'padding'."
+                "sequence lengths in a batch. Defaults to 'truncation'."
             )
         },
     )
@@ -143,7 +143,7 @@ class DatasetArguments(CustomDatasetArguments):
         metadata={"help": "Number of samples to use for one-shot calibration"},
     )
     shuffle_calibration_samples: bool = field(
-        default=False,
+        default=True,
         metadata={
             "help": "whether to shuffle the dataset before selecting calibration data"
         },
@@ -245,6 +245,31 @@ class DatasetArguments(CustomDatasetArguments):
             "When True, quantization is applied during forward pass in calibration. "
             "When False, quantization is disabled during forward pass in calibration. "
             "Default is set to True."
+        },
+    )
+    use_loss_mask: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use the 'loss_mask' field from the batch for AWQ "
+            "loss calculation. When True, only tokens where loss_mask=1 contribute "
+            "to the AWQ optimization objective."
+        },
+    )
+    dataloader_num_workers: int = field(
+        default=0,
+        metadata={
+            "help": "Number of worker processes for data loading. Default is 0 (safe "
+            "for low CPU/GPU memory). Set to 2 or more for faster calibration if you "
+            "have sufficient RAM. Custom data collators may not work with "
+            "multiprocessing."
+        },
+    )
+    sequential_prefetch: bool = field(
+        default=False,
+        metadata={
+            "help": "When using the sequential pipeline, prefetch the next batch in a "
+            "background thread to overlap onload with forward. Default False; set True "
+            "for faster calibration when GPU memory allows (two batches on device)."
         },
     )
 

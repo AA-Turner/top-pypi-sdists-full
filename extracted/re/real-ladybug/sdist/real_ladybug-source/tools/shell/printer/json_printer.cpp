@@ -1,6 +1,6 @@
 #include "printer/json_printer.h"
 
-#include "json_utils.h"
+#include "common/json_utils.h"
 #include "main/query_result/materialized_query_result.h"
 #include "processor/result/factorized_table.h"
 #include "storage/buffer_manager/memory_manager.h"
@@ -36,7 +36,7 @@ std::string JsonPrinter::printBody(QueryResult& queryResult, MemoryManager& mm) 
         scanVectors.push_back(resultVector.get());
     }
     std::span<ValueVector*> vectorsToScan{scanVectors};
-    KU_ASSERT(queryResult.getType() == QueryResultType::FTABLE);
+    DASSERT(queryResult.getType() == QueryResultType::FTABLE);
     auto& table = queryResult.constCast<MaterializedQueryResult>().getFactorizedTable();
     uint64_t numTuplesScanned = 0;
     auto maxNumTuplesToScanInBatch = table.hasUnflatCol() ? 1 : DEFAULT_VECTOR_CAPACITY;

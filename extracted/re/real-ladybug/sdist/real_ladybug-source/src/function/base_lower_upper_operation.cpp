@@ -1,7 +1,7 @@
 #include "common/exception/runtime.h"
-#include "common/string_format.h"
 #include "function/string/functions/base_lower_upper_function.h"
 #include "utf8proc.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::utf8proc;
@@ -21,14 +21,13 @@ uint32_t BaseLowerUpperFunction::getResultLen(char* inputStr, uint32_t inputLen,
                 // LCOV_EXCL_START
                 // TODO(Xiyang): We shouldn't allow invalid UTF-8 to enter a string column.
                 std::string funcName = isUpper ? "UPPER" : "LOWER";
-                throw RuntimeException(
-                    common::stringFormat("Failed calling {}: Invalid UTF-8.", funcName));
+                throw RuntimeException(std::format("Failed calling {}: Invalid UTF-8.", funcName));
                 // LCOV_EXCL_STOP
             }
             int convertedCodepoint =
                 isUpper ? utf8proc_toupper(codepoint) : utf8proc_tolower(codepoint);
             int newSize = utf8proc_codepoint_length(convertedCodepoint);
-            KU_ASSERT(newSize >= 0);
+            DASSERT(newSize >= 0);
             outputLength += newSize;
             i += size;
         } else {
@@ -45,7 +44,7 @@ void BaseLowerUpperFunction::convertCharCase(char* result, const char* input, in
     newSize = 1;
     if (input[charPos] & 0x80) {
         auto codepoint = utf8proc_codepoint(input + charPos, originalSize);
-        KU_ASSERT(codepoint >= 0); // Validity ensured by getResultLen.
+        DASSERT(codepoint >= 0); // Validity ensured by getResultLen.
         int convertedCodepoint =
             toUpper ? utf8proc_toupper(codepoint) : utf8proc_tolower(codepoint);
         utf8proc_codepoint_to_utf8(convertedCodepoint, newSize, result);

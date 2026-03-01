@@ -30,6 +30,7 @@ struct LBUG_API RelBatchInsertPrintInfo final : OPPrintInfo {
 private:
     RelBatchInsertPrintInfo(const RelBatchInsertPrintInfo& other)
         : OPPrintInfo(other), tableName(other.tableName) {}
+    RelBatchInsertPrintInfo& operator=(const RelBatchInsertPrintInfo&) = default;
 };
 
 struct LBUG_API RelBatchInsertProgressSharedState {
@@ -70,11 +71,11 @@ struct LBUG_API RelBatchInsertExecutionState {
 
     template<class TARGET>
     TARGET& cast() {
-        return common::ku_dynamic_cast<TARGET&>(*this);
+        return common::dynamic_cast_checked<TARGET&>(*this);
     }
     template<class TARGET>
     const TARGET& constCast() const {
-        return common::ku_dynamic_cast<const TARGET&>(*this);
+        return common::dynamic_cast_checked<const TARGET&>(*this);
     }
 };
 

@@ -3,6 +3,7 @@
 #include "common/exception/binder.h"
 #include "function/scalar_function.h"
 #include "function/struct/vector_struct_functions.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::binder;
@@ -20,7 +21,7 @@ std::unique_ptr<FunctionBindData> StructExtractFunctions::bindFunc(
         input.arguments[1]->constPtrCast<LiteralExpression>()->getValue().getValue<std::string>();
     auto fieldIdx = StructType::getFieldIdx(structType, key);
     if (fieldIdx == INVALID_STRUCT_FIELD_IDX) {
-        throw BinderException(stringFormat("Invalid struct field name: {}.", key));
+        throw BinderException(std::format("Invalid struct field name: {}.", key));
     }
     auto paramTypes = ExpressionUtil::getDataTypes(input.arguments);
     auto resultType = StructType::getField(structType, fieldIdx).getType().copy();
@@ -33,7 +34,7 @@ std::unique_ptr<FunctionBindData> StructExtractFunctions::bindFunc(
 void StructExtractFunctions::compileFunc(FunctionBindData* bindData,
     const std::vector<std::shared_ptr<ValueVector>>& parameters,
     std::shared_ptr<ValueVector>& result) {
-    KU_ASSERT(parameters[0]->dataType.getPhysicalType() == PhysicalTypeID::STRUCT);
+    DASSERT(parameters[0]->dataType.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto& structBindData = bindData->cast<StructExtractBindData>();
     result = StructVector::getFieldVector(parameters[0].get(), structBindData.childIdx);
     result->state = parameters[0]->state;

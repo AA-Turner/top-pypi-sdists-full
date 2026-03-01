@@ -9,7 +9,7 @@ class APIVersionError:
     args: typing.Any
 
 class CLIArguments:
-    """Parsed commandline arguments."""
+    """Parsed command-line arguments."""
 
 def add_cli_parser(subparsers) -> None:
     """Add argparser for this subcommand."""

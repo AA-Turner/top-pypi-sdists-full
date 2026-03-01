@@ -2,7 +2,6 @@
 
 #include "common/assert.h"
 #include "common/exception/io.h"
-#include "common/string_format.h"
 #include "common/string_utils.h"
 #include "common/system_message.h"
 #include "glob/glob.hpp"
@@ -26,6 +25,7 @@
 #include <cstring>
 
 #include "storage/storage_utils.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -45,16 +45,16 @@ LocalFileInfo::~LocalFileInfo() {
 static void validateFileFlags(uint8_t flags) {
     const bool isRead = flags & FileFlags::READ_ONLY;
     const bool isWrite = flags & FileFlags::WRITE;
-    KU_UNUSED(isRead);
-    KU_UNUSED(isWrite);
+    UNUSED(isRead);
+    UNUSED(isWrite);
     // Require either READ or WRITE (or both).
-    KU_ASSERT(isRead || isWrite);
+    DASSERT(isRead || isWrite);
     // CREATE flags require writing.
-    KU_ASSERT(isWrite || !(flags & FileFlags::CREATE_IF_NOT_EXISTS));
-    KU_ASSERT(isWrite || !(flags & FileFlags::CREATE_AND_TRUNCATE_IF_EXISTS));
+    DASSERT(isWrite || !(flags & FileFlags::CREATE_IF_NOT_EXISTS));
+    DASSERT(isWrite || !(flags & FileFlags::CREATE_AND_TRUNCATE_IF_EXISTS));
     // CREATE_IF_NOT_EXISTS and CREATE_AND_TRUNCATE_IF_EXISTS flags cannot be combined.
-    KU_ASSERT(!(flags & FileFlags::CREATE_IF_NOT_EXISTS &&
-                flags & FileFlags::CREATE_AND_TRUNCATE_IF_EXISTS));
+    DASSERT(!(flags & FileFlags::CREATE_IF_NOT_EXISTS &&
+              flags & FileFlags::CREATE_AND_TRUNCATE_IF_EXISTS));
 }
 
 std::unique_ptr<FileInfo> LocalFileSystem::openFile(const std::string& path, FileOpenFlags flags,
@@ -78,7 +78,7 @@ std::unique_ptr<FileInfo> LocalFileSystem::openFile(const std::string& path, Fil
         // LCOV_EXCL_STOP
     }
     if (writeMode) {
-        KU_ASSERT(fileFlags & FileFlags::WRITE);
+        DASSERT(fileFlags & FileFlags::WRITE);
         if (fileFlags & FileFlags::CREATE_IF_NOT_EXISTS) {
             openFlags |= O_CREAT;
         } else if (fileFlags & FileFlags::CREATE_AND_TRUNCATE_IF_EXISTS) {
@@ -111,14 +111,14 @@ std::unique_ptr<FileInfo> LocalFileSystem::openFile(const std::string& path, Fil
     HANDLE handle = CreateFileA(fullPath.c_str(), dwDesiredAccess, dwShareMode, nullptr,
         dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
-        throw IOException(stringFormat("Cannot open file. path: {} - Error {}: {}", fullPath,
+        throw IOException(std::format("Cannot open file. path: {} - Error {}: {}", fullPath,
             GetLastError(), std::system_category().message(GetLastError())));
     }
     if (flags.lockType != FileLockType::NO_LOCK) {
         DWORD dwFlags = flags.lockType == FileLockType::READ_LOCK ?
                             LOCKFILE_FAIL_IMMEDIATELY :
                             LOCKFILE_FAIL_IMMEDIATELY | LOCKFILE_EXCLUSIVE_LOCK;
-        OVERLAPPED overlapped = {0};
+        OVERLAPPED overlapped = {};
         overlapped.Offset = 0;
         BOOL rc = LockFileEx(handle, dwFlags, 0 /*reserved*/, 1 /*numBytesLow*/, 0 /*numBytesHigh*/,
             &overlapped);
@@ -132,7 +132,7 @@ std::unique_ptr<FileInfo> LocalFileSystem::openFile(const std::string& path, Fil
 #else
     int fd = open(fullPath.c_str(), openFlags, 0644);
     if (fd == -1) {
-        throw IOException(stringFormat("Cannot open file {}: {}", fullPath, posixErrMessage()));
+        throw IOException(std::format("Cannot open file {}: {}", fullPath, posixErrMessage()));
     }
     if (flags.lockType != FileLockType::NO_LOCK) {
         struct flock fl {};
@@ -179,7 +179,7 @@ std::vector<std::string> LocalFileSystem::glob(main::ClientContext* context,
             if (fileSearchPath != "") {
                 auto searchPaths = StringUtils::split(fileSearchPath, ",");
                 for (auto& searchPath : searchPaths) {
-                    pathsToGlob.push_back(stringFormat("{}/{}", searchPath, path));
+                    pathsToGlob.push_back(std::format("{}/{}", searchPath, path));
                 }
             }
         }
@@ -201,7 +201,7 @@ void LocalFileSystem::overwriteFile(const std::string& from, const std::string& 
     if (!std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing,
             errorCode)) {
         // LCOV_EXCL_START
-        throw IOException(stringFormat("Error copying file {} to {}.  ErrorMessage: {}", from, to,
+        throw IOException(std::format("Error copying file {} to {}.  ErrorMessage: {}", from, to,
             errorCode.message()));
         // LCOV_EXCL_STOP
     }
@@ -214,7 +214,7 @@ void LocalFileSystem::copyFile(const std::string& from, const std::string& to) {
     std::error_code errorCode;
     if (!std::filesystem::copy_file(from, to, std::filesystem::copy_options::none, errorCode)) {
         // LCOV_EXCL_START
-        throw IOException(stringFormat("Error copying file {} to {}.  ErrorMessage: {}", from, to,
+        throw IOException(std::format("Error copying file {} to {}.  ErrorMessage: {}", from, to,
             errorCode.message()));
         // LCOV_EXCL_STOP
     }
@@ -224,7 +224,7 @@ void LocalFileSystem::createDir(const std::string& dir) const {
     try {
         if (std::filesystem::exists(dir)) {
             // LCOV_EXCL_START
-            throw IOException(stringFormat("Directory {} already exists.", dir));
+            throw IOException(std::format("Directory {} already exists.", dir));
             // LCOV_EXCL_STOP
         }
         auto directoryToCreate = dir;
@@ -242,40 +242,56 @@ void LocalFileSystem::createDir(const std::string& dir) const {
         if (!std::filesystem::create_directories(directoryToCreate, errCode)) {
             // LCOV_EXCL_START
             throw IOException(
-                stringFormat("Directory {} cannot be created. Check if it exists and remove it.",
+                std::format("Directory {} cannot be created. Check if it exists and remove it.",
                     directoryToCreate));
             // LCOV_EXCL_STOP
         }
         if (errCode) {
             // LCOV_EXCL_START
-            throw IOException(stringFormat("Failed to create directory: {}, error message: {}.",
-                dir, errCode.message()));
+            throw IOException(std::format("Failed to create directory: {}, error message: {}.", dir,
+                errCode.message()));
             // LCOV_EXCL_STOP
         }
     } catch (std::exception& e) {
         // LCOV_EXCL_START
-        throw IOException(stringFormat("Failed to create directory {} due to: {}", dir, e.what()));
+        throw IOException(std::format("Failed to create directory {} due to: {}", dir, e.what()));
         // LCOV_EXCL_STOP
     }
 }
 
 static bool isAllowedDeletionPath(const std::string& path, const std::string& dbPath) {
-    std::filesystem::path p(path);
-    std::string extension = p.extension().string();
-    std::string stemWithoutExt = p.stem().string();
-
-    std::filesystem::path dbPathP(dbPath);
-    std::string dbBase = dbPathP.stem().string();
-    std::string dbExt = dbPathP.extension().string();
-    std::string dbPrefix = dbBase + dbExt;
-
-    if (extension == ".wal" || extension == ".shadow" || extension == ".tmp" ||
-        extension == ".lock") {
-        return stemWithoutExt.starts_with(dbPrefix + ".") || stemWithoutExt == dbPrefix;
+    const auto p = std::filesystem::path(path);
+    const auto dbPathP = std::filesystem::path(dbPath);
+    const auto dbDir = dbPathP.parent_path();
+    // For absolute paths, only allow deletion in the same directory as the database file.
+    if (p.is_absolute() && dbPathP.is_absolute() && p.parent_path() != dbDir) {
+        return false;
     }
 
+    const auto fileName = p.filename().string();
+    const auto extension = p.extension().string();
+    const auto stemWithoutExt = p.stem().string();
+
+    const auto dbBase = dbPathP.stem().string();
+    const auto dbExt = dbPathP.extension().string();
+    const auto dbFileName = dbBase + dbExt;
+
+    // Main DB sidecars: db.lbdb.{wal|shadow|tmp|lock}
+    if (extension == ".wal" || extension == ".shadow" || extension == ".tmp" ||
+        extension == ".lock") {
+        if (stemWithoutExt == dbFileName) {
+            return true;
+        }
+        // Graph/copy sidecars can use either:
+        // - db.<graph>.lbdb.{wal|shadow|tmp|lock}
+        // - db.lbdb.<graph-or-tag>.{wal|shadow|tmp|lock}
+        return (stemWithoutExt.starts_with(dbBase + ".") && stemWithoutExt.ends_with(dbExt)) ||
+               stemWithoutExt.starts_with(dbFileName + ".");
+    }
+
+    // Graph DB file: db.<graph>.lbdb
     if (extension == dbExt) {
-        return stemWithoutExt.starts_with(dbBase + ".");
+        return fileName.starts_with(dbBase + ".") && fileName != dbFileName;
     }
 
     return false;
@@ -298,7 +314,7 @@ static bool isExtensionFile(const main::ClientContext* context, const std::strin
 void LocalFileSystem::removeFileIfExists(const std::string& path,
     const main::ClientContext* context) {
     if (!isAllowedDeletionPath(path, dbPath) && !isExtensionFile(context, path)) {
-        throw IOException(stringFormat(
+        throw IOException(std::format(
             "Error: Path {} is not within the allowed list of files to be removed.", path));
     }
     if (!fileOrPathExists(path)) {
@@ -313,7 +329,7 @@ void LocalFileSystem::removeFileIfExists(const std::string& path,
     }
     if (!success) {
         // LCOV_EXCL_START
-        throw IOException(stringFormat("Error removing directory or file {}.  Error Message: {}",
+        throw IOException(std::format("Error removing directory or file {}.  Error Message: {}",
             path, errCode.message()));
         // LCOV_EXCL_STOP
     }
@@ -373,23 +389,23 @@ bool LocalFileSystem::isLocalPath(const std::string& path) {
 void LocalFileSystem::readFromFile(FileInfo& fileInfo, void* buffer, uint64_t numBytes,
     uint64_t position) const {
     auto localFileInfo = fileInfo.constPtrCast<LocalFileInfo>();
-    KU_ASSERT(localFileInfo->getFileSize() >= position + numBytes);
+    DASSERT(localFileInfo->getFileSize() >= position + numBytes);
 #if defined(_WIN32)
     DWORD numBytesRead;
-    OVERLAPPED overlapped{0, 0, 0, 0};
+    OVERLAPPED overlapped = {};
     overlapped.Offset = position & 0xffffffff;
     overlapped.OffsetHigh = position >> 32;
     if (!ReadFile((HANDLE)localFileInfo->handle, buffer, numBytes, &numBytesRead, &overlapped)) {
         auto error = GetLastError();
         throw IOException(
-            stringFormat("Cannot read from file: {} handle: {} "
-                         "numBytesRead: {} numBytesToRead: {} position: {}. Error {}: {}",
+            std::format("Cannot read from file: {} handle: {} "
+                        "numBytesRead: {} numBytesToRead: {} position: {}. Error {}: {}",
                 fileInfo.path, (intptr_t)localFileInfo->handle, numBytesRead, numBytes, position,
                 error, std::system_category().message(error)));
     }
     if (numBytesRead != numBytes && fileInfo.getFileSize() != position + numBytesRead) {
-        throw IOException(stringFormat("Cannot read from file: {} handle: {} "
-                                       "numBytesRead: {} numBytesToRead: {} position: {}",
+        throw IOException(std::format("Cannot read from file: {} handle: {} "
+                                      "numBytesRead: {} numBytesToRead: {} position: {}",
             fileInfo.path, (intptr_t)localFileInfo->handle, numBytesRead, numBytes, position));
     }
 #else
@@ -397,8 +413,8 @@ void LocalFileSystem::readFromFile(FileInfo& fileInfo, void* buffer, uint64_t nu
     if (static_cast<uint64_t>(numBytesRead) != numBytes &&
         localFileInfo->getFileSize() != position + numBytesRead) {
         // LCOV_EXCL_START
-        throw IOException(stringFormat("Cannot read from file: {} fileDescriptor: {} "
-                                       "numBytesRead: {} numBytesToRead: {} position: {}",
+        throw IOException(std::format("Cannot read from file: {} fileDescriptor: {} "
+                                      "numBytesRead: {} numBytesToRead: {} position: {}",
             fileInfo.path, localFileInfo->fd, numBytesRead, numBytes, position));
         // LCOV_EXCL_STOP
     }
@@ -424,19 +440,19 @@ void LocalFileSystem::writeFile(FileInfo& fileInfo, const uint8_t* buffer, uint6
     // Split large writes to 1GB at a time
     uint64_t maxBytesToWriteAtOnce = 1ull << 30; // 1ull << 30 = 1G
     while (remainingNumBytesToWrite > 0) {
-        uint64_t numBytesToWrite = std::min(remainingNumBytesToWrite, maxBytesToWriteAtOnce);
+        uint64_t numBytesToWrite = (std::min)(remainingNumBytesToWrite, maxBytesToWriteAtOnce);
 
 #if defined(_WIN32)
         DWORD numBytesWritten;
-        OVERLAPPED overlapped{0, 0, 0, 0};
+        OVERLAPPED overlapped = {};
         overlapped.Offset = offset & 0xffffffff;
         overlapped.OffsetHigh = offset >> 32;
         if (!WriteFile((HANDLE)localFileInfo->handle, buffer + bufferOffset, numBytesToWrite,
                 &numBytesWritten, &overlapped)) {
             auto error = GetLastError();
             throw IOException(
-                stringFormat("Cannot write to file. path: {} handle: {} offsetToWrite: {} "
-                             "numBytesToWrite: {} numBytesWritten: {}. Error {}: {}.",
+                std::format("Cannot write to file. path: {} handle: {} offsetToWrite: {} "
+                            "numBytesToWrite: {} numBytesWritten: {}. Error {}: {}.",
                     fileInfo.path, (intptr_t)localFileInfo->handle, offset, numBytesToWrite,
                     numBytesWritten, error, std::system_category().message(error)));
         }
@@ -446,8 +462,8 @@ void LocalFileSystem::writeFile(FileInfo& fileInfo, const uint8_t* buffer, uint6
         if (numBytesWritten != static_cast<int64_t>(numBytesToWrite)) {
             // LCOV_EXCL_START
             throw IOException(
-                stringFormat("Cannot write to file. path: {} fileDescriptor: {} offsetToWrite: {} "
-                             "numBytesToWrite: {} numBytesWritten: {}. Error: {}",
+                std::format("Cannot write to file. path: {} fileDescriptor: {} offsetToWrite: {} "
+                            "numBytesToWrite: {} numBytesWritten: {}. Error: {}",
                     fileInfo.path, localFileInfo->fd, offset, numBytesToWrite, numBytesWritten,
                     posixErrMessage()));
             // LCOV_EXCL_STOP
@@ -465,7 +481,7 @@ void LocalFileSystem::syncFile(const FileInfo& fileInfo) const {
     // Note that `FlushFileBuffers` returns 0 when fails, while `fsync` returns 0 when succeeds.
     if (FlushFileBuffers((HANDLE)localFileInfo->handle) == 0) {
         auto error = GetLastError();
-        throw IOException(stringFormat("Failed to sync file {}. Error {}: {}", fileInfo.path, error,
+        throw IOException(std::format("Failed to sync file {}. Error {}: {}", fileInfo.path, error,
             std::system_category().message(error)));
     }
 #else
@@ -481,7 +497,7 @@ void LocalFileSystem::syncFile(const FileInfo& fileInfo) const {
             throw IOException("Fatal error: fsync failed!");
         }
         throw IOException(
-            stringFormat("Failed to sync file {}: {}", fileInfo.path, posixErrMessage()));
+            std::format("Failed to sync file {}: {}", fileInfo.path, posixErrMessage()));
         // LCOV_EXCL_STOP
     }
 #endif
@@ -492,7 +508,7 @@ void LocalFileSystem::syncFile(const FileInfo& fileInfo) const {
     syncSuccess = fsync(localFileInfo->fd) == 0; // Sync file data + all metadata.
 #endif
     if (!syncSuccess) {
-        throw IOException(stringFormat("Failed to sync file {}.", fileInfo.path));
+        throw IOException(std::format("Failed to sync file {}.", fileInfo.path));
     }
 #endif
 }
@@ -520,15 +536,15 @@ void LocalFileSystem::truncate(FileInfo& fileInfo, uint64_t size) const {
     if (SetFilePointer((HANDLE)localFileInfo->handle, size & 0xffffffff, offsetHighPtr,
             FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
         auto error = GetLastError();
-        throw IOException(stringFormat("Cannot set file pointer for file: {} handle: {} "
-                                       "new position: {}. Error {}: {}",
+        throw IOException(std::format("Cannot set file pointer for file: {} handle: {} "
+                                      "new position: {}. Error {}: {}",
             fileInfo.path, (intptr_t)localFileInfo->handle, size, error,
             std::system_category().message(error)));
     }
     if (!SetEndOfFile((HANDLE)localFileInfo->handle)) {
         auto error = GetLastError();
-        throw IOException(stringFormat("Cannot truncate file: {} handle: {} "
-                                       "size: {}. Error {}: {}",
+        throw IOException(std::format("Cannot truncate file: {} handle: {} "
+                                      "size: {}. Error {}: {}",
             fileInfo.path, (intptr_t)localFileInfo->handle, size, error,
             std::system_category().message(error)));
     }
@@ -536,7 +552,7 @@ void LocalFileSystem::truncate(FileInfo& fileInfo, uint64_t size) const {
     if (ftruncate(localFileInfo->fd, size) < 0) {
         // LCOV_EXCL_START
         throw IOException(
-            stringFormat("Failed to truncate file {}: {}", fileInfo.path, posixErrMessage()));
+            std::format("Failed to truncate file {}: {}", fileInfo.path, posixErrMessage()));
         // LCOV_EXCL_STOP
     }
 #endif
@@ -548,17 +564,17 @@ uint64_t LocalFileSystem::getFileSize(const FileInfo& fileInfo) const {
     LARGE_INTEGER size;
     if (!GetFileSizeEx((HANDLE)localFileInfo->handle, &size)) {
         auto error = GetLastError();
-        throw IOException(stringFormat("Cannot read size of file. path: {} - Error {}: {}",
+        throw IOException(std::format("Cannot read size of file. path: {} - Error {}: {}",
             fileInfo.path, error, systemErrMessage(error)));
     }
     return size.QuadPart;
 #else
     struct stat s {};
     if (fstat(localFileInfo->fd, &s) == -1) {
-        throw IOException(stringFormat("Cannot read size of file. path: {} - Error {}: {}",
+        throw IOException(std::format("Cannot read size of file. path: {} - Error {}: {}",
             fileInfo.path, errno, posixErrMessage()));
     }
-    KU_ASSERT(s.st_size >= 0);
+    DASSERT(s.st_size >= 0);
     return s.st_size;
 #endif
 }

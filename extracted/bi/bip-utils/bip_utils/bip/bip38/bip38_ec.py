@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -194,7 +194,7 @@ class _Bip38EcUtils:
                         address_hash: bytes,
                         owner_entropy: bytes) -> Tuple[bytes, bytes]:
         """
-        Compute the scrypt as specified in BIP38 (without EC multiplication)and derive the two key halves.
+        Compute the scrypt as specified in BIP38 (without EC multiplication) and derive the two key halves.
 
         Args:
             passpoint (bytes)    : Passpoint

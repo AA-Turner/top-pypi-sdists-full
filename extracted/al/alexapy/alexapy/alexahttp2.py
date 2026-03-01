@@ -82,19 +82,45 @@ class HTTP2EchoClient:
         )
         self._last_ping = datetime.datetime(1, 1, 1)
         self._tasks = set()
+        self._opened: asyncio.Event = asyncio.Event()
+        self._closing: bool = False
 
     async def async_run(self) -> None:
-        """Start Async WebSocket Listener."""
-        task = self._loop.create_task(self.process_messages())
-        task.add_done_callback(self.on_close)
-        self._tasks.add(task)
-        task = self._loop.create_task(self.manage_pings())
-        task.add_done_callback(self.on_close)
-        self._tasks.add(task)
-        # task = self._loop.create_task(self.test_close(raise_exception=True))
-        # task.add_done_callback(self.on_close)
-        # self._tasks.add(task)
-        await self.async_on_open()
+        """Start Async WebSocket Listener.
+
+        This method returns only after the HTTP2 stream is verified as open
+        (i.e., the server accepted the request and `open_callback` has been
+        invoked), or if the connection fails.
+        """
+        process_task = self._loop.create_task(self.process_messages())
+        process_task.add_done_callback(self.on_close)
+        self._tasks.add(process_task)
+
+        ping_task = self._loop.create_task(self.manage_pings())
+        ping_task.add_done_callback(self.on_close)
+        self._tasks.add(ping_task)
+
+        open_wait_task = self._loop.create_task(self._opened.wait())
+        try:
+            done, _pending = await asyncio.wait(
+                {process_task, open_wait_task},
+                timeout=15,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            # If the message task finishes before we ever mark the connection open,
+            # treat that as a failed connection attempt.
+            if process_task in done and not self._opened.is_set():
+                exc = process_task.exception()
+                if exc:
+                    raise exc
+                raise AlexapyLoginError("HTTP2 stream closed before opening")
+
+            if not self._opened.is_set():
+                raise AlexapyLoginError("HTTP2 open timeout")
+        finally:
+            if not open_wait_task.done():
+                open_wait_task.cancel()
 
     async def process_messages(self) -> None:
         """Start Async WebSocket Listener."""
@@ -109,10 +135,37 @@ class HTTP2EchoClient:
                 },
                 timeout=httpx.Timeout(None),
             ) as response:
+                # Validate the stream was accepted before reporting "open" upstream.
+                if response.status_code in (401, 403):
+                    body = (await response.aread()).decode(errors="ignore")
+                    msg = body or f"HTTP2 status {response.status_code}"
+                    _LOGGER.debug("HTTP2 login error: %s", msg)
+                    self.on_close("HTTP2 unauthorized (401/403)")
+                    await self.handle_login_error(msg)
+                    return
+
+                if not self._opened.is_set():
+                    _LOGGER.debug(
+                        "HTTP2 directives stream accepted (status=%s)",
+                        response.status_code,
+                    )
+                    await self.async_on_open()
+                    self._opened.set()
+
                 async for data in response.aiter_text():
                     await self.on_message(data)
         except httpx.RemoteProtocolError as exception_:
             self.on_close(f"Disconnect detected: {exception_}")
+            raise
+        except Exception as exception_:
+            # Surface unexpected failures so callers waiting for open can fail fast.
+            _LOGGER.debug("HTTP2 exception: %s", exception_)
+            self.on_close(f"HTTP2 exception: {exception_}")
+            raise
+        finally:
+            # Ensure we always notify close if the stream ends cleanly.
+            if not self._closing:
+                self.on_close("HTTP2 stream ended")
 
     async def on_message(self, message: str) -> None:
         """Handle New Message."""
@@ -129,31 +182,48 @@ class HTTP2EchoClient:
                 continue
             elif line and not line.startswith(self.boundary):
                 with contextlib.suppress(json.decoder.JSONDecodeError):
-                    asyncio.run_coroutine_threadsafe(
-                        self.msg_callback(json.loads(line)), self._loop
-                    )
+                    self._schedule(self.msg_callback(json.loads(line)))
+
+    def _schedule(self, coro: Coroutine[Any, Any, Any]) -> None:
+        """Schedule a coroutine on the target loop safely."""
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running and running == self._loop:
+            self._loop.create_task(coro)
+        else:
+            asyncio.run_coroutine_threadsafe(coro, self._loop)
 
     def on_error(self, error: str = "Unspecified") -> None:
         """Handle HTTP2 Error."""
         _LOGGER.debug("HTTP2 Error: %s", error)
-        asyncio.run_coroutine_threadsafe(self.error_callback(error), self._loop)
+        self._schedule(self.error_callback(error))
 
-    def on_close(self, future="") -> None:
+    def on_close(self, _future: object | None = None) -> None:
         """Handle HTTP2 Close."""
+        if self._closing:
+            return
+        self._closing = True
+
         _LOGGER.debug("HTTP2 Connection Closed.")
-        asyncio.gather(*self._tasks, return_exceptions=True)
         try:
-            for task in self._tasks:
+            for task in list(self._tasks):
                 if task.done():
                     exc = task.exception()
                     if exc:
-                        self.on_error(exc)
+                        self.on_error(str(exc))
                 else:
                     task.remove_done_callback(self.on_close)
                     task.cancel()
         except BaseException:
             pass
-        asyncio.run_coroutine_threadsafe(self.close_callback(), self._loop)
+
+        # Close the underlying client to ensure sockets are released.
+        self._schedule(self.client.aclose())
+
+        # Notify upstream that the connection is closed.
+        self._schedule(self.close_callback())
 
     async def async_on_open(self) -> None:
         """Handle Async WebSocket Open."""
@@ -161,7 +231,7 @@ class HTTP2EchoClient:
 
     async def manage_pings(self) -> None:
         """Manage Pings."""
-        while True:
+        while not self._closing:
             await self.ping()
             await asyncio.sleep(299)
 
@@ -181,8 +251,8 @@ class HTTP2EchoClient:
             response.status_code,
             response.text,
         )
-        if response.status_code in [403]:
-            _LOGGER.debug("Detected ping 403")
+        if response.status_code in (401, 403):
+            _LOGGER.debug("Detected ping 401/403")
             await self.handle_login_error(response.text)
 
     async def handle_login_error(self, message: str = "") -> None:

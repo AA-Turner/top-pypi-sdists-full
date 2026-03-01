@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +24,10 @@
 import binascii
 from typing import List, Union
 
+from typing_extensions import Literal
+
 from bip_utils.utils.misc.algo import AlgoUtils
 from bip_utils.utils.misc.integer import IntegerUtils
-from bip_utils.utils.typing import Literal
 
 
 class BytesUtils:
@@ -75,7 +76,7 @@ class BytesUtils:
             data_bytes_2 (bytes): Data bytes 2
 
         Returns:
-            bytes: XORed bytes
+            bytes: Added bytes (no carry)
         """
         return bytes(
             [(b1 + b2) & 0xFF for b1, b2 in zip(data_bytes_1, data_bytes_2)]
@@ -92,7 +93,7 @@ class BytesUtils:
             scalar (int)      : Scalar
 
         Returns:
-            bytes: XORed bytes
+            bytes: Multiplied bytes (no carry)
         """
         return bytes(
             [(b * scalar) & 0xFF for b in data_bytes]
@@ -168,7 +169,7 @@ class BytesUtils:
         Args:
             data (str or bytes): Data bytes
 
-        Returns
+        Returns:
             bytes: Hex string converted to bytes
         """
         return binascii.unhexlify(AlgoUtils.Encode(data))

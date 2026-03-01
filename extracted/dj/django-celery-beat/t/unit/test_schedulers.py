@@ -2,6 +2,7 @@ import math
 import os
 import time
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from itertools import count
 from time import monotonic
 from unittest.mock import patch
@@ -10,6 +11,8 @@ try:
     from zoneinfo import ZoneInfo  # Python 3.9+
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # Python 3.8
+
+from unittest.mock import MagicMock
 
 import pytest
 from celery.schedules import crontab, schedule, solar
@@ -24,6 +27,7 @@ from django_celery_beat.clockedschedule import clocked
 from django_celery_beat.models import (DAYS, ClockedSchedule, CrontabSchedule,
                                        IntervalSchedule, PeriodicTask,
                                        PeriodicTasks, SolarSchedule)
+from django_celery_beat.tzcrontab import TzAwareCrontab
 from django_celery_beat.utils import NEVER_CHECK_TIMEOUT, make_aware
 
 _ids = count(0)
@@ -120,6 +124,167 @@ class SchedulerCase:
 
 
 @pytest.mark.django_db
+class test_TzAwareCrontab_beat_cron_starting_deadline(SchedulerCase):
+    """Tests for TzAwareCrontab with beat_cron_starting_deadline."""
+
+    @override_settings(DJANGO_CELERY_BEAT_TZ_AWARE=True)
+    @patch("django_celery_beat.tzcrontab.datetime")
+    def test_due_when_within_starting_deadline(self, mock_datetime):
+        """
+        Test that a task is due if last_run_at is within
+        beat_cron_starting_deadline.
+        """
+        # Create a mock app with 5 minute beat_cron_starting_deadline
+        app = MagicMock()
+        app.conf.beat_cron_starting_deadline = 300  # 5 minutes in seconds
+
+        # Set current time to 12:05:50
+        mock_now_utc = datetime(
+            2023, 10, 26, 12, 5, 50, tzinfo=dt_timezone.utc
+        )
+        mock_datetime.now.return_value = mock_now_utc
+
+        # Create a schedule that runs every 5 minutes (12:00, 12:05, etc.)
+        schedule = TzAwareCrontab(app=app, tz=dt_timezone.utc, minute="*/5")
+
+        # Last run was 290 seconds ago (12:01:00) - within the deadline window
+        last_run_at_utc = mock_now_utc - timedelta(seconds=290)
+
+        # Next scheduled run should be 12:05:00, but current time is 12:05:50
+        # So the task is due, and the deadline check doesn't prevent execution
+        due_status, next_check_delta = schedule.is_due(last_run_at_utc)
+        assert due_status is True
+
+    @override_settings(DJANGO_CELERY_BEAT_TZ_AWARE=True)
+    @patch("django_celery_beat.tzcrontab.datetime")
+    def test_not_due_when_outside_starting_deadline(self, mock_datetime):
+        """
+        Test that a task is NOT due if last_run_at is outside (older than)
+        beat_cron_starting_deadline.
+        """
+        # Create a mock app with 2 minute beat_cron_starting_deadline
+        app = MagicMock()
+        app.conf.beat_cron_starting_deadline = 120  # 2 minutes in seconds
+
+        # Set current time to 12:09:50
+        mock_now_utc = datetime(
+            2023, 10, 26, 12, 9, 50, tzinfo=dt_timezone.utc
+        )
+        mock_datetime.now.return_value = mock_now_utc
+
+        # Create a schedule that runs every 5 minutes (12:00, 12:05, etc.)
+        schedule_utc = TzAwareCrontab(
+            app=app, tz=dt_timezone.utc, minute="*/5"
+        )
+
+        # Last run was 310 seconds ago (12:04:40) - outside the deadline window
+        last_run_at_utc = mock_now_utc - timedelta(seconds=310)
+
+        # Next scheduled run after 12:04:40 would be 12:05:00
+        # This is in the past relative to current time, so normally due
+        # BUT since last_run_at is before the deadline window, it's NOT due
+        due_status, next_check_delta = schedule_utc.is_due(last_run_at_utc)
+        assert due_status is False
+
+    @override_settings(DJANGO_CELERY_BEAT_TZ_AWARE=True)
+    @patch("django_celery_beat.tzcrontab.datetime")
+    def test_not_due_with_recent_run(self, mock_datetime):
+        """
+        Test that a task is not due if last_run_at is recent,
+        even with a starting_deadline set.
+        """
+        # Create a mock app with 5 minute beat_cron_starting_deadline
+        app = MagicMock()
+        app.conf.beat_cron_starting_deadline = 300  # 5 minutes in seconds
+
+        # Create a schedule that runs every 5 minutes (12:00, 12:05, etc.)
+        schedule = TzAwareCrontab(app=app, tz=dt_timezone.utc, minute="*/5")
+
+        # Set current time to 12:04:30 (before next scheduled execution)
+        mock_now_utc_early = datetime(
+            2023, 10, 26, 12, 4, 30, tzinfo=dt_timezone.utc
+        )
+        mock_datetime.now.return_value = mock_now_utc_early
+
+        # Last run was at 12:04:00
+        # The next schedule would be at 12:05:00, which is in the future
+        last_run_at_recent = datetime(
+            2023, 10, 26, 12, 4, 0, tzinfo=dt_timezone.utc
+        )
+
+        # Calculate if the task is due
+        # Since the next execution time is in the future, the task is not due
+        # The deadline check doesn't matter for tasks not yet scheduled to run
+        due_status, next_check_delta = schedule.is_due(last_run_at_recent)
+        assert due_status is False
+
+    @override_settings(DJANGO_CELERY_BEAT_TZ_AWARE=True)
+    @patch("django_celery_beat.tzcrontab.datetime")
+    def test_due_with_no_starting_deadline_set(self, mock_datetime):
+        """
+        Test that a task is due if last_run_at is old and no deadline is set.
+        """
+        # Create a mock app with no beat_cron_starting_deadline
+        app = MagicMock()
+        app.conf.beat_cron_starting_deadline = None
+
+        # Set current time to 12:10:00
+        mock_now_utc = datetime(
+            2023, 10, 26, 12, 10, 0, tzinfo=dt_timezone.utc
+        )
+        mock_datetime.now.return_value = mock_now_utc
+
+        # Create a schedule that runs every 5 minutes (12:00, 12:05, etc.)
+        schedule_utc = TzAwareCrontab(
+            app=app, tz=dt_timezone.utc, minute="*/5"
+        )
+
+        # Last run was 310 seconds ago (12:04:50)
+        # With no deadline, age of the last run doesn't matter
+        last_run_at_utc = mock_now_utc - timedelta(seconds=310)
+
+        # Next scheduled time after 12:04:50 would be 12:05:00
+        # Current time is 12:10:00, so this is in the past
+        # With no deadline check, the task is due to run
+        due_status, next_check_delta = schedule_utc.is_due(
+            last_run_at_utc
+        )
+        assert due_status is True
+
+    @override_settings(DJANGO_CELERY_BEAT_TZ_AWARE=True)
+    @patch("django_celery_beat.tzcrontab.datetime")
+    def test_due_with_starting_deadline_non_utc_timezone(self, mock_datetime):
+        """
+        Test with a non-UTC timezone for the schedule.
+        """
+        # Create a mock app with 5 minute beat_cron_starting_deadline
+        app = MagicMock()
+        app.conf.beat_cron_starting_deadline = 300  # 5 minutes in seconds
+        app.timezone = ZoneInfo("America/New_York")
+
+        # Use New York timezone for the schedule
+        schedule_tz = ZoneInfo("America/New_York")
+
+        # Set current time to 08:05:00 New York time
+        mock_now_ny = datetime(2023, 10, 26, 8, 5, 0, tzinfo=schedule_tz)
+        mock_datetime.now.return_value = mock_now_ny
+
+        # Create a schedule that runs every 5 minutes in NY time
+        schedule_ny = TzAwareCrontab(app=app, tz=schedule_tz, minute="*/5")
+
+        # Last run was 290 seconds ago - within deadline window
+        # The deadline window starts at 08:00:00 (current time - 5 minutes)
+        # Since 08:00:10 is after 08:00:00, it's within the deadline window
+        last_run_at_ny = mock_now_ny - timedelta(seconds=290)
+
+        # Next scheduled time after 08:00:10 would be 08:05:00
+        # Current time is 08:05:00, so this is due
+        # The deadline check doesn't prevent execution
+        due_status, next_check_delta = schedule_ny.is_due(last_run_at_ny)
+        assert due_status is True
+
+
+@pytest.mark.django_db
 class test_ModelEntry(SchedulerCase):
     Entry = EntryTrackSave
 
@@ -149,7 +314,7 @@ class test_ModelEntry(SchedulerCase):
         e2 = self.Entry(m2, app=self.app)
         assert e2.last_run_at is right_now
 
-        e3 = e2.next()
+        e3 = next(e2)
         assert e3.last_run_at > e2.last_run_at
         assert e3.total_run_count == 1
 
@@ -1064,7 +1229,6 @@ class test_DatabaseScheduler(SchedulerCase):
     @patch('django.utils.timezone.get_current_timezone')
     def test_crontab_timezone_conversion(self, mock_get_tz, mock_aware_now):
         # Set up mocks for server timezone and current time
-        from datetime import datetime
         server_tz = ZoneInfo("Asia/Tokyo")
 
         mock_get_tz.return_value = server_tz
@@ -1141,8 +1305,6 @@ class test_DatabaseScheduler(SchedulerCase):
         self, mock_aware_now, mock_get_tz
     ):
         # Set up mocks for server timezone and current time
-        from datetime import datetime
-
         server_tz = ZoneInfo("UTC")
 
         mock_get_tz.return_value = server_tz
@@ -1211,6 +1373,41 @@ class test_DatabaseScheduler(SchedulerCase):
         assert task_utc_outside.id in excluded_tasks, (
             "Paris outside window task should be excluded"
         )
+
+    def test_scheduler_valid_hours(self):
+        """Test the _get_valid_hour_formats method."""
+        # Create an instance of DatabaseScheduler
+        s = self.Scheduler(app=self.app)
+
+        # Get the valid hours list
+        valid_hours = s._get_valid_hour_formats()
+
+        # Basic validations
+        # 24 regular hours + 10 zero-padded hours
+        assert len(valid_hours) == 34
+
+        # Check both regular and zero-padded formats are present
+        assert "0" in valid_hours
+        assert "00" in valid_hours
+        assert "9" in valid_hours
+        assert "09" in valid_hours
+        assert "23" in valid_hours
+
+        # Verify all hours 0-23 are included
+        for hour in range(24):
+            assert str(hour) in valid_hours
+
+        # Verify zero-padded hours 00-09 are included
+        for hour in range(10):
+            assert f"{hour:02d}" in valid_hours
+
+        # Check for duplicates (set should have same length as list)
+        assert len(set(valid_hours)) == len(valid_hours)
+
+        # Verify all entries are valid hour representations
+        for hour_str in valid_hours:
+            hour_value = int(hour_str)
+            assert 0 <= hour_value <= 23
 
 
 @pytest.mark.django_db
@@ -1465,11 +1662,14 @@ class test_timezone_offset_handling:
 
     @patch("django_celery_beat.schedulers.aware_now")
     def test_server_timezone_handling_with_zoneinfo(self, mock_aware_now):
-        """Test handling when server timezone is already a ZoneInfo instance."""
+        """Test handling when server timezone
+        is already a ZoneInfo instance."""
 
         # Create a mock scheduler with only the methods we need to test
         class MockScheduler:
-            _get_timezone_offset = schedulers.DatabaseScheduler._get_timezone_offset
+            _get_timezone_offset = (
+                schedulers.DatabaseScheduler._get_timezone_offset
+            )
 
         s = MockScheduler()
 
@@ -1490,7 +1690,9 @@ class test_timezone_offset_handling:
         """Test handling when timezone_name parameter is a ZoneInfo object."""
 
         class MockScheduler:
-            _get_timezone_offset = schedulers.DatabaseScheduler._get_timezone_offset
+            _get_timezone_offset = (
+                schedulers.DatabaseScheduler._get_timezone_offset
+            )
 
         s = MockScheduler()
 

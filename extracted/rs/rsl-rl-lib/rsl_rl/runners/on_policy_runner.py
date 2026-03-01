@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import os
@@ -12,17 +13,18 @@ import torch
 from rsl_rl.algorithms import PPO
 from rsl_rl.env import VecEnv
 from rsl_rl.models import MLPModel
-from rsl_rl.utils import resolve_callable
+from rsl_rl.utils import check_nan, resolve_callable
 from rsl_rl.utils.logger import Logger
 
 
 class OnPolicyRunner:
-    """On-policy runner for training and evaluation of actor-critic methods."""
+    """On-policy runner for reinforcement learning algorithms."""
 
     alg: PPO
     """The actor-critic algorithm."""
 
     def __init__(self, env: VecEnv, train_cfg: dict, log_dir: str | None = None, device: str = "cpu") -> None:
+        """Construct the runner, algorithm, and logging stack."""
         self.env = env
         self.cfg = train_cfg
         self.device = device
@@ -52,6 +54,7 @@ class OnPolicyRunner:
         self.current_learning_iteration = 0
 
     def learn(self, num_learning_iterations: int, init_at_random_ep_len: bool = False) -> None:
+        """Run the learning loop for the specified number of iterations."""
         # Randomize initial episode lengths (for exploration)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(
@@ -82,6 +85,9 @@ class OnPolicyRunner:
                     actions = self.alg.act(obs)
                     # Step the environment
                     obs, rewards, dones, extras = self.env.step(actions.to(self.env.device))
+                    # Check for NaN values from the environment
+                    if self.cfg.get("check_for_nan", True):
+                        check_nan(obs, rewards, dones)
                     # Move to device
                     obs, rewards, dones = (obs.to(self.device), rewards.to(self.device), dones.to(self.device))
                     # Process the step
@@ -141,9 +147,6 @@ class OnPolicyRunner:
     ) -> dict:
         """Load the models and training state from a given path.
 
-        If `inference_only` is True, only load the policy needed for inference without loading other models or training
-        states.
-
         Args:
             path (str): Path to load the model from.
             load_cfg (dict | None): Optional dictionary that defines what models and states to load. If None, all
@@ -195,10 +198,10 @@ class OnPolicyRunner:
             verbose=verbose,
             input_names=onnx_model.input_names,  # type: ignore
             output_names=onnx_model.output_names,  # type: ignore
-            dynamic_axes={},
         )
 
     def add_git_repo_to_log(self, repo_file_path: str) -> None:
+        """Register a repository path whose git status should be logged."""
         self.logger.git_status_repos.append(repo_file_path)
 
     def _configure_multi_gpu(self) -> None:

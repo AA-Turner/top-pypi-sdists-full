@@ -81,7 +81,7 @@ static void runOneIteration(ExecutionContext* context, Graph* graph,
                     propertiesToScan);
             } break;
             default:
-                KU_UNREACHABLE;
+                UNREACHABLE_CODE;
             }
         }
     }

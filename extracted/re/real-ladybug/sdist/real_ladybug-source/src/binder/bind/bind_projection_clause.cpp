@@ -7,6 +7,7 @@
 #include "common/exception/binder.h"
 #include "parser/expression/parsed_property_expression.h"
 #include "parser/query/return_with_clause/with_clause.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -77,7 +78,7 @@ BoundReturnClause Binder::bindReturnClause(const ReturnClause& returnClause) {
     auto columnNames = getColumnNames(projectionExprs, aliases);
     auto boundProjectionBody = bindProjectionBody(*projectionBody, projectionExprs, aliases);
     auto statementResult = BoundStatementResult();
-    KU_ASSERT(columnNames.size() == projectionExprs.size());
+    DASSERT(columnNames.size() == projectionExprs.size());
     for (auto i = 0u; i < columnNames.size(); ++i) {
         statementResult.addColumn(columnNames[i], projectionExprs[i]);
     }
@@ -128,7 +129,8 @@ std::pair<expression_vector, std::vector<std::string>> Binder::bindProjectionLis
             } else {
                 auto expr = expressionBinder.bindExpression(*parsedExpr);
                 projectionExprs.push_back(expr);
-                aliases.push_back(parsedExpr->getAlias());
+                aliases.push_back(
+                    parsedExpr->hasAlias() ? parsedExpr->getAlias() : expr->getAlias());
             }
         } else {
             auto expr = expressionBinder.bindExpression(*parsedExpr);
@@ -169,7 +171,7 @@ protected:
 };
 
 static void validateNestedAggregate(const Expression& expr, const BinderScope& scope) {
-    KU_ASSERT(expr.expressionType == ExpressionType::AGGREGATE_FUNCTION);
+    DASSERT(expr.expressionType == ExpressionType::AGGREGATE_FUNCTION);
     if (expr.getNumChildren() == 0) { // Skip COUNT(*)
         return;
     }
@@ -178,7 +180,7 @@ static void validateNestedAggregate(const Expression& expr, const BinderScope& s
     for (auto& childAgg : collector.exprs) {
         if (!scope.contains(childAgg->getAlias())) {
             throw BinderException(
-                stringFormat("Expression {} contains nested aggregation.", expr.toString()));
+                std::format("Expression {} contains nested aggregation.", expr.toString()));
         }
     }
 }
@@ -187,7 +189,7 @@ BoundProjectionBody Binder::bindProjectionBody(const parser::ProjectionBody& pro
     const expression_vector& projectionExprs, const std::vector<std::string>& aliases) {
     expression_vector groupByExprs;
     expression_vector aggregateExprs;
-    KU_ASSERT(projectionExprs.size() == aliases.size());
+    DASSERT(projectionExprs.size() == aliases.size());
     for (auto i = 0u; i < projectionExprs.size(); ++i) {
         auto expr = projectionExprs[i];
         auto aggExprs = getAggregateExpressions(expr, scope);
@@ -233,7 +235,7 @@ BoundProjectionBody Binder::bindProjectionBody(const parser::ProjectionBody& pro
         expression_vector orderByExprs;
         if (boundProjectionBody.hasAggregateExpressions() || boundProjectionBody.isDistinct()) {
             scope.clear();
-            KU_ASSERT(projectionBody.getProjectionExpressions().size() == projectionExprs.size());
+            DASSERT(projectionBody.getProjectionExpressions().size() == projectionExprs.size());
             std::vector<std::string> tmpAliases;
             for (auto& expr : projectionBody.getProjectionExpressions()) {
                 tmpAliases.push_back(expr->hasAlias() ? expr->getAlias() : expr->toString());
@@ -286,7 +288,7 @@ expression_vector Binder::bindOrderByExpressions(
     for (auto& parsedExpr : parsedExprs) {
         auto expr = expressionBinder.bindExpression(*parsedExpr);
         if (!isOrderByKeyTypeSupported(expr->dataType)) {
-            throw BinderException(stringFormat("Cannot order by {}. Order by {} is not supported.",
+            throw BinderException(std::format("Cannot order by {}. Order by {} is not supported.",
                 expr->toString(), expr->dataType.toString()));
         }
         exprs.push_back(std::move(expr));

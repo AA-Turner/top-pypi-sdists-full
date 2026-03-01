@@ -9,7 +9,7 @@ use fs_err::{self as fs, File};
 use normpath::PathExt;
 use std::collections::HashMap;
 use std::env;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::str;
@@ -43,6 +43,8 @@ pub struct BuildArtifact {
     pub path: PathBuf,
     /// Path to the Windows import library (.dll.lib or .dll.a), if any
     pub import_lib_path: Option<PathBuf>,
+    /// Path to the debug info file (.pdb on Windows, .dSYM on macOS, .dwp on Linux), if any
+    pub debuginfo_path: Option<PathBuf>,
     /// Array of paths to include in the library search path, as indicated by
     /// the `cargo:rustc-link-search` instruction.
     pub linked_paths: Vec<String>,
@@ -146,6 +148,7 @@ fn compile_universal2(
         let universal_artifact = BuildArtifact {
             path: PathBuf::from(output_path),
             import_lib_path: None,
+            debuginfo_path: None,
             linked_paths: x86_64_artifact.linked_paths.clone(),
         };
         result.insert(build_type, universal_artifact);
@@ -185,7 +188,7 @@ fn cargo_build_command(
     python_interpreter: Option<&PythonInterpreter>,
     compile_target: &CompileTarget,
 ) -> Result<Command> {
-    use crate::pyproject_toml::FeatureSpec;
+    use crate::pyproject_toml::{FeatureConditionEnv, FeatureSpec};
 
     let target = &context.target;
 
@@ -196,16 +199,18 @@ fn cargo_build_command(
     };
     let mut cargo_options = context.cargo_options.clone();
 
-    // Resolve conditional features based on the target Python version
+    // Resolve conditional features based on the target Python version and implementation
     if let Some(interpreter) = python_interpreter {
-        let extra = FeatureSpec::resolve_conditional(
-            &context.conditional_features,
-            interpreter.major,
-            interpreter.minor,
-        );
+        let env = FeatureConditionEnv {
+            major: interpreter.major,
+            minor: interpreter.minor,
+            implementation_name: &interpreter.implementation_name,
+        };
+        let extra = FeatureSpec::resolve_conditional(&context.conditional_features, &env);
         if !extra.is_empty() {
             debug!(
-                "Enabling conditional features for Python {}.{}: {}",
+                "Enabling conditional features for Python {} {}.{}: {}",
+                interpreter.implementation_name,
                 interpreter.major,
                 interpreter.minor,
                 extra.join(", ")
@@ -341,6 +346,39 @@ fn cargo_build_command(
         cargo_rustc
             .args
             .extend(["-C".to_string(), "strip=symbols".to_string()]);
+    }
+
+    // When including debug info, ensure split-debuginfo is set appropriately.
+    // The only incompatible case is `unpacked` on Linux, where debug info is
+    // scattered into .dwo files that cargo doesn't report in its output.
+    // On macOS `unpacked` still produces .dSYM bundles, and `off` (embedded)
+    // is fine everywhere — the debug info lives in the binary itself.
+    if context.include_debuginfo {
+        let has_split_debuginfo = rustflags
+            .flags
+            .iter()
+            .any(|f| f.contains("split-debuginfo"));
+        if has_split_debuginfo {
+            let has_unpacked = rustflags
+                .flags
+                .iter()
+                .any(|f| f.contains("split-debuginfo=unpacked"));
+            if has_unpacked && target.is_linux() {
+                bail!(
+                    "split-debuginfo=unpacked is incompatible with --include-debuginfo on Linux \
+                     because debug info is scattered into .dwo files that cannot be included. \
+                     Use `-C split-debuginfo=packed` or `-C split-debuginfo=off` instead."
+                );
+            }
+        } else if target.is_macos() {
+            // On macOS the Cargo default is `unpacked`. Use `packed` to
+            // produce .dSYM bundles that cargo reports in its output.
+            debug!("Setting `-C split-debuginfo=packed` for --include-debuginfo on macOS");
+            rustflags.push("-C");
+            rustflags.push("split-debuginfo=packed");
+        }
+        // On Linux the default is `off` (embedded), on Windows MSVC it is
+        // `packed` (.pdb) — both are fine as-is.
     }
 
     let mut build_command = if target.is_msvc() && target.cross_compiling() {
@@ -607,23 +645,29 @@ fn compile_target(
                             let artifact = BuildArtifact {
                                 path,
                                 import_lib_path: None,
+                                debuginfo_path: None,
                                 linked_paths: Vec::new(),
                             };
                             artifacts.insert(crate_type, artifact);
                         }
                     }
                     // Remaining filenames may include import libraries (.dll.lib, .dll.a)
+                    // and debug info files (.pdb, .dSYM, .dwp)
                     if num_crate_types == 1
                         && let Some((_, artifact)) = artifacts.iter_mut().next()
                     {
                         for extra in filenames_iter {
                             let extra_path: PathBuf = extra.into();
-                            if extra_path
-                                .extension()
-                                .is_some_and(|ext| ext == "lib" || ext == "a")
-                            {
-                                artifact.import_lib_path = Some(extra_path);
-                                break;
+                            if let Some(ext) = extra_path.extension() {
+                                if (ext == "lib" || ext == "a")
+                                    && artifact.import_lib_path.is_none()
+                                {
+                                    artifact.import_lib_path = Some(extra_path);
+                                } else if (ext == "pdb" || ext == "dSYM" || ext == "dwp")
+                                    && artifact.debuginfo_path.is_none()
+                                {
+                                    artifact.debuginfo_path = Some(extra_path);
+                                }
                             }
                         }
                     }
@@ -709,11 +753,13 @@ fn compile_target(
 #[instrument(skip_all)]
 pub fn warn_missing_py_init(artifact: &Path, module_name: &str) -> Result<()> {
     let py_init = format!("PyInit_{module_name}");
-    let mut fd = File::open(artifact)?;
-    let mut buffer = Vec::new();
-    fd.read_to_end(&mut buffer)?;
+    let fd = File::open(artifact)?;
+    // SAFETY: The caller stages (moves/copies) the artifact into a private
+    // directory before invoking this function, so no concurrent process
+    // (e.g. cargo / rust-analyzer) can modify it while we have it mapped.
+    let mmap = unsafe { memmap2::Mmap::map(&fd).context("mmap failed")? };
     let mut found = false;
-    match goblin::Object::parse(&buffer)? {
+    match goblin::Object::parse(&mmap)? {
         goblin::Object::Elf(elf) => {
             for dyn_sym in elf.dynsyms.iter() {
                 if py_init == elf.dynstrtab[dyn_sym.st_name] {

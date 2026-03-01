@@ -7,11 +7,9 @@ neural network compression workflows. Supports specialized quantization
 strategies like NVFP4.
 """
 
-from typing import List
-
 import torch
-from compressed_tensors.quantization import QuantizationStrategy
-from compressed_tensors.utils import align_modules, update_parameter_data
+from compressed_tensors.offload import align_modules, update_offload_parameter
+from compressed_tensors.quantization import QuantizationStrategy, is_attention_module
 from torch.nn import Linear, Module
 
 __all__ = ["update_fused_layer_weight_global_scales"]
@@ -29,19 +27,12 @@ def update_fused_layer_weight_global_scales(submodule: torch.nn.Module):
     :param model: model to quantize
     """
 
-    def _is_attention_module(module: Module):
-        return "attention" in module.__class__.__name__.lower() and (
-            hasattr(module, "k_proj")
-            or hasattr(module, "v_proj")
-            or hasattr(module, "qkv_proj")
-        )
-
     def _is_mlp_module(module: Module):
         return "mlp" in module.__class__.__name__.lower() and (
             hasattr(module, "gate_proj") and hasattr(module, "up_proj")
         )
 
-    def _valid_tensor_group_quant(layer_list: List[Linear]):
+    def _valid_tensor_group_quant(layer_list: list[Linear]):
         """
         Return True if all the linear layers in the layer_list are
         TENSOR_GROUP quantized.
@@ -60,13 +51,21 @@ def update_fused_layer_weight_global_scales(submodule: torch.nn.Module):
                 return False
         return True
 
-    if _is_attention_module(submodule):
+    if is_attention_module(submodule):
         # already fused/treated as one layer
         if hasattr(submodule, "qkv_proj"):
             return
 
+        # not traditional attention (TODO: MLA)
+        if not (
+            hasattr(submodule, "q_proj")
+            and hasattr(submodule, "k_proj")
+            and hasattr(submodule, "v_proj")
+        ):
+            return
+
         if not _valid_tensor_group_quant(
-            [submodule.q_proj, submodule.v_proj, submodule.k_proj]
+            [submodule.q_proj, submodule.k_proj, submodule.v_proj]
         ):
             return
 
@@ -81,9 +80,9 @@ def update_fused_layer_weight_global_scales(submodule: torch.nn.Module):
                 )
             ).reshape([1])
 
-        update_parameter_data(submodule.k_proj, global_scale, "weight_global_scale")
-        update_parameter_data(submodule.q_proj, global_scale, "weight_global_scale")
-        update_parameter_data(submodule.v_proj, global_scale, "weight_global_scale")
+        update_offload_parameter(submodule.k_proj, "weight_global_scale", global_scale)
+        update_offload_parameter(submodule.q_proj, "weight_global_scale", global_scale)
+        update_offload_parameter(submodule.v_proj, "weight_global_scale", global_scale)
 
         del global_scale
 
@@ -101,7 +100,11 @@ def update_fused_layer_weight_global_scales(submodule: torch.nn.Module):
                 )
             ).reshape([1])
 
-        update_parameter_data(submodule.gate_proj, global_scale, "weight_global_scale")
-        update_parameter_data(submodule.up_proj, global_scale, "weight_global_scale")
+        update_offload_parameter(
+            submodule.gate_proj,
+            "weight_global_scale",
+            global_scale,
+        )
+        update_offload_parameter(submodule.up_proj, "weight_global_scale", global_scale)
 
         del global_scale

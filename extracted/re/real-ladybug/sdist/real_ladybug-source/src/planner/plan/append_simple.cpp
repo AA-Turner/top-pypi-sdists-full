@@ -59,7 +59,7 @@ LogicalPlan Planner::planCreateTable(const BoundStatement& statement) {
             children.push_back(planCopyRelFrom(&createTable.getCopyInfo()).getLastOperator());
         } break;
         default: {
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
         }
         auto create = std::make_shared<LogicalCreateTable>(info.copy());
@@ -165,12 +165,13 @@ LogicalPlan Planner::planExtensionClause(const BoundStatement& statement) {
             return getSimplePlan(op);
         }
     }
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 LogicalPlan Planner::planCreateGraph(const BoundStatement& statement) {
     auto& boundCreateGraph = statement.constCast<BoundCreateGraph>();
-    auto op = std::make_shared<LogicalCreateGraph>(boundCreateGraph.getGraphName());
+    auto op = std::make_shared<LogicalCreateGraph>(boundCreateGraph.getGraphName(),
+        boundCreateGraph.isAnyGraph());
     return getSimplePlan(std::move(op));
 }
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@ Reference: https://github.com/algorand/py-algorand-sdk
 
 # Imports
 from typing import Optional, Union
+
+from typing_extensions import override
 
 from bip_utils.algorand.mnemonic.algorand_mnemonic import AlgorandLanguages, AlgorandMnemonic, AlgorandMnemonicConst
 from bip_utils.algorand.mnemonic.algorand_mnemonic_utils import AlgorandMnemonicUtils
@@ -59,6 +61,7 @@ class AlgorandMnemonicDecoder(MnemonicDecoderBase):
                          Bip39WordsListFinder,
                          Bip39WordsListGetter)
 
+    @override
     def Decode(self,
                mnemonic: Union[str, Mnemonic]) -> bytes:
         """
@@ -107,7 +110,7 @@ class AlgorandMnemonicDecoder(MnemonicDecoderBase):
         Validate a mnemonic checksum.
 
         Args:
-            entropy_bytes (list)          : Entropy bytes
+            entropy_bytes (bytes)         : Entropy bytes
             chksum_word_idx_exp (int)     : Expected checksum word index
             words_list (MnemonicWordsList): Words list
 

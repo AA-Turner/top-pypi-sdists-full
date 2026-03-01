@@ -174,10 +174,11 @@ class Gizmo:
         self,
         shape: typing.Any,
         *,
-        matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
+        matrix: None
+        | collections.abc.Sequence[collections.abc.Sequence[float]]
         | mathutils.Matrix
         | None = None,
-        select_id: int | None = None,
+        select_id: None | int | None = None,
     ) -> None:
         """Draw a shape created form `Gizmo.draw_custom_shape`.
 
@@ -1373,11 +1374,11 @@ class Menu(_GenericUI):
         searchpaths: collections.abc.Sequence[str],
         operator: str,
         *,
-        props_default: dict[str, typing.Any] | None = None,
+        props_default: None | dict[str, typing.Any] | None = None,
         prop_filepath: str = "filepath",
         filter_ext: None | collections.abc.Callable[str, bool] | None = None,
         filter_path=None,
-        display_name: collections.abc.Callable[str, str] | None = None,
+        display_name: None | collections.abc.Callable[str, str] | None = None,
         add_operator=None,
         add_operator_props=None,
         translate=True,

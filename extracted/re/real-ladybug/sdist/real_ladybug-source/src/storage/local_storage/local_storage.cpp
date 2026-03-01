@@ -32,7 +32,7 @@ LocalTable* LocalStorage::getOrCreateLocalTable(Table& table) {
             tables[tableID] = std::make_unique<LocalRelTable>(tableEntry, table, mm);
         } break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     }
     return tables.at(tableID).get();
@@ -88,8 +88,9 @@ void LocalStorage::rollback() {
     for (auto& optimisticAllocator : optimisticAllocators) {
         optimisticAllocator->rollback();
     }
-    auto* bufferManager = mm->getBufferManager();
-    PageManager::Get(clientContext)->clearEvictedBMEntriesIfNeeded(bufferManager);
+    auto& pageManager = *PageManager::Get(clientContext);
+    pageManager.mergeFreePages(pageManager.getDataFH());
+    pageManager.clearEvictedBMEntriesIfNeeded(mm->getBufferManager());
 }
 
 } // namespace storage

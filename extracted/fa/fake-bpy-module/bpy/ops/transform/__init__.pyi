@@ -39,7 +39,7 @@ def bend(
     undo: bool | None = None,
     /,
     *,
-    value: collections.abc.Sequence[float] | None = 0.0,
+    value: collections.abc.Sequence[float] | None = (0.0),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
     proportional_edit_falloff: Literal[

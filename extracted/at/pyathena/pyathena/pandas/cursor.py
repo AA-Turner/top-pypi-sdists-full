@@ -1,18 +1,11 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Generator, Iterable
 from multiprocessing import cpu_count
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Union,
     cast,
 )
 
@@ -29,7 +22,7 @@ from pyathena.result_set import WithFetch
 if TYPE_CHECKING:
     from pandas import DataFrame
 
-_logger = logging.getLogger(__name__)  # type: ignore
+_logger = logging.getLogger(__name__)
 
 
 class PandasCursor(WithFetch):
@@ -69,24 +62,24 @@ class PandasCursor(WithFetch):
 
     def __init__(
         self,
-        s3_staging_dir: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        work_group: Optional[str] = None,
+        s3_staging_dir: str | None = None,
+        schema_name: str | None = None,
+        catalog_name: str | None = None,
+        work_group: str | None = None,
         poll_interval: float = 1,
-        encryption_option: Optional[str] = None,
-        kms_key: Optional[str] = None,
+        encryption_option: str | None = None,
+        kms_key: str | None = None,
         kill_on_interrupt: bool = True,
         unload: bool = False,
         engine: str = "auto",
-        chunksize: Optional[int] = None,
-        block_size: Optional[int] = None,
-        cache_type: Optional[str] = None,
+        chunksize: int | None = None,
+        block_size: int | None = None,
+        cache_type: str | None = None,
         max_workers: int = (cpu_count() or 1) * 5,
         result_reuse_enable: bool = False,
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         auto_optimize_chunksize: bool = False,
-        on_start_query_execution: Optional[Callable[[str], None]] = None,
+        on_start_query_execution: Callable[[str], None] | None = None,
         **kwargs,
     ) -> None:
         """Initialize PandasCursor with configuration options.
@@ -140,7 +133,7 @@ class PandasCursor(WithFetch):
     @staticmethod
     def get_default_converter(
         unload: bool = False,
-    ) -> Union[DefaultPandasTypeConverter, Any]:
+    ) -> DefaultPandasTypeConverter | Any:
         if unload:
             return DefaultPandasUnloadTypeConverter()
         return DefaultPandasTypeConverter()
@@ -148,18 +141,19 @@ class PandasCursor(WithFetch):
     def execute(
         self,
         operation: str,
-        parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
-        work_group: Optional[str] = None,
-        s3_staging_dir: Optional[str] = None,
-        cache_size: Optional[int] = 0,
-        cache_expiration_time: Optional[int] = 0,
-        result_reuse_enable: Optional[bool] = None,
-        result_reuse_minutes: Optional[int] = None,
-        paramstyle: Optional[str] = None,
+        parameters: dict[str, Any] | list[str] | None = None,
+        work_group: str | None = None,
+        s3_staging_dir: str | None = None,
+        cache_size: int | None = 0,
+        cache_expiration_time: int | None = 0,
+        result_reuse_enable: bool | None = None,
+        result_reuse_minutes: int | None = None,
+        paramstyle: str | None = None,
         keep_default_na: bool = False,
-        na_values: Optional[Iterable[str]] = ("",),
+        na_values: Iterable[str] | None = ("",),
         quoting: int = 1,
-        on_start_query_execution: Optional[Callable[[str], None]] = None,
+        on_start_query_execution: Callable[[str], None] | None = None,
+        result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
     ) -> PandasCursor:
         """Execute a SQL query and return results as pandas DataFrames.
@@ -182,6 +176,9 @@ class PandasCursor(WithFetch):
             na_values: Additional values to treat as NA.
             quoting: CSV quoting behavior (pandas csv.QUOTE_* constants).
             on_start_query_execution: Callback called when query starts.
+            result_set_type_hints: Optional dictionary mapping column names to
+                Athena DDL type signatures for precise type conversion within
+                complex types.
             **kwargs: Additional pandas read_csv/read_parquet parameters.
 
         Returns:
@@ -231,6 +228,7 @@ class PandasCursor(WithFetch):
                 cache_type=kwargs.pop("cache_type", self._cache_type),
                 max_workers=kwargs.pop("max_workers", self._max_workers),
                 auto_optimize_chunksize=self._auto_optimize_chunksize,
+                result_set_type_hints=result_set_type_hints,
                 **kwargs,
             )
         else:
@@ -238,7 +236,7 @@ class PandasCursor(WithFetch):
 
         return self
 
-    def as_pandas(self) -> Union["DataFrame", PandasDataFrameIterator]:
+    def as_pandas(self) -> DataFrame | PandasDataFrameIterator:
         """Return DataFrame or PandasDataFrameIterator based on chunksize setting.
 
         Returns:
@@ -249,7 +247,7 @@ class PandasCursor(WithFetch):
         result_set = cast(AthenaPandasResultSet, self.result_set)
         return result_set.as_pandas()
 
-    def iter_chunks(self) -> Generator["DataFrame", None, None]:
+    def iter_chunks(self) -> Generator[DataFrame, None, None]:
         """Iterate over DataFrame chunks for memory-efficient processing.
 
         This method provides an iterator interface for processing large result sets

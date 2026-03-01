@@ -4,7 +4,6 @@
 #include "catalog/catalog.h"
 #include "common/copier_config/csv_reader_config.h"
 #include "common/exception/binder.h"
-#include "common/string_format.h"
 #include "common/string_utils.h"
 #include "function/built_in_function_utils.h"
 #include "function/table/table_function.h"
@@ -14,6 +13,7 @@
 #include "processor/operator/persistent/reader/npy/npy_reader.h"
 #include "processor/operator/persistent/reader/parquet/parquet_reader.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -94,7 +94,7 @@ std::unique_ptr<BoundStatement> Binder::bind(const Statement& statement) {
         boundStatement = bindExtensionClause(statement);
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
     BoundStatementRewriter::rewrite(*boundStatement, *clientContext);
@@ -136,7 +136,7 @@ std::shared_ptr<Expression> Binder::createInvisibleVariable(const std::string& n
 
 expression_vector Binder::createVariables(const std::vector<std::string>& names,
     const std::vector<common::LogicalType>& types) {
-    KU_ASSERT(names.size() == types.size());
+    DASSERT(names.size() == types.size());
     expression_vector variables;
     for (auto i = 0u; i < names.size(); ++i) {
         variables.push_back(createVariable(names[i], types[i]));
@@ -146,7 +146,7 @@ expression_vector Binder::createVariables(const std::vector<std::string>& names,
 
 expression_vector Binder::createInvisibleVariables(const std::vector<std::string>& names,
     const std::vector<LogicalType>& types) const {
-    KU_ASSERT(names.size() == types.size());
+    DASSERT(names.size() == types.size());
     expression_vector variables;
     for (auto i = 0u; i < names.size(); ++i) {
         variables.push_back(createInvisibleVariable(names[i], types[i]));
@@ -196,7 +196,7 @@ bool Binder::reservedInPropertyLookup(const std::string& name) {
 }
 
 void Binder::addToScope(const std::vector<std::string>& names, const expression_vector& exprs) {
-    KU_ASSERT(names.size() == exprs.size());
+    DASSERT(names.size() == exprs.size());
     for (auto i = 0u; i < names.size(); ++i) {
         addToScope(names[i], exprs[i]);
     }
@@ -259,7 +259,7 @@ TableFunction Binder::getScanFunction(const FileTypeInfo& typeInfo,
     } break;
     case FileType::UNKNOWN: {
         try {
-            auto name = stringFormat("{}_SCAN", typeInfo.fileTypeStr);
+            auto name = std::format("{}_SCAN", typeInfo.fileTypeStr);
             auto entry = catalog->getFunctionEntry(transaction, name);
             func = BuiltInFunctionsUtils::matchFunction(name, inputTypes,
                 entry->ptrCast<FunctionCatalogEntry>());
@@ -269,13 +269,13 @@ TableFunction Binder::getScanFunction(const FileTypeInfo& typeInfo,
                                       "set the file format explicitly by (file_format=<type>)."};
             }
             throw BinderException{
-                stringFormat("Cannot load from file type {}. If this file type is part of a lbug "
-                             "extension please load the extension then try again.",
+                std::format("Cannot load from file type {}. If this file type is part of a lbug "
+                            "extension please load the extension then try again.",
                     typeInfo.fileTypeStr)};
         }
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     return *func->ptrCast<TableFunction>();
 }

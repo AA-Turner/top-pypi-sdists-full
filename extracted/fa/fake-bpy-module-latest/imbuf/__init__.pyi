@@ -41,7 +41,7 @@ def new(size: tuple[int, int]) -> imbuf.types.ImBuf:
     """
 
 def write(
-    image: imbuf.types.ImBuf, *, filepath: None | bytes | str = image.filepath
+    image: imbuf.types.ImBuf, *, filepath: None | bytes | str | None = None
 ) -> None:
     """Write an image.
 

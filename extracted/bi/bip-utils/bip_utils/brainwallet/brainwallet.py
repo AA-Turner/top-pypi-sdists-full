@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,7 +62,7 @@ class Brainwallet:
             **algo_params               : Algorithm parameters, if any
 
         Returns:
-            Brainwallet object: Algorithm class
+            Brainwallet object: Generated Brainwallet object
 
         Raises:
             TypeError: If algorithm type is not of a BrainwalletAlgos enumerative
@@ -91,7 +91,7 @@ class Brainwallet:
             **algo_params                    : Algorithm parameters, if any
 
         Returns:
-            Brainwallet object: Algorithm class
+            Brainwallet object: Generated Brainwallet object
 
         Raises:
             TypeError: If algorithm type is not of a BrainwalletAlgos enumerative

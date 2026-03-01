@@ -1,4 +1,5 @@
 import re
+import shlex
 from shutil import which
 
 from prompt_toolkit import search
@@ -6,6 +7,7 @@ from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from pyfzf import FzfPrompt
 
 from mycli.packages.toolkit.history import FileHistoryWithTimestamp
+from mycli.packages.toolkit.utils import safe_invalidate_display
 
 
 class Fzf(FzfPrompt):
@@ -18,7 +20,12 @@ class Fzf(FzfPrompt):
         return self.executable is not None
 
 
-def search_history(event: KeyPressEvent, incremental: bool = False) -> None:
+def search_history(
+    event: KeyPressEvent,
+    highlight_preview: bool = False,
+    highlight_style: str = 'default',
+    incremental: bool = False,
+) -> None:
     buffer = event.current_buffer
     history = buffer.history
 
@@ -48,14 +55,20 @@ def search_history(event: KeyPressEvent, incremental: bool = False) -> None:
         '--scheme=history',
         '--tiebreak=index',
         '--bind=ctrl-r:up,alt-r:up',
-        '--preview-window=down:wrap',
-        '--preview="printf \'%s\' {}"',
+        '--preview-window=down:wrap:nohidden',
+        '--no-height',
     ]
+
+    if highlight_preview and which('pygmentize'):
+        options.append(f'--preview="printf \'%s\' {{}} | pygmentize -l mysql -P style={shlex.quote(highlight_style)}"')
+    else:
+        options.append('--preview="printf \'%s\' {}"')
 
     result = fzf.prompt(
         formatted_history_items,
         fzf_options=' '.join(options),
     )
+    safe_invalidate_display(event.app)
 
     if result:
         selected_index = formatted_history_items.index(result[0])

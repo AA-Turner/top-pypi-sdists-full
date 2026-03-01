@@ -13,7 +13,6 @@
 #include "common/enums/extend_direction_util.h"
 #include "common/exception/binder.h"
 #include "common/exception/message.h"
-#include "common/string_format.h"
 #include "common/system_config.h"
 #include "common/types/types.h"
 #include "function/cast/functions/cast_from_string_functions.h"
@@ -30,6 +29,7 @@
 #include "parser/expression/parsed_function_expression.h"
 #include "parser/expression/parsed_literal_expression.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -42,12 +42,12 @@ static void validatePropertyName(const std::vector<PropertyDefinition>& definiti
     case_insensitve_set_t nameSet;
     for (auto& definition : definitions) {
         if (nameSet.contains(definition.getName())) {
-            throw BinderException(stringFormat(
+            throw BinderException(std::format(
                 "Duplicated column name: {}, column name must be unique.", definition.getName()));
         }
         if (Binder::reservedInColumnName(definition.getName())) {
             throw BinderException(
-                stringFormat("{} is a reserved property name.", definition.getName()));
+                std::format("{} is a reserved property name.", definition.getName()));
         }
         nameSet.insert(definition.getName());
     }
@@ -106,6 +106,9 @@ static void validatePrimaryKey(const std::string& pkColName,
     if (!pkType.isInternalType()) {
         throw BinderException(ExceptionMessage::invalidPKType(pkType.toString()));
     }
+    if (pkType.getLogicalTypeID() == LogicalTypeID::JSON) {
+        throw BinderException(ExceptionMessage::invalidPKType(pkType.toString()));
+    }
     switch (pkType.getPhysicalType()) {
     case PhysicalTypeID::UINT8:
     case PhysicalTypeID::UINT16:
@@ -135,7 +138,7 @@ BoundCreateTableInfo Binder::bindCreateTableInfo(const CreateTableInfo* info) {
         return bindCreateRelTableGroupInfo(info);
     }
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -143,7 +146,7 @@ BoundCreateTableInfo Binder::bindCreateTableInfo(const CreateTableInfo* info) {
 void Binder::validateNodeTableType(const TableCatalogEntry* entry) {
     if (entry->getType() != CatalogEntryType::NODE_TABLE_ENTRY &&
         entry->getType() != CatalogEntryType::FOREIGN_TABLE_ENTRY) {
-        throw BinderException(stringFormat("{} is not of type NODE.", entry->getName()));
+        throw BinderException(std::format("{} is not of type NODE.", entry->getName()));
     }
 }
 
@@ -151,7 +154,7 @@ void Binder::validateTableExistence(const main::ClientContext& context,
     const std::string& tableName) {
     auto transaction = transaction::Transaction::Get(context);
     if (!Catalog::Get(context)->containsTable(transaction, tableName)) {
-        throw BinderException{stringFormat("Table {} does not exist.", tableName)};
+        throw BinderException{std::format("Table {} does not exist.", tableName)};
     }
 }
 
@@ -159,7 +162,7 @@ void Binder::validateColumnExistence(const TableCatalogEntry* entry,
     const std::string& columnName) {
     if (!entry->containsProperty(columnName)) {
         throw BinderException{
-            stringFormat("Column {} does not exist in table {}.", columnName, entry->getName())};
+            std::format("Column {} does not exist in table {}.", columnName, entry->getName())};
     }
 }
 
@@ -214,7 +217,8 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
     if (!storage.empty()) {
         auto dotPos = storage.find('.');
         // Check if storage is database.table format by verifying the attached database exists
-        // Otherwise, treat as file path (e.g., "dataset/demo-db/graph-std/demo" or "data.parquet")
+        // Otherwise, treat as file path (e.g., "dataset/demo-db/icebug-disk/demo" or
+        // "data.parquet")
         if (dotPos != std::string::npos) {
             std::string dbName = storage.substr(0, dotPos);
             std::string tableName = storage.substr(dotPos + 1);
@@ -227,7 +231,7 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
                     if (!attachedDB->getCatalog()->containsTable(transaction, tableName,
                             clientContext->useInternalCatalogEntry())) {
                         throw BinderException(
-                            stringFormat("Table '{}' does not exist in attached database '{}'.",
+                            std::format("Table '{}' does not exist in attached database '{}'.",
                                 tableName, dbName));
                     }
                     auto tableEntry = attachedDB->getCatalog()->getTableCatalogEntry(transaction,
@@ -249,8 +253,8 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
 
                     if (propertyDefinitions.size() == 1) { // Only has ID column
                         throw BinderException(
-                            stringFormat("Storage table '{}' must have at least one property "
-                                         "column.",
+                            std::format("Storage table '{}' must have at least one property "
+                                        "column.",
                                 tableName));
                     }
 
@@ -266,7 +270,7 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
                     }
                     scanBindData = std::move(boundScanInfo->bindData);
                     // Set foreign database name for attached databases
-                    foreignDatabaseName = stringFormat("{}({})", dbName, attachedDB->getDBType());
+                    foreignDatabaseName = std::format("{}({})", dbName, attachedDB->getDBType());
                 }
                 // else: attachedDB doesn't exist, so treat storage as a file path
             }
@@ -300,8 +304,8 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
             auto dstDbName = dstTableName.substr(0, dstDotPos);
             if (srcDbName != dstDbName) {
                 throw BinderException(
-                    stringFormat("Cannot create rel table with FROM and TO tables from different "
-                                 "databases. FROM is from '{}', TO is from '{}'.",
+                    std::format("Cannot create rel table with FROM and TO tables from different "
+                                "databases. FROM is from '{}', TO is from '{}'.",
                         srcDbName, dstDbName));
             }
         }
@@ -313,7 +317,7 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
         NodeTableIDPair pair{srcTableID, dstTableID};
         if (nodePairsSet.contains(pair)) {
             throw BinderException(
-                stringFormat("Found duplicate FROM-TO {}-{} pairs.", srcTableName, dstTableName));
+                std::format("Found duplicate FROM-TO {}-{} pairs.", srcTableName, dstTableName));
         }
         nodePairsSet.insert(pair);
         nodePairs.emplace_back(pair);
@@ -397,7 +401,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateTableAs(const Statement& state
         return boundCreateTable;
     }
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -408,7 +412,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateType(const Statement& statemen
     LogicalType type = LogicalType::convertFromString(createType->getDataType(), clientContext);
     auto transaction = transaction::Transaction::Get(*clientContext);
     if (Catalog::Get(*clientContext)->containsType(transaction, name)) {
-        throw BinderException{stringFormat("Duplicated type name: {}.", name)};
+        throw BinderException{std::format("Duplicated type name: {}.", name)};
     }
     return std::make_unique<BoundCreateType>(std::move(name), std::move(type));
 }
@@ -431,7 +435,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateSequence(const Statement& stat
     default:
         break;
     }
-    auto literal = ku_string_t{info.increment.c_str(), info.increment.length()};
+    auto literal = string_t{info.increment.c_str(), info.increment.length()};
     if (!function::CastString::tryCast(literal, increment)) {
         throw BinderException("Out of bounds: SEQUENCE accepts integers within INT64.");
     }
@@ -442,7 +446,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateSequence(const Statement& stat
     if (info.minValue == "") {
         minValue = increment > 0 ? 1 : std::numeric_limits<int64_t>::min();
     } else {
-        literal = ku_string_t{info.minValue.c_str(), info.minValue.length()};
+        literal = string_t{info.minValue.c_str(), info.minValue.length()};
         if (!function::CastString::tryCast(literal, minValue)) {
             throw BinderException("Out of bounds: SEQUENCE accepts integers within INT64.");
         }
@@ -450,7 +454,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateSequence(const Statement& stat
     if (info.maxValue == "") {
         maxValue = increment > 0 ? std::numeric_limits<int64_t>::max() : -1;
     } else {
-        literal = ku_string_t{info.maxValue.c_str(), info.maxValue.length()};
+        literal = string_t{info.maxValue.c_str(), info.maxValue.length()};
         if (!function::CastString::tryCast(literal, maxValue)) {
             throw BinderException("Out of bounds: SEQUENCE accepts integers within INT64.");
         }
@@ -458,7 +462,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateSequence(const Statement& stat
     if (info.startWith == "") {
         startWith = increment > 0 ? minValue : maxValue;
     } else {
-        literal = ku_string_t{info.startWith.c_str(), info.startWith.length()};
+        literal = string_t{info.startWith.c_str(), info.startWith.length()};
         if (!function::CastString::tryCast(literal, startWith)) {
             throw BinderException("Out of bounds: SEQUENCE accepts integers within INT64.");
         }
@@ -504,7 +508,7 @@ std::unique_ptr<BoundStatement> Binder::bindAlter(const Statement& statement) {
         return bindAlterFromToConnection(statement);
     }
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -512,7 +516,7 @@ std::unique_ptr<BoundStatement> Binder::bindAlter(const Statement& statement) {
 std::unique_ptr<BoundStatement> Binder::bindRenameTable(const Statement& statement) const {
     auto& alter = statement.constCast<Alter>();
     auto info = alter.getInfo();
-    auto extraInfo = ku_dynamic_cast<ExtraRenameTableInfo*>(info->extraInfo.get());
+    auto extraInfo = dynamic_cast_checked<ExtraRenameTableInfo*>(info->extraInfo.get());
     auto tableName = info->tableName;
     auto newName = extraInfo->newName;
     auto boundExtraInfo = std::make_unique<BoundExtraRenameTableInfo>(newName);

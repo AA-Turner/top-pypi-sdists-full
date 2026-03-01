@@ -14,6 +14,7 @@ use crate::compression::CompressionOptions;
 use crate::module_writer::ModuleWriter;
 use crate::module_writer::{WheelWriter, add_data, write_pth};
 use crate::project_layout::ProjectLayout;
+use crate::pyproject_toml::ConditionalFeature;
 use crate::sbom::{SbomData, generate_sbom_data, write_sboms};
 use crate::source_distribution::source_distribution;
 use crate::target::validate_wheel_filename_for_pypi;
@@ -29,7 +30,6 @@ use fs_err as fs;
 use ignore::overrides::{Override, OverrideBuilder};
 use lddtree::Library;
 use normpath::PathExt;
-use pep440_rs::VersionSpecifiers;
 use platform_info::*;
 use regex::Regex;
 use sha2::{Digest, Sha256};
@@ -42,13 +42,13 @@ use tracing::instrument;
 use zip::DateTime;
 
 /// Unpacks an sdist tarball into a temporary directory and returns the path
-/// to the Cargo.toml inside it, along with the tempdir handle (which must
-/// be kept alive for the duration of the build).
+/// to the Cargo.toml and pyproject.toml inside it, along with the tempdir
+/// handle (which must be kept alive for the duration of the build).
 ///
 /// The Cargo.toml path is resolved by checking `[tool.maturin.manifest-path]`
 /// in the sdist's `pyproject.toml`, falling back to `Cargo.toml` at the
 /// sdist root directory.
-pub fn unpack_sdist(sdist_path: &Path) -> Result<(tempfile::TempDir, PathBuf)> {
+pub fn unpack_sdist(sdist_path: &Path) -> Result<(tempfile::TempDir, PathBuf, PathBuf)> {
     let tmp = tempfile::tempdir().context("Failed to create temporary directory")?;
     let gz = flate2::read::GzDecoder::new(
         fs::File::open(sdist_path)
@@ -66,7 +66,11 @@ pub fn unpack_sdist(sdist_path: &Path) -> Result<(tempfile::TempDir, PathBuf)> {
         .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
         .collect();
     let top_dir = match entries.len() {
-        1 => entries[0].path(),
+        // Canonicalize to resolve symlinks (e.g. /var -> /private/var on macOS).
+        // Without this, `project_root` and `python_dir` may disagree after
+        // `normalize()` is applied to only some paths, causing python source
+        // files to be silently excluded from wheels.
+        1 => dunce::canonicalize(entries[0].path()).unwrap_or_else(|_| entries[0].path()),
         n => bail!(
             "Expected exactly one top-level directory in sdist, found {}",
             n
@@ -92,7 +96,7 @@ pub fn unpack_sdist(sdist_path: &Path) -> Result<(tempfile::TempDir, PathBuf)> {
             cargo_toml.display()
         );
     }
-    Ok((tmp, cargo_toml))
+    Ok((tmp, cargo_toml, pyproject_file))
 }
 
 /// Contains all the metadata required to build the crate
@@ -150,8 +154,10 @@ pub struct BuildContext {
     pub sbom: Option<SbomConfig>,
     /// Include the import library (.dll.lib) in the wheel on Windows
     pub include_import_lib: bool,
-    /// Cargo features conditionally enabled based on the target Python version
-    pub conditional_features: Vec<(String, VersionSpecifiers)>,
+    /// Include debug info files (.pdb, .dSYM, .dwp) in the wheel
+    pub include_debuginfo: bool,
+    /// Cargo features conditionally enabled based on the target Python version/implementation
+    pub conditional_features: Vec<ConditionalFeature>,
 }
 
 /// The wheel file location and its Python version tag (e.g. `py3`).
@@ -182,13 +188,19 @@ impl BuildContext {
                     let abi3_interps: Vec<_> = self
                         .interpreter
                         .iter()
-                        .filter(|interp| interp.has_stable_api())
+                        .filter(|interp| {
+                            interp.has_stable_api()
+                                && (interp.major as u8, interp.minor as u8) >= (*major, *minor)
+                        })
                         .cloned()
                         .collect();
                     let non_abi3_interps: Vec<_> = self
                         .interpreter
                         .iter()
-                        .filter(|interp| !interp.has_stable_api())
+                        .filter(|interp| {
+                            !interp.has_stable_api()
+                                || (interp.major as u8, interp.minor as u8) < (*major, *minor)
+                        })
                         .cloned()
                         .collect();
                     let mut built_wheels = Vec::new();
@@ -1036,32 +1048,37 @@ impl BuildContext {
             .cloned()
             .ok_or_else(|| anyhow!(error_msg,))?;
 
+        self.stage_artifact(&mut artifact)?;
+
         if let Some(extension_name) = extension_name {
-            // globin has an issue parsing MIPS64 ELF, see https://github.com/m4b/goblin/issues/274
+            // goblin has an issue parsing MIPS64 ELF, see https://github.com/m4b/goblin/issues/274
             // But don't fail the build just because we can't emit a warning
             let _ = warn_missing_py_init(&artifact.path, extension_name);
         }
-
-        self.copy_artifact_for_repair(&mut artifact)?;
         Ok((artifact, result.out_dirs))
     }
 
-    /// Copy an artifact to a staging directory so that auditwheel repair can
-    /// modify it in-place without altering the original cargo build output.
-    /// This prevents errors on subsequent rebuilds where cargo skips
-    /// recompilation.
+    /// Move an artifact to a private staging directory so that:
+    /// 1. `warn_missing_py_init` can safely mmap the file without risk of
+    ///    concurrent modification by cargo / rust-analyzer.
+    /// 2. Auditwheel repair can modify it in-place without altering the
+    ///    original cargo build output.
     ///
-    /// Only performs the copy when auditwheel mode is `Repair`, since that is
-    /// the only mode that modifies artifacts in-place.
-    fn copy_artifact_for_repair(&self, artifact: &mut BuildArtifact) -> Result<()> {
-        if self.editable || !matches!(self.auditwheel, AuditWheelMode::Repair) {
-            return Ok(());
-        }
+    /// Uses `fs::rename` for an atomic move (avoids copying multi-GB debug
+    /// artifacts), falling back to `fs::copy` when the rename fails (e.g.
+    /// cross-device).
+    fn stage_artifact(&self, artifact: &mut BuildArtifact) -> Result<()> {
         let maturin_build = self.target_dir.join(env!("CARGO_PKG_NAME"));
         fs::create_dir_all(&maturin_build)?;
         let artifact_path = &artifact.path;
         let new_artifact_path = maturin_build.join(artifact_path.file_name().unwrap());
-        fs::copy(artifact_path, &new_artifact_path)?;
+        // Remove any stale file at the destination so that `fs::rename` succeeds
+        // on Windows (where rename fails if the destination already exists).
+        let _ = fs::remove_file(&new_artifact_path);
+        if fs::rename(artifact_path, &new_artifact_path).is_err() {
+            // Rename fails across filesystem boundaries, fall back to copy
+            fs::copy(artifact_path, &new_artifact_path)?;
+        }
         artifact.path = new_artifact_path.normalize()?.into_path_buf();
         Ok(())
     }
@@ -1310,7 +1327,7 @@ impl BuildContext {
             policies.push(policy);
             ext_libs.push(external_libs);
 
-            self.copy_artifact_for_repair(&mut artifact)?;
+            self.stage_artifact(&mut artifact)?;
             artifact_paths.push(artifact);
         }
         let policy = policies.iter().min_by_key(|p| p.priority).unwrap();
@@ -1555,6 +1572,7 @@ fn zip_mtime() -> DateTime {
         .and_then(|epoch| {
             let epoch: i64 = epoch.parse()?;
             let dt = time::OffsetDateTime::from_unix_timestamp(epoch)?;
+            let dt = time::PrimitiveDateTime::new(dt.date(), dt.time());
             let dt = DateTime::try_from(dt)?;
             Ok(dt)
         });

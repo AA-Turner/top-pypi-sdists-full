@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import copy
@@ -21,8 +22,7 @@ class CNNModel(MLPModel):
     This model uses one or more convolutional neural network (CNN) encoders to process one or more 2D observation groups
     before passing the resulting latent to an MLP. Any 1D observation groups are directly concatenated with the CNN
     latent and passed to the MLP. 1D observations can be normalized before being passed to the MLP. The output of the
-    model can be either deterministic or stochastic, in which case a Gaussian distribution is used to sample the
-    outputs.
+    model can be either deterministic or stochastic, in which case a distribution module is used to sample the outputs.
     """
 
     def __init__(
@@ -31,15 +31,12 @@ class CNNModel(MLPModel):
         obs_groups: dict[str, list[str]],
         obs_set: str,
         output_dim: int,
-        cnn_cfg: dict[str, dict] | dict[str, Any],
-        cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
-        hidden_dims: tuple[int] | list[int] = [256, 256, 256],
+        hidden_dims: tuple[int, ...] | list[int] = (256, 256, 256),
         activation: str = "elu",
         obs_normalization: bool = False,
-        stochastic: bool = False,
-        init_noise_std: float = 1.0,
-        noise_std_type: str = "scalar",
-        state_dependent_std: bool = False,
+        distribution_cfg: dict | None = None,
+        cnn_cfg: dict[str, dict] | dict[str, Any] | None = None,
+        cnns: nn.ModuleDict | dict[str, nn.Module] | None = None,
     ) -> None:
         """Initialize the CNN-based model.
 
@@ -49,14 +46,11 @@ class CNNModel(MLPModel):
             obs_set: Observation set to use for this model (e.g., "actor" or "critic").
             output_dim: Dimension of the output.
             hidden_dims: Hidden dimensions of the MLP.
-            cnn_cfg: Configuration of the CNN encoder(s).
-            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
             activation: Activation function of the CNN and MLP.
             obs_normalization: Whether to normalize the observations before feeding them to the MLP.
-            stochastic: Whether the model outputs stochastic or deterministic values.
-            init_noise_std: Initial standard deviation of the stochatic output.
-            noise_std_type: Whether the standard deviation is defined as a "scalar" or in "log" space.
-            state_dependent_std: Whether the standard deviation is state dependent.
+            distribution_cfg: Configuration dictionary for the output distribution.
+            cnn_cfg: Configuration of the CNN encoder(s).
+            cnns: CNN modules to use, e.g., for sharing CNNs between actor and critic. If None, new CNNs are created.
         """
         # Resolve observation groups and dimensions
         self._get_obs_dim(obs, obs_groups, obs_set)
@@ -68,13 +62,14 @@ class CNNModel(MLPModel):
                 raise ValueError("The 2D observations must be identical for all models sharing CNN encoders.")
             print("Sharing CNN encoders between models, the CNN configurations of the receiving model are ignored.")
         else:
+            if cnn_cfg is None:
+                raise ValueError("CNN configurations must be provided if CNNs are not shared.")
             # Create a cnn config for each 2D observation group in case only one is provided
             if not all(isinstance(v, dict) for v in cnn_cfg.values()):
                 cnn_cfg = {group: cnn_cfg for group in self.obs_groups_2d}
             # Check that the number of configs matches the number of observation groups
-            assert len(cnn_cfg) == len(self.obs_groups_2d), (
-                "The number of CNN configurations must match the number of 2D observation groups."
-            )
+            if len(cnn_cfg) != len(self.obs_groups_2d):
+                raise ValueError("The number of CNN configurations must match the number of 2D observation groups.")
             # Create CNNs for each 2D observation
             cnns = {}
             for idx, obs_group in enumerate(self.obs_groups_2d):
@@ -100,10 +95,7 @@ class CNNModel(MLPModel):
             hidden_dims,
             activation,
             obs_normalization,
-            stochastic,
-            init_noise_std,
-            noise_std_type,
-            state_dependent_std,
+            distribution_cfg,
         )
 
         # Register CNN encoders
@@ -115,13 +107,14 @@ class CNNModel(MLPModel):
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ) -> torch.Tensor:
+        """Build the model latent by combining normalized 1D and CNN-encoded 2D observation groups."""
         # Concatenate 1D observation groups and normalize
         latent_1d = super().get_latent(obs)
         # Process 2D observation groups with CNNs
         latent_cnn_list = [self.cnns[obs_group](obs[obs_group]) for obs_group in self.obs_groups_2d]
-        latend_cnn = torch.cat(latent_cnn_list, dim=-1)
+        latent_cnn = torch.cat(latent_cnn_list, dim=-1)
         # Concatenate 1D and CNN latents
-        return torch.cat([latent_1d, latend_cnn], dim=-1)
+        return torch.cat([latent_1d, latent_cnn], dim=-1)
 
     def as_jit(self) -> nn.Module:
         """Return a version of the model compatible with Torch JIT export."""
@@ -152,7 +145,8 @@ class CNNModel(MLPModel):
             else:
                 raise ValueError(f"Invalid observation shape for {obs_group}: {obs[obs_group].shape}")
 
-        assert obs_groups_2d, "No 2D observations are provided. If this is intentional, use the MLP model instead."
+        if not obs_groups_2d:
+            raise ValueError("No 2D observations are provided. If this is intentional, use the MLP model instead.")
 
         # Store active 2D observation groups and dimensions directly as attributes
         self.obs_dims_2d = obs_dims_2d
@@ -162,6 +156,7 @@ class CNNModel(MLPModel):
         return obs_groups_1d, obs_dim_1d
 
     def _get_latent_dim(self) -> int:
+        """Return the latent dimensionality consumed by the MLP head."""
         return self.obs_dim + self.cnn_latent_dim
 
 
@@ -169,14 +164,19 @@ class _TorchCNNModel(nn.Module):
     """Exportable CNN model for JIT."""
 
     def __init__(self, model: CNNModel) -> None:
+        """Create a TorchScript-friendly copy of a CNNModel."""
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
         self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
     def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
+        """Run deterministic inference from separated 1D and 2D inputs."""
         latent_1d = self.obs_normalizer(obs_1d)
 
         latent_cnn_list = []
@@ -187,12 +187,11 @@ class _TorchCNNModel(nn.Module):
         latent = torch.cat([latent_1d, latent_cnn], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
+        """Reset recurrent export state (no-op for CNN exports)."""
         pass
 
 
@@ -200,47 +199,53 @@ class _OnnxCNNModel(nn.Module):
     """Exportable CNN model for ONNX."""
 
     def __init__(self, model: CNNModel, verbose: bool) -> None:
+        """Create an ONNX-export wrapper around a CNNModel."""
         super().__init__()
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         # Convert ModuleDict to ModuleList for ordered iteration
         self.cnns = nn.ModuleList([model.cnns[g] for g in model.obs_groups_2d])
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
         self.obs_groups_2d = model.obs_groups_2d
         self.obs_dims_2d = model.obs_dims_2d
         self.obs_channels_2d = model.obs_channels_2d
         self.obs_dim_1d = model.obs_dim
 
-    def forward(self, obs_1d: torch.Tensor, *obs_2d: torch.Tensor) -> torch.Tensor:
+    def forward(self, obs_1d: torch.Tensor, obs_2d: list[torch.Tensor]) -> torch.Tensor:
+        """Run deterministic inference for ONNX export."""
         latent_1d = self.obs_normalizer(obs_1d)
 
         latent_cnn_list = []
-        for i, cnn in enumerate(self.cnns):  # We assume obs_2d list matches the order of obs_groups_2d
+        for i, cnn in enumerate(self.cnns):
             latent_cnn_list.append(cnn(obs_2d[i]))
 
         latent_cnn = torch.cat(latent_cnn_list, dim=-1)
         latent = torch.cat([latent_1d, latent_cnn], dim=-1)
 
         out = self.mlp(latent)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
-    def get_dummy_inputs(self) -> tuple[torch.Tensor, ...]:
+    def get_dummy_inputs(self) -> tuple[torch.Tensor, list[torch.Tensor]]:
+        """Return representative dummy inputs for ONNX tracing."""
         dummy_1d = torch.zeros(1, self.obs_dim_1d)
         dummy_2d = []
         for i in range(len(self.obs_groups_2d)):
             h, w = self.obs_dims_2d[i]
             c = self.obs_channels_2d[i]
             dummy_2d.append(torch.zeros(1, c, h, w))
-        return (dummy_1d, *dummy_2d)
+        return (dummy_1d, dummy_2d)
 
     @property
     def input_names(self) -> list[str]:
+        """Return ONNX input tensor names."""
         return ["obs", *self.obs_groups_2d]
 
     @property
     def output_names(self) -> list[str]:
+        """Return ONNX output tensor names."""
         return ["actions"]

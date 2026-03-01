@@ -1,10 +1,15 @@
 #include "processor/operator/scan/scan_rel_table.h"
 
+#include <algorithm>
+
 #include "binder/expression/expression_util.h"
+#include "common/system_config.h"
 #include "processor/execution_context.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/local_storage/local_rel_table.h"
+#include "storage/table/arrow_rel_table.h"
 #include "storage/table/foreign_rel_table.h"
+#include "storage/table/node_table.h"
 #include "storage/table/parquet_rel_table.h"
 
 using namespace lbug::common;
@@ -45,7 +50,7 @@ std::string ScanRelTablePrintInfo::toString() const {
         result += "]->";
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     result += "(";
     result += nbrNode->toString();
@@ -69,10 +74,15 @@ void ScanRelTable::initLocalStateInternal(ResultSet* resultSet, ExecutionContext
     auto clientContext = context->clientContext;
     auto boundNodeIDVector = resultSet->getValueVector(opInfo.nodeIDPos).get();
     auto nbrNodeIDVector = outVectors[0];
-    // Check if this is a ParquetRelTable or ForeignRelTable and create appropriate scan state
+    // Check if this is an external rel table and create the corresponding scan state.
+    auto* arrowTable = dynamic_cast<storage::ArrowRelTable*>(tableInfo.table);
     auto* parquetTable = dynamic_cast<storage::ParquetRelTable*>(tableInfo.table);
     auto* foreignTable = dynamic_cast<storage::ForeignRelTable*>(tableInfo.table);
-    if (parquetTable) {
+    if (arrowTable) {
+        scanState =
+            std::make_unique<storage::ArrowRelTableScanState>(*MemoryManager::Get(*clientContext),
+                boundNodeIDVector, outVectors, nbrNodeIDVector->state);
+    } else if (parquetTable) {
         scanState =
             std::make_unique<storage::ParquetRelTableScanState>(*MemoryManager::Get(*clientContext),
                 boundNodeIDVector, outVectors, nbrNodeIDVector->state);
@@ -85,10 +95,57 @@ void ScanRelTable::initLocalStateInternal(ResultSet* resultSet, ExecutionContext
             boundNodeIDVector, outVectors, nbrNodeIDVector->state);
     }
     tableInfo.initScanState(*scanState, outVectors, clientContext);
+    if (sourceMode) {
+        currentSourceTableIdx = 0;
+        nextSourceOffset = 0;
+        currentSourceTableNumRows = 0;
+    }
+}
+
+bool ScanRelTable::fetchNextBoundNodeBatch(transaction::Transaction* transaction) {
+    auto* boundNodeIDVector = scanState->nodeIDVector;
+    while (currentSourceTableIdx < sourceNodeTables.size()) {
+        auto* nodeTable = sourceNodeTables[currentSourceTableIdx];
+        if (currentSourceTableNumRows == 0) {
+            currentSourceTableNumRows = nodeTable->getNumTotalRows(transaction);
+        }
+        if (nextSourceOffset >= currentSourceTableNumRows) {
+            currentSourceTableIdx++;
+            nextSourceOffset = 0;
+            currentSourceTableNumRows = 0;
+            continue;
+        }
+        const auto numToGenerate = std::min<row_idx_t>(DEFAULT_VECTOR_CAPACITY,
+            currentSourceTableNumRows - nextSourceOffset);
+        boundNodeIDVector->state->setToUnflat();
+        boundNodeIDVector->state->getSelVectorUnsafe().setToUnfiltered(numToGenerate);
+        for (auto i = 0u; i < numToGenerate; ++i) {
+            boundNodeIDVector->setValue<nodeID_t>(i,
+                nodeID_t{nextSourceOffset + i, nodeTable->getTableID()});
+        }
+        nextSourceOffset += numToGenerate;
+        tableInfo.table->initScanState(transaction, *scanState);
+        return true;
+    }
+    return false;
 }
 
 bool ScanRelTable::getNextTuplesInternal(ExecutionContext* context) {
     const auto transaction = transaction::Transaction::Get(*context->clientContext);
+    if (sourceMode) {
+        while (true) {
+            while (tableInfo.table->scan(transaction, *scanState)) {
+                const auto outputSize = scanState->outState->getSelVector().getSelSize();
+                if (outputSize > 0) {
+                    metrics->numOutputTuple.increase(outputSize);
+                    return true;
+                }
+            }
+            if (!fetchNextBoundNodeBatch(transaction)) {
+                return false;
+            }
+        }
+    }
     while (true) {
         while (tableInfo.table->scan(transaction, *scanState)) {
             const auto outputSize = scanState->outState->getSelVector().getSelSize();

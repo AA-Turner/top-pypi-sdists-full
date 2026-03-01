@@ -13,6 +13,7 @@
 #include "storage/file_db_id_utils.h"
 #include "storage/file_handle.h"
 #include "storage/storage_manager.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::main;
@@ -36,7 +37,7 @@ ShadowPageRecord ShadowPageRecord::deserialize(Deserializer& deserializer) {
 ShadowFile::ShadowFile(BufferManager& bm, VirtualFileSystem* vfs, const std::string& databasePath)
     : bm{bm}, shadowFilePath{StorageUtils::getShadowFilePath(databasePath)}, vfs{vfs},
       shadowingFH{nullptr} {
-    KU_ASSERT(vfs);
+    DASSERT(vfs);
 }
 
 void ShadowFile::clearShadowPage(file_idx_t originalFile, page_idx_t originalPage) {
@@ -59,15 +60,15 @@ page_idx_t ShadowFile::getOrCreateShadowPage(file_idx_t originalFile, page_idx_t
 }
 
 page_idx_t ShadowFile::getShadowPage(file_idx_t originalFile, page_idx_t originalPage) const {
-    KU_ASSERT(hasShadowPage(originalFile, originalPage));
+    DASSERT(hasShadowPage(originalFile, originalPage));
     return shadowPagesMap.at(originalFile).at(originalPage);
 }
-
-void ShadowFile::applyShadowPages(ClientContext& context) const {
+void ShadowFile::applyShadowPages(StorageManager& storageManager, ClientContext& context) const {
     const auto pageBuffer = std::make_unique<uint8_t[]>(LBUG_PAGE_SIZE);
     page_idx_t shadowPageIdx = 1; // Skip header page.
-    auto dataFileInfo = StorageManager::Get(context)->getDataFH()->getFileInfo();
-    KU_ASSERT(shadowingFH);
+    auto dataFH = storageManager.getDataFH();
+    auto dataFileInfo = dataFH->getFileInfo();
+    DASSERT(shadowingFH);
     for (const auto& record : shadowPageRecords) {
         shadowingFH->readPageFromDisk(pageBuffer.get(), shadowPageIdx++);
         dataFileInfo->writeFile(pageBuffer.get(), LBUG_PAGE_SIZE,
@@ -79,7 +80,7 @@ void ShadowFile::applyShadowPages(ClientContext& context) const {
     dataFileInfo->syncFile();
 }
 
-static ku_uuid_t getOldDatabaseID(FileInfo& dataFileInfo) {
+static uuid getOldDatabaseID(FileInfo& dataFileInfo) {
     auto oldHeader = DatabaseHeader::readDatabaseHeader(dataFileInfo);
     if (!oldHeader.has_value()) {
         throw InternalException("Found a shadow file for database {} but no valid database header. "
@@ -102,7 +103,7 @@ void ShadowFile::replayShadowPageRecords(ClientContext& context) {
         dataFileInfo = vfs->openFile(context.getDatabasePath(),
             FileOpenFlags{FileFlags::WRITE | FileFlags::READ_ONLY, FileLockType::WRITE_LOCK});
     } catch (IOException& e) {
-        throw RuntimeException(stringFormat(
+        throw RuntimeException(std::format(
             "Found shadow file {} but no corresponding database file. This file "
             "may have been left behind from a previous database with the same name. If it is safe "
             "to do so, please delete this file and restart the database.",
@@ -145,7 +146,7 @@ void ShadowFile::flushAll(main::ClientContext& context) const {
     header.databaseID = StorageManager::Get(context)->getOrInitDatabaseID(context);
     const auto headerBuffer = std::make_unique<uint8_t[]>(LBUG_PAGE_SIZE);
     memcpy(headerBuffer.get(), &header, sizeof(ShadowFileHeader));
-    KU_ASSERT(shadowingFH && !shadowingFH->isInMemoryMode());
+    DASSERT(shadowingFH && !shadowingFH->isInMemoryMode());
     shadowingFH->writePageToFile(headerBuffer.get(), 0);
     // Flush shadow pages to file.
     shadowingFH->flushAllDirtyPagesInFrames();
@@ -153,7 +154,7 @@ void ShadowFile::flushAll(main::ClientContext& context) const {
     const auto writer = std::make_shared<BufferedFileWriter>(*shadowingFH->getFileInfo());
     writer->setFileOffset(shadowingFH->getNumPages() * LBUG_PAGE_SIZE);
     Serializer ser(writer);
-    KU_ASSERT(shadowPageRecords.size() + 1 == shadowingFH->getNumPages());
+    DASSERT(shadowPageRecords.size() + 1 == shadowingFH->getNumPages());
     ser.serializeVector(shadowPageRecords);
     writer->flush();
     // Sync the file to disk.
@@ -161,7 +162,7 @@ void ShadowFile::flushAll(main::ClientContext& context) const {
 }
 
 void ShadowFile::clear(BufferManager& bm) {
-    KU_ASSERT(shadowingFH);
+    DASSERT(shadowingFH);
     // TODO(Guodong): We should remove shadow file here. This requires changes:
     // 1. We need to make shadow file not going through BM.
     // 2. We need to remove fileHandles held in BM, so that BM only keeps FH for the data file.

@@ -1,6 +1,7 @@
 #include "transaction/transaction.h"
 
 #include "catalog/catalog.h"
+#include "catalog/catalog_entry/sequence_catalog_entry.h"
 #include "common/exception/runtime.h"
 #include "main/client_context.h"
 #include "main/db_config.h"
@@ -10,6 +11,7 @@
 #include "storage/undo_buffer.h"
 #include "storage/wal/local_wal.h"
 #include "transaction/transaction_context.h"
+#include <format>
 
 using namespace lbug::catalog;
 
@@ -65,7 +67,7 @@ void Transaction::commit(storage::WAL* wal) {
     localStorage->commit();
     undoBuffer->commit(commitTS);
     if (shouldLogToWAL()) {
-        KU_ASSERT(localWAL && wal);
+        DASSERT(localWAL && wal);
         localWAL->logCommit();
         wal->logCommittedWAL(*localWAL, clientContext);
         localWAL->clear();
@@ -97,21 +99,21 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
     if (!shouldLogToWAL() || skipLoggingToWAL) {
         return;
     }
-    KU_ASSERT(localWAL);
+    DASSERT(localWAL);
     const auto newCatalogEntry = catalogEntry.getNext();
     switch (newCatalogEntry->getType()) {
     case CatalogEntryType::INDEX_ENTRY:
     case CatalogEntryType::NODE_TABLE_ENTRY:
     case CatalogEntryType::REL_GROUP_ENTRY: {
         if (catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY) {
-            KU_ASSERT(catalogEntry.isDeleted());
+            DASSERT(catalogEntry.isDeleted());
             localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
         } else {
             throw common::RuntimeException("This shouldn't happen. Alter table is not supported.");
         }
     } break;
     case CatalogEntryType::SEQUENCE_ENTRY: {
-        KU_ASSERT(
+        DASSERT(
             catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY && catalogEntry.isDeleted());
         if (newCatalogEntry->hasParent()) {
             // We don't log SERIAL catalog entry creation as it is implicit
@@ -120,13 +122,14 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
     } break;
     case CatalogEntryType::SCALAR_MACRO_ENTRY:
-    case CatalogEntryType::TYPE_ENTRY: {
-        KU_ASSERT(
+    case CatalogEntryType::TYPE_ENTRY:
+    case CatalogEntryType::GRAPH_ENTRY: {
+        DASSERT(
             catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY && catalogEntry.isDeleted());
         localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
     } break;
     case CatalogEntryType::DUMMY_ENTRY: {
-        KU_ASSERT(newCatalogEntry->isDeleted());
+        DASSERT(newCatalogEntry->isDeleted());
         if (catalogEntry.hasParent()) {
             return;
         }
@@ -135,7 +138,8 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         case CatalogEntryType::SCALAR_MACRO_ENTRY:
         case CatalogEntryType::NODE_TABLE_ENTRY:
         case CatalogEntryType::REL_GROUP_ENTRY:
-        case CatalogEntryType::SEQUENCE_ENTRY: {
+        case CatalogEntryType::SEQUENCE_ENTRY:
+        case CatalogEntryType::GRAPH_ENTRY: {
             localWAL->logDropCatalogEntryRecord(catalogEntry.getOID(), catalogEntry.getType());
         } break;
         case CatalogEntryType::SCALAR_FUNCTION_ENTRY:
@@ -145,9 +149,8 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         } break;
         case CatalogEntryType::TYPE_ENTRY:
         default: {
-            throw common::RuntimeException(
-                common::stringFormat("Not supported catalog entry type {} yet.",
-                    CatalogEntryTypeUtils::toString(catalogEntry.getType())));
+            throw common::RuntimeException(std::format("Not supported catalog entry type {} yet.",
+                CatalogEntryTypeUtils::toString(catalogEntry.getType())));
         }
         }
     } break;
@@ -157,9 +160,8 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         // DO NOTHING. We don't persist function entries.
     } break;
     default: {
-        throw common::RuntimeException(
-            common::stringFormat("Not supported catalog entry type {} yet.",
-                CatalogEntryTypeUtils::toString(catalogEntry.getType())));
+        throw common::RuntimeException(std::format("Not supported catalog entry type {} yet.",
+            CatalogEntryTypeUtils::toString(catalogEntry.getType())));
     }
     }
 }
@@ -169,7 +171,7 @@ void Transaction::pushAlterCatalogEntry(CatalogSet& catalogSet, CatalogEntry& ca
     undoBuffer->createCatalogEntry(catalogSet, catalogEntry);
     hasCatalogChanges = true;
     if (shouldLogToWAL()) {
-        KU_ASSERT(localWAL);
+        DASSERT(localWAL);
         localWAL->logAlterCatalogEntryRecord(&alterInfo);
     }
 }
@@ -179,7 +181,7 @@ void Transaction::pushSequenceChange(SequenceCatalogEntry* sequenceEntry, int64_
     undoBuffer->createSequenceChange(*sequenceEntry, data);
     hasCatalogChanges = true;
     if (shouldLogToWAL()) {
-        KU_ASSERT(localWAL);
+        DASSERT(localWAL);
         localWAL->logUpdateSequenceRecord(sequenceEntry->getOID(), kCount);
     }
 }

@@ -1,5 +1,5 @@
 use itertools::{Either, Itertools};
-use tombi_ast::{AstNode, algo::ancestors_at_position};
+use tombi_ast::{AstNode, DanglingCommentGroupOr, algo::ancestors_at_position};
 use tombi_document_tree::IntoDocumentTreeAndErrors;
 use tombi_schema_store::SchemaContext;
 use tombi_text::IntoLsp;
@@ -119,26 +119,97 @@ pub async fn get_hover_keys_with_range(
 
     for node in ancestors_at_position(root.syntax(), position) {
         if let Some(array) = tombi_ast::Array::cast(node.to_owned()) {
-            for (value, comma) in array.values_with_comma() {
-                if hover_range.is_none() {
-                    let mut range = value.range();
-                    if let Some(comma) = comma {
-                        range += comma.range()
-                    };
-                    if range.contains(position) {
-                        hover_range = Some(range);
+            let on_leading_comment = array
+                .leading_comments()
+                .any(|comment| comment.syntax().range().contains(position));
+            let on_bracket_start_trailing_comment = array
+                .bracket_start_trailing_comment()
+                .is_some_and(|comment| comment.syntax().range().contains(position));
+            let on_trailing_comment = array
+                .trailing_comment()
+                .is_some_and(|comment| comment.syntax().range().contains(position));
+
+            if hover_range.is_none() && (on_leading_comment || on_bracket_start_trailing_comment) {
+                hover_range = Some(array.syntax().range());
+            } else if hover_range.is_none() && on_trailing_comment {
+                hover_range = Some(key_value_parent_or_self_range(
+                    &array,
+                    array.syntax().range(),
+                ));
+            } else {
+                for groups in array.value_with_comma_groups() {
+                    match groups {
+                        DanglingCommentGroupOr::DanglingCommentGroup(comment_group) => {
+                            if comment_group
+                                .comments()
+                                .any(|comment| comment.syntax().range().contains(position))
+                            {
+                                hover_range = Some(comment_group.syntax().range());
+                                break;
+                            }
+                        }
+                        DanglingCommentGroupOr::ItemGroup(value_group) => {
+                            for (value_or_key_value, comma) in
+                                value_group.value_or_key_values_with_comma()
+                            {
+                                if hover_range.is_none() {
+                                    let mut range = value_or_key_value.range();
+                                    if let Some(comma) = comma {
+                                        range += comma.range()
+                                    };
+                                    if range.contains(position) {
+                                        hover_range = Some(range);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         } else if let Some(inline_table) = tombi_ast::InlineTable::cast(node.to_owned()) {
-            for (key_value, comma) in inline_table.key_values_with_comma() {
-                if hover_range.is_none() {
-                    let mut range = key_value.range();
-                    if let Some(comma) = comma {
-                        range += comma.range()
-                    };
-                    if range.contains(position) {
-                        hover_range = Some(range);
+            let on_leading_comment = inline_table
+                .leading_comments()
+                .any(|comment| comment.syntax().range().contains(position));
+            let on_brace_start_trailing_comment = inline_table
+                .brace_start_trailing_comment()
+                .is_some_and(|comment| comment.syntax().range().contains(position));
+            let on_trailing_comment = inline_table
+                .trailing_comment()
+                .is_some_and(|comment| comment.syntax().range().contains(position));
+
+            if hover_range.is_none() && on_leading_comment || on_brace_start_trailing_comment {
+                hover_range = Some(inline_table.syntax().range());
+            } else if hover_range.is_none() && on_trailing_comment {
+                hover_range = Some(key_value_parent_or_self_range(
+                    &inline_table,
+                    inline_table.syntax().range(),
+                ));
+            } else {
+                for groups in inline_table.key_value_with_comma_groups() {
+                    match groups {
+                        DanglingCommentGroupOr::DanglingCommentGroup(comment_group) => {
+                            if comment_group
+                                .comments()
+                                .any(|comment| comment.syntax().range().contains(position))
+                            {
+                                hover_range = Some(comment_group.syntax().range());
+                                break;
+                            }
+                        }
+                        DanglingCommentGroupOr::ItemGroup(key_value_group) => {
+                            for (key_value, comma) in key_value_group.key_values_with_comma() {
+                                if hover_range.is_none() {
+                                    let mut range = key_value.range();
+                                    if let Some(comma) = comma {
+                                        range += comma.range()
+                                    };
+                                    if range.contains(position) {
+                                        hover_range = Some(range);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -146,22 +217,8 @@ pub async fn get_hover_keys_with_range(
 
         let keys = if let Some(kv) = tombi_ast::KeyValue::cast(node.to_owned()) {
             if hover_range.is_none() {
-                if let Some(inline_table) = tombi_ast::InlineTable::cast(node.parent().unwrap()) {
-                    for (key_value, comma) in inline_table.key_values_with_comma() {
-                        if hover_range.is_none() {
-                            let mut range = key_value.range();
-                            if let Some(comma) = comma {
-                                range += comma.range()
-                            };
-                            if range.contains(position) {
-                                hover_range = Some(range);
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    hover_range = Some(kv.range());
-                }
+                hover_range =
+                    Some(append_comma_range_if_exists(&kv, position).unwrap_or_else(|| kv.range()));
             }
             kv.keys()
         } else if let Some(table) = tombi_ast::Table::cast(node.to_owned()) {
@@ -173,27 +230,16 @@ pub async fn get_hover_keys_with_range(
                     .last()
                     .is_none_or(|key| key.syntax().range().contains(position))
                     || table
-                        .leading_comments()
+                        .header_leading_comments()
                         .any(|comment| comment.syntax().range().contains(position))
                     || table
-                        .trailing_comment()
+                        .header_trailing_comment()
                         .is_some_and(|comment| comment.syntax().range().contains(position))
-                    || table
-                        .key_values_begin_dangling_comments()
-                        .into_iter()
-                        .any(|comments| {
-                            comments
-                                .into_iter()
-                                .any(|comment| comment.syntax().range().contains(position))
-                        })
-                    || table
-                        .key_values_end_dangling_comments()
-                        .into_iter()
-                        .any(|comments| {
-                            comments
-                                .into_iter()
-                                .any(|comment| comment.syntax().range().contains(position))
-                        }))
+                    || table.dangling_comment_groups().any(|comment_group| {
+                        comment_group
+                            .comments()
+                            .any(|comment| comment.syntax().range().contains(position))
+                    }))
             {
                 let mut range = table.syntax().range();
                 if let Some(max_end) = table
@@ -204,6 +250,19 @@ pub async fn get_hover_keys_with_range(
                     range.end = max_end;
                 }
                 hover_range = Some(range);
+            } else {
+                for group in table
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().range().contains(position))
+                    {
+                        hover_range = Some(group.syntax().range());
+                        break;
+                    }
+                }
             }
 
             header
@@ -216,25 +275,16 @@ pub async fn get_hover_keys_with_range(
                     .last()
                     .is_none_or(|key| key.syntax().range().contains(position))
                     || array_of_table
-                        .leading_comments()
+                        .header_leading_comments()
                         .any(|comment| comment.syntax().range().contains(position))
                     || array_of_table
-                        .trailing_comment()
+                        .header_trailing_comment()
                         .is_some_and(|comment| comment.syntax().range().contains(position))
                     || array_of_table
-                        .key_values_begin_dangling_comments()
-                        .into_iter()
-                        .any(|comments| {
-                            comments
-                                .into_iter()
-                                .any(|comment| comment.syntax().range().contains(position))
-                        })
-                    || array_of_table
-                        .key_values_end_dangling_comments()
-                        .into_iter()
-                        .any(|comments| {
-                            comments
-                                .into_iter()
+                        .dangling_comment_groups()
+                        .any(|comment_group| {
+                            comment_group
+                                .comments()
                                 .any(|comment| comment.syntax().range().contains(position))
                         }))
             {
@@ -247,29 +297,46 @@ pub async fn get_hover_keys_with_range(
                     range.end = max_end;
                 }
                 hover_range = Some(range);
+            } else {
+                for group in array_of_table
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().range().contains(position))
+                    {
+                        hover_range = Some(group.syntax().range());
+                        break;
+                    }
+                }
             }
+
             header
         } else if let Some(root) = tombi_ast::Root::cast(node.to_owned()) {
             if hover_range.is_none()
-                && (root
-                    .key_values_begin_dangling_comments()
-                    .into_iter()
-                    .any(|comments| {
-                        comments
-                            .into_iter()
-                            .any(|comment| comment.syntax().range().contains(position))
-                    })
-                    || root
-                        .key_values_end_dangling_comments()
-                        .into_iter()
-                        .any(|comments| {
-                            comments
-                                .into_iter()
-                                .any(|comment| comment.syntax().range().contains(position))
-                        }))
+                && (root.dangling_comment_groups().any(|comment_group| {
+                    comment_group
+                        .comments()
+                        .any(|comment| comment.syntax().range().contains(position))
+                }))
             {
                 hover_range = Some(root.syntax().range());
+            } else {
+                for group in root
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().range().contains(position))
+                    {
+                        hover_range = Some(group.syntax().range());
+                        break;
+                    }
+                }
             }
+
             continue;
         } else {
             continue;
@@ -311,4 +378,229 @@ pub async fn get_hover_keys_with_range(
         keys_vec.into_iter().rev().flatten().collect_vec(),
         hover_range,
     ))
+}
+
+fn key_value_parent_or_self_range<N: AstNode>(
+    node: &N,
+    fallback_range: tombi_text::Range,
+) -> tombi_text::Range {
+    node.syntax()
+        .parent()
+        .and_then(|parent| {
+            tombi_ast::KeyValue::cast(parent.clone())
+                .or_else(|| parent.parent().and_then(tombi_ast::KeyValue::cast))
+        })
+        .map_or(fallback_range, |key_value| key_value.range())
+}
+
+fn append_comma_range_if_exists(
+    node: &impl AstNode,
+    position: tombi_text::Position,
+) -> Option<tombi_text::Range> {
+    let node_key_value = tombi_ast::KeyValue::cast(node.syntax().clone());
+
+    for syntax_node in node.syntax().ancestors() {
+        if let Some(group) = tombi_ast::KeyValueWithCommaGroup::cast(syntax_node.clone()) {
+            if let Some(target_key_value) = node_key_value.as_ref() {
+                for (item, comma) in group.key_values_with_comma() {
+                    if item.syntax() == target_key_value.syntax() {
+                        return Some(
+                            comma.map_or(item.range(), |comma| item.range() + comma.range()),
+                        );
+                    }
+                }
+            }
+
+            if let Some(range) = with_comma_item_range_contains_position(
+                group
+                    .key_values_with_comma()
+                    .map(|(item, comma)| (item.range(), comma.map(|comma| comma.range()))),
+                position,
+            ) {
+                return Some(range);
+            }
+        } else if let Some(group) = tombi_ast::ValueWithCommaGroup::cast(syntax_node) {
+            if let Some(range) = with_comma_item_range_contains_position(
+                group
+                    .value_or_key_values_with_comma()
+                    .map(|(item, comma)| (item.range(), comma.map(|comma| comma.range()))),
+                position,
+            ) {
+                return Some(range);
+            }
+        }
+    }
+
+    None
+}
+
+fn with_comma_item_range_contains_position<I>(
+    items_with_comma: I,
+    position: tombi_text::Position,
+) -> Option<tombi_text::Range>
+where
+    I: IntoIterator<Item = (tombi_text::Range, Option<tombi_text::Range>)>,
+{
+    for (item_range, comma_range) in items_with_comma {
+        let range = comma_range.map_or(item_range, |comma_range| item_range + comma_range);
+        if range.contains(position) {
+            return Some(range);
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tombi_config::TomlVersion;
+    use tombi_parser::parse;
+    use tombi_text::{Position, RelativePosition};
+
+    fn parse_root_and_position_with_marker(
+        source_with_marker: &str,
+    ) -> (tombi_ast::Root, Position) {
+        let marker = '█';
+        let marker_index = source_with_marker.find(marker).unwrap();
+
+        let mut source = source_with_marker.to_string();
+        source.remove(marker_index);
+
+        let root = tombi_ast::Root::cast(parse(&source).into_syntax_node()).unwrap();
+        let position = Position::default() + RelativePosition::of(&source[..marker_index]);
+
+        (root, position)
+    }
+
+    #[tokio::test]
+    async fn array_trailing_comment_hover_range_includes_key() {
+        let (root, position) = parse_root_and_position_with_marker(
+            r#"authors = ["ya7010 <ya7010@outlook.com>"]  # a█aa"#,
+        );
+
+        let (_, hover_range) = get_hover_keys_with_range(&root, position, TomlVersion::V1_0_0)
+            .await
+            .unwrap();
+
+        let key_value = root.key_values().next().unwrap();
+        pretty_assertions::assert_eq!(hover_range, Some(key_value.range()));
+    }
+
+    #[tokio::test]
+    async fn inline_table_trailing_comment_hover_range_includes_key() {
+        let (root, position) =
+            parse_root_and_position_with_marker(r#"dependency = { version = "1.0" }  # a█aa"#);
+
+        let (_, hover_range) = get_hover_keys_with_range(&root, position, TomlVersion::V1_0_0)
+            .await
+            .unwrap();
+
+        let key_value = root.key_values().next().unwrap();
+        pretty_assertions::assert_eq!(hover_range, Some(key_value.range()));
+    }
+
+    #[tokio::test]
+    async fn inline_table_key_hover_range_includes_comma_and_trailing_comment() {
+        let (root, position) = parse_root_and_position_with_marker(
+            r#"
+            array5 = [
+              {
+                # key1 leading comment1
+                # key1 leading comment2
+                key█1 = 1
+                # key1 comma leading comment
+                ,  # key1 comma trailing comment
+              },
+            ]
+            "#,
+        );
+
+        let (_, hover_range) = get_hover_keys_with_range(&root, position, TomlVersion::V1_0_0)
+            .await
+            .unwrap();
+
+        let array = match root.key_values().next().unwrap().value().unwrap() {
+            tombi_ast::Value::Array(array) => array,
+            _ => panic!("expected array"),
+        };
+
+        let inline_table = match array.values().next().unwrap() {
+            tombi_ast::Value::InlineTable(inline_table) => inline_table,
+            _ => panic!("expected inline table"),
+        };
+        let (key_value, comma) = inline_table.key_values_with_comma().next().unwrap();
+        let expected_range =
+            comma.map_or(key_value.range(), |comma| key_value.range() + comma.range());
+
+        pretty_assertions::assert_eq!(hover_range, Some(expected_range));
+    }
+
+    #[tokio::test]
+    async fn inline_table_key_in_array_hover_range_includes_array_item_comma_and_trailing_comment()
+    {
+        let (root, position) = parse_root_and_position_with_marker(
+            r#"
+            array5 = [
+              {
+                key█1 = 1,
+              }, # array item trailing comment
+            ]
+            "#,
+        );
+
+        let (_, hover_range) = get_hover_keys_with_range(&root, position, TomlVersion::V1_0_0)
+            .await
+            .unwrap();
+
+        let array = match root.key_values().next().unwrap().value().unwrap() {
+            tombi_ast::Value::Array(array) => array,
+            _ => panic!("expected array"),
+        };
+
+        let inline_table = match array.values().next().unwrap() {
+            tombi_ast::Value::InlineTable(inline_table) => inline_table,
+            _ => panic!("expected inline table"),
+        };
+        let (key_value, comma) = inline_table.key_values_with_comma().next().unwrap();
+        let expected_range =
+            comma.map_or(key_value.range(), |comma| key_value.range() + comma.range());
+
+        pretty_assertions::assert_eq!(hover_range, Some(expected_range));
+    }
+
+    #[tokio::test]
+    async fn nested_array_hover_range_uses_innermost_value_with_comma_group() {
+        let (root, position) = parse_root_and_position_with_marker(
+            r#"
+            array5 = [
+              [
+                { key█1 = 1 }, # inner array item trailing comment
+              ], # outer array item trailing comment
+            ]
+            "#,
+        );
+
+        let (_, hover_range) = get_hover_keys_with_range(&root, position, TomlVersion::V1_0_0)
+            .await
+            .unwrap();
+
+        let outer_array = match root.key_values().next().unwrap().value().unwrap() {
+            tombi_ast::Value::Array(array) => array,
+            _ => panic!("expected outer array"),
+        };
+        let inner_array = match outer_array.values().next().unwrap() {
+            tombi_ast::Value::Array(array) => array,
+            _ => panic!("expected inner array"),
+        };
+        let inline_table = match inner_array.values().next().unwrap() {
+            tombi_ast::Value::InlineTable(inline_table) => inline_table,
+            _ => panic!("expected inline table"),
+        };
+        let (key_value, comma) = inline_table.key_values_with_comma().next().unwrap();
+        let expected_range =
+            comma.map_or(key_value.range(), |comma| key_value.range() + comma.range());
+
+        pretty_assertions::assert_eq!(hover_range, Some(expected_range));
+    }
 }

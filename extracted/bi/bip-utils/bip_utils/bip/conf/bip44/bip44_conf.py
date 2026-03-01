@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,20 +22,62 @@
 
 # Imports
 from bip_utils.addr import (
-    AdaByronIcarusAddrEncoder, AlgoAddrEncoder, AptosAddrEncoder, AtomAddrEncoder, AvaxPChainAddrEncoder,
-    AvaxXChainAddrEncoder, BchP2PKHAddrEncoder, EgldAddrEncoder, EosAddrEncoder, ErgoNetworkTypes, ErgoP2PKHAddrEncoder,
-    EthAddrEncoder, FilSecp256k1AddrEncoder, IcxAddrEncoder, InjAddrEncoder, MvrkAddrEncoder, MvrkAddrPrefixes,
-    NanoAddrEncoder, NearAddrEncoder, NeoLegacyAddrEncoder, NeoN3AddrEncoder, NimAddrEncoder, OkexAddrEncoder,
-    OneAddrEncoder, P2PKHAddrEncoder, SolAddrEncoder, SubstrateEd25519AddrEncoder, SuiAddrEncoder, TrxAddrEncoder,
-    XlmAddrEncoder, XlmAddrTypes, XmrAddrEncoder, XrpAddrEncoder, XtzAddrEncoder, XtzAddrPrefixes, ZilAddrEncoder
+    AdaByronIcarusAddrEncoder,
+    AlgoAddrEncoder,
+    AptosAddrEncoder,
+    AtomAddrEncoder,
+    AvaxPChainAddrEncoder,
+    AvaxXChainAddrEncoder,
+    BchP2PKHAddrEncoder,
+    EgldAddrEncoder,
+    EosAddrEncoder,
+    ErgoNetworkTypes,
+    ErgoP2PKHAddrEncoder,
+    EthAddrEncoder,
+    FilSecp256k1AddrEncoder,
+    IcxAddrEncoder,
+    InjAddrEncoder,
+    MvrkAddrEncoder,
+    MvrkAddrPrefixes,
+    NanoAddrEncoder,
+    NearAddrEncoder,
+    NeoLegacyAddrEncoder,
+    NeoN3AddrEncoder,
+    NimAddrEncoder,
+    OkexAddrEncoder,
+    OneAddrEncoder,
+    P2PKHAddrEncoder,
+    SolAddrEncoder,
+    SubstrateEd25519AddrEncoder,
+    SuiAddrEncoder,
+    TonAddrEncoder,
+    TrxAddrEncoder,
+    XlmAddrEncoder,
+    XlmAddrTypes,
+    XmrAddrEncoder,
+    XrpAddrEncoder,
+    XtzAddrEncoder,
+    XtzAddrPrefixes,
+    ZilAddrEncoder,
 )
 from bip_utils.bip.bip32 import (
-    Bip32Const, Bip32KeyNetVersions, Bip32KholawEd25519, Bip32Slip10Ed25519, Bip32Slip10Ed25519Blake2b,
-    Bip32Slip10Nist256p1, Bip32Slip10Secp256k1
+    Bip32Const,
+    Bip32KeyNetVersions,
+    Bip32KholawEd25519,
+    Bip32Slip10Ed25519,
+    Bip32Slip10Ed25519Blake2b,
+    Bip32Slip10Nist256p1,
+    Bip32Slip10Secp256k1,
 )
 from bip_utils.bip.conf.common import (
-    DER_PATH_HARDENED_FULL, DER_PATH_HARDENED_MID, DER_PATH_HARDENED_SHORT, DER_PATH_NON_HARDENED_FULL,
-    BipBitcoinCashConf, BipCoinConf, BipCoinFctCallsConf, BipLitecoinConf
+    DER_PATH_HARDENED_FULL,
+    DER_PATH_HARDENED_MID,
+    DER_PATH_HARDENED_SHORT,
+    DER_PATH_NON_HARDENED_FULL,
+    BipBitcoinCashConf,
+    BipCoinConf,
+    BipCoinFctCallsConf,
+    BipLitecoinConf,
 )
 from bip_utils.cardano.bip32.cardano_icarus_bip32 import CardanoIcarusBip32
 from bip_utils.coin_conf import CoinsConf
@@ -1298,6 +1340,21 @@ class Bip44Conf:
         bip32_cls=Bip32Slip10Secp256k1,
         addr_cls=EthAddrEncoder,
         addr_params={},
+    )
+    # Configuration for Ton
+    Ton: BipCoinConf = BipCoinConf(
+        coin_names=CoinsConf.Ton.CoinNames(),
+        coin_idx=Slip44.TON,
+        is_testnet=False,
+        def_path=DER_PATH_HARDENED_SHORT,
+        key_net_ver=_BIP44_BTC_KEY_NET_VER_MAIN,
+        wif_net_ver=None,
+        bip32_cls=Bip32Slip10Ed25519,
+        addr_cls=TonAddrEncoder,
+        addr_params={
+            "version": CoinsConf.Ton.ParamByKey("version"),
+            "is_bounceable": CoinsConf.Ton.ParamByKey("is_bounceable"),
+        },
     )
 
     # Configuration for Tron

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import re
 from test_helper import LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
@@ -92,38 +93,51 @@ def init_long_str(conn: lb.Connection) -> None:
     conn.execute(f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"')
 
 
+data_file_extentions = ["csv", "parquet", "npy", "ttl", "nq", "json", "lbug_extension"]
+data_file_pattern = "|".join(data_file_extentions)
+data_file_regex = re.compile(rf'"([^"]+\.({data_file_pattern}))"', re.IGNORECASE)
+
+
 def init_tinysnb(conn: lb.Connection) -> None:
-    tiny_snb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
-    schema_path = tiny_snb_path / "schema.cypher"
+    tinysnb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
+
+    schema_path = tinysnb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
             if line:
                 conn.execute(line)
 
-    copy_path = tiny_snb_path / "copy.cypher"
+    copy_path = tinysnb_path / "copy.cypher"
     with copy_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
-            line = line.replace("dataset/tinysnb", f"{LBUG_ROOT}/dataset/tinysnb")
+
+            # handle multiple file paths in one COPY statement
+            line = data_file_regex.sub(f'"{tinysnb_path}/\\1"', line)
+
             if line:
                 conn.execute(line)
 
 
 def init_demo(conn: lb.Connection) -> None:
-    tiny_snb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/demo-db/csv").resolve()
-    schema_path = tiny_snb_path / "schema.cypher"
+    demodb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/demo-db/csv").resolve()
+
+    schema_path = demodb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
             if line:
                 conn.execute(line)
 
-    copy_path = tiny_snb_path / "copy.cypher"
+    copy_path = demodb_path / "copy.cypher"
     with copy_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
-            line = line.replace("dataset/demo-db/csv", f"{LBUG_ROOT}/dataset/demo-db/csv")
+
+            # handle multiple file paths in one COPY statement
+            line = data_file_regex.sub(f'"{demodb_path}/\\1"', line)
+
             if line:
                 conn.execute(line)
 
@@ -147,7 +161,7 @@ _POOL_SIZE_: int = 256 * 1024 * 1024
 
 def get_db_file_path(tmp_path: Path) -> Path:
     """Return the path to the database file."""
-    return tmp_path / "db.kz"
+    return tmp_path / "db.lbdb"
 
 
 def init_db(path: Path) -> Path:

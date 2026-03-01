@@ -7,6 +7,7 @@
 #include "parser/copy.h"
 #include "parser/parser.h"
 #include "parser/port_db.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -24,7 +25,7 @@ static std::string getQueryFromFile(VirtualFileSystem* vfs, const std::string& b
         if (fileName == PortDBConstants::INDEX_FILE_NAME) {
             return "";
         }
-        throw BinderException(stringFormat("File {} does not exist.", filePath));
+        throw BinderException(std::format("File {} does not exist.", filePath));
     }
     auto fileInfo = vfs->openFile(filePath, FileOpenFlags(FileFlags::READ_ONLY
 #ifdef _WIN32
@@ -50,7 +51,7 @@ static std::string getColumnNamesToCopy(const CopyFrom& copyFrom) {
     if (columns.empty()) {
         return columns;
     }
-    return stringFormat("({})", columns);
+    return std::format("({})", columns);
 }
 
 static std::string getCopyFilePath(const std::string& boundFilePath, const std::string& filePath) {
@@ -86,7 +87,7 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
     auto fs = VirtualFileSystem::GetUnsafe(*clientContext);
     auto boundFilePath = fs->expandPath(clientContext, importDB.getFilePath());
     if (!fs->fileOrPathExists(boundFilePath, clientContext)) {
-        throw BinderException(stringFormat("Directory {} does not exist.", boundFilePath));
+        throw BinderException(std::format("Directory {} does not exist.", boundFilePath));
     }
     std::string finalQueryStatements;
     finalQueryStatements +=
@@ -97,12 +98,12 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
     if (!copyQuery.empty()) {
         auto parsedStatements = Parser::parseQuery(copyQuery);
         for (auto& parsedStatement : parsedStatements) {
-            KU_ASSERT(parsedStatement->getStatementType() == StatementType::COPY_FROM);
+            DASSERT(parsedStatement->getStatementType() == StatementType::COPY_FROM);
             auto& copyFromStatement = parsedStatement->constCast<CopyFrom>();
-            KU_ASSERT(copyFromStatement.getSource()->type == ScanSourceType::FILE);
+            DASSERT(copyFromStatement.getSource()->type == ScanSourceType::FILE);
             auto filePaths =
                 copyFromStatement.getSource()->constPtrCast<FileScanSource>()->filePaths;
-            KU_ASSERT(filePaths.size() == 1);
+            DASSERT(filePaths.size() == 1);
             auto fileTypeInfo = bindFileTypeInfo(filePaths);
             std::string query;
             auto copyFilePath = getCopyFilePath(boundFilePath, filePaths[0]);
@@ -110,10 +111,10 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
             auto parsingOptions = bindParsingOptions(copyFromStatement.getParsingOptions());
             std::unordered_map<std::string, std::string> copyFromOptions;
             if (parsingOptions.contains(CopyConstants::FROM_OPTION_NAME)) {
-                KU_ASSERT(parsingOptions.contains(CopyConstants::TO_OPTION_NAME));
-                copyFromOptions[CopyConstants::FROM_OPTION_NAME] = stringFormat("'{}'",
+                DASSERT(parsingOptions.contains(CopyConstants::TO_OPTION_NAME));
+                copyFromOptions[CopyConstants::FROM_OPTION_NAME] = std::format("'{}'",
                     parsingOptions.at(CopyConstants::FROM_OPTION_NAME).getValue<std::string>());
-                copyFromOptions[CopyConstants::TO_OPTION_NAME] = stringFormat("'{}'",
+                copyFromOptions[CopyConstants::TO_OPTION_NAME] = std::format("'{}'",
                     parsingOptions.at(CopyConstants::TO_OPTION_NAME).getValue<std::string>());
                 parsingOptions.erase(CopyConstants::FROM_OPTION_NAME);
                 parsingOptions.erase(CopyConstants::TO_OPTION_NAME);
@@ -126,11 +127,11 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
                     optionsMap.insert(copyFromOptions.begin(), copyFromOptions.end());
                 }
                 query =
-                    stringFormat("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
+                    std::format("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
                         columnNames, copyFilePath, CSVOption::toCypher(optionsMap));
             } else {
                 query =
-                    stringFormat("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
+                    std::format("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
                         columnNames, copyFilePath, CSVOption::toCypher(copyFromOptions));
             }
             finalQueryStatements += query;

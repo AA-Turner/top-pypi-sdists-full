@@ -8,6 +8,7 @@
 #include "common/types/value/value.h"
 #include "processor/result/flat_tuple.h"
 #include "storage/storage_utils.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -77,7 +78,7 @@ static uint64_t getArrowMainBufferSize(const LogicalType& type, uint64_t capacit
     case LogicalTypeID::REL:
         return 0; // no main buffer
     default:
-        KU_UNREACHABLE; // should enumerate all types.
+        UNREACHABLE_CODE; // should enumerate all types.
     }
 }
 
@@ -240,7 +241,7 @@ static void resizeVector(ArrowVector* vector, const LogicalType& type, std::int6
     default: {
         // LCOV_EXCL_START
         throw common::RuntimeException{
-            common::stringFormat("Unsupported type: {} for arrow conversion.", type.toString())};
+            std::format("Unsupported type: {} for arrow conversion.", type.toString())};
         // LCOV_EXCL_STOP
     }
     }
@@ -378,7 +379,7 @@ void ArrowRowBatch::templateCopyNonNullValue<LogicalTypeID::MAP>(ArrowVector* ve
     for (auto i = 0u; i < value.childrenSize; ++i) {
         if (value.children[i]->children[0]->isNull()) {
             throw RuntimeException{
-                stringFormat("Cannot convert map with null key to Arrow: {}", value.toString())};
+                std::format("Cannot convert map with null key to Arrow: {}", value.toString())};
         }
     }
     return templateCopyNonNullValue<LogicalTypeID::LIST>(vector, value, pos,
@@ -407,7 +408,7 @@ void ArrowRowBatch::templateCopyNonNullValue<LogicalTypeID::UNION>(ArrowVector* 
                 fallbackExtensionTypes);
         }
     }
-    KU_UNREACHABLE; // We should always be able to find a matching type
+    UNREACHABLE_CODE; // We should always be able to find a matching type
 }
 
 template<>
@@ -554,7 +555,7 @@ void ArrowRowBatch::copyNonNullValue(ArrowVector* vector, const Value& value, st
         templateCopyNonNullValue<LogicalTypeID::REL>(vector, value, pos, fallbackExtensionTypes);
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -713,7 +714,7 @@ void ArrowRowBatch::copyNullValue(ArrowVector* vector, const Value& value, std::
         templateCopyNullValue<LogicalTypeID::REL>(vector, pos);
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -984,7 +985,7 @@ ArrowArray* ArrowRowBatch::convertVectorToArray(ArrowVector& vector, const Logic
         return templateCreateArray<LogicalTypeID::REL>(vector, type, fallbackExtensionTypes);
     }
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }

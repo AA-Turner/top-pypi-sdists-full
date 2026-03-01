@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,8 @@
 import hashlib
 from abc import ABC, abstractmethod
 from typing import Union
+
+from typing_extensions import override
 
 from bip_utils.utils.misc import AlgoUtils
 
@@ -95,6 +97,7 @@ class Blake2b32(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-32 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """
@@ -112,6 +115,7 @@ class Blake2b40(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-40 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """
@@ -129,6 +133,7 @@ class Blake2b160(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-160 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """
@@ -146,6 +151,7 @@ class Blake2b224(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-224 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """
@@ -163,6 +169,7 @@ class Blake2b256(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-256 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """
@@ -180,6 +187,7 @@ class Blake2b512(_Blake2bWithSpecificSize):
     It computes digests using BLAKE2b-512 algorithm.
     """
 
+    @override
     @staticmethod
     def DigestSize() -> int:
         """

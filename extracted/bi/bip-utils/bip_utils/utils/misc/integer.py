@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,8 +23,9 @@
 # Imports
 from typing import Optional, Union
 
+from typing_extensions import Literal
+
 from bip_utils.utils.misc.algo import AlgoUtils
-from bip_utils.utils.typing import Literal
 
 
 class IntegerUtils:

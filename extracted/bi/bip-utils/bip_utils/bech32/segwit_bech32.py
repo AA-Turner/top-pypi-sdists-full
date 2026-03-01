@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,8 @@ References:
 
 # Imports
 from typing import List, Tuple
+
+from typing_extensions import override
 
 from bip_utils.bech32.bech32 import Bech32Const, Bech32Encodings, Bech32Utils
 from bip_utils.bech32.bech32_base import Bech32BaseUtils, Bech32DecoderBase, Bech32EncoderBase
@@ -82,6 +84,7 @@ class SegwitBech32Encoder(Bech32EncoderBase):
                                  [wit_ver] + Bech32BaseUtils.ConvertToBase32(wit_prog),
                                  SegwitBech32Const.SEPARATOR)
 
+    @override
     @staticmethod
     def _ComputeChecksum(hrp: str,
                          data: List[int]) -> List[int]:
@@ -148,11 +151,12 @@ class SegwitBech32Decoder(Bech32DecoderBase):
         wit_ver = data[0]
         if wit_ver > SegwitBech32Const.WITNESS_VER_MAX_VAL:
             raise ValueError(f"Invalid format (witness version not valid: {wit_ver})")
-        if wit_ver == 0 and not len(conv_data) in SegwitBech32Const.WITNESS_VER_ZERO_DATA_BYTE_LEN:
+        if wit_ver == 0 and len(conv_data) not in SegwitBech32Const.WITNESS_VER_ZERO_DATA_BYTE_LEN:
             raise ValueError(f"Invalid format (length not valid: {len(conv_data)})")
 
         return wit_ver, BytesUtils.FromList(conv_data)
 
+    @override
     @staticmethod
     def _VerifyChecksum(hrp: str,
                         data: List[int]) -> bool:

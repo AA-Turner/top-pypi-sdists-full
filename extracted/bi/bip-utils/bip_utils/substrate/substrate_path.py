@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,8 +28,14 @@ from functools import lru_cache
 from typing import Dict, Iterator, List, Optional, Sequence, Type, Union
 
 from bip_utils.substrate.scale import (
-    SubstrateScaleBytesEncoder, SubstrateScaleEncoderBase, SubstrateScaleU8Encoder, SubstrateScaleU16Encoder,
-    SubstrateScaleU32Encoder, SubstrateScaleU64Encoder, SubstrateScaleU128Encoder, SubstrateScaleU256Encoder
+    SubstrateScaleBytesEncoder,
+    SubstrateScaleEncoderBase,
+    SubstrateScaleU8Encoder,
+    SubstrateScaleU16Encoder,
+    SubstrateScaleU32Encoder,
+    SubstrateScaleU64Encoder,
+    SubstrateScaleU128Encoder,
+    SubstrateScaleU256Encoder,
 )
 from bip_utils.substrate.substrate_ex import SubstratePathError
 from bip_utils.utils.crypto import Blake2b256
@@ -175,7 +181,7 @@ class SubstratePathElem:
     @staticmethod
     def __IsElemValid(elem: str) -> bool:
         """
-        Get a path element is valid.
+        Check if a path element is valid.
 
         Args:
             elem (str): Path element
@@ -262,7 +268,7 @@ class SubstratePath:
         Get the path as a string.
 
         Returns:
-            str: Path as a list of integers
+            str: Path as a string
         """
         return self.ToStr()
 

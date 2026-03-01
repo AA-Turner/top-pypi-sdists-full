@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import git
@@ -30,6 +31,7 @@ class Logger:
         gpu_global_rank: int,
         device: str,
     ) -> None:
+        """Initialize buffers and logging state for a training run."""
         self.log_dir = log_dir
         self.cfg = cfg
         self.env_cfg = env_cfg
@@ -58,11 +60,8 @@ class Logger:
         # Note: We only log from the process with rank 0 (main process)
         self.disable_logs = is_distributed and gpu_global_rank != 0
 
-        # Log code state
-        self.files_to_upload = self._store_code_state()
-
     def init_logging_writer(self) -> None:
-        """Initialize the logging writer, which can be either Tensorboard, W&B or Neptune.
+        """Initialize the logging writer, which can be either Tensorboard, W&B or Neptune and save the code state.
 
         If the writer is either W&B or Neptune, the configuration and code state are uploaded as well.
         """
@@ -86,10 +85,13 @@ class Logger:
         else:
             self.writer = None
 
-        # Upload configuration and code state
+        # Save code state
+        files_to_upload = self._store_code_state()
+
+        # Upload configuration and code state to external logging service if applicable
         if self.writer is not None and self.logger_type in ["wandb", "neptune"]:
             self.writer.store_config(self.env_cfg, self.cfg)  # type: ignore
-            for path in self.files_to_upload:
+            for path in files_to_upload:
                 self.writer.save_file(path)  # type: ignore
 
     def process_env_step(
@@ -100,7 +102,7 @@ class Logger:
         intrinsic_rewards: torch.Tensor | None = None,
     ) -> None:
         """Add metrics from the environment step to the buffers."""
-        if self.log_dir is not None:
+        if self.writer is not None:
             if "episode" in extras:
                 self.ep_extras.append(extras["episode"])
             elif "log" in extras:
@@ -146,7 +148,7 @@ class Logger:
 
         If videos are available, they are uploaded to the logging service (W&B) as well.
         """
-        if self.writer:
+        if self.writer is not None:
             collection_size = self.cfg["num_steps_per_env"] * self.num_envs * self.gpu_world_size
             iteration_time = collect_time + learn_time
             self.tot_timesteps += collection_size
@@ -181,8 +183,8 @@ class Logger:
                 self.writer.add_scalar(f"Loss/{key}", value, it)
             self.writer.add_scalar("Loss/learning_rate", learning_rate, it)
 
-            # Log noise std
-            self.writer.add_scalar("Policy/mean_noise_std", action_std.mean().item(), it)
+            # Log std
+            self.writer.add_scalar("Policy/mean_std", action_std.mean().item(), it)
 
             # Log performance
             fps = int(collection_size / (collect_time + learn_time))
@@ -234,8 +236,8 @@ class Logger:
                 log_string += f"""{"Mean reward:":>{pad}} {statistics.mean(self.rewbuffer):.2f}\n"""
                 log_string += f"""{"Mean episode length:":>{pad}} {statistics.mean(self.lenbuffer):.2f}\n"""
 
-            # Print noise std
-            log_string += f"""{"Mean action noise std:":>{pad}} {action_std.mean().item():.2f}\n"""
+            # Print std
+            log_string += f"""{"Mean action std:":>{pad}} {action_std.mean().item():.2f}\n"""
 
             # Print episode extras
             if not print_minimal:
@@ -282,6 +284,7 @@ class Logger:
                 try:
                     repo = git.Repo(repository_file_path, search_parent_directories=True)
                     t = repo.head.commit.tree
+                    commit_hash = repo.head.commit.hexsha
                 except Exception:
                     print(f"Could not find git repository in {repository_file_path}. Skipping.")
                     continue
@@ -294,7 +297,11 @@ class Logger:
                 # Write the diff file
                 print(f"Storing git diff for '{repo_name}' in: {diff_file_name}")
                 with open(diff_file_name, "x", encoding="utf-8") as f:
-                    content = f"--- git status ---\n{repo.git.status()} \n\n\n--- git diff ---\n{repo.git.diff(t)}"
+                    content = (
+                        f"--- git commit ---\n{commit_hash}\n\n\n"
+                        f"--- git status ---\n{repo.git.status()} \n\n\n"
+                        f"--- git diff ---\n{repo.git.diff(t)}"
+                    )
                     f.write(content)
                 # Add the file path to the list of files to be uploaded
                 files_to_upload.append(diff_file_name)

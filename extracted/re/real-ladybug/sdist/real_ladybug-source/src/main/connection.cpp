@@ -3,6 +3,8 @@
 #include <utility>
 
 #include "common/random_engine.h"
+#include "transaction/transaction.h"
+#include "transaction/transaction_manager.h"
 
 using namespace lbug::parser;
 using namespace lbug::binder;
@@ -15,14 +17,22 @@ namespace lbug {
 namespace main {
 
 Connection::Connection(Database* database) {
-    KU_ASSERT(database != nullptr);
+    DASSERT(database != nullptr);
     this->database = database;
     this->dbLifeCycleManager = database->dbLifeCycleManager;
     clientContext = std::make_unique<ClientContext>(database);
 }
 
 Connection::~Connection() {
-    clientContext->preventTransactionRollbackOnDestruction = dbLifeCycleManager->isDatabaseClosed;
+    clientContext->waitForNoActiveQuery();
+    // Roll back any active transaction so it is removed from TransactionManager. Otherwise
+    // Database::~Database() checkpoint can time out waiting for transactions to leave.
+    // We do this here (before destroying ClientContext) while Database and Connection are still
+    // valid; ~ClientContext then skips rollback to avoid double-rollback or use-after-free.
+    if (Transaction* tx = Transaction::Get(*clientContext)) {
+        database->getTransactionManager()->rollback(*clientContext, tx);
+    }
+    clientContext->preventTransactionRollbackOnDestruction = true;
 }
 
 void Connection::setMaxNumThreadForExec(uint64_t numThreads) {

@@ -5,7 +5,6 @@
 
 #include "common/assert.h"
 #include "common/profiler.h"
-#include "json_fwd.hpp"
 #include "lbug_fwd.h"
 
 namespace lbug {
@@ -68,7 +67,7 @@ private:
     static std::string genHorizLine(uint32_t len);
 
     inline void validateRowIdxAndColIdx(uint32_t rowIdx, uint32_t colIdx) const {
-        KU_ASSERT(rowIdx < opProfileBoxes.size() && colIdx < opProfileBoxes[rowIdx].size());
+        DASSERT(rowIdx < opProfileBoxes.size() && colIdx < opProfileBoxes[rowIdx].size());
         (void)rowIdx;
         (void)colIdx;
     }
@@ -98,22 +97,22 @@ private:
 };
 
 struct PlanPrinter {
-    static nlohmann::json printPlanToJson(const processor::PhysicalPlan* physicalPlan,
+    static std::string printPlanToJson(const processor::PhysicalPlan* physicalPlan,
         common::Profiler* profiler);
     static std::ostringstream printPlanToOstream(const processor::PhysicalPlan* physicalPlan,
         common::Profiler* profiler);
     static std::string getOperatorName(const processor::PhysicalOperator* physicalOperator);
     static std::string getOperatorParams(const processor::PhysicalOperator* physicalOperator);
 
-    static nlohmann::json printPlanToJson(const planner::LogicalPlan* logicalPlan);
+    static std::string printPlanToJson(const planner::LogicalPlan* logicalPlan);
     static std::ostringstream printPlanToOstream(const planner::LogicalPlan* logicalPlan);
     static std::string getOperatorName(const planner::LogicalOperator* logicalOperator);
     static std::string getOperatorParams(const planner::LogicalOperator* logicalOperator);
 
 private:
-    static nlohmann::json toJson(const processor::PhysicalOperator* physicalOperator,
+    static std::string toJson(const processor::PhysicalOperator* physicalOperator,
         common::Profiler& profiler_);
-    static nlohmann::json toJson(const planner::LogicalOperator* logicalOperator);
+    static std::string toJson(const planner::LogicalOperator* logicalOperator);
 };
 
 } // namespace main

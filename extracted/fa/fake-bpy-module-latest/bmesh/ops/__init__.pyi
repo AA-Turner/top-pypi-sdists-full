@@ -204,6 +204,40 @@ def bridge_loops(
     type list[`bmesh.types.BMEdge`]
     """
 
+def circularize(
+    bm: bmesh.types.BMesh,
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
+    factor: float = 0,
+    custom_radius: float = 0,
+    angle: float = 0,
+    fit_method: int = 0,
+    flatten: float = 0,
+    regular: bool = False,
+    lock_x: bool = False,
+    lock_y: bool = False,
+    lock_z: bool = False,
+    mirror_x: bool = False,
+    mirror_y: bool = False,
+    mirror_z: bool = False,
+) -> None:
+    """Circularize.Shape selected geometry into a circle.
+
+    :param bm: The bmesh to operate on.
+    :param geom: Input geometry.
+    :param factor: Influence factor: spans from 0.0 to 1.0.
+    :param custom_radius: Custom radius.
+    :param angle: Rotation angle.
+    :param fit_method: Method to fit the circle.
+    :param flatten: Flatten factor: 0.0 projects onto the mesh, 1.0 flattens on the optimal plane.
+    :param regular: Distributes vertices at constant distances, otherwise preserves original spacing.
+    :param lock_x: Lock X-axis editing.
+    :param lock_y: Lock Y-axis editing.
+    :param lock_z: Lock Z-axis editing.
+    :param mirror_x: Use X axis of the mirror modifier.
+    :param mirror_y: Use Y axis of the mirror modifier.
+    :param mirror_z: Use Z axis of the mirror modifier.
+    """
+
 def collapse(
     bm: bmesh.types.BMesh, edges: list[bmesh.types.BMEdge] = [], uvs: bool = False
 ) -> None:

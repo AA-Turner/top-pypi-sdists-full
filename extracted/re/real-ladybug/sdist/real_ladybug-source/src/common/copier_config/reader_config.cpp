@@ -1,6 +1,7 @@
 #include "common/assert.h"
 #include "common/copier_config/file_scan_info.h"
 #include "common/string_utils.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -33,7 +34,7 @@ std::string FileTypeUtils::toString(FileType fileType) {
         return "NPY";
     }
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -48,7 +49,7 @@ FileType FileTypeUtils::fromString(std::string fileType) {
         return FileType::NPY;
     } else {
         return FileType::UNKNOWN;
-        // throw BinderException(stringFormat("Unsupported file type: {}.", fileType));
+        // throw BinderException(std::format("Unsupported file type: {}.", fileType));
     }
 }
 

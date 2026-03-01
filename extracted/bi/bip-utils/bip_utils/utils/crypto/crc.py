@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +61,7 @@ class Crc32:
             data (str or bytes): Data
 
         Returns:
-            bytes: Computed digest
+            int: Computed digest
         """
         return binascii.crc32(AlgoUtils.Encode(data))   # Much faster than crcmod
 

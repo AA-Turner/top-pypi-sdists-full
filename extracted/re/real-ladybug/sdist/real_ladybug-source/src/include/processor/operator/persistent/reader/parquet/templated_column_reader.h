@@ -9,7 +9,7 @@ namespace processor {
 template<class VALUE_TYPE>
 struct TemplatedParquetValueConversion {
     static VALUE_TYPE dictRead(ByteBuffer& dict, uint32_t& offset, ColumnReader& /*reader*/) {
-        KU_ASSERT(offset < dict.len / sizeof(VALUE_TYPE));
+        DASSERT(offset < dict.len / sizeof(VALUE_TYPE));
         return ((VALUE_TYPE*)dict.ptr)[offset];
     }
 
@@ -31,7 +31,7 @@ public:
     TemplatedColumnReader(ParquetReader& reader, common::LogicalType type,
         const lbug_parquet::format::SchemaElement& schema, uint64_t schemaIdx, uint64_t maxDefine,
         uint64_t maxRepeat)
-        : ColumnReader(reader, std::move(type), schema, schemaIdx, maxDefine, maxRepeat){};
+        : ColumnReader(reader, std::move(type), schema, schemaIdx, maxDefine, maxRepeat) {};
 
     std::shared_ptr<ResizeableBuffer> dict;
 

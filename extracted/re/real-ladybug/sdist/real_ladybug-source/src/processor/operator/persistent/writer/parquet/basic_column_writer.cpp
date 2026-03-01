@@ -6,6 +6,7 @@
 #include "processor/operator/persistent/reader/parquet/parquet_rle_bp_decoder.h"
 #include "processor/operator/persistent/writer//parquet/parquet_rle_bp_encoder.h"
 #include "processor/operator/persistent/writer/parquet/parquet_writer.h"
+#include <format>
 
 namespace lbug {
 namespace processor {
@@ -60,7 +61,7 @@ void BasicColumnWriter::beginWrite(ColumnWriterState& writerState) {
     for (auto pageIdx = 0u; pageIdx < state.pageInfo.size(); pageIdx++) {
         auto& pageInfo = state.pageInfo[pageIdx];
         if (pageInfo.rowCount == 0) {
-            KU_ASSERT(pageIdx + 1 == state.pageInfo.size());
+            DASSERT(pageIdx + 1 == state.pageInfo.size());
             state.pageInfo.erase(state.pageInfo.begin() + pageIdx);
             break;
         }
@@ -100,7 +101,7 @@ void BasicColumnWriter::write(ColumnWriterState& writerState, common::ValueVecto
     uint64_t offset = 0;
     while (remaining > 0) {
         auto& writeInfo = state.writeInfo[state.currentPage - 1];
-        KU_ASSERT(writeInfo.bufferWriter != nullptr);
+        DASSERT(writeInfo.bufferWriter != nullptr);
         auto writeCount =
             std::min<uint64_t>(remaining, writeInfo.maxWriteCount - writeInfo.writeCount);
 
@@ -142,7 +143,7 @@ void BasicColumnWriter::finalizeWrite(ColumnWriterState& writerState) {
     // write the individual pages to disk
     uint64_t totalUncompressedSize = 0;
     for (auto& write_info : state.writeInfo) {
-        KU_ASSERT(write_info.pageHeader.uncompressed_page_size > 0);
+        DASSERT(write_info.pageHeader.uncompressed_page_size > 0);
         auto header_start_offset = writer.getOffset();
         write_info.pageHeader.write(writer.getProtocol());
         // total uncompressed size in the column chunk includes the header size (!)
@@ -202,7 +203,7 @@ void BasicColumnWriter::nextPage(BasicColumnWriterState& state) {
 }
 
 void BasicColumnWriter::flushPage(BasicColumnWriterState& state) {
-    KU_ASSERT(state.currentPage > 0);
+    DASSERT(state.currentPage > 0);
     if (state.currentPage > state.writeInfo.size()) {
         return;
     }
@@ -216,9 +217,9 @@ void BasicColumnWriter::flushPage(BasicColumnWriterState& state) {
 
     // now that we have finished writing the data we know the uncompressed size
     if (bufferedWriter.getSize() > uint64_t(function::NumericLimits<int32_t>::maximum())) {
-        throw common::RuntimeException{common::stringFormat(
-            "Parquet writer: %d uncompressed page size out of range for type integer",
-            bufferedWriter.getSize())};
+        throw common::RuntimeException{
+            std::format("Parquet writer: %d uncompressed page size out of range for type integer",
+                bufferedWriter.getSize())};
     }
     hdr.uncompressed_page_size = bufferedWriter.getSize();
 
@@ -226,20 +227,20 @@ void BasicColumnWriter::flushPage(BasicColumnWriterState& state) {
     compressPage(bufferedWriter, writeInfo.compressedSize, writeInfo.compressedData,
         writeInfo.compressedBuf);
     hdr.compressed_page_size = writeInfo.compressedSize;
-    KU_ASSERT(hdr.uncompressed_page_size > 0);
-    KU_ASSERT(hdr.compressed_page_size > 0);
+    DASSERT(hdr.uncompressed_page_size > 0);
+    DASSERT(hdr.compressed_page_size > 0);
 
     if (writeInfo.compressedBuf) {
         // if the data has been compressed, we no longer need the compressed data
-        KU_ASSERT(writeInfo.compressedBuf.get() == writeInfo.compressedData);
+        DASSERT(writeInfo.compressedBuf.get() == writeInfo.compressedData);
         writeInfo.bufferWriter.reset();
     }
 }
 
 void BasicColumnWriter::writeDictionary(BasicColumnWriterState& state,
     std::unique_ptr<BufferWriter> bufferedSerializer, uint64_t rowCount) {
-    KU_ASSERT(bufferedSerializer);
-    KU_ASSERT(bufferedSerializer->getSize() > 0);
+    DASSERT(bufferedSerializer);
+    DASSERT(bufferedSerializer->getSize() > 0);
 
     // write the dictionary page header
     PageWriteInformation writeInfo;

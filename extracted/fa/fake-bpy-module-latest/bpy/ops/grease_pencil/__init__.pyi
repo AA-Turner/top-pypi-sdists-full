@@ -1781,7 +1781,6 @@ def trace_image(
     /,
     *,
     target: typing.Literal["NEW", "SELECTED"] | None = "NEW",
-    radius: float | None = 0.01,
     threshold: float | None = 0.5,
     turnpolicy: typing.Literal[
         "FOREGROUND", "BACKGROUND", "LEFT", "RIGHT", "MINORITY", "MAJORITY", "RANDOM"
@@ -1794,7 +1793,6 @@ def trace_image(
     """Extract Grease Pencil strokes from image
 
         :param target: Target Object, Target Grease Pencil (optional)
-        :param radius: Radius, (in [0.001, 1], optional)
         :param threshold: Color Threshold, Determine the lightness threshold above which strokes are generated (in [0, 1], optional)
         :param turnpolicy: Turn Policy, Determines how to resolve ambiguities during decomposition of bitmaps into paths (optional)
 

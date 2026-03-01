@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isort
-Version: 8.0.0
+Version: 8.0.1
 Summary: A Python utility / library to sort Python imports.
 Project-URL: Homepage, https://pycqa.github.io/isort/index.html
 Project-URL: Documentation, https://pycqa.github.io/isort/index.html

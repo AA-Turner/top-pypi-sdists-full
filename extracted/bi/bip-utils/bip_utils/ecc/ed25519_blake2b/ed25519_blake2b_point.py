@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +21,8 @@
 """Module for ed25519-blake2b point."""
 
 # Imports
+from typing_extensions import override
+
 from bip_utils.ecc.curve.elliptic_curve_types import EllipticCurveTypes
 from bip_utils.ecc.ed25519.ed25519_point import Ed25519Point
 
@@ -28,6 +30,7 @@ from bip_utils.ecc.ed25519.ed25519_point import Ed25519Point
 class Ed25519Blake2bPoint(Ed25519Point):
     """Ed25519-Blake2b point class."""
 
+    @override
     @staticmethod
     def CurveType() -> EllipticCurveTypes:
         """

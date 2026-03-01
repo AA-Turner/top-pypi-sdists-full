@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote
 
 from newspaper import network
@@ -46,6 +46,9 @@ class GoogleNewsSource(Source):
 
     Args:
         country (str): The country for which to fetch news articles.
+        language (str): The language (ISO 639-1 two-letter code) for fetching
+            news articles. Defaults to 'en'. Can also be set via
+            ``config.language`` before calling :any:`build`.
         period (str): The time period for which to fetch news articles.
             Eg: "7d" for 7 days. Available options are: "h", "d", "m", "y".
         start_date (str): The start date for fetching news articles.
@@ -69,15 +72,18 @@ class GoogleNewsSource(Source):
 
     def __init__(
         self,
-        country: Optional[str] = None,
-        period: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        country: str | None = None,
+        language: str | None = None,
+        period: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         max_results: int = 100,
-        exclude_websites: Optional[list[str]] = None,
+        exclude_websites: list[str] | None = None,
         **kwargs,
     ):
         super().__init__(url="https://news.google.com/", **kwargs)
+        if language is not None:
+            self.config.language = language
         self.country = country
         self.period = period
         self.start_date = start_date
@@ -87,9 +93,7 @@ class GoogleNewsSource(Source):
         self.gnews_results: list[Any] = []
         proxy = None
         if "proxies" in self.config.requests_params:
-            proxy = self.config.requests_params["proxies"].get("http") or self.config.requests_params["proxies"].get(
-                "https"
-            )
+            proxy = self.config.requests_params["proxies"]
         self.config.requests_params["headers"]["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
 
         self.gnews = gnews.GNews(
@@ -106,10 +110,10 @@ class GoogleNewsSource(Source):
     def build(
         self,
         top_news: bool = True,
-        keyword: Optional[str] = None,
-        topic: Optional[str] = None,
-        location: Optional[str] = None,
-        site: Optional[str] = None,
+        keyword: str | None = None,
+        topic: str | None = None,
+        location: str | None = None,
+        site: str | None = None,
     ):
         """Fetches articles, and generates the list of :any:`Article` objects
         from Google News based on the provided arguments. The fetched articles
@@ -150,10 +154,10 @@ class GoogleNewsSource(Source):
     def download(
         self,
         top_news: bool = True,
-        keyword: Optional[str] = None,
-        topic: Optional[str] = None,
-        location: Optional[str] = None,
-        site: Optional[str] = None,
+        keyword: str | None = None,
+        topic: str | None = None,
+        location: str | None = None,
+        site: str | None = None,
     ):
         """Downloads Google news articles based on the specified parameters.
 
@@ -169,6 +173,7 @@ class GoogleNewsSource(Source):
             site (str, optional): The site to filter news articles by.
                 Defaults to None.
         """
+        self.gnews.language = self.config.language
         self.gnews_results = []
         if top_news:
             self.gnews_results += self.gnews.get_top_news()

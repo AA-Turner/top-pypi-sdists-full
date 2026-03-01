@@ -1,7 +1,9 @@
-const govukEleventyPlugin = require('@x-govuk/govuk-eleventy-plugin')
-const fs = require('fs')
+import { govukEleventyPlugin } from '@x-govuk/govuk-eleventy-plugin'
+import fs from 'fs';
 
-module.exports = function(eleventyConfig) {
+const serviceName = 'stream-unzip'
+
+export default function(eleventyConfig) {
   // Register the plugin
   eleventyConfig.addPlugin(govukEleventyPlugin, {
     icons: {
@@ -11,9 +13,32 @@ module.exports = function(eleventyConfig) {
       logotype: {
         html: fs.readFileSync('./docs/assets/dit-logo.svg', {encoding: 'utf8'})
       },
-      productName: 'stream-unzip',
+      serviceName: 'stream-unzip,'
+    },
+    // This is documented as needing to be a full URL rather than a path
+    opengraphImageUrl: 'https://stream-unzip.docs.trade.gov.uk/assets/dbt-social.jpg',
+    titleSuffix: serviceName,
+    showBreadcrumbs: false,
+    serviceNavigation: {
+      serviceName,
+      serviceUrl: '/',
+      navigation: [
+        {
+          text: 'Get started',
+          href: '/get-started/'
+        },
+        {
+          text: 'API reference',
+          href: '/api/'
+        },
+        {
+          text: 'Contributing',
+          href: '/contributing/'
+        }
+      ]
     },
     footer: {
+      logo: false,
       meta: {
         items: [
           {
@@ -26,7 +51,8 @@ module.exports = function(eleventyConfig) {
           }
         ]
       }
-    }
+    },
+    stylesheets: ['/assets/styles.css'],
   })
 
   eleventyConfig.addPassthroughCopy('./docs/assets')
@@ -39,7 +65,6 @@ module.exports = function(eleventyConfig) {
     dir: {
       // Use layouts from the plugin
       input: 'docs',
-      layouts: '../node_modules/@x-govuk/govuk-eleventy-plugin/layouts'
     }
   }
 };

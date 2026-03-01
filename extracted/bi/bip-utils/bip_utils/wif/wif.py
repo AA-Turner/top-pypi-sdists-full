@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -91,8 +91,8 @@ class WifEncoder:
 
 class WifDecoder:
     """
-    WIF encoder class.
-    It provides methods for encoding to WIF format.
+    WIF decoder class.
+    It provides methods for decoding from WIF format.
     """
 
     @staticmethod

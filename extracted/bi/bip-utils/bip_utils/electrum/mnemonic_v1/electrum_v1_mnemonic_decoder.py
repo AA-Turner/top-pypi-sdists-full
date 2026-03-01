@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,16 @@ Reference: https://github.com/spesmilo/electrum
 # Imports
 from typing import Optional, Union
 
+from typing_extensions import override
+
 from bip_utils.electrum.mnemonic_v1.electrum_v1_mnemonic import (
-    ElectrumV1Languages, ElectrumV1Mnemonic, ElectrumV1MnemonicConst
+    ElectrumV1Languages,
+    ElectrumV1Mnemonic,
+    ElectrumV1MnemonicConst,
 )
 from bip_utils.electrum.mnemonic_v1.electrum_v1_mnemonic_utils import (
-    ElectrumV1WordsListFinder, ElectrumV1WordsListGetter
+    ElectrumV1WordsListFinder,
+    ElectrumV1WordsListGetter,
 )
 from bip_utils.utils.mnemonic import Mnemonic, MnemonicDecoderBase, MnemonicUtils
 
@@ -57,6 +62,7 @@ class ElectrumV1MnemonicDecoder(MnemonicDecoderBase):
         """
         super().__init__(lang, ElectrumV1WordsListFinder, ElectrumV1WordsListGetter)
 
+    @override
     def Decode(self,
                mnemonic: Union[str, Mnemonic]) -> bytes:
         """

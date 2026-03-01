@@ -1,14 +1,14 @@
 import requests
+from compressed_tensors.offload import dispatch_model
 from PIL import Image
 from transformers import AutoProcessor, Gemma3ForConditionalGeneration
 
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import GPTQModifier
-from llmcompressor.utils import dispatch_for_generation
 
 # Load model.
 model_id = "google/gemma-3-4b-it"
-model = Gemma3ForConditionalGeneration.from_pretrained(model_id, torch_dtype="auto")
+model = Gemma3ForConditionalGeneration.from_pretrained(model_id, dtype="auto")
 processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
 
 # Oneshot arguments
@@ -39,13 +39,14 @@ oneshot(
     splits=DATASET_SPLIT,
     recipe=recipe,
     batch_size=BATCH_SIZE,
+    shuffle_calibration_samples=False,
     max_seq_length=MAX_SEQUENCE_LENGTH,
     num_calibration_samples=NUM_CALIBRATION_SAMPLES,
 )
 
 # Confirm generations of the quantized model look sane.
 print("========== SAMPLE GENERATION ==============")
-dispatch_for_generation(model)
+dispatch_model(model)
 messages = [
     {
         "role": "user",

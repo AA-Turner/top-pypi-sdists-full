@@ -5,11 +5,11 @@
 # Explicit targets to avoid conflict with files of the same name.
 .PHONY: \
 	release relwithdebinfo debug all allconfig alldebug \
-	test-build test lcov \
+	test-build test test-build-release lcov \
 	java_native_header java javatest \
 	nodejs nodejstest \
 	python python-debug pytest pytest-debug \
-	wasm wasmtest \
+	wasm wasmtest wasmtest-build \
 	rusttest \
 	benchmark example \
 	extension-test-build extension-test extension-json-test-build extension-json-test \
@@ -105,15 +105,18 @@ ifdef WASM_NODEFS
 	CMAKE_FLAGS += -DWASM_NODEFS=$(WASM_NODEFS)
 endif
 
-ifdef USE_STD_FORMAT
-	CMAKE_FLAGS += -DUSE_STD_FORMAT=$(USE_STD_FORMAT)
-endif
-
 ifdef EXTRA_CMAKE_FLAGS
 	CMAKE_FLAGS += $(EXTRA_CMAKE_FLAGS)
 endif
 ifdef BM_MALLOC
 	CMAKE_FLAGS += -DENABLE_MALLOC_BUFFER_MANAGER=$(BM_MALLOC)
+endif
+
+ifdef CMAKE_C_COMPILER_LAUNCHER
+	CMAKE_FLAGS += -DCMAKE_C_COMPILER_LAUNCHER=$(CMAKE_C_COMPILER_LAUNCHER)
+endif
+ifdef CMAKE_CXX_COMPILER_LAUNCHER
+	CMAKE_FLAGS += -DCMAKE_CXX_COMPILER_LAUNCHER=$(CMAKE_CXX_COMPILER_LAUNCHER)
 endif
 
 release:
@@ -158,6 +161,9 @@ test-build:
 
 test: test-build
 	ctest --test-dir build/$(call get-build-path,RelWithDebInfo)/test --output-on-failure -j ${TEST_JOBS}
+
+test-build-release:
+	$(call run-cmake-release, -DBUILD_TESTS=TRUE -DENABLE_BACKTRACES=TRUE)
 
 lcov:
 	$(call run-cmake-release, -DBUILD_TESTS=TRUE -DBUILD_LCOV=TRUE)
@@ -212,11 +218,13 @@ wasm:
 	emcmake cmake $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=$(call get-build-type,Release) -DBUILD_WASM=TRUE -DBUILD_BENCHMARK=FALSE -DBUILD_TESTS=FALSE -DBUILD_SHELL=FALSE  ../.. && \
 	cmake --build . --config $(call get-build-type,Release) -j $(NUM_THREADS)
 
-wasmtest:
+wasmtest-build:
 	mkdir -p build/wasm && cd build/wasm &&\
 	emcmake cmake $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=$(call get-build-type,Release) -DBUILD_WASM=TRUE -DBUILD_BENCHMARK=FALSE -DBUILD_TESTS=TRUE -DBUILD_SHELL=FALSE  ../.. && \
-	cmake --build . --config $(call get-build-type,Release) -j $(NUM_THREADS) &&\
-	cd ../.. && ctest --test-dir  build/wasm/test/ --output-on-failure -j ${TEST_JOBS} --timeout 600
+	cmake --build . --config $(call get-build-type,Release) -j $(NUM_THREADS)
+
+wasmtest: wasmtest-build
+	ctest --test-dir build/wasm/test/ --output-on-failure -j ${TEST_JOBS} --timeout 600 $(if $(TEST_FILTER),-E$(TEST_FILTER),)
 
 rusttest:
 ifeq ($(OS),Windows_NT)
@@ -297,13 +305,13 @@ extension-release:
 shell:
 	BM_MALLOC=1 $(call run-cmake-release, \
 		-DBUILD_SHELL=TRUE \
-		-DEXTENSION_STATIC_LINK_LIST=duckdb \
+		-DEXTENSION_STATIC_LINK_LIST="duckdb;json" \
 	)
 
 shell-debug:
 	BM_MALLOC=1 $(call run-cmake-debug, \
 		-DBUILD_SHELL=TRUE \
-		-DEXTENSION_STATIC_LINK_LIST=duckdb \
+		-DEXTENSION_STATIC_LINK_LIST="duckdb;json" \
 	)
 
 shell-test:
@@ -337,17 +345,18 @@ install:
 
 
 # Cleaning
+CMAKE ?= cmake
 clean-extension:
-	cmake -E rm -rf extension/*/build
+	$(CMAKE) -E rm -rf extension/*/build
 
 clean-python-api:
-	cmake -E rm -rf tools/python_api/build
+	$(CMAKE) -E rm -rf tools/python_api/build
 
 clean-java:
-	cmake -E rm -rf tools/java_api/build
+	$(CMAKE) -E rm -rf tools/java_api/build
 
 clean: clean-extension clean-python-api clean-java
-	cmake -E rm -rf build
+	$(CMAKE) -E rm -rf build
 
 
 # Utils

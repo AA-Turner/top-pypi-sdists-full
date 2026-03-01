@@ -29,7 +29,7 @@ class StaticVector {
     }
 
 public:
-    StaticVector() : len(0){};
+    StaticVector() : len(0) {};
     StaticVector(StaticVector&& other) : len(other.len) {
         std::uninitialized_move(other.begin(), other.end(), begin());
         other.len = 0;
@@ -48,20 +48,20 @@ public:
     ~StaticVector() { clear(); }
 
     T& operator[](size_t i) {
-        KU_ASSERT(i < len);
+        DASSERT(i < len);
         return items[i].assumeInit();
     }
     const T& operator[](size_t i) const {
-        KU_ASSERT(i < len);
+        DASSERT(i < len);
         return items[i].assumeInit();
     }
     void push_back(T elem) {
-        KU_ASSERT(len < N);
+        DASSERT(len < N);
         new (items[len].ptr()) T(std::move(elem));
         len++;
     }
     T pop_back() {
-        KU_ASSERT(len > 0);
+        DASSERT(len > 0);
         len--;
         return std::move(items[len].assumeInit());
     }

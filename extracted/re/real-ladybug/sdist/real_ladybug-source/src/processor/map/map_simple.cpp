@@ -22,6 +22,7 @@
 #include "processor/plan_mapper.h"
 #include "processor/result/factorized_table_util.h"
 #include "storage/buffer_manager/memory_manager.h"
+#include <format>
 
 namespace lbug {
 namespace processor {
@@ -66,8 +67,7 @@ static void exportDatabaseCollectParallelFlags(const std::unique_ptr<DummySimple
     auto exportDB = sink->getChild(0)->ptrCast<ExportDB>();
     for (auto i = 1u; i < sink->getNumChildren(); ++i) {
         const auto& tableFuncCall = sink->getChild(i);
-        KU_ASSERT_UNCONDITIONAL(
-            tableFuncCall->getChild(0)->getOperatorType() == PhysicalOperatorType::COPY_TO);
+        ASSERT(tableFuncCall->getChild(0)->getOperatorType() == PhysicalOperatorType::COPY_TO);
         const auto& [file, parallelFlag] =
             tableFuncCall->getChild(0)->ptrCast<CopyTo>()->getParallelFlag();
         exportDB->addToParallelReaderMap(file, parallelFlag);
@@ -79,10 +79,10 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapExportDatabase(
     auto exportDatabase = logicalOperator->constPtrCast<LogicalExportDatabase>();
     auto fs = VirtualFileSystem::GetUnsafe(*clientContext);
     auto boundFileInfo = exportDatabase->getBoundFileInfo();
-    KU_ASSERT(boundFileInfo->filePaths.size() == 1);
+    DASSERT(boundFileInfo->filePaths.size() == 1);
     auto filePath = boundFileInfo->filePaths[0];
     if (fs->fileOrPathExists(filePath, clientContext)) {
-        throw RuntimeException(stringFormat("Directory {} already exists.", filePath));
+        throw RuntimeException(std::format("Directory {} already exists.", filePath));
     }
     fs->createDir(filePath);
     auto printInfo = std::make_unique<ExportDBPrintInfo>(filePath, boundFileInfo->options);
@@ -134,7 +134,7 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapExtension(const LogicalOperator
             std::move(printInfo));
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -146,7 +146,7 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapExtensionClause(
             return physicalOP;
         }
     }
-    KU_UNREACHABLE;
+    UNREACHABLE_CODE;
 }
 
 std::unique_ptr<PhysicalOperator> PlanMapper::mapCreateGraph(
@@ -155,8 +155,8 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapCreateGraph(
     auto printInfo = std::make_unique<OPPrintInfo>();
     auto messageTable =
         FactorizedTableUtils::getSingleStringColumnFTable(MemoryManager::Get(*clientContext));
-    return std::make_unique<CreateGraph>(createGraph->getGraphName(), std::move(messageTable),
-        getOperatorID(), std::move(printInfo));
+    return std::make_unique<CreateGraph>(createGraph->getGraphName(), createGraph->isAnyGraph(),
+        std::move(messageTable), getOperatorID(), std::move(printInfo));
 }
 
 std::unique_ptr<PhysicalOperator> PlanMapper::mapUseGraph(const LogicalOperator* logicalOperator) {

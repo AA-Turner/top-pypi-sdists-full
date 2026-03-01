@@ -102,7 +102,15 @@ class NodeMenu(_bpy_types.Menu):
 
     @classmethod
     def node_operator_with_outputs(
-        cls, context, layout, node_type, subnames, *, label=None, search_weight=0.0
+        cls,
+        context,
+        layout,
+        node_type,
+        subnames,
+        *,
+        label=None,
+        poll=None,
+        search_weight=0.0,
     ) -> None:
         """Similar to node_operator, but with extra entries based on a enum socket while in search.
 
@@ -111,6 +119,7 @@ class NodeMenu(_bpy_types.Menu):
         :param node_type:
         :param subnames:
         :param label:
+        :param poll:
         :param search_weight:
         """
 

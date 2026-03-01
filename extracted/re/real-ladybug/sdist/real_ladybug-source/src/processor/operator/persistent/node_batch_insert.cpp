@@ -4,7 +4,6 @@
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/cast.h"
 #include "common/finally_wrapper.h"
-#include "common/string_format.h"
 #include "processor/execution_context.h"
 #include "processor/operator/persistent/index_builder.h"
 #include "processor/result/factorized_table_util.h"
@@ -15,6 +14,7 @@
 #include "storage/table/chunked_node_group.h"
 #include "storage/table/node_table.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -35,7 +35,7 @@ void NodeBatchInsertSharedState::initPKIndex(const ExecutionContext* context) {
     if (tableFuncSharedState != nullptr) {
         numRows = tableFuncSharedState->getNumRows();
     }
-    auto* nodeTable = ku_dynamic_cast<NodeTable*>(table);
+    auto* nodeTable = dynamic_cast_checked<NodeTable*>(table);
     nodeTable->getPKIndex()->bulkReserve(numRows);
     globalIndexBuilder = IndexBuilder(std::make_shared<IndexBuilderSharedState>(
         Transaction::Get(*context->clientContext), nodeTable));
@@ -74,11 +74,12 @@ void NodeBatchInsert::initLocalStateInternal(ResultSet* resultSet, ExecutionCont
     const auto nodeInfo = info->ptrCast<NodeBatchInsertInfo>();
     const auto numColumns = nodeInfo->columnEvaluators.size();
 
-    const auto nodeSharedState = ku_dynamic_cast<NodeBatchInsertSharedState*>(sharedState.get());
+    const auto nodeSharedState =
+        dynamic_cast_checked<NodeBatchInsertSharedState*>(sharedState.get());
     localState = std::make_unique<NodeBatchInsertLocalState>(
         std::span{nodeInfo->columnTypes.begin(), nodeInfo->outputDataColumns.size()});
     const auto nodeLocalState = localState->ptrCast<NodeBatchInsertLocalState>();
-    KU_ASSERT(nodeSharedState->globalIndexBuilder);
+    DASSERT(nodeSharedState->globalIndexBuilder);
     nodeLocalState->localIndexBuilder = nodeSharedState->globalIndexBuilder->clone();
     nodeLocalState->errorHandler = createErrorHandler(context);
     nodeLocalState->optimisticAllocator =
@@ -94,7 +95,7 @@ void NodeBatchInsert::initLocalStateInternal(ResultSet* resultSet, ExecutionCont
     nodeLocalState->chunkedGroup =
         std::make_unique<InMemChunkedNodeGroup>(*MemoryManager::Get(*context->clientContext),
             nodeInfo->columnTypes, info->compressionEnabled, StorageConfig::NODE_GROUP_SIZE, 0);
-    KU_ASSERT(resultSet->dataChunks[0]);
+    DASSERT(resultSet->dataChunks[0]);
     nodeLocalState->columnState = resultSet->dataChunks[0]->state;
 }
 
@@ -119,10 +120,10 @@ void NodeBatchInsert::executeInternal(ExecutionContext* context) {
             nodeLocalState->localIndexBuilder, MemoryManager::Get(*context->clientContext));
     }
     if (nodeLocalState->localIndexBuilder) {
-        KU_ASSERT(token);
+        DASSERT(token);
         token->quit();
 
-        KU_ASSERT(nodeLocalState->errorHandler.has_value());
+        DASSERT(nodeLocalState->errorHandler.has_value());
         nodeLocalState->localIndexBuilder->finishedProducing(nodeLocalState->errorHandler.value());
         nodeLocalState->errorHandler->flushStoredErrors();
     }
@@ -150,7 +151,7 @@ void NodeBatchInsert::evaluateExpressions(uint64_t numTuples) const {
 void NodeBatchInsert::copyToNodeGroup(transaction::Transaction* transaction,
     MemoryManager* mm) const {
     auto numAppendedTuples = 0ul;
-    const auto nodeLocalState = ku_dynamic_cast<NodeBatchInsertLocalState*>(localState.get());
+    const auto nodeLocalState = dynamic_cast_checked<NodeBatchInsertLocalState*>(localState.get());
     const auto numTuplesToAppend = nodeLocalState->columnState->getSelVector().getSelSize();
     while (numAppendedTuples < numTuplesToAppend) {
         const auto numAppendedTuplesInNodeGroup =
@@ -168,8 +169,9 @@ void NodeBatchInsert::copyToNodeGroup(transaction::Transaction* transaction,
 }
 
 NodeBatchInsertErrorHandler NodeBatchInsert::createErrorHandler(ExecutionContext* context) const {
-    const auto nodeSharedState = ku_dynamic_cast<NodeBatchInsertSharedState*>(sharedState.get());
-    auto* nodeTable = ku_dynamic_cast<NodeTable*>(sharedState->table);
+    const auto nodeSharedState =
+        dynamic_cast_checked<NodeBatchInsertSharedState*>(sharedState.get());
+    auto* nodeTable = dynamic_cast_checked<NodeTable*>(sharedState->table);
     return NodeBatchInsertErrorHandler{context, nodeSharedState->pkType.getLogicalTypeID(),
         nodeTable, WarningContext::Get(*context->clientContext)->getIgnoreErrorsOption(),
         sharedState->numErroredRows, &sharedState->erroredRowMutex};
@@ -191,7 +193,7 @@ void NodeBatchInsert::writeAndResetNodeGroup(transaction::Transaction* transacti
     std::unique_ptr<InMemChunkedNodeGroup>& nodeGroup, std::optional<IndexBuilder>& indexBuilder,
     MemoryManager* mm, PageAllocator& pageAllocator) const {
     const auto nodeLocalState = localState->ptrCast<NodeBatchInsertLocalState>();
-    KU_ASSERT(nodeLocalState->errorHandler.has_value());
+    DASSERT(nodeLocalState->errorHandler.has_value());
     writeAndResetNodeGroup(transaction, nodeGroup, indexBuilder, mm,
         nodeLocalState->errorHandler.value(), pageAllocator);
 }
@@ -200,8 +202,9 @@ void NodeBatchInsert::writeAndResetNodeGroup(transaction::Transaction* transacti
     std::unique_ptr<InMemChunkedNodeGroup>& nodeGroup, std::optional<IndexBuilder>& indexBuilder,
     MemoryManager* mm, NodeBatchInsertErrorHandler& errorHandler,
     PageAllocator& pageAllocator) const {
-    const auto nodeSharedState = ku_dynamic_cast<NodeBatchInsertSharedState*>(sharedState.get());
-    const auto nodeTable = ku_dynamic_cast<NodeTable*>(sharedState->table);
+    const auto nodeSharedState =
+        dynamic_cast_checked<NodeBatchInsertSharedState*>(sharedState.get());
+    const auto nodeTable = dynamic_cast_checked<NodeTable*>(sharedState->table);
 
     uint64_t nodeOffset{};
     uint64_t numRowsWritten{};
@@ -237,8 +240,9 @@ void NodeBatchInsert::appendIncompleteNodeGroup(transaction::Transaction* transa
     std::unique_ptr<InMemChunkedNodeGroup> localNodeGroup,
     std::optional<IndexBuilder>& indexBuilder, MemoryManager* mm) const {
     std::unique_lock xLck{sharedState->mtx};
-    const auto nodeLocalState = ku_dynamic_cast<NodeBatchInsertLocalState*>(localState.get());
-    const auto nodeSharedState = ku_dynamic_cast<NodeBatchInsertSharedState*>(sharedState.get());
+    const auto nodeLocalState = dynamic_cast_checked<NodeBatchInsertLocalState*>(localState.get());
+    const auto nodeSharedState =
+        dynamic_cast_checked<NodeBatchInsertSharedState*>(sharedState.get());
     if (!nodeSharedState->sharedNodeGroup) {
         nodeSharedState->sharedNodeGroup = std::move(localNodeGroup);
         return;
@@ -253,12 +257,13 @@ void NodeBatchInsert::appendIncompleteNodeGroup(transaction::Transaction* transa
             numNodesAppended /* offsetInNodeGroup */,
             localNodeGroup->getNumRows() - numNodesAppended);
     }
-    KU_ASSERT(numNodesAppended == localNodeGroup->getNumRows());
+    DASSERT(numNodesAppended == localNodeGroup->getNumRows());
 }
 
 void NodeBatchInsert::finalize(ExecutionContext* context) {
-    KU_ASSERT(localState == nullptr);
-    const auto nodeSharedState = ku_dynamic_cast<NodeBatchInsertSharedState*>(sharedState.get());
+    DASSERT(localState == nullptr);
+    const auto nodeSharedState =
+        dynamic_cast_checked<NodeBatchInsertSharedState*>(sharedState.get());
     auto errorHandler = createErrorHandler(context);
     auto clientContext = context->clientContext;
     auto transaction = Transaction::Get(*clientContext);
@@ -292,7 +297,7 @@ void NodeBatchInsert::finalize(ExecutionContext* context) {
 }
 
 void NodeBatchInsert::finalizeInternal(ExecutionContext* context) {
-    auto outputMsg = stringFormat("{} tuples have been copied to the {} table.",
+    auto outputMsg = std::format("{} tuples have been copied to the {} table.",
         sharedState->getNumRows() - sharedState->getNumErroredRows(), info->tableName);
     auto clientContext = context->clientContext;
     FactorizedTableUtils::appendStringToTable(sharedState->fTable.get(), outputMsg,
@@ -302,8 +307,8 @@ void NodeBatchInsert::finalizeInternal(ExecutionContext* context) {
         WarningContext::Get(*clientContext)->getWarningCount(context->queryID);
     if (warningCount > 0) {
         auto warningMsg =
-            stringFormat("{} warnings encountered during copy. Use 'CALL "
-                         "show_warnings() RETURN *' to view the actual warnings. Query ID: {}",
+            std::format("{} warnings encountered during copy. Use 'CALL "
+                        "show_warnings() RETURN *' to view the actual warnings. Query ID: {}",
                 warningCount, context->queryID);
         FactorizedTableUtils::appendStringToTable(sharedState->fTable.get(), warningMsg,
             MemoryManager::Get(*clientContext));

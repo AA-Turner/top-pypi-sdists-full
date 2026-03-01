@@ -4,7 +4,6 @@
 #include "common/cast.h"
 #include "common/exception/copy.h"
 #include "common/exception/message.h"
-#include "common/string_format.h"
 #include "common/task_system/progress_bar.h"
 #include "processor/execution_context.h"
 #include "processor/result/factorized_table_util.h"
@@ -16,6 +15,7 @@
 #include "storage/table/column_chunk_data.h"
 #include "storage/table/csr_chunked_node_group.h"
 #include "storage/table/rel_table.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -165,12 +165,12 @@ void RelBatchInsert::appendNodeGroup(const RelGroupCatalogEntry& relGroupEntry, 
     populateCSRHeader(relGroupEntry, *executionState, startNodeOffset, relInfo, localState,
         numNodes, leaveGaps);
     const auto& csrHeader =
-        ku_dynamic_cast<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup).getCSRHeader();
+        dynamic_cast_checked<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup).getCSRHeader();
     impl->writeToTable(*executionState, csrHeader, localState, *sharedState, relInfo);
     // Reset num of rows in the chunked group to fill gaps at the end of the node group.
     const auto maxSize = csrHeader.getEndCSROffset(numNodes - 1);
     auto numGapsAtEnd = maxSize - localState.chunkedGroup->getNumRows();
-    KU_ASSERT(localState.chunkedGroup->getCapacity() >= maxSize);
+    DASSERT(localState.chunkedGroup->getCapacity() >= maxSize);
     while (numGapsAtEnd > 0) {
         const auto numGapsToFill = std::min(numGapsAtEnd, DEFAULT_VECTOR_CAPACITY);
         localState.dummyAllNullDataChunk->state->getSelVectorUnsafe().setSelSize(numGapsToFill);
@@ -179,19 +179,19 @@ void RelBatchInsert::appendNodeGroup(const RelGroupCatalogEntry& relGroupEntry, 
             dummyVectors.push_back(&localState.dummyAllNullDataChunk->getValueVectorMutable(i));
         }
         const auto numGapsFilled = localState.chunkedGroup->append(dummyVectors, 0, numGapsToFill);
-        KU_ASSERT(numGapsFilled == numGapsToFill);
+        DASSERT(numGapsFilled == numGapsToFill);
         numGapsAtEnd -= numGapsFilled;
     }
-    KU_ASSERT(localState.chunkedGroup->getNumRows() == maxSize);
+    DASSERT(localState.chunkedGroup->getNumRows() == maxSize);
 
     auto* relTable = sharedState->table->ptrCast<RelTable>();
 
     InMemChunkedCSRNodeGroup sliceToWriteToDisk{
-        ku_dynamic_cast<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup),
+        dynamic_cast_checked<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup),
         relInfo.outputDataColumns};
     appendNewChunkedGroup(mm, transaction, relInfo.insertColumnIDs, sliceToWriteToDisk, *relTable,
         nodeGroup, relInfo.direction, *localState.optimisticAllocator);
-    ku_dynamic_cast<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup)
+    dynamic_cast_checked<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup)
         .mergeChunkedCSRGroup(sliceToWriteToDisk, relInfo.outputDataColumns);
 
     localState.chunkedGroup->resetToEmpty();
@@ -206,7 +206,7 @@ void RelBatchInsert::populateCSRHeader(const RelGroupCatalogEntry& relGroupEntry
     RelBatchInsertExecutionState& executionState, offset_t startNodeOffset,
     const RelBatchInsertInfo& relInfo, const RelBatchInsertLocalState& localState,
     offset_t numNodes, bool leaveGaps) {
-    auto& csrNodeGroup = ku_dynamic_cast<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup);
+    auto& csrNodeGroup = dynamic_cast_checked<InMemChunkedCSRNodeGroup&>(*localState.chunkedGroup);
     auto& csrHeader = csrNodeGroup.getCSRHeader();
     csrHeader.setNumValues(numNodes);
     // Populate lengths for each node and check multiplicity constraint.
@@ -218,7 +218,7 @@ void RelBatchInsert::populateCSRHeader(const RelGroupCatalogEntry& relGroupEntry
     // Resize csr data column chunks.
     localState.chunkedGroup->resizeChunks(csrHeader.getEndCSROffset(numNodes - 1));
     localState.chunkedGroup->resetToAllNull();
-    KU_ASSERT(csrHeader.sanityCheck());
+    DASSERT(csrHeader.sanityCheck());
 }
 
 void RelBatchInsert::checkRelMultiplicityConstraint(const RelGroupCatalogEntry& relGroupEntry,
@@ -239,9 +239,9 @@ void RelBatchInsert::checkRelMultiplicityConstraint(const RelGroupCatalogEntry& 
 void RelBatchInsert::finalizeInternal(ExecutionContext* context) {
     const auto relInfo = info->ptrCast<RelBatchInsertInfo>();
     if (relInfo->direction == RelDataDirection::FWD) {
-        KU_ASSERT(relInfo->partitioningIdx == 0);
+        DASSERT(relInfo->partitioningIdx == 0);
 
-        auto outputMsg = stringFormat("{} tuples have been copied to the {} table.",
+        auto outputMsg = std::format("{} tuples have been copied to the {} table.",
             sharedState->getNumRows(), relInfo->tableName);
         auto clientContext = context->clientContext;
         FactorizedTableUtils::appendStringToTable(sharedState->fTable.get(), outputMsg,
@@ -251,8 +251,8 @@ void RelBatchInsert::finalizeInternal(ExecutionContext* context) {
         const auto warningCount = warningContext->getWarningCount(context->queryID);
         if (warningCount > 0) {
             auto warningMsg =
-                stringFormat("{} warnings encountered during copy. Use 'CALL "
-                             "show_warnings() RETURN *' to view the actual warnings. Query ID: {}",
+                std::format("{} warnings encountered during copy. Use 'CALL "
+                            "show_warnings() RETURN *' to view the actual warnings. Query ID: {}",
                     warningCount, context->queryID);
             FactorizedTableUtils::appendStringToTable(sharedState->fTable.get(), warningMsg,
                 MemoryManager::Get(*context->clientContext));

@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +24,15 @@
 import os
 from typing import Tuple
 
+from typing_extensions import override
+
 from bip_utils.electrum.mnemonic_v1.electrum_v1_mnemonic import ElectrumV1Languages, ElectrumV1MnemonicConst
 from bip_utils.utils.mnemonic import (
-    Mnemonic, MnemonicLanguages, MnemonicWordsList, MnemonicWordsListFinderBase, MnemonicWordsListGetterBase
+    Mnemonic,
+    MnemonicLanguages,
+    MnemonicWordsList,
+    MnemonicWordsListFinderBase,
+    MnemonicWordsListGetterBase,
 )
 
 
@@ -36,6 +42,7 @@ class ElectrumV1WordsListGetter(MnemonicWordsListGetterBase):
     It allows to get words list by language so that they are loaded from file only once per language.
     """
 
+    @override
     def GetByLanguage(self,
                       lang: MnemonicLanguages) -> MnemonicWordsList:
         """
@@ -49,11 +56,11 @@ class ElectrumV1WordsListGetter(MnemonicWordsListGetterBase):
             MnemonicWordsList object: MnemonicWordsList object
 
         Raises:
-            TypeError: If the language is not a Bip39Languages enum
+            TypeError: If the language is not a ElectrumV1Languages enum
             ValueError: If loaded words list is not valid
         """
         if not isinstance(lang, ElectrumV1Languages):
-            raise TypeError("Language is not an enumerative of Bip39Languages")
+            raise TypeError("Language is not an enumerative of ElectrumV1Languages")
 
         return self._LoadWordsList(lang,
                                    self.__GetLanguageFile(lang),
@@ -65,7 +72,7 @@ class ElectrumV1WordsListGetter(MnemonicWordsListGetterBase):
         Get the specified language file name.
 
         Args:
-            lang (Bip39Languages): Language
+            lang (ElectrumV1Languages): Language
 
         Returns:
             str: Language file name
@@ -80,6 +87,7 @@ class ElectrumV1WordsListFinder(MnemonicWordsListFinderBase):
     It automatically finds the correct words list from a mnemonic.
     """
 
+    @override
     @classmethod
     def FindLanguage(cls,
                      mnemonic: Mnemonic) -> Tuple[MnemonicWordsList, MnemonicLanguages]:

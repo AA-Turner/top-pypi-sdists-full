@@ -82,6 +82,13 @@ class NODE_MT_shader_node_displacement_base(bl_ui.node_add_menu.NodeMenu):
         :param _context:
         """
 
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class NODE_MT_shader_node_input_base(bl_ui.node_add_menu.NodeMenu):
     """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
 
@@ -183,6 +190,13 @@ class NODE_MT_shader_node_shader_base(bl_ui.node_add_menu.NodeMenu):
         :param context:
         """
 
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class NODE_MT_shader_node_texture_base(bl_ui.node_add_menu.NodeMenu):
     """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
 
@@ -263,6 +277,8 @@ def cycles_shader_nodes_poll(context) -> None: ...
 def eevee_shader_nodes_poll(context) -> None: ...
 def line_style_shader_nodes_poll(context) -> None: ...
 def object_eevee_shader_nodes_poll(context) -> None: ...
+def object_light_shader_nodes_poll(context) -> None: ...
+def object_material_shader_nodes_poll(context) -> None: ...
 def object_not_eevee_shader_nodes_poll(context) -> None: ...
 def object_shader_nodes_poll(context) -> None: ...
 def world_shader_nodes_poll(context) -> None: ...

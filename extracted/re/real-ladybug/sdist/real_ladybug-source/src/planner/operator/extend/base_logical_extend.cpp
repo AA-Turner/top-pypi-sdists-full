@@ -45,7 +45,7 @@ std::string BaseLogicalExtend::getExpressionsForPrinting() const {
         result += "->";
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     result += nbrNode->toString();
     return result;

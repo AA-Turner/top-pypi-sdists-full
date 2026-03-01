@@ -421,24 +421,35 @@ fn run() -> Result<()> {
             }
             // Keep tempdir alive for the duration of the build
             let _sdist_tmp;
+            let sdist_pyproject_path;
             if sdist {
                 // Build sdist first, then build wheels from the unpacked sdist
                 // to verify that the source distribution is complete.
                 let sdist_path = build_sdist(&build, strip)?;
-                let (tmp, cargo_toml) = unpack_sdist(&sdist_path)?;
+                // Preserve the original output directory so that wheels built
+                // from the unpacked sdist still land in the user-visible
+                // `target/wheels` (or the explicit `--out` directory) instead
+                // of the temporary directory's target.
+                if build.out.is_none() {
+                    build.out = sdist_path.parent().map(PathBuf::from);
+                }
+                let (tmp, cargo_toml, pyproject_toml) = unpack_sdist(&sdist_path)?;
                 _sdist_tmp = Some(tmp);
                 eprintln!(
                     "📦 Building wheels from source distribution at {}",
                     cargo_toml.parent().unwrap().display()
                 );
                 build.cargo.manifest_path = Some(cargo_toml);
+                sdist_pyproject_path = Some(pyproject_toml);
             } else {
                 _sdist_tmp = None;
+                sdist_pyproject_path = None;
             }
             let build_context = build
                 .into_build_context()
                 .strip(strip)
                 .editable(false)
+                .pyproject_toml_path(sdist_pyproject_path)
                 .build()?;
             let wheels = build_context.build_wheels()?;
             assert!(!wheels.is_empty());
@@ -461,25 +472,36 @@ fn run() -> Result<()> {
             // Keep tempdir alive for the duration of the build
             let _sdist_tmp;
             let mut sdist_path = None;
+            let sdist_pyproject_path;
             if !no_sdist {
                 // Build sdist first, then build wheels from the unpacked sdist
                 let path = build_sdist(&build, Some(!no_strip))?;
-                let (tmp, cargo_toml) = unpack_sdist(&path)?;
+                // Preserve the original output directory so that wheels built
+                // from the unpacked sdist still land in the user-visible
+                // `target/wheels` (or the explicit `--out` directory) instead
+                // of the temporary directory's target.
+                if build.out.is_none() {
+                    build.out = path.parent().map(PathBuf::from);
+                }
+                let (tmp, cargo_toml, pyproject_toml) = unpack_sdist(&path)?;
                 _sdist_tmp = Some(tmp);
                 eprintln!(
                     "📦 Building wheels from source distribution at {}",
                     cargo_toml.parent().unwrap().display()
                 );
                 build.cargo.manifest_path = Some(cargo_toml);
+                sdist_pyproject_path = Some(pyproject_toml);
                 sdist_path = Some(path);
             } else {
                 _sdist_tmp = None;
+                sdist_pyproject_path = None;
             }
 
             let mut build_context = build
                 .into_build_context()
                 .strip(Some(!no_strip))
                 .editable(false)
+                .pyproject_toml_path(sdist_pyproject_path)
                 .build()?;
 
             // ensure profile always set when publishing

@@ -25,7 +25,8 @@ namespace storage {
 
 ParquetNodeTable::ParquetNodeTable(const StorageManager* storageManager,
     const NodeTableCatalogEntry* nodeTableEntry, MemoryManager* memoryManager)
-    : ColumnarNodeTableBase{storageManager, nodeTableEntry, memoryManager} {
+    : ColumnarNodeTableBase{storageManager, nodeTableEntry, memoryManager,
+          std::make_unique<ParquetNodeTableScanSharedState>()} {
     std::string prefix = nodeTableEntry->getStorage();
     if (prefix.empty()) {
         throw RuntimeException("Parquet file prefix is empty for parquet-backed node table");
@@ -33,6 +34,13 @@ ParquetNodeTable::ParquetNodeTable(const StorageManager* storageManager,
 
     // Use base class helper to construct storage path
     parquetFilePath = constructStoragePath(prefix, ".parquet");
+}
+
+void ParquetNodeTable::initializeScanCoordination(const transaction::Transaction* transaction) {
+    auto parquetScanSharedState =
+        static_cast<ParquetNodeTableScanSharedState*>(tableScanSharedState.get());
+    auto numBatches = getNumBatches(transaction);
+    parquetScanSharedState->reset(numBatches);
 }
 
 void ParquetNodeTable::initScanState(Transaction* transaction, TableScanState& scanState,
@@ -63,8 +71,9 @@ void ParquetNodeTable::initScanState(Transaction* transaction, TableScanState& s
 
         std::vector<bool> columnSkips;
         try {
+            auto resolvedPath = VirtualFileSystem::resolvePath(context, parquetFilePath);
             parquetNodeScanState.parquetReader =
-                std::make_unique<ParquetReader>(parquetFilePath, columnSkips, context);
+                std::make_unique<ParquetReader>(resolvedPath, columnSkips, context);
             parquetNodeScanState.initialized = true;
         } catch (const std::exception& e) {
             throw RuntimeException("Failed to initialize parquet reader for file '" +
@@ -87,7 +96,8 @@ common::node_group_idx_t ParquetNodeTable::getNumBatches(const Transaction* tran
 
     std::vector<bool> columnSkips;
     try {
-        auto tempReader = std::make_unique<ParquetReader>(parquetFilePath, columnSkips, context);
+        auto resolvedPath = VirtualFileSystem::resolvePath(context, parquetFilePath);
+        auto tempReader = std::make_unique<ParquetReader>(resolvedPath, columnSkips, context);
         return tempReader->getNumRowsGroups();
     } catch (const std::exception& e) {
         return 1; // Fallback
@@ -121,7 +131,8 @@ void ParquetNodeTable::initParquetScanForRowGroup(Transaction* transaction,
     // Use shared state to get the next available row group for this scan state
     if (scanState.nodeGroupIdx == INVALID_NODE_GROUP_IDX) {
         common::node_group_idx_t assignedRowGroup;
-        if (sharedState->getNextBatch(assignedRowGroup)) {
+        if (dynamic_cast<ParquetNodeTableScanSharedState*>(tableScanSharedState.get())
+                ->getNextBatch(assignedRowGroup)) {
             scanState.nodeGroupIdx = assignedRowGroup;
             groupsToRead.push_back(assignedRowGroup);
         } else {
@@ -311,7 +322,8 @@ row_idx_t ParquetNodeTable::getTotalRowCount(const Transaction* transaction) con
     std::vector<bool> columnSkips;
 
     try {
-        auto tempReader = std::make_unique<ParquetReader>(parquetFilePath, columnSkips, context);
+        auto resolvedPath = VirtualFileSystem::resolvePath(context, parquetFilePath);
+        auto tempReader = std::make_unique<ParquetReader>(resolvedPath, columnSkips, context);
         if (!tempReader) {
             return 0;
         }

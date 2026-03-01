@@ -5,6 +5,7 @@
 #include "common/exception/binder.h"
 #include "common/exception/not_implemented.h"
 #include "planner/planner.h"
+#include <format>
 
 using namespace lbug::binder;
 using namespace lbug::common;
@@ -14,16 +15,15 @@ namespace planner {
 
 JoinTree JoinTreeConstructor::construct(std::shared_ptr<BoundJoinHintNode> root) {
     if (planningInfo.subqueryType == SubqueryPlanningType::CORRELATED) {
-        throw NotImplementedException(
-            stringFormat("Hint join pattern has correlation with previous "
-                         "patterns. This is not supported yet."));
+        throw NotImplementedException(std::format("Hint join pattern has correlation with previous "
+                                                  "patterns. This is not supported yet."));
     }
     return JoinTree(constructTreeNode(root).treeNode);
 }
 
 static std::vector<std::shared_ptr<NodeExpression>> getJoinNodes(const SubqueryGraph& subgraph,
     const SubqueryGraph& otherSubgraph) {
-    KU_ASSERT(&subgraph.queryGraph == &otherSubgraph.queryGraph);
+    DASSERT(&subgraph.queryGraph == &otherSubgraph.queryGraph);
     std::vector<std::shared_ptr<NodeExpression>> joinNodes;
     for (auto idx : subgraph.getNbrNodeIndices()) {
         if (otherSubgraph.queryNodesSelector[idx]) {
@@ -64,8 +64,8 @@ JoinTreeConstructor::IntermediateResult JoinTreeConstructor::constructTreeNode(
         if (ExpressionUtil::isNodePattern(*hintNode->nodeOrRel)) {
             return constructNodeScan(hintNode->nodeOrRel);
         } else {
-            KU_ASSERT(ExpressionUtil::isRelPattern(*hintNode->nodeOrRel) ||
-                      ExpressionUtil::isRecursiveRelPattern(*hintNode->nodeOrRel));
+            DASSERT(ExpressionUtil::isRelPattern(*hintNode->nodeOrRel) ||
+                    ExpressionUtil::isRecursiveRelPattern(*hintNode->nodeOrRel));
             return constructRelScan(hintNode->nodeOrRel);
         }
     }
@@ -78,7 +78,7 @@ JoinTreeConstructor::IntermediateResult JoinTreeConstructor::constructTreeNode(
             joinNodes = getJoinNodes(right.subqueryGraph, left.subqueryGraph);
         }
         if (joinNodes.empty()) {
-            throw BinderException(stringFormat("Cannot resolve join condition between {} and {}.",
+            throw BinderException(std::format("Cannot resolve join condition between {} and {}.",
                 left.treeNode->toString(), right.treeNode->toString()));
         }
         auto newSubgraph = left.subqueryGraph;
@@ -101,7 +101,7 @@ JoinTreeConstructor::IntermediateResult JoinTreeConstructor::constructTreeNode(
         return {treeNode, newSubgraph};
     }
     // Construct multi-way join
-    KU_ASSERT(hintNode->isMultiWay());
+    DASSERT(hintNode->isMultiWay());
     auto probe = constructTreeNode(hintNode->children[0]);
     auto newSubgraph = probe.subqueryGraph;
     std::vector<std::shared_ptr<JoinTreeNode>> childrenNodes;
@@ -110,7 +110,7 @@ JoinTreeConstructor::IntermediateResult JoinTreeConstructor::constructTreeNode(
     for (auto i = 1u; i < hintNode->children.size(); ++i) {
         auto build = constructTreeNode(hintNode->children[i]);
         if (build.treeNode->type != TreeNodeType::REL_SCAN) {
-            throw BinderException(stringFormat(
+            throw BinderException(std::format(
                 "Cannot construct multi-way join because build side is not a relationship table."));
         }
         newSubgraph.addSubqueryGraph(build.subqueryGraph);

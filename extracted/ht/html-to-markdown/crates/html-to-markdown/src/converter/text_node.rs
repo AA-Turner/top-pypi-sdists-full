@@ -82,6 +82,12 @@ pub fn process_text_node(
             if !output.ends_with("\n\n") {
                 if let Some(next_tag) = get_next_sibling_tag(node_handle, parser, dom_ctx) {
                     if is_inline_element(next_tag) {
+                        // Newlines between inline elements collapse to a single space
+                        // in HTML rendering (per CSS white-space: normal). Preserve
+                        // this word boundary so adjacent inline content doesn't merge.
+                        if !output.ends_with(' ') && !output.ends_with('\n') {
+                            output.push(' ');
+                        }
                         return;
                     }
                 }
@@ -178,7 +184,12 @@ pub fn process_text_node(
         if !suffix.is_empty() {
             final_text.push_str(suffix);
         } else if has_trailing_single_newline {
-            let at_paragraph_break = output.ends_with("\n\n");
+            // Check if the "\n\n" at the end of the output buffer came from within
+            // the current block's content, not from a previous block's closing.
+            // Without this distinction, the second paragraph after a "\n\n" boundary
+            // would incorrectly suppress the trailing space before inline elements.
+            let current_block_output = &output[ctx.block_content_start..];
+            let at_paragraph_break = current_block_output.ends_with("\n\n");
             if !at_paragraph_break {
                 if has_double_newline {
                     final_text.push('\n');

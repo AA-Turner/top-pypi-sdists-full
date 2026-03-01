@@ -1,8 +1,6 @@
 #pragma once
-
 #include "common/constants.h"
 #include "common/exception/conversion.h"
-#include "common/string_format.h"
 #include "common/string_utils.h"
 #include "common/types/int128_t.h"
 #include "common/types/timestamp_t.h"
@@ -10,6 +8,7 @@
 #include "common/types/uint128_t.h"
 #include "fast_float.h"
 #include "function/cast/functions/numeric_limits.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -103,12 +102,12 @@ struct IntegerCastOperation<T> {
     static bool handleDigit(CastData& state, uint8_t digit) {
         using result_t = typename CastData::Result;
         if constexpr (NEGATIVE) {
-            if (state.result < ((std::numeric_limits<result_t>::min() + digit) / 10)) {
+            if (state.result < (((std::numeric_limits<result_t>::min)() + digit) / 10)) {
                 return false;
             }
             state.result = state.result * 10 - digit;
         } else {
-            if (state.result > ((std::numeric_limits<result_t>::max() - digit) / 10)) {
+            if (state.result > (((std::numeric_limits<result_t>::max)() - digit) / 10)) {
                 return false;
             }
             state.result = state.result * 10 + digit;
@@ -139,7 +138,7 @@ struct IntegerCastOperation<int128_t> {
             result.intermediate *= 10;
             result.intermediate -= digit;
         } else {
-            if (result.intermediate > (std::numeric_limits<int64_t>::max() - digit) / 10) {
+            if (result.intermediate > ((std::numeric_limits<int64_t>::max)() - digit) / 10) {
                 if (!result.flush()) {
                     return false;
                 }
@@ -169,7 +168,7 @@ struct IntegerCastOperation<uint128_t> {
             result.intermediate *= 10;
             result.intermediate -= digit;
         } else {
-            if (result.intermediate > (std::numeric_limits<uint64_t>::max() - digit) / 10) {
+            if (result.intermediate > ((std::numeric_limits<uint64_t>::max)() - digit) / 10) {
                 if (!result.flush()) {
                     return false;
                 }
@@ -255,7 +254,7 @@ inline bool trySimpleIntegerCast(const char* input, uint64_t len, T& result) {
 template<class T, bool IS_SIGNED = true>
 inline void simpleIntegerCast(const char* input, uint64_t len, T& result, LogicalTypeID typeID) {
     if (!trySimpleIntegerCast<T, IS_SIGNED>(input, len, result)) {
-        throw ConversionException(stringFormat("Cast failed. Could not convert \"{}\" to {}.",
+        throw ConversionException(std::format("Cast failed. Could not convert \"{}\" to {}.",
             std::string{input, (size_t)len}, LogicalTypeUtils::toString(typeID)));
     }
 }
@@ -284,7 +283,7 @@ template<class T>
 inline void doubleCast(const char* input, uint64_t len, T& result,
     LogicalTypeID typeID = LogicalTypeID::ANY) {
     if (!tryDoubleCast<T>(input, len, result)) {
-        throw ConversionException(stringFormat("Cast failed. {} is not in {} range.",
+        throw ConversionException(std::format("Cast failed. {} is not in {} range.",
             std::string{input, (size_t)len}, LogicalTypeUtils::toString(typeID)));
     }
 }
@@ -391,7 +390,7 @@ template<typename T>
 void decimalCast(const char* input, uint64_t len, T& result, const LogicalType& type) {
     if (!tryDecimalCast(input, len, result, DecimalType::getPrecision(type),
             DecimalType::getScale(type))) {
-        throw ConversionException(stringFormat("Cast failed. {} is not in {} range.",
+        throw ConversionException(std::format("Cast failed. {} is not in {} range.",
             std::string{input, (size_t)len}, type.toString()));
     }
 }

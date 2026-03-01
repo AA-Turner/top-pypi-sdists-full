@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: uv-secure
-Version: 0.16.0
+Version: 0.17.0
 Summary: Scan your uv.lock file for dependencies with known vulnerabilities
 Keywords: uv,uv.lock,vulnerabilities
 Author: Owen Lamont
@@ -32,12 +32,13 @@ Requires-Dist: pydantic[email]>=2.10.3
 Requires-Dist: rich>=13.9.4
 Requires-Dist: stamina>=25.1.0
 Requires-Dist: tomli ; python_full_version < '3.11'
+Requires-Dist: tomlkit>=0.14.0
 Requires-Dist: typer>=0.15.1
 Requires-Dist: winloop>=0.1.8 ; sys_platform == 'win32' and extra == 'faster-async'
 Requires-Dist: uvloop>=0.21.0 ; sys_platform != 'win32' and extra == 'faster-async'
 Requires-Python: >=3.10
-Project-URL: Releases, https://github.com/owenlamont/uv-secure/releases
 Project-URL: Repository, https://github.com/owenlamont/uv-secure
+Project-URL: Releases, https://github.com/owenlamont/uv-secure/releases
 Provides-Extra: faster-async
 Description-Content-Type: text/markdown
 
@@ -231,6 +232,11 @@ After installation, you can run uv-secure --help to see the options.
 │                                                                  (no matching target │
 │                                                                  or no suppressed    │
 │                                                                  findings).          │
+│ --fix                  --no-fix                                  Apply safe          │
+│                                                                  automatic fixes for │
+│                                                                  unused ignore       │
+│                                                                  entries in TOML     │
+│                                                                  config files.       │
 │ --ignore-pkgs                                PKG:SPEC1|SPEC2|…   Suppress            │
 │                                                                  vulnerabilities and │
 │                                                                  maintenance issues  │
@@ -300,6 +306,7 @@ uv-secure can read configuration from a toml file specified with the config opti
 
 ```toml
 format = "columns"
+fix = false # Set true to auto-fix safe issues like unused ignores
 check_uv_tool = true # Disable with false to skip checking global uv CLI
 check_uv_secure = true # Disable with false to skip checking installed uv-secure
 
@@ -332,6 +339,7 @@ forbid_yanked = true # Defaults to false (allow yanked) if not set
 ```toml
 [tool.uv-secure]
 format = "columns"
+fix = false # Set true to auto-fix safe issues like unused ignores
 
 [tool.uv-secure.ignore_packages]
 requests = [] # Ignore issues with all versions of the requests package
@@ -409,7 +417,7 @@ precedence configuration is used. If you set a specific configuration file that 
 take precedence and hierarchical configuration file discovery is disabled. If you do
 specify configuration options directly on CLI (for example `--ignore-vulns`,
 `--severity`, `--show-severity`, `--ignore-unfixed`, or
-`--allow-unused-ignores`) those values override the equivalent settings from
+`--allow-unused-ignores`, or `--fix`) those values override the equivalent settings from
 discovered or manually specified configuration files.
 
 ### Vulnerability Severity Data
@@ -429,7 +437,7 @@ uv-secure can be run as a pre-commit hook by adding this configuration to your
 
 ```yaml
   - repo: https://github.com/owenlamont/uv-secure
-    rev: 0.16.0
+    rev: 0.17.0
     hooks:
       - id: uv-secure
 ```

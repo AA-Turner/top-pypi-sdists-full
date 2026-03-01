@@ -1,18 +1,17 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 from multiprocessing import cpu_count
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, cast
 
 from pyathena.common import BaseCursor, CursorIterator
 from pyathena.error import NotSupportedError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.result_set import AthenaDictResultSet, AthenaResultSet
 
-_logger = logging.getLogger(__name__)  # type: ignore
+_logger = logging.getLogger(__name__)
 
 
 class AsyncCursor(BaseCursor):
@@ -53,13 +52,13 @@ class AsyncCursor(BaseCursor):
 
     def __init__(
         self,
-        s3_staging_dir: Optional[str] = None,
-        schema_name: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        work_group: Optional[str] = None,
+        s3_staging_dir: str | None = None,
+        schema_name: str | None = None,
+        catalog_name: str | None = None,
+        work_group: str | None = None,
         poll_interval: float = 1,
-        encryption_option: Optional[str] = None,
-        kms_key: Optional[str] = None,
+        encryption_option: str | None = None,
+        kms_key: str | None = None,
         kill_on_interrupt: bool = True,
         max_workers: int = (cpu_count() or 1) * 5,
         arraysize: int = CursorIterator.DEFAULT_FETCH_SIZE,
@@ -103,16 +102,16 @@ class AsyncCursor(BaseCursor):
 
     def _description(
         self, query_id: str
-    ) -> Optional[List[Tuple[str, str, None, None, int, int, str]]]:
+    ) -> list[tuple[str, str, None, None, int, int, str]] | None:
         result_set = self._collect_result_set(query_id)
         return result_set.description
 
     def description(
         self, query_id: str
-    ) -> "Future[Optional[List[Tuple[str, str, None, None, int, int, str]]]]":
+    ) -> Future[list[tuple[str, str, None, None, int, int, str]] | None]:
         return self._executor.submit(self._description, query_id)
 
-    def query_execution(self, query_id: str) -> "Future[AthenaQueryExecution]":
+    def query_execution(self, query_id: str) -> Future[AthenaQueryExecution]:
         """Get query execution details asynchronously.
 
         Retrieves the current execution status and metadata for a query.
@@ -126,7 +125,7 @@ class AsyncCursor(BaseCursor):
         """
         return self._executor.submit(self._get_query_execution, query_id)
 
-    def poll(self, query_id: str) -> "Future[AthenaQueryExecution]":
+    def poll(self, query_id: str) -> Future[AthenaQueryExecution]:
         """Poll for query completion asynchronously.
 
         Waits for the query to complete (succeed, fail, or be cancelled) and
@@ -145,7 +144,11 @@ class AsyncCursor(BaseCursor):
         """
         return cast("Future[AthenaQueryExecution]", self._executor.submit(self._poll, query_id))
 
-    def _collect_result_set(self, query_id: str) -> AthenaResultSet:
+    def _collect_result_set(
+        self,
+        query_id: str,
+        result_set_type_hints: dict[str | int, str] | None = None,
+    ) -> AthenaResultSet:
         query_execution = cast(AthenaQueryExecution, self._poll(query_id))
         return self._result_set_class(
             connection=self._connection,
@@ -153,21 +156,23 @@ class AsyncCursor(BaseCursor):
             query_execution=query_execution,
             arraysize=self._arraysize,
             retry_config=self._retry_config,
+            result_set_type_hints=result_set_type_hints,
         )
 
     def execute(
         self,
         operation: str,
-        parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
-        work_group: Optional[str] = None,
-        s3_staging_dir: Optional[str] = None,
-        cache_size: Optional[int] = 0,
-        cache_expiration_time: Optional[int] = 0,
-        result_reuse_enable: Optional[bool] = None,
-        result_reuse_minutes: Optional[int] = None,
-        paramstyle: Optional[str] = None,
+        parameters: dict[str, Any] | list[str] | None = None,
+        work_group: str | None = None,
+        s3_staging_dir: str | None = None,
+        cache_size: int | None = 0,
+        cache_expiration_time: int | None = 0,
+        result_reuse_enable: bool | None = None,
+        result_reuse_minutes: int | None = None,
+        paramstyle: str | None = None,
+        result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
-    ) -> Tuple[str, "Future[Union[AthenaResultSet, Any]]"]:
+    ) -> tuple[str, Future[AthenaResultSet | Any]]:
         """Execute a SQL query asynchronously.
 
         Starts query execution on Amazon Athena and returns immediately without
@@ -184,6 +189,9 @@ class AsyncCursor(BaseCursor):
             result_reuse_enable: Enable result reuse for identical queries (optional).
             result_reuse_minutes: Result reuse duration in minutes (optional).
             paramstyle: Parameter style to use (optional).
+            result_set_type_hints: Optional dictionary mapping column names to
+                Athena DDL type signatures for precise type conversion within
+                complex types.
             **kwargs: Additional execution parameters.
 
         Returns:
@@ -208,12 +216,14 @@ class AsyncCursor(BaseCursor):
             result_reuse_minutes=result_reuse_minutes,
             paramstyle=paramstyle,
         )
-        return query_id, self._executor.submit(self._collect_result_set, query_id)
+        return query_id, self._executor.submit(
+            self._collect_result_set, query_id, result_set_type_hints
+        )
 
     def executemany(
         self,
         operation: str,
-        seq_of_parameters: List[Optional[Union[Dict[str, Any], List[str]]]],
+        seq_of_parameters: list[dict[str, Any] | list[str] | None],
         **kwargs,
     ) -> None:
         """Execute multiple queries asynchronously (not supported).
@@ -235,7 +245,7 @@ class AsyncCursor(BaseCursor):
         """
         raise NotSupportedError
 
-    def cancel(self, query_id: str) -> "Future[None]":
+    def cancel(self, query_id: str) -> Future[None]:
         """Cancel a running query asynchronously.
 
         Submits a cancellation request for the specified query. The cancellation

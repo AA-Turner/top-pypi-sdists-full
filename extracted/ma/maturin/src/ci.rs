@@ -151,9 +151,14 @@ impl GenerateCI {
             pyproject_toml,
             project_layout,
             ..
-        } = ProjectResolver::resolve(self.manifest_path.clone(), cargo_options, false)?;
+        } = ProjectResolver::resolve(self.manifest_path.clone(), cargo_options, false, None)?;
         let pyproject = pyproject_toml.as_ref();
-        let bridge = find_bridge(&cargo_metadata, pyproject.and_then(|x| x.bindings()))?;
+        let extra_pyo3_features = crate::build_options::pyo3_features_from_conditional(pyproject);
+        let bridge = find_bridge(
+            &cargo_metadata,
+            pyproject.and_then(|x| x.bindings()),
+            &extra_pyo3_features,
+        )?;
         let project_name = pyproject
             .and_then(|project| project.project_name())
             .unwrap_or(&project_layout.extension_name);
@@ -439,7 +444,7 @@ jobs:\n",
             };
             conf.push_str(&format!(
                 "      - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: {artifact_name}
           path: dist
@@ -608,7 +613,7 @@ jobs:\n",
             ));
             conf.push_str(
                 "      - name: Upload sdist
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-sdist
           path: dist
@@ -644,7 +649,7 @@ jobs:\n",
         }
         conf.push_str(
             r#"    steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
 "#,
         );
         if !self.skip_attestation {
@@ -766,7 +771,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: auto
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-linux-${{ matrix.platform.target }}
                       path: dist
@@ -797,7 +802,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: musllinux_1_2
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-musllinux-${{ matrix.platform.target }}
                       path: dist
@@ -829,7 +834,7 @@ mod tests {
                       args: --release --out dist --find-interpreter
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-windows-${{ matrix.platform.target }}
                       path: dist
@@ -855,7 +860,7 @@ mod tests {
                       args: --release --out dist --find-interpreter
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-macos-${{ matrix.platform.target }}
                       path: dist
@@ -870,7 +875,7 @@ mod tests {
                       command: sdist
                       args: --out dist
                   - name: Upload sdist
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-sdist
                       path: dist
@@ -888,7 +893,7 @@ mod tests {
                   # Used to generate artifact attestation
                   attestations: write
                 steps:
-                  - uses: actions/download-artifact@v6
+                  - uses: actions/download-artifact@v7
                   - name: Generate artifact attestation
                     uses: actions/attest-build-provenance@v3
                     with:
@@ -976,7 +981,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: auto
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-linux-${{ matrix.platform.target }}
                       path: dist
@@ -1014,7 +1019,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: musllinux_1_2
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-musllinux-${{ matrix.platform.target }}
                       path: dist
@@ -1056,7 +1061,7 @@ mod tests {
                       args: --release --out dist -i python3.14t
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-windows-${{ matrix.platform.target }}
                       path: dist
@@ -1088,7 +1093,7 @@ mod tests {
                       args: --release --out dist -i python3.14t
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-macos-${{ matrix.platform.target }}
                       path: dist
@@ -1106,7 +1111,7 @@ mod tests {
                   # Used to generate artifact attestation
                   attestations: write
                 steps:
-                  - uses: actions/download-artifact@v6
+                  - uses: actions/download-artifact@v7
                   - name: Generate artifact attestation
                     uses: actions/attest-build-provenance@v3
                     with:
@@ -1197,7 +1202,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: auto
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-linux-${{ matrix.platform.target }}
                       path: dist
@@ -1235,7 +1240,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: musllinux_1_2
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-musllinux-${{ matrix.platform.target }}
                       path: dist
@@ -1277,7 +1282,7 @@ mod tests {
                       args: --release --out dist -i python3.14t
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-windows-${{ matrix.platform.target }}
                       path: dist
@@ -1309,7 +1314,7 @@ mod tests {
                       args: --release --out dist -i python3.14t
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-macos-${{ matrix.platform.target }}
                       path: dist
@@ -1325,7 +1330,7 @@ mod tests {
                   # Used to upload release artifacts
                   contents: write
                 steps:
-                  - uses: actions/download-artifact@v6
+                  - uses: actions/download-artifact@v7
                   - name: Install uv
                     if: ${{ startsWith(github.ref, 'refs/tags/') }}
                     uses: astral-sh/setup-uv@v7
@@ -1407,7 +1412,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: auto
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-linux-${{ matrix.platform.target }}
                       path: dist
@@ -1463,7 +1468,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: musllinux_1_2
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-musllinux-${{ matrix.platform.target }}
                       path: dist
@@ -1523,7 +1528,7 @@ mod tests {
                       args: --release --out dist --find-interpreter
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-windows-${{ matrix.platform.target }}
                       path: dist
@@ -1558,7 +1563,7 @@ mod tests {
                       args: --release --out dist --find-interpreter
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-macos-${{ matrix.platform.target }}
                       path: dist
@@ -1581,7 +1586,7 @@ mod tests {
                       command: sdist
                       args: --out dist
                   - name: Upload sdist
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-sdist
                       path: dist
@@ -1599,7 +1604,7 @@ mod tests {
                   # Used to generate artifact attestation
                   attestations: write
                 steps:
-                  - uses: actions/download-artifact@v6
+                  - uses: actions/download-artifact@v7
                   - name: Generate artifact attestation
                     uses: actions/attest-build-provenance@v3
                     with:
@@ -1668,7 +1673,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: auto
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-linux-${{ matrix.platform.target }}
                       path: dist
@@ -1696,7 +1701,7 @@ mod tests {
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                       manylinux: musllinux_1_2
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-musllinux-${{ matrix.platform.target }}
                       path: dist
@@ -1724,7 +1729,7 @@ mod tests {
                       args: --release --out dist
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-windows-${{ matrix.platform.target }}
                       path: dist
@@ -1747,7 +1752,7 @@ mod tests {
                       args: --release --out dist
                       sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
                   - name: Upload wheels
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-macos-${{ matrix.platform.target }}
                       path: dist
@@ -1762,7 +1767,7 @@ mod tests {
                       command: sdist
                       args: --out dist
                   - name: Upload sdist
-                    uses: actions/upload-artifact@v5
+                    uses: actions/upload-artifact@v6
                     with:
                       name: wheels-sdist
                       path: dist
@@ -1780,7 +1785,7 @@ mod tests {
                   # Used to generate artifact attestation
                   attestations: write
                 steps:
-                  - uses: actions/download-artifact@v6
+                  - uses: actions/download-artifact@v7
                   - name: Generate artifact attestation
                     uses: actions/attest-build-provenance@v3
                     with:

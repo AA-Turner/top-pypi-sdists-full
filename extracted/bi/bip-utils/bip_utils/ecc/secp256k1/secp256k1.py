@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,10 @@
 # Imports
 from bip_utils.ecc.curve.elliptic_curve import EllipticCurve
 from bip_utils.ecc.secp256k1.secp256k1_const import (
-    Secp256k1Const, Secp256k1Point, Secp256k1PrivateKey, Secp256k1PublicKey
+                                         Secp256k1Const,
+                                         Secp256k1Point,
+                                         Secp256k1PrivateKey,
+                                         Secp256k1PublicKey,
 )
 
 

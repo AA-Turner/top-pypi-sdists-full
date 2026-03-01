@@ -1,6 +1,8 @@
 #include "binder/binder.h"
 #include "binder/expression/expression_util.h"
+#include "binder/expression/literal_expression.h"
 #include "binder/expression/property_expression.h"
+#include "binder/expression/scalar_function_expression.h"
 #include "binder/query/query_graph_label_analyzer.h"
 #include "binder/query/updating_clause/bound_delete_clause.h"
 #include "binder/query/updating_clause/bound_insert_clause.h"
@@ -12,12 +14,18 @@
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "common/assert.h"
 #include "common/exception/binder.h"
-#include "common/string_format.h"
+#include "common/json.h"
+#include "common/json_utils.h"
+#include "common/types/types.h"
+#include "common/vector/value_vector.h"
+#include "main/client_context.h"
+#include "main/database_manager.h"
 #include "parser/query/updating_clause/delete_clause.h"
 #include "parser/query/updating_clause/insert_clause.h"
 #include "parser/query/updating_clause/merge_clause.h"
 #include "parser/query/updating_clause/set_clause.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::parser;
@@ -42,7 +50,7 @@ std::unique_ptr<BoundUpdatingClause> Binder::bindUpdatingClause(
         return bindDeleteClause(updatingClause);
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -162,7 +170,7 @@ static void validatePrimaryKeyExistence(const NodeTableCatalogEntry* nodeTableEn
     auto pkeyDefaultExpr = defaultExprs.at(nodeTableEntry->getPrimaryKeyID());
     if (!node.hasPropertyDataExpr(primaryKeyName) &&
         ExpressionUtil::isNullLiteral(*pkeyDefaultExpr)) {
-        throw BinderException(stringFormat("Create node {} expects primary key {} as input.",
+        throw BinderException(std::format("Create node {} expects primary key {} as input.",
             node.toString(), primaryKeyName));
     }
 }
@@ -177,27 +185,110 @@ void Binder::bindInsertNode(std::shared_ptr<NodeExpression> node,
         throw BinderException(
             "Create node " + node->toString() + " with empty node labels is not supported.");
     }
-    KU_ASSERT(node->getNumEntries() == 1);
+    DASSERT(node->getNumEntries() == 1);
     auto entry = node->getEntry(0);
-    KU_ASSERT(entry->getTableType() == TableType::NODE);
+    DASSERT(entry->getTableType() == TableType::NODE);
     auto insertInfo = BoundInsertInfo(TableType::NODE, node);
     for (auto& property : node->getPropertyExpressions()) {
         if (property->hasProperty(entry->getTableID())) {
             insertInfo.columnExprs.push_back(property);
         }
     }
-    insertInfo.columnDataExprs =
-        bindInsertColumnDataExprs(node->getPropertyDataExprRef(), entry->getProperties());
-    auto nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
-    validatePrimaryKeyExistence(nodeEntry, *node, insertInfo.columnDataExprs);
+
+    auto transaction = transaction::Transaction::Get(*clientContext);
+    auto useInternal = clientContext->useInternalCatalogEntry();
+    auto dbManager = main::DatabaseManager::Get(*clientContext);
+    auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+    bool isAnyGraph =
+        defaultGraphCatalog != nullptr &&
+        entry->getTableID() ==
+            defaultGraphCatalog->getTableCatalogEntry(transaction, "_nodes", useInternal)
+                ->getTableID();
+
+    if (isAnyGraph) {
+        // For ANY graphs, the _nodes table has columns: id (SERIAL), label (STRING), data (JSON)
+        // The id is auto-populated by the serial default
+        // We need to build columnDataExprs for: [id_default, label, data]
+
+        // Property expressions are already bound - just reference them
+        const auto& boundPropertyExprs = node->getPropertyDataExprRef();
+
+        // Build columnDataExprs for _nodes table: [id, label, data]
+        insertInfo.columnDataExprs.clear();
+
+        // id column: use default (SERIAL)
+        auto props = entry->getProperties();
+        auto idDefaultExpr = expressionBinder.bindExpression(*props[0].defaultExpr);
+        insertInfo.columnDataExprs.push_back(
+            expressionBinder.implicitCastIfNecessary(idDefaultExpr, props[0].getType()));
+
+        // label column
+        auto originalLabels = node->getOriginalLabels();
+        std::shared_ptr<Expression> boundLabelExpr;
+        if (!originalLabels.empty()) {
+            boundLabelExpr = expressionBinder.createLiteralExpression(originalLabels[0]);
+        } else {
+            boundLabelExpr = expressionBinder.createLiteralExpression(entry->getName());
+        }
+        insertInfo.columnDataExprs.push_back(boundLabelExpr);
+
+        // data column: build JSON from bound property expressions
+        json_extension::JsonMutWrapper mutWrapper;
+        yyjson_mut_val* root = yyjson_mut_obj(mutWrapper.ptr);
+
+        for (const auto& [propertyName, boundExpr] : boundPropertyExprs) {
+            const LiteralExpression* literalExpr = nullptr;
+            if (boundExpr->expressionType == common::ExpressionType::FUNCTION) {
+                auto* scalarFunc = dynamic_cast<ScalarFunctionExpression*>(boundExpr.get());
+                if (scalarFunc &&
+                    (scalarFunc->getFunction().name == "CAST" ||
+                        scalarFunc->getFunction().name == "CAST_TO_JSON") &&
+                    !scalarFunc->getChildren().empty()) {
+                    auto const& children = scalarFunc->getChildren();
+                    literalExpr = dynamic_cast<LiteralExpression*>(children[0].get());
+                } else {
+                    literalExpr = dynamic_cast<LiteralExpression*>(boundExpr.get());
+                }
+            } else {
+                literalExpr = dynamic_cast<LiteralExpression*>(boundExpr.get());
+            }
+
+            yyjson_mut_val* jsonVal = nullptr;
+            if (literalExpr && !literalExpr->isNull()) {
+                auto val = literalExpr->getValue();
+                // Create a temporary ValueVector of size 1 and reuse json_extension::jsonify
+                ValueVector tempVec(val.getDataType().copy());
+                tempVec.state = DataChunkState::getSingleValueDataChunkState();
+                tempVec.copyFromValue(0, val);
+                jsonVal = json_extension::jsonify(mutWrapper, tempVec, 0);
+            } else {
+                jsonVal = yyjson_mut_null(mutWrapper.ptr);
+            }
+            auto key = yyjson_mut_strcpy(mutWrapper.ptr, propertyName.c_str());
+            yyjson_mut_obj_add(root, key, jsonVal);
+        }
+
+        yyjson_mut_doc_set_root(mutWrapper.ptr, root);
+        auto jsonStr = json_extension::jsonToString(
+            json_extension::JsonWrapper(yyjson_mut_doc_imut_copy(mutWrapper.ptr, nullptr)));
+        auto dataExpr =
+            expressionBinder.createLiteralExpression(Value(LogicalType::JSON(), jsonStr));
+        insertInfo.columnDataExprs.push_back(dataExpr);
+    } else {
+        // For regular node tables, match input properties against table schema
+        insertInfo.columnDataExprs =
+            bindInsertColumnDataExprs(node->getPropertyDataExprRef(), entry->getProperties());
+        auto nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
+        validatePrimaryKeyExistence(nodeEntry, *node, insertInfo.columnDataExprs);
+    }
+
     // Check extension secondary index loaded
     auto catalog = Catalog::Get(*clientContext);
-    auto transaction = transaction::Transaction::Get(*clientContext);
-    for (auto indexEntry : catalog->getIndexEntries(transaction, nodeEntry->getTableID())) {
+    for (auto indexEntry : catalog->getIndexEntries(transaction, entry->getTableID())) {
         if (!indexEntry->isLoaded()) {
-            throw BinderException(stringFormat(
+            throw BinderException(std::format(
                 "Trying to insert into an index on table {} but its extension is not loaded.",
-                nodeEntry->getName()));
+                entry->getName()));
         }
     }
     infos.push_back(std::move(insertInfo));
@@ -207,19 +298,19 @@ static TableCatalogEntry* tryPruneMultiLabeled(const RelExpression& rel,
     const TableCatalogEntry& srcEntry, const TableCatalogEntry& dstEntry) {
     std::vector<TableCatalogEntry*> candidates;
     for (auto& entry : rel.getEntries()) {
-        KU_ASSERT(entry->getType() == CatalogEntryType::REL_GROUP_ENTRY);
+        DASSERT(entry->getType() == CatalogEntryType::REL_GROUP_ENTRY);
         auto& relEntry = entry->constCast<RelGroupCatalogEntry>();
         if (relEntry.hasRelEntryInfo(srcEntry.getTableID(), dstEntry.getTableID())) {
             candidates.push_back(entry);
         }
     }
     if (candidates.size() > 1) {
-        throw BinderException(stringFormat(
+        throw BinderException(std::format(
             "Create rel {} with multiple rel labels is not supported.", rel.toString()));
     }
     if (candidates.size() == 0) {
         throw BinderException(
-            stringFormat("Cannot find a valid label in {} that connects {} and {}.", rel.toString(),
+            std::format("Cannot find a valid label in {} that connects {} and {}.", rel.toString(),
                 srcEntry.getName(), dstEntry.getName()));
     }
     return candidates[0];
@@ -228,19 +319,19 @@ static TableCatalogEntry* tryPruneMultiLabeled(const RelExpression& rel,
 void Binder::bindInsertRel(std::shared_ptr<RelExpression> rel,
     std::vector<BoundInsertInfo>& infos) {
     if (rel->isBoundByMultiLabeledNode()) {
-        throw BinderException(stringFormat(
+        throw BinderException(std::format(
             "Create rel {} bound by multiple node labels is not supported.", rel->toString()));
     }
     if (rel->getDirectionType() == RelDirectionType::BOTH) {
-        throw BinderException(stringFormat("Create undirected relationship is not supported. "
-                                           "Try create 2 directed relationships instead."));
+        throw BinderException(std::format("Create undirected relationship is not supported. "
+                                          "Try create 2 directed relationships instead."));
     }
     if (ExpressionUtil::isRecursiveRelPattern(*rel)) {
-        throw BinderException(stringFormat("Cannot create recursive rel {}.", rel->toString()));
+        throw BinderException(std::format("Cannot create recursive rel {}.", rel->toString()));
     }
     TableCatalogEntry* entry = nullptr;
     if (!rel->isMultiLabeled()) {
-        KU_ASSERT(rel->getNumEntries() == 1);
+        DASSERT(rel->getNumEntries() == 1);
         entry = rel->getEntry(0);
     } else {
         auto srcEntry = rel->getSrcNode()->getEntry(0);
@@ -253,8 +344,92 @@ void Binder::bindInsertRel(std::shared_ptr<RelExpression> rel,
     for (auto& p : entry->getProperties()) {
         insertInfo.columnExprs.push_back(rel->getPropertyExpression(p.getName()));
     }
-    insertInfo.columnDataExprs =
-        bindInsertColumnDataExprs(rel->getPropertyDataExprRef(), entry->getProperties());
+
+    // Check if this is an ANY graph (_edges table)
+    auto transaction = transaction::Transaction::Get(*clientContext);
+    auto useInternal = clientContext->useInternalCatalogEntry();
+    auto dbManager = main::DatabaseManager::Get(*clientContext);
+    auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+    bool isAnyGraph =
+        defaultGraphCatalog != nullptr &&
+        entry->getTableID() ==
+            defaultGraphCatalog->getTableCatalogEntry(transaction, "_edges", useInternal)
+                ->getTableID();
+
+    if (isAnyGraph) {
+        // For ANY graphs, the _edges table has columns: _id (INTERNAL_ID), label (STRING), data
+        // (JSON) Build columnDataExprs for these three columns
+
+        // Property expressions are already bound - just reference them
+        const auto& boundPropertyExprs = rel->getPropertyDataExprRef();
+
+        // Build columnDataExprs for _edges table: [_id, label, data]
+        insertInfo.columnDataExprs.clear();
+
+        // _id column: use default
+        auto props = entry->getProperties();
+        auto idDefaultExpr = expressionBinder.bindExpression(*props[0].defaultExpr);
+        insertInfo.columnDataExprs.push_back(
+            expressionBinder.implicitCastIfNecessary(idDefaultExpr, props[0].getType()));
+
+        // label column
+        auto originalLabels = rel->getOriginalLabels();
+        std::shared_ptr<Expression> boundLabelExpr;
+        if (!originalLabels.empty()) {
+            boundLabelExpr = expressionBinder.createLiteralExpression(originalLabels[0]);
+        } else {
+            boundLabelExpr = expressionBinder.createLiteralExpression(entry->getName());
+        }
+        insertInfo.columnDataExprs.push_back(boundLabelExpr);
+
+        // data column: build JSON from bound property expressions
+        json_extension::JsonMutWrapper mutWrapper;
+        yyjson_mut_val* root = yyjson_mut_obj(mutWrapper.ptr);
+
+        for (const auto& [propertyName, boundExpr] : boundPropertyExprs) {
+            const LiteralExpression* literalExpr = nullptr;
+            if (boundExpr->expressionType == common::ExpressionType::FUNCTION) {
+                auto* scalarFunc = dynamic_cast<ScalarFunctionExpression*>(boundExpr.get());
+                if (scalarFunc &&
+                    (scalarFunc->getFunction().name == "CAST" ||
+                        scalarFunc->getFunction().name == "CAST_TO_JSON") &&
+                    !scalarFunc->getChildren().empty()) {
+                    auto const& children = scalarFunc->getChildren();
+                    literalExpr = dynamic_cast<LiteralExpression*>(children[0].get());
+                } else {
+                    literalExpr = dynamic_cast<LiteralExpression*>(boundExpr.get());
+                }
+            } else {
+                literalExpr = dynamic_cast<LiteralExpression*>(boundExpr.get());
+            }
+
+            yyjson_mut_val* jsonVal = nullptr;
+            if (literalExpr && !literalExpr->isNull()) {
+                auto val = literalExpr->getValue();
+                // Create a temporary ValueVector of size 1 and reuse json_extension::jsonify
+                ValueVector tempVec(val.getDataType().copy());
+                tempVec.state = DataChunkState::getSingleValueDataChunkState();
+                tempVec.copyFromValue(0, val);
+                jsonVal = json_extension::jsonify(mutWrapper, tempVec, 0);
+            } else {
+                jsonVal = yyjson_mut_null(mutWrapper.ptr);
+            }
+            auto key = yyjson_mut_strcpy(mutWrapper.ptr, propertyName.c_str());
+            yyjson_mut_obj_add(root, key, jsonVal);
+        }
+
+        yyjson_mut_doc_set_root(mutWrapper.ptr, root);
+        auto jsonStr = json_extension::jsonToString(
+            json_extension::JsonWrapper(yyjson_mut_doc_imut_copy(mutWrapper.ptr, nullptr)));
+        auto dataExpr =
+            expressionBinder.createLiteralExpression(Value(LogicalType::JSON(), jsonStr));
+        insertInfo.columnDataExprs.push_back(dataExpr);
+    } else {
+        // For regular rel tables, match input properties against table schema
+        insertInfo.columnDataExprs =
+            bindInsertColumnDataExprs(rel->getPropertyDataExprRef(), entry->getProperties());
+    }
+
     infos.push_back(std::move(insertInfo));
 }
 
@@ -291,7 +466,7 @@ BoundSetPropertyInfo Binder::bindSetPropertyInfo(const ParsedExpression* column,
     auto isRel = ExpressionUtil::isRelPattern(*expr);
     if (!isNode && !isRel) {
         throw BinderException(
-            stringFormat("Cannot set expression {} with type {}. Expect node or rel pattern.",
+            std::format("Cannot set expression {} with type {}. Expect node or rel pattern.",
                 expr->toString(), ExpressionTypeUtil::toString(expr->expressionType)));
     }
     auto boundSetItem = bindSetItem(column, columnData);
@@ -310,8 +485,8 @@ BoundSetPropertyInfo Binder::bindSetPropertyInfo(const ParsedExpression* column,
         auto propertyID = entry->getPropertyID(property.getPropertyName());
         if (catalog->containsUnloadedIndex(transaction, entry->getTableID(), propertyID)) {
             throw BinderException(
-                stringFormat("Cannot set property {} in table {} because it is used in one or more "
-                             "indexes which is unloaded.",
+                std::format("Cannot set property {} in table {} because it is used in one or more "
+                            "indexes which is unloaded.",
                     property.getPropertyName(), entry->getName()));
         }
     }
@@ -320,8 +495,8 @@ BoundSetPropertyInfo Binder::bindSetPropertyInfo(const ParsedExpression* column,
         for (auto entry : nodeOrRel.getEntries()) {
             if (property.isPrimaryKey(entry->getTableID())) {
                 throw BinderException(
-                    stringFormat("Cannot set property {} in table {} because it is used as primary "
-                                 "key. Try delete and then insert.",
+                    std::format("Cannot set property {} in table {} because it is used as primary "
+                                "key. Try delete and then insert.",
                         property.getPropertyName(), entry->getName()));
             }
         }
@@ -355,8 +530,8 @@ std::unique_ptr<BoundUpdatingClause> Binder::bindDeleteClause(
                 for (auto index : catalog->getIndexEntries(transaction, entry->getTableID())) {
                     if (!index->isLoaded()) {
                         throw BinderException(
-                            stringFormat("Trying to delete from an index on table {} but its "
-                                         "extension is not loaded.",
+                            std::format("Trying to delete from an index on table {} but its "
+                                        "extension is not loaded.",
                                 entry->getName()));
                     }
                 }
@@ -375,9 +550,9 @@ std::unique_ptr<BoundUpdatingClause> Binder::bindDeleteClause(
             auto deleteRel = BoundDeleteInfo(deleteType, TableType::REL, pattern);
             boundDeleteClause->addInfo(std::move(deleteRel));
         } else {
-            throw BinderException(stringFormat(
-                "Cannot delete expression {} with type {}. Expect node or rel pattern.",
-                pattern->toString(), ExpressionTypeUtil::toString(pattern->expressionType)));
+            throw BinderException(
+                std::format("Cannot delete expression {} with type {}. Expect node or rel pattern.",
+                    pattern->toString(), ExpressionTypeUtil::toString(pattern->expressionType)));
         }
     }
     return boundDeleteClause;

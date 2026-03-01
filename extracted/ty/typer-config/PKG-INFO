@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typer-config
-Version: 1.5.0
+Version: 1.5.1
 Summary: Utilities for working with configuration files in typer CLIs. 
 Keywords: typer,config,configuration,configuration-file,yaml,toml,json,dotenv,cli
 Author: Matt Anderson

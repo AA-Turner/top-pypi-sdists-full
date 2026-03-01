@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-celery-beat
-Version: 2.8.1
+Version: 2.9.0
 Summary: Database-backed Periodic Tasks.
 Home-page: https://github.com/celery/django-celery-beat
 Author: Asif Saif Uddin, Ask Solem
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Django
@@ -27,6 +28,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Communications
 Classifier: Topic :: System :: Distributed Computing
@@ -41,8 +43,8 @@ Requires-Dist: django-timezone-field>=5.0
 Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Requires-Dist: tzdata
 Requires-Dist: python-crontab>=2.3.4
-Requires-Dist: cron-descriptor>=1.2.32
-Requires-Dist: Django<6.0,>=2.2
+Requires-Dist: cron-descriptor<2.0.0,>=1.2.32
+Requires-Dist: Django<6.1,>=2.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -67,6 +69,7 @@ Dynamic: summary
 :Web: http://django-celery-beat.readthedocs.io/
 :Download: http://pypi.python.org/pypi/django-celery-beat
 :Source: http://github.com/celery/django-celery-beat
+:DeepWiki: |deepwiki|
 :Keywords: django, celery, beat, periodic task, cron, scheduling
 
 About
@@ -403,6 +406,11 @@ If you have a project that is time zone naive, you can set ``DJANGO_CELERY_BEAT_
 .. |pyimp| image:: https://img.shields.io/pypi/implementation/django-celery-beat.svg#foo
     :alt: Support Python implementations.
     :target: http://pypi.python.org/pypi/django-celery-beat/
+
+.. |deepwiki| image:: https://devin.ai/assets/deepwiki-badge.png
+    :alt: Ask http://DeepWiki.com
+    :target: https://deepwiki.com/celery/django-celery-beat
+    :width: 125px
 
 django-celery-beat as part of the Tidelift Subscription
 -------------------------------------------------------

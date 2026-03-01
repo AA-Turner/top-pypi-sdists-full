@@ -4,9 +4,9 @@
 #include <cstring>
 
 #include "common/exception/runtime.h"
-#include "common/string_format.h"
 #include "common/utils.h"
 #include "storage/storage_utils.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::storage;
@@ -26,11 +26,11 @@ OrderByKeyEncoder::OrderByKeyEncoder(const OrderByDataInfo& orderByDataInfo,
             "The number of tuples per block of factorizedTable exceeds the maximum blockOffset!");
     }
     keyBlocks.emplace_back(std::make_unique<DataBlock>(memoryManager, DATA_BLOCK_SIZE));
-    KU_ASSERT(this->numBytesPerTuple == getNumBytesPerTuple());
+    DASSERT(this->numBytesPerTuple == getNumBytesPerTuple());
     maxNumTuplesPerBlock = DATA_BLOCK_SIZE / numBytesPerTuple;
     if (maxNumTuplesPerBlock <= 0) {
         throw RuntimeException(
-            stringFormat("TupleSize({} bytes) is larger than the LARGE_PAGE_SIZE({} bytes)",
+            std::format("TupleSize({} bytes) is larger than the LARGE_PAGE_SIZE({} bytes)",
                 numBytesPerTuple, DATA_BLOCK_SIZE));
     }
     encodeFunctions.reserve(orderByDataInfo.keysPos.size());
@@ -77,7 +77,7 @@ uint32_t OrderByKeyEncoder::getEncodingSize(const LogicalType& dataType) {
     switch (dataType.getPhysicalType()) {
     case PhysicalTypeID::STRING:
         // 1 byte for null flag + 1 byte to indicate long/short string + 12 bytes for string prefix
-        return 2 + ku_string_t::SHORT_STR_LENGTH;
+        return 2 + string_t::SHORT_STR_LENGTH;
     default:
         return 1 + storage::StorageUtils::getDataTypeSize(dataType);
     }
@@ -252,7 +252,7 @@ void OrderByKeyEncoder::getEncodingFunction(PhysicalTypeID physicalType, encode_
         return;
     }
     case PhysicalTypeID::STRING: {
-        func = encodeTemplate<ku_string_t>;
+        func = encodeTemplate<string_t>;
         return;
     }
     case PhysicalTypeID::INTERVAL: {
@@ -264,7 +264,7 @@ void OrderByKeyEncoder::getEncodingFunction(PhysicalTypeID physicalType, encode_
         return;
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -384,12 +384,12 @@ void OrderByKeyEncoder::encodeData(interval_t data, uint8_t* resultPtr, bool swa
 }
 
 template<>
-void OrderByKeyEncoder::encodeData(ku_string_t data, uint8_t* resultPtr, bool /*swapBytes*/) {
-    // Only encode the prefix of ku_string.
+void OrderByKeyEncoder::encodeData(string_t data, uint8_t* resultPtr, bool /*swapBytes*/) {
+    // Only encode the prefix of string_t.
     memcpy(resultPtr, (void*)data.getAsString().c_str(),
-        std::min((uint32_t)ku_string_t::SHORT_STR_LENGTH, data.len));
-    if (ku_string_t::isShortString(data.len)) {
-        memset(resultPtr + data.len, '\0', ku_string_t::SHORT_STR_LENGTH + 1 - data.len);
+        std::min((uint32_t)string_t::SHORT_STR_LENGTH, data.len));
+    if (string_t::isShortString(data.len)) {
+        memset(resultPtr + data.len, '\0', string_t::SHORT_STR_LENGTH + 1 - data.len);
     } else {
         resultPtr[12] = UINT8_MAX;
     }

@@ -19,7 +19,7 @@ class build_ext_external(build_ext):
 
 setup(
     name="tdewolff-minify",
-    version="2.24.9",
+    version="2.24.10",
     description="Go minifiers for web formats",
     long_description=README,
     long_description_content_type="text/markdown",

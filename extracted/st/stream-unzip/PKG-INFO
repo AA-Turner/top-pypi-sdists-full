@@ -1,26 +1,27 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: stream-unzip
-Version: 0.0.99
+Version: 0.0.100
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: System :: Archiving :: Compression
 Classifier: Typing :: Typed
-Requires-Dist: pycryptodome >=3.10.1
-Requires-Dist: stream-inflate >=0.0.12
-Requires-Dist: coverage >=6.2 ; extra == 'dev'
-Requires-Dist: mypy >=1.4.1 ; extra == 'dev'
-Requires-Dist: pytest >=6.2.5 ; extra == 'dev'
-Requires-Dist: pytest-cov >=3.0.0 ; extra == 'dev'
-Requires-Dist: trio >=0.19.0 ; extra == 'dev'
-Requires-Dist: mypy ==1.4.1 ; extra == 'ci'
-Requires-Dist: pycryptodome ==3.10.1 ; extra == 'ci'
-Requires-Dist: stream-inflate ==0.0.12 ; extra == 'ci'
-Provides-Extra: dev
+Requires-Dist: pycryptodome>=3.10.1
+Requires-Dist: stream-inflate>=0.0.12
+Requires-Dist: mypy==1.4.1 ; python_full_version < '3.14' and extra == 'ci'
+Requires-Dist: mypy==1.19.1 ; python_full_version >= '3.14' and extra == 'ci'
+Requires-Dist: pycryptodome==3.10.1 ; extra == 'ci'
+Requires-Dist: stream-inflate==0.0.12 ; extra == 'ci'
+Requires-Dist: coverage>=6.2 ; extra == 'dev'
+Requires-Dist: mypy>=1.4.1 ; extra == 'dev'
+Requires-Dist: pytest>=6.2.5 ; extra == 'dev'
+Requires-Dist: pytest-cov>=3.0.0 ; extra == 'dev'
+Requires-Dist: trio>=0.19.0 ; extra == 'dev'
 Provides-Extra: ci
+Provides-Extra: dev
 License-File: LICENSE
 Summary: Python function to stream unzip all the files in a ZIP archive, without loading the entire ZIP file into memory or any of its uncompressed files
 Author-email: Department for International Trade <sre@digital.trade.gov.uk>
-Requires-Python: >=3.7.1
+Requires-Python: >=3.7.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://stream-unzip.docs.trade.gov.uk/
 Project-URL: Source, https://github.com/uktrade/stream-unzip
@@ -40,7 +41,7 @@ To create ZIP files on the fly try [stream-zip](https://github.com/uktrade/strea
 
 In addition to being memory efficient, stream-unzip supports:
 
-- Deflate-compressed ZIPs. The is the historical standard for ZIP files.
+- Deflate-compressed ZIPs. This is the historical standard for ZIP files.
 
 - Deflate64-compressed ZIPs. These are created by certain versions of Windows Explorer in some circumstances. Python's zipfile module cannot open Deflate64-compressed ZIPs.
 

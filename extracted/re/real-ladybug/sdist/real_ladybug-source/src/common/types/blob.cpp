@@ -1,7 +1,7 @@
 #include "common/types/blob.h"
 
 #include "common/exception/conversion.h"
-#include "common/string_format.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -23,7 +23,7 @@ static bool isRegularChar(char c) {
     return c >= 32 && c <= 126 && c != '\\' && c != '\'' && c != '"';
 }
 
-uint64_t Blob::getBlobSize(const ku_string_t& blob) {
+uint64_t Blob::getBlobSize(const string_t& blob) {
     uint64_t blobSize = 0;
     auto length = blob.len;
     auto blobStr = blob.getData();
@@ -92,7 +92,7 @@ void Blob::validateHexCode(const uint8_t* blobStr, uint64_t length, uint64_t cur
         HexFormatConstants::HEX_MAP[blobStr[curPos + HexFormatConstants::FIRST_BYTE_POS]] < 0 ||
         HexFormatConstants::HEX_MAP[blobStr[curPos + HexFormatConstants::SECOND_BYTES_POS]] < 0) {
         throw ConversionException(
-            stringFormat("Invalid hex escape code encountered in string -> blob conversion: {}",
+            std::format("Invalid hex escape code encountered in string -> blob conversion: {}",
                 std::string((char*)blobStr + curPos, HexFormatConstants::LENGTH)));
     }
 }

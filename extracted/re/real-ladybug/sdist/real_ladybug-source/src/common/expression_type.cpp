@@ -2,6 +2,7 @@
 
 #include "common/assert.h"
 #include "function/comparison/vector_comparison_functions.h"
+#include <format>
 
 using namespace lbug::function;
 
@@ -34,7 +35,7 @@ bool ExpressionTypeUtil::isNullOperator(ExpressionType type) {
 }
 
 ExpressionType ExpressionTypeUtil::reverseComparisonDirection(ExpressionType type) {
-    KU_ASSERT(isComparison(type));
+    DASSERT(isComparison(type));
     switch (type) {
     case ExpressionType::GREATER_THAN:
         return ExpressionType::LESS_THAN;
@@ -103,7 +104,7 @@ std::string ExpressionTypeUtil::toString(ExpressionType type) {
     case ExpressionType::LAMBDA:
         return "LAMBDA";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -126,7 +127,7 @@ std::string ExpressionTypeUtil::toParsableString(ExpressionType type) {
     case ExpressionType::IS_NOT_NULL:
         return "IS NOT NULL";
     default:
-        throw RuntimeException(stringFormat(
+        throw RuntimeException(std::format(
             "ExpressionTypeUtil::toParsableString not implemented for {}", toString(type)));
     }
 }

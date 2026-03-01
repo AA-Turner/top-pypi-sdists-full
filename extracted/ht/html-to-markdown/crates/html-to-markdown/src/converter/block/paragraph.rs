@@ -61,6 +61,7 @@ pub(crate) fn handle(
 
     let p_ctx = Context {
         in_paragraph: true,
+        block_content_start: output.len(),
         ..ctx.clone()
     };
 

@@ -1,15 +1,9 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
     cast,
 )
 
@@ -23,7 +17,7 @@ from pyathena.util import RetryConfig
 if TYPE_CHECKING:
     from pyathena.connection import Connection
 
-_logger = logging.getLogger(__name__)  # type: ignore
+_logger = logging.getLogger(__name__)
 
 
 class AthenaAioResultSet(AthenaResultSet):
@@ -36,11 +30,12 @@ class AthenaAioResultSet(AthenaResultSet):
 
     def __init__(
         self,
-        connection: "Connection[Any]",
+        connection: Connection[Any],
         converter: Converter,
         query_execution: AthenaQueryExecution,
         arraysize: int,
         retry_config: RetryConfig,
+        result_set_type_hints: dict[str | int, str] | None = None,
     ) -> None:
         super().__init__(
             connection=connection,
@@ -49,17 +44,19 @@ class AthenaAioResultSet(AthenaResultSet):
             arraysize=arraysize,
             retry_config=retry_config,
             _pre_fetch=False,
+            result_set_type_hints=result_set_type_hints,
         )
 
     @classmethod
     async def create(
         cls,
-        connection: "Connection[Any]",
+        connection: Connection[Any],
         converter: Converter,
         query_execution: AthenaQueryExecution,
         arraysize: int,
         retry_config: RetryConfig,
-    ) -> "AthenaAioResultSet":
+        result_set_type_hints: dict[str | int, str] | None = None,
+    ) -> AthenaAioResultSet:
         """Async factory method.
 
         Creates an ``AthenaAioResultSet`` and awaits the initial data fetch.
@@ -70,25 +67,34 @@ class AthenaAioResultSet(AthenaResultSet):
             query_execution: Query execution metadata.
             arraysize: Number of rows to fetch per request.
             retry_config: Retry configuration for API calls.
+            result_set_type_hints: Optional dictionary mapping column names to
+                Athena DDL type signatures for precise type conversion.
 
         Returns:
             A fully initialized ``AthenaAioResultSet``.
         """
-        result_set = cls(connection, converter, query_execution, arraysize, retry_config)
+        result_set = cls(
+            connection,
+            converter,
+            query_execution,
+            arraysize,
+            retry_config,
+            result_set_type_hints=result_set_type_hints,
+        )
         if result_set.state == AthenaQueryExecution.STATE_SUCCEEDED:
             await result_set._async_pre_fetch()
         return result_set
 
     async def __async_get_query_results(
-        self, max_results: int, next_token: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, max_results: int, next_token: str | None = None
+    ) -> dict[str, Any]:
         if not self.query_id:
             raise ProgrammingError("QueryExecutionId is none or empty.")
         if self.state != AthenaQueryExecution.STATE_SUCCEEDED:
             raise ProgrammingError("QueryExecutionState is not SUCCEEDED.")
         if self.is_closed:
             raise ProgrammingError("AthenaAioResultSet is closed.")
-        request: Dict[str, Any] = {
+        request: dict[str, Any] = {
             "QueryExecutionId": self.query_id,
             "MaxResults": max_results,
         }
@@ -105,9 +111,9 @@ class AthenaAioResultSet(AthenaResultSet):
             _logger.exception("Failed to fetch result set.")
             raise OperationalError(*e.args) from e
         else:
-            return cast(Dict[str, Any], response)
+            return cast(dict[str, Any], response)
 
-    async def __async_fetch(self, next_token: Optional[str] = None) -> Dict[str, Any]:
+    async def __async_fetch(self, next_token: str | None = None) -> dict[str, Any]:
         return await self.__async_get_query_results(self._arraysize, next_token)
 
     async def _async_fetch(self) -> None:
@@ -127,7 +133,7 @@ class AthenaAioResultSet(AthenaResultSet):
 
     async def fetchone(  # type: ignore[override]
         self,
-    ) -> Optional[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
         """Fetch the next row of the result set.
 
         Automatically fetches the next page from Athena when the current
@@ -146,8 +152,8 @@ class AthenaAioResultSet(AthenaResultSet):
         return self._rows.popleft()
 
     async def fetchmany(  # type: ignore[override]
-        self, size: Optional[int] = None
-    ) -> List[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+        self, size: int | None = None
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch multiple rows from the result set.
 
         Args:
@@ -170,7 +176,7 @@ class AthenaAioResultSet(AthenaResultSet):
 
     async def fetchall(  # type: ignore[override]
         self,
-    ) -> List[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch all remaining rows from the result set.
 
         Returns:

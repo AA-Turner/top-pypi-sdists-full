@@ -7,7 +7,7 @@ def mutex_lock(local_library_path) -> None:
     """Lock the library for syncing.Create a file on disk that signals to other Blender instances that this
     remote asset library is being synced by this Blender.
 
-        :return: true if the lock was created succesfully, false if some other
+        :return: true if the lock was created successfully, false if some other
     Blender already locked this library.
     """
 

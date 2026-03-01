@@ -6,8 +6,9 @@ add_library(lbug_common_types
         date_t.cpp
         dtime_t.cpp
         interval_t.cpp
-        ku_list.cpp
-        ku_string.cpp
+        json_type.cpp
+        list_t.cpp
+        string_t.cpp
         timestamp_t.cpp
         types.cpp
         int128_t.cpp

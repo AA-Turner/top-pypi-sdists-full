@@ -8,11 +8,12 @@
 #include "common/serializer/serializer.h"
 #include "common/type_utils.h"
 #include "common/types/blob.h"
-#include "common/types/ku_string.h"
+#include "common/types/string_t.h"
 #include "common/types/uuid.h"
 #include "common/vector/value_vector.h"
 #include "function/hash/hash_functions.h"
 #include "storage/storage_utils.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -70,12 +71,12 @@ bool Value::operator==(const Value& rhs) const {
         return true;
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
 void Value::setDataType(const LogicalType& dataType_) {
-    KU_ASSERT(allowTypeChange());
+    DASSERT(allowTypeChange());
     dataType = dataType_.copy();
 }
 
@@ -155,7 +156,8 @@ Value Value::createDefaultValue(const LogicalType& dataType) {
     case LogicalTypeID::UUID:
         return Value(LogicalType::UUID(), std::string(""));
     case LogicalTypeID::STRING:
-        return Value(LogicalType::STRING(), std::string(""));
+    case LogicalTypeID::JSON:
+        return Value(dataType.copy(), std::string(""));
     case LogicalTypeID::FLOAT:
         return Value((float)0);
     case LogicalTypeID::DECIMAL: {
@@ -197,7 +199,7 @@ Value Value::createDefaultValue(const LogicalType& dataType) {
         return createNullValue();
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -251,7 +253,7 @@ Value::Value(int128_t val_) : isNull_{false}, childrenSize{0} {
     val.int128Val = val_;
 }
 
-Value::Value(ku_uuid_t val_) : isNull_{false}, childrenSize{0} {
+Value::Value(uuid val_) : isNull_{false}, childrenSize{0} {
     dataType = LogicalType::UUID();
     val.int128Val = val_.value;
 }
@@ -403,7 +405,7 @@ void Value::copyFromRowLayout(const uint8_t* value) {
             val.int128Val = (*(int128_t*)value);
             break;
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     case LogicalTypeID::INTERVAL: {
@@ -419,18 +421,19 @@ void Value::copyFromRowLayout(const uint8_t* value) {
         strVal = ((blob_t*)value)->value.getAsString();
     } break;
     case LogicalTypeID::UUID: {
-        val.int128Val = ((ku_uuid_t*)value)->value;
-        strVal = UUID::toString(*((ku_uuid_t*)value));
+        val.int128Val = ((uuid*)value)->value;
+        strVal = UUID::toString(*((uuid*)value));
     } break;
+    case LogicalTypeID::JSON:
     case LogicalTypeID::STRING: {
-        strVal = ((ku_string_t*)value)->getAsString();
+        strVal = ((string_t*)value)->getAsString();
     } break;
     case LogicalTypeID::MAP:
     case LogicalTypeID::LIST: {
-        copyFromRowLayoutList(*(ku_list_t*)value, ListType::getChildType(dataType));
+        copyFromRowLayoutList(*(list_t*)value, ListType::getChildType(dataType));
     } break;
     case LogicalTypeID::ARRAY: {
-        copyFromRowLayoutList(*(ku_list_t*)value, ArrayType::getChildType(dataType));
+        copyFromRowLayoutList(*(list_t*)value, ArrayType::getChildType(dataType));
     } break;
     case LogicalTypeID::UNION: {
         copyFromUnion(value);
@@ -445,7 +448,7 @@ void Value::copyFromRowLayout(const uint8_t* value) {
         val.pointer = *((uint8_t**)value);
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -491,7 +494,7 @@ void Value::copyFromColLayout(const uint8_t* value, ValueVector* vector) {
         val.intervalVal = *((interval_t*)value);
     } break;
     case PhysicalTypeID::STRING: {
-        strVal = ((ku_string_t*)value)->getAsString();
+        strVal = ((string_t*)value)->getAsString();
     } break;
     case PhysicalTypeID::ARRAY:
     case PhysicalTypeID::LIST: {
@@ -507,7 +510,7 @@ void Value::copyFromColLayout(const uint8_t* value, ValueVector* vector) {
         val.uint128Val = *((uint128_t*)value);
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -517,7 +520,7 @@ void Value::copyValueFrom(const Value& other) {
         return;
     }
     isNull_ = false;
-    KU_ASSERT(dataType == other.dataType);
+    DASSERT(dataType == other.dataType);
     switch (dataType.getPhysicalType()) {
     case PhysicalTypeID::BOOL: {
         val.booleanVal = other.val.booleanVal;
@@ -578,7 +581,7 @@ void Value::copyValueFrom(const Value& other) {
         val.pointer = other.val.pointer;
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -638,6 +641,7 @@ std::string Value::toString() const {
         return Blob::toString(reinterpret_cast<const uint8_t*>(strVal.c_str()), strVal.length());
     case LogicalTypeID::UUID:
         return UUID::toString(val.int128Val);
+    case LogicalTypeID::JSON:
     case LogicalTypeID::STRING:
         return strVal;
     case LogicalTypeID::MAP: {
@@ -663,7 +667,7 @@ std::string Value::toString() const {
         return relToString();
     }
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -685,7 +689,7 @@ void Value::resizeChildrenVector(uint64_t size, const LogicalType& childType) {
     childrenSize = size;
 }
 
-void Value::copyFromRowLayoutList(const ku_list_t& list, const LogicalType& childType) {
+void Value::copyFromRowLayoutList(const list_t& list, const LogicalType& childType) {
     resizeChildrenVector(list.size, childType);
     auto numBytesPerElement = storage::StorageUtils::getDataTypeSize(childType);
     auto listNullBytes = reinterpret_cast<uint8_t*>(list.overflowPtr);
@@ -716,9 +720,9 @@ void Value::copyFromColLayoutList(const list_entry_t& listEntry, ValueVector* ve
     }
 }
 
-void Value::copyFromRowLayoutStruct(const uint8_t* kuStruct) {
+void Value::copyFromRowLayoutStruct(const uint8_t* rowLayoutStruct) {
     auto numFields = childrenSize;
-    auto structNullValues = kuStruct;
+    auto structNullValues = rowLayoutStruct;
     auto structValues = structNullValues + NullBuffer::getNumBytesForNullValues(numFields);
     for (auto i = 0u; i < numFields; i++) {
         auto childValue = children[i].get();
@@ -744,9 +748,9 @@ void Value::copyFromColLayoutStruct(const struct_entry_t& structEntry, ValueVect
     }
 }
 
-void Value::copyFromUnion(const uint8_t* kuUnion) {
+void Value::copyFromUnion(const uint8_t* unionValue) {
     auto childrenTypes = StructType::getFieldTypes(dataType);
-    auto unionNullValues = kuUnion;
+    auto unionNullValues = unionValue;
     auto unionValues = unionNullValues + NullBuffer::getNumBytesForNullValues(childrenTypes.size());
     // For union dataType, only one member can be active at a time. So we don't need to copy all
     // union fields into value.
@@ -837,11 +841,11 @@ void Value::serialize(Serializer& serializer) const {
     case PhysicalTypeID::ANY: {
         // We want to be able to ser/deser values that are meant to just be null
         if (!isNull_) {
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
 }
@@ -911,11 +915,11 @@ std::unique_ptr<Value> Value::deserialize(Deserializer& deserializer) {
     case PhysicalTypeID::ANY: {
         // We want to be able to ser/deser values that are meant to just be null
         if (!val->isNull_) {
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
     return val;
@@ -925,7 +929,7 @@ void Value::validateType(LogicalTypeID targetTypeID) const {
     if (dataType.getLogicalTypeID() == targetTypeID) {
         return;
     }
-    throw BinderException(stringFormat("{} has data type {} but {} was expected.", toString(),
+    throw BinderException(std::format("{} has data type {} but {} was expected.", toString(),
         dataType.toString(), LogicalTypeUtils::toString(targetTypeID)));
 }
 
@@ -1050,7 +1054,7 @@ uint64_t Value::computeHash() const {
         }
     } break;
     default: {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     }
     return hashValue;
@@ -1154,7 +1158,7 @@ std::string Value::decimalToString() const {
         return DecimalType::insertDecimalPoint(TypeUtils::toString(val.int128Val),
             DecimalType::getScale(dataType));
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 

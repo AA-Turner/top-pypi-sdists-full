@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.183
+Version: 0.3.184
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -86,7 +86,6 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pyarrow>=10.0.1; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
@@ -101,6 +100,7 @@ Requires-Dist: pyarrow-stubs; extra == "dev"
 Requires-Dist: types-grpcio; extra == "dev"
 Requires-Dist: types-Markdown; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-regex; extra == "dev"
 Requires-Dist: types-beautifulsoup4; extra == "dev"
 Requires-Dist: types-aioboto3; extra == "dev"
 Requires-Dist: types-boto3; extra == "dev"
@@ -119,6 +119,7 @@ Requires-Dist: mcp_server_git; extra == "dev-mcp-tests"
 Provides-Extra: doc
 Requires-Dist: quarto-cli==1.7.32; extra == "doc"
 Requires-Dist: jupyter; extra == "doc"
+Requires-Dist: nbclient; extra == "doc"
 Requires-Dist: panflute; extra == "doc"
 Requires-Dist: markdown; extra == "doc"
 Requires-Dist: griffe<=1.14.0; extra == "doc"

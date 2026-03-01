@@ -1,6 +1,6 @@
 """Redis noop fixture factory."""
 
-from typing import Callable, Generator, Optional
+from typing import Callable, Generator
 
 import pytest
 from _pytest.fixtures import FixtureRequest
@@ -10,10 +10,10 @@ from pytest_redis.executor import NoopRedis
 
 
 def redis_noproc(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    username: Optional[str] = None,
-    password: Optional[str] = None,
+    host: str | None = None,
+    port: int | None = None,
+    username: str | None = None,
+    password: str | None = None,
     startup_timeout: int = 15,
 ) -> Callable[[FixtureRequest], Generator[NoopRedis, None, None]]:
     """Nooproc fixture factory for pytest-redis.
@@ -27,7 +27,7 @@ def redis_noproc(
     """
 
     @pytest.fixture(scope="session")
-    def redis_nooproc_fixture(request: FixtureRequest) -> Generator[NoopRedis, None, None]:
+    def redis_noproc_fixture(request: FixtureRequest) -> Generator[NoopRedis, None, None]:
         """Nooproc fixture for pytest-redis.
 
         Builds mock executor to run tests with
@@ -38,10 +38,10 @@ def redis_noproc(
         """
         config = get_config(request)
         redis_noopexecutor = NoopRedis(
-            host=host or config["host"],
-            port=port or config["port"] or 6379,
-            username=username or config["username"],
-            password=password or config["password"],
+            host=host or config.host,
+            port=port or config.port or 6379,
+            username=username or config.username,
+            password=password or config.password,
             unixsocket=None,
             startup_timeout=startup_timeout,
         )
@@ -49,4 +49,4 @@ def redis_noproc(
         with redis_noopexecutor:
             yield redis_noopexecutor
 
-    return redis_nooproc_fixture
+    return redis_noproc_fixture

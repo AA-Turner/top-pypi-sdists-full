@@ -103,7 +103,7 @@ def download_asset_file(
         :param asset_hash: the hash of the asset file, will be appended to the URL.
         :param save_to: the path on disk where to download to. While the download is
     pending, ".part" will be appended to the filename. When the download
-    finishes succesfully, it is renamed to the final path.
+    finishes successfully, it is renamed to the final path.
     """
 
 def download_preview(
@@ -119,6 +119,9 @@ def download_preview(
     cache for this asset library (for conditional downloads).
         :param preview_url: the URL to download. Can be absolute or relative.
         :param preview_hash: the hash of the thumbnail, will be appended to the URL.
+        :param dst_filepath: the path on disk where to download to. While the
+    download is pending, ".part" will be appended to the filename. When the
+    download finishes successfully, it is renamed to the final path.
     """
 
 def downloader_status(asset_library_url) -> None:

@@ -3,10 +3,12 @@
 #include <thread>
 
 #include "catalog/catalog.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "main/client_context.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::transaction;
@@ -51,7 +53,7 @@ static bool validateNumericalType(const LogicalType& type) {
 }
 
 static std::string getUnsupportedTypeErrMsg(const LogicalType& type) {
-    return stringFormat("Unsupported data type {}.", type.toString());
+    return std::format("Unsupported data type {}.", type.toString());
 }
 
 static uint32_t getElementSize(const LogicalType& type) {
@@ -111,7 +113,16 @@ void StorageDriver::scan(const std::string& nodeName, const std::string& propert
 uint64_t StorageDriver::getNumNodes(const std::string& nodeName) const {
     clientContext->query("BEGIN TRANSACTION READ ONLY;");
     auto transaction = Transaction::Get(*clientContext);
-    auto result = getTable(*clientContext, nodeName)->getNumTotalRows(transaction);
+    auto catalogEntry = getEntry(*clientContext, nodeName);
+
+    if (catalogEntry->getType() != CatalogEntryType::NODE_TABLE_ENTRY) {
+        clientContext->query("COMMIT");
+        throw RuntimeException(std::format("{} is not a node table", nodeName));
+    }
+
+    uint64_t result = StorageManager::Get(*clientContext)
+                          ->getTable(catalogEntry->getTableID())
+                          ->getNumTotalRows(transaction);
     clientContext->query("COMMIT");
     return result;
 }
@@ -119,7 +130,21 @@ uint64_t StorageDriver::getNumNodes(const std::string& nodeName) const {
 uint64_t StorageDriver::getNumRels(const std::string& relName) const {
     clientContext->query("BEGIN TRANSACTION READ ONLY;");
     auto transaction = Transaction::Get(*clientContext);
-    auto result = getTable(*clientContext, relName)->getNumTotalRows(transaction);
+    auto catalogEntry = getEntry(*clientContext, relName);
+
+    if (catalogEntry->getType() != CatalogEntryType::REL_GROUP_ENTRY) {
+        clientContext->query("COMMIT");
+        throw RuntimeException(std::format("{} is not a relationship table", relName));
+    }
+
+    uint64_t result = 0;
+    auto relGroupCatalogEntry = catalogEntry->ptrCast<RelGroupCatalogEntry>();
+
+    for (const auto& relTableInfo : relGroupCatalogEntry->getRelEntryInfos()) {
+        auto table = StorageManager::Get(*clientContext)->getTable(relTableInfo.oid);
+        result += table->getNumTotalRows(transaction);
+    }
+
     clientContext->query("COMMIT");
     return result;
 }
@@ -172,7 +197,7 @@ void StorageDriver::scanColumn(Table* table, column_id_t columnID, const offset_
         }
     } break;
     default:
-        throw RuntimeException(stringFormat("Not supported data type in StorageDriver::scanColumn",
+        throw RuntimeException(std::format("Not supported data type in StorageDriver::scanColumn",
             PhysicalTypeUtils::toString(physicalType)));
     }
 }

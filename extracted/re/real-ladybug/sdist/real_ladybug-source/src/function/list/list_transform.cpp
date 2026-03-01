@@ -3,6 +3,7 @@
 #include "expression_evaluator/list_slice_info.h"
 #include "function/list/vector_list_functions.h"
 #include "function/scalar_function.h"
+#include <format>
 
 namespace lbug {
 namespace function {
@@ -11,7 +12,7 @@ using namespace common;
 
 static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& input) {
     if (input.arguments[1]->expressionType != ExpressionType::LAMBDA) {
-        throw BinderException(stringFormat(
+        throw BinderException(std::format(
             "The second argument of LIST_TRANSFORM should be a lambda expression but got {}.",
             ExpressionTypeUtil::toString(input.arguments[1]->expressionType)));
     }
@@ -60,7 +61,7 @@ static void execFunc(const std::vector<std::shared_ptr<ValueVector>>& input,
 
     auto& inputVector = *input[0];
     const auto& inputSelVector = *inputSelVectors[0];
-    KU_ASSERT(input.size() == 2);
+    DASSERT(input.size() == 2);
     if (!bindData->lambdaParamEvaluators.empty()) {
         if (sliceInfo->done()) {
             ListVector::copyListEntryAndBufferMetaData(result, *resultSelVector, inputVector,

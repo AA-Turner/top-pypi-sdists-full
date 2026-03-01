@@ -223,7 +223,7 @@ def register_classes_factory(
 
 def register_cli_command(
     id: str, execute: collections.abc.Callable[[list[str]], int]
-) -> None:
+) -> typing.Any:
     """Register a command, accessible via the (-c / --command) command-line argument.Custom CommandsRegistering commands makes it possible to conveniently expose command line
     functionality via commands passed to (-c / --command).Using Python Argument ParsingThis example shows how the Python argparse module can be used with a custom command.Using argparse is generally recommended as it has many useful utilities and
     generates a --help message for your command.
@@ -420,7 +420,7 @@ def unregister_class(
     be registered.
     """
 
-def unregister_cli_command(handle) -> None:
+def unregister_cli_command(handle: typing.Any) -> None:
     """Unregister a CLI command.
 
     :param handle: The return value of `register_cli_command`.

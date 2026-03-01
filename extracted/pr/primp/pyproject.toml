@@ -44,7 +44,7 @@ dev = [
 ]
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
+features = []
 manifest-path = "crates/primp-python/Cargo.toml"
 
 [tool.ruff]
@@ -63,3 +63,12 @@ select = [
 
 [tool.mypy]
 python_version = "3.10"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "internet: marks tests that require external internet connectivity",
+    "slow: marks tests that are slow to run",
+]

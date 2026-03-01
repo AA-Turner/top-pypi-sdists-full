@@ -12,6 +12,7 @@
 #include "storage/table/node_table.h"
 #include "storage/table/table.h"
 #include "transaction/transaction.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -34,7 +35,7 @@ static void validateArrayColumnType(const catalog::TableCatalogEntry* entry,
     property_id_t propertyID) {
     auto& type = entry->getProperty(propertyID).getType();
     if (type.getLogicalTypeID() != LogicalTypeID::ARRAY) {
-        throw BinderException{stringFormat("Column {} is not of the expected type {}.",
+        throw BinderException{std::format("Column {} is not of the expected type {}.",
             entry->getProperty(propertyID).getName(),
             LogicalTypeUtils::toString(LogicalTypeID::ARRAY))};
     }
@@ -66,7 +67,7 @@ struct CacheArrayColumnSharedState final : public SimpleTableFuncSharedState {
     void merge(node_group_idx_t nodeGroupIdx,
         std::unique_ptr<storage::ColumnChunkData> columnChunkData) {
         std::unique_lock lck{mtx};
-        KU_ASSERT(cachedColumn->columnChunks.size() > nodeGroupIdx);
+        DASSERT(cachedColumn->columnChunks.size() > nodeGroupIdx);
         cachedColumn->columnChunks[nodeGroupIdx] = std::move(columnChunkData);
         ++numNodeGroupsCached;
     }

@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
 from io import TextIOWrapper
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any
 
 from fsspec import AbstractFileSystem
 
@@ -18,7 +17,7 @@ from pyathena.util import RetryConfig, parse_output_location
 if TYPE_CHECKING:
     from pyathena.connection import Connection
 
-CSVReaderType = Union[Type[DefaultCSVReader], Type[AthenaCSVReader]]
+CSVReaderType = type[DefaultCSVReader] | type[AthenaCSVReader]
 
 _logger = logging.getLogger(__name__)
 
@@ -57,14 +56,15 @@ class AthenaS3FSResultSet(AthenaResultSet):
 
     def __init__(
         self,
-        connection: "Connection[Any]",
+        connection: Connection[Any],
         converter: Converter,
         query_execution: AthenaQueryExecution,
         arraysize: int,
         retry_config: RetryConfig,
-        block_size: Optional[int] = None,
-        csv_reader: Optional[CSVReaderType] = None,
-        filesystem_class: Optional[Type[AbstractFileSystem]] = None,
+        block_size: int | None = None,
+        csv_reader: CSVReaderType | None = None,
+        filesystem_class: type[AbstractFileSystem] | None = None,
+        result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -73,6 +73,7 @@ class AthenaS3FSResultSet(AthenaResultSet):
             query_execution=query_execution,
             arraysize=1,  # Fetch one row to retrieve metadata
             retry_config=retry_config,
+            result_set_type_hints=result_set_type_hints,
         )
         # Save pre-fetched rows (from Athena API) in case CSV reading is not available
         pre_fetched_rows = list(self._rows)
@@ -80,9 +81,9 @@ class AthenaS3FSResultSet(AthenaResultSet):
         self._arraysize = arraysize
         self._block_size = block_size if block_size else self.DEFAULT_BLOCK_SIZE
         self._csv_reader_class: CSVReaderType = csv_reader or AthenaCSVReader
-        self._filesystem_class: Type[AbstractFileSystem] = filesystem_class or S3FileSystem
+        self._filesystem_class: type[AbstractFileSystem] = filesystem_class or S3FileSystem
         self._fs = self._create_s3_file_system()
-        self._csv_reader: Optional[Any] = None
+        self._csv_reader: Any | None = None
 
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
             self._init_csv_reader()
@@ -140,7 +141,7 @@ class AthenaS3FSResultSet(AthenaResultSet):
                 next(self._csv_reader)
 
         except Exception as e:
-            _logger.exception(f"Failed to open {path}.")
+            _logger.exception("Failed to open %s.", path)
             raise OperationalError(*e.args) from e
 
     def _fetch(self) -> None:
@@ -148,8 +149,11 @@ class AthenaS3FSResultSet(AthenaResultSet):
         if not self._csv_reader:
             return
 
-        description = self.description if self.description else []
-        column_types = [d[1] for d in description]
+        col_types = self._column_types
+        if not col_types:
+            description = self.description if self.description else []
+            col_types = tuple(d[1] for d in description)
+        col_hints = self._column_type_hints
 
         rows_fetched = 0
         while rows_fetched < self._arraysize:
@@ -162,21 +166,39 @@ class AthenaS3FSResultSet(AthenaResultSet):
             # AthenaCSVReader returns None for NULL values directly,
             # DefaultCSVReader returns empty string which needs conversion
             if self._csv_reader_class is DefaultCSVReader:
-                converted_row = tuple(
-                    self._converter.convert(col_type, value if value != "" else None)
-                    for col_type, value in zip(column_types, row, strict=False)
-                )
+                if col_hints:
+                    converted_row = tuple(
+                        self._converter.convert(
+                            col_type, value if value != "" else None, type_hint=hint
+                        )
+                        if hint
+                        else self._converter.convert(col_type, value if value != "" else None)
+                        for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
+                    )
+                else:
+                    converted_row = tuple(
+                        self._converter.convert(col_type, value if value != "" else None)
+                        for col_type, value in zip(col_types, row, strict=False)
+                    )
             else:
-                converted_row = tuple(
-                    self._converter.convert(col_type, value)
-                    for col_type, value in zip(column_types, row, strict=False)
-                )
+                if col_hints:
+                    converted_row = tuple(
+                        self._converter.convert(col_type, value, type_hint=hint)
+                        if hint
+                        else self._converter.convert(col_type, value)
+                        for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
+                    )
+                else:
+                    converted_row = tuple(
+                        self._converter.convert(col_type, value)
+                        for col_type, value in zip(col_types, row, strict=False)
+                    )
             self._rows.append(converted_row)
             rows_fetched += 1
 
     def fetchone(
         self,
-    ) -> Optional[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
         """Fetch the next row of the result set.
 
         Returns:
@@ -192,8 +214,8 @@ class AthenaS3FSResultSet(AthenaResultSet):
         return self._rows.popleft()
 
     def fetchmany(
-        self, size: Optional[int] = None
-    ) -> List[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+        self, size: int | None = None
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch the next set of rows of the result set.
 
         Args:
@@ -215,7 +237,7 @@ class AthenaS3FSResultSet(AthenaResultSet):
 
     def fetchall(
         self,
-    ) -> List[Union[Tuple[Optional[Any], ...], Dict[Any, Optional[Any]]]]:
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch all remaining rows of the result set.
 
         Returns:

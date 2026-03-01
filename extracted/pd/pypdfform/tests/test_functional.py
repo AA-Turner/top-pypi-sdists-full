@@ -884,3 +884,132 @@ def test_annotate_no_annotations(pdf_samples, request):
 
         assert len(obj.read()) == len(expected)
         assert obj.read() == expected
+
+
+def test_rubber_stamp_annotation(template_stream, pdf_samples, request):
+    expected_path = os.path.join(pdf_samples, "test_rubber_stamp_annotation.pdf")
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(template_stream).annotate(
+            [
+                Annotations.RubberStampAnnotation(
+                    1,
+                    0,
+                    400,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.approved,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    100,
+                    400,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.experimental,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    200,
+                    400,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.not_approved,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    300,
+                    400,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.as_is,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    400,
+                    400,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.expired,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    0,
+                    500,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.not_for_public_release,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    100,
+                    500,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.confidential,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    200,
+                    500,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.final,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    300,
+                    500,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.sold,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    400,
+                    500,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.departmental,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    0,
+                    600,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.for_comment,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    100,
+                    600,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.top_secret,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    200,
+                    600,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.draft,
+                ),
+                Annotations.RubberStampAnnotation(
+                    1,
+                    300,
+                    600,
+                    width=50,
+                    height=50,
+                    name=Annotations.RubberStampAnnotation.for_public_release,
+                ),
+            ]
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
+        assert obj.read() == expected

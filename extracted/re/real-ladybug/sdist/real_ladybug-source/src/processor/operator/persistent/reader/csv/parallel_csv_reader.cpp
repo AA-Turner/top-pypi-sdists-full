@@ -7,10 +7,10 @@
 #include "processor/operator/persistent/reader/reader_bind_utils.h"
 
 #if defined(_WIN32)
+#include <format>
 #include <io.h>
 #endif
 
-#include "common/string_format.h"
 #include "common/system_message.h"
 #include "function/table/table_function.h"
 #include "processor/operator/persistent/reader/csv/driver.h"
@@ -56,7 +56,7 @@ void ParallelCSVReader::reportFinishedBlock() {
 }
 
 uint64_t ParallelCSVReader::continueBlock(DataChunk& resultChunk) {
-    KU_ASSERT(hasMoreToRead());
+    DASSERT(hasMoreToRead());
     ParallelParsingDriver driver(resultChunk, this);
     const auto [numRowsParsed, numErrors] = parseCSV(driver);
     increaseNumRowsInCurrentBlock(numRowsParsed, numErrors);
@@ -68,7 +68,7 @@ void ParallelCSVReader::seekToBlockStart() {
     if (fileInfo->seek(currentBlockIdx * CopyConstants::PARALLEL_BLOCK_SIZE, SEEK_SET) == -1) {
         // LCOV_EXCL_START
         handleCopyException(
-            stringFormat("Failed to seek to block {}: {}", currentBlockIdx, posixErrMessage()),
+            std::format("Failed to seek to block {}: {}", currentBlockIdx, posixErrMessage()),
             true);
         // LCOV_EXCL_STOP
     }
@@ -218,7 +218,7 @@ static offset_t tableFunc(const TableFuncInput& input, TableFuncOutput& output) 
 
 static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
     const TableFuncBindInput* input) {
-    auto scanInput = ku_dynamic_cast<ExtraScanTableFuncBindInput*>(input->extraInput.get());
+    auto scanInput = dynamic_cast_checked<ExtraScanTableFuncBindInput*>(input->extraInput.get());
     bool detectedHeader = false;
 
     DialectOption detectedDialect;
@@ -309,7 +309,7 @@ static double progressFunc(TableFuncSharedState* sharedState) {
 }
 
 static void finalizeFunc(const ExecutionContext* ctx, TableFuncSharedState* sharedState) {
-    auto state = ku_dynamic_cast<ParallelCSVScanSharedState*>(sharedState);
+    auto state = dynamic_cast_checked<ParallelCSVScanSharedState*>(sharedState);
     for (idx_t i = 0; i < state->fileScanInfo.getNumFiles(); ++i) {
         state->errorHandlers[i].throwCachedErrorsIfNeeded();
     }

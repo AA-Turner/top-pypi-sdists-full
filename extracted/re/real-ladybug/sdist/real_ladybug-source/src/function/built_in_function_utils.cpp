@@ -7,6 +7,7 @@
 #include "function/aggregate_function.h"
 #include "function/arithmetic/vector_arithmetic_functions.h"
 #include "function/scalar_function.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::catalog;
@@ -65,7 +66,7 @@ AggregateFunction* BuiltInFunctionsUtils::matchAggregateFunction(const std::stri
     }
     validateNonEmptyCandidateFunctions(candidateFunctions, name, inputTypes, isDistinct,
         functionSet);
-    KU_ASSERT(candidateFunctions.size() == 1);
+    DASSERT(candidateFunctions.size() == 1);
     return candidateFunctions[0];
 }
 
@@ -123,6 +124,12 @@ uint32_t BuiltInFunctionsUtils::getCastCost(LogicalTypeID inputTypeID, LogicalTy
         return castList(targetTypeID);
     case LogicalTypeID::ARRAY:
         return castArray(targetTypeID);
+    case LogicalTypeID::JSON: {
+        if (targetTypeID == LogicalTypeID::STRING || targetTypeID == LogicalTypeID::JSON) {
+            return 0;
+        }
+        return castFromString(targetTypeID);
+    }
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -147,6 +154,7 @@ uint32_t BuiltInFunctionsUtils::getTargetTypeCost(LogicalTypeID typeID) {
         return 120;
     case LogicalTypeID::STRING:
         return 149;
+    case LogicalTypeID::JSON:
     case LogicalTypeID::STRUCT:
     case LogicalTypeID::MAP:
     case LogicalTypeID::ARRAY:
@@ -167,6 +175,9 @@ uint32_t BuiltInFunctionsUtils::castInt64(LogicalTypeID targetTypeID) {
         return getTargetTypeCost(targetTypeID);
     case LogicalTypeID::SERIAL:
         return 0;
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -181,6 +192,9 @@ uint32_t BuiltInFunctionsUtils::castInt32(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -196,6 +210,9 @@ uint32_t BuiltInFunctionsUtils::castInt16(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -212,6 +229,9 @@ uint32_t BuiltInFunctionsUtils::castInt8(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -224,6 +244,9 @@ uint32_t BuiltInFunctionsUtils::castUInt64(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -239,6 +262,9 @@ uint32_t BuiltInFunctionsUtils::castUInt32(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -256,6 +282,9 @@ uint32_t BuiltInFunctionsUtils::castUInt16(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -275,6 +304,9 @@ uint32_t BuiltInFunctionsUtils::castUInt8(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -286,6 +318,9 @@ uint32_t BuiltInFunctionsUtils::castInt128(LogicalTypeID targetTypeID) {
     case LogicalTypeID::DOUBLE:
     case LogicalTypeID::DECIMAL:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -302,6 +337,9 @@ uint32_t BuiltInFunctionsUtils::castUUID(LogicalTypeID targetTypeID) {
 
 uint32_t BuiltInFunctionsUtils::castDouble(LogicalTypeID targetTypeID) {
     switch (targetTypeID) {
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -311,6 +349,9 @@ uint32_t BuiltInFunctionsUtils::castFloat(LogicalTypeID targetTypeID) {
     switch (targetTypeID) {
     case LogicalTypeID::DOUBLE:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -321,6 +362,9 @@ uint32_t BuiltInFunctionsUtils::castDecimal(LogicalTypeID targetTypeID) {
     case LogicalTypeID::FLOAT:
     case LogicalTypeID::DOUBLE:
         return getTargetTypeCost(targetTypeID);
+    case LogicalTypeID::JSON:
+    case LogicalTypeID::STRING:
+        return getTargetTypeCost(LogicalTypeID::STRING);
     default:
         return UNDEFINED_CAST_COST;
     }
@@ -389,7 +433,7 @@ uint32_t BuiltInFunctionsUtils::castArray(LogicalTypeID targetTypeID) {
 // Additionally, we prefer function with string parameter because string is most permissive and
 // can be cast to any type.
 Function* BuiltInFunctionsUtils::getBestMatch(std::vector<Function*>& functionsToMatch) {
-    KU_ASSERT(functionsToMatch.size() > 1);
+    DASSERT(functionsToMatch.size() > 1);
     Function* result = nullptr;
     auto cost = UNDEFINED_CAST_COST;
     for (auto& function : functionsToMatch) {
@@ -409,7 +453,7 @@ Function* BuiltInFunctionsUtils::getBestMatch(std::vector<Function*>& functionsT
             result = function;
         }
     }
-    KU_ASSERT(result != nullptr);
+    DASSERT(result != nullptr);
     return result;
 }
 
@@ -419,7 +463,7 @@ uint32_t BuiltInFunctionsUtils::getFunctionCost(const std::vector<LogicalType>& 
                             function->constPtrCast<ScalarFunction>()->isVarLength :
                             false);
     if (isVarLength) {
-        KU_ASSERT(function->parameterTypeIDs.size() == 1);
+        DASSERT(function->parameterTypeIDs.size() == 1);
         return matchVarLengthParameters(inputTypes, function->parameterTypeIDs[0]);
     }
     return matchParameters(inputTypes, function->parameterTypeIDs);
@@ -513,10 +557,10 @@ static std::string alignedString(const std::string& input) {
 std::string BuiltInFunctionsUtils::getFunctionMatchFailureMsg(const std::string name,
     const std::vector<LogicalType>& inputTypes, const std::string& supportedInputs,
     bool isDistinct) {
-    std::string result = stringFormat("Function {} did not receive correct arguments:\n", name);
-    result += stringFormat("Actual:   {}{}\n", isDistinct ? "DISTINCT " : "",
+    std::string result = std::format("Function {} did not receive correct arguments:\n", name);
+    result += std::format("Actual:   {}{}\n", isDistinct ? "DISTINCT " : "",
         inputTypes.empty() ? "()" : LogicalTypeUtils::toString(inputTypes));
-    result += stringFormat("Expected: {}\n",
+    result += std::format("Expected: {}\n",
         supportedInputs.empty() ? "()" : alignedString(supportedInputs));
     return result;
 }

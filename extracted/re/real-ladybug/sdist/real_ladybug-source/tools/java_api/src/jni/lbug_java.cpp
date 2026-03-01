@@ -15,6 +15,7 @@
 #include "common/exception/not_implemented.h"
 #include "function/cast/functions/cast_string_non_nested_functions.h"
 #include "main/lbug.h"
+#include <format>
 #include <jni.h>
 
 using namespace lbug::main;
@@ -1147,8 +1148,8 @@ JNIEXPORT jlong JNICALL Java_com_ladybugdb_Native_lbugValueCreateValue(JNIEnv* e
             auto scale = static_cast<int32_t>(env->CallIntMethod(val, J_C_BigDecimal_M_scale));
             if (precision > DECIMAL_PRECISION_LIMIT) {
                 throw NotImplementedException(
-                    stringFormat("Decimal precision cannot be greater than {}"
-                                 "Note: positive exponents contribute to precision",
+                    std::format("Decimal precision cannot be greater than {}"
+                                "Note: positive exponents contribute to precision",
                         DECIMAL_PRECISION_LIMIT));
             }
             auto type = LogicalType::DECIMAL(precision, scale);
@@ -1172,8 +1173,8 @@ JNIEXPORT jlong JNICALL Java_com_ladybugdb_Native_lbugValueCreateValue(JNIEnv* e
                 static_cast<int64_t>(env->CallLongMethod(val, J_C_UUID_M_getMostSignificantBits));
             uint64_t lower =
                 static_cast<uint64_t>(env->CallLongMethod(val, J_C_UUID_M_getLeastSignificantBits));
-            int128_t uuid(lower, upper ^ (int64_t(1) << 63));
-            v = new Value(ku_uuid_t{uuid});
+            int128_t uuidValue(lower, upper ^ (int64_t(1) << 63));
+            v = new Value(uuid{uuidValue});
         } else if (env->IsInstanceOf(val, J_C_LocalDate)) {
             int64_t days =
                 static_cast<int64_t>(env->CallLongMethod(val, J_C_LocalDate_M_toEpochDay));
@@ -1753,8 +1754,8 @@ JNIEXPORT jobject JNICALL Java_com_ladybugdb_Native_lbugCreateMap(JNIEnv* env, j
     jobjectArray keys, jobjectArray values) {
     try {
         jsize len = env->GetArrayLength(keys);
-        KU_ASSERT(env->GetArrayLength(values) == len);
-        KU_ASSERT(len > 0);
+        DASSERT(env->GetArrayLength(values) == len);
+        DASSERT(len > 0);
 
         std::optional<LogicalType> keyType;
         std::optional<LogicalType> valueType;
@@ -1768,7 +1769,7 @@ JNIEXPORT jobject JNICALL Java_com_ladybugdb_Native_lbugCreateMap(JNIEnv* env, j
                 keyType = key->getDataType().copy();
                 valueType = value->getDataType().copy();
             } else {
-                KU_ASSERT(valueType.has_value());
+                DASSERT(valueType.has_value());
                 if (key->getDataType() != *keyType || value->getDataType() != *valueType) {
                     return nullptr;
                 }
@@ -1785,8 +1786,8 @@ JNIEXPORT jobject JNICALL Java_com_ladybugdb_Native_lbugCreateMap(JNIEnv* env, j
                 LogicalType::STRUCT(std::move(structFields)), std::move(structVals)));
         }
 
-        KU_ASSERT(keyType.has_value());
-        KU_ASSERT(valueType.has_value());
+        DASSERT(keyType.has_value());
+        DASSERT(valueType.has_value());
         Value* mapValue = new Value(LogicalType::MAP(std::move(*keyType), std::move(*valueType)),
             std::move(children));
         return createJavaObject(env, mapValue, J_C_Value, J_C_Value_F_v_ref);
@@ -1802,8 +1803,8 @@ JNIEXPORT jobject JNICALL Java_com_ladybugdb_Native_lbugCreateStruct(JNIEnv* env
     jobjectArray fieldNames, jobjectArray fieldValues) {
     try {
         jsize len = env->GetArrayLength(fieldNames);
-        KU_ASSERT(env->GetArrayLength(fieldValues) == len);
-        KU_ASSERT(len > 0);
+        DASSERT(env->GetArrayLength(fieldValues) == len);
+        DASSERT(len > 0);
 
         std::vector<std::unique_ptr<Value>> children;
         auto structFields = std::vector<StructField>{};

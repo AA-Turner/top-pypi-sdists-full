@@ -10,6 +10,7 @@
 #include "function/table/simple_table_function.h"
 #include "main/client_context.h"
 #include "main/database_manager.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -22,7 +23,7 @@ struct ExtraPropertyInfo {
 
     template<class TARGET>
     TARGET* ptrCast() {
-        return common::ku_dynamic_cast<TARGET*>(this);
+        return common::dynamic_cast_checked<TARGET*>(this);
     }
 
     virtual std::unique_ptr<ExtraPropertyInfo> copy() const = 0;
@@ -191,10 +192,10 @@ static std::unique_ptr<TableFuncBindData> bindFunc(const main::ClientContext* co
                 type = CatalogEntryType::REL_GROUP_ENTRY;
             } break;
             default:
-                KU_UNREACHABLE;
+                UNREACHABLE_CODE;
             }
         } else {
-            throw CatalogException(stringFormat("{} does not exist in catalog.", tableName));
+            throw CatalogException(std::format("{} does not exist in catalog.", tableName));
         }
     } else {
         auto dbName = name[0];

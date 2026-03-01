@@ -10,9 +10,11 @@
 # ruff: noqa: F401 - `var` imported but unused
 
 import contextlib
+import importlib.util
 import os
 import platform
 from enum import Enum
+from pathlib import Path
 
 import numpy as np
 
@@ -34,6 +36,44 @@ if not IS_WASM:
     import numexpr
 
 from .version import __array_api_version__, __version__
+
+
+def _configure_libtcc_runtime_path():
+    """Best-effort configuration so miniexpr can find bundled libtcc at runtime."""
+    if IS_WASM:
+        return
+    if os.environ.get("ME_DSL_JIT_LIBTCC_PATH"):
+        return
+
+    spec = importlib.util.find_spec("blosc2.blosc2_ext")
+    origin = None if spec is None else spec.origin
+    if not origin:
+        return
+
+    ext_dir = Path(origin).resolve().parent
+    candidate_dirs = (
+        ext_dir,
+        ext_dir / "lib",
+        ext_dir.parent / "lib",
+    )
+    if platform.system() == "Darwin":
+        names = ("libtcc.dylib",)
+    elif platform.system() == "Windows":
+        names = ("tcc.dll", "libtcc.dll")
+    else:
+        names = ("libtcc.so", "libtcc.so.1")
+
+    for cdir in candidate_dirs:
+        for name in names:
+            candidate = cdir / name
+            if candidate.is_file():
+                os.environ["ME_DSL_JIT_LIBTCC_PATH"] = str(candidate)
+                return
+
+
+_configure_libtcc_runtime_path()
+
+_WASM_MINIEXPR_ENABLED = not IS_WASM
 
 __version__ = __version__
 __array_api_version__ = __array_api_version__
@@ -67,6 +107,21 @@ class Codec(Enum):
 class Filter(Enum):
     """
     Available filters.
+    For each of the filters, the integer value passed to  ``filters_meta`` has the following meaning:
+
+    - NOFILTER: Not used
+    - SHUFFLE: Number of byte streams for shuffle (if 0 defaults to typesize of array).
+    - BITSHUFFLE: Not used
+    - DELTA: Not used (bitwise XOR)
+    - TRUNC_PREC: Number of bits to which to truncate float
+    - NDCELL: Cellshape (i.e. for a 3-dim dataset, meta = 4 implies cellshape is 4x4x4)
+    - NDMEAN: Cellshape (i.e. for a 3-dim dataset, meta = 4 implies cellshape is 4x4x4)
+    - BYTEDELTA: Number of byte streams for delta
+    - INT_TRUNC: Number of bits to which to truncate integer
+
+    For TRUNC_PREC and INT_TRUNC, positive values specify number of bits to keep; negative values specify number of bits to zero.
+
+    For NDCELL/NDMEAN see this explanation for `NDCELL <https://github.com/Blosc/c-blosc2/blob/main/plugins/filters/ndcell/README.md>`_ and this for `NDMEAN <https://github.com/Blosc/c-blosc2/blob/main/plugins/filters/ndmean/README.md>`_.
     """
 
     NOFILTER = 0
@@ -191,6 +246,11 @@ The C-Blosc2 version's date."""
 VERSION_STRING = VERSION_STRING
 """
 The C-Blosc2 version's string."""
+
+if IS_WASM:
+    from ._wasm_jit import init_wasm_jit_helpers
+
+    _WASM_MINIEXPR_ENABLED = init_wasm_jit_helpers()
 
 
 # For array-api compatibility
@@ -333,17 +393,21 @@ def __array_namespace_info__() -> Info:
             "max dimensions": MAX_DIM,
         },
         default_device=lambda: "cpu",
-        default_dtypes=lambda device=None: {
-            "real floating": DEFAULT_FLOAT,
-            "complex floating": DEFAULT_COMPLEX,
-            "integral": DEFAULT_INT,
-            "indexing": DEFAULT_INDEX,
-        }
-        if (device == "cpu" or device is None)
-        else _raise(ValueError("Only cpu devices allowed")),
-        dtypes=lambda device=None, kind=None: np.__array_namespace_info__().dtypes(kind=kind, device=device)
-        if (device == "cpu" or device is None)
-        else _raise(ValueError("Only cpu devices allowed")),
+        default_dtypes=lambda device=None: (
+            {
+                "real floating": DEFAULT_FLOAT,
+                "complex floating": DEFAULT_COMPLEX,
+                "integral": DEFAULT_INT,
+                "indexing": DEFAULT_INDEX,
+            }
+            if (device == "cpu" or device is None)
+            else _raise(ValueError("Only cpu devices allowed"))
+        ),
+        dtypes=lambda device=None, kind=None: (
+            np.__array_namespace_info__().dtypes(kind=kind, device=device)
+            if (device == "cpu" or device is None)
+            else _raise(ValueError("Only cpu devices allowed"))
+        ),
         devices=lambda: ["cpu"],
         name="blosc2",
         version=__version__,
@@ -399,11 +463,15 @@ nthreads = ncores = cpu_info.get("count", 1)
 """
 # Protection against too many threads
 nthreads = min(nthreads, 64)
-# Experiments say that, when using a large number of threads, it is better to not use them all
-if nthreads > 16:
-    nthreads -= nthreads // 8
-if not IS_WASM:
-    # WASM does not support threading
+
+if IS_WASM:
+    nthreads = 1
+    # Keep C-side runtime in sync with Python-level default in wasm32.
+    set_nthreads(1)
+else:
+    # Experiments say that, when using a large number of threads, it is better to not use them all
+    if nthreads > 16:
+        nthreads -= nthreads // 8
     # Only call set_num_threads if within NUMEXPR_MAX_THREADS limit to avoid warning
     numexpr_max_env = os.environ.get("NUMEXPR_MAX_THREADS")
     numexpr_max: int | None = None
@@ -465,6 +533,7 @@ from .tree_store import TreeStore
 
 from .c2array import c2context, C2Array, URLPath
 
+from .dsl_kernel import DSLSyntaxError, DSLKernel, dsl_kernel, validate_dsl
 from .lazyexpr import (
     LazyExpr,
     lazyudf,
@@ -556,7 +625,10 @@ from .ndarray import (
     cos,
     cosh,
     count_nonzero,
+    cumulative_prod,
+    cumulative_sum,
     divide,
+    endswith,
     equal,
     exp,
     expm1,
@@ -581,6 +653,7 @@ from .ndarray import (
     logical_not,
     logical_or,
     logical_xor,
+    lower,
     max,
     maximum,
     mean,
@@ -604,6 +677,7 @@ from .ndarray import (
     sqrt,
     square,
     squeeze,
+    startswith,
     std,
     subtract,
     sum,
@@ -612,6 +686,7 @@ from .ndarray import (
     tan,
     tanh,
     trunc,
+    upper,
     var,
     where,
 )
@@ -645,6 +720,8 @@ __all__ = [  # noqa : RUF022
     "EmbedStore",
     "Filter",
     "LazyArray",
+    "DSLKernel",
+    "DSLSyntaxError",
     "LazyExpr",
     "LazyUDF",
     "NDArray",
@@ -719,11 +796,14 @@ __all__ = [  # noqa : RUF022
     "count_nonzero",
     "cparams_dflts",
     "cpu_info",
+    "cumulative_prod",
+    "cumulative_sum",
     "decompress",
     "decompress2",
     "detect_number_of_cores",
     "divide",
     "dparams_dflts",
+    "endswith",
     "empty",
     "empty_like",
     "equal",
@@ -760,6 +840,8 @@ __all__ = [  # noqa : RUF022
     "isnan",
     "jit",
     "lazyexpr",
+    "dsl_kernel",
+    "validate_dsl",
     "lazyudf",
     "lazywhere",
     "less",
@@ -776,6 +858,7 @@ __all__ = [  # noqa : RUF022
     "logical_not",
     "logical_or",
     "logical_xor",
+    "lower",
     "matmul",
     "matrix_transpose",
     "max",
@@ -830,6 +913,7 @@ __all__ = [  # noqa : RUF022
     "square",
     "squeeze",
     "stack",
+    "startswith",
     "std",
     "storage_dflts",
     "subtract",
@@ -846,6 +930,7 @@ __all__ = [  # noqa : RUF022
     "unpack_array",
     "unpack_array2",
     "unpack_tensor",
+    "upper",
     "validate_expr",
     "var",
     "vecdot",

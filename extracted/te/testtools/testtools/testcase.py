@@ -23,7 +23,7 @@ import sys
 import types
 import unittest
 from collections.abc import Callable, Iterator
-from typing import Protocol, TypeVar, cast
+from typing import TypeVar, cast
 from unittest.case import SkipTest
 
 T = TypeVar("T")
@@ -55,6 +55,14 @@ from testtools.testresult import (
     ExtendedToOriginalDecorator,
     TestResult,
 )
+
+# Circular import: fixtures imports gather_details from here, we import
+# fixtures, leading to gather_details not being available and fixtures being
+# unable to import it.
+try:
+    import fixtures
+except ImportError:
+    fixtures = None  # type: ignore
 
 
 class _UnexpectedSuccess(Exception):
@@ -183,22 +191,7 @@ def gather_details(source_dict: DetailsDict, target_dict: DetailsDict) -> None:
         target_dict[name] = _copy_content(content_object)
 
 
-# Circular import: fixtures imports gather_details from here, we import
-# fixtures, leading to gather_details not being available and fixtures being
-# unable to import it.
-try:
-    import fixtures
-except ImportError:
-    fixtures = None  # type: ignore
-
-
-class UseFixtureProtocol(Protocol):
-    def setUp(self) -> None: ...
-    def cleanUp(self) -> None: ...
-    def getDetails(self) -> DetailsDict: ...
-
-
-UseFixtureT = TypeVar("UseFixtureT", bound=UseFixtureProtocol)
+FixtureT = TypeVar("FixtureT", bound="fixtures.Fixture")
 
 
 def _mods(i: int, mod: int) -> Iterator[int]:
@@ -892,7 +885,7 @@ class TestCase(unittest.TestCase):
         """
         return self._get_test_method()()
 
-    def useFixture(self, fixture: UseFixtureT) -> UseFixtureT:
+    def useFixture(self, fixture: "FixtureT") -> "FixtureT":
         """Use fixture in a test case.
 
         The fixture will be setUp, and self.addCleanup(fixture.cleanUp) called.

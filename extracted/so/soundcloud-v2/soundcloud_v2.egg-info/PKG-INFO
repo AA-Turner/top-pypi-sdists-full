@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: soundcloud-v2
-Version: 1.6.1
+Version: 1.6.2
 Summary: Python wrapper for the internal v2 SoundCloud API.Does not require an API key.
 Home-page: https://github.com/7x11x13/soundcloud.py
 Author: 7x11x13

@@ -16,8 +16,8 @@ from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, NameObject
 
 from .annotations import AnnotationTypes
-from .constants import (COMB, MULTILINE, READ_ONLY, REQUIRED, WIDGET_TYPES,
-                        Annots)
+from .constants import COMB, MULTILINE, READ_ONLY, REQUIRED, Annots
+from .middleware import WIDGET_TYPES
 from .middleware.checkbox import Checkbox
 from .middleware.dropdown import Dropdown
 from .middleware.radio import Radio
@@ -47,27 +47,6 @@ def get_metadata(pdf: bytes) -> dict:
 
     reader = PdfReader(stream_to_io(pdf))
     return reader.metadata or {}
-
-
-def set_metadata(pdf: bytes, metadata: dict) -> bytes:
-    """
-    Sets the metadata of a PDF.
-
-    Args:
-        pdf (bytes): The PDF stream to set metadata for.
-        metadata (dict): A dictionary containing the metadata to be set.
-
-    Returns:
-        bytes: The updated PDF stream with the new metadata.
-    """
-    reader = PdfReader(stream_to_io(pdf))
-    writer = PdfWriter(clone_from=reader)
-    writer.add_metadata(metadata)
-
-    with BytesIO() as f:
-        writer.write(f)
-        f.seek(0)
-        return f.read()
 
 
 def build_widgets(

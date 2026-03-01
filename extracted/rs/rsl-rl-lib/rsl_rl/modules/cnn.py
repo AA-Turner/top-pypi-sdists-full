@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import math
@@ -13,7 +14,7 @@ from rsl_rl.utils import get_param, resolve_nn_activation
 
 
 class CNN(nn.Sequential):
-    """Convolutional Neural Network (CNN).
+    """Convolutional Neural Network.
 
     The CNN network is a sequence of convolutional layers, optional normalization layers, optional activation functions,
     and optional pooling. The final output can be flattened.
@@ -23,10 +24,10 @@ class CNN(nn.Sequential):
         self,
         input_dim: tuple[int, int],
         input_channels: int,
-        output_channels: tuple[int] | list[int],
-        kernel_size: int | tuple[int] | list[int],
-        stride: int | tuple[int] | list[int] = 1,
-        dilation: int | tuple[int] | list[int] = 1,
+        output_channels: tuple[int, ...] | list[int],
+        kernel_size: int | tuple[int, ...] | list[int],
+        stride: int | tuple[int, ...] | list[int] = 1,
+        dilation: int | tuple[int, ...] | list[int] = 1,
         padding: str = "none",
         norm: str | tuple[str] | list[str] = "none",
         activation: str = "elu",

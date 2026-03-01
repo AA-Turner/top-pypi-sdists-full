@@ -18,12 +18,13 @@ static FreeSpaceManager::sorted_free_list_t& getFreeList(
     return freeLists[level];
 }
 
-FreeSpaceManager::FreeSpaceManager() : freeLists{}, numEntries(0), needClearEvictedEntries(false){};
+FreeSpaceManager::FreeSpaceManager()
+    : freeLists{}, numEntries(0), needClearEvictedEntries(false) {};
 
 common::idx_t FreeSpaceManager::getLevel(common::page_idx_t numPages) {
     // level is exponent of largest power of 2 that is <= numPages
     // e.g. 2 -> level 1, 5 -> level 2
-    KU_ASSERT(numPages > 0);
+    DASSERT(numPages > 0);
     return common::CountZeros<common::page_idx_t>::Trailing(std::bit_floor(numPages));
 }
 
@@ -32,10 +33,13 @@ bool FreeSpaceManager::entryCmp(const PageRange& a, const PageRange& b) {
 }
 
 void FreeSpaceManager::addFreePages(PageRange entry) {
-    KU_ASSERT(entry.numPages > 0);
+    DASSERT(entry.numPages > 0);
     const auto entryLevel = getLevel(entry.numPages);
-    KU_ASSERT(!getFreeList(freeLists, entryLevel).contains(entry));
-    getFreeList(freeLists, entryLevel).insert(entry);
+    auto& freeList = getFreeList(freeLists, entryLevel);
+    if (freeList.contains(entry)) {
+        return;
+    }
+    freeList.insert(entry);
     ++numEntries;
 }
 
@@ -71,7 +75,7 @@ std::optional<PageRange> FreeSpaceManager::popFreePages(common::page_idx_t numPa
 }
 
 PageRange FreeSpaceManager::splitPageRange(PageRange chunk, common::page_idx_t numRequiredPages) {
-    KU_ASSERT(chunk.numPages >= numRequiredPages);
+    DASSERT(chunk.numPages >= numRequiredPages);
     PageRange ret{chunk.startPageIdx, numRequiredPages};
     if (numRequiredPages < chunk.numPages) {
         PageRange remainingEntry{chunk.startPageIdx + numRequiredPages,
@@ -152,7 +156,7 @@ void FreeSpaceManager::serializeInternal(ValueProcessor& ser) const {
         serializeCheckpointedEntries(freeLists, ser);
     [[maybe_unused]] const auto numUncheckpointedEntries =
         serializeUncheckpointedEntries(uncheckpointedFreePageRanges, ser);
-    KU_ASSERT(numCheckpointedEntries + numUncheckpointedEntries == numEntries);
+    DASSERT(numCheckpointedEntries + numUncheckpointedEntries == numEntries);
 }
 
 common::page_idx_t FreeSpaceManager::getMaxNumPagesForSerialization() const {
@@ -201,6 +205,14 @@ void FreeSpaceManager::finalizeCheckpoint(FileHandle* fileHandle) {
     uncheckpointedFreePageRanges.clear();
 }
 
+void FreeSpaceManager::mergeFreePages(FileHandle* fileHandle) {
+    // evict pages before they're added to the free list (same as finalizeCheckpoint)
+    for (const auto& entry : uncheckpointedFreePageRanges) {
+        evictPages(fileHandle, entry);
+    }
+    mergePageRanges(std::move(uncheckpointedFreePageRanges), fileHandle);
+}
+
 void FreeSpaceManager::resetFreeLists() {
     freeLists.clear();
     numEntries = 0;
@@ -223,9 +235,12 @@ void FreeSpaceManager::mergePageRanges(free_list_t newInitialEntries, FileHandle
     PageRange prevEntry = allEntries[0];
     for (common::row_idx_t i = 1; i < allEntries.size(); ++i) {
         const auto& entry = allEntries[i];
-        KU_ASSERT(prevEntry.startPageIdx + prevEntry.numPages <= entry.startPageIdx);
-        if (prevEntry.startPageIdx + prevEntry.numPages == entry.startPageIdx) {
-            prevEntry.numPages += entry.numPages;
+        const auto prevEnd = prevEntry.startPageIdx + prevEntry.numPages;
+        if (entry.startPageIdx <= prevEnd) {
+            // Overlapping or adjacent: merge (covers duplicates and overlapping ranges)
+            const auto entryEnd = entry.startPageIdx + entry.numPages;
+            prevEntry.numPages =
+                (prevEnd >= entryEnd ? prevEnd : entryEnd) - prevEntry.startPageIdx;
         } else {
             addFreePages(prevEntry);
             prevEntry = entry;
@@ -248,12 +263,12 @@ common::row_idx_t FreeSpaceManager::getNumEntries() const {
 
 std::vector<PageRange> FreeSpaceManager::getEntries(common::row_idx_t startOffset,
     common::row_idx_t endOffset) const {
-    KU_ASSERT(endOffset >= startOffset);
+    DASSERT(endOffset >= startOffset);
     std::vector<PageRange> ret;
     FreeEntryIterator it{freeLists};
     it.advance(startOffset);
     while (ret.size() < endOffset - startOffset) {
-        KU_ASSERT(!it.done());
+        DASSERT(!it.done());
         ret.push_back(*it);
         ++it;
     }
@@ -274,7 +289,7 @@ void FreeEntryIterator::advance(common::row_idx_t numEntries) {
 }
 
 void FreeEntryIterator::operator++() {
-    KU_ASSERT(freeListIdx < freeLists.size());
+    DASSERT(freeListIdx < freeLists.size());
     ++freeListIt;
     if (freeListIt == freeLists[freeListIdx].end()) {
         ++freeListIdx;
@@ -296,7 +311,7 @@ void FreeEntryIterator::advanceFreeListIdx() {
 }
 
 PageRange FreeEntryIterator::operator*() const {
-    KU_ASSERT(freeListIdx < freeLists.size() && freeListIt != freeLists[freeListIdx].end());
+    DASSERT(freeListIdx < freeLists.size() && freeListIt != freeLists[freeListIdx].end());
     return *freeListIt;
 }
 

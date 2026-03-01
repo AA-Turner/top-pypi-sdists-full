@@ -3,9 +3,9 @@
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "common/exception/binder.h"
-#include "common/string_format.h"
 #include "processor/execution_context.h"
 #include "storage/storage_manager.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -22,14 +22,14 @@ void CreateTable::executeInternal(ExecutionContext* context) {
     if (catalog->containsTable(transaction, info.tableName)) {
         switch (info.onConflict) {
         case ConflictAction::ON_CONFLICT_DO_NOTHING: {
-            appendMessage(stringFormat("Table {} already exists.", info.tableName), memoryManager);
+            appendMessage(std::format("Table {} already exists.", info.tableName), memoryManager);
             return;
         }
         case ConflictAction::ON_CONFLICT_THROW: {
             throw BinderException(info.tableName + " already exists in catalog.");
         }
         default:
-            KU_UNREACHABLE;
+            UNREACHABLE_CODE;
         }
     }
     // Create the table.
@@ -40,10 +40,10 @@ void CreateTable::executeInternal(ExecutionContext* context) {
         entry = catalog->createTableEntry(transaction, info);
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     storage::StorageManager::Get(*clientContext)->createTable(entry->ptrCast<TableCatalogEntry>());
-    appendMessage(stringFormat("Table {} has been created.", info.tableName), memoryManager);
+    appendMessage(std::format("Table {} has been created.", info.tableName), memoryManager);
     sharedState->tableCreated = true;
 }
 

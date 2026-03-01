@@ -1,3 +1,4 @@
+from compressed_tensors.offload import dispatch_model
 from compressed_tensors.utils import replace_module
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.models.granitemoehybrid.modeling_granitemoehybrid import (
@@ -7,14 +8,13 @@ from transformers.models.granitemoehybrid.modeling_granitemoehybrid import (
 from llmcompressor import oneshot
 from llmcompressor.modeling.granite4 import GraniteMoeHybridParallelExpertsLinear
 from llmcompressor.modifiers.quantization import QuantizationModifier
-from llmcompressor.utils import dispatch_for_generation
 
 """Please see details in `README_granite4.md`."""
 
 MODEL_ID = "ibm-granite/granite-4.0-tiny-preview"
 
 # Load model.
-model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype="auto")
+model = AutoModelForCausalLM.from_pretrained(MODEL_ID, dtype="auto")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
 
 skip_router_only = True  # assume we want to quantize input/output moe layers
@@ -45,7 +45,7 @@ oneshot(model=model, recipe=recipe)
 
 # Confirm generations of the quantized model look sane.
 print("========== SAMPLE GENERATION ==============")
-dispatch_for_generation(model)
+dispatch_model(model)
 input_ids = tokenizer(
     "What is your favorite TV show?", return_tensors="pt"
 ).input_ids.to("cuda")

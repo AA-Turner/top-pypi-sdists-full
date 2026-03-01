@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,9 +26,14 @@ Reference: https://github.com/electrum/py-electrum-sdk
 # Imports
 from typing import Optional, Union
 
+from typing_extensions import override
+
 from bip_utils.bip.bip39.bip39_mnemonic_utils import Bip39WordsListFinder, Bip39WordsListGetter
 from bip_utils.electrum.mnemonic_v2.electrum_v2_mnemonic import (
-    ElectrumV2Languages, ElectrumV2Mnemonic, ElectrumV2MnemonicConst, ElectrumV2MnemonicTypes
+    ElectrumV2Languages,
+    ElectrumV2Mnemonic,
+    ElectrumV2MnemonicConst,
+    ElectrumV2MnemonicTypes,
 )
 from bip_utils.electrum.mnemonic_v2.electrum_v2_mnemonic_utils import ElectrumV2MnemonicUtils
 from bip_utils.utils.misc import IntegerUtils
@@ -66,6 +71,7 @@ class ElectrumV2MnemonicDecoder(MnemonicDecoderBase):
                          Bip39WordsListGetter)
         self.m_mnemonic_type = mnemonic_type
 
+    @override
     def Decode(self,
                mnemonic: Union[str, Mnemonic]) -> bytes:
         """

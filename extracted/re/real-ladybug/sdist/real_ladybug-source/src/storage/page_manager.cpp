@@ -17,7 +17,7 @@ PageRange PageManager::allocatePageRange(common::page_idx_t numPages) {
         }
     }
     auto startPageIdx = fileHandle->addNewPages(numPages);
-    KU_ASSERT(fileHandle->getNumPages() >= startPageIdx + numPages);
+    DASSERT(fileHandle->getNumPages() >= startPageIdx + numPages);
     return PageRange(startPageIdx, numPages);
 }
 
@@ -57,6 +57,31 @@ void PageManager::finalizeCheckpoint() {
 
 void PageManager::clearEvictedBMEntriesIfNeeded(BufferManager* bufferManager) {
     freeSpaceManager->clearEvictedBufferManagerEntriesIfNeeded(bufferManager);
+}
+
+void PageManager::mergeFreePages(FileHandle* fileHandle) {
+    if constexpr (ENABLE_FSM) {
+        common::UniqLock lck{mtx};
+        freeSpaceManager->mergeFreePages(fileHandle);
+        ++version;
+    }
+}
+
+void PageManager::reclaimTailPagesIfNeeded(common::page_idx_t checkpointNumPages) {
+    if constexpr (!ENABLE_FSM) {
+        return;
+    }
+    if (checkpointNumPages == 0) {
+        return;
+    }
+    const auto currentNumPages = fileHandle->getNumPages();
+    if (currentNumPages <= checkpointNumPages) {
+        return;
+    }
+    common::UniqLock lck{mtx};
+    const PageRange tail(checkpointNumPages, currentNumPages - checkpointNumPages);
+    freeSpaceManager->evictAndAddFreePages(fileHandle, tail);
+    ++version;
 }
 
 PageManager* PageManager::Get(const main::ClientContext& context) {

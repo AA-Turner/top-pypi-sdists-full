@@ -9,9 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from unicodedata import category
 
-from nltk.tokenize import WhitespaceTokenizer
-
 from newspaper import settings
+from newspaper.languages import normalize_language_code
 
 punctuation_set = {c for i in range(sys.maxunicode + 1) if category(c := chr(i)).startswith("P")}
 punctuation_set.update(string.punctuation)
@@ -19,7 +18,24 @@ punctuation_set.update(string.punctuation)
 contraction_separators = set("-'`ʹʻʼʽʾʿˈˊ‘’‛′‵Ꞌꞌ")
 punctuation_set -= contraction_separators
 punctuation: str = "".join(list(punctuation_set))
-whitespace_tokenizer = WhitespaceTokenizer()
+try:
+    from nltk.tokenize import WhitespaceTokenizer
+
+    whitespace_tokenizer = WhitespaceTokenizer()
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        "nltk is not installed. Some NLP features will be unavailable. Install it with: pip install 'newspaper4k[nlp]'",
+        UserWarning,
+        stacklevel=2,
+    )
+
+    class _FallbackWhitespaceTokenizer:
+        def tokenize(self, text):
+            return re.split(r"\s+", text.strip())
+
+    whitespace_tokenizer = _FallbackWhitespaceTokenizer()  # type: ignore[assignment]
 
 
 def inner_trim(value):
@@ -92,7 +108,7 @@ class StopWords:
             Defaults to "en" (English).
 
     Attributes:
-        find_stopwords (Optional[Callable]): A function to find stopwords in a
+        find_stopwords (Callable | None): A function to find stopwords in a
             list of tokens. It is needed for languages where stopwords are not
             full words. For example, in Korean, stopwords are identified by
             tokens ending with the stopword (as if it's a suffix).
@@ -107,6 +123,9 @@ class StopWords:
     def __init__(self, language="en"):
         self.find_stopwords = None
         self.tokenizer = default_tokenizer
+
+        # Normalize ISO 639-3 codes to ISO 639-1 codes
+        language = normalize_language_code(language)
 
         if language not in self._cached_stop_words:
             stopwords_file = Path(settings.STOPWORDS_DIR) / f"stopwords-{language}.txt"

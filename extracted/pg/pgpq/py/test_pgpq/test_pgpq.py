@@ -6,6 +6,7 @@ from glob import glob
 from pathlib import Path
 from typing import Any, Iterator, List, Tuple
 
+from pgpq._pgpq import Column
 import pyarrow as pa
 import pyarrow.ipc as paipc
 import pytest
@@ -274,3 +275,10 @@ def test_custom_encoding(dbconn: Connection) -> None:
 
     rows = copy_buffer_and_get_rows(pg_schema, buffer, dbconn)
     assert rows == [([[]],), ([{"foo": "bar"}],), ([123],)]
+
+
+def test_column_properties() -> None:
+    column = Column("col", False, pgpq.schema.Text())
+    assert column.name == "col"
+    assert not column.nullable
+    assert column.data_type == pgpq.schema.Text()

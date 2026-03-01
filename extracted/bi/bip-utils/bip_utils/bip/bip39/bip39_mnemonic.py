@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,8 @@
 # Imports
 from enum import IntEnum, auto, unique
 from typing import Dict, List, Union
+
+from typing_extensions import override
 
 from bip_utils.utils.misc import StringUtils
 from bip_utils.utils.mnemonic import Mnemonic, MnemonicLanguages
@@ -91,6 +93,7 @@ class Bip39Mnemonic(Mnemonic):
     It adds NFKD normalization to mnemonic.
     """
 
+    @override
     @staticmethod
     def _Normalize(mnemonic: Union[str, List[str]]) -> List[str]:
         """

@@ -1,5 +1,7 @@
 import logging
+import webbrowser
 
+import prompt_toolkit
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.filters import (
@@ -11,8 +13,10 @@ from prompt_toolkit.filters import (
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 
+from mycli.constants import DOCS_URL
 from mycli.packages import shortcuts
 from mycli.packages.toolkit.fzf import search_history
+from mycli.packages.toolkit.utils import safe_invalidate_display
 
 _logger = logging.getLogger(__name__)
 
@@ -30,9 +34,43 @@ def in_completion() -> bool:
     return bool(app.current_buffer.complete_state)
 
 
+def print_f1_help():
+    app = get_app()
+    app.print_text('\n')
+    app.print_text([
+        ('', 'Inline help — type "'),
+        ('bold', 'help'),
+        ('', '" or "'),
+        ('bold', r'\?'),
+        ('', '"\n'),
+    ])
+    app.print_text([
+        ('', 'Docs index — '),
+        ('bold', DOCS_URL),
+        ('', '\n'),
+    ])
+    app.print_text('\n')
+
+
 def mycli_bindings(mycli) -> KeyBindings:
     """Custom key bindings for mycli."""
     kb = KeyBindings()
+
+    @kb.add('f1')
+    def _(event: KeyPressEvent) -> None:
+        """Open browser to documentation index."""
+        _logger.debug('Detected F1 key.')
+        webbrowser.open_new_tab(DOCS_URL)
+        prompt_toolkit.application.run_in_terminal(print_f1_help)
+        safe_invalidate_display(event.app)
+
+    @kb.add('escape', '[', 'P')
+    def _(event: KeyPressEvent) -> None:
+        """Open browser to documentation index."""
+        _logger.debug("Detected alternate F1 key sequence.")
+        webbrowser.open_new_tab(DOCS_URL)
+        prompt_toolkit.application.run_in_terminal(print_f1_help)
+        safe_invalidate_display(event.app)
 
     @kb.add("f2")
     def _(_event: KeyPressEvent) -> None:
@@ -128,14 +166,8 @@ def mycli_bindings(mycli) -> KeyBindings:
         _logger.debug("Detected <C-x p>/> key.")
 
         b = event.app.current_buffer
-        cursorpos_relative = b.cursor_position / max(1, len(b.text))
-        pretty_text = mycli.handle_prettify_binding(b.text)
-        if len(pretty_text) > 0:
-            b.text = pretty_text
-            cursorpos_abs = int(round(cursorpos_relative * len(b.text)))
-            while 0 < cursorpos_abs < len(b.text) and b.text[cursorpos_abs] in (" ", "\n"):
-                cursorpos_abs -= 1
-            b.cursor_position = min(cursorpos_abs, len(b.text))
+        if b.text:
+            b.transform_region(0, len(b.text), mycli.handle_prettify_binding)
 
     @kb.add("c-x", "u", filter=emacs_mode)
     def _(event: KeyPressEvent) -> None:
@@ -147,14 +179,8 @@ def mycli_bindings(mycli) -> KeyBindings:
         _logger.debug("Detected <C-x u>/< key.")
 
         b = event.app.current_buffer
-        cursorpos_relative = b.cursor_position / max(1, len(b.text))
-        unpretty_text = mycli.handle_unprettify_binding(b.text)
-        if len(unpretty_text) > 0:
-            b.text = unpretty_text
-            cursorpos_abs = int(round(cursorpos_relative * len(b.text)))
-            while 0 < cursorpos_abs < len(b.text) and b.text[cursorpos_abs] in (" ", "\n"):
-                cursorpos_abs -= 1
-            b.cursor_position = min(cursorpos_abs, len(b.text))
+        if b.text:
+            b.transform_region(0, len(b.text), mycli.handle_unprettify_binding)
 
     @kb.add("c-o", "d", filter=emacs_mode)
     def _(event: KeyPressEvent) -> None:
@@ -200,13 +226,21 @@ def mycli_bindings(mycli) -> KeyBindings:
         if mode == 'reverse_isearch':
             search_history(event, incremental=True)
         else:
-            search_history(event)
+            search_history(
+                event,
+                highlight_preview=mycli.highlight_preview,
+                highlight_style=mycli.syntax_style,
+            )
 
     @kb.add("escape", "r", filter=control_is_searchable & emacs_mode)
     def _(event: KeyPressEvent) -> None:
         """Search history using fzf when available."""
         _logger.debug("Detected <alt-r> key.")
-        search_history(event)
+        search_history(
+            event,
+            highlight_preview=mycli.highlight_preview,
+            highlight_style=mycli.syntax_style,
+        )
 
     @kb.add('c-d', filter=ctrl_d_condition)
     def _(event: KeyPressEvent) -> None:

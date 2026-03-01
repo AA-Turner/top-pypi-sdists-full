@@ -6,6 +6,7 @@
 #include "common/exception/runtime.h"
 #include "common/string_utils.h"
 #include "common/types/value/nested.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -35,7 +36,7 @@ static void bindBoolParsingOption(CSVReaderConfig& config, const std::string& op
     } else if (optionName == "AUTODETECT" || optionName == "AUTO_DETECT") {
         config.option.autoDetection = optionValue;
     } else {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -52,7 +53,7 @@ static void bindStringParsingOption(CSVReaderConfig& config, const std::string& 
         config.option.quoteChar = parsingOptionValue;
         config.option.setQuote = true;
     } else {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -71,7 +72,7 @@ static void bindIntParsingOption(CSVReaderConfig& config, const std::string& opt
         }
         config.option.sampleSize = optionValue;
     } else {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -80,7 +81,7 @@ static void bindListParsingOption(CSVReaderConfig& config, const std::string& op
     if (optionName == "NULL_STRINGS") {
         config.option.nullStrings = optionValue;
     } else {
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 
@@ -118,7 +119,7 @@ static bool isValidBooleanOptionValue(const Value& value, const std::string& nam
     } else {
         // In this case the boolean is not valid
         throw BinderException(
-            stringFormat("The type of csv parsing option {} must be a boolean.", name));
+            std::format("The type of csv parsing option {} must be a boolean.", name));
     }
 }
 
@@ -135,19 +136,19 @@ CSVReaderConfig CSVReaderConfig::construct(const case_insensitive_map_t<Value>& 
         } else if (isValidStringParsingOption) {
             if (op.second.getDataType() != LogicalType::STRING()) {
                 throw BinderException(
-                    stringFormat("The type of csv parsing option {} must be a string.", name));
+                    std::format("The type of csv parsing option {} must be a string.", name));
             }
             bindStringParsingOption(config, name, op.second.getValue<std::string>());
         } else if (isValidIntParsingOption) {
             if (op.second.getDataType() != LogicalType::INT64()) {
                 throw BinderException(
-                    stringFormat("The type of csv parsing option {} must be a INT64.", name));
+                    std::format("The type of csv parsing option {} must be a INT64.", name));
             }
             bindIntParsingOption(config, name, op.second.getValue<int64_t>());
         } else if (isValidListParsingOption) {
             if (op.second.getDataType() != LogicalType::LIST(LogicalType::STRING())) {
                 throw BinderException(
-                    stringFormat("The type of csv parsing option {} must be a STRING[].", name));
+                    std::format("The type of csv parsing option {} must be a STRING[].", name));
             }
             std::vector<std::string> optionValues;
             for (auto i = 0u; i < op.second.getChildrenSize(); i++) {
@@ -156,7 +157,7 @@ CSVReaderConfig CSVReaderConfig::construct(const case_insensitive_map_t<Value>& 
             }
             bindListParsingOption(config, name, optionValues);
         } else {
-            throw BinderException(stringFormat("Unrecognized csv parsing option: {}.", name));
+            throw BinderException(std::format("Unrecognized csv parsing option: {}.", name));
         }
     }
     if (config.option.skipNum > 0) {

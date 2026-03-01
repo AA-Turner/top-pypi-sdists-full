@@ -10,6 +10,7 @@
 #include "common/exception/runtime.h"
 #include "common/type_utils.h"
 #include "common/types/value/nested.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -201,7 +202,7 @@ void ExpressionUtil::validateExpressionType(const Expression& expr, ExpressionTy
     if (expr.expressionType == expectedType) {
         return;
     }
-    throw BinderException(stringFormat("{} has type {} but {} was expected.", expr.toString(),
+    throw BinderException(std::format("{} has type {} but {} was expected.", expr.toString(),
         ExpressionTypeUtil::toString(expr.expressionType),
         ExpressionTypeUtil::toString(expectedType)));
 }
@@ -218,7 +219,7 @@ void ExpressionUtil::validateExpressionType(const Expression& expr,
             expectedTypesStr += expectedTypesStr.empty() ? ExpressionTypeUtil::toString(type) :
                                                            "," + ExpressionTypeUtil::toString(type);
         });
-    throw BinderException(stringFormat("{} has type {} but {} was expected.", expr.toString(),
+    throw BinderException(std::format("{} has type {} but {} was expected.", expr.toString(),
         ExpressionTypeUtil::toString(expr.expressionType), expectedTypesStr));
 }
 
@@ -226,7 +227,7 @@ void ExpressionUtil::validateDataType(const Expression& expr, const LogicalType&
     if (expr.getDataType() == expectedType) {
         return;
     }
-    throw BinderException(stringFormat("{} has data type {} but {} was expected.", expr.toString(),
+    throw BinderException(std::format("{} has data type {} but {} was expected.", expr.toString(),
         expr.getDataType().toString(), expectedType.toString()));
 }
 
@@ -234,7 +235,7 @@ void ExpressionUtil::validateDataType(const Expression& expr, LogicalTypeID expe
     if (expr.getDataType().getLogicalTypeID() == expectedTypeID) {
         return;
     }
-    throw BinderException(stringFormat("{} has data type {} but {} was expected.", expr.toString(),
+    throw BinderException(std::format("{} has data type {} but {} was expected.", expr.toString(),
         expr.getDataType().toString(), LogicalTypeUtils::toString(expectedTypeID)));
 }
 
@@ -245,7 +246,7 @@ void ExpressionUtil::validateDataType(const Expression& expr,
     if (targetsSet.contains(expr.getDataType().getLogicalTypeID())) {
         return;
     }
-    throw BinderException(stringFormat("{} has data type {} but {} was expected.", expr.toString(),
+    throw BinderException(std::format("{} has data type {} but {} was expected.", expr.toString(),
         expr.getDataType().toString(), LogicalTypeUtils::toString(expectedTypeIDs)));
 }
 
@@ -369,7 +370,7 @@ static bool compatible(const Value& value, const LogicalType& targetType) {
         const auto& valType = MapType::getValueType(targetType);
         for (auto i = 0u; i < NestedVal::getChildrenSize(&value); ++i) {
             auto childVal = NestedVal::getChildVal(&value, i);
-            KU_ASSERT(NestedVal::getChildrenSize(childVal) == 2);
+            DASSERT(NestedVal::getChildrenSize(childVal) == 2);
             auto key = NestedVal::getChildVal(childVal, 0);
             auto val = NestedVal::getChildVal(childVal, 1);
             if (!compatible(*key, keyType) || !compatible(*val, valType)) {
@@ -440,7 +441,7 @@ bool ExpressionUtil::canEvaluateAsLiteral(const Expression& expr) {
 }
 
 Value ExpressionUtil::evaluateAsLiteralValue(const Expression& expr) {
-    KU_ASSERT(canEvaluateAsLiteral(expr));
+    DASSERT(canEvaluateAsLiteral(expr));
     auto value = Value::createDefaultValue(expr.dataType);
     switch (expr.expressionType) {
     case ExpressionType::LITERAL: {
@@ -450,7 +451,7 @@ Value ExpressionUtil::evaluateAsLiteralValue(const Expression& expr) {
         value = expr.constCast<ParameterExpression>().getValue();
     } break;
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
     return value;
 }
@@ -475,8 +476,8 @@ template<typename T>
 T ExpressionUtil::getExpressionVal(const Expression& expr, const Value& value,
     const LogicalType& targetType, validate_param_func<T> validateParamFunc) {
     if (value.getDataType() != targetType) {
-        throw RuntimeException{common::stringFormat("Parameter: {} must be a {} literal.",
-            expr.getAlias(), targetType.toString())};
+        throw RuntimeException{std::format("Parameter: {} must be a {} literal.", expr.getAlias(),
+            targetType.toString())};
     }
     T val = value.getValue<T>();
     if (validateParamFunc != nullptr) {
@@ -493,14 +494,13 @@ T ExpressionUtil::evaluateLiteral(main::ClientContext* context,
         std::string errMsg;
         switch (expression->expressionType) {
         case ExpressionType::PARAMETER: {
-            errMsg = common::stringFormat(
+            errMsg = std::format(
                 "The expression: '{}' is a parameter expression. Please assign it a value.",
                 expression->toString());
         } break;
         default: {
-            errMsg =
-                common::stringFormat("The expression: '{}' must be a parameter/literal expression.",
-                    expression->toString());
+            errMsg = std::format("The expression: '{}' must be a parameter/literal expression.",
+                expression->toString());
             ;
         } break;
         }

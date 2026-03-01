@@ -73,6 +73,7 @@ void Checkpointer::writeCheckpoint() {
     // checkpointing storage may overwrite columnIDs in the catalog.
     bool hasStorageChanges = checkpointStorage();
     serializeCatalogAndMetadata(databaseHeader, hasStorageChanges);
+    databaseHeader.dataFileNumPages = mainStorageManager->getDataFH()->getNumPages();
     writeDatabaseHeader(databaseHeader);
     logCheckpointAndApplyShadowPages();
 
@@ -101,7 +102,9 @@ bool Checkpointer::checkpointStorage() {
 
 void Checkpointer::serializeCatalogAndMetadata(DatabaseHeader& databaseHeader,
     bool hasStorageChanges) {
-    const auto catalog = catalog::Catalog::Get(clientContext);
+    // IMPORTANT: Always use the main database's catalog, not Catalog::Get()
+    // which might return a graph's catalog if a default graph is set!
+    const auto catalog = clientContext.getDatabase()->getCatalog();
     auto* dataFH = mainStorageManager->getDataFH();
 
     // Serialize the catalog if there are changes
@@ -151,7 +154,7 @@ void Checkpointer::logCheckpointAndApplyShadowPages() {
     // system crashes before this point, the WAL can still be used to recover the system to a
     // state where the checkpoint can be redone.
     wal->logAndFlushCheckpoint(&clientContext);
-    shadowFile.applyShadowPages(clientContext);
+    shadowFile.applyShadowPages(*mainStorageManager, clientContext);
     // Clear the wal and also shadowing files.
     auto bufferManager = MemoryManager::Get(clientContext)->getBufferManager();
     wal->clear();
@@ -185,7 +188,9 @@ bool Checkpointer::canAutoCheckpoint(const main::ClientContext& clientContext,
 }
 
 void Checkpointer::readCheckpoint() {
-    auto storageManager = StorageManager::Get(clientContext);
+    // IMPORTANT: Use the main database's storage manager, NOT StorageManager::Get() which
+    // returns the graph's storage manager if a default graph exists!
+    auto storageManager = clientContext.getDatabase()->getStorageManager();
     storageManager->initDataFileHandle(common::VirtualFileSystem::GetUnsafe(clientContext),
         &clientContext);
     if (!isInMemory && storageManager->getDataFH()->getNumPages() > 0) {
@@ -210,6 +215,8 @@ void Checkpointer::readCheckpoint(main::ClientContext* context, catalog::Catalog
             currentHeader->metadataPageRange.startPageIdx * common::LBUG_PAGE_SIZE);
         storageManager->deserialize(context, catalog, deSer);
         storageManager->getDataFH()->getPageManager()->deserialize(deSer);
+        storageManager->getDataFH()->getPageManager()->reclaimTailPagesIfNeeded(
+            currentHeader->dataFileNumPages);
     }
     storageManager->setDatabaseHeader(std::move(currentHeader));
 }

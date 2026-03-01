@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+
 from __future__ import annotations
 
 import copy
@@ -19,11 +20,12 @@ class RNNModel(MLPModel):
 
     This model uses a recurrent neural network (RNN) to process 1D observation groups before passing the resulting
     latent to an MLP. Available RNN types are "lstm" and "gru". Observations can be normalized before being passed to
-    the RNN. The output of the model can be either deterministic or stochastic, in which case a Gaussian distribution is
+    the RNN. The output of the model can be either deterministic or stochastic, in which case a distribution module is
     used to sample the outputs.
     """
 
     is_recurrent: bool = True
+    """Whether the model contains a recurrent module."""
 
     def __init__(
         self,
@@ -31,13 +33,10 @@ class RNNModel(MLPModel):
         obs_groups: dict[str, list[str]],
         obs_set: str,
         output_dim: int,
-        hidden_dims: tuple[int] | list[int] = [256, 256, 256],
+        hidden_dims: tuple[int, ...] | list[int] = (256, 256, 256),
         activation: str = "elu",
         obs_normalization: bool = False,
-        stochastic: bool = False,
-        init_noise_std: float = 1.0,
-        noise_std_type: str = "scalar",
-        state_dependent_std: bool = False,
+        distribution_cfg: dict | None = None,
         rnn_type: str = "lstm",
         rnn_hidden_dim: int = 256,
         rnn_num_layers: int = 1,
@@ -52,10 +51,7 @@ class RNNModel(MLPModel):
             hidden_dims: Hidden dimensions of the MLP.
             activation: Activation function of the MLP.
             obs_normalization: Whether to normalize the observations before feeding them to the MLP.
-            stochastic: Whether the model outputs stochastic or deterministic values.
-            init_noise_std: Initial standard deviation of the stochatic output.
-            noise_std_type: Whether the standard deviation is defined as a "scalar" or in "log" space.
-            state_dependent_std: Whether the standard deviation is state dependent.
+            distribution_cfg: Configuration dictionary for the output distribution.
             rnn_type: Type of RNN to use ("lstm" or "gru").
             rnn_hidden_dim: Dimension of the RNN hidden state.
             rnn_num_layers: Number of RNN layers.
@@ -71,10 +67,7 @@ class RNNModel(MLPModel):
             hidden_dims,
             activation,
             obs_normalization,
-            stochastic,
-            init_noise_std,
-            noise_std_type,
-            state_dependent_std,
+            distribution_cfg,
         )
 
         # RNN
@@ -83,19 +76,23 @@ class RNNModel(MLPModel):
     def get_latent(
         self, obs: TensorDict, masks: torch.Tensor | None = None, hidden_state: HiddenState = None
     ) -> torch.Tensor:
+        """Build the model latent by passing normalized observation groups through the RNN."""
         # Extract and concatenate observation groups and normalize
         latent = super().get_latent(obs)
         # Pass through the RNN
         latent = self.rnn(latent, masks, hidden_state).squeeze(0)
         return latent
 
-    def get_hidden_state(self) -> HiddenState:
-        return self.rnn.hidden_state  # type: ignore
-
     def reset(self, dones: torch.Tensor | None = None, hidden_state: HiddenState = None) -> None:
+        """Reset the recurrent hidden state of the RNN."""
         self.rnn.reset(dones, hidden_state)
 
+    def get_hidden_state(self) -> HiddenState:
+        """Return the recurrent hidden state of the RNN."""
+        return self.rnn.hidden_state  # type: ignore
+
     def detach_hidden_state(self, dones: torch.Tensor | None = None) -> None:
+        """Detach the recurrent hidden state for truncated backpropagation."""
         self.rnn.detach_hidden_state(dones)
 
     def as_jit(self) -> nn.Module:
@@ -112,6 +109,7 @@ class RNNModel(MLPModel):
         return _OnnxRNNModel(self, verbose)
 
     def _get_latent_dim(self) -> int:
+        """Return the latent dimensionality consumed by the MLP head."""
         return self.latent_dim
 
 
@@ -119,26 +117,30 @@ class _TorchGRUModel(nn.Module):
     """Exportable GRU model for JIT."""
 
     def __init__(self, model: RNNModel) -> None:
+        """Create a TorchScript-friendly copy of a GRU-based RNNModel."""
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         self.rnn = copy.deepcopy(model.rnn.rnn)  # Access underlying torch module to avoid wrapper logic during export
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
         self.rnn.cpu()
         self.register_buffer("hidden_state", torch.zeros(self.rnn.num_layers, 1, self.rnn.hidden_size))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run one GRU inference step and update hidden states."""
         x = self.obs_normalizer(x)
         x, h = self.rnn(x.unsqueeze(0), self.hidden_state)
         self.hidden_state[:] = h  # type: ignore
         x = x.squeeze(0)
         out = self.mlp(x)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
+        """Reset exported GRU hidden states to zeros."""
         self.hidden_state[:] = 0.0  # type: ignore
 
 
@@ -146,28 +148,31 @@ class _TorchLSTMModel(nn.Module):
     """Exportable LSTM model for JIT."""
 
     def __init__(self, model: RNNModel) -> None:
+        """Create a TorchScript-friendly copy of an LSTM-based RNNModel."""
         super().__init__()
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         self.rnn = copy.deepcopy(model.rnn.rnn)  # Access underlying torch module to avoid wrapper logic during export
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
-        self.rnn.cpu()
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
         self.register_buffer("hidden_state", torch.zeros(self.rnn.num_layers, 1, self.rnn.hidden_size))
         self.register_buffer("cell_state", torch.zeros(self.rnn.num_layers, 1, self.rnn.hidden_size))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run one LSTM inference step and update hidden and cell states."""
         x = self.obs_normalizer(x)
         x, (h, c) = self.rnn(x.unsqueeze(0), (self.hidden_state, self.cell_state))
         self.hidden_state[:] = h  # type: ignore
         self.cell_state[:] = c  # type: ignore
         x = x.squeeze(0)
         out = self.mlp(x)
-        if self.state_dependent_std:
-            return out[..., 0, :]
-        return out
+        return self.deterministic_output(out)
 
     @torch.jit.export
     def reset(self) -> None:
+        """Reset exported LSTM hidden and cell states to zeros."""
         self.hidden_state[:] = 0.0  # type: ignore
         self.cell_state[:] = 0.0  # type: ignore
 
@@ -178,12 +183,16 @@ class _OnnxRNNModel(nn.Module):
     is_recurrent: bool = True
 
     def __init__(self, model: RNNModel, verbose: bool) -> None:
+        """Create an ONNX-export wrapper around an RNNModel."""
         super().__init__()
         self.verbose = verbose
         self.obs_normalizer = copy.deepcopy(model.obs_normalizer)
         self.rnn = copy.deepcopy(model.rnn.rnn)  # Access underlying torch module to avoid wrapper logic during export
         self.mlp = copy.deepcopy(model.mlp)
-        self.state_dependent_std = model.state_dependent_std
+        if model.distribution is not None:
+            self.deterministic_output = model.distribution.as_deterministic_output_module()
+        else:
+            self.deterministic_output = nn.Identity()
 
         # Detect RNN type
         if isinstance(self.rnn, nn.LSTM):
@@ -200,25 +209,24 @@ class _OnnxRNNModel(nn.Module):
     def forward(
         self, obs: torch.Tensor, h_in: torch.Tensor, c_in: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        """Run deterministic inference for ONNX export."""
         x = self.obs_normalizer(obs)
 
         if self.rnn_type == "lstm":
             x, (h, c) = self.rnn(x.unsqueeze(0), (h_in, c_in))
             x = x.squeeze(0)
             out = self.mlp(x)
-            if self.state_dependent_std:
-                return out[..., 0, :], h, c
+            out = self.deterministic_output(out)
             return out, h, c
         else:
             x, h = self.rnn(x.unsqueeze(0), h_in)
             x = x.squeeze(0)
             out = self.mlp(x)
-
-            if self.state_dependent_std:
-                return out[..., 0, :], h, None
+            out = self.deterministic_output(out)
             return out, h, None
 
     def get_dummy_inputs(self) -> tuple[torch.Tensor, ...]:
+        """Return representative dummy inputs for ONNX tracing."""
         obs = torch.zeros(1, self.input_size)
         h_in = torch.zeros(self.num_layers, 1, self.hidden_size)
         if self.rnn_type == "lstm":
@@ -228,12 +236,14 @@ class _OnnxRNNModel(nn.Module):
 
     @property
     def input_names(self) -> list[str]:
+        """Return ONNX input tensor names."""
         if self.rnn_type == "lstm":
             return ["obs", "h_in", "c_in"]
         return ["obs", "h_in"]
 
     @property
     def output_names(self) -> list[str]:
+        """Return ONNX output tensor names."""
         if self.rnn_type == "lstm":
             return ["actions", "h_out", "c_out"]
         return ["actions", "h_out"]

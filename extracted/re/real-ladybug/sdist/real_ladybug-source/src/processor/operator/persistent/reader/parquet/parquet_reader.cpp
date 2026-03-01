@@ -4,7 +4,6 @@
 #include "common/exception/binder.h"
 #include "common/exception/copy.h"
 #include "common/file_system/virtual_file_system.h"
-#include "common/string_format.h"
 #include "function/table/bind_data.h"
 #include "function/table/bind_input.h"
 #include "function/table/table_function.h"
@@ -14,6 +13,7 @@
 #include "processor/operator/persistent/reader/parquet/thrift_tools.h"
 #include "processor/operator/persistent/reader/reader_bind_utils.h"
 #include "processor/warning_context.h"
+#include <format>
 
 using namespace lbug_parquet::format;
 
@@ -57,7 +57,8 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, DataChunk& resul
         state.currentGroup++;
         state.groupOffset = 0;
 
-        auto& trans = ku_dynamic_cast<ThriftFileTransport&>(*state.thriftFileProto->getTransport());
+        auto& trans =
+            dynamic_cast_checked<ThriftFileTransport&>(*state.thriftFileProto->getTransport());
         trans.ClearPrefetch();
         state.currentGroupPrefetched = false;
 
@@ -72,7 +73,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, DataChunk& resul
 
             auto fileColIdx = colIdx;
 
-            auto rootReader = ku_dynamic_cast<StructColumnReader*>(state.rootReader.get());
+            auto rootReader = dynamic_cast_checked<StructColumnReader*>(state.rootReader.get());
             toScanCompressedBytes +=
                 rootReader->getChildReader(fileColIdx)->getTotalCompressedSize();
         }
@@ -104,7 +105,8 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, DataChunk& resul
                 // Prefetch column-wise.
                 for (auto colIdx = 0u; colIdx < result.getNumValueVectors(); colIdx++) {
                     auto fileColIdx = colIdx;
-                    auto rootReader = ku_dynamic_cast<StructColumnReader*>(state.rootReader.get());
+                    auto rootReader =
+                        dynamic_cast_checked<StructColumnReader*>(state.rootReader.get());
 
                     rootReader->getChildReader(fileColIdx)
                         ->registerPrefetch(trans, true /* lazy fetch */);
@@ -141,7 +143,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, DataChunk& resul
     auto definePtr = (uint8_t*)state.defineBuf.ptr;
     auto repeatPtr = (uint8_t*)state.repeatBuf.ptr;
 
-    auto rootReader = ku_dynamic_cast<StructColumnReader*>(state.rootReader.get());
+    auto rootReader = dynamic_cast_checked<StructColumnReader*>(state.rootReader.get());
     for (auto colIdx = 0u; colIdx < result.getNumValueVectors(); colIdx++) {
         if (!columnSkips.empty() && columnSkips[colIdx]) {
             continue;
@@ -154,7 +156,7 @@ bool ParquetReader::scanInternal(ParquetReaderScanState& state, DataChunk& resul
         // LCOV_EXCL_START
         if (rowsRead != result.state->getSelVector().getSelSize()) {
             throw CopyException(
-                stringFormat("Mismatch in parquet read for column {}, expected {} rows, got {}",
+                std::format("Mismatch in parquet read for column {}, expected {} rows, got {}",
                     fileColIdx, result.state->getSelVector().getSelSize(), rowsRead));
         }
         // LCOV_EXCL_STOP
@@ -176,12 +178,12 @@ void ParquetReader::initMetadata() {
     auto fileInfo = VirtualFileSystem::GetUnsafe(*context)->openFile(filePath,
         FileOpenFlags(FileFlags::READ_ONLY), context);
     auto proto = createThriftProtocol(fileInfo.get(), false);
-    auto& transport = ku_dynamic_cast<ThriftFileTransport&>(*proto->getTransport());
+    auto& transport = dynamic_cast_checked<ThriftFileTransport&>(*proto->getTransport());
     auto fileSize = transport.GetSize();
     // LCOV_EXCL_START
     if (fileSize < 12) {
         throw CopyException{
-            stringFormat("File {} is too small to be a Parquet file", filePath.c_str())};
+            std::format("File {} is too small to be a Parquet file", filePath.c_str())};
     }
     // LCOV_EXCL_STOP
 
@@ -195,18 +197,18 @@ void ParquetReader::initMetadata() {
     // LCOV_EXCL_START
     if (memcmp(buf.ptr + 4, "PAR1", 4) != 0) {
         if (memcmp(buf.ptr + 4, "PARE", 4) == 0) {
-            throw CopyException{stringFormat(
-                "Encrypted Parquet files are not supported for file {}", fileInfo->path.c_str())};
+            throw CopyException{std::format("Encrypted Parquet files are not supported for file {}",
+                fileInfo->path.c_str())};
         }
         throw CopyException{
-            stringFormat("No magic bytes found at the end of file {}", fileInfo->path.c_str())};
+            std::format("No magic bytes found at the end of file {}", fileInfo->path.c_str())};
     }
     // LCOV_EXCL_STOP
     // Read four-byte footer length from just before the end magic bytes.
     auto footerLen = *reinterpret_cast<uint32_t*>(buf.ptr);
     // LCOV_EXCL_START
     if (footerLen == 0 || fileSize < 12 + footerLen) {
-        throw CopyException{stringFormat("Footer length error in file {}", fileInfo->path.c_str())};
+        throw CopyException{std::format("Footer length error in file {}", fileInfo->path.c_str())};
     }
     // LCOV_EXCL_STOP
     auto metadataPos = fileSize - (footerLen + 8);
@@ -219,7 +221,7 @@ void ParquetReader::initMetadata() {
 
 std::unique_ptr<ColumnReader> ParquetReader::createReaderRecursive(uint64_t depth,
     uint64_t maxDefine, uint64_t maxRepeat, uint64_t& nextSchemaIdx, uint64_t& nextFileIdx) {
-    KU_ASSERT(nextSchemaIdx < metadata->schema.size());
+    DASSERT(nextSchemaIdx < metadata->schema.size());
     auto& sEle = metadata->schema[nextSchemaIdx];
     auto thisIdx = nextSchemaIdx;
 
@@ -246,7 +248,7 @@ std::unique_ptr<ColumnReader> ParquetReader::createReaderRecursive(uint64_t dept
             childrenReaders.push_back(std::move(childReader));
             cIdx++;
         }
-        KU_ASSERT(!structFields.empty());
+        DASSERT(!structFields.empty());
         std::unique_ptr<ColumnReader> result;
         LogicalType resultType;
 
@@ -349,9 +351,8 @@ std::unique_ptr<ColumnReader> ParquetReader::createReader() {
         columnTypes.push_back(field.getType().copy());
     }
 
-    KU_ASSERT(nextSchemaIdx == metadata->schema.size() - 1);
-    KU_ASSERT(
-        metadata->row_groups.empty() || nextFileIdx == metadata->row_groups[0].columns.size());
+    DASSERT(nextSchemaIdx == metadata->schema.size() - 1);
+    DASSERT(metadata->row_groups.empty() || nextFileIdx == metadata->row_groups[0].columns.size());
     return rootReader;
 }
 
@@ -634,8 +635,8 @@ static offset_t tableFunc(const TableFuncInput& input, TableFuncOutput& output) 
     if (input.localState == nullptr) {
         return 0;
     }
-    auto parquetScanLocalState = ku_dynamic_cast<ParquetScanLocalState*>(input.localState);
-    auto parquetScanSharedState = ku_dynamic_cast<ParquetScanSharedState*>(input.sharedState);
+    auto parquetScanLocalState = dynamic_cast_checked<ParquetScanLocalState*>(input.localState);
+    auto parquetScanSharedState = dynamic_cast_checked<ParquetScanSharedState*>(input.sharedState);
     do {
         parquetScanLocalState->reader->scan(*parquetScanLocalState->state, outputChunk);
         if (outputChunk.state->getSelVector().getSelSize() > 0) {
@@ -662,7 +663,7 @@ static void bindColumns(const ExtraScanTableFuncBindInput* bindInput, uint32_t f
 static void bindColumns(const ExtraScanTableFuncBindInput* bindInput,
     std::vector<std::string>& columnNames, std::vector<LogicalType>& columnTypes,
     main::ClientContext* context) {
-    KU_ASSERT(bindInput->fileScanInfo.getNumFiles() > 0);
+    DASSERT(bindInput->fileScanInfo.getNumFiles() > 0);
     bindColumns(bindInput, 0 /* fileIdx */, columnNames, columnTypes, context);
     for (auto i = 1u; i < bindInput->fileScanInfo.getNumFiles(); ++i) {
         std::vector<std::string> tmpColumnNames;
@@ -686,7 +687,7 @@ static row_idx_t getNumRows(std::vector<std::string> filePaths, uint64_t numColu
 
 static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
     const TableFuncBindInput* input) {
-    auto scanInput = ku_dynamic_cast<ExtraScanTableFuncBindInput*>(input->extraInput.get());
+    auto scanInput = dynamic_cast_checked<ExtraScanTableFuncBindInput*>(input->extraInput.get());
     const auto& options = scanInput->fileScanInfo.options;
     if (options.size() > 1 ||
         (options.size() == 1 && !options.contains(CopyConstants::IGNORE_ERRORS_OPTION_NAME))) {

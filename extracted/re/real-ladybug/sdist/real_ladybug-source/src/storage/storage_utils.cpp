@@ -3,13 +3,13 @@
 #include <filesystem>
 
 #include "common/null_buffer.h"
-#include "common/string_format.h"
-#include "common/types/ku_list.h"
-#include "common/types/ku_string.h"
+#include "common/types/list_t.h"
+#include "common/types/string_t.h"
 #include "common/types/types.h"
 #include "main/client_context.h"
 #include "main/db_config.h"
 #include "main/settings.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -20,31 +20,31 @@ std::string StorageUtils::getColumnName(const std::string& propertyName, ColumnT
     const std::string& prefix) {
     switch (type) {
     case ColumnType::DATA: {
-        return stringFormat("{}_data", propertyName);
+        return std::format("{}_data", propertyName);
     }
     case ColumnType::NULL_MASK: {
-        return stringFormat("{}_null", propertyName);
+        return std::format("{}_null", propertyName);
     }
     case ColumnType::INDEX: {
-        return stringFormat("{}_index", propertyName);
+        return std::format("{}_index", propertyName);
     }
     case ColumnType::OFFSET: {
-        return stringFormat("{}_offset", propertyName);
+        return std::format("{}_offset", propertyName);
     }
     case ColumnType::CSR_OFFSET: {
-        return stringFormat("{}_csr_offset", prefix);
+        return std::format("{}_csr_offset", prefix);
     }
     case ColumnType::CSR_LENGTH: {
-        return stringFormat("{}_csr_length", prefix);
+        return std::format("{}_csr_length", prefix);
     }
     case ColumnType::STRUCT_CHILD: {
-        return stringFormat("{}_{}_child", propertyName, prefix);
+        return std::format("{}_{}_child", propertyName, prefix);
     }
     default: {
         if (prefix.empty()) {
             return propertyName;
         }
-        return stringFormat("{}_{}", prefix, propertyName);
+        return std::format("{}_{}", prefix, propertyName);
     }
     }
 }
@@ -68,11 +68,11 @@ std::string StorageUtils::expandPath(const main::ClientContext* context, const s
 uint32_t StorageUtils::getDataTypeSize(const LogicalType& type) {
     switch (type.getPhysicalType()) {
     case PhysicalTypeID::STRING: {
-        return sizeof(ku_string_t);
+        return sizeof(string_t);
     }
     case PhysicalTypeID::ARRAY:
     case PhysicalTypeID::LIST: {
-        return sizeof(ku_list_t);
+        return sizeof(list_t);
     }
     case PhysicalTypeID::STRUCT: {
         uint32_t size = 0;

@@ -2508,7 +2508,7 @@ def previews_clear(
             "IMAGE",
         ]
     ]
-    | None = {},
+    | None = set(),
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear data-block previews (only for some types like objects, materials, textures, etc.)
 

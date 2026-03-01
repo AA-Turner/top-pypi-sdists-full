@@ -6,6 +6,9 @@
 namespace lbug {
 namespace storage {
 
+class BufferManager;
+class StorageManager;
+
 struct ShadowPageRecord {
     common::file_idx_t originalFileIdx = common::INVALID_PAGE_IDX;
     common::page_idx_t originalPageIdx = common::INVALID_PAGE_IDX;
@@ -15,7 +18,7 @@ struct ShadowPageRecord {
 };
 
 struct ShadowFileHeader {
-    common::ku_uuid_t databaseID{0};
+    common::uuid databaseID{0};
     common::page_idx_t numShadowPages = 0;
 };
 static_assert(std::is_trivially_copyable_v<ShadowFileHeader>);
@@ -39,7 +42,7 @@ public:
 
     FileHandle& getShadowingFH() const { return *shadowingFH; }
 
-    void applyShadowPages(main::ClientContext& context) const;
+    void applyShadowPages(StorageManager& storageManager, main::ClientContext& context) const;
 
     void flushAll(main::ClientContext& context) const;
     // Clear any buffer in the WAL writer. Also truncate the WAL file to 0 bytes.

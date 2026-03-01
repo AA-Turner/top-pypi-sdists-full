@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Emanuele Bellocchia
+# Copyright (c) 2026 Emanuele Bellocchia
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,7 +62,7 @@ class BipBitcoinCashConf(BipCoinConf):
             bip32_cls (Bip32Base class)             : Bip32 class
             addr_params (dict)                      : Address parameters
             addr_cls (IAddrEncoder class)           : Address class
-            addr_cls_legacy (IAddrEncoder class)    : Legacy ddress class
+            addr_cls_legacy (IAddrEncoder class)    : Legacy address class
         """
         super().__init__(coin_names=coin_names,
                          coin_idx=coin_idx,

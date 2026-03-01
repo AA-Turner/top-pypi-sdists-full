@@ -1,4 +1,5 @@
 import torch
+from compressed_tensors.offload import dispatch_model
 from datasets import load_dataset
 from transformers import (
     WhisperForConditionalGeneration,
@@ -8,12 +9,11 @@ from transformers import (
 
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import GPTQModifier
-from llmcompressor.utils import dispatch_for_generation
 
 # Select model and load it.
 MODEL_ID = "openai/whisper-large-v3"
 
-model = WhisperForConditionalGeneration.from_pretrained(MODEL_ID, torch_dtype="auto")
+model = WhisperForConditionalGeneration.from_pretrained(MODEL_ID, dtype="auto")
 model.config.forced_decoder_ids = None
 processor = WhisperProcessor.from_pretrained(MODEL_ID)
 
@@ -98,7 +98,7 @@ oneshot(
 # Confirm generations of the quantized model look sane.
 print("\n\n")
 print("========== SAMPLE GENERATION ==============")
-dispatch_for_generation(model)
+dispatch_model(model)
 sample_features = next(iter(ds))["input_features"]
 sample_decoder_ids = [processor.tokenizer.prefix_tokens]
 sample_input = {

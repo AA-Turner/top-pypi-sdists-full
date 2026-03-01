@@ -45,7 +45,7 @@ def process_files(files: list[ProcessFile], project_root: Path):
             )
 
         content = source_path.read_text(encoding="utf-8")
-        
+
         # Only add frontmatter if title or weight are set
         if file.title is not None or file.weight is not None:
             frontmatter = "---\n"
@@ -68,20 +68,10 @@ def migrate_developer_docs():
         ProcessFile(
             root_path=Path("CODE_OF_CONDUCT.md"),
             docs_path=Path("developer/code-of-conduct.md"),
-            title="Code of Conduct",
-            weight=-10,
         ),
         ProcessFile(
             root_path=Path("CONTRIBUTING.md"),
             docs_path=Path("developer/contributing.md"),
-            title="Contributing Guide",
-            weight=-8,
-        ),
-        ProcessFile(
-            root_path=Path("DEVELOPING.md"),
-            docs_path=Path("developer/developing.md"),
-            title="Development Guide",
-            weight=-6,
         ),
     ]
     process_files(files, project_root)
@@ -91,10 +81,23 @@ def migrate_examples():
     project_root = find_project_root()
     examples_path = project_root / "examples"
     files = []
-    
+
+    # Add the main examples README.md
+    main_readme = examples_path / "README.md"
+    if main_readme.exists():
+        files.append(
+            ProcessFile(
+                root_path=main_readme.relative_to(project_root),
+                docs_path=Path("examples/README.md"),
+            )
+        )
+
     # Find all README.md files 2 levels down (examples/EXAMPLE_NAME/README.md)
     for example_dir in examples_path.iterdir():
-        if not example_dir.is_dir() or not (readme_path := example_dir / "README.md").exists():
+        if (
+            not example_dir.is_dir()
+            or not (readme_path := example_dir / "README.md").exists()
+        ):
             continue
 
         example_name = example_dir.name
@@ -102,13 +105,71 @@ def migrate_examples():
             ProcessFile(
                 root_path=readme_path.relative_to(project_root),
                 docs_path=Path(f"examples/{example_name}.md"),
-                title=None,
-                weight=-5,
             )
         )
-    
+
     process_files(files, project_root)
+
+
+def migrate_experimental():
+    project_root = find_project_root()
+    experimental_path = project_root / "experimental"
+    files = []
+
+    # Add the main experimental README.md
+    main_readme = experimental_path / "README.md"
+    if main_readme.exists():
+        files.append(
+            ProcessFile(
+                root_path=main_readme.relative_to(project_root),
+                docs_path=Path("experimental/README.md"),
+            )
+        )
+
+    # Find all README.md files 2 levels down (experimental/EXPERIMENTAL_NAME/README.md)
+    for experimental_dir in experimental_path.iterdir():
+        if (
+            not experimental_dir.is_dir()
+            or not (readme_path := experimental_dir / "README.md").exists()
+        ):
+            continue
+
+        experimental_name = experimental_dir.name
+        files.append(
+            ProcessFile(
+                root_path=readme_path.relative_to(project_root),
+                docs_path=Path(f"experimental/{experimental_name}.md"),
+            )
+        )
+
+    process_files(files, project_root)
+
+
+def migrate_readme_to_index():
+    """Copy README.md files to index.md for MkDocs compatibility.
+
+    Skips docs/README.md
+    """
+    project_root = find_project_root()
+    docs_path = project_root / "docs"
+
+    for readme_path in docs_path.rglob("README.md"):
+        # Skip the root docs/README.md
+        if readme_path.parent == docs_path:
+            continue
+
+        relative_path = readme_path.relative_to(docs_path)
+        target_path = relative_path.parent / "index.md"
+
+        content = readme_path.read_text(encoding="utf-8")
+
+        with mkdocs_gen_files.open(target_path, "w") as file_handle:
+            file_handle.write(content)
+
+        mkdocs_gen_files.set_edit_path(target_path, readme_path)
 
 
 migrate_developer_docs()
 migrate_examples()
+migrate_experimental()
+migrate_readme_to_index()

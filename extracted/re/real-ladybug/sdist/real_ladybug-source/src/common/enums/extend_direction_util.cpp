@@ -2,6 +2,7 @@
 
 #include "common/exception/runtime.h"
 #include "common/string_utils.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -15,7 +16,7 @@ ExtendDirection ExtendDirectionUtil::fromString(const std::string& str) {
     } else if (normalizedString == "BOTH") {
         return ExtendDirection::BOTH;
     } else {
-        throw RuntimeException(stringFormat("Cannot parse {} as ExtendDirection.", str));
+        throw RuntimeException(std::format("Cannot parse {} as ExtendDirection.", str));
     }
 }
 
@@ -28,7 +29,7 @@ std::string ExtendDirectionUtil::toString(ExtendDirection direction) {
     case ExtendDirection::BOTH:
         return "both";
     default:
-        KU_UNREACHABLE;
+        UNREACHABLE_CODE;
     }
 }
 

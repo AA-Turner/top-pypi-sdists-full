@@ -8,6 +8,7 @@
 #include "main/client_context.h"
 #include "protocol/TCompactProtocol.h"
 #include "storage/buffer_manager/memory_manager.h"
+#include <format>
 
 namespace lbug {
 namespace processor {
@@ -80,13 +81,14 @@ Type::type ParquetWriter::convertToParquetType(const LogicalType& type) {
         return Type::DOUBLE;
     case LogicalTypeID::BLOB:
     case LogicalTypeID::STRING:
+    case LogicalTypeID::JSON:
         return Type::BYTE_ARRAY;
     case LogicalTypeID::UUID:
     case LogicalTypeID::INTERVAL:
         return Type::FIXED_LEN_BYTE_ARRAY;
     default:
         throw RuntimeException{
-            stringFormat("Writing a column with type: {} to parquet is not supported.",
+            std::format("Writing a column with type: {} to parquet is not supported.",
                 LogicalTypeUtils::toString(type.getLogicalTypeID()))};
     }
 }
@@ -129,7 +131,8 @@ void ParquetWriter::setSchemaProperties(const LogicalType& type, SchemaElement& 
         schemaElement.converted_type = ConvertedType::DATE;
         schemaElement.__isset.converted_type = true;
     } break;
-    case LogicalTypeID::STRING: {
+    case LogicalTypeID::STRING:
+    case LogicalTypeID::JSON: {
         schemaElement.converted_type = ConvertedType::UTF8;
         schemaElement.__isset.converted_type = true;
     } break;
@@ -194,7 +197,7 @@ void ParquetWriter::prepareRowGroup(FactorizedTable& ft, PreparedRowGroup& resul
 
     auto& states = result.states;
     // iterate over each of the columns of the chunk collection and write them
-    KU_ASSERT(ft.getTableSchema()->getNumColumns() == columnWriters.size());
+    DASSERT(ft.getTableSchema()->getNumColumns() == columnWriters.size());
     std::vector<std::unique_ptr<ColumnWriterState>> writerStates;
     std::unique_ptr<DataChunk> unflatDataChunkToRead =
         std::make_unique<DataChunk>(ft.getTableSchema()->getNumUnFlatColumns());

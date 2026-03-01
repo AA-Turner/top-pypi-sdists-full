@@ -14,9 +14,9 @@ import io
 from gzip import GzipFile, write32u, _GzipReader, _PaddedFile, READ, WRITE, FEXTRA, FNAME, FCOMMENT, FHCRC
 from multiprocessing.dummy import Pool
 
-__version__ = "0.2.1"
+__version__ = "0.2.5"
 
-SID = b'IG' # Subfield ID of indexed gzip file
+SID = b'MZ'   # Subfield ID of indexed gzip file
 
 def open(filename, mode="rb", compresslevel=9,
          encoding=None, errors=None, newline=None,
@@ -63,6 +63,7 @@ def open(filename, mode="rb", compresslevel=9,
     else:
         return binary_file
 
+
 def compress(data, compresslevel=9, thread=None, blocksize=10**8):
     """Compress data in one shot and return the compressed string.
     Optional argument is the compression level, in range of 0-9.
@@ -92,7 +93,7 @@ def padded_file_seek(self, off, whence=0):
     self._read = None
     self._buffer = None
     return self.file.seek(off, whence)
-_PaddedFile.seek = padded_file_seek # override the seek method to provide whence parameter
+_PaddedFile.seek = padded_file_seek   # override the seek method to provide whence parameter
 
 class MultiGzipFile(GzipFile):
     """ docstring of MultiGzipFile """
@@ -151,7 +152,8 @@ class MultiGzipFile(GzipFile):
         if mode.startswith('r'):
             self.mode = READ
             if not self.thread:
-                self.thread = os.cpu_count() // 2 # cores number
+                # use half of total CPUs
+                self.thread = os.cpu_count() // 2 or 1 if os.cpu_count() else 1
             self.raw = _MulitGzipReader(fileobj, thread=self.thread, max_block_size=blocksize)
             self._buffer = io.BufferedReader(self.raw, blocksize)
             self.name = filename
@@ -161,7 +163,7 @@ class MultiGzipFile(GzipFile):
             self.mode = WRITE
             if not self.thread:
                 # thread is None or 0, use all available CPUs
-                self.thread = os.cpu_count()
+                self.thread = os.cpu_count() or 1
             self._init_write(filename)
             self.compress = zlib.compressobj(compresslevel,
                                              zlib.DEFLATED,
@@ -330,7 +332,7 @@ class MultiGzipFile(GzipFile):
         member_size = 20 + len(fname) + 1 + compressed_size + 8
         if not fname:
             member_size -= 1
-        self.fileobj.write(struct.pack("<I", member_size)) # member size, 4 bytes
+        self.fileobj.write(struct.pack("<I", compressed_size)) # member size, 4 bytes
         if fname:
             self.fileobj.write(fname + b'\000')
         return member_size
@@ -444,6 +446,7 @@ class MultiGzipFile(GzipFile):
                     self._compress_async(self.small_buf.getbuffer())
                     self.small_buf = io.BytesIO()
                 self._flush_pool(force=True)
+                self.pool.close()
             elif self.mode == READ:
                 self._buffer.close()
         finally:
@@ -477,6 +480,22 @@ class _MulitGzipReader(_GzipReader):
         self._raw_fp = fp
         self.block_start_iter = None
 
+
+    def _read_exact(self, n):
+        """Read exactly *n* bytes from `fp`
+        This method is required because fp may be unbuffered,
+        i.e. return short reads.
+        """
+        data = self._fp.read(n)
+        while len(data) < n:
+            b = self._fp.read(n - len(data))
+            if not b:
+                raise EOFError(
+                    "Compressed file ended before the end-of-stream marker was reached"
+                )
+            data += b
+        return data
+
     def _decompress_func(self, data, rcrc, rsize):
         """
             Decompress data and return exact bytes of plain text
@@ -490,14 +509,22 @@ class _MulitGzipReader(_GzipReader):
                 crc: crc32 calculated by decompressed data
                 rcrc: raw crc32 in compressed file
         """
-        dpr = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
+        import sys
+        # Python 3.12+ uses _ZlibDecompressor instead of decompressobj
+        if sys.version_info >= (3, 12):
+            dpr = zlib._ZlibDecompressor(wbits=-zlib.MAX_WBITS)
+        else:
+            dpr = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
+        
         ## FIXME: case when raw data size > 4 GB, rsize is just the mod of 4G
         ## not a good idea to read all of them in memory
         body_bytes = dpr.decompress(data, rsize)
         crc = zlib.crc32(body_bytes)
-        if dpr.unconsumed_tail != b"":
-            body_bytes += dpr.unconsumed_tail
-            crc = zlib.crc32(dpr.unconsumed_tail, crc)
+        # Handle both old and new API
+        tail = getattr(dpr, "unconsumed_tail", dpr.unused_data)
+        if tail != b"":
+            body_bytes += tail
+            crc = zlib.crc32(tail, crc)
         return (body_bytes, rsize, crc, rcrc)
 
     def _decompress_async(self, data, rcrc, rsize):
@@ -587,7 +614,7 @@ class _MulitGzipReader(_GzipReader):
 
                     if self._is_IG_member:
                         # 8 bytes for crc32 and isize
-                        cpr_size = self.memberidx[-1] - self._header_size - 8
+                        cpr_size = self.memberidx[-1]
                         self._decompress_async(self._fp.read(cpr_size),
                                                *self._read_eof_crc())
                         self.thread -= 1
@@ -627,8 +654,9 @@ class _MulitGzipReader(_GzipReader):
             buf = self._fp.read(io.DEFAULT_BUFFER_SIZE)
 
             uncompress = self._decompressor.decompress(buf, size)
-            if self._decompressor.unconsumed_tail != b"":
-                self._fp.prepend(self._decompressor.unconsumed_tail)
+            tail = getattr(self._decompressor, "unconsumed_tail", self._decompressor.unused_data)
+            if tail != b"":
+                self._fp.prepend(tail)
             elif self._decompressor.unused_data != b"":
                 # Prepend the already read bytes to the fileobj so they can
                 # be seen by _read_eof() and _read_gzip_header()
@@ -643,6 +671,21 @@ class _MulitGzipReader(_GzipReader):
         self._add_read_data( uncompress )
         self._pos += len(uncompress)
         return uncompress
+
+
+    def _add_read_data(self, data):
+        """Add data to internal buffer (Python 3.12+ compatibility).
+        
+        In Python 3.12+, _GzipReader no longer has this method.
+        We add it for backward compatibility.
+        """
+        import sys
+        if sys.version_info >= (3, 12):
+            # Python 3.12+: no-op, data already handled
+            pass
+        else:
+            # Python 3.11 and earlier: call parent method
+            super()._add_read_data(data)
 
     def _read_eof_crc(self):
         """

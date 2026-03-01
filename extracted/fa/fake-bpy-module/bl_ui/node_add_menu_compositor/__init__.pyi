@@ -215,6 +215,7 @@ class NODE_MT_compositor_node_input_constant_base(bl_ui.node_add_menu.NodeMenu):
 
     bl_label: typing.Any
     bl_rna: typing.Any
+    bl_translation_context: typing.Any
     id_data: typing.Any
     menu_path: typing.Any
 

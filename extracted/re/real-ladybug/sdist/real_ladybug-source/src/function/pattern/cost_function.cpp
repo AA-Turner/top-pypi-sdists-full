@@ -2,6 +2,7 @@
 #include "common/exception/binder.h"
 #include "function/rewrite_function.h"
 #include "function/schema/vector_node_rel_functions.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::binder;
@@ -10,13 +11,13 @@ namespace lbug {
 namespace function {
 
 static std::shared_ptr<Expression> rewriteFunc(const RewriteFunctionBindInput& input) {
-    KU_ASSERT(input.arguments.size() == 1);
+    DASSERT(input.arguments.size() == 1);
     auto param = input.arguments[0].get();
-    KU_ASSERT(param->getDataType().getLogicalTypeID() == LogicalTypeID::RECURSIVE_REL);
+    DASSERT(param->getDataType().getLogicalTypeID() == LogicalTypeID::RECURSIVE_REL);
     auto recursiveInfo = param->ptrCast<RelExpression>()->getRecursiveInfo();
     if (recursiveInfo->bindData->weightOutputExpr == nullptr) {
         throw BinderException(
-            stringFormat("Cost function is not defined for {}", param->toString()));
+            std::format("Cost function is not defined for {}", param->toString()));
     }
     return recursiveInfo->bindData->weightOutputExpr;
 }

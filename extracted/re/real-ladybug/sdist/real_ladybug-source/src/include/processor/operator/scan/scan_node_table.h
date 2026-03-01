@@ -8,10 +8,10 @@ namespace lbug {
 namespace processor {
 
 struct ScanNodeTableProgressSharedState {
-    std::atomic<common::node_group_idx_t> numGroupsScanned;
-    common::node_group_idx_t numGroups;
+    std::atomic<common::node_group_idx_t> numMorselsScanned;
+    common::node_group_idx_t numMorsels;
 
-    ScanNodeTableProgressSharedState() : numGroupsScanned{0}, numGroups{0} {};
+    ScanNodeTableProgressSharedState() : numMorselsScanned{0}, numMorsels{0} {};
 };
 
 class ScanNodeTableSharedState {
@@ -86,7 +86,7 @@ public:
           scanState{nullptr}, tableInfos{std::move(tableInfos)},
           sharedStates{std::move(sharedStates)},
           progressSharedState{std::move(progressSharedState)} {
-        KU_ASSERT(this->tableInfos.size() == this->sharedStates.size());
+        DASSERT(this->tableInfos.size() == this->sharedStates.size());
     }
 
     common::table_id_map_t<common::SemiMask*> getSemiMasks() const;
@@ -98,7 +98,7 @@ public:
     bool getNextTuplesInternal(ExecutionContext* context) override;
 
     const ScanNodeTableSharedState& getSharedState(common::idx_t idx) const {
-        KU_ASSERT(idx < sharedStates.size());
+        DASSERT(idx < sharedStates.size());
         return *sharedStates[idx];
     }
 

@@ -59,6 +59,7 @@ from mycli.clitoolbar import create_toolbar_tokens_func
 from mycli.compat import WIN
 from mycli.completion_refresher import CompletionRefresher
 from mycli.config import get_mylogin_cnf_path, open_mylogin_cnf, read_config_files, str_to_bool, strip_matching_quotes, write_default_config
+from mycli.constants import ISSUES_URL
 from mycli.key_bindings import mycli_bindings
 from mycli.lexer import MyCliLexer
 from mycli.packages import special
@@ -86,7 +87,7 @@ sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None  # type: ignore[assignment]
 # Query tuples are used for maintaining history
 Query = namedtuple("Query", ["query", "successful", "mutating"])
 
-SUPPORT_INFO = "Home: https://mycli.net\nBug tracker: https://github.com/dbcli/mycli/issues"
+SUPPORT_INFO = f"Home: https://mycli.net\nBug tracker: {ISSUES_URL}"
 DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
 MIN_COMPLETION_TRIGGER = 1
@@ -254,6 +255,8 @@ class MyCli:
 
         keyword_casing = c["main"].get("keyword_casing", "auto")
 
+        self.highlight_preview = c['search'].as_bool('highlight_preview')
+
         self.query_history: list[Query] = []
 
         # Initialize completer.
@@ -345,7 +348,7 @@ class MyCli:
             case_sensitive=True,
         )
         special.register_special_command(
-            self.execute_from_file, "source", "source <filename>", "Execute commands from file.", aliases=["\\."]
+            self.execute_from_file, "source", "source <filename>", "Execute queries from a file.", aliases=["\\."]
         )
         special.register_special_command(
             self.change_prompt_format, "prompt", "prompt <string>", "Change prompt format.", aliases=["\\R"], case_sensitive=True
@@ -842,31 +845,39 @@ class MyCli:
         return False
 
     def handle_prettify_binding(self, text: str) -> str:
+        if not text:
+            return ''
         try:
-            statements = sqlglot.parse(text, read="mysql")
+            statements = sqlglot.parse(text, read='mysql')
         except Exception:
             statements = []
         if len(statements) == 1 and statements[0]:
-            pretty_text = statements[0].sql(pretty=True, pad=4, dialect="mysql")
+            parse_succeeded = True
+            pretty_text = statements[0].sql(pretty=True, pad=4, dialect='mysql')
         else:
-            pretty_text = ""
-            self.toolbar_error_message = "Prettify failed to parse statement"
-        if len(pretty_text) > 0:
-            pretty_text = pretty_text + ";"
+            parse_succeeded = False
+            pretty_text = text.rstrip(';')
+            self.toolbar_error_message = 'Prettify failed to parse single statement'
+        if pretty_text and parse_succeeded:
+            pretty_text = pretty_text + ';'
         return pretty_text
 
     def handle_unprettify_binding(self, text: str) -> str:
+        if not text:
+            return ''
         try:
-            statements = sqlglot.parse(text, read="mysql")
+            statements = sqlglot.parse(text, read='mysql')
         except Exception:
             statements = []
         if len(statements) == 1 and statements[0]:
-            unpretty_text = statements[0].sql(pretty=False, dialect="mysql")
+            parse_succeeded = True
+            unpretty_text = statements[0].sql(pretty=False, dialect='mysql')
         else:
-            unpretty_text = ""
-            self.toolbar_error_message = "Unprettify failed to parse statement"
-        if len(unpretty_text) > 0:
-            unpretty_text = unpretty_text + ";"
+            parse_succeeded = False
+            unpretty_text = text.rstrip(';')
+            self.toolbar_error_message = 'Unprettify failed to parse single statement'
+        if unpretty_text and parse_succeeded:
+            unpretty_text = unpretty_text + ';'
         return unpretty_text
 
     def run_cli(self) -> None:
@@ -921,7 +932,7 @@ class MyCli:
                 continuation = " "
             return [("class:continuation", continuation)]
 
-        def show_suggestion_tip() -> bool:
+        def show_initial_toolbar_help() -> bool:
             return iterations < 2
 
         # Keep track of whether or not the query is mutating. In case
@@ -933,29 +944,25 @@ class MyCli:
             nonlocal mutating
             result_count = watch_count = 0
             for result in results:
-                title = result.title
-                cur = result.results
-                headers = result.headers
-                status = result.status
-                command = result.command
-                logger.debug("title: %r", title)
-                logger.debug("headers: %r", headers)
-                logger.debug("rows: %r", cur)
-                logger.debug("status: %r", status)
+                logger.debug("title: %r", result.title)
+                logger.debug("headers: %r", result.headers)
+                logger.debug("rows: %r", result.results)
+                logger.debug("status: %r", result.status)
+                logger.debug("command: %r", result.command)
                 threshold = 1000
                 # If this is a watch query, offset the start time on the 2nd+ iteration
                 # to account for the sleep duration
-                if command is not None and command["name"] == "watch":
+                if result.command is not None and result.command["name"] == "watch":
                     if watch_count > 0:
                         try:
-                            watch_seconds = float(command["seconds"])
+                            watch_seconds = float(result.command["seconds"])
                             start += watch_seconds
                         except ValueError as e:
                             self.echo(f"Invalid watch sleep time provided ({e}).", err=True, fg="red")
                             sys.exit(1)
                     else:
                         watch_count += 1
-                if is_select(status) and isinstance(cur, Cursor) and cur.rowcount > threshold:
+                if is_select(result.status) and isinstance(result.results, Cursor) and result.results.rowcount > threshold:
                     self.echo(
                         f"The result set has more than {threshold} rows.",
                         fg="red",
@@ -973,9 +980,10 @@ class MyCli:
                     max_width = None
 
                 formatted = self.format_output(
-                    title,
-                    cur,
-                    headers,
+                    result.title,
+                    result.results,
+                    result.headers,
+                    result.postamble,
                     special.is_expanded_output(),
                     special.is_redirected(),
                     self.null_string,
@@ -989,7 +997,7 @@ class MyCli:
                     if result_count > 0:
                         self.echo("")
                     try:
-                        self.output(formatted, status)
+                        self.output(formatted, result.status)
                     except KeyboardInterrupt:
                         pass
                     if self.beep_after_seconds > 0 and t >= self.beep_after_seconds:
@@ -1001,20 +1009,17 @@ class MyCli:
 
                 start = time()
                 result_count += 1
-                mutating = mutating or is_mutating(status)
+                mutating = mutating or is_mutating(result.status)
 
                 # get and display warnings if enabled
-                if self.show_warnings and isinstance(cur, Cursor) and cur.warning_count > 0:
+                if self.show_warnings and isinstance(result.results, Cursor) and result.results.warning_count > 0:
                     warnings = sqlexecute.run("SHOW WARNINGS")
                     for warning in warnings:
-                        title = warning.title
-                        cur = warning.results
-                        headers = warning.headers
-                        status = warning.status
                         formatted = self.format_output(
-                            title,
-                            cur,
-                            headers,
+                            warning.title,
+                            warning.results,
+                            warning.headers,
+                            warning.postamble,
                             special.is_expanded_output(),
                             special.is_redirected(),
                             self.null_string,
@@ -1023,7 +1028,7 @@ class MyCli:
                             max_width,
                         )
                         self.echo("")
-                        self.output(formatted, status)
+                        self.output(formatted, warning.status)
 
         def keepalive_hook(_context):
             """
@@ -1233,7 +1238,7 @@ class MyCli:
             query = Query(text, successful, mutating)
             self.query_history.append(query)
 
-        get_toolbar_tokens = create_toolbar_tokens_func(self, show_suggestion_tip)
+        get_toolbar_tokens = create_toolbar_tokens_func(self, show_initial_toolbar_help)
         if self.wider_completion_menu:
             complete_style = CompleteStyle.MULTI_COLUMN
         else:
@@ -1555,15 +1560,13 @@ class MyCli:
         self.log_query(query)
         results = self.sqlexecute.run(query)
         for result in results:
-            title = result.title
-            cur = result.results
-            headers = result.headers
             self.main_formatter.query = query
             self.redirect_formatter.query = query
             output = self.format_output(
-                title,
-                cur,
-                headers,
+                result.title,
+                result.results,
+                result.headers,
+                result.postamble,
                 special.is_expanded_output(),
                 special.is_redirected(),
                 self.null_string,
@@ -1575,16 +1578,14 @@ class MyCli:
                 click.echo(line, nl=new_line)
 
             # get and display warnings if enabled
-            if self.show_warnings and isinstance(cur, Cursor) and cur.warning_count > 0:
+            if self.show_warnings and isinstance(result.results, Cursor) and result.results.warning_count > 0:
                 warnings = self.sqlexecute.run("SHOW WARNINGS")
                 for warning in warnings:
-                    title = warning.title
-                    cur = warning.results
-                    headers = warning.headers
                     output = self.format_output(
-                        title,
-                        cur,
-                        headers,
+                        warning.title,
+                        warning.results,
+                        warning.headers,
+                        warning.postamble,
                         special.is_expanded_output(),
                         special.is_redirected(),
                         self.null_string,
@@ -1602,6 +1603,7 @@ class MyCli:
         title: str | None,
         cur: Cursor | list[tuple] | None,
         headers: list[str] | str | None,
+        postamble: str | None,
         expanded: bool = False,
         is_redirected: bool = False,
         null_string: str | None = None,
@@ -1632,7 +1634,7 @@ class MyCli:
             # will run before preprocessors defined as part of the format in cli_helpers
             output_kwargs["preprocessors"] = (preprocessors.convert_to_undecoded_string,)
 
-        if title:  # Only print the title if it's not None.
+        if title:
             output = itertools.chain(output, [title])
 
         if headers or (cur and title):
@@ -1682,6 +1684,9 @@ class MyCli:
                     formatted = itertools.chain([first_line], formatted)
 
             output = itertools.chain(output, formatted)
+
+        if postamble:
+            output = itertools.chain(output, [postamble])
 
         return output
 
@@ -2486,11 +2491,22 @@ def do_config_checkup(mycli: MyCli) -> None:
     for executable in [
         'less',
         'fzf',
+        'pygmentize',
     ]:
         if shutil.which(executable):
             print(f'The "{executable}" executable was found — good!')
         else:
             print(f'The recommended "{executable}" executable was not found — some functionality will suffer.')
+
+    print('\n### Environment variables:\n')
+    for variable in [
+        'EDITOR',
+        'VISUAL',
+    ]:
+        if value := os.environ.get(variable):
+            print(f'The ${variable} environment variable was set to "{value}" — good!')
+        else:
+            print(f'The ${variable} environment variable was not set — some functionality will suffer.')
 
     indent = '    '
     transitions = {

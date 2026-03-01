@@ -202,8 +202,8 @@ def zoom_in(
     undo: bool | None = None,
     /,
     *,
-    zoomfacx: float | None = 0.0,
-    zoomfacy: float | None = 0.0,
+    zoomfacx: float | None = 0.0375,
+    zoomfacy: float | None = 0.0375,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view
 
@@ -217,8 +217,8 @@ def zoom_out(
     undo: bool | None = None,
     /,
     *,
-    zoomfacx: float | None = 0.0,
-    zoomfacy: float | None = 0.0,
+    zoomfacx: float | None = -0.0375,
+    zoomfacy: float | None = -0.0375,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom out the view
 

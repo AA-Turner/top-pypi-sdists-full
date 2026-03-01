@@ -15,6 +15,7 @@
 #include "planner/planner.h"
 #include "processor/operator/table_function_call.h"
 #include "processor/plan_mapper.h"
+#include <format>
 
 using namespace lbug::catalog;
 using namespace lbug::common;
@@ -28,14 +29,14 @@ namespace lbug {
 namespace function {
 
 void GDSFuncSharedState::setGraphNodeMask(std::unique_ptr<NodeOffsetMaskMap> maskMap) {
-    auto onDiskGraph = ku_dynamic_cast<OnDiskGraph*>(graph.get());
+    auto onDiskGraph = dynamic_cast_checked<OnDiskGraph*>(graph.get());
     onDiskGraph->setNodeOffsetMask(maskMap.get());
     graphNodeMask = std::move(maskMap);
 }
 
 static expression_vector getResultColumns(const std::string& cypher, ClientContext* context) {
     auto parsedStatements = parser::Parser::parseQuery(cypher);
-    KU_ASSERT(parsedStatements.size() == 1);
+    DASSERT(parsedStatements.size() == 1);
     auto binder = Binder(context);
     auto boundStatement = binder.bind(*parsedStatements[0]);
     return boundStatement->getStatementResult()->getColumns();
@@ -48,7 +49,7 @@ static void validateNodeProjected(const table_id_set_t& connectedNodeTableIDSet,
         if (!projectedNodeIDSet.contains(id)) {
             auto entryName = catalog->getTableCatalogEntry(transaction, id)->getName();
             throw BinderException(
-                stringFormat("{} is connected to {} but not projected.", entryName, relName));
+                std::format("{} is connected to {} but not projected.", entryName, relName));
         }
     }
 }
@@ -79,17 +80,17 @@ static NativeGraphEntryTableInfo bindNodeEntry(ClientContext& context, const std
     auto transaction = transaction::Transaction::Get(context);
     auto nodeEntry = catalog->getTableCatalogEntry(transaction, tableName);
     if (nodeEntry->getType() != CatalogEntryType::NODE_TABLE_ENTRY) {
-        throw BinderException(stringFormat("{} is not a NODE table.", tableName));
+        throw BinderException(std::format("{} is not a NODE table.", tableName));
     }
     if (!predicate.empty()) {
-        auto cypher = stringFormat("MATCH (n:`{}`) RETURN n, {}", nodeEntry->getName(), predicate);
+        auto cypher = std::format("MATCH (n:`{}`) RETURN n, {}", nodeEntry->getName(), predicate);
         auto columns = getResultColumns(cypher, &context);
-        KU_ASSERT(columns.size() == 2);
+        DASSERT(columns.size() == 2);
         return {nodeEntry, columns[0], columns[1]};
     } else {
-        auto cypher = stringFormat("MATCH (n:`{}`) RETURN n", nodeEntry->getName());
+        auto cypher = std::format("MATCH (n:`{}`) RETURN n", nodeEntry->getName());
         auto columns = getResultColumns(cypher, &context);
-        KU_ASSERT(columns.size() == 1);
+        DASSERT(columns.size() == 1);
         return {nodeEntry, columns[0], nullptr /* empty predicate */};
     }
 }
@@ -101,18 +102,18 @@ static NativeGraphEntryTableInfo bindRelEntry(ClientContext& context, const std:
     auto relEntry = catalog->getTableCatalogEntry(transaction, tableName);
     if (relEntry->getType() != CatalogEntryType::REL_GROUP_ENTRY) {
         throw BinderException(
-            stringFormat("{} has catalog entry type. REL entry was expected.", tableName));
+            std::format("{} has catalog entry type. REL entry was expected.", tableName));
     }
     if (!predicate.empty()) {
         auto cypher =
-            stringFormat("MATCH ()-[r:`{}`]->() RETURN r, {}", relEntry->getName(), predicate);
+            std::format("MATCH ()-[r:`{}`]->() RETURN r, {}", relEntry->getName(), predicate);
         auto columns = getResultColumns(cypher, &context);
-        KU_ASSERT(columns.size() == 2);
+        DASSERT(columns.size() == 2);
         return {relEntry, columns[0], columns[1]};
     } else {
-        auto cypher = stringFormat("MATCH ()-[r:`{}`]->() RETURN r", relEntry->getName());
+        auto cypher = std::format("MATCH ()-[r:`{}`]->() RETURN r", relEntry->getName());
         auto columns = getResultColumns(cypher, &context);
-        KU_ASSERT(columns.size() == 1);
+        DASSERT(columns.size() == 1);
         return {relEntry, columns[0], nullptr /* empty predicate */};
     }
 }
@@ -135,7 +136,7 @@ NativeGraphEntry GDSFunction::bindGraphEntry(ClientContext& context,
                 transaction);
             result.relInfos.push_back(std::move(boundInfo));
         } else {
-            throw BinderException(stringFormat("{} is not a REL table.", relInfo.tableName));
+            throw BinderException(std::format("{} is not a REL table.", relInfo.tableName));
         }
     }
     return result;
@@ -152,7 +153,7 @@ std::shared_ptr<binder::Expression> GDSFunction::bindRelOutput(const TableFuncBi
             bindColumnName(bindInput.yieldVariables[yieldVariableIdx.value_or(0)], relColumnName);
     }
     auto rel = bindInput.binder->createNonRecursiveQueryRel(relColumnName, relEntries, srcNode,
-        dstNode, RelDirectionType::SINGLE);
+        dstNode, RelDirectionType::SINGLE, {});
     bindInput.binder->addToScope(REL_COLUMN_NAME, rel);
     return rel;
 }
@@ -175,7 +176,7 @@ std::string GDSFunction::bindColumnName(const parser::YieldVariable& yieldVariab
     std::string expressionName) {
     if (yieldVariable.name != expressionName) {
         throw common::BinderException{
-            common::stringFormat("Unknown variable name: {}.", yieldVariable.name)};
+            std::format("Unknown variable name: {}.", yieldVariable.name)};
     }
     if (yieldVariable.hasAlias()) {
         return yieldVariable.alias;
@@ -219,7 +220,7 @@ void GDSFunction::getLogicalPlan(Planner* planner, const BoundReadingClause& rea
     planner->planReadOp(std::move(op), predicates, plan);
 
     auto nodeOutput = bindData->output[0]->ptrCast<NodeExpression>();
-    KU_ASSERT(nodeOutput != nullptr);
+    DASSERT(nodeOutput != nullptr);
     planner->getCardinliatyEstimatorUnsafe().init(*nodeOutput);
     auto scanPlan = planner->getNodePropertyScanPlan(*nodeOutput);
     if (scanPlan.isEmpty()) {
@@ -255,9 +256,9 @@ std::unique_ptr<PhysicalOperator> GDSFunction::getPhysicalPlan(PlanMapper* planM
         auto maskMap = funcSharedState->getGraphNodeMaskMap();
         planMapper->addOperatorMapping(logicalOp, call.get());
         for (auto logicalRoot : logicalCall->getChildren()) {
-            KU_ASSERT(logicalRoot->getNumChildren() == 1);
+            DASSERT(logicalRoot->getNumChildren() == 1);
             auto child = logicalRoot->getChild(0);
-            KU_ASSERT(child->getOperatorType() == LogicalOperatorType::SEMI_MASKER);
+            DASSERT(child->getOperatorType() == LogicalOperatorType::SEMI_MASKER);
             auto logicalSemiMasker = child->ptrCast<LogicalSemiMasker>();
             logicalSemiMasker->addTarget(logicalOp);
             for (auto tableID : logicalSemiMasker->getNodeTableIDs()) {

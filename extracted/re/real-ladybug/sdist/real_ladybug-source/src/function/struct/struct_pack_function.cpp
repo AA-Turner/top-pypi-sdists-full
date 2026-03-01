@@ -1,6 +1,7 @@
 #include "common/exception/binder.h"
 #include "function/scalar_function.h"
 #include "function/struct/vector_struct_functions.h"
+#include <format>
 
 using namespace lbug::common;
 
@@ -10,7 +11,7 @@ namespace function {
 static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& input) {
     std::vector<StructField> fields;
     if (input.arguments.size() > INVALID_STRUCT_FIELD_IDX - 1) {
-        throw BinderException(stringFormat("Too many fields in STRUCT literal (max {}, got {})",
+        throw BinderException(std::format("Too many fields in STRUCT literal (max {}, got {})",
             INVALID_STRUCT_FIELD_IDX - 1, input.arguments.size()));
     }
     std::unordered_set<std::string> fieldNameSet;
@@ -21,11 +22,11 @@ static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& inp
         }
         if (i >= input.optionalArguments.size()) {
             throw BinderException(
-                stringFormat("Cannot infer field name for {}.", argument->toString()));
+                std::format("Cannot infer field name for {}.", argument->toString()));
         }
         auto fieldName = input.optionalArguments[i];
         if (fieldNameSet.contains(fieldName)) {
-            throw BinderException(stringFormat("Found duplicate field {} in STRUCT.", fieldName));
+            throw BinderException(std::format("Found duplicate field {} in STRUCT.", fieldName));
         } else {
             fieldNameSet.insert(fieldName);
         }
@@ -64,7 +65,7 @@ static void copyParameterValueToStructFieldVector(const ValueVector* parameter,
     ValueVector* structField, DataChunkState* structVectorState) {
     // If the parameter is unFlat, then its state must be consistent with the result's state.
     // Thus, we don't need to copy values to structFieldVector.
-    KU_ASSERT(parameter->state->isFlat());
+    DASSERT(parameter->state->isFlat());
     auto paramPos = parameter->state->getSelVector()[0];
     if (structVectorState->isFlat()) {
         auto pos = structVectorState->getSelVector()[0];
@@ -97,7 +98,7 @@ void StructPackFunctions::execFunc(
 
 void StructPackFunctions::undirectedRelPackExecFunc(
     const std::vector<std::shared_ptr<ValueVector>>& parameters, ValueVector& result, void*) {
-    KU_ASSERT(parameters.size() > 1);
+    DASSERT(parameters.size() > 1);
     // Force copy of the src and internal id child vectors because we might modify them later.
     for (auto i = 0u; i < 2; i++) {
         auto& parameter = parameters[i];

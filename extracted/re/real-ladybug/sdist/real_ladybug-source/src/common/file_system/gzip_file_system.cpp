@@ -2,6 +2,7 @@
 
 #include "common/exception/io.h"
 #include "miniz.hpp"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -101,9 +102,9 @@ bool MiniZStreamWrapper::read(StreamData& sd) {
         if (gzipHdr[3] & GZipFileSystem::GZIP_FLAG_EXTRA) {
             auto xlen = (uint8_t)*bodyPtr | (uint8_t) * (bodyPtr + 1) << 8;
             bodyPtr += xlen + 2;
-            KU_ASSERT((common::idx_t)(GZipFileSystem::GZIP_FOOTER_SIZE +
-                                      GZipFileSystem::GZIP_HEADER_MINSIZE + 2 + xlen) <
-                      GZipFileSystem::GZIP_HEADER_MAXSIZE);
+            DASSERT((common::idx_t)(GZipFileSystem::GZIP_FOOTER_SIZE +
+                                    GZipFileSystem::GZIP_HEADER_MINSIZE + 2 + xlen) <
+                    GZipFileSystem::GZIP_HEADER_MAXSIZE);
         }
         if (gzipHdr[3] & GZipFileSystem::GZIP_FLAG_NAME) {
             char c = '\0';
@@ -111,7 +112,7 @@ bool MiniZStreamWrapper::read(StreamData& sd) {
                 c = *bodyPtr;
                 bodyPtr++;
             } while (c != '\0' && bodyPtr < sd.inputBufEnd);
-            KU_ASSERT(bodyPtr - sd.inputBufStart < GZipFileSystem::GZIP_HEADER_MAXSIZE);
+            DASSERT(bodyPtr - sd.inputBufStart < GZipFileSystem::GZIP_HEADER_MAXSIZE);
         }
         sd.inputBufStart = bodyPtr;
         if (sd.inputBufEnd - sd.inputBufStart < 1) {
@@ -134,14 +135,13 @@ bool MiniZStreamWrapper::read(StreamData& sd) {
     auto ret = miniz::mz_inflate(mzStreamPtr.get(), miniz::MZ_NO_FLUSH);
     // LCOV_EXCL_START
     if (ret != miniz::MZ_OK && ret != miniz::MZ_STREAM_END) {
-        throw IOException(
-            common::stringFormat("Failed to decode gzip stream: {}", miniz::mz_error(ret)));
+        throw IOException(std::format("Failed to decode gzip stream: {}", miniz::mz_error(ret)));
     }
     // LCOV_EXCL_STOP
     sd.inputBufStart = (uint8_t*)mzStreamPtr->next_in;
     sd.inputBufEnd = sd.inputBufStart + mzStreamPtr->avail_in;
     sd.outputBufEnd = (uint8_t*)mzStreamPtr->next_out;
-    KU_ASSERT(sd.outputBufEnd + mzStreamPtr->avail_out == sd.outputBuf.get() + sd.outputBufSize);
+    DASSERT(sd.outputBufEnd + mzStreamPtr->avail_out == sd.outputBuf.get() + sd.outputBufSize);
 
     if (ret == miniz::MZ_STREAM_END) {
         sd.refresh = true;
