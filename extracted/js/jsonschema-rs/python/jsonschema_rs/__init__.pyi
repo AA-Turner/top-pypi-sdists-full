@@ -2,6 +2,8 @@ from collections.abc import Iterator
 from decimal import Decimal
 from typing import Any, Callable, List, Protocol, TypeAlias, TypeVar, TypedDict, Union
 
+from . import canonical as canonical
+
 _SchemaT = TypeVar("_SchemaT", bool, dict[str, Any])
 _FormatFunc = TypeVar("_FormatFunc", bound=Callable[[str], bool])
 JSONType: TypeAlias = dict[str, Any] | list | str | int | float | Decimal | bool | None

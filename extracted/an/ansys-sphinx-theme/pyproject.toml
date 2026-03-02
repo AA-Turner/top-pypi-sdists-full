@@ -1,0 +1,177 @@
+[build-system]
+requires = [
+  "sphinx-theme-builder>=0.2.0b2,<1",
+]
+build-backend = "sphinx_theme_builder"
+
+[tool.sphinx-theme-builder]
+node-version = "23.9.0"
+theme-name = "ansys_sphinx_theme"
+
+[project]
+# Check https://flit.readthedocs.io/en/latest/pyproject_toml.html for all available sections
+name = "ansys-sphinx-theme"
+version = "1.7.1"
+description = "A theme devised by ANSYS, Inc. for Sphinx documentation."
+readme = "README.rst"
+requires-python = ">=3.10,<4"
+license = {file = "LICENSE"}
+authors = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
+maintainers = [{ name = "ANSYS, Inc.", email = "pyansys.core@ansys.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Sphinx",
+    "Framework :: Sphinx :: Theme",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "importlib-metadata>=4.0",
+    "Jinja2>=3.1.2",
+    "pdf2image>=1.17.0",
+    "pydata-sphinx-theme>=0.15.4,<0.17",
+    "PyYAML>=6.0",
+    "Sphinx>=6.1.0",
+]
+
+[project.optional-dependencies]
+autoapi = [
+    "sphinx-autoapi>=3.7.0",
+    "sphinx-design>=0.6.0",
+    "sphinx-jinja>=2.0.2",
+]
+changelog = [
+    "PyYAML>=6.0.3",
+    "sphinx-design>=0.6.0",
+]
+all = [
+    "sphinx-autoapi>=3.7.0",
+    "sphinx-design>=0.6.0",
+    "sphinx-jinja>=2.0.2",
+    "PyYAML>=6.0.3",
+]
+
+[dependency-groups]
+doc = [
+    "jupytext==1.19.0",
+    "nbsphinx==0.9.8",
+    "notebook==7.5.2",
+    "numpydoc==1.10.0",
+    "pandas==2.3.3",
+    "Pillow>=9.0",
+    "plotly==6.5.2",
+    "PyGitHub==2.8.1",
+    "pyvista[jupyter]==0.46.5",
+    "PyYAML==6.0.3",
+    "requests==2.32.5",
+    "sphinx-autoapi==3.6.1",
+    "sphinx-copybutton==0.5.2",
+    "sphinx-design==0.7.0",
+    "sphinx-gallery==0.20.0",
+    "sphinx-jinja==2.0.2",
+    "sphinx-notfound-page==1.1.0",
+    "sphinx-theme-builder[cli]==0.3.2",
+    "tox==4.36.1",
+    "pydantic==2.12.5"
+]
+
+[project.entry-points."sphinx.html_themes"]
+"ansys_sphinx_theme" = "ansys_sphinx_theme"
+
+[project.urls]
+Home = "https://sphinxdocs.ansys.com/"
+Source = "https://github.com/ansys/ansys-sphinx-theme"
+Tracker = "https://github.com/ansys/ansys-sphinx-theme/issues"
+Documentation = "https://sphinxdocs.ansys.com/"
+
+[tool.ruff]
+line-length = 100
+fix = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle, see https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
+    "D",    # pydocstyle, see https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    "F",    # pyflakes, see https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "I",    # isort, see https://docs.astral.sh/ruff/rules/#isort-i
+    "N",    # pep8-naming, see https://docs.astral.sh/ruff/rules/#pep8-naming-n
+    "PTH",  # flake8-use-pathlib, https://docs.astral.sh/ruff/rules/#flake8-use-pathlib-pth
+    "TD",   # flake8-todos, https://docs.astral.sh/ruff/rules/#flake8-todos-td
+]
+ignore = [
+    "TD002", # Missing author in TODOs comment
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"doc/source/examples/sphinx-gallery/sphinx-gallery.py" = ["D205", "E402", "D400"]
+"src/ansys_sphinx_theme/extension/linkcode.py" = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.towncrier]
+directory = "doc/changelog.d"
+filename = "doc/source/changelog.rst"
+template = "doc/changelog.d/changelog_template.jinja"
+start_string = ".. towncrier release notes start\n"
+title_format = "`{version} <https://github.com/ansys/ansys-sphinx-theme/releases/tag/v{version}>`_ ({project_date})"
+issue_format = "`#{issue} <https://github.com/ansys/ansys-sphinx-theme/pull/{issue}>`_"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "documentation"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "test"
+name = "Test"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "dependencies"
+name = "Dependencies"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "maintenance"
+name = "Maintenance"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "miscellaneous"
+name = "Miscellaneous"
+showcontent = true

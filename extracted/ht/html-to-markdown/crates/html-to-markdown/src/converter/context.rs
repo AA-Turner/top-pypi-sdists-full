@@ -35,8 +35,6 @@ pub struct Context {
     pub(crate) list_counter: usize,
     /// Are we in an ordered list (vs unordered)?
     pub(crate) in_ordered_list: bool,
-    /// Track if previous sibling in dl was a dt
-    pub(crate) last_was_dt: bool,
     /// Blockquote nesting depth
     pub(crate) blockquote_depth: usize,
     /// Are we inside a table cell (td/th)?
@@ -142,7 +140,6 @@ impl Context {
             in_code: false,
             list_counter: 0,
             in_ordered_list: false,
-            last_was_dt: false,
             blockquote_depth: 0,
             in_table_cell: false,
             convert_as_inline: options.convert_as_inline,

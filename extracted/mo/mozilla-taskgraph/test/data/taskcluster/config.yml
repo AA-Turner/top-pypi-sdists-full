@@ -1,0 +1,25 @@
+---
+trust-domain: test
+task-priority: low
+taskgraph:
+  repositories:
+    ci:
+      name: Mozilla Taskgraph
+workers:
+  aliases:
+    b-linux:
+      provisioner: taskgraph-b
+      implementation: generic-worker
+      os: linux
+      worker-type: linux
+    t-linux:
+      provisioner: taskgraph-t
+      implementation: docker-worker
+      os: linux
+      worker-type: linux
+release-promotion:
+  flavors:
+    promote:
+      target-tasks-method: target_promote
+    ship:
+      target-tasks-method: target_ship

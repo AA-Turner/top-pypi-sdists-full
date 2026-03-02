@@ -1,0 +1,57 @@
+Metadata-Version: 1.1
+Name: patchelf-wrapper
+Version: 1.2.0
+Summary: A wrapper for patchelf
+Home-page: https://github.com/jimporter/patchelf-wrapper
+Author: Jim Porter
+Author-email: itsjimporter@gmail.com
+License: BSD
+Description: patchelf-wrapper
+        ================
+        
+        **patchelf-wrapper** is a simple Python module that assists in the
+        installation of the `*patchelf* <https://nixos.org/patchelf.html>`__
+        utility. It's intended for use with PyPI-hosted Python projects that
+        depend on patchelf. If you're an end-user of patchelf, you should look
+        elsewhere! (Perhaps your OS's package manager?)
+        
+        Currently, patchelf-wrapper installs **patchelf 0.11**.
+        
+        Usage
+        -----
+        
+        Ordinarily, you'll just want to set ``'patchelf-wrapper'`` as one of
+        your requirements (e.g. in ``setup.py``). If installing directly, you
+        can just use ``python setup.py install`` or ``python setup.py build`` as
+        usual; this respects all the usual options, including automatically
+        installing patchelf into the ``bin`` dir of a virtualenv if one is
+        active.
+        
+        In addition, patchelf-wrapper contains the following setup commands
+        beyond the defaults:
+        
+        -  ``check_patchelf``: Checks if patchelf is already installed on the
+           system
+        -  ``build_patchelf``: Extract patchelf's source and build it
+        -  ``install_patchelf``: Install patchelf to the chosen location
+        
+        License
+        -------
+        
+        This project is licensed under the `BSD 3-clause license <LICENSE>`__.
+        Patchelf itself is licensed under the GPL, version 3.
+        
+Keywords: patchelf
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8

@@ -1,0 +1,84 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+name = "actions-python-core"
+version = "0.1.3"
+description = "Actions core lib"
+readme = "README.md"
+keywords = [
+    "action",
+    "ci",
+    "github",
+]
+license = "MIT"
+authors = [
+    { name = "sudosubin", email = "sudosubin@gmail.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "aiofiles>=23.1",
+    "httpx<1.0.0,>=0.23",
+    'typing-extensions>=4.6; python_version < "3.11"',
+]
+[project.urls]
+Homepage = "https://github.com/actions-python/toolkit"
+
+[tool.hatch.build]
+exclude = ["/tests"]
+
+[tool.mypy]
+ignore_missing_imports = true
+namespace_packages = false
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "parameterized~=0.9.0",
+    "pytest~=7.4.2",
+    "pytest-recording~=0.13.0",
+]
+
+[tool.rye.scripts]
+format = { chain = ["format:ruff-check .", "format:ruff-format ."] }
+"format:ruff-check" = { cmd = "ruff check --fix --exit-non-zero-on-fix" }
+"format:ruff-format" = { cmd = "ruff format" }
+lint = { chain = ["lint:mypy", "lint:pyright", "lint:ruff-check .", "lint:ruff-format ."] }
+"lint:mypy" = { cmd = "mypy ." }
+"lint:pyright" = { cmd = "pyright ." }
+"lint:ruff-check" = { cmd = "ruff check --exit-non-zero-on-fix" }
+"lint:ruff-format" = { cmd = "ruff format --check" }
+test = { cmd = "tox --parallel" }
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{39,310,311,312}
+rye_discovery = true
+skip_missing_interpreters = false
+
+[testenv]
+commands = pytest
+deps =
+    parameterized~=0.9.0
+    pytest~=7.4.2
+    pytest-recording~=0.13.0
+"""

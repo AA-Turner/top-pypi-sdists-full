@@ -1,1 +1,0 @@
-# CSSL VSCode extension files

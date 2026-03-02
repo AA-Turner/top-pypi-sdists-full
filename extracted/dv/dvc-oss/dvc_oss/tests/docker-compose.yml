@@ -1,8 +1,0 @@
----
-version: '3.2'
-services:
-  oss:
-    image: rkuprieiev/oss-emulator
-    ports:
-      - "8880"
-

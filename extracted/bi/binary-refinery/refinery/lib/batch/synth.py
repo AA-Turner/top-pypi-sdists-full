@@ -1,0 +1,344 @@
+from __future__ import annotations
+
+import abc
+import enum
+import io
+import itertools
+
+from typing import Generic, TypeVar, overload
+
+from refinery.lib.batch.model import (
+    AstCommand,
+    AstFor,
+    AstForOptions,
+    AstForVariant,
+    AstGroup,
+    AstIf,
+    AstLabel,
+    AstNode,
+    AstPipeline,
+    AstSequence,
+    AstStatement,
+)
+from refinery.lib.batch.util import enquote, unquote
+
+_A = TypeVar('_A', bound=AstNode)
+
+
+class K(str, enum.Enum):
+    DO = 'DO'
+    ELSE = 'ELSE'
+    FOR = 'FOR'
+    IF = 'IF'
+    IN = 'IN'
+    NOT = 'NOT'
+    SP = '\x20'
+
+    def __str__(self):
+        return self.value
+
+
+class SynNodeBase(Generic[_A], abc.ABC):
+    __slots__ = 'ast', 'tab'
+
+    def __init__(self, ast: _A):
+        self.ast = ast
+        self.tab = 4 * K.SP
+
+    @abc.abstractmethod
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False) -> bool:
+        ...
+
+    @abc.abstractmethod
+    def oneline(self) -> bool:
+        ...
+
+    def __str__(self) -> str:
+        with io.StringIO() as out:
+            self.pretty(out)
+            return out.getvalue()
+
+    __repr__ = __str__
+
+
+class SynNode(SynNodeBase[_A]):
+
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        ...
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        if not indented:
+            out.write(indent * self.tab)
+        out.write(str(self))
+        return True
+
+
+class SynCommand(SynNode[AstCommand]):
+    __slots__ = (
+        'args',
+        'junk',
+        'verb',
+        'silent',
+        'argument_string',
+        'argument_offset',
+        'trailing_spaces',
+    )
+
+    args: list[str]
+    verb: str
+    junk: bool
+
+    def __init__(self, ast: AstCommand):
+        super().__init__(ast)
+        self.silent = False
+        self.args = []
+        self.verb = ''
+        self.junk = False
+        arg_string = io.StringIO()
+        arg_offset = 0
+        spaces = []
+        for k, token in enumerate(self.ast.fragments):
+            if token.isspace():
+                if self.verb:
+                    arg_string.write(token)
+                spaces.append(token)
+                continue
+            if not self.verb:
+                self.verb = unquote(token.strip())
+                continue
+            self.args.append(token)
+            arg_string.write(token)
+            arg_offset = arg_offset or k
+            spaces.clear()
+        if not self.verb:
+            raise ValueError('Empty Command')
+        self.argument_string = arg_string.getvalue().lstrip()
+        self.argument_offset = arg_offset
+        self.trailing_spaces = spaces
+
+    def oneline(self) -> bool:
+        return True
+
+    def __str__(self):
+        with io.StringIO() as out:
+            for rd in self.ast.redirects.values():
+                out.write(str(rd))
+                out.write(K.SP)
+            if self.ast.silenced:
+                out.write('@')
+            out.write(enquote(self.verb))
+            for a in itertools.islice(self.ast.fragments, 1, None):
+                out.write(a)
+            return out.getvalue()
+
+
+class SynGroup(SynNodeBase[AstGroup]):
+    def oneline(self) -> bool:
+        ast = self.ast
+        if (pl := ast.parent) and (seq := pl.parent) and isinstance(seq.parent, (AstFor, AstIf)):
+            return False
+        fragments = self.ast.fragments
+        if len(fragments) == 0:
+            return True
+        if len(fragments) > 1:
+            return False
+        return synthesize(fragments[0]).oneline()
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        tab = indent * self.tab
+        fragments = self.ast.fragments
+        if not indented:
+            out.write(tab)
+        out.write('(')
+        if self.oneline():
+            synthesize(fragments[0]).pretty(out, indent, True)
+        else:
+            for seq in fragments:
+                out.write('\n')
+                synthesize(seq).pretty(out, indent + 1, False)
+            out.write('\n')
+            out.write(tab)
+        out.write(')')
+        for rd in self.ast.redirects.values():
+            out.write(K.SP)
+            out.write(str(rd))
+        return True
+
+
+class SynPipeline(SynNodeBase[AstPipeline]):
+    def oneline(self) -> bool:
+        return all(
+            synthesize(part).oneline() for part in self.ast.parts
+        )
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        tab = indent * self.tab
+        if not indented:
+            indented = True
+            out.write(tab)
+        for k, part in enumerate(self.ast.parts):
+            if k > 0:
+                out.write('|')
+                out.write(K.SP)
+            indented = synthesize(part).pretty(out, indent, indented)
+        return indented
+
+
+class SynLabel(SynNode[AstLabel]):
+    def oneline(self) -> bool:
+        return True
+
+    def __str__(self):
+        prefix = '::' if self.ast.comment else ':'
+        return F'{prefix}{self.ast.label}'
+
+
+class SynFor(SynNodeBase[AstFor]):
+    def oneline(self) -> bool:
+        return synthesize(self.ast.body).oneline()
+
+    def options(self, opt: AstForOptions) -> str:
+        options = []
+        if opt.usebackq:
+            options.append('usebackq')
+        if (ast := opt.asterisk) or opt.tokens != (0,):
+            tokens = ','.join(str(t) for t in opt.tokens)
+            if ast:
+                tokens = F'{tokens}*'
+            options.append(F'tokens={tokens}')
+        if c := opt.comment:
+            options.append(F'eol={c}')
+        if s := opt.skip:
+            options.append(F'skip={s}')
+        if (d := opt.delims) != '\x20\t':
+            options.append(F'delims={d}')
+        if not options:
+            return ''
+        options = ' '.join(options)
+        return F' "{options}"'
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        if not indented:
+            out.write(self.tab * indent)
+        if flag := (ast := self.ast).variant:
+            out.write(F'{K.FOR} /')
+            out.write(flag.value)
+            if flag == AstForVariant.FileParsing:
+                out.write(self.options(ast.options))
+            elif flag == AstForVariant.DescendRecursively and (path := ast.path):
+                out.write(K.SP)
+                out.write(path)
+        else:
+            out.write(K.FOR)
+        out.write(' %')
+        out.write(ast.variable)
+        out.write(F' {K.IN} (')
+        out.write(ast.spec_string)
+        out.write(F') {K.DO} ')
+        return synthesize(ast.body).pretty(out, indent, True)
+
+
+class SynIf(SynNodeBase[AstIf]):
+    def oneline(self) -> bool:
+        ast = self.ast
+        if not synthesize(ast.then_do).oneline():
+            return False
+        elif (else_do := ast.else_do):
+            return synthesize(else_do).oneline()
+        else:
+            return True
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        ast = self.ast
+        if not indented:
+            out.write(indent * self.tab)
+        out.write(K.IF)
+        if ast.casefold:
+            out.write(' /I')
+        if ast.negated:
+            out.write(K.SP)
+            out.write(K.NOT)
+        if var := ast.variant:
+            out.write(K.SP)
+            out.write(var.value)
+            out.write(K.SP)
+            out.write(str(ast.lhs))
+        else:
+            cmp = ast.cmp
+            assert cmp is not None
+            out.write(F' {ast.lhs!s} {cmp.value} {ast.rhs!s}')
+        out.write(K.SP)
+        indented = synthesize(ast.then_do).pretty(out, indent, True)
+        if else_do := ast.else_do:
+            out.write(K.SP)
+            out.write(K.ELSE)
+            out.write(K.SP)
+            indented = synthesize(else_do).pretty(out, indent, indented)
+        return indented
+
+
+class SynSequence(SynNodeBase[AstSequence]):
+    def oneline(self) -> bool:
+        ast = self.ast
+        if not synthesize(ast.head).oneline():
+            return False
+        return all(synthesize(cmd.statement).oneline() for cmd in ast.tail)
+
+    def pretty(self, out: io.StringIO, indent: int = 0, indented: bool = False):
+        ast = self.ast
+        indented = synthesize(ast.head).pretty(out, indent, indented)
+        for cmd in ast.tail:
+            out.write(cmd.condition)
+            out.write(K.SP)
+            indented = synthesize(cmd.statement).pretty(out, indent, indented)
+        return indented
+
+
+SynMap = {
+    AstFor: SynFor,
+    AstIf: SynIf,
+    AstSequence: SynSequence,
+    AstGroup: SynGroup,
+    AstCommand: SynCommand,
+    AstLabel: SynLabel,
+    AstPipeline: SynPipeline,
+}
+
+
+@overload # noqa
+def synthesize(ast: AstFor) -> SynFor:
+    ...
+@overload # noqa
+def synthesize(ast: AstIf) -> SynIf:
+    ...
+@overload # noqa
+def synthesize(ast: AstSequence) -> SynSequence:
+    ...
+@overload # noqa
+def synthesize(ast: AstGroup) -> SynGroup:
+    ...
+@overload # noqa
+def synthesize(ast: AstCommand) -> SynCommand:
+    ...
+@overload # noqa
+def synthesize(ast: AstLabel) -> SynLabel:
+    ...
+@overload # noqa
+def synthesize(ast: AstPipeline) -> SynPipeline:
+    ...
+@overload # noqa
+def synthesize(ast: AstStatement) -> SynLabel | SynCommand | SynGroup | SynPipeline | SynFor | SynIf:
+    ...
+@overload # noqa
+def synthesize(ast: AstNode) -> SynNodeBase:
+    ...
+
+
+def synthesize(ast: AstNode):
+    try:
+        wrapper = SynMap[ast.__class__]
+    except KeyError as KE:
+        raise TypeError from KE
+    else:
+        return wrapper(ast)

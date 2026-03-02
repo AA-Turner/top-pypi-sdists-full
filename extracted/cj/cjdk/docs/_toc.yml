@@ -1,0 +1,23 @@
+# This file is part of cjdk.
+# Copyright 2022-25 Board of Regents of the University of Wisconsin System
+# SPDX-License-Identifier: MIT
+
+format: jb-book
+root: index
+chapters:
+  - file: install
+  - file: examples
+    sections:
+    - file: example-hello-world
+    - file: example-graal-hello
+    - file: example-run-jar
+    - file: example-run-jgo
+  - file: cachedir
+  - file: jdk-index
+  - file: vendors
+  - file: versions
+  - file: api
+  - file: cli
+  - file: environ
+  - file: development
+  - file: changelog

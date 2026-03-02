@@ -1,0 +1,99 @@
+Metadata-Version: 2.4
+Name: dlthub
+Version: 0.22.1
+Summary: dlthub is a commercial extension to dlt
+Author-email: "dltHub Inc." <services@dlthub.com>
+Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, Adrian Brudaru <adrian@dlthub.com>, Anton Burnashev <anton@dlthub.com>, David Scharf <david@dlthub.com>
+License: # dltHub Software EULA
+        License Notice – External License Reference
+        
+        This software package (the “Software”) is licensed solely under the dltHub Software End User License Agreement (the “License”). The complete and current text of the License is maintained at the following canonical location:
+        
+            https://dlthub.com/docs/plus/EULA
+        
+        By downloading, installing, accessing, or using the Software, you acknowledge that you have read, understood, and agree to be bound by the License. If you do not agree to the License, do not download, install, access, or use the Software.
+        
+        Copyright 2025 Scalevector
+License-File: LICENSE.md
+Keywords: etl
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Python: <3.15,>=3.9
+Requires-Dist: python-jose>=3.5.0
+Requires-Dist: ruamel-yaml>=0.18.10
+Requires-Dist: sqlglot<28.1,>=25.4.0
+Provides-Extra: cache
+Requires-Dist: duckdb>0.9; extra == 'cache'
+Provides-Extra: dbt
+Requires-Dist: dbt-core<1.12,>=1.9; extra == 'dbt'
+Requires-Dist: jinja2>=3.1.2; extra == 'dbt'
+Requires-Dist: pydantic<2.12,>2; extra == 'dbt'
+Provides-Extra: iceberg
+Requires-Dist: boto3>=1.37.3; extra == 'iceberg'
+Requires-Dist: duckdb>=1.3.2; extra == 'iceberg'
+Requires-Dist: pyarrow>=17; extra == 'iceberg'
+Requires-Dist: pyiceberg>=0.9.1; extra == 'iceberg'
+Requires-Dist: sqlalchemy>2; extra == 'iceberg'
+Provides-Extra: mcp
+Requires-Dist: duckdb>=1.1.3; extra == 'mcp'
+Requires-Dist: mcp>=1.2.1; extra == 'mcp'
+Requires-Dist: pandas>=2.1.4; extra == 'mcp'
+Requires-Dist: pyarrow>=17; extra == 'mcp'
+Provides-Extra: mssql
+Requires-Dist: pyodbc>=4.0.39; extra == 'mssql'
+Requires-Dist: sqlalchemy>1.4; extra == 'mssql'
+Provides-Extra: snowflake
+Requires-Dist: dlt[snowflake]; extra == 'snowflake'
+Description-Content-Type: text/markdown
+
+<h1 align="center">
+    <strong>dlthub</strong>
+</h1>
+
+<div align="center">
+  <a target="_blank" href="https://dlthub.com/community" style="background:none">
+    <img src="https://img.shields.io/badge/slack-join-dlt.svg?labelColor=191937&color=6F6FF7&logo=slack" style="width: 260px;"  />
+  </a>
+</div>
+<div align="center">
+  <a target="_blank" href="https://pypi.org/project/dlthub/" style="background:none">
+    <img src="https://img.shields.io/pypi/v/dlthub?labelColor=191937&color=6F6FF7">
+  </a>
+  <a target="_blank" href="https://pypi.org/project/dlthub/" style="background:none">
+    <img src="https://img.shields.io/pypi/pyversions/dlthub?labelColor=191937&color=6F6FF7">
+  </a>
+</div>
+
+dlthub is the a commercial extension to the open source data load tool ([dlt]((https://dlthub.com/docs/))). Features include:
+* define data transformations in Python and SQL
+* generate dbt packages from dlt pipelines
+* dlthub projects: empower any team members to define sources, destinations and pipelines in a declarative yaml interface
+* Iceberg support
+
+
+## Installation
+
+`dlthub` supports Python 3.10 and above and is a plugin (based on [pluggy](https://github.com/pytest-dev/pluggy)) Use `hub` extra on `dlt` to pick the matching plugin version:
+
+```sh
+pip install "dlt[hub]"
+```
+
+
+## Documentation
+
+Learn more in the [dlthub docs](https://dlthub.com/docs/hub/intro).
+
+## License
+
+dlthub requires a license to be used, please join our [waiting list](https://info.dlthub.com/waiting-list) to get one.

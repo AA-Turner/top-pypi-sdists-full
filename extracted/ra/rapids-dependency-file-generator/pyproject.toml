@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rapids-dependency-file-generator"
+dynamic = [
+    "version",
+]
+authors = [
+    { name = "RAPIDS Development Team", email = "pypi@rapids.ai" }
+]
+urls = { homepage = "https://github.com/rapidsai/dependency-file-generator" }
+description = "Tool for generating RAPIDS environment files"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "Apache-2.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML",
+    "jsonschema",
+    "tomlkit",
+]
+
+[project.scripts]
+rapids-dependency-file-generator = "rapids_dependency_file_generator._cli:main"
+
+[tool.setuptools]
+packages = { "find" = { where = ["src"] } }
+
+[tool.setuptools.dynamic]
+version = {attr = "rapids_dependency_file_generator._version.__version__"}
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    # pydocstyle
+    "D",
+    # pycodestyle (errors)
+    "E",
+    # pyflakes
+    "F",
+    # isort
+    "I",
+    # pycodestyle (warnings)
+    "W",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

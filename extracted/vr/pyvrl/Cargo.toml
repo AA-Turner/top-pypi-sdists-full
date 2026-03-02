@@ -1,0 +1,12 @@
+[package]
+name = "pyvrl"
+version = "0.0.2"
+edition = "2021"
+
+[lib]
+name = "pyvrl"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["chrono"] }
+vrl = "0.15"

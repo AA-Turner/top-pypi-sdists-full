@@ -1,0 +1,50 @@
+# PoeThePoet task definitions
+# https://poethepoet.natn.io/
+
+[tool.poe.tasks]
+
+# Linting and formatting
+lint = "ruff check ."
+format = "ruff format ."
+format-check = "ruff format --check ."
+
+# Testing
+test = "pytest"
+test-fast = "pytest -x"
+test-cov = "pytest --cov=fastmcp_extensions --cov-report=html"
+test-unit = "pytest -m unit"
+test-integration = "pytest -m integration"
+
+# Combined tasks
+check = ["format-check", "lint", "deps", "test"]
+fix = ["format", "lint --fix"]
+
+# Build and install
+install = "uv sync --extra dev"
+install-prod = "uv sync"
+build = "uv build"
+
+# Documentation with pdoc3
+docs-generate = "pdoc --html --output-dir docs/generated fastmcp_extensions --force"
+docs-preview = { shell = "pdoc --html --output-dir docs/generated fastmcp_extensions --force && open docs/generated/fastmcp_extensions/index.html" }
+get-generated-docs-dir = "echo docs/generated/fastmcp_extensions"
+
+# Development helpers
+clean = "rm -rf .pytest_cache .coverage htmlcov dist .ruff_cache"
+
+[tool.poe.tasks.typecheck]
+help = "Run type checking with mypy"
+cmd = "mypy src/fastmcp_extensions"
+
+[tool.poe.tasks.security]
+help = "Run security checks with bandit"
+cmd = "echo 'Security scanning not yet configured - consider adding bandit'"
+
+[tool.poe.tasks.deps]
+help = "Check for unused and missing dependencies"
+cmd = "deptry ."
+
+# Pre-commit style combined task
+[tool.poe.tasks.pre-commit]
+help = "Run all pre-commit checks"
+sequence = ["format", "lint", "test-fast"]

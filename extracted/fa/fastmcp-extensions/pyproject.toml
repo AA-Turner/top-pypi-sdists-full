@@ -1,0 +1,106 @@
+[project]
+name = "fastmcp-extensions"
+dynamic = ["version"]
+description = "Unofficial extension library for FastMCP 2.0 with patterns, practices, and utilities"
+readme = "README.md"
+authors = [
+    { name = "Airbyte", email = "contact@airbyte.io" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=2.2.7,<3.0",
+]
+license = { file = "LICENSE" }
+keywords = ["fastmcp", "mcp", "model-context-protocol", "extensions", "utilities"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/airbytehq/fastmcp-extensions"
+Repository = "https://github.com/airbytehq/fastmcp-extensions"
+Documentation = "https://github.com/airbytehq/fastmcp-extensions#readme"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    "poethepoet>=0.24.0",
+    "deptry>=0.12.0",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastmcp_extensions"]
+
+# Deptry configuration for dependency analysis
+# https://deptry.com/
+# Search "deptry" in this repo to find where to ignore false positives
+[tool.deptry]
+# Files and directories to exclude from analysis (regex patterns)
+exclude = [
+    ".*\\.venv/.*",
+    ".*venv/.*", 
+    ".*__pycache__.*",
+    ".*\\.pytest_cache.*",
+    ".*\\.git.*",
+    ".*dist.*",
+    ".*build.*",
+    ".*docs.*",
+]
+
+# Additional excludes beyond defaults
+extend_exclude = [
+    # Add additional patterns here if needed
+]
+
+# Mark these dependency groups as development dependencies (PEP 621)
+pep621_dev_dependency_groups = ["dev"]
+
+# Ignore Jupyter notebooks
+ignore_notebooks = false
+
+# Known first-party modules (your own packages)
+known_first_party = [
+    "fastmcp_extensions",
+]
+
+# To ignore specific error codes globally, uncomment and modify:
+ignore = ["DEP004"]  # Ignore misplaced dev dependencies (common for test frameworks like pytest)
+
+# To ignore specific packages for specific rules:
+# DEP001=package-name    # Ignore missing dependency
+# DEP002=unused-package  # Ignore unused dependency  
+# DEP003=transitive-dep  # Ignore transitive dependency
+# DEP004=dev-package     # Ignore misplaced dev dependency
+[tool.deptry.per_rule_ignores]
+# uvicorn is a transitive dependency through fastmcp, used for HTTP server testing
+# mcp is a transitive dependency through fastmcp, used for MCP protocol types
+DEP003 = ["uvicorn", "mcp"]
+
+[dependency-groups]
+dev = [
+    "pdoc3>=0.11.6",
+    "poethepoet>=0.37.0",
+]

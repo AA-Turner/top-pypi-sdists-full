@@ -1,0 +1,201 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = [ "poetry-core",]
+
+[tool.poetry]
+authors = [ "V7 <info@v7labs.com>",]
+classifiers = [ "Programming Language :: Python :: 3", "License :: OSI Approved :: MIT License",]
+description = "Library and command line interface for darwin.v7labs.com"
+documentation = "https://darwin-py-sdk.v7labs.com/index.html"
+homepage = "https://docs.v7labs.com/reference/getting-started-2"
+keywords = []
+license = "MIT"
+name = "darwin-py"
+readme = "README.md"
+repository = "https://github.com/v7labs/darwin-py"
+version = "3.4.3"
+[[tool.poetry.packages]]
+include = "darwin"
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_decorated = false
+disallow_any_explicit = true
+disallow_any_expr = false
+disallow_any_unimported = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+ignore_missing_imports = true
+implicit_reexport = true
+no_implicit_optional = true
+no_implicit_reexport = true
+plugins = [ "pydantic.mypy",]
+pretty = true
+python_version = "3.10"
+warn_redundant_casts = true
+warn_return_any = false
+warn_unreachable = true
+warn_unused_ignores = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[tool.ruff]
+line-length = 88
+
+[tool.flake8]
+ignore = [ "E203", "W503", "E402",]
+max-line-length = 88
+
+[tool.black]
+line-length = 88
+
+[tool.poetry.dependencies]
+argcomplete = "^3.6.2"
+deprecation = "^2.1.0"
+humanize = "^4.4.0"
+json-stream = "^2.3.2"
+jsonschema = "^4.0.0"
+numpy = "^1.24.4"
+orjson = "^3.8.5"
+pillow = "^10.1.0"
+pydantic = "^2.0.0"
+python = ">=3.9,<3.13"
+pyyaml = "^6.0.1"
+requests = "^2.28.1"
+rich = "^13.0.1"
+toml = "^0.10.2"
+tqdm = "^4.64.1"
+types-pyyaml = "^6.0.12.9"
+types-requests = "^2.28.11.8"
+upolygon = "0.1.11"
+tenacity = "^8.5.0"
+natsort = "^8.4.0"
+
+[tool.poetry.extras]
+dev = [ "black", "isort", "flake8", "mypy", "debugpy", "responses", "pytest", "flake8-pyproject", "pytest-rerunfailures", "ruff", "validate-pyproject", "python-dotenv",]
+medical = [ "nibabel", "connected-components-3d", "scipy",]
+ml = [ "torch", "torchvision", "scikit-learn", "albumentations", "scipy",]
+ocv = [ "opencv-python-headless",]
+test = [ "responses", "pytest", "flake8-pyproject", "python-dotenv",]
+storage_aws = [ "boto3",]
+storage_gcp = [ "google-cloud-storage",]
+storage_azure = [ "azure-storage-blob", "azure-identity",]
+storage_all = [ "boto3", "google-cloud-storage", "azure-storage-blob", "azure-identity",]
+
+[tool.poetry.scripts]
+darwin = "darwin.cli:main"
+
+[tool.ruff.lint]
+ignore = [ "E203", "E402", "E501", "C901",]
+select = [ "E", "F", "C",]
+
+[tool.poetry.dependencies.nibabel]
+optional = true
+python = ">=3.9"
+version = "^5.0.0"
+
+[tool.poetry.dependencies.connected-components-3d]
+optional = true
+version = "^3.10.3"
+
+[tool.poetry.dependencies.scikit-learn]
+optional = true
+python = ">=3.9,<3.13"
+version = "^1.5.0"
+
+[tool.poetry.dependencies.scipy]
+optional = true
+python = ">=3.9,<3.13"
+version = "^1.13.1"
+
+[tool.poetry.dependencies.albumentations]
+optional = true
+python = ">=3.9,<3.13"
+version = "^1.4.21"
+
+[tool.poetry.dependencies.torch]
+optional = true
+version = "^2.5.1"
+
+[tool.poetry.dependencies.torchvision]
+optional = true
+version = "^0.20.1"
+
+[tool.poetry.dependencies.black]
+optional = true
+version = "^24.4.2"
+
+[tool.poetry.dependencies.isort]
+optional = true
+version = "^5.11.4"
+
+[tool.poetry.dependencies.mypy]
+optional = true
+python = ">=3.9"
+version = "^1.5"
+
+[tool.poetry.dependencies.responses]
+optional = true
+version = "^0.25.0"
+
+[tool.poetry.dependencies.pytest]
+optional = true
+version = "^7.2.1"
+
+[tool.poetry.dependencies.debugpy]
+optional = true
+version = "^1.8.1"
+
+[tool.poetry.dependencies.mpire]
+version = "^2.7.0"
+
+[tool.poetry.dependencies.python-dotenv]
+python = ">=3.9,<3.13"
+version = "^1.0.0"
+
+[tool.poetry.dependencies.boto3]
+optional = true
+version = "^1.42.3"
+
+[tool.poetry.dependencies.google-cloud-storage]
+optional = true
+version = "^2.18.0"
+
+[tool.poetry.dependencies.azure-storage-blob]
+optional = true
+version = "^12.23.0"
+
+[tool.poetry.dependencies.azure-identity]
+optional = true
+version = "^1.19.0"
+
+[tool.poetry.dependencies.opencv-python-headless]
+optional = true
+version = "4.11.0.86"
+
+[tool.poetry.dependencies.pytest-rerunfailures]
+optional = true
+version = "^12.0"
+
+[tool.poetry.dependencies.ruff]
+optional = true
+version = ">=0.4.7,<0.10.0"
+
+[tool.poetry.dependencies.validate-pyproject]
+optional = true
+version = ">=0.15,<0.24"
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs,tools}/*" = [ "E402", "F403",]
+"__init__.py" = [ "E402", "F401",]

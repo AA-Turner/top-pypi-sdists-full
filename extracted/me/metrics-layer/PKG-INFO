@@ -1,0 +1,109 @@
+Metadata-Version: 2.1
+Name: metrics_layer
+Version: 0.16.30
+Summary: The open source metrics layer.
+Home-page: https://github.com/Zenlytic/metrics_layer
+License: Apache 2.0
+Keywords: Metrics Layer,Business Intelligence,Analytics
+Author: Paul Blankley
+Author-email: paul@zenlytic.com
+Requires-Python: >=3.9,<3.13
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: all
+Provides-Extra: bigquery
+Provides-Extra: postgres
+Provides-Extra: redshift
+Provides-Extra: snowflake
+Requires-Dist: GitPython (>=3.1.20)
+Requires-Dist: PyPika (>=0.48.8,<0.49.0)
+Requires-Dist: PyYAML (>=6.0,<7.0)
+Requires-Dist: SQLAlchemy (>=2.0.21,<3.0.0)
+Requires-Dist: click (>=8.0,<9.0)
+Requires-Dist: colorama (>=0.4.4,<0.5.0)
+Requires-Dist: google-cloud-bigquery (>=3.13.0,<4.0.0) ; extra == "bigquery" or extra == "all"
+Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
+Requires-Dist: networkx (>=2.8.2,<3.0.0)
+Requires-Dist: numpy (>=1.24.4,<2.0.0)
+Requires-Dist: pandas (>=1.5.2,<2.0.0)
+Requires-Dist: pendulum (>=3.0.0,<4.0.0)
+Requires-Dist: psycopg2-binary (>=2.9.9,<3.0.0) ; extra == "postgres" or extra == "all"
+Requires-Dist: pyarrow (>=10) ; extra == "snowflake" or extra == "bigquery" or extra == "all"
+Requires-Dist: redshift-connector (>=2.0.905,<3.0.0) ; extra == "redshift" or extra == "all"
+Requires-Dist: ruamel.yaml (>=0.17.20,<0.18.0)
+Requires-Dist: snowflake-connector-python (>=3.5.0,<4.0.0) ; extra == "snowflake" or extra == "all"
+Requires-Dist: sqlglot[rs] (>=27.2.0,<28.0.0)
+Requires-Dist: sqlparse (>=0.4.1)
+Project-URL: Documentation, https://docs.zenlytic.com
+Project-URL: Repository, https://github.com/Zenlytic/metrics_layer
+Description-Content-Type: text/markdown
+
+# Metrics Layer
+
+![Github Actions](https://github.com/Zenlytic/metrics_layer/actions/workflows/tests.yaml/badge.svg)
+[![codecov](https://codecov.io/gh/Zenlytic/metrics_layer/branch/master/graph/badge.svg?token=7JA6PKNV57)](https://codecov.io/gh/Zenlytic/metrics_layer)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+# What is a Metrics Layer?
+
+Metrics Layer is an open source project with the goal of making access to metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data. This metrics layer is designed to work with [Zenlytic](https://zenlytic.com) as a BI tool.
+
+## How does it work?
+
+[Zenlytic](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
+
+Sound interesting? Here's how to set Metrics Layer up with your data model and start querying your metrics in **in under 2 minutes**.
+
+## Installation
+
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, Druid (only SQL compilation, not running the query), DuckDB (only SQL compilation, not running the query), SQL Server (only SQL compilation, not running the query), and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
+
+Install Metrics Layer with the appropriate extra for your warehouse
+
+For Snowflake run `pip install metrics-layer[snowflake]`
+
+For BigQuery run `pip install metrics-layer[bigquery]`
+
+For Redshift run `pip install metrics-layer[redshift]`
+
+For Postgres run `pip install metrics-layer[postgres]`
+
+## Profile set up
+
+There are several ways to set up a profile, we're going to look at the fastest one here.
+
+The fastest way to get connected is to pass the necessary information directly into Metrics Layer. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
+
+You'll pull the repo from Github for this example. For more detail on getting set up, check out the [documentation](https://docs.zenlytic.com)!
+
+```
+from metrics_layer import MetricsLayerConnection
+
+# Give metrics_layer the info to connect to your data model and warehouse
+config = {
+  "location": "https://myusername:myaccesstoken@github.com/myorg/myrepo.git",
+  "branch": "develop",
+  "connections": [
+    {
+      "name": "mycompany",              # The name of the connection in your data model (you'll see this in model files)
+      "type": "snowflake",
+      "account": "2e12ewdq.us-east-1",
+      "username": "demo_user",
+      "password": "q23e13erfwefqw",
+      "database": "ANALYTICS",
+      "schema": "DEV",                  # Optional
+    }
+  ],
+}
+conn = MetricsLayerConnection(**config)
+
+# You're off to the races. Query away!
+df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
+```
+
+For more advanced methods of connection and more information about the project check out [the docs](https://docs.zenlytic.com)
+

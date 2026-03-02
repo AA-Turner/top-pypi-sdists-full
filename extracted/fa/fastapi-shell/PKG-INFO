@@ -1,0 +1,76 @@
+Metadata-Version: 2.1
+Name: fastapi-shell
+Version: 0.1.3
+Summary: An ipython shell for fastapi which automatically imports code and optionally opens a database connection
+Project-URL: Documentation, https://github.com/unknown/fastapi-shell#readme
+Project-URL: Issues, https://github.com/unknown/fastapi-shell/issues
+Project-URL: Source, https://github.com/unknown/fastapi-shell
+Author-email: jpribyl <jpribyl@github.io>
+License-Expression: MIT
+License-File: LICENSE.txt
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.9
+Requires-Dist: ipython==8.6.0
+Requires-Dist: prompt-toolkit==3.0.30
+Description-Content-Type: text/markdown
+
+# fastapi-shell
+
+[![PyPI - Version](https://img.shields.io/pypi/v/fastapi-shell.svg)](https://pypi.org/project/fastapi-shell)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/fastapi-shell.svg)](https://pypi.org/project/fastapi-shell)
+
+---
+
+**Table of Contents**
+
+- [Installation](#installation)
+- [License](#license)
+
+## Installation
+
+```console
+pip install fastapi-shell
+```
+
+## Usage
+
+Begin a fastapi-shell session with default import rules:
+
+```console
+python -m fastapi_shell
+```
+
+Exclude `sandbox` and `tests` modules from session imports:
+
+```console
+python -m fastapi_shell --exclude sandbox tests
+```
+
+Only include `app` modules in session imports:
+
+```console
+python -m fastapi_shell --include app
+```
+
+Include `app` modules except for `tests` in session imports:
+
+```console
+python -m fastapi_shell --include app --exclude tests
+```
+
+Run code during session initialization:
+
+```console
+python -m fastapi_shell --run-code "import db; db.connect()"
+```
+
+## License
+
+`fastapi-shell` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

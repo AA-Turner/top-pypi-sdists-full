@@ -5,7 +5,7 @@ README = Path("README.md").read_text(encoding="utf-8")
 
 setup(
     name="abstract_webtools",
-    version='0.1.6.393',  # bump once per release
+    version='0.1.6.402',  # bump once per release
     author="putkoff",
     author_email="partners@abstractendeavors.com",
     description="Utilities for fetching/parsing web content with requests/urllib3/BS4 and helpers.",
@@ -27,6 +27,12 @@ setup(
         "requests>=2.31.0",
         "urllib3>=2.0.4",
         "beautifulsoup4>=4.12.0",
+        'opencv-python',
+        'moviepy==1.0.3',
+        'SpeechRecognition',
+        'pydub',
+        'selenium',
+        'playwright',
     ],
     extras_require={
         "gui": [

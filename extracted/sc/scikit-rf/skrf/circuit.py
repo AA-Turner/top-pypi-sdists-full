@@ -424,7 +424,7 @@ class Circuit:
         ...     [(ntwk2, 1), (ntwk3, 0)],
         ...     ...
         ... ]
-        >>> circuit = rf.Circuit(connections, dynamic_networks=[ntwk2])
+        >>> circuit = rf.circuit.Circuit(connections, dynamic_networks=[ntwk2])
         >>>
         >>> # Update the networks' S-parameters
         >>> ntwk2.s = ntwk2.s @ ntwk2.s
@@ -437,7 +437,7 @@ class Circuit:
         ...     ...
         ... ]
         >>>
-        >>> circuit_updated_a = rf.Circuit(connections_updated)
+        >>> circuit_updated_a = rf.circuit.Circuit(connections_updated)
         >>>
         >>> # Update the circuit by dynamic networks
         >>> circuit_updated_b = circuit.update_networks(networks=[ntwk2])
@@ -542,7 +542,7 @@ class Circuit:
 
             In [17]: freq = rf.Frequency(start=1, stop=2, npoints=101)
 
-            In [18]: port1 = rf.Circuit.Port(freq, name='Port1')
+            In [18]: port1 = rf.circuit.Circuit.Port(freq, name='Port1')
         """
         _media = media.DefinedGammaZ0(frequency, z0=z0)
         port = _media.match(name=name)
@@ -581,7 +581,7 @@ class Circuit:
 
             In [17]: freq = rf.Frequency(start=1, stop=2, npoints=101)
 
-            In [18]: open = rf.Circuit.SeriesImpedance(freq, rf.INF, name='series_impedance')
+            In [18]: open = rf.circuit.Circuit.SeriesImpedance(freq, rf.INF, name='series_impedance')
 
         """
         A = np.zeros(shape=(len(frequency), 2, 2), dtype=complex)
@@ -624,7 +624,7 @@ class Circuit:
 
             In [17]: freq = rf.Frequency(start=1, stop=2, npoints=101)
 
-            In [18]: short = rf.Circuit.ShuntAdmittance(freq, rf.INF, name='shunt_admittance')
+            In [18]: short = rf.circuit.Circuit.ShuntAdmittance(freq, rf.INF, name='shunt_admittance')
 
         """
         A = np.zeros(shape=(len(frequency), 2, 2), dtype=complex)
@@ -667,7 +667,7 @@ class Circuit:
 
             In [17]: freq = rf.Frequency(start=1, stop=2, npoints=101)
 
-            In [18]: ground = rf.Circuit.Ground(freq, name='GND')
+            In [18]: ground = rf.circuit.Circuit.Ground(freq, name='GND')
 
         """
         _media = media.DefinedGammaZ0(frequency, z0=z0)
@@ -707,7 +707,7 @@ class Circuit:
 
             In [17]: freq = rf.Frequency(start=1, stop=2, npoints=101)
 
-            In [18]: open = rf.Circuit.Open(freq, name='open')
+            In [18]: open = rf.circuit.Circuit.Open(freq, name='open')
 
         """
         _media = media.DefinedGammaZ0(frequency, z0=z0)
@@ -922,9 +922,13 @@ class Circuit:
         The results in [#]_ do not agree due to an error in the formula (3)
         for mismatched intersections.
 
-        Due to the ideal power splitter is unitary, that is [X]_k^H * [X]_k = I, where [X]_k^H is
-        the conjugate transpose of [X]_k. And considers the reciprocity, the inverse of [X]_k could
-        be simplified as the conjugate of [X]_k, that is [X]_k^-1 = [X]_k^*.
+        When all ports have the same real impedance, [X]_k is unitary
+        (i.e., [X]_k^H @ [X]_k = I, where [X]_k^H is the conjugate transpose).
+        In this case, due to reciprocity, the inverse can be simplified as
+        the conjugate: [X]_k^-1 = [X]_k^*.
+
+        For mismatched or complex impedances, [X]_k is NOT unitary, so the
+        actual inverse must be computed using np.linalg.inv.
 
         Parameters
         ----------
@@ -955,7 +959,13 @@ class Circuit:
         Xs = 2 *np.sqrt(np.einsum('ij,ik->ijk', y0s, y0s)) / y_k[:, None, None]
         np.einsum('kii->ki', Xs)[:] -= 1  # Sii
 
-        return np.conjugate(Xs) if inverse else Xs
+        if inverse:
+            # Check if unitary: all ports have same real admittance
+            is_real = np.isreal(y0s).all()
+            is_unitary = is_real and np.isclose(y0s.max(), y0s.min()) if is_real else False
+            Xs = np.conjugate(Xs) if is_unitary else np.linalg.inv(Xs)
+
+        return np.asfortranarray(Xs) if order == 'F' else Xs
 
 
     def _X(self, order: MemoryLayoutT = 'C', inverse: bool = False) -> np.ndarray:
@@ -1650,15 +1660,15 @@ class Circuit:
             # Calculate the ports' output current through the output wave
             for j in range(cnx_len):
                 in_z0 = z0_segment[:, j]
-                out_z0 = 1 / (tot_shunt_z0 - 1 / in_z0)
-                tau = (2 * out_z0) / (out_z0 + in_z0)
+                out_z0 = np.inf if cnx_len == 1 else 1 / (tot_shunt_z0 - 1 / in_z0)
+                tau = 2.0 if cnx_len == 1 else (2 * out_z0) / (out_z0 + in_z0)
                 Ij[:, j] = (b[:, i + j] / np.sqrt(in_z0)) * tau
 
             # The current of each port is different in the same node
             # The ports' current should take into account the output current of each port in the node
             for j in range(cnx_len):
                 in_z0 = z0_segment[:, j]
-                out_z0 = 1 / (tot_shunt_z0 - 1 / in_z0)
+                out_z0 = np.inf if cnx_len == 1 else  1 / (tot_shunt_z0 - 1 / in_z0)
                 Itmp = np.zeros_like(Is[:, i + j])
                 for k in range(cnx_len):
                     tmp_z0 = z0_segment[:, k]
@@ -1706,8 +1716,8 @@ class Circuit:
             # The voltage of each port in the same node is consistent
             for j in range(cnx_len):
                 in_z0 = z0_segment[:, j]
-                out_z0 = 1 / (tot_shunt_z0 - 1 / in_z0)
-                tau = (2 * out_z0) / (out_z0 + in_z0)
+                out_z0 = np.inf if cnx_len == 1 else 1 / (tot_shunt_z0 - 1 / in_z0)
+                tau = 2.0 if cnx_len == 1 else (2 * out_z0) / (out_z0 + in_z0)
                 Vk += (b[:, i + j] * np.sqrt(in_z0)) * tau
 
             Vs[:, i : i + cnx_len] = Vk[:, None]
@@ -1923,9 +1933,9 @@ def reduce_circuit(connections: list[list[tuple[Network, int]]],
     --------
     >>> import skrf as rf
     >>> import numpy as np
-    >>> circuit = rf.Circuit(connections)
+    >>> circuit = rf.circuit.Circuit(connections)
     >>> reduced_cnxs = rf.reduce_circuit(connections)
-    >>> reduced_circuit = rf.Circuit(reduced_cnxs)
+    >>> reduced_circuit = rf.circuit.Circuit(reduced_cnxs)
     >>> ntwkA = circuit.network
     >>> ntwkB = reduced_circuit.network
     >>> np.allclose(ntwkA.s, ntwkB.s)

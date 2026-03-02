@@ -182,6 +182,8 @@ pub enum OutputFormat {
     Markdown,
     /// Djot lightweight markup language.
     Djot,
+    /// Plain text output (no markup, visible text only).
+    Plain,
 }
 
 impl OutputFormat {
@@ -193,6 +195,7 @@ impl OutputFormat {
     pub fn parse(value: &str) -> Self {
         match normalize_token(value).as_str() {
             "djot" => Self::Djot,
+            "plain" | "plaintext" | "text" => Self::Plain,
             _ => Self::Markdown,
         }
     }
@@ -329,6 +332,7 @@ mod serde_impls {
             let s = match self {
                 Self::Markdown => "markdown",
                 Self::Djot => "djot",
+                Self::Plain => "plain",
             };
             serializer.serialize_str(s)
         }

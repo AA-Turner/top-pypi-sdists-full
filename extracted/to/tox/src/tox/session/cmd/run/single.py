@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 from tox.execute.api import Outcome, StdinSource
+from tox.report import HandledError
 from tox.tox_env.errors import Fail, Skip
 from tox.tox_env.python.virtual_env.package.pyproject import ToxBackendFailed
 
@@ -59,6 +60,9 @@ def _evaluate(tox_env: RunToxEnv, no_test: bool) -> tuple[bool, int, list[Outcom
             raise SystemExit(exception.code)  # noqa: B904
         except Fail as exception:
             LOGGER.error("failed with %s", exception)  # noqa: TRY400
+            code = 1
+        except HandledError as exception:
+            LOGGER.error("%s", exception)  # noqa: TRY400
             code = 1
         except Exception:  # pragma: no cover
             LOGGER.exception("internal error")  # pragma: no cover
@@ -114,7 +118,7 @@ def run_command_set(  # noqa: PLR0913
             current_outcome = tox_env.execute(
                 cmd.args,
                 cwd=cwd,
-                stdin=StdinSource.user_only(),
+                stdin=StdinSource.USER if getattr(tox_env.options, "no_capture", False) else StdinSource.user_only(),
                 show=True,
                 run_id=f"{key}[{at}]",
             )

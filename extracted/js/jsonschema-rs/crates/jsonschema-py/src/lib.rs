@@ -29,6 +29,8 @@ use serde::Serialize;
 #[macro_use]
 extern crate pyo3_built;
 
+mod canonical;
+mod clone;
 mod email;
 mod http;
 mod regex;
@@ -2130,6 +2132,8 @@ fn jsonschema_rs(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add("Draft7", DRAFT7)?;
     module.add("Draft201909", DRAFT201909)?;
     module.add("Draft202012", DRAFT202012)?;
+
+    canonical::init_module(py, module)?;
 
     let meta = PyModule::new(py, "meta")?;
     meta.add_function(wrap_pyfunction!(meta::is_valid, &meta)?)?;

@@ -1,0 +1,43 @@
+use enum_map::Enum;
+
+/// All MDAST Nodes minus the extra slop i.e. 'text', 'volume', etc...
+/// as usually Node types include a variety of methods and data we dont need
+#[derive(Debug, Copy, Clone, Enum, PartialEq, Eq, Hash)]
+pub enum NodeType {
+    Root,
+    Blockquote,
+    FootnoteDefinition,
+    MdxJsxFlowElement,
+    List,
+    MdxjsEsm,
+    Toml,
+    Yaml,
+    Break,
+    InlineCode,
+    InlineMath,
+    Delete,
+    Emphasis,
+    MdxTextExpression,
+    FootnoteReference,
+    Html,
+    Image,
+    ImageReference,
+    MdxJsxTextElement,
+    Link,
+    LinkReference,
+    Strong,
+    Text,
+    Code,
+    Math,
+    MdxFlowExpression,
+    Heading,
+    Table,
+    ThematicBreak,
+    TableRow,
+    TableCell,
+    ListItem,
+    Definition,
+    Paragraph,
+    Word, // not from the mdast, but i want it anyways
+    Sentence, // as above, created for pure pleasure
+}

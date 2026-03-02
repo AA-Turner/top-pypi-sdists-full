@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: pykiso-python-uds
+Version: 3.2.1
+Summary: Please use python-uds instead, this is a refactored version with breaking changes, only for pykiso
+Home-page: https://github.com/eclipse/kiso-testing-python-uds
+Author: Richard Clubb, KAYSER Damien, Sebastian Clerson
+Author-email: richard.clubb@embeduk.com, external.Damien.Kayser@de.bosch.com, external.Sebastian.Clerson@de.bosch.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Operating System :: OS Independent
+Provides-Extra: test

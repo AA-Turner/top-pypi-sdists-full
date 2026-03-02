@@ -1,0 +1,92 @@
+[project]
+name = "emdash-core"
+version = "0.1.176"
+description = "EmDash Core - FastAPI server for code intelligence"
+authors = [{name = "Em Dash Team"}]
+requires-python = ">=3.10"
+dependencies = [
+    # Server
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sse-starlette>=2.0.0",
+    # Graph database
+    "cmake>=3.25.0",
+    "kuzu>=0.4.0",
+    # LLM
+    "openai>=1.0.0",
+    "claude-agent-sdk>=0.1.19",
+    # Vector operations
+    "numpy>=1.26.0",
+    # Code Analysis
+    "astroid>=3.0.1",
+    # Git
+    "gitpython>=3.1.40",
+    "pygithub>=2.1.1",
+    # Analytics
+    "networkx>=3.2.1",
+    "python-louvain>=0.16",
+    # HTTP
+    "httpx>=0.25.0",
+    # Scheduling
+    "croniter>=2.0.0",
+    # Web Search
+    "duckduckgo-search>=6.0.0",
+    "beautifulsoup4>=4.12.0",
+    # Locking
+    "filelock>=3.13.0",
+    # Utilities
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.2",
+    "tqdm>=4.66.1",
+    "pypng>=0.0.21",
+    "pyyaml>=6.0",
+    # Clipboard (macOS only)
+    "pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'",
+    # Document creation (CoworkerAgent)
+    "python-pptx>=1.0.2",
+    "python-docx>=1.1.0",
+    "openpyxl>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+]
+firebase = [
+    # For Firebase authentication with service account
+    "google-auth>=2.0.0",
+]
+coworker = [
+    "python-pptx>=0.6.21",  # PowerPoint presentation creation
+]
+
+[project.scripts]
+emdash-core = "emdash_core.server:main"
+emdash-checkpoint = "emdash_core.checkpoint.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.hatch.build.targets.wheel]
+packages = ["emdash_core"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "emdash_core/**/*.py",
+    "emdash_core/**/*.json",
+    "emdash_core/skills/**/*.md",
+    "emdash_core/agent/open/defaults/**/*.md",
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"emdash_core/skills" = "emdash_core/skills"
+"emdash_core/agent/open/defaults" = "emdash_core/agent/open/defaults"

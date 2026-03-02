@@ -121,7 +121,7 @@ pub struct ConversionOptions {
     /// Useful for text-only extraction or filtering out visual content.
     pub skip_images: bool,
 
-    /// Output format for conversion (Markdown or Djot)
+    /// Output format for conversion (Markdown, Djot, or Plain)
     pub output_format: OutputFormat,
 }
 
@@ -233,7 +233,7 @@ pub struct ConversionOptionsUpdate {
     /// Optional skip images override
     pub skip_images: Option<bool>,
 
-    /// Optional output format override (Markdown or Djot)
+    /// Optional output format override (Markdown, Djot, or Plain)
     pub output_format: Option<OutputFormat>,
 }
 

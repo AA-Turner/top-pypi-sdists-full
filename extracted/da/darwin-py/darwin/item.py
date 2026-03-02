@@ -1,0 +1,118 @@
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel
+
+from darwin.path_utils import construct_full_path
+
+
+@dataclass(frozen=True, eq=True)
+class DatasetItem(BaseModel):
+    """
+    DatasetItem represents files that can be images or videos which belong to a dataset.
+    """
+
+    #: The id of this ``DatasetItem``.
+    id: int
+
+    #: The filename of this ``DatasetItem``.
+    filename: str
+
+    #: The status of this ``DatasetItem``. It can be ``"archived"``, ``"error"``, ``"uploading"``,
+    #: ``"processing"``, ``"new"``, ``"annotate"``, ``"review"`` or ``"complete"``.
+    status: str
+
+    #: Whether or not this item was soft deleted.
+    archived: bool
+
+    #: The size of this ``DatasetItem``\'s file in bytes.
+    filesize: int
+
+    #: The id of the ``Dataset`` this ``DatasetItem`` belongs to.
+    dataset_id: int
+
+    #: The slugified name of the ``Dataset`` this ``DatasetItem`` belongs to.
+    dataset_slug: str
+
+    #: The sequential value of this ``DatasetItem`` in relation to the ``Dataset`` it belongs to.
+    #: This allows us to know which items were added first and is used mostly for sorting purposes.
+    seq: int
+
+    #: The id of this ``DatasetItem``'s workflow. A ``None`` value means this ``DatasetItem`` is
+    #: new and was never worked on, or was reset to the new state.
+    current_workflow_id: Optional[int] = None
+
+    #: The darwin path to this ``DatasetItem``.
+    path: str
+
+    #: The names of each slot in the item, most items have a single slot corresponding to the file itself.
+    #: only used for v2 dataset items
+    slots: List[Any]
+
+    #: Information about the slot layout of the item including type, version, and slot names
+    layout: Dict
+
+    #: Metadata of this ``DatasetItem``'s workflow. A ``None`` value means this ``DatasetItem`` is
+    #: new and was never worked on, or was reset to the new state.
+    current_workflow: Optional[Dict[str, Any]] = None
+
+    @property
+    def full_path(self) -> str:
+        """
+        The full POSIX relative path of this ``DatasetItem``.
+        """
+        return construct_full_path(self.path, self.filename)
+
+    @classmethod
+    def parse(cls, raw: Dict[str, Any], dataset_slug: str = "n/a") -> "DatasetItem":
+        """
+        Parses the given dictionary into a ``DatasetItem``.
+
+        Parameters
+        ----------
+        raw : Dict[str, Any]
+            The dictionary to parse.
+
+        Returns
+        -------
+        DatasetItem
+            A dataset item with the parsed information.
+
+        Raises
+        ------
+        ValidationError
+            If any of the keys from the given dictionary do not have the correct format or are
+            missing.
+        """
+        if "slots" in raw:
+            data = {
+                "id": raw["id"],
+                "filename": raw["name"],
+                "path": raw["path"],
+                "status": raw["status"],
+                "archived": raw["archived"],
+                "filesize": sum(file.get("size_bytes", 0) for file in raw["slots"]),
+                "dataset_id": raw["dataset_id"],
+                "dataset_slug": dataset_slug,
+                "seq": None,
+                "current_workflow_id": raw.get("workflow_data", {}).get("workflow_id"),
+                "current_workflow": raw.get("workflow_data"),
+                "slots": raw["slots"],
+                "layout": raw.get("layout"),
+            }
+        else:
+            data = {
+                "id": raw["id"],
+                "filename": raw["filename"],
+                "status": raw["status"],
+                "archived": raw["archived"],
+                "filesize": raw["file_size"],
+                "dataset_id": raw["dataset_id"],
+                "dataset_slug": dataset_slug,
+                "seq": raw["seq"],
+                "current_workflow_id": raw.get("current_workflow_id"),
+                "current_workflow": raw.get("current_workflow"),
+                "path": raw["path"],
+                "slots": [],
+            }
+        return DatasetItem(**data)

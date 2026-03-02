@@ -1,0 +1,1096 @@
+"""Embedding generation for MCP Vector Search."""
+
+import collections
+import contextlib
+import functools
+import hashlib
+import logging
+import multiprocessing
+import os
+import sys
+import threading
+import warnings
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import orjson
+
+# Suppress verbose transformers/sentence-transformers output at module level
+# These messages ("The following layers were not sharded...", progress bars) are noise
+# Only INFO level and above from our code should show; transformers gets ERROR only
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+logging.getLogger("torch").setLevel(logging.ERROR)
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
+# Suppress tqdm progress bars (used by transformers for model loading)
+os.environ["TQDM_DISABLE"] = "1"
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*position_ids.*")
+warnings.filterwarnings("ignore", message=".*not sharded.*")
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+# Suppress Pydantic warnings from lancedb embeddings
+warnings.filterwarnings("ignore", message=".*has conflict with protected namespace.*")
+
+
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    """Context manager to suppress stdout and stderr at OS level.
+
+    Used to hide verbose model loading output like "BertModel LOAD REPORT"
+    that is printed directly to file descriptors by native code (Rust/C),
+    which bypasses Python's sys.stdout/stderr redirection.
+    """
+    # Save original file descriptors
+    stdout_fd = sys.stdout.fileno()
+    stderr_fd = sys.stderr.fileno()
+
+    # Duplicate original file descriptors
+    stdout_dup = os.dup(stdout_fd)
+    stderr_dup = os.dup(stderr_fd)
+
+    # Open /dev/null for writing
+    devnull = os.open(os.devnull, os.O_RDWR)
+
+    try:
+        # Redirect stdout/stderr to /dev/null at OS level
+        os.dup2(devnull, stdout_fd)
+        os.dup2(devnull, stderr_fd)
+        yield
+    finally:
+        # Restore original file descriptors
+        os.dup2(stdout_dup, stdout_fd)
+        os.dup2(stderr_dup, stderr_fd)
+
+        # Close duplicates and devnull
+        os.close(stdout_dup)
+        os.close(stderr_dup)
+        os.close(devnull)
+
+
+# Configure tokenizers parallelism based on process context
+# Enable parallelism in main process for 2-4x speedup
+# Disable in forked processes to avoid deadlock warnings
+# See: https://github.com/huggingface/tokenizers/issues/1294
+def _configure_tokenizers_parallelism() -> None:
+    """Configure TOKENIZERS_PARALLELISM based on process context."""
+    # Check if we're in the main process
+    is_main_process = multiprocessing.current_process().name == "MainProcess"
+
+    if is_main_process:
+        # Enable parallelism in main process for better performance
+        # This gives 2-4x speedup for embedding generation
+        os.environ["TOKENIZERS_PARALLELISM"] = "true"
+    else:
+        # Disable in forked processes to avoid deadlock
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+# Configure before importing sentence_transformers
+_configure_tokenizers_parallelism()
+
+import aiofiles
+from loguru import logger
+from sentence_transformers import SentenceTransformer
+
+from ..config.defaults import (
+    get_model_dimensions,
+    get_model_prefixes,
+    is_code_specific_model,
+)
+from .exceptions import EmbeddingError
+
+# Module-level flag to ensure PyTorch warnings are only shown once
+_pytorch_warning_shown = False
+
+
+def _detect_device() -> str:
+    """Detect optimal compute device (MPS > CUDA > CPU).
+
+    Returns:
+        Device string: "mps", "cuda", or "cpu"
+
+    Environment Variables:
+        MCP_VECTOR_SEARCH_DEVICE: Override device selection ("cpu", "cuda", or "mps")
+    """
+    import torch
+
+    # Check environment variable override first
+    env_device = os.environ.get("MCP_VECTOR_SEARCH_DEVICE", "").lower()
+    if env_device in ("cpu", "cuda", "mps"):
+        logger.info(f"Using device from environment override: {env_device}")
+        return env_device
+
+    # Apple Silicon MPS provides significant speedup for models >50M params on Apple Silicon
+    # PyTorch 2.10.0 has a known MPS regression, so we fall back to CPU for that version
+    if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        # Check for PyTorch 2.10.0 regression
+        if torch.__version__.startswith("2.10.0"):
+            global _pytorch_warning_shown
+            if not _pytorch_warning_shown:
+                logger.warning(
+                    "PyTorch 2.10.0 detected — falling back to CPU due to known MPS regression. "
+                    "Upgrade PyTorch to restore GPU acceleration."
+                )
+                _pytorch_warning_shown = True
+            return "cpu"
+
+        logger.info("Apple Silicon detected. Using MPS for GPU-accelerated inference.")
+        return "mps"
+
+    # Check for NVIDIA CUDA with detailed diagnostics
+    if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "unknown"
+        logger.info(
+            f"Using CUDA backend for GPU acceleration ({gpu_count} GPU(s): {gpu_name})"
+        )
+        return "cuda"
+
+    # Log why CUDA isn't available (helps debug AWS/cloud issues)
+    cuda_built = (
+        torch.backends.cuda.is_built() if hasattr(torch.backends, "cuda") else False
+    )
+    if not cuda_built:
+        logger.debug(
+            "CUDA not available: PyTorch installed without CUDA support. "
+            "Install with: pip install torch --index-url https://download.pytorch.org/whl/cu121"
+        )
+    else:
+        logger.debug(
+            "CUDA not available: PyTorch has CUDA support but no GPU detected. "
+            "Check: nvidia-smi, NVIDIA drivers, and GPU instance type."
+        )
+
+    logger.info("Using CPU backend (no GPU acceleration)")
+    return "cpu"
+
+
+@functools.lru_cache(maxsize=1)
+def _detect_optimal_batch_size() -> int:
+    """Detect optimal batch size based on device and memory.
+
+    Returns:
+        Optimal batch size for embedding generation:
+        - MPS (Apple Silicon):
+          - 512 for M4 Max/Ultra with 64GB+ RAM
+          - 384 for M4 Pro with 32GB+ RAM
+          - 256 for M4 with 16GB+ RAM
+        - CUDA (NVIDIA):
+          - 512 for GPUs with 8GB+ VRAM (RTX 3070+, A100, etc.)
+          - 256 for GPUs with 4-8GB VRAM (RTX 3060, etc.)
+          - 128 for GPUs with <4GB VRAM
+        - CPU: 128
+
+    Environment Variables:
+        MCP_VECTOR_SEARCH_BATCH_SIZE: Override auto-detection
+    """
+    import torch
+
+    # Check environment override first
+    env_batch_size = os.environ.get("MCP_VECTOR_SEARCH_BATCH_SIZE")
+    if env_batch_size:
+        try:
+            return int(env_batch_size)
+        except ValueError:
+            logger.warning(
+                f"Invalid MCP_VECTOR_SEARCH_BATCH_SIZE value: {env_batch_size}, using auto-detection"
+            )
+
+    # Check for Apple Silicon with unified memory
+    if torch.backends.mps.is_available():
+        try:
+            import subprocess
+
+            result = subprocess.run(  # nosec B607 - safe read-only sysctl
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            total_ram_gb = int(result.stdout.strip()) / (1024**3)
+
+            if total_ram_gb >= 64:
+                batch_size = 512
+                logger.info(
+                    f"Apple Silicon detected ({total_ram_gb:.1f}GB RAM): using batch size {batch_size} (M4 Max/Ultra optimized)"
+                )
+                return batch_size
+            elif total_ram_gb >= 32:
+                batch_size = 384
+                logger.info(
+                    f"Apple Silicon detected ({total_ram_gb:.1f}GB RAM): using batch size {batch_size} (M4 Pro optimized)"
+                )
+                return batch_size
+            else:
+                batch_size = 256
+                logger.info(
+                    f"Apple Silicon detected ({total_ram_gb:.1f}GB RAM): using batch size {batch_size}"
+                )
+                return batch_size
+        except Exception as e:
+            logger.warning(
+                f"Apple Silicon RAM detection failed: {e}, using default batch size 256"
+            )
+            return 256
+
+    # Auto-detect based on CUDA GPU
+    if torch.cuda.is_available():
+        try:
+            # Get GPU memory in GB
+            gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            gpu_name = torch.cuda.get_device_name(0)
+
+            # Detect sm (compute capability) version — e.g. sm_75 → 75, sm_80 → 80
+            major, minor = torch.cuda.get_device_capability(0)
+            sm_version = major * 10 + minor
+
+            # Per-architecture batch size caps (memory-bandwidth limited architectures
+            # cannot saturate large batches; newer architectures handle them well)
+            _sm_max_batch: dict[int, int] = {
+                90: 1024,  # H100 (sm_90) — massive HBM3 bandwidth
+                89: 512,  # L4, RTX 4090 (sm_89)
+                86: 512,  # A10G, RTX 3090 (sm_86)
+                80: 512,  # A100 (sm_80)
+                75: 128,  # T4 (sm_75) — memory-bandwidth limited
+                70: 256,  # V100 (sm_70) — FP16 fast but older HBM
+            }
+            sm_cap = _sm_max_batch.get(sm_version, 256)
+
+            # Memory-based batch size capped by sm-version architecture limit
+            mem_batch = (
+                512 if gpu_memory_gb >= 8 else (256 if gpu_memory_gb >= 4 else 128)
+            )
+            batch_size = min(mem_batch, sm_cap)
+            logger.info(
+                f"GPU detected ({gpu_name}, {gpu_memory_gb:.1f}GB VRAM, sm_{sm_version}): "
+                f"batch_size={batch_size} (mem_cap={mem_batch}, sm_cap={sm_cap})"
+            )
+            return batch_size
+        except Exception as e:
+            logger.warning(f"GPU detection failed: {e}, falling back to CPU batch size")
+
+    # CPU fallback
+    logger.info("No GPU detected: using CPU batch size 128")
+    return 128
+
+
+class EmbeddingCache:
+    """LRU cache for embeddings with disk persistence."""
+
+    def __init__(self, cache_dir: Path, max_size: int = 1000) -> None:
+        """Initialize embedding cache.
+
+        Args:
+            cache_dir: Directory to store cached embeddings
+            max_size: Maximum number of embeddings to keep in memory
+        """
+        self.cache_dir = cache_dir
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.max_size = max_size
+        # OrderedDict used as LRU store: O(1) move_to_end() and popitem()
+        # replaces the old (dict + list) pair which had O(n) list.remove() / pop(0)
+        self._memory_cache: collections.OrderedDict[str, list[float]] = (
+            collections.OrderedDict()
+        )
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _hash_content(self, content: str) -> str:
+        """Generate cache key from content."""
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    async def get_embedding(self, content: str) -> list[float] | None:
+        """Get cached embedding for content."""
+        cache_key = self._hash_content(content)
+
+        # Check memory cache first
+        if cache_key in self._memory_cache:
+            self._cache_hits += 1
+            # Move to end (most-recently-used) in O(1)
+            self._memory_cache.move_to_end(cache_key)
+            return self._memory_cache[cache_key]
+
+        # Check disk cache
+        cache_file = self.cache_dir / f"{cache_key}.json"
+        if cache_file.exists():
+            try:
+                async with aiofiles.open(cache_file, "rb") as f:
+                    content_bytes = await f.read()
+                    embedding = orjson.loads(content_bytes)
+
+                    # Add to memory cache with LRU management
+                    self._add_to_memory_cache(cache_key, embedding)
+                    self._cache_hits += 1
+                    return embedding
+            except Exception as e:
+                logger.warning(f"Failed to load cached embedding: {e}")
+
+        self._cache_misses += 1
+        return None
+
+    async def store_embedding(self, content: str, embedding: list[float]) -> None:
+        """Store embedding in cache."""
+        cache_key = self._hash_content(content)
+
+        # Store in memory cache with LRU management
+        self._add_to_memory_cache(cache_key, embedding)
+
+        # Store in disk cache
+        cache_file = self.cache_dir / f"{cache_key}.json"
+        try:
+            async with aiofiles.open(cache_file, "wb") as f:
+                await f.write(orjson.dumps(embedding))
+        except Exception as e:
+            logger.warning(f"Failed to cache embedding: {e}")
+
+    def _add_to_memory_cache(self, cache_key: str, embedding: list[float]) -> None:
+        """Add embedding to memory cache with LRU eviction.
+
+        Uses OrderedDict for O(1) move_to_end() and popitem(last=False) instead
+        of the previous O(n) list.remove() / list.pop(0) approach.
+
+        Args:
+            cache_key: Cache key for the embedding
+            embedding: Embedding vector to cache
+        """
+        # If already in cache, update value and mark as most-recently-used
+        if cache_key in self._memory_cache:
+            self._memory_cache[cache_key] = embedding
+            self._memory_cache.move_to_end(cache_key)
+            return
+
+        # If cache is full, evict the least-recently-used entry (front of OrderedDict)
+        if len(self._memory_cache) >= self.max_size:
+            self._memory_cache.popitem(last=False)  # O(1) LRU eviction
+
+        # Insert new entry at the end (most-recently-used position)
+        self._memory_cache[cache_key] = embedding
+
+    def clear_memory_cache(self) -> None:
+        """Clear the in-memory cache."""
+        self._memory_cache.clear()
+
+    def get_cache_stats(self) -> dict[str, any]:
+        """Get cache performance statistics.
+
+        Returns:
+            Dictionary with cache statistics
+        """
+        total_requests = self._cache_hits + self._cache_misses
+        hit_rate = self._cache_hits / total_requests if total_requests > 0 else 0.0
+        disk_files = (
+            len(list(self.cache_dir.glob("*.json"))) if self.cache_dir.exists() else 0
+        )
+
+        return {
+            "memory_cache_size": len(self._memory_cache),
+            "memory_cached": len(self._memory_cache),  # Alias for compatibility
+            "max_cache_size": self.max_size,
+            "memory_limit": self.max_size,  # Alias for compatibility
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "hit_rate": round(hit_rate, 3),
+            "disk_cache_files": disk_files,
+            "disk_cached": disk_files,  # Alias for compatibility
+        }
+
+
+class CodeBERTEmbeddingFunction:
+    """ChromaDB-compatible embedding function using CodeBERT."""
+
+    def __init__(
+        self,
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        timeout: float = 300.0,  # 5 minutes default timeout
+    ) -> None:
+        """Initialize embedding function.
+
+        Args:
+            model_name: Name of the sentence transformer model
+            timeout: Timeout in seconds for embedding generation (default: 300s)
+
+        Environment Variables:
+            MCP_VECTOR_SEARCH_EMBEDDING_MODEL: Override embedding model (highest priority)
+        """
+        # Check environment variable override FIRST (highest priority)
+        env_model = os.environ.get("MCP_VECTOR_SEARCH_EMBEDDING_MODEL")
+        if env_model:
+            model_name = env_model
+            logger.info(f"Using embedding model from environment: {model_name}")
+
+        try:
+            # Auto-detect optimal device (MPS > CUDA > CPU)
+            device = _detect_device()
+
+            # Detect model dimensions and log info
+            try:
+                expected_dims = get_model_dimensions(model_name)
+                is_code_model = is_code_specific_model(model_name)
+                model_type = "code-specific" if is_code_model else "general-purpose"
+            except ValueError:
+                # Unknown model - will be logged as warning
+                expected_dims = "unknown"
+                model_type = "unknown"
+
+            # Check if this is CodeT5+ model (needs special handling)
+            self.is_codet5p = "codet5p" in model_name.lower()
+
+            if self.is_codet5p:
+                # CodeT5+ embedding model requires AutoModel, not SentenceTransformer
+                # It's an encoder-decoder model with a projection head that outputs 256d
+                logger.info(
+                    f"Loading CodeT5+ embedding model: {model_name} "
+                    f"(encoder-decoder with 256d projection head)"
+                )
+                import torch
+                from transformers import AutoModel, AutoTokenizer
+
+                with suppress_stdout_stderr():
+                    self.model = AutoModel.from_pretrained(  # nosec B615
+                        model_name, trust_remote_code=True
+                    )
+                    self.tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+                        model_name, trust_remote_code=True
+                    )
+
+                # Move model to device
+                self.model = self.model.to(device)
+                self.model.eval()  # Set to evaluation mode
+
+                # CodeT5+ outputs 256d directly (has projection head)
+                actual_dims = 256
+            else:
+                # Standard SentenceTransformer models
+                # Log model download for large models (CodeXEmbed is ~1.5GB)
+                if "SFR-Embedding-Code" in model_name or "CodeXEmbed" in model_name:
+                    logger.info(
+                        f"Loading {model_name} (~1.5GB download on first use)... "
+                        f"This may take a few minutes."
+                    )
+
+                # Fix 3: Use fp16 on CUDA/MPS for 2x arithmetic throughput and half VRAM.
+                # Wrapped in try/except so the import failure is non-fatal on torch-less envs.
+                try:
+                    import torch as _torch
+
+                    _dtype = (
+                        _torch.float16 if device in ("cuda", "mps") else _torch.float32
+                    )
+                    _model_kwargs: dict = {"torch_dtype": _dtype}
+                except Exception:
+                    _model_kwargs = {}
+
+                # trust_remote_code=True needed for CodeXEmbed and other models with custom code
+                # Suppress stdout to hide "BertModel LOAD REPORT" noise
+                with suppress_stdout_stderr():
+                    self.model = SentenceTransformer(
+                        model_name,
+                        device=device,
+                        trust_remote_code=True,
+                        model_kwargs=_model_kwargs,
+                    )
+
+                # Get actual dimensions from loaded model
+                actual_dims = self.model.get_sentence_embedding_dimension()
+
+            self.model_name = model_name
+            self.timeout = timeout
+            self.device = device  # Store device for use in encode() calls
+
+            # Fix 1: Cache batch size once at init — avoids spawning sysctl on every call.
+            self._encode_batch_size = _detect_optimal_batch_size()
+
+            # Store asymmetric instruction prefixes (empty string = no prefix)
+            self.query_prefix, self.document_prefix = get_model_prefixes(model_name)
+
+            # Log device usage and model details
+            if device == "mps":
+                import subprocess
+
+                try:
+                    # Get Apple Silicon chip info
+                    result = subprocess.run(  # nosec B607 - safe read-only sysctl
+                        ["sysctl", "-n", "machdep.cpu.brand_string"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    chip_name = (
+                        result.stdout.strip()
+                        if result.returncode == 0
+                        else "Apple Silicon"
+                    )
+                except Exception:
+                    chip_name = "Apple Silicon"
+
+                logger.info(
+                    f"Loaded {model_type} embedding model: {model_name} "
+                    f"on MPS ({chip_name}) with {actual_dims} dimensions (timeout: {timeout}s)"
+                )
+            elif device == "cuda":
+                import torch
+
+                gpu_name = torch.cuda.get_device_name(0)
+                logger.info(
+                    f"Loaded {model_type} embedding model: {model_name} "
+                    f"on GPU ({gpu_name}) with {actual_dims} dimensions (timeout: {timeout}s)"
+                )
+            else:
+                logger.info(
+                    f"Loaded {model_type} embedding model: {model_name} "
+                    f"on CPU with {actual_dims} dimensions (timeout: {timeout}s)"
+                )
+
+            # Log asymmetric prefix configuration when prefixes are in use
+            if self.query_prefix or self.document_prefix:
+                logger.info(
+                    f"Asymmetric prefixes enabled for {model_name}: "
+                    f"query_prefix={self.query_prefix!r}, "
+                    f"document_prefix={self.document_prefix!r}"
+                )
+
+            # Validate dimensions match expected
+            if expected_dims != "unknown" and actual_dims != expected_dims:
+                logger.warning(
+                    f"Model dimension mismatch: expected {expected_dims}, got {actual_dims}. "
+                    f"Update MODEL_SPECIFICATIONS in defaults.py"
+                )
+
+            # Multi-GPU: initialize additional models for devices 1..N-1 (CUDA only).
+            # self.model is already on cuda:0; _gpu_models holds models for cuda:1+.
+            # self._gpu_models must be initialised BEFORE warm-up so the warm-up loop
+            # can potentially cover all GPUs in the future.
+            self._gpu_models: list = []
+            self._gpu_counter: int = 0
+            self._gpu_lock = threading.Lock()
+
+            if device == "cuda" and not self.is_codet5p:
+                import torch as _torch_multi
+
+                n_gpus = _torch_multi.cuda.device_count()
+                if n_gpus > 1:
+                    logger.info(f"Multi-GPU mode: {n_gpus} CUDA devices detected")
+                    try:
+                        import torch as _tmg
+
+                        _dtype_mg = _tmg.float16
+                    except Exception:
+                        _dtype_mg = None  # type: ignore[assignment]
+
+                    for gpu_idx in range(1, n_gpus):
+                        try:
+                            _extra_kwargs: dict = (
+                                {"torch_dtype": _dtype_mg}
+                                if _dtype_mg is not None
+                                else {}
+                            )
+                            with suppress_stdout_stderr():
+                                extra_model = SentenceTransformer(
+                                    self.model_name,
+                                    device=f"cuda:{gpu_idx}",
+                                    model_kwargs=_extra_kwargs,
+                                )
+                            self._gpu_models.append(extra_model)
+                            logger.info(f"  Loaded model on cuda:{gpu_idx}")
+                        except Exception as _e:
+                            logger.warning(
+                                f"  Failed to load model on cuda:{gpu_idx}: {_e}"
+                            )
+
+            # Fix 7: GPU kernel warm-up — first encode() triggers CUDA/MPS JIT (2-10s).
+            # Running a tiny dummy batch here amortises that cost before real work begins.
+            if device in ("cuda", "mps") and not self.is_codet5p:
+                try:
+                    _dummy = ["warm up"] * min(8, self._encode_batch_size)
+                    self.model.encode(
+                        _dummy,
+                        batch_size=len(_dummy),
+                        show_progress_bar=False,
+                    )
+                    logger.debug("GPU kernel warm-up complete (%s)", device)
+                except Exception:
+                    pass  # non-fatal
+
+            # Fix 8: Persist ThreadPoolExecutor for CPU/MPS path.
+            # Creating a new executor on every __call__ costs 0.5-2 ms per call.
+            # CUDA path runs directly (no executor needed) so we skip it there.
+            if device != "cuda":
+                self._executor: ThreadPoolExecutor | None = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="embed"
+                )
+            else:
+                self._executor = None
+
+        except Exception as e:
+            logger.error(f"Failed to load embedding model {model_name}: {e}")
+            raise EmbeddingError(f"Failed to load embedding model: {e}") from e
+
+    def name(self) -> str:
+        """Return embedding function name (ChromaDB requirement)."""
+        return f"CodeBERTEmbeddingFunction:{self.model_name}"
+
+    def __call__(self, input: list[str]) -> list[list[float]]:
+        """Generate embeddings for input texts (ChromaDB interface)."""
+        from concurrent.futures import TimeoutError as FuturesTimeoutError
+
+        try:
+            # CUDA contexts are thread-bound, so run directly on CUDA to avoid
+            # GPU operations silently falling back to CPU when run in thread pool.
+            # For CPU/MPS, use the persistent ThreadPoolExecutor with timeout.
+            if self.device == "cuda":
+                # Run directly on CUDA - no thread pool to avoid context issues
+                return self._generate_embeddings(input)
+
+            # Fix 8: Use persistent executor (created in __init__) instead of
+            # spawning a new ThreadPoolExecutor on every call (saves 0.5-2ms/call).
+            if self._executor is None:
+                raise RuntimeError(
+                    "ThreadPoolExecutor not initialized — should have been set in __init__ "
+                    f"for device={self.device!r}"
+                )
+            future = self._executor.submit(self._generate_embeddings, input)
+            try:
+                embeddings = future.result(timeout=self.timeout)
+                return embeddings
+            except FuturesTimeoutError:
+                logger.error(
+                    f"Embedding generation timed out after {self.timeout}s for batch of {len(input)} texts"
+                )
+                raise EmbeddingError(
+                    f"Embedding generation timed out after {self.timeout}s"
+                )
+        except EmbeddingError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to generate embeddings: {e}")
+            raise EmbeddingError(f"Failed to generate embeddings: {e}") from e
+
+    def _generate_embeddings(self, input: list[str]) -> list[list[float]]:
+        """Internal method to generate embeddings (runs in thread pool).
+
+        Uses optimal batch size for GPU (512 for M4 Max, detected automatically).
+        """
+        if self.is_codet5p:
+            # CodeT5+ special handling: use AutoModel + tokenizer
+            import torch
+
+            # Fix 1: use cached batch size — avoid re-running sysctl on every call
+            batch_size = self._encode_batch_size
+
+            all_embeddings = []
+            with torch.no_grad():  # Disable gradient computation for inference
+                for i in range(0, len(input), batch_size):
+                    batch_texts = input[i : i + batch_size]
+
+                    # Tokenize batch
+                    inputs = self.tokenizer(
+                        batch_texts,
+                        padding=True,
+                        truncation=True,
+                        max_length=512,
+                        return_tensors="pt",
+                    )
+
+                    # Move inputs to device
+                    inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+                    # Get embeddings from model
+                    # CodeT5+ embedding model outputs embeddings directly (256d)
+                    outputs = self.model(**inputs)
+
+                    # Extract embeddings (output is already 256d from projection head)
+                    # The model outputs a tensor of shape [batch_size, 256]
+                    batch_embeddings = outputs.cpu().numpy()
+
+                    all_embeddings.extend(batch_embeddings.tolist())
+
+            return all_embeddings
+        else:
+            # Standard SentenceTransformer models
+            # Fix 1: use cached batch size — avoid re-running sysctl on every call
+            # Fix 5: normalize_embeddings=True — L2 normalization on GPU is faster than
+            #        post-inference CPU normalization and ensures cosine metric correctness
+            batch_size = self._encode_batch_size
+
+            # Multi-GPU round-robin dispatch (CUDA only, when extra GPUs loaded)
+            if self.device == "cuda" and self._gpu_models:
+                with self._gpu_lock:
+                    idx = self._gpu_counter % (len(self._gpu_models) + 1)
+                    self._gpu_counter += 1
+                if idx == 0:
+                    active_model = self.model  # primary GPU (cuda:0)
+                else:
+                    active_model = self._gpu_models[idx - 1]
+                embeddings = active_model.encode(
+                    input,
+                    batch_size=batch_size,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                ).tolist()
+                return embeddings
+
+            # CRITICAL: Pass device to ensure input tensors are moved to GPU
+            # Without this, model weights are on GPU but inputs stay on CPU (0% GPU compute)
+            embeddings = self.model.encode(
+                input,
+                convert_to_numpy=True,
+                batch_size=batch_size,
+                show_progress_bar=False,
+                device=self.device,  # Ensure inputs go to GPU
+                normalize_embeddings=True,  # Fix 5: GPU-side L2 norm
+            )
+            result = embeddings.tolist()
+            del embeddings  # release numpy array
+            # Fix 2: torch.cuda.empty_cache() removed from hot path.
+            # It defeats PyTorch's caching allocator by forcing VRAM release then
+            # re-acquisition on every batch (+10-50ms/call). It stays in OOM handlers only.
+            return result
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed multiple documents, applying document_prefix when configured.
+
+        For asymmetric models (e.g. nomic-ai/CodeRankEmbed) this prepends the
+        document instruction prefix to each text.  For symmetric models the
+        prefix is an empty string so behaviour is identical to before.
+
+        Args:
+            texts: List of text documents to embed
+
+        Returns:
+            List of embedding vectors, one per document
+        """
+        if self.document_prefix:
+            texts = [self.document_prefix + t for t in texts]
+        return self.__call__(input=texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        """Embed a single query text, applying query_prefix when configured.
+
+        For asymmetric models (e.g. nomic-ai/CodeRankEmbed) this prepends the
+        query instruction prefix so the query vector is in the correct embedding
+        space relative to stored document vectors.  For symmetric models the
+        prefix is an empty string so behaviour is identical to before.
+
+        Args:
+            text: Single text string to embed
+
+        Returns:
+            Embedding vector for the query text
+        """
+        if self.query_prefix:
+            text = self.query_prefix + text
+        return self.__call__(input=[text])[0]
+
+
+class BatchEmbeddingProcessor:
+    """Batch processing for efficient embedding generation with caching."""
+
+    def __init__(
+        self,
+        embedding_function: CodeBERTEmbeddingFunction,
+        cache: EmbeddingCache | None = None,
+        batch_size: int | None = None,
+    ) -> None:
+        """Initialize batch embedding processor.
+
+        Args:
+            embedding_function: Function to generate embeddings
+            cache: Optional embedding cache
+            batch_size: Size of batches for processing (default: auto-detected based on GPU)
+        """
+        self.embedding_function = embedding_function
+        self.cache = cache
+        # Use the cached batch size from the embedding function when not explicitly provided.
+        # _detect_optimal_batch_size() is lru_cache'd, so calling it here is also safe,
+        # but preferring the already-computed value on the function avoids any edge cases.
+        if batch_size is None:
+            batch_size = getattr(
+                embedding_function, "_encode_batch_size", _detect_optimal_batch_size()
+            )
+        self.batch_size = batch_size
+
+    async def embed_batches_parallel(
+        self, texts: list[str], batch_size: int = 32, max_concurrent: int | None = None
+    ) -> list[list[float]]:
+        """Generate embeddings in parallel batches for improved throughput.
+
+        This method splits the input texts into batches and processes them
+        concurrently using asyncio.to_thread() to avoid blocking the event loop.
+
+        Args:
+            texts: List of text content to embed
+            batch_size: Size of each batch (default: 32)
+            max_concurrent: Maximum number of concurrent batches (default: 8 for GPU, override with MCP_VECTOR_SEARCH_MAX_CONCURRENT)
+
+        Returns:
+            List of embeddings corresponding to input texts
+
+        Environment Variables:
+            MCP_VECTOR_SEARCH_MAX_CONCURRENT: Override max concurrent embedding batches (default: 8)
+
+        Note:
+            This method is most effective when:
+            - Processing large numbers of texts (100+)
+            - Using GPU for embeddings (parallel batches maximize GPU utilization)
+            - Balancing batch size with max_concurrent to avoid OOM
+        """
+        # Auto-detect optimal max_concurrent if not specified
+        if max_concurrent is None:
+            # Check environment variable first
+            env_max_concurrent = os.environ.get("MCP_VECTOR_SEARCH_MAX_CONCURRENT")
+            if env_max_concurrent:
+                try:
+                    max_concurrent = int(env_max_concurrent)
+                    logger.debug(
+                        f"Using max_concurrent from environment: {max_concurrent}"
+                    )
+                except ValueError:
+                    logger.warning(
+                        f"Invalid MCP_VECTOR_SEARCH_MAX_CONCURRENT value: {env_max_concurrent}, using default"
+                    )
+                    max_concurrent = None  # fall through to device-aware default
+
+            if max_concurrent is None:
+                # Fix 4: auto-tune based on device.
+                # A single GPU serialises on the CUDA/MPS stream anyway — running 16
+                # threads causes GIL thrash with zero throughput gain.
+                # CPU benefits from moderate parallelism to saturate cores.
+                device = getattr(self.embedding_function, "device", None)
+                if device in ("cuda", "mps"):
+                    max_concurrent = 1  # single GPU: serial is optimal
+                else:
+                    max_concurrent = min(os.cpu_count() or 4, 8)
+        import asyncio
+
+        if not texts:
+            return []
+
+        # Split texts into batches
+        batches = [texts[i : i + batch_size] for i in range(0, len(texts), batch_size)]
+
+        # Semaphore to limit concurrent batch processing
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def process_batch(batch: list[str]) -> list[list[float]]:
+            """Process a single batch in thread pool."""
+            async with semaphore:
+                # Run embedding generation in thread pool to avoid blocking
+                try:
+                    return await asyncio.to_thread(self.embedding_function, batch)
+                except BaseException as e:
+                    # PyO3 panics inherit from BaseException, not Exception
+                    if "Python interpreter is not initialized" in str(e):
+                        logger.warning("Embedding interrupted during shutdown")
+                        raise RuntimeError(
+                            "Embedding interrupted during Python shutdown"
+                        ) from e
+                    raise
+
+        # Process all batches concurrently
+        results = await asyncio.gather(*[process_batch(b) for b in batches])
+
+        # Flatten results from all batches
+        return [emb for batch_result in results for emb in batch_result]
+
+    async def process_batch(self, contents: list[str]) -> list[list[float]]:
+        """Process a batch of content for embeddings with parallel generation.
+
+        Args:
+            contents: List of text content to embed
+
+        Returns:
+            List of embeddings
+
+        Environment Variables:
+            MCP_VECTOR_SEARCH_PARALLEL_EMBEDDINGS: Enable parallel embedding (default: true)
+        """
+        import time
+
+        if not contents:
+            return []
+
+        embeddings = []
+        uncached_contents = []
+        uncached_indices = []
+
+        # Check cache for each content if cache is available
+        if self.cache:
+            for i, content in enumerate(contents):
+                cached_embedding = await self.cache.get_embedding(content)
+                if cached_embedding:
+                    embeddings.append(cached_embedding)
+                else:
+                    embeddings.append(None)  # Placeholder
+                    uncached_contents.append(content)
+                    uncached_indices.append(i)
+        else:
+            # No cache, process all content
+            uncached_contents = contents
+            uncached_indices = list(range(len(contents)))
+            embeddings = [None] * len(contents)
+
+        # Generate embeddings for uncached content
+        if uncached_contents:
+            start_time = time.perf_counter()
+            logger.debug(f"Generating {len(uncached_contents)} new embeddings")
+
+            try:
+                # Check if parallel embeddings are enabled (default: true)
+                use_parallel = os.environ.get(
+                    "MCP_VECTOR_SEARCH_PARALLEL_EMBEDDINGS", "true"
+                ).lower() in ("true", "1", "yes")
+
+                if use_parallel and len(uncached_contents) >= 16:
+                    # Use parallel embedding for moderate+ batches (16+ items)
+                    try:
+                        logger.debug(
+                            f"Using parallel embedding generation for {len(uncached_contents)} items"
+                        )
+                        # max_concurrent now auto-detects from env var (defaults to 8)
+                        new_embeddings = await self.embed_batches_parallel(
+                            uncached_contents,
+                            batch_size=self.batch_size,
+                            max_concurrent=None,  # Auto-detect
+                        )
+                    except Exception as parallel_error:
+                        # Graceful fallback to sequential if parallel fails
+                        logger.warning(
+                            f"Parallel embedding failed ({parallel_error}), falling back to sequential"
+                        )
+                        new_embeddings = await self._sequential_embed(uncached_contents)
+                else:
+                    # Use sequential for small batches or when parallel is disabled
+                    new_embeddings = await self._sequential_embed(uncached_contents)
+
+                # Calculate performance metrics
+                elapsed_time = time.perf_counter() - start_time
+                throughput = (
+                    len(uncached_contents) / elapsed_time if elapsed_time > 0 else 0
+                )
+                logger.info(
+                    f"Generated {len(uncached_contents)} embeddings in {elapsed_time:.2f}s "
+                    f"({throughput:.1f} chunks/sec)"
+                )
+
+                # Cache new embeddings and fill placeholders
+                for i, (content, embedding) in enumerate(
+                    zip(uncached_contents, new_embeddings, strict=False)
+                ):
+                    if self.cache:
+                        await self.cache.store_embedding(content, embedding)
+                    embeddings[uncached_indices[i]] = embedding
+
+            except Exception as e:
+                logger.error(f"Failed to generate embeddings: {e}")
+                raise EmbeddingError(f"Failed to generate embeddings: {e}") from e
+
+        return embeddings
+
+    async def _sequential_embed(self, contents: list[str]) -> list[list[float]]:
+        """Sequential embedding generation (fallback method).
+
+        Args:
+            contents: List of text content to embed
+
+        Returns:
+            List of embeddings
+        """
+        import asyncio
+
+        new_embeddings = []
+        for i in range(0, len(contents), self.batch_size):
+            batch = contents[i : i + self.batch_size]
+            # Run in thread pool to avoid blocking
+            try:
+                batch_embeddings = await asyncio.to_thread(
+                    self.embedding_function, batch
+                )
+                new_embeddings.extend(batch_embeddings)
+            except BaseException as e:
+                # PyO3 panics inherit from BaseException, not Exception
+                if "Python interpreter is not initialized" in str(e):
+                    logger.warning("Embedding interrupted during shutdown")
+                    raise RuntimeError(
+                        "Embedding interrupted during Python shutdown"
+                    ) from e
+                raise
+        return new_embeddings
+
+    def get_stats(self) -> dict[str, any]:
+        """Get processor statistics."""
+        stats = {
+            "model_name": self.embedding_function.model_name,
+            "batch_size": self.batch_size,
+            "cache_enabled": self.cache is not None,
+        }
+
+        if self.cache:
+            stats.update(self.cache.get_cache_stats())
+
+        return stats
+
+
+def _default_model_for_device() -> str:
+    """Return the default embedding model.
+
+    MiniLM provides fast, efficient embeddings with good quality.
+    Use --model graphcodebert for code-specific understanding (data-flow aware).
+    """
+    return "sentence-transformers/all-MiniLM-L6-v2"
+
+
+def get_model_dimension(model_name: str | None = None) -> int:
+    """Return the embedding dimension for the given model.
+
+    Args:
+        model_name: Model name (None = use default)
+
+    Returns:
+        Embedding dimension (384 for MiniLM, 768 for GraphCodeBERT, 1024 for SFR)
+    """
+    if model_name is None:
+        model_name = _default_model_for_device()
+    if "minilm" in model_name.lower():
+        return 384
+    # GraphCodeBERT, CodeBERT, and most code models are 768d
+    return 768
+
+
+def create_embedding_function(
+    model_name: str | None = None,
+    cache_dir: Path | None = None,
+    cache_size: int = 1000,
+):
+    """Create embedding function and cache.
+
+    Args:
+        model_name: Name of the embedding model (auto-selected by device if None)
+        cache_dir: Directory for caching embeddings
+        cache_size: Maximum cache size
+
+    Returns:
+        Tuple of (embedding_function, cache)
+
+    Environment Variables:
+        MCP_VECTOR_SEARCH_EMBEDDING_MODEL: Override embedding model (highest priority)
+    """
+    # Check environment variable override FIRST (highest priority)
+    env_model = os.environ.get("MCP_VECTOR_SEARCH_EMBEDDING_MODEL")
+    if env_model:
+        model_name = env_model
+        logger.info(f"Using embedding model from environment: {model_name}")
+    elif model_name is None:
+        model_name = _default_model_for_device()
+        logger.info(f"Auto-selected embedding model for device: {model_name}")
+
+    # Use our native CodeBERTEmbeddingFunction which supports GPU (MPS/CUDA)
+    # and doesn't require ChromaDB (which has Python 3.14 compatibility issues)
+    embedding_function = CodeBERTEmbeddingFunction(model_name)
+
+    cache = None
+    if cache_dir:
+        cache = EmbeddingCache(cache_dir, cache_size)
+
+    return embedding_function, cache

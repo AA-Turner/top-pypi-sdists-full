@@ -1,0 +1,3 @@
+"""
+Deobfuscation of JavaScript documents.
+"""

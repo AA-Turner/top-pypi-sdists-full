@@ -80,6 +80,9 @@ class JSONPath(ColumnBase):
         self._field = field
         self._path = path or ()
 
+    def _converter(self, value):
+        return self._field.python_value(value)
+
     @property
     def path(self):
         return Value('$%s' % ''.join(self._path))
@@ -384,6 +387,7 @@ class BaseFTSModel(VirtualModel):
         content = options.get('content')
         prefix = options.get('prefix')
         tokenize = options.get('tokenize')
+        content_rowid = options.get('content_rowid')
 
         if isinstance(content, basestring) and content == '':
             # Special-case content-less full-text search tables.
@@ -392,6 +396,9 @@ class BaseFTSModel(VirtualModel):
             # Special-case to ensure fields are fully-qualified.
             options['content'] = Entity(content.model._meta.table_name,
                                         content.column_name)
+
+        if content_rowid is not None:
+            options['content_rowid'] = content_rowid
 
         if prefix:
             if isinstance(prefix, (list, tuple)):
@@ -841,35 +848,6 @@ class FTS5Model(BaseFTSModel):
             setattr(cls, attr, type(class_name, (VirtualModel,), attrs))
 
         return getattr(cls, attr)
-
-
-class SqliteExtDatabase(SqliteDatabase):
-    def __init__(self, database, rank_functions=True, json_contains=False,
-                 *args, **kwargs):
-        super(SqliteExtDatabase, self).__init__(database, *args, **kwargs)
-        self._row_factory = None
-
-        if rank_functions:
-            register_udf_groups(self, RANK)
-        if json_contains:
-            register_udf_groups(self, JSON)
-
-    def _add_conn_hooks(self, conn):
-        super(SqliteExtDatabase, self)._add_conn_hooks(conn)
-        if self._row_factory:
-            conn.row_factory = self._row_factory
-
-    def row_factory(self, fn):
-        self._row_factory = fn
-
-
-class CSqliteExtDatabase(SqliteExtDatabase):
-    # XXX: here today, gone tomorrow.
-    def __init__(self, *args, **kwargs):
-        warnings.warn('CSqliteExtDatabase is deprecated. For equivalent '
-                      'functionality use cysqlite_ext.CySqliteDatabase.',
-                      DeprecationWarning)
-        super(CSqliteExtDatabase, self).__init__(*args, **kwargs)
 
 
 OP.MATCH = 'MATCH'

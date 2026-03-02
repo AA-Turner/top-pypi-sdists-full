@@ -33,6 +33,8 @@ _SUPPORTED_PROVIDERS = {
     "vllm_openai",
     "aimlapi",
     "netmind",
+    "forge",
+    "avian",
 }
 
 NO_SUPPORT_TEMPERATURE_MODELS = [
@@ -241,6 +243,22 @@ class GenericLLMProvider:
                              openai_api_key=os.environ["AIMLAPI_API_KEY"],
                              **kwargs
                              )
+        elif provider == "forge":
+            _check_pkg("langchain_openai")
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(openai_api_base='https://api.forge.tensorblock.co/v1',
+                     openai_api_key=os.environ["FORGE_API_KEY"],
+                     **kwargs
+                )
+        elif provider == "avian":
+            _check_pkg("langchain_openai")
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(openai_api_base='https://api.avian.io/v1',
+                     openai_api_key=os.environ["AVIAN_API_KEY"],
+                     **kwargs
+                )
         elif provider == 'netmind':
             _check_pkg("langchain_netmind")
             from langchain_netmind import ChatNetmind

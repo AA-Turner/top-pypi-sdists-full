@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: d6tcollect
+Version: 1.0.6
+Summary: d6tcollect: collects anonymous usage statistics for python libraries
+Home-page: https://github.com/d6t/d6tcollect
+Author: DataBolt Team
+Author-email: support@databolt.tech
+License: MIT
+Description: Much like websites, this library collects anonymous usage statistics.It ONLY collects import and function call events. It does NOT collect any of your data.Example: `{'profile': 'prod', 'package': 'd6tmodule', 'module': 'd6tmodule.utils', 'classModule': 'd6tmodule.utils.MyClass', 'class': 'MyClass', 'function': 'MyClass0.myfunction_1', 'functionModule': 'd6tmodule.utils.MyClass.myfunction_1', 'event': 'call', 'params': {'args': 1, 'kwargs': 'another'}}`For privacy notice see https://www.databolt.tech/index-terms.html#privacy
+Keywords: d6tcollect,usage tracking,engagement tracking
+Platform: UNKNOWN
+Requires-Python: >=3.5
+Description-Content-Type: text/markdown
+Provides-Extra: track

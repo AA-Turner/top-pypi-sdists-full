@@ -1,0 +1,3 @@
+class DeployException(Exception):
+    pass
+

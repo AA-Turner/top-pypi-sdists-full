@@ -43,11 +43,11 @@ def run_intervention_validation(
         test_samples: Pairs for evaluating steering
         steering_coefficients: Coefficients to test
     """
-    from wisent.core.models.wisent_model import WisentModel
-    from wisent.core.activations import ExtractionStrategy
-    from wisent.core.activations.activation_cache import ActivationCache, collect_and_cache_activations
+    from wisent.core.primitives.models.wisent_model import WisentModel
+    from wisent.core.primitives.model_interface.core.activations import ExtractionStrategy
+    from wisent.core.primitives.model_interface.core.activations.activation_cache import ActivationCache, collect_and_cache_activations
     from lm_eval.tasks import TaskManager
-    from wisent.core.contrastive_pairs.lm_eval_pairs.lm_task_pairs_generation import lm_build_contrastive_pairs
+    from wisent.extractors.lm_eval.lm_task_pairs_generation import lm_build_contrastive_pairs
     
     print("=" * _C.SEPARATOR_WIDTH_WIDE)
     print("INTERVENTION VALIDATION")

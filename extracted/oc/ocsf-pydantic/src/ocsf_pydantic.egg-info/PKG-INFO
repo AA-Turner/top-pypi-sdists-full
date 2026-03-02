@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: ocsf-pydantic
+Version: 0.0.6
+Summary: Pydantic models for OCSF
+Author-email: "Crowdalert, Inc" <hello@crowdalert.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/crowdalert/ocsf-pydantic
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Project Name
+
+OCSF-Pydantic
+
+## Description
+
+[Pydantic](https://docs.pydantic.dev/latest/) validated models for [OCSF schema](https://schema.ocsf.io) events & objects
+
+## Installation
+
+`pip install ocsf-pydantic`
+
+
+## Usage
+
+all event & object models are available via `ocsf`
+
+```
+from ocsf.events.application.api import Api
+
+apievent: dict = ... # an OCSF normalized dict
+APIActivity(**apievent)
+
+```
+
+## License
+
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).

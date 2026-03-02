@@ -1,0 +1,3 @@
+disallowed-methods = [
+  { path = "polars_backend_client::client::ApiClient::new", replacement = "crate::client" },
+]

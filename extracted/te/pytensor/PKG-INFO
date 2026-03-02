@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytensor
-Version: 2.38.0
+Version: 2.38.1
 Summary: Optimizing compiler for evaluating mathematical expressions on CPUs and GPUs.
 Author-email: pymc-devs <pymc.devs@gmail.com>
 License-Expression: BSD-3-Clause

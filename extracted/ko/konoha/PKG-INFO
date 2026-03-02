@@ -1,26 +1,23 @@
 Metadata-Version: 2.4
 Name: konoha
-Version: 5.6.0
+Version: 5.7.0
 Summary: Add your description here
 Author-email: himkt <himkt@klis.tsukuba.ac.jp>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: requests<3.0.0
 Provides-Extra: all
 Requires-Dist: boto3~=1.34.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0; extra == 'all'
 Requires-Dist: janome~=0.5.0; extra == 'all'
-Requires-Dist: kytea~=0.1.0; extra == 'all'
 Requires-Dist: nagisa~=0.2.10; extra == 'all'
 Requires-Dist: natto-py~=1.0.0; extra == 'all'
-Requires-Dist: sentencepiece~=0.1.85; extra == 'all'
+Requires-Dist: sentencepiece~=0.2.1; extra == 'all'
 Requires-Dist: sudachidict-core==20230927; extra == 'all'
 Requires-Dist: uvicorn<0.26.0; extra == 'all'
 Provides-Extra: janome
 Requires-Dist: janome~=0.5.0; extra == 'janome'
-Provides-Extra: kytea
-Requires-Dist: kytea~=0.1.0; extra == 'kytea'
 Provides-Extra: mecab
 Requires-Dist: natto-py~=1.0.0; extra == 'mecab'
 Provides-Extra: nagisa
@@ -28,13 +25,13 @@ Requires-Dist: nagisa~=0.2.10; extra == 'nagisa'
 Provides-Extra: remote
 Requires-Dist: boto3~=1.34.0; extra == 'remote'
 Provides-Extra: sentencepiece
-Requires-Dist: sentencepiece~=0.1.85; extra == 'sentencepiece'
+Requires-Dist: sentencepiece~=0.2.1; extra == 'sentencepiece'
 Provides-Extra: server
-Requires-Dist: fastapi<1.0.0; extra == 'server'
-Requires-Dist: uvicorn<0.26.0; extra == 'server'
+Requires-Dist: fastapi<2.0.0; extra == 'server'
+Requires-Dist: uvicorn<1.0.0; extra == 'server'
 Provides-Extra: sudachi
 Requires-Dist: sudachidict-core==20230927; extra == 'sudachi'
-Requires-Dist: sudachipy~=0.6.8; extra == 'sudachi'
+Requires-Dist: sudachipy~=0.6.10; extra == 'sudachi'
 Description-Content-Type: text/markdown
 
 # 🌿 Konoha: Simple wrapper of Japanese Tokenizers
@@ -61,7 +58,6 @@ which enables you to switch a tokenizer and boost your pre-processing.
 ## Supported tokenizers
 
 <a href="https://github.com/buruzaemon/natto-py"><img src="https://img.shields.io/badge/MeCab-natto--py-ff69b4"></a>
-<a href="https://github.com/chezou/Mykytea-python"><img src="https://img.shields.io/badge/KyTea-Mykytea--python-ff69b4"></a>
 <a href="https://github.com/mocobeta/janome"><img src="https://img.shields.io/badge/Janome-janome-ff69b4"></a>
 <a href="https://github.com/WorksApplications/SudachiPy"><img src="https://img.shields.io/badge/Sudachi-sudachipy-ff69b4"></a>
 <a href="https://github.com/google/sentencepiece"><img src="https://img.shields.io/badge/Sentencepiece-sentencepiece-ff69b4"></a>

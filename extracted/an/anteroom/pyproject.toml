@@ -1,0 +1,129 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anteroom"
+version = "1.89.8"
+description = "Anteroom - your gateway to AI conversation"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastapi>=0.134.0",
+    "starlette>=0.52.0",
+    "python-multipart>=0.0.18",
+    "uvicorn[standard]>=0.24.0",
+    "sse-starlette>=3.3.2",
+    "openai>=1.76.2",
+    "mcp>=1.23.3",
+    "pyyaml>=6.0",
+    "filetype>=1.2.0",
+    "rich>=13.5.3",
+    "prompt-toolkit>=3.0.0",
+    "tiktoken>=0.7.0",
+    "cryptography>=46.0.5",
+    "argon2-cffi>=23.1.0",
+    "sqlite-vec>=0.1.6",
+    "urllib3>=2.6.3",
+    # Transitive dependency floors for CVE remediation (see #194)
+    "aiohttp>=3.12.14",
+    "requests>=2.32.4",
+    "protobuf>=6.33.5",
+    "filelock>=3.20.3",
+    "h2>=4.3.0",
+    "pynacl>=1.6.2",
+    "authlib>=1.6.6",
+    "marshmallow>=4.1.2",
+    "wheel>=0.46.2",
+    # pillow>=12.1.1 needed for CVE-2026-25990, but fastembed 0.7.4 caps pillow<12.0.
+    # Deferred until fastembed updates its constraint.
+]
+
+[project.optional-dependencies]
+embeddings = [
+    "fastembed>=0.4.0",
+]
+index = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-language-pack>=0.2.0",
+]
+docs = [
+    "pypdf>=6.7.4",
+    "python-docx>=1.0",
+]
+office = [
+    "python-docx>=1.0",
+    "openpyxl>=3.1.0",
+    "python-pptx>=1.0",
+]
+office-com = [
+    "python-docx>=1.0",
+    "openpyxl>=3.1.0",
+    "python-pptx>=1.0",
+    "pywin32>=306; sys_platform == 'win32'",
+]
+encryption = [
+    "sqlcipher3>=0.5.0",
+]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.1.1",
+    "httpx>=0.25.0",
+    "ruff>=0.15.4",
+    "mypy>=1.15.0",
+    "pip-audit>=2.9.0",
+    "semgrep>=1.152.0",
+]
+
+[project.scripts]
+aroom = "anteroom.__main__:main"
+anteroom = "anteroom.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+anteroom = ["static/**/*", "cli/default_skills/*.yaml", "packs/**/*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "e2e: end-to-end tests requiring real services",
+    "real_ai: tests that call a real AI backend (require API key)",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["anteroom"]
+
+[tool.coverage.report]
+show_missing = true

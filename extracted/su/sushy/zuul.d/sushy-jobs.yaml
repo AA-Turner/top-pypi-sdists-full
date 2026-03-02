@@ -1,0 +1,23 @@
+- job:
+    name: sushy-tempest-bios-redfish-pxe
+    parent: ironic-tempest-bios-redfish-pxe
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^\.pre-commit-config\.yaml$
+      - ^doc/.*$
+      - ^test-requirements.txt$
+      - ^sushy/tests/.*$
+    required-projects:
+      - openstack/sushy
+
+- job:
+    name: sushy-tempest-uefi-redfish-vmedia
+    parent: ironic-tempest-uefi-redfish-vmedia
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^\.pre-commit-config\.yaml$
+      - ^doc/.*$
+      - ^test-requirements.txt$
+      - ^sushy/tests/.*$
+    required-projects:
+      - openstack/sushy

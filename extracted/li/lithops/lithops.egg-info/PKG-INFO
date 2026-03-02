@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: lithops
+Version: 3.6.3
+Summary: Lithops lets you transparently run your Python applications in the Cloud
+Home-page: https://github.com/lithops-cloud/lithops
+Author: Gil Vernik, Josep Sampe
+Author-email: gilv@ibm.com, josep.sampe@gmail.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.6
+Provides-Extra: aliyun
+Provides-Extra: all
+Provides-Extra: aws
+Provides-Extra: azure
+Provides-Extra: ceph
+Provides-Extra: gcp
+Provides-Extra: ibm
+Provides-Extra: joblib
+Provides-Extra: knative
+Provides-Extra: kubernetes
+Provides-Extra: minio
+Provides-Extra: multiprocessing
+Provides-Extra: oracle
+Provides-Extra: plotting
+Provides-Extra: redis
+Provides-Extra: tests
+License-File: LICENSE
+
+UNKNOWN
+

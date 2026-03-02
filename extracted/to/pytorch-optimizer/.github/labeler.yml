@@ -1,0 +1,32 @@
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+
+github_actions:
+  - changed-files:
+    - any-glob-to-any-file:
+      - .github/workflows/**
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - pyproject.toml
+      - requirements.txt
+      - requirements-dev.txt
+      - requirements-docs.txt
+
+optimizer:
+  - changed-files:
+      - any-glob-to-any-file:
+          - pytorch_optimizer/optimizer/**
+
+loss:
+  - changed-files:
+      - any-glob-to-any-file:
+          - pytorch_optimizer/loss/**
+
+lr_scheduler:
+  - changed-files:
+      - any-glob-to-any-file:
+          - pytorch_optimizer/lr_scheduler/**

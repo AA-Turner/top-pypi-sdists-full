@@ -1,2 +1,0 @@
-class ParameterNotFound(Exception):
-    pass

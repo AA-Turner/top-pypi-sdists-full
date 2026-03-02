@@ -1,0 +1,588 @@
+Metadata-Version: 2.3
+Name: aiomoto
+Version: 0.3.0
+Summary: Moto-style AWS service mocks for aiobotocore/aioboto3
+Keywords: aws,moto,aioboto3,aiobotocore,asyncio,testing,mocks
+Author: Owen Lamont
+Author-email: Owen Lamont <owenrlamont@gmail.com>
+License: MIT License
+         
+         Copyright (c) 2025 Owen Lamont
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Testing
+Requires-Dist: aiobotocore>=2.24.1,<=2.25.1
+Requires-Dist: moto>=5.1.5,<=5.1.19
+Requires-Dist: platformdirs>=4.0.0
+Requires-Dist: moto[acm]>=5.1.5,<=5.1.19 ; extra == 'acm'
+Requires-Dist: moto[acmpca]>=5.1.5,<=5.1.19 ; extra == 'acmpca'
+Requires-Dist: moto[all]>=5.1.5,<=5.1.19 ; extra == 'all'
+Requires-Dist: moto[amp]>=5.1.5,<=5.1.19 ; extra == 'amp'
+Requires-Dist: moto[apigateway]>=5.1.5,<=5.1.19 ; extra == 'apigateway'
+Requires-Dist: moto[apigatewayv2]>=5.1.5,<=5.1.19 ; extra == 'apigatewayv2'
+Requires-Dist: moto[applicationautoscaling]>=5.1.5,<=5.1.19 ; extra == 'applicationautoscaling'
+Requires-Dist: moto[appsync]>=5.1.5,<=5.1.19 ; extra == 'appsync'
+Requires-Dist: moto[athena]>=5.1.5,<=5.1.19 ; extra == 'athena'
+Requires-Dist: moto[autoscaling]>=5.1.5,<=5.1.19 ; extra == 'autoscaling'
+Requires-Dist: moto[awslambda]>=5.1.5,<=5.1.19 ; extra == 'awslambda'
+Requires-Dist: moto[awslambda-simple]>=5.1.5,<=5.1.19 ; extra == 'awslambda-simple'
+Requires-Dist: moto[backup]>=5.1.5,<=5.1.19 ; extra == 'backup'
+Requires-Dist: moto[batch]>=5.1.5,<=5.1.19 ; extra == 'batch'
+Requires-Dist: moto[batch-simple]>=5.1.5,<=5.1.19 ; extra == 'batch-simple'
+Requires-Dist: moto[budgets]>=5.1.5,<=5.1.19 ; extra == 'budgets'
+Requires-Dist: moto[ce]>=5.1.5,<=5.1.19 ; extra == 'ce'
+Requires-Dist: moto[cloudformation]>=5.1.5,<=5.1.19 ; extra == 'cloudformation'
+Requires-Dist: moto[cloudfront]>=5.1.5,<=5.1.19 ; extra == 'cloudfront'
+Requires-Dist: moto[cloudtrail]>=5.1.5,<=5.1.19 ; extra == 'cloudtrail'
+Requires-Dist: moto[cloudwatch]>=5.1.5,<=5.1.19 ; extra == 'cloudwatch'
+Requires-Dist: moto[codebuild]>=5.1.5,<=5.1.19 ; extra == 'codebuild'
+Requires-Dist: moto[codecommit]>=5.1.5,<=5.1.19 ; extra == 'codecommit'
+Requires-Dist: moto[codepipeline]>=5.1.5,<=5.1.19 ; extra == 'codepipeline'
+Requires-Dist: moto[cognitoidentity]>=5.1.5,<=5.1.19 ; extra == 'cognitoidentity'
+Requires-Dist: moto[cognitoidp]>=5.1.5,<=5.1.19 ; extra == 'cognitoidp'
+Requires-Dist: moto[comprehend]>=5.1.5,<=5.1.19 ; extra == 'comprehend'
+Requires-Dist: moto[config]>=5.1.5,<=5.1.19 ; extra == 'config'
+Requires-Dist: moto[databrew]>=5.1.5,<=5.1.19 ; extra == 'databrew'
+Requires-Dist: moto[datapipeline]>=5.1.5,<=5.1.19 ; extra == 'datapipeline'
+Requires-Dist: moto[datasync]>=5.1.5,<=5.1.19 ; extra == 'datasync'
+Requires-Dist: moto[dax]>=5.1.5,<=5.1.19 ; extra == 'dax'
+Requires-Dist: moto[dms]>=5.1.5,<=5.1.19 ; extra == 'dms'
+Requires-Dist: moto[ds]>=5.1.5,<=5.1.19 ; extra == 'ds'
+Requires-Dist: moto[dynamodb]>=5.1.5,<=5.1.19 ; extra == 'dynamodb'
+Requires-Dist: moto[dynamodbstreams]>=5.1.5,<=5.1.19 ; extra == 'dynamodbstreams'
+Requires-Dist: moto[ebs]>=5.1.5,<=5.1.19 ; extra == 'ebs'
+Requires-Dist: moto[ec2]>=5.1.5,<=5.1.19 ; extra == 'ec2'
+Requires-Dist: moto[ec2instanceconnect]>=5.1.5,<=5.1.19 ; extra == 'ec2instanceconnect'
+Requires-Dist: moto[ecr]>=5.1.5,<=5.1.19 ; extra == 'ecr'
+Requires-Dist: moto[ecs]>=5.1.5,<=5.1.19 ; extra == 'ecs'
+Requires-Dist: moto[efs]>=5.1.5,<=5.1.19 ; extra == 'efs'
+Requires-Dist: moto[eks]>=5.1.5,<=5.1.19 ; extra == 'eks'
+Requires-Dist: moto[elasticache]>=5.1.5,<=5.1.19 ; extra == 'elasticache'
+Requires-Dist: moto[elasticbeanstalk]>=5.1.5,<=5.1.19 ; extra == 'elasticbeanstalk'
+Requires-Dist: moto[elastictranscoder]>=5.1.5,<=5.1.19 ; extra == 'elastictranscoder'
+Requires-Dist: moto[elb]>=5.1.5,<=5.1.19 ; extra == 'elb'
+Requires-Dist: moto[elbv2]>=5.1.5,<=5.1.19 ; extra == 'elbv2'
+Requires-Dist: moto[emr]>=5.1.5,<=5.1.19 ; extra == 'emr'
+Requires-Dist: moto[emrcontainers]>=5.1.5,<=5.1.19 ; extra == 'emrcontainers'
+Requires-Dist: moto[emrserverless]>=5.1.5,<=5.1.19 ; extra == 'emrserverless'
+Requires-Dist: moto[es]>=5.1.5,<=5.1.19 ; extra == 'es'
+Requires-Dist: moto[events]>=5.1.5,<=5.1.19 ; extra == 'events'
+Requires-Dist: moto[firehose]>=5.1.5,<=5.1.19 ; extra == 'firehose'
+Requires-Dist: moto[forecast]>=5.1.5,<=5.1.19 ; extra == 'forecast'
+Requires-Dist: moto[glacier]>=5.1.5,<=5.1.19 ; extra == 'glacier'
+Requires-Dist: moto[glue]>=5.1.5,<=5.1.19 ; extra == 'glue'
+Requires-Dist: moto[greengrass]>=5.1.5,<=5.1.19 ; extra == 'greengrass'
+Requires-Dist: moto[guardduty]>=5.1.5,<=5.1.19 ; extra == 'guardduty'
+Requires-Dist: moto[iam]>=5.1.5,<=5.1.19 ; extra == 'iam'
+Requires-Dist: moto[inspector2]>=5.1.5,<=5.1.19 ; extra == 'inspector2'
+Requires-Dist: moto[iot]>=5.1.5,<=5.1.19 ; extra == 'iot'
+Requires-Dist: moto[iotdata]>=5.1.5,<=5.1.19 ; extra == 'iotdata'
+Requires-Dist: moto[ivs]>=5.1.5,<=5.1.19 ; extra == 'ivs'
+Requires-Dist: moto[kinesis]>=5.1.5,<=5.1.19 ; extra == 'kinesis'
+Requires-Dist: moto[kinesisvideo]>=5.1.5,<=5.1.19 ; extra == 'kinesisvideo'
+Requires-Dist: moto[kinesisvideoarchivedmedia]>=5.1.5,<=5.1.19 ; extra == 'kinesisvideoarchivedmedia'
+Requires-Dist: moto[kms]>=5.1.5,<=5.1.19 ; extra == 'kms'
+Requires-Dist: moto[logs]>=5.1.5,<=5.1.19 ; extra == 'logs'
+Requires-Dist: moto[managedblockchain]>=5.1.5,<=5.1.19 ; extra == 'managedblockchain'
+Requires-Dist: moto[mediaconnect]>=5.1.5,<=5.1.19 ; extra == 'mediaconnect'
+Requires-Dist: moto[medialive]>=5.1.5,<=5.1.19 ; extra == 'medialive'
+Requires-Dist: moto[mediapackage]>=5.1.5,<=5.1.19 ; extra == 'mediapackage'
+Requires-Dist: moto[mediastore]>=5.1.5,<=5.1.19 ; extra == 'mediastore'
+Requires-Dist: moto[mediastoredata]>=5.1.5,<=5.1.19 ; extra == 'mediastoredata'
+Requires-Dist: moto[meteringmarketplace]>=5.1.5,<=5.1.19 ; extra == 'meteringmarketplace'
+Requires-Dist: moto[mq]>=5.1.5,<=5.1.19 ; extra == 'mq'
+Requires-Dist: moto[opsworks]>=5.1.5,<=5.1.19 ; extra == 'opsworks'
+Requires-Dist: moto[organizations]>=5.1.5,<=5.1.19 ; extra == 'organizations'
+Requires-Dist: moto[server]>=5.1.5,<=5.1.19 ; extra == 'pandas'
+Requires-Dist: pandas>=2.2.0,<=2.3.3 ; extra == 'pandas'
+Requires-Dist: moto[panorama]>=5.1.5,<=5.1.19 ; extra == 'panorama'
+Requires-Dist: moto[personalize]>=5.1.5,<=5.1.19 ; extra == 'personalize'
+Requires-Dist: moto[pinpoint]>=5.1.5,<=5.1.19 ; extra == 'pinpoint'
+Requires-Dist: moto[server]>=5.1.5,<=5.1.19 ; python_full_version < '3.14' and extra == 'polars'
+Requires-Dist: polars>=1.35.1,<=1.36.1 ; python_full_version < '3.14' and extra == 'polars'
+Requires-Dist: moto[polly]>=5.1.5,<=5.1.19 ; extra == 'polly'
+Requires-Dist: moto[proxy]>=5.1.5,<=5.1.19 ; extra == 'proxy'
+Requires-Dist: moto[quicksight]>=5.1.5,<=5.1.19 ; extra == 'quicksight'
+Requires-Dist: moto[ram]>=5.1.5,<=5.1.19 ; extra == 'ram'
+Requires-Dist: moto[rds]>=5.1.5,<=5.1.19 ; extra == 'rds'
+Requires-Dist: moto[redshift]>=5.1.5,<=5.1.19 ; extra == 'redshift'
+Requires-Dist: moto[redshiftdata]>=5.1.5,<=5.1.19 ; extra == 'redshiftdata'
+Requires-Dist: moto[rekognition]>=5.1.5,<=5.1.19 ; extra == 'rekognition'
+Requires-Dist: moto[resourcegroups]>=5.1.5,<=5.1.19 ; extra == 'resourcegroups'
+Requires-Dist: moto[resourcegroupstaggingapi]>=5.1.5,<=5.1.19 ; extra == 'resourcegroupstaggingapi'
+Requires-Dist: moto[route53]>=5.1.5,<=5.1.19 ; extra == 'route53'
+Requires-Dist: moto[route53resolver]>=5.1.5,<=5.1.19 ; extra == 'route53resolver'
+Requires-Dist: moto[s3]>=5.1.5,<=5.1.19 ; extra == 's3'
+Requires-Dist: moto[s3control]>=5.1.5,<=5.1.19 ; extra == 's3control'
+Requires-Dist: moto[s3crc32c]>=5.1.5,<=5.1.19 ; extra == 's3crc32c'
+Requires-Dist: moto[sagemaker]>=5.1.5,<=5.1.19 ; extra == 'sagemaker'
+Requires-Dist: moto[scheduler]>=5.1.5,<=5.1.19 ; extra == 'scheduler'
+Requires-Dist: moto[sdb]>=5.1.5,<=5.1.19 ; extra == 'sdb'
+Requires-Dist: moto[secretsmanager]>=5.1.5,<=5.1.19 ; extra == 'secretsmanager'
+Requires-Dist: moto[server]>=5.1.5,<=5.1.19 ; extra == 'server'
+Requires-Dist: moto[servicediscovery]>=5.1.5,<=5.1.19 ; extra == 'servicediscovery'
+Requires-Dist: moto[servicequotas]>=5.1.5,<=5.1.19 ; extra == 'servicequotas'
+Requires-Dist: moto[ses]>=5.1.5,<=5.1.19 ; extra == 'ses'
+Requires-Dist: moto[signer]>=5.1.5,<=5.1.19 ; extra == 'signer'
+Requires-Dist: moto[sns]>=5.1.5,<=5.1.19 ; extra == 'sns'
+Requires-Dist: moto[sqs]>=5.1.5,<=5.1.19 ; extra == 'sqs'
+Requires-Dist: moto[ssm]>=5.1.5,<=5.1.19 ; extra == 'ssm'
+Requires-Dist: moto[ssoadmin]>=5.1.5,<=5.1.19 ; extra == 'ssoadmin'
+Requires-Dist: moto[stepfunctions]>=5.1.5,<=5.1.19 ; extra == 'stepfunctions'
+Requires-Dist: moto[sts]>=5.1.5,<=5.1.19 ; extra == 'sts'
+Requires-Dist: moto[support]>=5.1.5,<=5.1.19 ; extra == 'support'
+Requires-Dist: moto[swf]>=5.1.5,<=5.1.19 ; extra == 'swf'
+Requires-Dist: moto[textract]>=5.1.5,<=5.1.19 ; extra == 'textract'
+Requires-Dist: moto[timestreamwrite]>=5.1.5,<=5.1.19 ; extra == 'timestreamwrite'
+Requires-Dist: moto[transcribe]>=5.1.5,<=5.1.19 ; extra == 'transcribe'
+Requires-Dist: moto[wafv2]>=5.1.5,<=5.1.19 ; extra == 'wafv2'
+Requires-Dist: moto[xray]>=5.1.5,<=5.1.19 ; extra == 'xray'
+Requires-Python: >=3.10
+Project-URL: Issues, https://github.com/owenlamont/aiomoto/issues
+Project-URL: Repository, https://github.com/owenlamont/aiomoto
+Provides-Extra: acm
+Provides-Extra: acmpca
+Provides-Extra: all
+Provides-Extra: amp
+Provides-Extra: apigateway
+Provides-Extra: apigatewayv2
+Provides-Extra: applicationautoscaling
+Provides-Extra: appsync
+Provides-Extra: athena
+Provides-Extra: autoscaling
+Provides-Extra: awslambda
+Provides-Extra: awslambda-simple
+Provides-Extra: backup
+Provides-Extra: batch
+Provides-Extra: batch-simple
+Provides-Extra: budgets
+Provides-Extra: ce
+Provides-Extra: cloudformation
+Provides-Extra: cloudfront
+Provides-Extra: cloudtrail
+Provides-Extra: cloudwatch
+Provides-Extra: codebuild
+Provides-Extra: codecommit
+Provides-Extra: codepipeline
+Provides-Extra: cognitoidentity
+Provides-Extra: cognitoidp
+Provides-Extra: comprehend
+Provides-Extra: config
+Provides-Extra: databrew
+Provides-Extra: datapipeline
+Provides-Extra: datasync
+Provides-Extra: dax
+Provides-Extra: dms
+Provides-Extra: ds
+Provides-Extra: dynamodb
+Provides-Extra: dynamodbstreams
+Provides-Extra: ebs
+Provides-Extra: ec2
+Provides-Extra: ec2instanceconnect
+Provides-Extra: ecr
+Provides-Extra: ecs
+Provides-Extra: efs
+Provides-Extra: eks
+Provides-Extra: elasticache
+Provides-Extra: elasticbeanstalk
+Provides-Extra: elastictranscoder
+Provides-Extra: elb
+Provides-Extra: elbv2
+Provides-Extra: emr
+Provides-Extra: emrcontainers
+Provides-Extra: emrserverless
+Provides-Extra: es
+Provides-Extra: events
+Provides-Extra: firehose
+Provides-Extra: forecast
+Provides-Extra: glacier
+Provides-Extra: glue
+Provides-Extra: greengrass
+Provides-Extra: guardduty
+Provides-Extra: iam
+Provides-Extra: inspector2
+Provides-Extra: iot
+Provides-Extra: iotdata
+Provides-Extra: ivs
+Provides-Extra: kinesis
+Provides-Extra: kinesisvideo
+Provides-Extra: kinesisvideoarchivedmedia
+Provides-Extra: kms
+Provides-Extra: logs
+Provides-Extra: managedblockchain
+Provides-Extra: mediaconnect
+Provides-Extra: medialive
+Provides-Extra: mediapackage
+Provides-Extra: mediastore
+Provides-Extra: mediastoredata
+Provides-Extra: meteringmarketplace
+Provides-Extra: mq
+Provides-Extra: opsworks
+Provides-Extra: organizations
+Provides-Extra: pandas
+Provides-Extra: panorama
+Provides-Extra: personalize
+Provides-Extra: pinpoint
+Provides-Extra: polars
+Provides-Extra: polly
+Provides-Extra: proxy
+Provides-Extra: quicksight
+Provides-Extra: ram
+Provides-Extra: rds
+Provides-Extra: redshift
+Provides-Extra: redshiftdata
+Provides-Extra: rekognition
+Provides-Extra: resourcegroups
+Provides-Extra: resourcegroupstaggingapi
+Provides-Extra: route53
+Provides-Extra: route53resolver
+Provides-Extra: s3
+Provides-Extra: s3control
+Provides-Extra: s3crc32c
+Provides-Extra: sagemaker
+Provides-Extra: scheduler
+Provides-Extra: sdb
+Provides-Extra: secretsmanager
+Provides-Extra: server
+Provides-Extra: servicediscovery
+Provides-Extra: servicequotas
+Provides-Extra: ses
+Provides-Extra: signer
+Provides-Extra: sns
+Provides-Extra: sqs
+Provides-Extra: ssm
+Provides-Extra: ssoadmin
+Provides-Extra: stepfunctions
+Provides-Extra: sts
+Provides-Extra: support
+Provides-Extra: swf
+Provides-Extra: textract
+Provides-Extra: timestreamwrite
+Provides-Extra: transcribe
+Provides-Extra: wafv2
+Provides-Extra: xray
+Description-Content-Type: text/markdown
+
+# aiomoto
+
+`aiomoto` is Moto for aiobotocore / aioboto3 (while staying compatible with classic
+botocore / boto3). It adapts Moto's stubber so async and sync clients share the same
+in-memory backend: you can write to a mock S3 bucket with boto3 and read it back via
+aiobotocore or aioboto3 in the same process.
+
+## Supported today
+
+- `mock_aws()` usable as `with` or `async with`, guarding against real HTTP requests.
+- Actively exercised in tests: S3 (CRUD + listings + streaming reads), DynamoDB
+  (create/describe/put/get), Secrets Manager, SES, SNS, SQS, KMS, STS, Lambda, Events,
+  Kafka/MSK, and s3fs async integration — all sharing one Moto backend between sync
+  boto3/botocore and async aiobotocore/aioboto3 clients.
+- Other Moto services often work out of the box through the same patch layer; if you
+  hit a service-specific gap, open an issue with a minimal repro so we can add a
+  focused slice.
+
+For the evolving project roadmap, see the wiki: <https://github.com/owenlamont/aiomoto/wiki/Roadmap>
+
+## Motivation
+
+Like many others I've wanted to use Moto with aiobotocore and aioboto3 but found that
+wasn't supported, see:
+
+- <https://github.com/getmoto/moto/issues/2039>
+- <https://github.com/getmoto/moto/issues/8694>
+
+The primary motivation for attempting to create an aiomoto repo came from this issue
+<https://github.com/getmoto/moto/issues/8513>
+which states aiobotocore support is out of scope for moto and the current primary moto
+maintainer suggested creating an aiomoto repo.
+
+## Related Work
+
+<https://github.com/dazza-codes/pytest-aiomoto> was an earlier attempt at this but not
+really maintained now.
+
+There is discussion on aiobotocore repo about moto support here
+<https://github.com/aio-libs/aiobotocore/discussions/1300>
+
+Both the above approaches as far as I'm aware rely on the Moto's
+[server mode](https://docs.getmoto.org/en/latest/docs/server_mode.html) which I don't
+want to use (mainly as I found server mode was slower than other local AWS services
+like dynamodb-local in-memory and I also wanted to run tests in parallel without
+worrying about port clashes or race conditions). In short I don't want any server and I
+want aiomoto to support the moto like mock contexts in the same thread / process as the
+tests run in.
+
+## Installation
+
+```bash
+pip install aiomoto
+```
+
+aiomoto exposes the same Moto service extras, so you can install Moto plus the
+dependencies required for the specific AWS services you use (for example
+`aiomoto[s3]`, `aiomoto[dynamodb]`, or `aiomoto[all]`). Moto's extras are
+service selectors for dependency sets (use `moto[all]` if you want everything),
+rather than features provided by aiomoto itself. See the Moto install guide:
+[Moto install guide](https://docs.getmoto.org/en/latest/docs/getting_started.html)
+
+aiomoto-specific extras like `pandas` and `polars` behave like standard optional
+dependencies, adding those libraries and their support stack on top of Moto.
+
+Server mode requires Moto's server extra:
+
+```bash
+pip install "aiomoto[server]"
+```
+
+Pandas and Polars integrations are optional extras that add their own
+dependencies:
+
+```bash
+pip install "aiomoto[pandas]"
+pip install "aiomoto[polars]"
+```
+
+## Usage
+
+Use `aiomoto.mock_aws` as a drop-in replacement for Moto's `mock_aws` that works
+with both synchronous boto3/botocore clients and asynchronous aiobotocore/aioboto3
+clients in the same process. It supports `with` and `async with` (and can decorate
+sync/async callables).
+
+### Use as a decorator
+
+Use `@mock_aws` as a decorator when you want Moto started/stopped for the span of
+a test function. Both sync and async callables are supported; omit parentheses
+when you are not passing arguments (they remain optional to match Moto’s examples).
+`mock_aws_decorator`
+is also exported for teams that prefer an explicitly decorator-only name (or want
+to preconfigure `reset` / `remove_data` once and reuse it) while leaving `mock_aws`
+for context-manager usage.
+
+```python
+import boto3
+from aiobotocore.session import AioSession
+from aiomoto import mock_aws, mock_aws_decorator
+
+
+@mock_aws
+def test_sync_bucket() -> None:
+    client = boto3.client("s3", region_name="us-east-1")
+    client.create_bucket(Bucket="decorator-demo")
+
+
+@mock_aws_decorator
+async def test_async_bucket() -> None:
+    async with AioSession().create_client("s3", region_name="us-east-1") as client:
+        await client.create_bucket(Bucket="decorator-demo")
+```
+
+### Use as a context manager
+
+```python
+import boto3
+from aiobotocore.session import AioSession
+from aiomoto import mock_aws
+
+async def demo():
+    async with mock_aws():
+        s3_sync = boto3.client("s3", region_name="us-east-1")
+        s3_sync.create_bucket(Bucket="example")
+
+        session = AioSession()
+        async with session.create_client("s3", region_name="us-east-1") as s3_async:
+            result = await s3_async.list_buckets()
+            assert any(b["Name"] == "example" for b in result["Buckets"])
+```
+
+While aiomoto is active in in-process mode it prevents aiobotocore from issuing real
+HTTP calls; any attempts fall back to Moto and will raise if they escape the
+stubber. Avoid mixing raw Moto decorators with aiomoto contexts in the same test to
+keep state aligned.
+
+> aiomoto defaults to Moto’s **in-process** mode. Use
+> `mock_aws(server_mode=True)` to run a local Moto server without in-process
+> patches. In server mode, set `auto_endpoint` to control endpoint injection:
+> `force` (default), `if_missing`, or `disabled`. Moto proxy mode remains
+> unsupported. Server mode needs `moto[server]` installed.
+>
+> Server mode is typically slower than in-process mode, but it enables
+> compatibility with Pandas and Polars S3 I/O (and other tooling that expects a
+> real endpoint).
+
+Server mode can also attach to an existing server by passing a `server_port`.
+This keeps the context in “client mode” (no server start/stop) while still
+injecting the endpoint. When aiomoto starts a server it records a registry file
+under `AIOMOTO_SERVER_REGISTRY_DIR` and exposes the path via
+`ctx.server_registry_path`.
+
+Registry files use the pattern
+`${AIOMOTO_SERVER_REGISTRY_DIR}/aiomoto-server-<uuid>.json`
+and contain payloads like:
+
+```json
+{
+  "endpoint": "http://127.0.0.1:12345",
+  "host": "127.0.0.1",
+  "pid": 1234,
+  "port": 12345
+}
+```
+
+Registry entries older than 24 hours are treated as stale and cleaned up when a
+new server is started.
+
+### Server mode example
+
+```python
+import boto3
+from aiomoto import AutoEndpointMode, mock_aws
+
+
+def test_server_mode_force() -> None:
+    with mock_aws(server_mode=True) as ctx:
+        client = boto3.client("s3")
+        assert client.meta.endpoint_url == ctx.server_endpoint
+        client.create_bucket(Bucket="server-mode")
+
+
+def test_server_mode_if_missing() -> None:
+    with mock_aws(server_mode=True, auto_endpoint=AutoEndpointMode.IF_MISSING):
+        client = boto3.client("s3", endpoint_url="http://example.com")
+        assert client.meta.endpoint_url == "http://example.com"
+
+
+def test_server_mode_disabled() -> None:
+    with mock_aws(server_mode=True, auto_endpoint=AutoEndpointMode.DISABLED) as ctx:
+        client = boto3.client("s3", endpoint_url=ctx.server_endpoint)
+        client.create_bucket(Bucket="server-mode-explicit")
+
+
+def test_server_mode_attach() -> None:
+    with mock_aws(server_mode=True) as server:
+        port = server.server_port
+        assert port is not None
+        # In another process, pass server_port to reuse the existing server.
+        with mock_aws(server_mode=True, server_port=port) as client:
+            assert client.server_endpoint == server.server_endpoint
+```
+
+### Pandas S3 in server mode
+
+```python
+import boto3
+import pandas as pd
+from aiomoto import mock_aws
+
+
+def test_pandas_server_mode_csv() -> None:
+    df = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+    path = "s3://pandas-bucket/data.csv"
+
+    with mock_aws(server_mode=True):
+        boto3.client("s3").create_bucket(Bucket="pandas-bucket")
+        # aiomoto patches pandas + fsspec/s3fs so s3:// routes to Moto.
+        df.to_csv(path, index=False)
+        result = pd.read_csv(path)
+
+    assert result.equals(df)
+```
+
+Requires pandas + fsspec + s3fs for S3 access (pyarrow for parquet). You can
+install the pinned pandas extra via `aiomoto[pandas]`.
+
+### s3fs example
+
+```python
+import s3fs
+from aiomoto import mock_aws
+
+
+def test_s3fs_sync_usage() -> None:
+    with mock_aws():
+        fs = s3fs.S3FileSystem(asynchronous=False, anon=False)
+        fs.call_s3("create_bucket", Bucket="bucket-123")
+        fs.call_s3("put_object", Bucket="bucket-123", Key="test.txt", Body=b"hi")
+        assert fs.cat("bucket-123/test.txt") == b"hi"
+```
+
+### DynamoDB example
+
+```python
+import boto3
+from aiobotocore.session import AioSession
+from aiomoto import mock_aws
+
+AWS_REGION = "us-west-2"
+
+async def demo():
+    with mock_aws():
+        # Sync write
+        ddb_sync = boto3.client("dynamodb", region_name=AWS_REGION)
+        ddb_sync.create_table(
+            TableName="items",
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
+        ddb_sync.put_item(TableName="items", Item={"pk": {"S": "from-sync"}})
+
+        # Async read (aiobotocore)
+        async with AioSession().create_client(
+            "dynamodb", region_name=AWS_REGION
+        ) as ddb_async:
+            item = await ddb_async.get_item(
+                TableName="items", Key={"pk": {"S": "from-sync"}}
+            )
+            assert item["Item"]["pk"]["S"] == "from-sync"
+```
+
+## Roadmap
+
+The living roadmap sits in the wiki [Roadmap](https://github.com/owenlamont/aiomoto/wiki/Roadmap)
+
+## Limitations
+
+- Mixing raw Moto decorators with `aiomoto.mock_aws` in the same test is unsupported;
+  the contexts manage shared state differently and can diverge.
+- aiomoto wraps moto and patches aiobotocore; aioboto3 and s3fs should be covered
+  automatically as they use aiobotocore clients/resources.
+- We keep version ranges narrow and tested together, if you notice a new version of
+  aiobotocore or moto that doesn't get covered feel free to raise an issue for this.
+- s3fs caches filesystem instances; create them inside `mock_aws` and close them so
+  finalizers don’t hit a closed or different event loop.
+- Pandas S3 I/O: in server mode, aiomoto patches pandas to route `s3://` through
+  fsspec/s3fs when those dependencies are installed.
+- Polars S3 I/O is patched in server mode when polars is installed; aiomoto
+  injects `storage_options` for `s3://` paths following the `auto_endpoint` mode.

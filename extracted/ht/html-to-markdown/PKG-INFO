@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: html-to-markdown
-Version: 2.26.3
+Version: 2.27.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -51,7 +51,7 @@ Project-URL: Repository, https://github.com/kreuzberg-dev/html-to-markdown.git
     <img src="https://img.shields.io/maven-central/v/dev.kreuzberg/html-to-markdown?label=Java&color=007ec6" alt="Java">
   </a>
   <a href="https://pkg.go.dev/github.com/kreuzberg-dev/html-to-markdown/packages/go/v2/htmltomarkdown">
-    <img src="https://img.shields.io/badge/Go-v2.26.1-007ec6" alt="Go">
+    <img src="https://img.shields.io/badge/Go-v2.27.1-007ec6" alt="Go">
   </a>
   <a href="https://www.nuget.org/packages/KreuzbergDev.HtmlToMarkdown/">
     <img src="https://img.shields.io/nuget/v/KreuzbergDev.HtmlToMarkdown?label=C%23&color=007ec6" alt="C#">
@@ -200,7 +200,7 @@ Extract base64-encoded inline images with metadata.
 - `wrap_width`: Wrap at column — default: `80`
 - `code_language`: Default fenced code block language — default: none
 - `extract_metadata`: Embed metadata as YAML frontmatter — default: `false`
-- `output_format`: Output markup format (`"markdown"` | `"djot"`) — default: `"markdown"`
+- `output_format`: Output markup format (`"markdown"` | `"djot"` | `"plain"`) — default: `"markdown"`
 
 **`MetadataConfig`** – Selective metadata extraction:
 - `extract_headers`: h1-h6 elements — default: `true`
@@ -245,6 +245,24 @@ djot = convert(html, ConversionOptions(output_format="djot"))
 
 
 Djot's extended syntax allows you to express more semantic meaning in lightweight text, making it useful for documents that require strikethrough, insertion tracking, or mathematical notation.
+
+
+## Plain Text Output
+
+Set `output_format` to `"plain"` to strip all markup and return only visible text. This bypasses the Markdown conversion pipeline entirely for maximum speed.
+
+
+```python
+from html_to_markdown import convert, ConversionOptions
+
+html = "<h1>Title</h1><p>This is <strong>bold</strong> and <em>italic</em> text.</p>"
+
+plain = convert(html, ConversionOptions(output_format="plain"))
+# Result: "Title\n\nThis is bold and italic text."
+```
+
+
+Plain text mode is useful for search indexing, text extraction, and feeding content to LLMs.
 
 
 

@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Base template for the Polars Cloud worker role
+Resources:
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Role under which the Polars worker run
+      ManagedPolicyArns:
+        - !Ref WorkerRolePolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: ec2.amazonaws.com
+      Path: /
+      Tags:
+        - Key: Polars
+          Value: True
+  WorkerRoleInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref WorkerRole
+  WorkerRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: IAM Policy document describing the permissions used by the Polars Cloud worker in the account
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:DescribeTags
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:PutObject
+            Resource: "*"
+      Path: /
+Outputs:
+  WorkerRoleArn:
+    Value: !GetAtt WorkerRole.Arn
+    Export:
+      Name: BaseWorkerRole
+  WorkerRoleInstanceProfileArn:
+    Value: !GetAtt WorkerRoleInstanceProfile.Arn

@@ -1,0 +1,1189 @@
+"""clients.patent_data - Client for USPTO patent data API.
+
+This module provides a client for interacting with the USPTO Patent Data API.
+It allows you to search for and retrieve patent application data.
+"""
+
+import warnings
+from collections.abc import Iterator
+from typing import Any
+
+from pyUSPTO.clients.base import BaseUSPTOClient
+from pyUSPTO.config import USPTOConfig
+from pyUSPTO.exceptions import FormatNotAvailableError
+from pyUSPTO.models.patent_data import (
+    ApplicationContinuityData,
+    ApplicationMetaData,
+    Assignment,
+    Document,
+    DocumentBag,
+    DocumentMimeType,
+    EventData,
+    ForeignPriority,
+    PatentDataResponse,
+    PatentFileWrapper,
+    PatentTermAdjustmentData,
+    PrintedMetaData,
+    PrintedPublication,
+    RecordAttorney,
+    StatusCodeSearchResponse,
+)
+from pyUSPTO.warnings import USPTODataMismatchWarning
+
+
+class PatentDataClient(BaseUSPTOClient[PatentDataResponse]):
+    """Client for interacting with the USPTO Patent Data API."""
+
+    ENDPOINTS = {
+        "search_applications": "api/v1/patent/applications/search",
+        "get_search_results": "api/v1/patent/applications/search/download",
+        "get_application_by_number": "api/v1/patent/applications/{application_number}",
+        "get_application_metadata": "api/v1/patent/applications/{application_number}/meta-data",
+        "get_application_adjustment": "api/v1/patent/applications/{application_number}/adjustment",
+        "get_application_assignment": "api/v1/patent/applications/{application_number}/assignment",
+        "get_application_attorney": "api/v1/patent/applications/{application_number}/attorney",
+        "get_application_continuity": "api/v1/patent/applications/{application_number}/continuity",
+        "get_application_foreign_priority": "api/v1/patent/applications/{application_number}/foreign-priority",
+        "get_application_transactions": "api/v1/patent/applications/{application_number}/transactions",
+        "get_application_documents": "api/v1/patent/applications/{application_number}/documents",
+        "get_application_associated_documents": "api/v1/patent/applications/{application_number}/associated-documents",
+        "download_application_document": "api/v1/download/applications/{application_number}/{document_id}",
+        "status_codes": "api/v1/patent/status-codes",
+    }
+
+    def __init__(
+        self,
+        config: USPTOConfig | None = None,
+        base_url: str | None = None,
+    ):
+        """Initialize the PatentDataClient.
+
+        Args:
+            config: USPTOConfig instance containing API key and settings. If not provided,
+                creates config from environment variables (requires USPTO_API_KEY).
+            base_url: Optional base URL override for the USPTO Patent Data API.
+                If not provided, uses config.patent_data_base_url or default.
+        """
+        # Use provided config or create from environment
+        if config is None:
+            self.config = USPTOConfig.from_env()
+        else:
+            self.config = config
+
+        # Determine effective base URL
+        effective_base_url = (
+            base_url or self.config.patent_data_base_url or "https://api.uspto.gov"
+        )
+
+        # Initialize base client
+        super().__init__(
+            base_url=effective_base_url,
+            config=self.config,
+        )
+
+    def sanitize_application_number(self, input_number: str) -> str:
+        """Sanitize and validate a USPTO application number.
+
+        Application numbers are either:
+        - 8 digits (e.g., "16123456")
+        - Series code format: 2 digits + "/" + 6 digits (e.g., "08/123456")
+        - PCT format: "PCT/US2024/012345" → "PCTUS2412345"
+
+        This method removes common separators (commas, spaces) while preserving
+        the "/" in series code format.
+
+        Args:
+            input_number: Raw application number input. May include commas,
+                spaces, or other formatting.
+
+        Returns:
+            str: Sanitized application number (either "NNNNNNNN" or "NN/NNNNNN").
+
+        Raises:
+            ValueError: If the format is invalid.
+
+        Examples:
+            >>> client.sanitize_application_number("16123456")
+            "16123456"
+            >>> client.sanitize_application_number("16,123,456")
+            "16123456"
+            >>> client.sanitize_application_number("08/123456")
+            "08/123456"
+            >>> client.sanitize_application_number("08/123,456")
+            "08/123456"
+        """
+        if not input_number or not input_number.strip():
+            raise ValueError("Application number cannot be empty")
+
+        raw = input_number.strip()
+
+        # --- NEW: Handle PCT formats ---
+        # Example: "PCT/US2024/012345" -> "PCTUS2412345"
+        if raw.startswith("PCT"):
+            parts = raw.split("/")
+            if len(parts) != 3:
+                raise ValueError(
+                    f"Invalid PCT application format: {input_number}. "
+                    "Expected PCT/CCYYYY/NNNNNN"
+                )
+
+            _, country_year, serial = parts
+
+            # country_year can be "US2024" or "US24"
+            country = country_year[:2]
+
+            year_part = country_year[2:]
+            if not year_part.isdigit():
+                raise ValueError(
+                    f"Invalid PCT year in: {country_year}. Must be digits."
+                )
+
+            # Normalize:
+            # "2024" -> "24"
+            # "24"   -> "24"
+            if len(year_part) == 4:
+                year = year_part[-2:]
+            elif len(year_part) == 2:
+                year = year_part
+            else:
+                raise ValueError(
+                    f"Invalid PCT year length in: {country_year}. "
+                    "Expected CCYYYY or CCYY."
+                )
+
+            # Serial must be digits only
+            if not serial.isdigit():
+                raise ValueError(f"Invalid PCT serial: {serial}. Must be numeric.")
+
+            return f"PCT{country}{year}{serial}"
+
+        # Strip whitespace and remove commas/spaces
+        cleaned = raw.replace(",", "").replace(" ", "")
+
+        # Check if this is series code format (NN/NNNNNN)
+        if "/" in cleaned:
+            parts = cleaned.split("/")
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid application number format: {input_number}. "
+                    "Expected format: NNNNNNNN or NN/NNNNNN"
+                )
+
+            series, serial = parts
+            if not series.isdigit() or not serial.isdigit():
+                raise ValueError(
+                    f"Invalid application number format: {input_number}. "
+                    "Series and serial must be numeric."
+                )
+
+            if len(series) != 2 or len(serial) != 6:
+                raise ValueError(
+                    f"Invalid application number format: {input_number}. "
+                    "Expected series code format: NN/NNNNNN (2 digits / 6 digits)"
+                )
+
+            return cleaned
+
+        # Standard 8-digit format
+        if not cleaned.isdigit():
+            raise ValueError(
+                f"Invalid application number format: {input_number}. "
+                "Must contain only digits."
+            )
+
+        if len(cleaned) != 8:
+            raise ValueError(
+                f"Invalid application number format: {input_number}. Expected 8 digits."
+            )
+
+        return cleaned
+
+    def _get_wrapper_from_response(
+        self,
+        response_data: PatentDataResponse,
+        application_number_for_validation: str | None = None,
+    ) -> PatentFileWrapper | None:
+        """Extract a single PatentFileWrapper, optionally validating the app number."""
+        if not response_data or not response_data.patent_file_wrapper_data_bag:
+            return None
+
+        wrapper = response_data.patent_file_wrapper_data_bag[0]
+
+        if (
+            application_number_for_validation
+            and wrapper.application_number_text
+            != self.sanitize_application_number(application_number_for_validation)
+        ):
+            warnings.warn(
+                f"API returned application number '{wrapper.application_number_text}' "
+                f"but requested '{application_number_for_validation}'. "
+                f"This may indicate an API data inconsistency.",
+                USPTODataMismatchWarning,
+                stacklevel=2,
+            )
+        return wrapper
+
+    def search_applications(
+        self,
+        query: str | None = None,
+        sort: str | None = None,
+        offset: int | None = 0,
+        limit: int | None = 25,
+        facets: str | None = None,
+        fields: str | None = None,
+        filters: str | None = None,
+        range_filters: str | None = None,
+        post_body: dict[str, Any] | None = None,
+        application_number_q: str | None = None,
+        patent_number_q: str | None = None,
+        inventor_name_q: str | None = None,
+        applicant_name_q: str | None = None,
+        assignee_name_q: str | None = None,
+        filing_date_from_q: str | None = None,
+        filing_date_to_q: str | None = None,
+        grant_date_from_q: str | None = None,
+        grant_date_to_q: str | None = None,
+        classification_q: str | None = None,
+        earliestPublicationNumber_q: str | None = None,
+        pctPublicationNumber_q: str | None = None,
+        additional_query_params: dict[str, Any] | None = None,
+    ) -> PatentDataResponse:
+        """Search for patent applications.
+
+        Can perform a GET request based on OpenAPI query parameters or a POST request if post_body is specified.
+        """
+        endpoint = self.ENDPOINTS["search_applications"]
+
+        if post_body is not None:
+            result = self._make_request(
+                method="POST",
+                endpoint=endpoint,
+                json_data=post_body,
+                params=additional_query_params,
+                response_class=PatentDataResponse,
+            )
+        else:
+            params: dict[str, Any] = {}
+            final_q = query
+
+            if final_q is None:
+                q_parts = []
+                if application_number_q:
+                    q_parts.append(f"applicationNumberText:{application_number_q}")
+                if patent_number_q:
+                    q_parts.append(
+                        f"applicationMetaData.patentNumber:{patent_number_q}"
+                    )
+                if inventor_name_q:
+                    v = (
+                        f'"{inventor_name_q}"'
+                        if " " in inventor_name_q
+                        else inventor_name_q
+                    )
+                    q_parts.append(
+                        f"applicationMetaData.inventorBag.inventorNameText:{v}"
+                    )
+                if applicant_name_q:
+                    v = (
+                        f'"{applicant_name_q}"'
+                        if " " in applicant_name_q
+                        else applicant_name_q
+                    )
+                    q_parts.append(f"applicationMetaData.firstApplicantName:{v}")
+                if assignee_name_q:
+                    v = (
+                        f'"{assignee_name_q}"'
+                        if " " in assignee_name_q
+                        else assignee_name_q
+                    )
+                    q_parts.append(f"assignmentBag.assigneeBag.assigneeNameText:{v}")
+                if classification_q:
+                    q_parts.append(
+                        f"applicationMetaData.cpcClassificationBag:{classification_q}"
+                    )
+                if earliestPublicationNumber_q:
+                    q_parts.append(
+                        f"applicationMetaData.earliestPublicationNumber:{earliestPublicationNumber_q}"
+                    )
+                if pctPublicationNumber_q:
+                    q_parts.append(
+                        f"applicationMetaData.pctPublicationNumber:{pctPublicationNumber_q}"
+                    )
+                if filing_date_from_q and filing_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:[{filing_date_from_q} TO {filing_date_to_q}]"
+                    )
+                elif filing_date_from_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:>={filing_date_from_q}"
+                    )
+                elif filing_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:<={filing_date_to_q}"
+                    )
+
+                if grant_date_from_q and grant_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.grantDate:[{grant_date_from_q} TO {grant_date_to_q}]"
+                    )
+                elif grant_date_from_q:
+                    q_parts.append(
+                        f"applicationMetaData.grantDate:>={grant_date_from_q}"
+                    )
+                elif grant_date_to_q:
+                    q_parts.append(f"applicationMetaData.grantDate:<={grant_date_to_q}")
+
+                if q_parts:
+                    final_q = " AND ".join(q_parts)
+
+            if final_q is not None:
+                params["q"] = final_q
+            if sort is not None:
+                params["sort"] = sort
+            if offset is not None:
+                params["offset"] = offset
+            if limit is not None:
+                params["limit"] = limit
+            if facets is not None:
+                params["facets"] = facets
+            if fields is not None:
+                params["fields"] = fields
+            if filters is not None:
+                params["filters"] = filters
+            if range_filters is not None:
+                params["rangeFilters"] = range_filters
+
+            if additional_query_params:
+                params.update(additional_query_params)
+            result = self._make_request(
+                method="GET",
+                endpoint=endpoint,
+                params=params,
+                response_class=PatentDataResponse,
+            )
+        assert isinstance(result, PatentDataResponse)
+        return result
+
+    def get_search_results(
+        self,
+        query: str | None = None,
+        sort: str | None = None,
+        offset: int | None = 0,
+        limit: int | None = 25,
+        fields_param: str | None = None,
+        filters_param: str | None = None,
+        range_filters_param: str | None = None,
+        post_body: dict[str, Any] | None = None,
+        application_number_q: str | None = None,
+        patent_number_q: str | None = None,
+        inventor_name_q: str | None = None,
+        applicant_name_q: str | None = None,
+        assignee_name_q: str | None = None,
+        filing_date_from_q: str | None = None,
+        filing_date_to_q: str | None = None,
+        grant_date_from_q: str | None = None,
+        grant_date_to_q: str | None = None,
+        classification_q: str | None = None,
+        additional_query_params: dict[str, Any] | None = None,
+    ) -> list[ApplicationMetaData]:
+        """Fetch a dataset of patent applications based on search criteria, always requesting JSON format.
+
+        For GET, parameters align with OpenAPI for /api/v1/patent/applications/search/download.
+        For POST, post_body should conform to PatentDownloadRequest schema.
+        """
+        endpoint = self.ENDPOINTS["get_search_results"]
+
+        if post_body is not None:
+            if "format" not in post_body:
+                post_body["format"] = "json"
+
+            result = self._make_request(
+                method="POST",
+                endpoint=endpoint,
+                json_data=post_body,
+                params=additional_query_params,
+            )
+        else:
+            params: dict[str, Any] = {}
+            final_q = query
+
+            if final_q is None:
+                q_parts = []
+                if application_number_q:
+                    q_parts.append(f"applicationNumberText:{application_number_q}")
+                if patent_number_q:
+                    q_parts.append(
+                        f"applicationMetaData.patentNumber:{patent_number_q}"
+                    )
+                if inventor_name_q:
+                    v = (
+                        f'"{inventor_name_q}"'
+                        if " " in inventor_name_q
+                        else inventor_name_q
+                    )
+                    q_parts.append(
+                        f"applicationMetaData.inventorBag.inventorNameText:{v}"
+                    )
+                if applicant_name_q:
+                    v = (
+                        f'"{applicant_name_q}"'
+                        if " " in applicant_name_q
+                        else applicant_name_q
+                    )
+                    q_parts.append(f"applicationMetaData.firstApplicantName:{v}")
+                if assignee_name_q:
+                    v = (
+                        f'"{assignee_name_q}"'
+                        if " " in assignee_name_q
+                        else assignee_name_q
+                    )
+                    q_parts.append(f"assignmentBag.assigneeBag.assigneeNameText:{v}")
+                if classification_q:
+                    q_parts.append(
+                        f"applicationMetaData.cpcClassificationBag:{classification_q}"
+                    )
+
+                if filing_date_from_q and filing_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:[{filing_date_from_q} TO {filing_date_to_q}]"
+                    )
+                elif filing_date_from_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:>={filing_date_from_q}"
+                    )
+                elif filing_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.filingDate:<={filing_date_to_q}"
+                    )
+
+                if grant_date_from_q and grant_date_to_q:
+                    q_parts.append(
+                        f"applicationMetaData.grantDate:[{grant_date_from_q} TO {grant_date_to_q}]"
+                    )
+                elif grant_date_from_q:
+                    q_parts.append(
+                        f"applicationMetaData.grantDate:>={grant_date_from_q}"
+                    )
+                elif grant_date_to_q:
+                    q_parts.append(f"applicationMetaData.grantDate:<={grant_date_to_q}")
+
+                if q_parts:
+                    final_q = " AND ".join(q_parts)
+
+            if final_q is not None:
+                params["q"] = final_q
+            if sort is not None:
+                params["sort"] = sort
+            if offset is not None:
+                params["offset"] = offset
+            if limit is not None:
+                params["limit"] = limit
+            if fields_param is not None:
+                params["fields"] = fields_param
+            if filters_param is not None:
+                params["filters"] = filters_param
+            if range_filters_param is not None:
+                params["rangeFilters"] = range_filters_param
+
+            params["format"] = "json"
+
+            if additional_query_params:
+                params.update(additional_query_params)
+
+            result = self._make_request(
+                method="GET",
+                endpoint=endpoint,
+                params=params,
+            )
+        assert isinstance(result, dict)
+        amd_list = [
+            ApplicationMetaData.from_dict(item["applicationMetaData"])
+            for item in result["patentdata"]
+        ]
+        return amd_list
+
+    def get_application_by_number(
+        self, application_number: str
+    ) -> PatentFileWrapper | None:
+        """Retrieve the full details for a specific patent application by its number.
+
+        This method fetches comprehensive information for a single patent application
+        identified by its unique application number.
+
+        Args:
+            application_number (str): The USPTO application number for the patent
+                application (e.g., "16123456" or "18/915,708"). The application
+                number will be automatically sanitized to remove commas and spaces.
+
+        Returns:
+            Optional[PatentFileWrapper]: A `PatentFileWrapper` object representing
+                the complete file wrapper for the application if found. This object
+                contains all data sections related to the application, such as
+                metadata, addresses, assignments, attorney/agent data, continuity
+                data, PTA/PTE data, transactions, and associated documents.
+                Returns None if the application cannot be found or if the response
+                does not contain the expected data.
+        """
+        endpoint = self.ENDPOINTS["get_application_by_number"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        return self._get_wrapper_from_response(
+            response_data=response_data,
+            application_number_for_validation=application_number,
+        )
+
+    def get_application_metadata(
+        self, application_number: str
+    ) -> ApplicationMetaData | None:
+        """Retrieve key metadata for a specific patent application.
+
+        This method fetches the `ApplicationMetaData` component from the full
+        patent file wrapper. The metadata includes a wide range of information
+        such as application status, important dates (filing, grant, publication),
+        applicant and inventor details, classification data, and other core
+        identifying information for the application.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                metadata is being requested (e.g., "16123456" or "18/915,708").
+                The application number will be automatically sanitized.
+
+        Returns:
+            Optional[ApplicationMetaData]: An `ApplicationMetaData` object
+                containing the core details of the patent application if found.
+                Returns None if the application cannot be found or if metadata
+                is not available in the response.
+        """
+        endpoint = self.ENDPOINTS["get_application_metadata"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.application_meta_data if wrapper else None
+
+    def get_application_adjustment(
+        self, application_number: str
+    ) -> PatentTermAdjustmentData | None:
+        """Retrieve patent term adjustment (PTA) data for a specific application.
+
+        This method fetches the `PatentTermAdjustmentData` component from the
+        full patent file wrapper. This data includes details on various delay
+        quantities (e.g., A, B, C delays, applicant delays), the total
+        calculated adjustment, and a history of PTA events that influenced the
+        term.
+
+        Args:
+            application_number (str): The USPTO application number for which PTA
+                data is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[PatentTermAdjustmentData]: A `PatentTermAdjustmentData`
+                object containing the PTA details if the application is found
+                and has such data. Returns None if the application cannot be
+                found or if PTA data is not available in the response.
+        """
+        endpoint = self.ENDPOINTS["get_application_adjustment"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.patent_term_adjustment_data if wrapper else None
+
+    def get_application_assignment(
+        self, application_number: str
+    ) -> list[Assignment] | None:
+        """Retrieve a list of patent assignments for a specific application.
+
+        This method fetches the `assignment_bag` from the patent file wrapper,
+        which contains a list of `Assignment` objects. Each `Assignment` object
+        details an assignment including information such as reel and frame numbers,
+        recording dates, conveyance text, and details about the assignors and assignees.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                assignment data is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[List[Assignment]]: A list of `Assignment` objects, each
+                representing a recorded assignment for the application. Returns
+                None if the application cannot be found, or if no assignment
+                data is available in the response. An empty list may be
+                returned if the application is found but has no recorded
+                assignments.
+        """
+        endpoint = self.ENDPOINTS["get_application_assignment"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.assignment_bag if wrapper else None
+
+    def get_application_attorney(
+        self, application_number: str
+    ) -> RecordAttorney | None:
+        """Retrieve data for the attorney(s) of record for a specific application.
+
+        This method fetches the `RecordAttorney` object associated with the
+        patent application. This object contains details about the attorney(s)
+        of record, including customer number correspondence data, power of attorney
+        information, and a list of listed attorneys.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                attorney data is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[RecordAttorney]: A `RecordAttorney` object with details
+                about the attorney(s) of record if the application is found
+                and such data exists. Returns None if the application cannot
+                be found or if no attorney data is available in the response.
+        """
+        endpoint = self.ENDPOINTS["get_application_attorney"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.record_attorney if wrapper else None
+
+    def get_application_continuity(
+        self, application_number: str
+    ) -> ApplicationContinuityData | None:
+        """Retrieve continuity data (parent/child applications) for a specific application.
+
+        This method fetches the lineage of the specified application, returning an
+        `ApplicationContinuityData` object. This object consolidates lists of
+        `ParentContinuity` (applications to which the current one claims priority)
+        and `ChildContinuity` (applications claiming priority to the current one)
+        objects, each detailing the related application's key identifiers and status.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                continuity data is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[ApplicationContinuityData]: An `ApplicationContinuityData`
+                object containing lists of parent and child continuity relationships.
+                Returns None if the application cannot be found or if the underlying
+                data to construct continuity is not available. The lists within
+                the returned object may be empty if no parent or child continuity
+                links exist.
+        """
+        endpoint = self.ENDPOINTS["get_application_continuity"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return ApplicationContinuityData.from_wrapper(wrapper) if wrapper else None
+
+    def get_application_foreign_priority(
+        self, application_number: str
+    ) -> list[ForeignPriority] | None:
+        """Retrieve a list of foreign priority claims for a specific application.
+
+        This method fetches the `foreign_priority_bag` from the patent file
+        wrapper. This bag contains a list of `ForeignPriority` objects, each
+        representing a claim to a foreign patent application's priority date.
+        Details include the IP office name, filing date, and application number
+        of the foreign priority application.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                foreign priority data is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[List[ForeignPriority]]: A list of `ForeignPriority` objects,
+                each detailing a claimed foreign priority. Returns None if the
+                application cannot be found or if no foreign priority data is
+                available. An empty list may be returned if the application
+                is found but has no foreign priority claims.
+        """
+        endpoint = self.ENDPOINTS["get_application_foreign_priority"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.foreign_priority_bag if wrapper else None
+
+    def get_application_transactions(
+        self, application_number: str
+    ) -> list[EventData] | None:
+        """Retrieve the transaction history (events) for a specific application.
+
+        This method fetches the `event_data_bag` from the patent file wrapper.
+        This bag contains a list of `EventData` objects, each representing a
+        single recorded event in the prosecution history of the patent application.
+        Events include details like an event code, a textual description, and
+        the date the event was recorded.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                transaction history is being requested (e.g., "16123456").
+
+        Returns:
+            Optional[List[EventData]]: A list of `EventData` objects, each
+                detailing a transaction or event in the application's history.
+                Returns None if the application cannot be found or if no
+                transaction data is available. An empty list may be returned if
+                the application is found but has no recorded transaction events.
+        """
+        endpoint = self.ENDPOINTS["get_application_transactions"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return wrapper.event_data_bag if wrapper else None
+
+    def get_application_documents(
+        self,
+        application_number: str,
+        document_codes: list[str] | None = None,
+        official_date_from: str | None = None,
+        official_date_to: str | None = None,
+    ) -> DocumentBag:
+        """Retrieve metadata for documents associated with a specific application.
+
+        This method fetches a collection of document metadata related to the given
+        patent application. The result is a `DocumentBag` object, which is an
+        iterable collection of `Document` instances. Each `Document` object
+        contains metadata such as its identifier, official date, document code
+        and description, direction (incoming/outgoing), and available download
+        formats.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                document metadata is being requested (e.g., "16123456").
+            document_codes (Optional[List[str]]): Filter by specific document type
+                codes. If provided, only documents with these codes will be returned.
+                Examples: ['ABST', 'CLM', 'SPEC', 'DRWD'].
+            official_date_from (Optional[str]): Filter documents from this date
+                (inclusive). Date format: YYYY-MM-DD (e.g., "2020-01-15").
+            official_date_to (Optional[str]): Filter documents to this date
+                (inclusive). Date format: YYYY-MM-DD (e.g., "2023-12-31").
+
+        Returns:
+            DocumentBag: A `DocumentBag` object containing metadata for all
+                publicly available documents associated with the application
+                that match the provided filters. The bag will be empty if no
+                documents are found or if the API response indicates no documents.
+                It does not return None for "not found" cases; an empty collection
+                is returned instead.
+        """
+        endpoint = self.ENDPOINTS["get_application_documents"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+
+        params = {}
+        if document_codes:
+            params["documentCodes"] = ",".join(document_codes)
+        if official_date_from:
+            params["officialDateFrom"] = official_date_from
+        if official_date_to:
+            params["officialDateTo"] = official_date_to
+
+        result_dict = self._make_request(
+            method="GET", endpoint=endpoint, params=params if params else None
+        )
+        assert isinstance(result_dict, dict)
+        return DocumentBag.from_dict(result_dict)
+
+    def get_application_associated_documents(
+        self, application_number: str
+    ) -> PrintedPublication | None:
+        """Retrieve metadata for Pre-Grant Publication and Grant documents.
+
+        This method fetches metadata specifically for published documents associated
+        with the patent application, such as Pre-Grant Publications (PGPUBs)
+        and granted patent documents. It does not retrieve the prosecution
+        history documents (see `get_application_documents` for that).
+        The result is a `PrintedPublication` object, which holds
+        `PrintedMetaData` including file URIs and names. Download with download_archive.
+
+        Args:
+            application_number (str): The USPTO application number for which
+                associated PGPUB/Grant document metadata is being requested
+                (e.g., "16123456").
+
+        Returns:
+            Optional[PrintedPublication]: A `PrintedPublication` object
+                containing `PrintedMetaData` for the Pre-Grant Publication
+                and/or the Grant document, if available. Returns None if the
+                application cannot be found or if no such associated document
+                metadata is available. The fields within the returned object
+                (`pgpub_document_meta_data`, `grant_document_meta_data`)
+                may themselves be None if a particular type of document
+                (e.g., PGPUB) does not exist for the application.
+        """
+        endpoint = self.ENDPOINTS["get_application_associated_documents"].format(
+            application_number=self.sanitize_application_number(application_number)
+        )
+        response_data = self._make_request(
+            method="GET", endpoint=endpoint, response_class=PatentDataResponse
+        )
+        assert isinstance(response_data, PatentDataResponse)
+        wrapper = self._get_wrapper_from_response(response_data, application_number)
+        return PrintedPublication.from_wrapper(wrapper) if wrapper else None
+
+    def paginate_applications(
+        self, post_body: dict[str, Any] | None = None, **kwargs: Any
+    ) -> Iterator[PatentFileWrapper]:
+        """Provide an iterator to easily paginate through patent application search results.
+
+        This method simplifies the process of fetching all patent applications
+        that match a given search query by automatically handling pagination.
+        Supports both GET and POST requests.
+
+        For GET requests, provide search parameters as keyword arguments.
+        For POST requests, provide the search criteria in `post_body`.
+
+        The `offset` and `limit` parameters are managed by the pagination logic;
+        setting them directly in `kwargs` or `post_body` might lead to unexpected behavior.
+
+        Args:
+            post_body: Optional POST body for complex search queries. If provided,
+                performs POST-based pagination.
+            **kwargs: Keyword arguments for GET-based pagination or additional
+                query parameters for POST requests.
+
+        Returns:
+            Iterator[PatentFileWrapper]: An iterator that yields `PatentFileWrapper`
+                objects, allowing iteration over all matching patent applications
+                across multiple pages of results.
+
+        Examples:
+            # GET-based pagination
+            for wrapper in client.paginate_applications(
+                query="applicationNumberText:16*",
+                limit=50
+            ):
+                print(wrapper.application_number_text)
+
+            # POST-based pagination
+            for wrapper in client.paginate_applications(
+                post_body={
+                    "q": "applicationNumberText:16*",
+                    "facets": "true",
+                    "fields": "applicationNumberText,applicationMetaData"
+                }
+            ):
+                print(wrapper.application_number_text)
+        """
+        return self.paginate_results(
+            method_name="search_applications",
+            response_container_attr="patent_file_wrapper_data_bag",
+            post_body=post_body,
+            **kwargs,
+        )
+
+    def get_status_codes(
+        self, params: dict[str, Any] | None = None
+    ) -> StatusCodeSearchResponse:
+        """Retrieve USPTO patent application status codes and their descriptions.
+
+        This method fetches a list of defined USPTO patent application status codes
+        (e.g., codes for "Pending," "Abandoned," "Issued") using a GET request.
+        The request can be customized with query parameters to filter or paginate
+        the results if supported by the API endpoint.
+
+        Args:
+            params (Optional[Dict[str, Any]], optional): A dictionary of query
+                parameters to be sent with the GET request. These parameters can
+                be used to filter or control the output of the status codes
+                list. Defaults to None, which typically retrieves all available
+                status codes or the API's default set.
+
+        Returns:
+            StatusCodeSearchResponse: An object containing a count of matching
+                status codes, a `StatusCodeCollection` of the `StatusCode`
+                objects (code and description), and a request identifier.
+        """
+        result_dict = self._make_request(
+            method="GET", endpoint=self.ENDPOINTS["status_codes"], params=params
+        )
+        assert isinstance(result_dict, dict)
+        return StatusCodeSearchResponse.from_dict(result_dict)
+
+    def search_status_codes(
+        self, search_request: dict[str, Any]
+    ) -> StatusCodeSearchResponse:
+        """Search USPTO patent application status codes using POST criteria.
+
+        Performs targeted searches for USPTO patent application status codes
+        (e.g., for "Pending," "Abandoned," "Issued") by sending a POST request
+        with a JSON body containing the `search_request` criteria. This method
+        is suited for more complex queries than the GET-based `get_status_codes`.
+
+        Args:
+            search_request (Dict[str, Any]): A dictionary with search criteria,
+                sent as the JSON POST body. The structure must conform to USPTO
+                API requirements for this endpoint (e.g., for searching by code
+                or description keywords).
+
+        Returns:
+            StatusCodeSearchResponse: An object containing a count of matching
+                status codes, a `StatusCodeCollection` of the `StatusCode`
+                objects (code and description), and a request identifier.
+        """
+        result_dict = self._make_request(
+            method="POST",
+            endpoint=self.ENDPOINTS["status_codes"],
+            json_data=search_request,
+        )
+        assert isinstance(result_dict, dict)
+        return StatusCodeSearchResponse.from_dict(result_dict)
+
+    def download_document(
+        self,
+        document: Document,
+        format: str | DocumentMimeType = DocumentMimeType.PDF,
+        destination: str | None = None,
+        file_name: str | None = None,
+        overwrite: bool = False,
+    ) -> str:
+        """Download document in specified format.
+
+        Automatically extracts if USPTO sends TAR/ZIP.
+
+        Args:
+            document: Document with document_formats list
+            format: Which format (PDF, XML, MS_WORD). Can be string or DocumentMimeType enum.
+                Defaults to PDF.
+            destination: Directory to save to (default: current directory)
+            file_name: Override filename (default: from Content-Disposition)
+            overwrite: Overwrite existing file
+
+        Returns:
+            Path to downloaded file (extracted if was in archive)
+
+        Raises:
+            FormatNotAvailableError: If format not available for this document.
+                The exception includes `requested_format`, `available_formats`,
+                and `document` attributes for programmatic error handling.
+
+        Example:
+            >>> docs = client.get_application_documents("19312841", document_codes=["CTNF"])
+            >>> path = client.download_document(docs[0], format="XML")
+            >>> # Or using enum:
+            >>> path = client.download_document(docs[0], format=DocumentMimeType.XML)
+        """
+        # Find matching format
+        format_str = format.value if isinstance(format, DocumentMimeType) else format
+
+        doc_format = next(
+            (
+                f
+                for f in document.document_formats
+                if f.mime_type_identifier == format_str
+            ),
+            None,
+        )
+
+        if not doc_format:
+            available = [
+                f.mime_type_identifier
+                for f in document.document_formats
+                if f.mime_type_identifier
+            ]
+            raise FormatNotAvailableError(
+                requested_format=format_str,
+                available_formats=available,
+                document=document,
+            )
+
+        if not doc_format.download_url:
+            raise ValueError("DocumentFormat has no download URL")
+
+        # Download and auto-extract (user wants document, not TAR)
+        return self._download_and_extract(
+            url=doc_format.download_url,
+            destination=destination,
+            file_name=file_name,
+            overwrite=overwrite,
+        )
+
+    def get_IFW_metadata(
+        self,
+        *,
+        application_number: str | None = None,
+        publication_number: str | None = None,
+        patent_number: str | None = None,
+        PCT_app_number: str | None = None,
+        PCT_pub_number: str | None = None,
+    ) -> PatentFileWrapper | None:
+        """Retrieve complete patent file wrapper data using common identifiers.
+
+        This utility fetches the `PatentFileWrapper`, which contains comprehensive
+        IFW metadata, application details, and more. Provide only one
+        identifier if possible. If multiple are given, they are processed in the
+        order listed in the arguments, and the first successful match is returned.
+
+        Args:
+            application_number (Optional[str], optional): USPTO application number
+                (e.g., "16123456"). Checked first (direct lookup).
+            patent_number (Optional[str], optional): USPTO patent number
+                (e.g., "11000000"). Checked second (uses search).
+            publication_number (Optional[str], optional): USPTO pre-grant
+                publication number (e.g., "20230123456"). Checked third (uses search).
+            PCT_app_number (Optional[str], optional): PCT application number.
+                Checked fourth (direct lookup, treated as USPTO app#).
+            PCT_pub_number (Optional[str], optional): PCT publication number
+                (e.g., "2023012345"). Checked fifth (uses search).
+
+        Returns:
+            Optional[PatentFileWrapper]: A `PatentFileWrapper` object with
+                comprehensive data if found using one of the identifiers,
+                otherwise None.
+        """
+        if application_number:
+            return self.get_application_by_number(application_number=application_number)
+        if patent_number:
+            pdr = self.search_applications(patent_number_q=patent_number, limit=1)
+            if pdr.patent_file_wrapper_data_bag:
+                return pdr.patent_file_wrapper_data_bag[0]
+        if publication_number:
+            pdr = self.search_applications(
+                earliestPublicationNumber_q=publication_number, limit=1
+            )
+            if pdr.patent_file_wrapper_data_bag:
+                return pdr.patent_file_wrapper_data_bag[0]
+        if PCT_app_number:
+            return self.get_application_by_number(application_number=PCT_app_number)
+        if PCT_pub_number:
+            pdr = self.search_applications(
+                pctPublicationNumber_q=PCT_pub_number, limit=1
+            )
+            if pdr.patent_file_wrapper_data_bag:
+                return pdr.patent_file_wrapper_data_bag[0]
+        return None
+
+    def download_archive(
+        self,
+        printed_metadata: PrintedMetaData,
+        destination: str | None = None,
+        file_name: str | None = None,
+        overwrite: bool = False,
+    ) -> str:
+        """Download Printed Metadata (XML data).
+
+        These are XML files of the patent as printed. Auto-extracts if the server
+        sends a TAR/ZIP archive.
+
+        Note:
+            See also `download_publication()` for a clearer method name with identical functionality.
+
+        Args:
+            printed_metadata: ArchiveMetaData object containing download URL and metadata
+            destination: Optional directory path to save the file
+            file_name: Optional filename. If not provided, uses Content-Disposition header
+            overwrite: Whether to overwrite existing files. Default False
+
+        Returns:
+            str: Path to the downloaded file (extracted if was in archive)
+
+        Raises:
+            ValueError: If printed_metadata has no download URL
+            FileExistsError: If file exists and overwrite=False
+        """
+        if not printed_metadata.file_location_uri:
+            raise ValueError("PrintedMetaData has no file_location_uri")
+
+        return self._download_and_extract(
+            url=printed_metadata.file_location_uri,
+            destination=destination,
+            file_name=file_name,
+            overwrite=overwrite,
+        )
+
+    def download_publication(
+        self,
+        printed_metadata: PrintedMetaData,
+        destination: str | None = None,
+        file_name: str | None = None,
+        overwrite: bool = False,
+    ) -> str:
+        """Download a publication XML file (grant or pre-grant publication).
+
+        This method downloads publication XML files from PrintedMetaData objects,
+        such as grant documents or pre-grant publications (pgpub). Auto-extracts
+        if the server sends a TAR/ZIP archive.
+
+        Args:
+            printed_metadata: PrintedMetaData object containing the publication
+                download URL and filename information. Typically obtained from
+                `get_application_associated_documents()` or from PatentFileWrapper's
+                `grant_document_meta_data` or `pg_publication_document_meta_data`.
+            destination: Optional directory path where the file should be saved.
+                If not provided, saves to the current directory. The directory will
+                be created if it doesn't exist.
+            file_name: Optional custom filename. If not provided, uses the
+                `xml_file_name` from the metadata (e.g., "18915708_12307527.xml").
+            overwrite: Whether to overwrite an existing file at the destination.
+                Default is False, which raises FileExistsError if file exists.
+
+        Returns:
+            str: Absolute path to the downloaded publication file (extracted if was in archive).
+
+        Raises:
+            ValueError: If printed_metadata has no file_location_uri (download URL).
+            FileExistsError: If the file already exists and overwrite=False.
+
+        Examples:
+            Download grant XML to a specific directory (auto-filename):
+
+            >>> response = client.get_application_by_number("18/915,708")
+            >>> ifw = response
+            >>> grant_metadata = ifw.grant_document_meta_data
+            >>> path = client.download_publication(grant_metadata, destination="./downloads")
+            >>> print(path)
+            './downloads/18915708_12307527.xml'
+
+            Download pgpub XML with custom filename:
+
+            >>> pgpub_metadata = ifw.pg_publication_document_meta_data
+            >>> path = client.download_publication(
+            ...     pgpub_metadata,
+            ...     file_name="my_publication.xml",
+            ...     destination="./downloads"
+            ... )
+            >>> print(path)
+            './downloads/my_publication.xml'
+
+            Download to current directory:
+
+            >>> path = client.download_publication(grant_metadata)
+            >>> print(path)
+            './18915708_12307527.xml'
+        """
+        if not printed_metadata.file_location_uri:
+            raise ValueError("PrintedMetaData has no file_location_uri")
+
+        return self._download_and_extract(
+            url=printed_metadata.file_location_uri,
+            destination=destination,
+            file_name=file_name,
+            overwrite=overwrite,
+        )

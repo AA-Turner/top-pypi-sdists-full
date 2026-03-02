@@ -195,7 +195,9 @@ class Content(Visual):
 
     @cached_property
     def markup(self) -> str:
-        """Get content markup to render this Text.
+        """Get the content markup that would create this Content instance.
+
+        This is essentially the inverse of [`Content.from_markup`][textual.content.Content.from_markup].
 
         Returns:
             str: A string potentially creating markup tags.

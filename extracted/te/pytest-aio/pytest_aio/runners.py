@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import asyncio
+from abc import ABCMeta, abstractmethod
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import copy_context
+from typing import Any, Awaitable, Callable, Generator
+
+from .utils import AsyncioContextTask, curio, trio
+
+TCoroutineFn = Callable[..., Awaitable]
+
+
+class AIORunner(metaclass=ABCMeta):
+    def __init__(self, **params):
+        self.ctx = copy_context()
+
+    @abstractmethod
+    def close(self):
+        """Close the runner."""
+
+    @abstractmethod
+    def run(self, coro: Awaitable):
+        """Run the given coroutine function."""
+
+    def __enter__(self) -> AIORunner:
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+try:
+    from asyncio import Runner as AsyncioRunner  # type: ignore[attr-defined]
+# py310
+except ImportError:
+
+    class AsyncioRunner(AIORunner):  # type: ignore[no-redef]
+        def __init__(self, debug: bool = False, loop_factory: Callable | None = None):
+            super().__init__()
+            if loop_factory:
+                self._loop = loop_factory()
+
+            else:
+                asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())  # type: ignore[attr-defined]
+                self._loop = asyncio.new_event_loop()
+
+            self._loop.set_debug(debug)
+            asyncio.set_event_loop(self._loop)
+
+        def run(self, coro: Awaitable):
+            task = AsyncioContextTask(coro, self.ctx, self._loop)
+            return self._loop.run_until_complete(task)
+
+        def close(self):
+            """Close remaining tasks."""
+            try:
+                tasks = asyncio.all_tasks(self._loop)
+                if not tasks:
+                    return
+
+                for task in tasks:
+                    task.cancel()
+
+                asyncio.set_event_loop(self._loop)
+                self._loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+
+                for task in tasks:
+                    if task.cancelled():
+                        continue
+
+                    exc = task.exception()
+                    if exc is not None:
+                        raise exc
+            finally:
+                asyncio.set_event_loop(None)
+                self._loop.close()
+
+
+class CurioRunner(AIORunner):
+    def __init__(self, **params):
+        if curio is None:
+            raise RuntimeError("Curio is not installed.")
+
+        super(CurioRunner, self).__init__()
+
+        self._kernel = curio.Kernel(**params)
+
+    def close(self):
+        self._kernel.run(shutdown=True)
+
+    def run(self, coro: Awaitable):
+        async def helper():
+            return await coro
+
+        return self.ctx.run(self._kernel.run, helper)
+
+
+class TrioRunner(AIORunner):
+    @asynccontextmanager
+    async def run_context(self):
+        yield
+
+    def __init__(self, trio_asyncio=False, **params):
+        if trio is None:
+            raise RuntimeError("Trio is not installed.")
+
+        super(TrioRunner, self).__init__()
+        self.params = params
+
+        if trio_asyncio:
+            import trio_asyncio as asyncio_trio  # type: ignore[import-untyped]
+
+            self.run_context = asyncio_trio.open_loop  # type: ignore
+
+    def close(self):
+        pass
+
+    def run(self, coro: Awaitable):
+        from sniffio import current_async_library_cvar
+
+        async def helper():
+            assert trio, "Trio is not available"
+            trio.lowlevel.current_task().context = self.ctx
+            await trio.sleep(0)
+            token = current_async_library_cvar.set("trio")  # type: ignore
+            async with self.run_context():
+                res = await coro
+            current_async_library_cvar.reset(token)
+            return res
+
+        assert trio, "Trio is not available"
+        return trio.run(helper, **self.params)
+
+
+CURRENT_RUNNER = None
+
+
+@contextmanager
+def get_runner(aiolib: str, **params) -> Generator[AIORunner | AsyncioRunner, Any, None]:
+    global CURRENT_RUNNER
+    if CURRENT_RUNNER:
+        yield CURRENT_RUNNER
+        return
+
+    Runner: type[AIORunner | AsyncioRunner] = AsyncioRunner
+
+    if aiolib.startswith("trio"):
+        Runner = TrioRunner
+
+    elif aiolib.startswith("curio"):
+        Runner = CurioRunner
+
+    try:
+        with Runner(**params) as runner:
+            CURRENT_RUNNER = runner
+            yield runner
+
+    finally:
+        CURRENT_RUNNER = None

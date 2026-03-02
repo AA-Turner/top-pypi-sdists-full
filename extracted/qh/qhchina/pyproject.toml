@@ -1,0 +1,79 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "Cython >= 3.0.0",
+    "numpy >= 2.0.2",
+    "scipy >= 1.14.1"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qhchina"
+version = "0.1.38"
+authors = [
+  { name = "Maciej Kurzynski", email = "makurz@gmail.com" },
+]
+description = "A Python package for NLP tasks related to Chinese text."
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["digital humanities", "nlp", "Chinese", "text analysis", "corpus linguistics", "topic modeling", "stylometry"]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Cython",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: Chinese (Traditional)",
+]
+
+dependencies = [
+    "numpy >= 2.0.2",
+    "scipy >= 1.14.1",
+    "matplotlib >= 3.10.0",
+    "scikit-learn >= 1.6.1",
+    "tqdm >= 4.66.0",
+    "pandas >= 2.1.0",
+    "requests >= 2.28.0"
+]
+
+[tool.setuptools.packages.find]
+exclude = [
+    "tests", "tests.*",
+    "test", "test.*",
+    "mytest", "mytest.*",
+    "scripts", "scripts.*",
+    "venv", "venv.*",
+    "build", "build.*",
+    "dist", "dist.*",
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.package-data]
+"qhchina" = ["analytics/cython_ext/*.pyx", "data/stopwords/*", "data/templates/*", "data/texts/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.c", "*.cpp", "*.so", "*.pyd", "data/fonts/*"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:FigureCanvasAgg is non-interactive:UserWarning",
+]
+
+[project.urls]
+"Homepage" = "https://www.qhchina.org/docs"
+"Documentation" = "https://www.qhchina.org/docs"
+"Repository" = "https://github.com/mcjkurz/qhchina"
+"Bug Tracker" = "https://github.com/mcjkurz/qhchina/issues"

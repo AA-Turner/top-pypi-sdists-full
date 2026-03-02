@@ -1,0 +1,46 @@
+Metadata-Version: 2.3
+Name: cowsay-python
+Version: 1.0.2
+Summary: Very basic cowsay implementation
+Project-URL: homepage, https://github.com/carderne/cowsay-python
+Project-URL: repository, https://github.com/carderne/cowsay-python
+Author-email: Chris Arderne <chris@rdrn.me>
+License: MIT License
+License-File: LICENSE
+Keywords: cowsay
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# cowsay-python
+
+A very basic Python implementation of [cowsay](https://en.wikipedia.org/wiki/Cowsay),
+to be used in [una](https://github.com/carderne/una) monorepo demos.
+
+```bash
+pip install cowsay-python
+```
+
+```python
+>>> from cowsay import say
+>>> print(say("Hello!"))
+
+┌───────┐
+│Hello! │
+└───────┘
+      \
+       \
+         ^__^
+         (oo)\_______
+         (__)\       )\/\
+             ||----w |
+             ||     ||
+```

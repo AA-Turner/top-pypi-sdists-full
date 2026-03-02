@@ -1,0 +1,301 @@
+import json
+import logging
+import threading
+import time
+import typing
+
+import grpc
+from google.protobuf.json_format import MessageToDict
+from grpc import StatusCode
+
+from openfeature.evaluation_context import EvaluationContext
+from openfeature.event import ProviderEventDetails
+from openfeature.exception import ErrorCode, ParseError, ProviderNotReadyError
+from openfeature.schemas.protobuf.flagd.sync.v1 import (
+    sync_pb2,
+    sync_pb2_grpc,
+)
+
+from ....config import Config
+from ...types import GrpcMultiCallableArgs
+from ..connector import FlagStateConnector
+from ..flags import FlagStore
+
+logger = logging.getLogger("openfeature.contrib")
+
+
+class GrpcWatcher(FlagStateConnector):
+    def __init__(
+        self,
+        config: Config,
+        flag_store: FlagStore,
+        emit_provider_ready: typing.Callable[[ProviderEventDetails, dict], None],
+        emit_provider_error: typing.Callable[[ProviderEventDetails], None],
+        emit_provider_stale: typing.Callable[[ProviderEventDetails], None],
+    ):
+        self.flag_store = flag_store
+        self.config = config
+
+        self.channel = self._generate_channel(config)
+        self.stub = sync_pb2_grpc.FlagSyncServiceStub(self.channel)
+        self.retry_backoff_seconds = config.retry_backoff_ms * 0.001
+        self.retry_backoff_max_seconds = config.retry_backoff_ms * 0.001
+        self.retry_grace_period = config.retry_grace_period
+        self.streamline_deadline_seconds = config.stream_deadline_ms * 0.001
+        self.deadline = config.deadline_ms * 0.001
+        self.selector = config.selector
+        self.provider_id = config.provider_id
+        self.emit_provider_ready = emit_provider_ready
+        self.emit_provider_error = emit_provider_error
+        self.emit_provider_stale = emit_provider_stale
+
+        self.connected = False
+        self.thread: typing.Optional[threading.Thread] = None
+        self.timer: typing.Optional[threading.Timer] = None
+
+    def _generate_channel(self, config: Config) -> grpc.Channel:
+        target = f"{config.host}:{config.port}"
+        # Create the channel with the service config
+        options: list[tuple[str, typing.Any]] = [
+            ("grpc.keepalive_time_ms", config.keep_alive_time),
+            ("grpc.initial_reconnect_backoff_ms", config.retry_backoff_ms),
+            ("grpc.max_reconnect_backoff_ms", config.retry_backoff_max_ms),
+            ("grpc.min_reconnect_backoff_ms", config.stream_deadline_ms),
+            (
+                "grpc.service_config",
+                json.dumps(
+                    {
+                        "methodConfig": [
+                            {
+                                "name": [
+                                    {"service": "flagd.sync.v1.FlagSyncService"},
+                                    {"service": "flagd.evaluation.v1.Service"},
+                                ],
+                                "retryPolicy": {
+                                    "maxAttempts": 3,
+                                    "initialBackoff": "1s",
+                                    "maxBackoff": "5s",
+                                    "backoffMultiplier": 2.0,
+                                    "retryableStatusCodes": [
+                                        "CANCELLED",
+                                        "UNKNOWN",
+                                        "INVALID_ARGUMENT",
+                                        "NOT_FOUND",
+                                        "ALREADY_EXISTS",
+                                        "PERMISSION_DENIED",
+                                        "RESOURCE_EXHAUSTED",
+                                        "FAILED_PRECONDITION",
+                                        "ABORTED",
+                                        "OUT_OF_RANGE",
+                                        "UNIMPLEMENTED",
+                                        "INTERNAL",
+                                        "UNAVAILABLE",
+                                        "DATA_LOSS",
+                                        "UNAUTHENTICATED",
+                                    ],
+                                },
+                            }
+                        ]
+                    }
+                ),
+            ),
+        ]
+        if config.default_authority is not None:
+            options.append(("grpc.default_authority", config.default_authority))
+
+        if config.channel_credentials is not None:
+            channel = grpc.secure_channel(
+                target,
+                credentials=config.channel_credentials,
+                options=options,
+            )
+
+        elif config.tls:
+            credentials = grpc.ssl_channel_credentials()
+            if config.cert_path:
+                with open(config.cert_path, "rb") as f:
+                    credentials = grpc.ssl_channel_credentials(f.read())
+
+            channel = grpc.secure_channel(
+                target,
+                credentials=credentials,
+                options=options,
+            )
+
+        else:
+            channel = grpc.insecure_channel(
+                target,
+                options=options,
+            )
+
+        return channel
+
+    def initialize(self, context: EvaluationContext) -> None:
+        self.connect()
+
+    def connect(self) -> None:
+        self.active = True
+
+        # Run monitoring in a separate thread
+        self.monitor_thread = threading.Thread(
+            target=self.monitor, daemon=True, name="FlagdGrpcSyncServiceMonitorThread"
+        )
+        self.monitor_thread.start()
+        ## block until ready or deadline reached
+        timeout = self.deadline + time.monotonic()
+        while not self.connected and time.monotonic() < timeout:
+            time.sleep(0.05)
+        logger.debug("Finished blocking gRPC state initialization")
+
+        if not self.connected:
+            raise ProviderNotReadyError(
+                "Blocking init finished before data synced. Consider increasing startup deadline to avoid inconsistent evaluations."
+            )
+
+    def monitor(self) -> None:
+        self.channel.subscribe(self._state_change_callback, try_to_connect=True)
+
+    def _state_change_callback(self, new_state: grpc.ChannelConnectivity) -> None:
+        logger.debug(f"gRPC state change: {new_state}")
+        if (
+            new_state == grpc.ChannelConnectivity.READY
+            or new_state == grpc.ChannelConnectivity.IDLE
+        ):
+            if not self.thread or not self.thread.is_alive():
+                self.thread = threading.Thread(
+                    target=self.listen,
+                    daemon=True,
+                    name="FlagdGrpcSyncWorkerThread",
+                )
+                self.thread.start()
+
+            if self.timer and self.timer.is_alive():
+                logger.debug("gRPC error timer expired")
+                self.timer.cancel()
+
+        elif new_state == grpc.ChannelConnectivity.TRANSIENT_FAILURE:
+            # this is the failed reconnect attempt so we are going into stale
+            self.emit_provider_stale(
+                ProviderEventDetails(
+                    message="gRPC sync disconnected, reconnecting",
+                )
+            )
+            # adding a timer, so we can emit the error event after time
+            self.timer = threading.Timer(self.retry_grace_period, self.emit_error)
+
+            logger.debug("gRPC error timer started")
+            self.timer.start()
+            self.connected = False
+
+    def emit_error(self) -> None:
+        logger.debug("gRPC error emitted")
+        self.emit_provider_error(
+            ProviderEventDetails(
+                message="gRPC sync disconnected, reconnecting",
+                error_code=ErrorCode.GENERAL,
+            )
+        )
+
+    def shutdown(self) -> None:
+        self.active = False
+        self.channel.close()
+
+    def _create_request_args(self) -> dict:
+        request_args = {}
+        # Pass selector in both request body (legacy) and metadata header (new) for backward compatibility
+        # This ensures compatibility with both older and newer flagd versions
+        if self.selector is not None:
+            request_args["selector"] = self.selector
+        if self.provider_id is not None:
+            request_args["provider_id"] = self.provider_id
+
+        return request_args
+
+    def _create_metadata(self) -> typing.Optional[tuple[tuple[str, str]]]:
+        """Create gRPC metadata headers for the request.
+
+        Returns gRPC metadata as a tuples of tuples containing header key-value pairs.
+        The selector is passed via the 'flagd-selector' header per flagd v0.11.0+ specification,
+        while also being included in the request body for backward compatibility with older flagd versions.
+        """
+        if self.selector is None:
+            return None
+
+        return (("flagd-selector", self.selector),)
+
+    def _fetch_metadata(self) -> typing.Optional[sync_pb2.GetMetadataResponse]:
+        if self.config.sync_metadata_disabled:
+            return None
+
+        context_values_request = sync_pb2.GetMetadataRequest()
+        try:
+            context_values_response: sync_pb2.GetMetadataResponse = (
+                self.stub.GetMetadata(context_values_request, wait_for_ready=True)
+            )
+            return context_values_response
+        except grpc.RpcError as e:
+            if e.code() == StatusCode.UNIMPLEMENTED:
+                logger.debug(f"Error getting sync metadata: {e}")
+                return None
+            else:
+                raise e
+
+    def listen(self) -> None:
+        call_args = self.generate_grpc_call_args()
+
+        request_args = self._create_request_args()
+
+        while self.active:
+            try:
+                context_values_response = self._fetch_metadata()
+
+                request = sync_pb2.SyncFlagsRequest(**request_args)
+
+                logger.debug("Setting up gRPC sync flags connection")
+                for flag_rsp in self.stub.SyncFlags(request, **call_args):
+                    flag_str = flag_rsp.flag_configuration
+                    logger.debug(
+                        f"Received flag configuration - {abs(hash(flag_str)) % (10**8)}"
+                    )
+                    self.flag_store.update(json.loads(flag_str))
+
+                    context_values = {}
+                    if flag_rsp.sync_context:
+                        context_values = MessageToDict(flag_rsp.sync_context)
+                    elif context_values_response:
+                        context_values = MessageToDict(context_values_response)[
+                            "metadata"
+                        ]
+
+                    if not self.connected:
+                        self.emit_provider_ready(
+                            ProviderEventDetails(
+                                message="gRPC sync connection established"
+                            ),
+                            context_values,
+                        )
+                        self.connected = True
+
+                    if not self.active:
+                        logger.debug("Terminating gRPC sync thread")
+                        return
+            except grpc.RpcError as e:  # noqa: PERF203
+                logger.debug(f"SyncFlags stream error, {e.code()=} {e.details()=}")
+            except json.JSONDecodeError:
+                logger.exception(
+                    f"Could not parse JSON flag data from SyncFlags endpoint: {flag_str=}"
+                )
+            except ParseError:
+                logger.exception(
+                    f"Could not parse flag data using flagd syntax: {flag_str=}"
+                )
+
+    def generate_grpc_call_args(self) -> GrpcMultiCallableArgs:
+        call_args: GrpcMultiCallableArgs = {"wait_for_ready": True}
+        if self.streamline_deadline_seconds > 0:
+            call_args["timeout"] = self.streamline_deadline_seconds
+        # Add selector via gRPC metadata header (flagd v0.11.0+ preferred approach)
+        metadata = self._create_metadata()
+        if metadata is not None:
+            call_args["metadata"] = metadata
+        return call_args

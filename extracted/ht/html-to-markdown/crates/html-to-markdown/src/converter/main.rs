@@ -18,11 +18,13 @@ use crate::converter::main_helpers::{
     extract_head_metadata, format_metadata_frontmatter, handle_hocr_document, has_custom_element_tags,
     repair_with_html5ever, trim_line_end_whitespace, trim_trailing_whitespace,
 };
+use crate::converter::plain_text::extract_plain_text;
 use crate::converter::preprocessing_helpers::{has_inline_block_misnest, should_drop_for_preprocessing};
 use crate::converter::utility::caching::build_dom_context;
 use crate::converter::utility::content::normalized_tag_name;
 use crate::converter::utility::preprocessing::{preprocess_html, strip_script_and_style_tags};
 use crate::converter::utility::serialization::serialize_tag_to_html;
+use crate::options::OutputFormat;
 
 use crate::converter::handlers::{handle_blockquote, handle_code, handle_graphic, handle_img, handle_link, handle_pre};
 use crate::error::Result;
@@ -132,6 +134,12 @@ pub(crate) fn convert_html_impl(
             dom_ctx = build_dom_context(&dom, parser, preprocessed_len);
             output = String::with_capacity(preprocessed_len.saturating_add(preprocessed_len / 4));
         }
+    }
+
+    // Fast path for plain text output: skip the full conversion pipeline
+    if options.output_format == OutputFormat::Plain {
+        let plain = extract_plain_text(&dom, parser, options);
+        return Ok(plain);
     }
 
     let wants_frontmatter = options.extract_metadata && !options.convert_as_inline;

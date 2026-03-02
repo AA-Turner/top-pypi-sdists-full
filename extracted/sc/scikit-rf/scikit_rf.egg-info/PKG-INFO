@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-rf
-Version: 1.10.0
+Version: 1.11.0
 Summary: Object Oriented Microwave Engineering
 Author-email: Alex Arsenovic <alexanderarsenovic@gmail.com>
 License: LICENSE.txt
@@ -28,15 +28,6 @@ Requires-Dist: numpy>=1.21
 Requires-Dist: scipy>=1.7
 Requires-Dist: pandas>=1.1
 Requires-Dist: typing-extensions
-Requires-Dist: pre-commit>=3.5.0
-Provides-Extra: test
-Requires-Dist: pytest<9.0; extra == "test"
-Requires-Dist: pytest-mock>=3.10; extra == "test"
-Requires-Dist: pytest-xdist>=3.5.0; extra == "test"
-Requires-Dist: coverage>=6.0; extra == "test"
-Requires-Dist: pytest-cov>=4.0; extra == "test"
-Provides-Extra: testspice
-Requires-Dist: pyspice>=1.5; extra == "testspice"
 Provides-Extra: plot
 Requires-Dist: matplotlib>=3.5; extra == "plot"
 Provides-Extra: xlsx
@@ -46,18 +37,6 @@ Requires-Dist: networkx>=2.0; extra == "netw"
 Provides-Extra: visa
 Requires-Dist: PyVISA>=1.12; extra == "visa"
 Requires-Dist: pyvisa-py>=0.6; extra == "visa"
-Provides-Extra: docs
-Requires-Dist: ipython>=7; extra == "docs"
-Requires-Dist: ipykernel>=6.15; extra == "docs"
-Requires-Dist: ipywidgets>=8.0.2; extra == "docs"
-Requires-Dist: python-ivi>=0.14.9; extra == "docs"
-Requires-Dist: nbval>=0.9; extra == "docs"
-Requires-Dist: jupyter-client>=7.3.5; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=1.0; extra == "docs"
-Requires-Dist: sphinx>=4; extra == "docs"
-Requires-Dist: nbsphinx>=0.8.9; extra == "docs"
-Requires-Dist: openpyxl>=3; extra == "docs"
-Requires-Dist: typing-extensions>=4.15.0; extra == "docs"
 
 [![Code Testing](https://github.com/scikit-rf/scikit-rf/workflows/Code%20linting%20and%20testing/badge.svg)](https://github.com/scikit-rf/scikit-rf/actions?query=workflow%3A%22Code+linting+and+testing%22)
 [![Documentation Status](https://readthedocs.org/projects/scikit-rf/badge/?version=latest)](https://readthedocs.org/projects/scikit-rf/?badge=latest)

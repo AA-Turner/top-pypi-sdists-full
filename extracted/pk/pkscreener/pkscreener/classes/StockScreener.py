@@ -933,11 +933,12 @@ class StockScreener:
 
     def updateStock(self, stock, screeningDictionary, saveDictionary, executeOption=0,exchangeName='INDIA',userArgs=None):
         doNotAnchorText = executeOption == 26 or (userArgs is not None and userArgs.systemlaunched)
-        screeningDictionary["Stock"] = (
-                    colorText.WHITE
-                    + (f"\x1B]8;;https://in.tradingview.com/chart?symbol={'NSE' if exchangeName=='INDIA' else 'NASDAQ'}%3A{stock}\x1B\\{stock}\x1B]8;;\x1B\\")
-                    + colorText.END
-                ) if not doNotAnchorText else stock
+        screeningDictionary["Stock"] = stock
+                # (
+                #     colorText.WHITE
+                #     + (f"\x1B]8;;https://in.tradingview.com/chart?symbol={'NSE' if exchangeName=='INDIA' else 'NASDAQ'}%3A{stock}\x1B\\{stock}\x1B]8;;\x1B\\")
+                #     + colorText.END
+                # ) if not doNotAnchorText else stock
         saveDictionary["Stock"] = stock
 
     def getCleanedDataForDuration(self, backtestDuration, portfolio, screeningDictionary, saveDictionary, configManager, screener, data):

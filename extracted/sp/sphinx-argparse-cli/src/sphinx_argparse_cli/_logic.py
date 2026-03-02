@@ -111,7 +111,17 @@ class SphinxArgparseCli(SphinxDirective):
     def parser(self) -> ArgumentParser:
         if self._parser is None:
             module_name, attr_name = self.options["module"], self.options["func"]
-            parser_creator = getattr(__import__(module_name, fromlist=[attr_name]), attr_name)
+            try:
+                module = __import__(module_name, fromlist=[attr_name])
+            except ImportError:
+                msg = f"Failed to import module {module_name!r}"
+                raise self.error(msg)  # noqa: B904
+            try:
+                parser_creator = getattr(module, attr_name)
+            except AttributeError:
+                del sys.modules[module_name]
+                msg = f"Module {module_name!r} has no attribute {attr_name!r}"
+                raise self.error(msg)  # noqa: B904
             if "hook" in self.options:
                 original_parse_known_args = ArgumentParser.parse_known_args
                 ArgumentParser.parse_known_args = _parse_known_args_hook  # type: ignore[method-assign,assignment]
@@ -120,17 +130,19 @@ class SphinxArgparseCli(SphinxDirective):
                 except HookError as hooked:
                     self._parser = hooked.parser
                 finally:
-                    ArgumentParser.parse_known_args = original_parse_known_args  # type: ignore[method-assign]
+                    ArgumentParser.parse_known_args = original_parse_known_args
             else:
                 self._parser = parser_creator()
 
-            del sys.modules[module_name]  # no longer needed cleanup
+            del sys.modules[module_name]
             if self._parser is None:
                 msg = "Failed to hook argparse to get ArgumentParser"
                 raise self.error(msg)
 
             if "prog" in self.options:
-                self._parser.prog = self.options["prog"]
+                old_prog, new_prog = self._parser.prog, self.options["prog"]
+                self._parser.prog = new_prog
+                _update_sub_parser_prog(self._parser, old_prog, new_prog)
 
             self._raw_format = self._parser.formatter_class == RawDescriptionHelpFormatter
         return self._parser
@@ -158,8 +170,7 @@ class SphinxArgparseCli(SphinxDirective):
 
             # If this parser has a subparser, recurse into it
             if parser._subparsers:  # noqa: SLF001
-                sub_sub_parser: _SubParsersAction[ArgumentParser]
-                sub_sub_parser = parser._subparsers._group_actions[0]  # type: ignore[assignment]  # noqa: SLF001
+                sub_sub_parser: _SubParsersAction[ArgumentParser] = parser._subparsers._group_actions[0]  # type: ignore[assignment]  # noqa: SLF001
                 yield from self._load_sub_parsers(sub_sub_parser)
 
     def load_sub_parsers(self) -> Iterator[tuple[list[str], str, ArgumentParser]]:
@@ -175,8 +186,8 @@ class SphinxArgparseCli(SphinxDirective):
         # construct headers
         self.env.note_reread()  # this document needs to be always updated
         title_text = self.options.get("title", f"{self.parser.prog} - CLI interface").strip()
-        if not title_text.strip():
-            home_section: Element = paragraph()
+        if not title_text:
+            home_section: Element = section("")
         else:
             home_section = section("", title("", Text(title_text)), ids=[self.make_id(title_text)], names=[title_text])
 
@@ -193,7 +204,9 @@ class SphinxArgparseCli(SphinxDirective):
         for group in self.parser._action_groups:  # noqa: SLF001
             if not group._group_actions or group is self.parser._subparsers:  # noqa: SLF001
                 continue
-            home_section += self._mk_option_group(group, prefix=self.parser.prog.split("/")[-1])
+            home_section += self._mk_option_group(
+                group, prefix=self.parser.prog.split("/")[-1], prog=self.parser.prog.split("/")[-1]
+            )
         # construct sub-parser
         for aliases, help_msg, parser in self.load_sub_parsers():
             home_section += self._mk_sub_command(aliases, help_msg, parser)
@@ -215,10 +228,10 @@ class SphinxArgparseCli(SphinxDirective):
             return lit
         return paragraph("", Text(block))
 
-    def _mk_option_group(self, group: _ArgumentGroup, prefix: str) -> section:
+    def _mk_option_group(self, group: _ArgumentGroup, prefix: str, prog: str) -> section:
         sub_title_prefix: str = self.options["group_sub_title_prefix"]
         title_prefix = self.options["group_title_prefix"]
-        title_text = self._build_opt_grp_title(group, prefix, sub_title_prefix, title_prefix)
+        title_text = self._build_opt_grp_title(group, prefix, prog, sub_title_prefix, title_prefix)
         title_ref: str = f"{prefix}{' ' if prefix else ''}{group.title}"
         ref_id = self.make_id(title_ref)
         # the text sadly needs to be prefixed, because otherwise the autosectionlabel will conflict
@@ -236,25 +249,11 @@ class SphinxArgparseCli(SphinxDirective):
         group_section += opt_group
         return group_section
 
-    def _build_opt_grp_title(self, group: _ArgumentGroup, prefix: str, sub_title_prefix: str, title_prefix: str) -> str:
-        title_text, elements = "", prefix.split(" ")
-        if title_prefix is not None:
-            title_prefix = title_prefix.replace("{prog}", elements[0])
-            if title_prefix:
-                title_text += f"{title_prefix} "
-            if " " in prefix:
-                if sub_title_prefix is not None:
-                    title_text = self._append_title(title_text, sub_title_prefix, elements[0], " ".join(elements[1:]))
-                else:
-                    title_text += f"{' '.join(prefix.split(' ')[1:])} "
-        elif " " in prefix:
-            if sub_title_prefix is not None:
-                title_text += f"{elements[0]} "
-                title_text = self._append_title(title_text, sub_title_prefix, elements[0], " ".join(elements[1:]))
-            else:
-                title_text += f"{' '.join(elements)} "
-        else:
-            title_text += f"{prefix} "
+    def _build_opt_grp_title(
+        self, group: _ArgumentGroup, prefix: str, prog: str, sub_title_prefix: str, title_prefix: str
+    ) -> str:
+        sub_cmd = prefix[len(prog) :].strip() or None if prefix != prog else None
+        title_text = self._resolve_prefix(prog, sub_cmd, prefix, title_prefix, sub_title_prefix)
         title_text += group.title or ""
         return title_text
 
@@ -274,7 +273,12 @@ class SphinxArgparseCli(SphinxDirective):
                 self._mk_option_name(line, prefix, opt)
                 if not is_flag:
                     line += Text(" ")
-                    line += literal(text=as_key.upper())
+                    metavar_text = (
+                        " ".join(meta.upper() for meta in action.metavar)
+                        if isinstance(action.metavar, tuple)
+                        else as_key.upper()
+                    )
+                    line += literal(text=metavar_text)
         else:
             self._mk_option_name(line, prefix, as_key)
 
@@ -288,6 +292,7 @@ class SphinxArgparseCli(SphinxDirective):
                 line += content
         if (
             "no_default_values" not in self.options
+            and action.default is not None
             and action.default != SUPPRESS
             and not re.match(r".*[ (]default[s]? .*", (action.help or ""))
             and not isinstance(action, _StoreTrueAction | _StoreFalseAction)
@@ -337,7 +342,7 @@ class SphinxArgparseCli(SphinxDirective):
         sub_title_prefix: str = self.options["group_sub_title_prefix"]
         title_prefix: str = self.options["group_title_prefix"]
 
-        if sys.version_info >= (3, 14):
+        if sys.version_info >= (3, 14):  # pragma: >=3.14 cover
             # https://github.com/python/cpython/issues/139809
             parser.prog = _strip_ansi_colors(parser.prog)
 
@@ -369,29 +374,44 @@ class SphinxArgparseCli(SphinxDirective):
             if isinstance(group._group_actions[0], _SubParsersAction):  # noqa: SLF001
                 # If this is a subparser, ignore it
                 continue
-            group_section += self._mk_option_group(group, prefix=parser.prog)
+            group_section += self._mk_option_group(group, prefix=parser.prog, prog=self.parser.prog.split("/")[-1])
         return group_section
 
     def _build_sub_cmd_title(self, parser: ArgumentParser, sub_title_prefix: str, title_prefix: str) -> str:
-        prog = _strip_ansi_colors(parser.prog)
-        title_text, elements = "", prog.split(" ")
+        root_prog = self.parser.prog.split("/")[-1]
+        sub_cmd = parser.prog[len(root_prog) :].strip().split(" ", maxsplit=1)[0]
+        return self._resolve_prefix(root_prog, sub_cmd, parser.prog, title_prefix, sub_title_prefix).rstrip()
+
+    def _resolve_prefix(
+        self,
+        prog_name: str,
+        sub_cmd: str | None,
+        full_text: str,
+        title_prefix: str | None,
+        sub_title_prefix: str | None,
+    ) -> str:
+        title_text = ""
         if title_prefix is not None:
-            title_prefix = title_prefix.replace("{prog}", elements[0])
+            title_prefix = title_prefix.replace("{prog}", prog_name)
             if title_prefix:
                 title_text += f"{title_prefix} "
+            if sub_cmd is not None:
+                if sub_title_prefix is not None:
+                    title_text = self._apply_sub_title(title_text, sub_title_prefix, prog_name, sub_cmd)
+                else:
+                    title_text += f"{sub_cmd} "
+        elif sub_cmd is not None:
             if sub_title_prefix is not None:
-                title_text = self._append_title(title_text, sub_title_prefix, elements[0], elements[1])
+                title_text += f"{prog_name} "
+                title_text = self._apply_sub_title(title_text, sub_title_prefix, prog_name, sub_cmd)
             else:
-                title_text += elements[1]
-        elif sub_title_prefix is not None:
-            title_text += f"{elements[0]} "
-            title_text = self._append_title(title_text, sub_title_prefix, elements[0], elements[1])
+                title_text += f"{full_text} "
         else:
-            title_text += prog
-        return title_text.rstrip()
+            title_text += f"{full_text} "
+        return title_text
 
     @staticmethod
-    def _append_title(title_text: str, sub_title_prefix: str, prog: str, sub_cmd: str) -> str:
+    def _apply_sub_title(title_text: str, sub_title_prefix: str, prog: str, sub_cmd: str) -> str:
         if sub_title_prefix:
             sub_title_prefix = sub_title_prefix.replace("{prog}", prog)
             sub_title_prefix = sub_title_prefix.replace("{subcommand}", sub_cmd)
@@ -434,10 +454,18 @@ def _parse_known_args_hook(self: ArgumentParser, *args: Any, **kwargs: Any) -> N
 _ANSI_COLOR_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def _strip_ansi_colors(text: str) -> str:
-    """Remove ANSI color/style escape sequences (SGR codes) from text."""
+def _strip_ansi_colors(text: str) -> str:  # pragma: >=3.14 cover
     # needed due to https://github.com/python/cpython/issues/139809
     return _ANSI_COLOR_RE.sub("", text)
+
+
+def _update_sub_parser_prog(parser: ArgumentParser, old_prog: str, new_prog: str) -> None:
+    if not (sub_parsers := parser._subparsers):  # noqa: SLF001
+        return
+    sub_action: _SubParsersAction[ArgumentParser] = sub_parsers._group_actions[0]  # type: ignore[assignment]  # noqa: SLF001
+    for sub_parser in sub_action.choices.values():
+        sub_parser.prog = sub_parser.prog.replace(old_prog, new_prog, 1)
+        _update_sub_parser_prog(sub_parser, old_prog, new_prog)
 
 
 __all__ = [

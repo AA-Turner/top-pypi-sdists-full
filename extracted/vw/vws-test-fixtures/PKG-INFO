@@ -1,0 +1,89 @@
+Metadata-Version: 2.1
+Name: vws-test-fixtures
+Version: 2023.3.5
+Summary: Test fixtures for testing code which works with the Vuforia Web Services (VWS) API
+Author-email: Adam Dangoor <adamdangoor@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2019 Adam Dangoor
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Source, https://github.com/VWS-Python/vws-test-fixtures
+Keywords: vuforia,vws
+Classifier: Operating System :: POSIX
+Classifier: Environment :: Web Environment
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Pytest
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+Provides-Extra: dev
+Provides-Extra: packaging
+License-File: LICENSE
+
+|Build Status| |codecov| |PyPI| |Documentation Status|
+
+VWS Test Fixtures
+==================
+
+``pytest`` fixtures for testing tools with the Vuforia Web Services (VWS) API.
+
+Installation
+------------
+
+.. code:: sh
+
+   pip install vws-test-fixtures
+
+This is tested on Python 3.11+.
+
+Example usage
+-------------
+
+.. code:: python
+
+   # A test to be run by pytest
+   def test_example(high_quality_image: io.BytesIO) -> None:
+       image_file_bytes = high_quality_image.getvalue()
+       ...
+
+``high_quality_image`` returns an image file which is expected to have a 'success' status when added to a target, and a high tracking rating.
+
+``image_file_failed_state`` is expected to be accepted by the add and update target endpoints, but get a "failed" status.
+
+``png_too_large`` is a PNG which has dimensions whcih are too large to be added to a Vuforia database.
+
+... and more, see the `full documentation <https://vws-test-fixtures.readthedocs.io/en/latest>`__ for details of all fixtures provided.
+
+Full Documentation
+------------------
+
+See the `full documentation <https://vws-test-fixtures.readthedocs.io/en/latest>`__.
+
+.. |Build Status| image:: https://github.com/VWS-Python/vws-test-fixtures/workflows/CI/badge.svg
+   :target: https://github.com/VWS-Python/vws-test-fixtures/actions
+.. |codecov| image:: https://codecov.io/gh/VWS-Python/vws-test-fixtures/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/VWS-Python/vws-test-fixtures
+.. |Documentation Status| image:: https://readthedocs.org/projects/vws-test-fixtures/badge/?version=latest
+   :target: https://vws-test-fixtures.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+.. |PyPI| image:: https://badge.fury.io/py/VWS-Test-Fixtures.svg
+   :target: https://badge.fury.io/py/VWS-Test-Fixtures

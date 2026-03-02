@@ -44,6 +44,8 @@ class LevelContext:
     server_url: Optional[str] = None  # External server URL
     workflow_filter: Optional[str] = None  # Run only this workflow
     deps_installed: bool = False  # Skip requirements.txt and install.py
+    novram: bool = False  # Pass --novram to ComfyUI
+    vram_debug: bool = False  # Enable VRAM debug logging
 
     # Accumulated by levels (None/empty until set)
     platform: Optional["TestPlatform"] = None

@@ -1,0 +1,1332 @@
+Metadata-Version: 2.4
+Name: mcp-vector-search
+Version: 3.0.51
+Summary: CLI-first semantic code search with MCP integration and interactive D3.js visualization for exploring code relationships
+Project-URL: Homepage, https://github.com/bobmatnyc/mcp-vector-search
+Project-URL: Documentation, https://mcp-vector-search.readthedocs.io
+Project-URL: Repository, https://github.com/bobmatnyc/mcp-vector-search
+Project-URL: Bug Tracker, https://github.com/bobmatnyc/mcp-vector-search/issues
+Author-email: Robert Matsuoka <bob@matsuoka.com>
+License: Elastic License 2.0
+        
+        Copyright (c) 2024-2025 Robert Matsuoka
+        Contact: bob@matsuoka.com
+        
+        ## Acceptance
+        
+        By using the software, you agree to all of the terms and conditions below.
+        
+        ## Copyright License
+        
+        The licensor grants you a non-exclusive, royalty-free, worldwide,
+        non-sublicensable, non-transferable license to use, copy, distribute, make
+        available, and prepare derivative works of the software, in each case subject to
+        the limitations and conditions below.
+        
+        ## Limitations
+        
+        You may not provide the software to third parties as a hosted or managed
+        service, where the service provides users with access to any substantial set of
+        the features or functionality of the software.
+        
+        You may not move, change, disable, or circumvent the license key functionality
+        in the software, and you may not remove or obscure any functionality in the
+        software that is protected by the license key.
+        
+        You may not alter, remove, or obscure any licensing, copyright, or other notices
+        of the licensor in the software. Any use of the licensor's trademarks is subject
+        to applicable law.
+        
+        ## Patents
+        
+        The licensor grants you a license, under any patent claims the licensor can
+        license, or becomes able to license, to make, have made, use, sell, offer for
+        sale, import and have imported the software, in each case subject to the
+        limitations and conditions in this license. This license does not cover any
+        patent claims that you cause to be infringed by modifications or additions to
+        the software. If you or your company make any written claim that the software
+        infringes or contributes to infringement of any patent, your patent license for
+        the software granted under these terms ends immediately. If your company makes
+        such a claim, your patent license ends immediately for work on behalf of your
+        company.
+        
+        ## Notices
+        
+        You must ensure that anyone who gets a copy of any part of the software from you
+        also gets a copy of these terms.
+        
+        If you modify the software, you must include in any modified copies of the
+        software prominent notices stating that you have modified the software.
+        
+        ## No Other Rights
+        
+        These terms do not imply any licenses other than those expressly granted in
+        these terms.
+        
+        ## Termination
+        
+        If you use the software in violation of these terms, such use is not licensed,
+        and your licenses will automatically terminate. If the licensor provides you
+        with a notice of your violation, and you cease all violation of this license no
+        later than 30 days after you receive that notice, your licenses will be
+        reinstated retroactively. However, if you violate these terms after such
+        reinstatement, any additional violation of these terms will cause your licenses
+        to terminate automatically and permanently.
+        
+        ## No Liability
+        
+        *As far as the law allows, the software comes as is, without any warranty or
+        condition, and the licensor will not be liable to you for any damages arising
+        out of these terms or the use or nature of the software, under any kind of
+        legal claim.*
+        
+        ## Definitions
+        
+        The **licensor** is the entity offering these terms, and the **software** is the
+        software the licensor makes available under these terms, including any portion
+        of it.
+        
+        **you** refers to the individual or entity agreeing to these terms.
+        
+        **your company** is any legal entity, sole proprietorship, or other kind of
+        organization that you work for, plus all organizations that have control over,
+        are under the control of, or are under common control with that organization.
+        **control** means ownership of substantially all the assets of an entity, or the
+        power to direct its management and policies by vote, contract, or otherwise.
+        Control can be direct or indirect.
+        
+        **your licenses** are all the licenses granted to you for the software under
+        these terms.
+        
+        **use** means anything you do with the software requiring one of your licenses.
+        
+        **trademark** means trademarks, service marks, and similar rights.
+License-File: LICENSE
+Keywords: code-graph,code-search,d3js,force-layout,interactive-graph,mcp,semantic-search,vector-database,visualization
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Python: >=3.11
+Requires-Dist: aiofiles>=23.0.0
+Requires-Dist: authlib>=1.6.4
+Requires-Dist: boto3>=1.35.0
+Requires-Dist: click-didyoumean>=0.3.0
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: kuzu>=0.7.0
+Requires-Dist: lancedb>=0.6.0
+Requires-Dist: loguru>=0.7.0
+Requires-Dist: mcp>=1.12.4
+Requires-Dist: orjson>=3.9.0
+Requires-Dist: packaging>=23.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: psutil>=5.9.0
+Requires-Dist: py-mcp-installer>=0.1.4
+Requires-Dist: pydantic-settings>=2.1.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: pylance>=0.22.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rank-bm25>=0.2.2
+Requires-Dist: rich>=13.0.0
+Requires-Dist: sentence-transformers<6.0.0,>=5.2.0
+Requires-Dist: starlette>=0.49.1
+Requires-Dist: transformers<5.0.0,>=4.34.0
+Requires-Dist: tree-sitter-language-pack>=0.9.0
+Requires-Dist: tree-sitter>=0.20.1
+Requires-Dist: typer>=0.9.0
+Requires-Dist: uvicorn>=0.24.0
+Requires-Dist: watchdog>=3.0.0
+Requires-Dist: yake>=0.4.8
+Description-Content-Type: text/markdown
+
+# MCP Vector Search
+
+🔍 **CLI-first semantic code search with MCP integration**
+
+[![PyPI version](https://badge.fury.io/py/mcp-vector-search.svg)](https://badge.fury.io/py/mcp-vector-search)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](LICENSE)
+
+> ⚠️ **Production Release (v2.5.56)**: Stable and actively maintained. LanceDB is now the default backend for better performance and stability.
+
+A modern, fast, and intelligent code search tool that understands your codebase through semantic analysis and AST parsing. Built with Python, powered by LanceDB, and designed for developer productivity.
+
+## ✨ Features
+
+### 🚀 **Core Capabilities**
+- **Semantic Search**: Find code by meaning, not just keywords
+- **AST-Aware Parsing**: Understands code structure (functions, classes, methods)
+- **Multi-Language Support**: 13 languages - Python, JavaScript, TypeScript, C#, Dart/Flutter, PHP, Ruby, Java, Go, Rust, HTML, and Markdown/Text (with extensible architecture)
+- **Knowledge Graph**: Temporal knowledge graph with KuzuDB for entity extraction and relationship mapping (`kg build`, `kg status`, `kg query`)
+- **Interactive Visualization**: D3.js-powered visualization with 5+ views (Treemap, Sunburst, Force Graph, Knowledge Graph, Heatmap)
+- **Development Narratives**: Generate git history narratives with `story` command (markdown, JSON, HTML output)
+- **Real-time Indexing**: File watching with automatic index updates
+- **Automatic Version Tracking**: Smart reindexing on tool upgrades
+- **Local-First**: Complete privacy with on-device processing
+- **Zero Configuration**: Auto-detects project structure and languages
+
+### 🛠️ **Developer Experience**
+- **CLI-First Design**: Simple commands for immediate productivity
+- **Rich Output**: Syntax highlighting, similarity scores, context
+- **Fast Performance**: Sub-second search responses, efficient indexing with pipeline parallelism (37% faster); IVF-PQ vector index delivers **4.9x faster queries** (3.4ms vs 16.7ms)
+- **Modern Architecture**: Async-first, type-safe, modular design
+- **Semi-Automatic Reindexing**: Multiple strategies without daemon processes
+- **17 MCP Tools**: Comprehensive MCP integration for AI assistants (search, analysis, documentation, KG, story generation)
+- **Chat Mode**: LLM-powered code Q&A with iterative refinement (up to 30 queries), deep search, and KG query tools
+- **CodeT5+ Embeddings**: Code-specific embeddings via `index-code` command (Salesforce/codet5p-110m-embedding)
+
+### 🔧 **Technical Features**
+- **Vector Database**: LanceDB (serverless, file-based)
+- **Embedding Models**: Configurable sentence transformers with GPU acceleration
+- **Smart Reindexing**: Search-triggered, Git hooks, scheduled tasks, and manual options
+- **Extensible Parsers**: Plugin architecture for new languages
+- **Configuration Management**: Project-specific settings
+- **Production Ready**: Write buffering, auto-indexing, comprehensive error handling
+- **Performance**: Apple Silicon M4 Max optimizations (2-4x speedup with MPS)
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Install from PyPI (recommended)
+pip install mcp-vector-search
+
+# Or with UV (faster)
+uv pip install mcp-vector-search
+
+# Or install from source
+git clone https://github.com/bobmatnyc/mcp-vector-search.git
+cd mcp-vector-search
+uv sync && uv pip install -e .
+```
+
+**Verify Installation:**
+```bash
+# Check that all dependencies are installed correctly
+mcp-vector-search doctor
+
+# Should show all ✓ marks
+# If you see missing dependencies, try:
+pip install --upgrade mcp-vector-search
+```
+
+### Zero-Config Setup (Recommended)
+
+The fastest way to get started - **completely hands-off, just one command**:
+
+```bash
+# Smart zero-config setup (recommended)
+mcp-vector-search setup
+```
+
+**What `setup` does automatically:**
+- ✅ Detects your project's languages and file types
+- ✅ Initializes semantic search with optimal settings
+- ✅ Indexes your entire codebase
+- ✅ Configures ALL installed MCP platforms (Claude Code, Cursor, etc.)
+- ✅ **Uses native Claude CLI integration** (`claude mcp add`) when available
+- ✅ **Falls back to `.mcp.json`** if Claude CLI not available
+- ✅ Sets up file watching for auto-reindex
+- ✅ **Zero user input required!**
+
+**Behind the scenes:**
+- **Server name**: `mcp` (for consistency with other MCP projects)
+- **Command**: `uv run python -m mcp_vector_search.mcp.server {PROJECT_ROOT}`
+- **File watching**: Enabled via `MCP_ENABLE_FILE_WATCHING=true`
+- **Integration method**: Native `claude mcp add` (or `.mcp.json` fallback)
+
+**Example output:**
+```
+🚀 Smart Setup for mcp-vector-search
+🔍 Detecting project...
+   ✅ Found 3 language(s): Python, JavaScript, TypeScript
+   ✅ Detected 8 file type(s)
+   ✅ Found 2 platform(s): claude-code, cursor
+⚙️  Configuring...
+   ✅ Embedding model: sentence-transformers/all-MiniLM-L6-v2
+🚀 Initializing...
+   ✅ Vector database created
+   ✅ Configuration saved
+🔍 Indexing codebase...
+   ✅ Indexing completed in 12.3s
+🔗 Configuring MCP integrations...
+   ✅ Using Claude CLI for automatic setup
+   ✅ Registered with Claude CLI
+   ✅ Configured 2 platform(s)
+🎉 Setup Complete!
+```
+
+**Options:**
+```bash
+# Force re-setup
+mcp-vector-search setup --force
+
+# Verbose output for debugging (shows Claude CLI commands)
+mcp-vector-search setup --verbose
+```
+
+### Advanced Setup Options
+
+For more control over the installation process:
+
+```bash
+# Manual setup with MCP integration
+mcp-vector-search install --with-mcp
+
+# Custom file extensions
+mcp-vector-search install --extensions .py,.js,.ts,.dart
+
+# Skip automatic indexing
+mcp-vector-search install --no-auto-index
+
+# Just initialize (no indexing or MCP)
+mcp-vector-search init
+```
+
+### Add MCP Integration for AI Tools
+
+**Automatic (Recommended):**
+```bash
+# One command sets up all detected platforms
+mcp-vector-search setup
+```
+
+**Manual Platform Installation:**
+```bash
+# Add Claude Code integration (project-scoped)
+mcp-vector-search install claude-code
+
+# Add Cursor IDE integration (global)
+mcp-vector-search install cursor
+
+# See all available platforms
+mcp-vector-search install list
+```
+
+**Note**: The `setup` command uses native `claude mcp add` when Claude CLI is available, providing better integration than manual `.mcp.json` creation.
+
+### Remove MCP Integrations
+
+```bash
+# Remove specific platform
+mcp-vector-search uninstall claude-code
+
+# Remove all integrations
+mcp-vector-search uninstall --all
+
+# List configured integrations
+mcp-vector-search uninstall list
+```
+
+### Basic Usage
+
+```bash
+# Search your code
+mcp-vector-search search "authentication logic"
+mcp-vector-search search "database connection setup"
+mcp-vector-search search "error handling patterns"
+
+# Index your codebase (if not done during setup)
+mcp-vector-search index
+
+# Index with code-specific embeddings (CodeT5+)
+mcp-vector-search index-code
+
+# Check project status
+mcp-vector-search status
+
+# Start file watching (auto-update index)
+mcp-vector-search watch
+
+# Interactive visualization (5+ views)
+mcp-vector-search visualize
+
+# Generate development narrative from git history
+mcp-vector-search story
+
+# Knowledge graph operations
+mcp-vector-search kg build
+mcp-vector-search kg status
+mcp-vector-search kg query "find all Python functions"
+
+# Chat mode with LLM
+mcp-vector-search chat "explain the authentication flow"
+
+# Code analysis
+mcp-vector-search analyze complexity
+mcp-vector-search analyze dead-code
+```
+
+### Smart CLI with "Did You Mean" Suggestions
+
+The CLI includes intelligent command suggestions for typos:
+
+```bash
+# Typos are automatically detected and corrected
+$ mcp-vector-search serach "auth"
+No such command 'serach'. Did you mean 'search'?
+
+$ mcp-vector-search indx
+No such command 'indx'. Did you mean 'index'?
+```
+
+See [docs/guides/cli-usage.md](docs/guides/cli-usage.md) for more details.
+
+## Versioning & Releasing
+
+This project uses semantic versioning with an automated release workflow.
+
+### Quick Commands
+- `make version-show` - Display current version
+- `make release-patch` - Create patch release
+- `make publish` - Publish to PyPI
+
+See [docs/development/versioning.md](docs/development/versioning.md) for complete documentation.
+
+## 🔍 AI Code Review
+
+**Context-aware code review using your entire codebase as context** — Not just diff analysis!
+
+### What Makes It Different
+
+Traditional code review tools only see individual files or diffs. MCP Vector Search analyzes code with **full codebase context** by:
+- 🔎 **Semantic Search**: Finding related patterns and similar implementations
+- 🕸️ **Knowledge Graph**: Understanding dependencies and callers
+- 🤖 **LLM Analysis**: Deep analysis with language-specific standards
+- ⚡ **Smart Caching**: 5x speedup with intelligent result caching
+
+### Quick Examples
+
+```bash
+# Security review of your codebase
+mvs analyze review security
+
+# Review a pull request with full context
+mvs analyze review-pr --baseline main --head feature-branch
+
+# Review only changed files (fast!)
+mvs analyze review security --changed-only --baseline main
+
+# Run multiple review types at once
+mvs analyze review --types security,quality,architecture
+```
+
+### Review Types
+
+| Type | Focus | Key Checks |
+|------|-------|------------|
+| **security** | OWASP Top 10, CWE | SQL injection, XSS, auth flaws, hardcoded secrets |
+| **architecture** | SOLID principles | Coupling, circular deps, god classes, SRP violations |
+| **performance** | Efficiency | N+1 queries, O(n²) algorithms, blocking I/O |
+| **quality** | Maintainability | Code smells, duplication, magic numbers, dead code |
+| **testing** | Test coverage | Missing tests, edge cases, test quality |
+| **documentation** | Code docs | Missing docstrings, TODOs, outdated comments |
+
+### PR Review with Context
+
+The killer feature — review PRs using the **entire codebase as context**:
+
+```bash
+# Review PR with context-aware analysis
+mvs analyze review-pr --baseline main --format github-json
+
+# For each changed file, finds:
+# ✓ Similar patterns in codebase (consistency checking)
+# ✓ Callers and dependencies (impact analysis)
+# ✓ Existing tests (coverage gaps)
+# ✓ Language-specific idioms (12 languages supported)
+```
+
+**Context Strategy**:
+```
+Changed File → Vector Search (similar patterns)
+            → Knowledge Graph (callers, deps)
+            → Test Discovery (coverage)
+            → LLM Analysis (with full context)
+            → Actionable Comments
+```
+
+### Multi-Language Support
+
+**12 languages** with language-specific idioms, anti-patterns, and security checks:
+
+Python • TypeScript • JavaScript • Java • C# • Ruby • Go • Rust • PHP • Swift • Kotlin • Scala
+
+Each language has tailored standards:
+- **Python**: PEP 8, type hints, context managers, SQL injection patterns
+- **TypeScript**: Strict mode, no `any`, XSS patterns
+- **Java**: SOLID principles, Optional over null, XXE patterns
+- **Ruby**: Guard clauses, blocks, RuboCop standards
+- **Go**: Error handling, goroutines, interfaces
+
+### Custom Instructions
+
+Create `.mcp-vector-search/review-instructions.yaml`:
+
+```yaml
+language_standards:
+  python:
+    - "Enforce type hints on all public functions"
+    - "Use Pydantic for data validation"
+
+scope_standards:
+  src/auth:
+    - "All auth functions must have audit logging"
+
+custom_review_focus:
+  security:
+    - "Flag any hardcoded credentials"
+```
+
+### Auto-Discovery
+
+Automatically reads and applies standards from your existing config files:
+
+- **Python**: `pyproject.toml`, `.flake8`, `mypy.ini`, `ruff.toml`
+- **TypeScript**: `tsconfig.json`, `.eslintrc.json`
+- **Ruby**: `.rubocop.yml`
+- **Java**: `checkstyle.xml`, `pom.xml`
+- **+8 more languages**
+
+### CI/CD Integration
+
+```yaml
+# .github/workflows/code-review.yml
+- name: Review PR
+  run: |
+    mvs analyze review-pr \
+      --baseline ${{ github.base_ref }} \
+      --format sarif \
+      --output review.sarif
+
+- name: Upload to Security tab
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: review.sarif
+```
+
+### Output Formats
+
+- **console**: Rich, colored output for humans
+- **json**: Machine-readable structured data
+- **sarif**: GitHub Security tab integration
+- **markdown**: Reports for documentation
+- **github-json**: PR comments (summary + inline)
+
+### Performance
+
+- **Vector Search**: <0.5s (find relevant code)
+- **KG Queries**: <0.2s (relationships)
+- **LLM Analysis**: 10-15s (deep analysis)
+- **Cache Hit**: 5x speedup on repeat reviews
+
+**Smart Caching**: Unchanged code chunks return cached findings instantly.
+
+### Learn More
+
+📚 **[Complete Documentation](docs/features/code-review.md)** — Architecture, examples, best practices
+
+🚀 **[CI/CD Integration Guide](docs/ci-cd-integration.md)** — GitHub Actions, GitLab CI, pre-commit hooks
+
+🌍 **[Multi-Language Support](docs/multi-language-support-summary.md)** — 12 languages with standards
+
+---
+
+## 📖 Documentation
+
+### Commands
+
+#### `setup` - Zero-Config Smart Setup (Recommended)
+```bash
+# One command to do everything (recommended)
+mcp-vector-search setup
+
+# What it does automatically:
+# - Detects project languages and file types
+# - Initializes semantic search
+# - Indexes entire codebase
+# - Configures all detected MCP platforms
+# - Sets up file watching
+# - Zero configuration needed!
+
+# Force re-setup
+mcp-vector-search setup --force
+
+# Verbose output for debugging
+mcp-vector-search setup --verbose
+```
+
+**Key Features:**
+- **Zero Configuration**: No user input required
+- **Smart Detection**: Automatically discovers languages and platforms
+- **Comprehensive**: Handles init + index + MCP setup in one command
+- **Idempotent**: Safe to run multiple times
+- **Fast**: Timeout-protected scanning (won't hang on large projects)
+- **Team-Friendly**: Commit `.mcp.json` to share configuration
+
+**When to use:**
+- ✅ First-time project setup
+- ✅ Team onboarding
+- ✅ Quick testing in new codebases
+- ✅ Setting up multiple MCP platforms at once
+
+#### `install` - Install Project and MCP Integrations (Advanced)
+```bash
+# Manual setup with more control
+mcp-vector-search install
+
+# Install with all MCP integrations
+mcp-vector-search install --with-mcp
+
+# Custom file extensions
+mcp-vector-search install --extensions .py,.js,.ts
+
+# Skip automatic indexing
+mcp-vector-search install --no-auto-index
+
+# Platform-specific MCP integration
+mcp-vector-search install claude-code      # Project-scoped
+mcp-vector-search install cursor           # Global
+mcp-vector-search install windsurf         # Global
+mcp-vector-search install vscode           # Global
+
+# List available platforms
+mcp-vector-search install list
+```
+
+**When to use:**
+- Use `install` when you need fine-grained control over extensions, models, or MCP platforms
+- Use `setup` for quick, zero-config onboarding (recommended)
+
+#### `uninstall` - Remove MCP Integrations
+```bash
+# Remove specific platform
+mcp-vector-search uninstall claude-code
+
+# Remove all integrations
+mcp-vector-search uninstall --all
+
+# List configured integrations
+mcp-vector-search uninstall list
+
+# Skip backup creation
+mcp-vector-search uninstall claude-code --no-backup
+
+# Alias (same as uninstall)
+mcp-vector-search remove claude-code
+```
+
+#### `init` - Initialize Project (Simple)
+```bash
+# Basic initialization (no indexing or MCP)
+mcp-vector-search init
+
+# Custom configuration
+mcp-vector-search init --extensions .py,.js,.ts --embedding-model sentence-transformers/all-MiniLM-L6-v2
+
+# Force re-initialization
+mcp-vector-search init --force
+```
+
+**Note**: For most users, use `setup` instead of `init`. The `init` command is for advanced users who want manual control.
+
+#### `index` - Index Codebase
+```bash
+# Index all files
+mcp-vector-search index
+
+# Index specific directory
+mcp-vector-search index /path/to/code
+
+# Force re-indexing
+mcp-vector-search index --force
+
+# Reindex entire project
+mcp-vector-search index reindex
+
+# Reindex entire project (explicit)
+mcp-vector-search index reindex --all
+
+# Reindex entire project without confirmation
+mcp-vector-search index reindex --force
+
+# Reindex specific file
+mcp-vector-search index reindex path/to/file.py
+```
+
+#### `search` - Semantic Search
+```bash
+# Basic search
+mcp-vector-search search "function that handles user authentication"
+
+# Adjust similarity threshold
+mcp-vector-search search "database queries" --threshold 0.7
+
+# Limit results
+mcp-vector-search search "error handling" --limit 10
+
+# Search in specific context
+mcp-vector-search search similar "path/to/function.py:25"
+```
+
+#### `auto-index` - Automatic Reindexing
+```bash
+# Setup all auto-indexing strategies
+mcp-vector-search auto-index setup --method all
+
+# Setup specific strategies
+mcp-vector-search auto-index setup --method git-hooks
+mcp-vector-search auto-index setup --method scheduled --interval 60
+
+# Check for stale files and auto-reindex
+mcp-vector-search auto-index check --auto-reindex --max-files 10
+
+# View auto-indexing status
+mcp-vector-search auto-index status
+
+# Remove auto-indexing setup
+mcp-vector-search auto-index teardown --method all
+```
+
+#### `watch` - File Watching
+```bash
+# Start watching for changes
+mcp-vector-search watch
+
+# Check watch status
+mcp-vector-search watch status
+
+# Enable/disable watching
+mcp-vector-search watch enable
+mcp-vector-search watch disable
+```
+
+#### `status` - Project Information
+```bash
+# Basic status
+mcp-vector-search status
+
+# Detailed information
+mcp-vector-search status --verbose
+```
+
+#### `config` - Configuration Management
+```bash
+# View configuration
+mcp-vector-search config show
+
+# Update settings
+mcp-vector-search config set similarity_threshold 0.8
+mcp-vector-search config set embedding_model microsoft/codebert-base
+
+# Configure indexing behavior
+mcp-vector-search config set skip_dotfiles true    # Skip dotfiles (default)
+mcp-vector-search config set respect_gitignore true # Respect .gitignore (default)
+
+# Get specific setting
+mcp-vector-search config get skip_dotfiles
+mcp-vector-search config get respect_gitignore
+
+# List available models
+mcp-vector-search config models
+
+# List all configuration keys
+mcp-vector-search config list-keys
+```
+
+#### `index-code` - Code-Specific Embeddings
+```bash
+# Index with CodeT5+ embeddings (code-optimized)
+mcp-vector-search index-code
+
+# Feature-flagged via environment variable
+export MCP_CODE_ENRICHMENT=true
+mcp-vector-search index-code
+```
+
+#### `visualize` - Interactive D3.js Visualization
+```bash
+# Launch visualization server
+mcp-vector-search visualize
+
+# Start on custom port
+mcp-vector-search visualize --port 8080
+
+# Available views:
+# - Treemap: Hierarchical view with size/complexity encoding
+# - Sunburst: Radial hierarchical view
+# - Force Graph: Network visualization of code relationships
+# - Knowledge Graph: Entity and relationship visualization
+# - Heatmap: Complexity and quality heatmap
+```
+
+#### `story` - Development Narrative Generation
+```bash
+# Generate development narrative from git history
+mcp-vector-search story
+
+# Output formats
+mcp-vector-search story --format markdown
+mcp-vector-search story --format json
+mcp-vector-search story --format html
+
+# Serve as HTTP endpoint
+mcp-vector-search story --serve
+
+# Extract-only mode (no LLM)
+mcp-vector-search story --no-llm
+
+# Custom LLM model
+mcp-vector-search story --model gpt-4o
+```
+
+#### `kg` - Knowledge Graph Operations
+```bash
+# Build knowledge graph
+mcp-vector-search kg build
+
+# Check knowledge graph status
+mcp-vector-search kg status
+
+# Query knowledge graph
+mcp-vector-search kg query "find all Python functions"
+mcp-vector-search kg query "show classes in module auth"
+
+# Browse document ontology (file-level document classification)
+mcp-vector-search kg ontology
+mcp-vector-search kg ontology --category guide       # filter by category
+mcp-vector-search kg ontology --verbose              # include file paths
+
+# Knowledge graph entities:
+# - CodeFile, Function, Class, Person
+# - ProgrammingLanguage, ProgrammingFramework
+# - Document (file-level, with doc_category classification)
+# - Topic (hierarchical taxonomy)
+```
+
+#### `chat` - LLM-Powered Code Q&A
+```bash
+# Ask questions about your codebase
+mcp-vector-search chat "explain the authentication flow"
+mcp-vector-search chat "how does error handling work?"
+
+# Iterative refinement (up to 30 queries)
+# Automatically uses deep search and KG query tools
+
+# Advanced reasoning mode
+mcp-vector-search chat "architectural patterns" --think
+
+# Filter by files
+mcp-vector-search chat "validation logic" --files "src/*.py"
+```
+
+#### `analyze` - Code Analysis
+```bash
+# Complexity analysis
+mcp-vector-search analyze complexity
+
+# Dead code detection
+mcp-vector-search analyze dead-code
+
+# Output formats
+mcp-vector-search analyze complexity --json
+mcp-vector-search analyze complexity --sarif
+mcp-vector-search analyze complexity --output-format markdown
+
+# CI/CD integration
+mcp-vector-search analyze complexity --fail-on-smell
+```
+
+## 🚀 Performance Features
+
+### Search Optimizations
+
+MCP Vector Search includes several query-time optimizations that are automatically enabled as your index grows.
+
+**IVF-PQ Index** is built automatically after indexing more than 256 rows. It uses Inverted File with Product Quantization to partition vectors into clusters, so queries scan only a relevant subset rather than the full index. The index parameters adapt to your data: `num_partitions = clamp(sqrt(N), 16, 512)` and `num_sub_vectors = dim // 4`.
+
+**Two-stage retrieval** improves precision on top of the IVF-PQ scan: the engine probes 20 IVF partitions (`nprobes=20`) and fetches 5x the requested candidates, then reranks them with exact cosine similarity (`refine_factor=5`). Applied to both the LanceDB and legacy vector backends.
+
+**Contextual chunking** prepends a compact metadata header to each chunk before embedding, so the vector captures file, language, class, and function context rather than code text alone. Format: `File: core/search.py | Lang: python | Class: Engine | Fn: search | Uses: lancedb`. Based on Anthropic research showing 35-49% fewer retrieval failures.
+
+| Optimization | Impact |
+|---|---|
+| IVF-PQ index + two-stage retrieval | 4.9x faster queries (3.4ms vs 16.7ms median) |
+| Contextual chunking | 35-49% fewer retrieval failures |
+| Pipeline parallelism | 37% faster indexing |
+| Apple Silicon MPS | 2-4x faster embedding generation |
+
+See [docs/performance/search-optimizations.md](docs/performance/search-optimizations.md) for technical details and benchmark methodology.
+
+### LanceDB Backend (Default in v2.1+)
+**LanceDB is now the default vector database** for better performance and stability:
+
+- **Serverless Architecture**: No separate server process needed
+- **Better Scaling**: Superior performance for large codebases (>100k chunks)
+- **File-Based Storage**: Simple directory-based persistence
+- **Fewer Corruption Issues**: More stable than ChromaDB's HNSW indices
+- **Write Buffering**: 2-4x faster indexing with accumulated batch writes
+
+**To use ChromaDB** (legacy), set environment variable:
+```bash
+export MCP_VECTOR_SEARCH_BACKEND=chromadb
+```
+
+**Migrate existing ChromaDB database**:
+```bash
+mcp-vector-search migrate db chromadb-to-lancedb
+```
+
+See [docs/LANCEDB_BACKEND.md](docs/LANCEDB_BACKEND.md) for detailed documentation.
+
+### Apple Silicon M4 Max Optimizations
+**2-4x speedup on Apple Silicon** with automatic hardware detection:
+
+- **MPS Backend**: Metal Performance Shaders GPU acceleration for embeddings
+- **Intelligent Batch Sizing**: Auto-detects GPU memory (384-512 for M4 Max with 128GB RAM)
+- **Multi-Core Optimization**: Utilizes all 12 performance cores efficiently
+- **Zero Configuration**: Automatically enabled on Apple Silicon Macs
+
+Environment variables for tuning:
+```bash
+export MCP_VECTOR_SEARCH_MPS_BATCH_SIZE=512  # Override MPS batch size
+export MCP_VECTOR_SEARCH_BATCH_SIZE=128      # Override all backends
+```
+
+### Semi-Automatic Reindexing
+Multiple strategies to keep your index up-to-date without daemon processes:
+
+1. **Search-Triggered**: Automatically checks for stale files during searches
+2. **Git Hooks**: Triggers reindexing after commits, merges, checkouts
+3. **Scheduled Tasks**: System-level cron jobs or Windows tasks
+4. **Manual Checks**: On-demand via CLI commands
+5. **Periodic Checker**: In-process periodic checks for long-running apps
+
+```bash
+# Setup all strategies
+mcp-vector-search auto-index setup --method all
+
+# Check status
+mcp-vector-search auto-index status
+```
+
+### Configuration
+
+Projects are configured via `.mcp-vector-search/config.json`:
+
+```json
+{
+  "project_root": "/path/to/project",
+  "file_extensions": [".py", ".js", ".ts"],
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "similarity_threshold": 0.75,
+  "languages": ["python", "javascript", "typescript"],
+  "watch_files": true,
+  "cache_embeddings": true,
+  "skip_dotfiles": true,
+  "respect_gitignore": true
+}
+```
+
+#### Indexing Configuration Options
+
+**`skip_dotfiles`** (default: `true`)
+- Controls whether files and directories starting with "." are skipped during indexing
+- **Whitelisted directories** are always indexed regardless of this setting:
+  - `.github/` - GitHub workflows and actions
+  - `.gitlab-ci/` - GitLab CI configuration
+  - `.circleci/` - CircleCI configuration
+- When `false`: All dotfiles are indexed (subject to gitignore rules if `respect_gitignore` is `true`)
+
+**`respect_gitignore`** (default: `true`)
+- Controls whether `.gitignore` patterns are respected during indexing
+- When `false`: Files in `.gitignore` are indexed (subject to `skip_dotfiles` if enabled)
+
+**`force_include_patterns`** (default: `[]`)
+- Glob patterns to force-include files/directories even if they are gitignored
+- Patterns support `**` for recursive matching (e.g., `repos/**/*.java` matches all Java files in `repos/` and subdirectories)
+- Force-include patterns override `.gitignore` rules, allowing selective indexing of gitignored directories
+- Example use case: Index specific file types in a gitignored `repos/` directory
+
+**Example: Force-include Java files from gitignored directory**
+```bash
+# Set force_include_patterns via JSON list
+mcp-vector-search config set force_include_patterns '["repos/**/*.java", "repos/**/*.kt"]'
+
+# Or add patterns one at a time (requires custom CLI command)
+# This allows .gitignore to exclude repos/ from git, but mcp-vector-search still indexes Java/Kotlin files
+```
+
+**Example config.json with force_include_patterns:**
+```json
+{
+  "respect_gitignore": true,
+  "force_include_patterns": [
+    "repos/**/*.java",
+    "repos/**/*.kt",
+    "vendor/internal/**/*.go"
+  ]
+}
+```
+
+#### Configuration Use Cases
+
+**Default Behavior** (Recommended for most projects):
+```bash
+# Skip dotfiles AND respect .gitignore
+mcp-vector-search config set skip_dotfiles true
+mcp-vector-search config set respect_gitignore true
+```
+
+**Index Everything** (Useful for deep code analysis):
+```bash
+# Index all files including dotfiles and gitignored files
+mcp-vector-search config set skip_dotfiles false
+mcp-vector-search config set respect_gitignore false
+```
+
+**Index Dotfiles but Respect .gitignore**:
+```bash
+# Index configuration files but skip build artifacts
+mcp-vector-search config set skip_dotfiles false
+mcp-vector-search config set respect_gitignore true
+```
+
+**Skip Dotfiles but Ignore .gitignore**:
+```bash
+# Useful when you want to index files in .gitignore but skip hidden config files
+mcp-vector-search config set skip_dotfiles true
+mcp-vector-search config set respect_gitignore false
+```
+
+**Selective Gitignore Override with Force-Include Patterns**:
+```bash
+# Index specific file types from gitignored directories
+# Example: .gitignore excludes repos/, but you want to index Java/Kotlin files
+mcp-vector-search config set respect_gitignore true
+mcp-vector-search config set force_include_patterns '["repos/**/*.java", "repos/**/*.kt"]'
+
+# This allows:
+# - .gitignore to exclude repos/ from git (keeps your repo clean)
+# - mcp-vector-search to index Java/Kotlin files in repos/ (semantic search)
+# - Other files in repos/ (e.g., .class, .jar) remain excluded
+```
+
+## 🏗️ Architecture
+
+### Core Components
+
+- **Parser Registry**: Extensible system for language-specific parsing
+- **Semantic Indexer**: Efficient code chunking and embedding generation
+- **Vector Database**: LanceDB for similarity search
+- **File Watcher**: Real-time monitoring and incremental updates
+- **CLI Interface**: Rich, user-friendly command-line experience
+
+### Supported Languages
+
+MCP Vector Search supports **13 programming languages** with full semantic search capabilities:
+
+| Language   | Extensions | Status | Features |
+|------------|------------|--------|----------|
+| Python     | `.py`, `.pyw` | ✅ Full | Functions, classes, methods, docstrings |
+| JavaScript | `.js`, `.jsx`, `.mjs` | ✅ Full | Functions, classes, JSDoc, ES6+ syntax |
+| TypeScript | `.ts`, `.tsx` | ✅ Full | Interfaces, types, generics, decorators |
+| C#         | `.cs` | ✅ Full | Classes, interfaces, structs, enums, methods, XML docs, attributes |
+| Dart       | `.dart` | ✅ Full | Functions, classes, widgets, async, dartdoc |
+| PHP        | `.php`, `.phtml` | ✅ Full | Classes, methods, traits, PHPDoc, Laravel patterns |
+| Ruby       | `.rb`, `.rake`, `.gemspec` | ✅ Full | Modules, classes, methods, RDoc, Rails patterns |
+| Java       | `.java` | ✅ Full | Classes, methods, annotations, interfaces |
+| Go         | `.go` | ✅ Full | Functions, structs, interfaces, packages |
+| Rust       | `.rs` | ✅ Full | Functions, structs, traits, implementations |
+| HTML       | `.html`, `.htm` | ✅ Full | Semantic content extraction, heading hierarchy, text chunking |
+| Text/Markdown | `.txt`, `.md`, `.markdown` | ✅ Basic | Semantic chunking for documentation |
+
+#### New Language Support
+
+**HTML Support** (Unreleased):
+- **Semantic Extraction**: Content from h1-h6, p, section, article, main, aside, nav, header, footer
+- **Intelligent Chunking**: Based on heading hierarchy (h1-h6)
+- **Context Preservation**: Maintains class and id attributes for searchability
+- **Script/Style Filtering**: Ignores non-content elements
+- **Use Cases**: Static sites, documentation, web templates, HTML fragments
+
+**Dart/Flutter Support** (v0.4.15):
+- **Widget Detection**: StatelessWidget, StatefulWidget recognition
+- **State Classes**: Automatic parsing of `_WidgetNameState` patterns
+- **Async Support**: Future<T> and async function handling
+- **Dartdoc**: Triple-slash comment extraction
+- **Tree-sitter AST**: Fast, accurate parsing with regex fallback
+
+**PHP Support** (v0.5.0):
+- **Class Detection**: Classes, interfaces, traits
+- **Method Extraction**: Public, private, protected, static methods
+- **Magic Methods**: __construct, __get, __set, __call, etc.
+- **PHPDoc**: Full comment extraction
+- **Laravel Patterns**: Controllers, Models, Eloquent support
+- **Tree-sitter AST**: Fast parsing with regex fallback
+
+**Ruby Support** (v0.5.0):
+- **Module/Class Detection**: Full namespace support (::)
+- **Method Extraction**: Instance and class methods
+- **Special Syntax**: Method names with ?, ! support
+- **Attribute Macros**: attr_accessor, attr_reader, attr_writer
+- **RDoc**: Comment extraction (# and =begin...=end)
+- **Rails Patterns**: ActiveRecord, Controllers support
+- **Tree-sitter AST**: Fast parsing with regex fallback
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/bobmatnyc/mcp-vector-search.git
+cd mcp-vector-search
+
+# Install development environment (includes dependencies + editable install)
+make dev
+
+# Test CLI from source (recommended during development)
+./dev-mcp version        # Shows [DEV] indicator
+./dev-mcp search "test"  # No reinstall needed after code changes
+
+# Run tests and quality checks
+make test-unit           # Run unit tests
+make quality            # Run linting and type checking
+make fix                # Auto-fix formatting issues
+
+# View all available targets
+make help
+```
+
+For detailed development workflow and `dev-mcp` usage, see the [Development](#-development) section below.
+
+### Adding Language Support
+
+1. Create a new parser in `src/mcp_vector_search/parsers/`
+2. Extend the `BaseParser` class
+3. Register the parser in `parsers/registry.py`
+4. Add tests and documentation
+
+## 📊 Performance
+
+- **Indexing Speed**: ~1000 files/minute (typical Python project)
+- **Search Latency**: 3.4ms median with IVF-PQ index (4.9x faster than without)
+- **Memory Usage**: ~50MB baseline + ~1MB per 1000 code chunks
+- **Storage**: ~1KB per code chunk (compressed embeddings)
+
+## ⚠️ Known Limitations (Alpha)
+
+- **Tree-sitter Integration**: Currently using regex fallback parsing (Tree-sitter setup needs improvement)
+- **Search Relevance**: Embedding model may need tuning for code-specific queries
+- **Error Handling**: Some edge cases may not be gracefully handled
+- **Documentation**: API documentation is minimal
+- **Testing**: Limited test coverage, needs real-world validation
+
+## 🙏 Feedback Needed
+
+We're actively seeking feedback on:
+
+- **Search Quality**: How relevant are the search results for your codebase?
+- **Performance**: How does indexing and search speed feel in practice?
+- **Usability**: Is the CLI interface intuitive and helpful?
+- **Language Support**: Which languages would you like to see added next?
+- **Features**: What functionality is missing for your workflow?
+
+Please [open an issue](https://github.com/bobmatnyc/mcp-vector-search/issues) or start a [discussion](https://github.com/bobmatnyc/mcp-vector-search/discussions) to share your experience!
+
+## 🔮 Roadmap
+
+### v2.5: Production (Current) ✅
+- [x] Core CLI interface
+- [x] Multi-language parsing (13 languages: Python, JavaScript, TypeScript, C#, Dart, PHP, Ruby, Java, Go, Rust, HTML, Markdown, Text)
+- [x] LanceDB default backend (ChromaDB legacy support)
+- [x] Apple Silicon optimizations (2-4x speedup with MPS)
+- [x] File watching and auto-reindexing
+- [x] MCP server implementation with 17 tools
+- [x] Advanced search modes (semantic, contextual, similar code)
+- [x] Code analysis tools (complexity, dead code detection, code smells)
+- [x] Interactive D3.js visualization (5+ views: Treemap, Sunburst, Force Graph, KG, Heatmap)
+- [x] Knowledge Graph with KuzuDB (entity extraction, relationship mapping)
+- [x] Development narrative generation (`story` command)
+- [x] Chat mode with LLM integration (iterative refinement, up to 30 queries)
+- [x] CodeT5+ code-specific embeddings
+- [x] Pipeline parallelism (37% faster indexing)
+- [x] Production-ready performance (write buffering, GPU acceleration, async pipeline)
+- [x] IVF-PQ vector index with two-stage retrieval (4.9x faster queries)
+- [x] Contextual chunking (metadata-enriched embeddings, 35-49% fewer retrieval failures)
+- [x] CodeRankEmbed model support (`nomic-ai/CodeRankEmbed`, 768d, 8K context)
+- [x] Document ontology with 23 categories (`kg ontology` command)
+
+### v2.6+: Enhancements 🔮
+- [ ] Hybrid search (vector + keyword + BM25)
+- [ ] Additional language support (more languages beyond 13)
+- [ ] IDE extensions (VS Code, JetBrains)
+- [ ] Team collaboration features
+- [ ] Advanced code refactoring suggestions
+- [ ] Real-time collaboration on knowledge graph
+- [ ] Multi-project knowledge graph federation
+
+## 🛠️ Development
+
+### Three-Stage Development Workflow
+
+**Stage A: Local Development & Testing**
+```bash
+# Setup development environment
+make dev
+
+# Run development tests
+make test-unit
+
+# Run CLI from source (recommended during development)
+./dev-mcp version        # Visual [DEV] indicator
+./dev-mcp status         # Any command works
+./dev-mcp search "auth"  # Immediate feedback on changes
+
+# Run quality checks
+make quality
+
+# Alternative: use uv run directly
+uv run mcp-vector-search version
+```
+
+#### Using the `dev-mcp` Development Helper
+
+The `./dev-mcp` script provides a streamlined way to run the CLI from source code during development, eliminating the need for repeated installations.
+
+**Key Features:**
+- **Visual [DEV] Indicator**: Shows `[DEV]` prefix to distinguish from installed version
+- **No Reinstall Required**: Reflects code changes immediately
+- **Complete Argument Forwarding**: Works with all CLI commands and options
+- **Verbose Mode**: Debug output with `--verbose` flag
+- **Built-in Help**: Script usage with `--help`
+
+**Usage Examples:**
+```bash
+# Basic commands (note the [DEV] prefix in output)
+./dev-mcp version
+./dev-mcp status
+./dev-mcp index
+./dev-mcp search "authentication logic"
+
+# With CLI options
+./dev-mcp search "error handling" --limit 10
+./dev-mcp index --force
+
+# Script verbose mode (shows Python interpreter, paths)
+./dev-mcp --verbose search "database"
+
+# Script help (shows dev-mcp usage, not CLI help)
+./dev-mcp --help
+
+# CLI command help (forwards --help to the CLI)
+./dev-mcp search --help
+./dev-mcp index --help
+```
+
+**When to Use:**
+- **`./dev-mcp`** → Development workflow (runs from source code)
+- **`mcp-vector-search`** → Production usage (runs installed version via pipx/pip)
+
+**Benefits:**
+- **Instant Feedback**: Changes to source code are reflected immediately
+- **No Build Step**: Skip the reinstall cycle during active development
+- **Clear Context**: Visual `[DEV]` indicator prevents confusion about which version is running
+- **Error Handling**: Built-in checks for uv installation and project structure
+
+**Requirements:**
+- Must have `uv` installed (`pip install uv`)
+- Must run from project root directory
+- Requires `pyproject.toml` in current directory
+
+**Stage B: Local Deployment Testing**
+```bash
+# Build and test clean deployment
+./scripts/deploy-test.sh
+
+# Test on other projects
+cd ~/other-project
+mcp-vector-search init && mcp-vector-search index
+```
+
+**Stage C: PyPI Publication**
+```bash
+# Publish to PyPI
+./scripts/publish.sh
+
+# Verify published version
+pip install mcp-vector-search --upgrade
+```
+
+### Quick Reference
+```bash
+./scripts/workflow.sh  # Show workflow overview
+```
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development instructions.
+
+## 📚 Documentation
+
+For comprehensive documentation, see **[docs/index.md](docs/index.md)** - the complete documentation hub.
+
+### Getting Started
+- **[Installation Guide](docs/getting-started/installation.md)** - Complete installation instructions
+- **[First Steps](docs/getting-started/first-steps.md)** - Quick start tutorial
+- **[Configuration](docs/getting-started/configuration.md)** - Basic configuration
+
+### User Guides
+- **[Searching Guide](docs/guides/searching.md)** - Master semantic code search
+- **[Indexing Guide](docs/guides/indexing.md)** - Indexing strategies and optimization
+- **[CLI Usage](docs/guides/cli-usage.md)** - Advanced CLI features
+- **[MCP Integration](docs/guides/mcp-integration.md)** - AI tool integration
+- **[File Watching](docs/guides/file-watching.md)** - Real-time index updates
+
+### Reference
+- **[CLI Commands](docs/reference/cli-commands.md)** - Complete command reference
+- **[Configuration Options](docs/reference/configuration-options.md)** - All configuration settings
+- **[Features](docs/reference/features.md)** - Feature overview
+- **[Architecture](docs/reference/architecture.md)** - System architecture
+
+### Development
+- **[Contributing](docs/development/contributing.md)** - How to contribute
+- **[Testing](docs/development/testing.md)** - Testing guide
+- **[Code Quality](docs/development/code-quality.md)** - Linting and formatting
+- **[API Reference](docs/development/api.md)** - Internal API docs
+- **[Deployment](docs/deployment/README.md)** - Release and deployment guide
+
+### Advanced
+- **[Troubleshooting](docs/advanced/troubleshooting.md)** - Common issues and solutions
+- **[Performance](docs/architecture/performance.md)** - Performance optimization
+- **[Extending](docs/advanced/extending.md)** - Adding new features
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+## 📄 License
+
+Elastic License 2.0 - see [LICENSE](LICENSE) file for details.
+
+**Note**: This software may not be provided to third parties as a hosted or managed service.
+
+## 🙏 Acknowledgments
+
+- [LanceDB](https://lancedb.com/) for vector database
+- [Tree-sitter](https://tree-sitter.github.io/) for parsing infrastructure
+- [Sentence Transformers](https://www.sbert.net/) for embeddings
+- [Typer](https://typer.tiangolo.com/) for CLI framework
+- [Rich](https://rich.readthedocs.io/) for beautiful terminal output
+
+---
+
+**Built with ❤️ for developers who love efficient code search**

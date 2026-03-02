@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.5.0.dev20260228
+Version: 1.5.0.dev20260301
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -69,7 +69,9 @@ Dynamic: license-file
 
 <p align="center"> English | <a href="README_cn.md"> 简体中文 </a></p>
 
-TensorCircuit-NG is the next-generation open-source high-performance quantum software framework, built upon tensornetwork engines, supporting for automatic differentiation, just-in-time compiling, hardware acceleration, vectorized parallelism and distributed training, providing unified infrastructures and interfaces for quantum programming. It can compose quantum circuits, neural networks and tensor networks seamlessly with high simulation efficiency and flexibility.
+TensorCircuit-NG is the next-generation open-source high-performance quantum software framework, and the world's first AI-native quantum programming platform purpose-built for agentic research and automated scientific discovery.
+
+TensorCircuit-NG is built upon tensornetwork engines, supporting for automatic differentiation, just-in-time compiling, hardware acceleration, vectorized parallelism and distributed training, providing unified infrastructures and interfaces for quantum programming. It can compose quantum circuits, neural networks and tensor networks seamlessly with high simulation efficiency and flexibility.
 
 TensorCircuit-NG is built on top of modern machine learning frameworks: Jax, TensorFlow, and PyTorch. It is specifically suitable for large-scale simulations of quantum-classical hybrid paradigm and variational quantum algorithms in ideal (`Circuit`), noisy (`DMCircuit`), Clifford (`StabilizerCircuit`), qudit (`QuditCircuit`), approximate (`MPSCircuit`), analog (`AnalogCircuit`), and fermionic (`FGSCircuit`) cases. It also supports quantum hardware access and provides CPU/GPU/QPU hybrid deployment solutions.
 
@@ -80,7 +82,7 @@ TensorCircuit-NG is the technical successor to TensorCircuit, led and maintained
 
 Please begin with [Quick Start](/docs/source/quickstart.rst) in the [full documentation](https://tensorcircuit-ng.readthedocs.io/).
 
-For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 130+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng) and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
+For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 140+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng) and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
 
 For beginners, please refer to [quantum computing lectures with TC-NG](https://github.com/sxzgroup/qc_lecture) to learn both quantum computing basics and representative usage of TensorCircuit-NG.
 
@@ -90,6 +92,12 @@ To write TC-NG scripts and applications efficiently with AI coding agents (e.g.,
 
 1.  **Rich Context:** The 100+ scripts in `examples/` and extensive test cases in `tests/` provide essential references that significantly reduce AI hallucinations.
 2.  **Built-in Rules:** We provide a dedicated [AGENTS.md](/AGENTS.md) file. It serves as the "handbook" (i.e. `CLAUDE.md`) for AI agents, defining coding standards and best practices to ensure the generated code is idiomatic.
+3.  **Specialized Agentic Skills:** The `.agents/skills/` directory contains workflows to guide AI assistants on complex, multi-step tasks:
+    *   [`arxiv-reproduce`](/.agents/skills/arxiv-reproduce/README.md): Autonomously reproduces arXiv papers with standardized output and code quality validation.
+    *   [`performance-optimize`](/.agents/skills/performance-optimize/README.md): Scientific execution and memory optimization workflow (JAX scanning, vectorized parallelism, etc.).
+    *   [`tc-rosetta`](/.agents/skills/tc-rosetta/README.md): End-to-end framework translation (from Qiskit, PennyLane, etc.) with intrinsic mathematical intent rewriting.
+    *   [`tutorial-crafter`](/.agents/skills/tutorial-crafter/README.md): Transforms raw TC-NG scripts into comprehensive, narrative-driven Markdown or/and HTML educational tutorials.
+    *   [`demo-generator`](/.agents/skills/demo-generator/README.md): Transforms TC-NG scripts into interactive, sleek, and high-performance Streamlit GUI applications.
 
 **Recommended Workflow:**
 
@@ -97,7 +105,7 @@ To write TC-NG scripts and applications efficiently with AI coding agents (e.g.,
 2.  Switch to a local playground branch: `git checkout -b my-playground` in case messing up with the original repository.
 3.  Open the repository folder in your AI IDE. And you are ready to start writing TC-NG-based scripts.
 
-Now, enjoy implementing quantum algorithms entirely through natural language!
+Now, enjoy implementing quantum algorithms entirely through natural language! By seamlessly integrating the extreme performance with an autonomous, intent-driven AI workflow (via embedded `.agents/skills/`), TC-NG empowers researchers to transition from manual coding to automated paper reproduction, intelligent performance squeezing, and cross-framework translation in seconds.
 
 ### Quick Demos
 

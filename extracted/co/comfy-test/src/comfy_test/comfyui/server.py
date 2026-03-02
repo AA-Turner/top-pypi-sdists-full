@@ -44,6 +44,8 @@ class ComfyUIServer:
         cuda_mock_packages: Optional[List[str]] = None,
         log_callback: Optional[Callable[[str], None]] = None,
         env_vars: Optional[dict] = None,
+        novram: bool = False,
+        vram_debug: bool = False,
     ):
         self.platform = platform
         self.paths = paths
@@ -55,6 +57,8 @@ class ComfyUIServer:
         self.port = port
         self.cuda_mock_packages = cuda_mock_packages or []
         self.env_vars = env_vars or {}
+        self.novram = novram
+        self.vram_debug = vram_debug
         self._log = log_callback or (lambda msg: print(msg))
         self._extra_log_listeners: List[Callable[[str], None]] = []
         self._process: Optional[subprocess.Popen] = None
@@ -113,17 +117,26 @@ class ComfyUIServer:
         if self.env_vars:
             extra_env.update(self.env_vars)
 
+        # VRAM debug logging
+        if self.vram_debug:
+            extra_env["COMFY_VRAM_DEBUG"] = "1"
+
         # Add CUDA mock injection
         if self.cuda_mock_packages:
             extra_env["COMFY_TEST_MOCK_PACKAGES"] = ",".join(self.cuda_mock_packages)
             extra_env["COMFY_TEST_STRICT_IMPORTS"] = "1"
             self._log(f"CUDA mock packages: {', '.join(self.cuda_mock_packages)}")
 
+        extra_args = []
+        if self.novram:
+            extra_args.append("--novram")
+
         self._process = self.platform.start_server(
             self.paths,
             self.config,
             self.port,
             extra_env=extra_env,
+            extra_args=extra_args,
         )
 
         # Start output reader thread

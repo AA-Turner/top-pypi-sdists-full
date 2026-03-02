@@ -1,0 +1,91 @@
+from pathlib import Path
+from typing import Set
+from polylith_cli.polylith import imports, libs, workspace
+from polylith_cli.polylith.check import collect
+from polylith_cli.polylith.reporting import theme
+from rich.console import Console
+
+def _print_imports(bricks: dict, brick_type: str) -> None:
+    console = Console(theme=theme.poly_theme)
+    items = sorted(bricks.items())
+    tag = 'base' if brick_type == 'bases' else 'comp'
+    for item in items:
+        key, values = item
+        imports_in_brick = values.difference({key})
+        if not imports_in_brick:
+            continue
+        joined = ', '.join(sorted(imports_in_brick))
+        message = f':information: [{tag}]{key}[/] is importing [data]{joined}[/]'
+        console.print(message)
+
+def print_brick_imports(brick_imports: dict) -> None:
+    bases = brick_imports['bases']
+    components = brick_imports['components']
+    _print_imports(bases, 'bases')
+    _print_imports(components, 'components')
+
+def print_missing_deps(diff: Set[str], project_name: str) -> None:
+    if not diff:
+        return
+    console = Console(theme=theme.poly_theme)
+    missing = ', '.join(sorted(diff))
+    console.print(f':thinking_face: Cannot locate [data]{missing}[/] in [proj]{project_name}[/]')
+
+def print_excluded_deps(excluded: Set[str], project_name: str) -> None:
+    if not excluded:
+        return
+    console = Console(theme=theme.poly_theme)
+    skipped = ', '.join(sorted(excluded))
+    console.print(f':information: Marked as excluded in [proj]{project_name}[/]: [data]{skipped}[/]')
+
+def print_unused_bricks(bricks: Set[str], project_name: str) -> None:
+    if not bricks:
+        return
+    console = Console(theme=theme.poly_theme)
+    unused = ', '.join(sorted(bricks))
+    verb = 'Are' if len(bricks) > 1 else 'Is'
+    console.print(f':mag_right: {verb} [comp]{unused}[/] needed in [proj]{project_name}[/]?')
+
+def extract_collected_imports(ns: str, imports_in_bases: dict, imports_in_components: dict) -> dict:
+    brick_imports = {'bases': imports.grouping.extract_brick_imports(imports_in_bases, ns), 'components': imports.grouping.extract_brick_imports(imports_in_components, ns)}
+    third_party_imports = {'bases': libs.extract_third_party_imports(imports_in_bases, ns), 'components': libs.extract_third_party_imports(imports_in_components, ns)}
+    return {'brick_imports': brick_imports, 'third_party_imports': third_party_imports}
+
+def collect_all_imports(root: Path, ns: str, project_data: dict) -> dict:
+    bases = set(project_data.get('bases', []))
+    components = set(project_data.get('components', []))
+    bases_paths = workspace.paths.collect_bases_paths(root, ns, bases)
+    components_paths = workspace.paths.collect_components_paths(root, ns, components)
+    all_imports_in_bases = imports.fetch_all_imports(bases_paths)
+    all_imports_in_components = imports.fetch_all_imports(components_paths)
+    return extract_collected_imports(ns, all_imports_in_bases, all_imports_in_components)
+
+def collect_imports_to_exclude(root: Path, ns: str, project_data: dict) -> dict:
+    exclude = project_data['exclude']
+    if not exclude:
+        return {}
+    bases = set(project_data.get('bases', []))
+    components = set(project_data.get('components', []))
+    bases_paths = workspace.paths.collect_bases_paths(root, ns, bases)
+    components_paths = workspace.paths.collect_components_paths(root, ns, components)
+    excludes_in_bases = imports.fetch_excluded_imports(bases_paths, exclude)
+    excludes_in_components = imports.fetch_excluded_imports(components_paths, exclude)
+    return extract_collected_imports(ns, excludes_in_bases, excludes_in_components)
+
+def create_exclude_report(collected_excludes: dict) -> dict:
+    fallback: dict = {'bases': {}, 'components': {}}
+    collected_bricks = collected_excludes.get('brick_imports', fallback)
+    collected_third_party = collected_excludes.get('third_party_imports', fallback)
+    bricks = collect.to_flattened_imports(collected_bricks)
+    third_party = collect.to_flattened_imports(collected_third_party)
+    return {'brick_exclude': bricks, 'libs_exclude': third_party}
+
+def create_report(project_data: dict, collected_imports: dict, third_party_libs: Set, is_strict: bool=False) -> dict:
+    bases = set(project_data.get('bases', []))
+    components = set(project_data.get('components', []))
+    brick_imports = collected_imports['brick_imports']
+    third_party_imports = collected_imports['third_party_imports']
+    brick_diff = collect.imports_diff(brick_imports, bases, components)
+    libs_diff = libs.report.calculate_diff(third_party_imports, third_party_libs, is_strict)
+    unused_bricks = collect.find_unused_bricks(brick_imports, bases, components)
+    return {'brick_imports': brick_imports, 'third_party_imports': third_party_imports, 'brick_diff': brick_diff, 'libs_diff': libs_diff, 'unused_bricks': unused_bricks}

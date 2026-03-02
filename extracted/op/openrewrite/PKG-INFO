@@ -1,0 +1,108 @@
+Metadata-Version: 2.4
+Name: openrewrite
+Version: 8.74.3
+Summary: OpenRewrite automated refactoring for Python.
+Author-email: "Moderne Inc." <support@moderne.io>
+License: Moderne Source Available License
+Project-URL: Homepage, https://github.com/openrewrite/rewrite
+Project-URL: Repository, https://github.com/openrewrite/rewrite.git
+Project-URL: Documentation, https://docs.openrewrite.org
+Project-URL: Issues, https://github.com/openrewrite/rewrite/issues
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: cbor2>=5.6.5
+Requires-Dist: more_itertools>=10.0.0
+Requires-Dist: ty-types>=0.0.19.dev20260224073439
+Requires-Dist: parso<0.8,>=0.7.1
+Provides-Extra: dev
+Requires-Dist: pip; extra == "dev"
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-timeout>=2.0.0; extra == "dev"
+Requires-Dist: tox>=4.0.0; extra == "dev"
+Requires-Dist: black>=24.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Provides-Extra: publish
+Requires-Dist: build>=1.0.0; extra == "publish"
+Requires-Dist: twine>=5.0.0; extra == "publish"
+
+# OpenRewrite Python
+
+OpenRewrite automated refactoring for Python source code.
+
+## Installation
+
+```bash
+pip install openrewrite
+```
+
+## Quick Start
+
+```python
+from rewrite.python import PythonParser
+from rewrite import ExecutionContext
+
+# Parse Python source code
+parser = PythonParser()
+ctx = ExecutionContext()
+source_files = parser.parse(ctx, "example.py")
+
+# Apply recipes to transform code
+# ...
+```
+
+## Writing Recipes
+
+```python
+from dataclasses import dataclass, field
+from rewrite import Recipe, option
+from rewrite.python import PythonVisitor
+
+@dataclass
+class ChangeImport(Recipe):
+    """Changes an import from one module to another."""
+
+    old_module: str = field(metadata=option(
+        display_name="Old module",
+        description="The module to change imports from",
+        example="flask"
+    ))
+
+    new_module: str = field(metadata=option(
+        display_name="New module",
+        description="The module to change imports to",
+        example="flask_restful"
+    ))
+
+    @property
+    def name(self) -> str:
+        return "org.openrewrite.python.ChangeImport"
+
+    @property
+    def display_name(self) -> str:
+        return "Change import"
+
+    @property
+    def description(self) -> str:
+        return "Changes an import from one module to another."
+
+    def editor(self) -> PythonVisitor:
+        # Implementation...
+        pass
+```
+
+## Documentation
+
+See [docs.openrewrite.org](https://docs.openrewrite.org) for full documentation.
+
+## License
+
+Moderne Source Available License - see [LICENSE.md](../LICENSE.md)

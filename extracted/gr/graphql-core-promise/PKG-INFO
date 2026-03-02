@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: graphql-core-promise
+Version: 3.4.2
+Summary: Add support for promise-based dataloaders and resolvers to graphql-core v3+
+Project-URL: Homepage, https://github.com/fellowapp/graphql-core-promise
+Project-URL: Repository, https://github.com/fellowapp/graphql-core-promise
+Project-URL: Changelog, https://github.com/fellowapp/graphql-core-promise/releases
+Author-email: Samuel Cormier-Iijima <sam@fellow.co>, Shen Li <dustet@gmail.com>
+License: BSD-3-Clause
+License-File: LICENSE.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: graphql-core>=3.2
+Requires-Dist: promise>=2.3
+Description-Content-Type: text/markdown
+
+# graphql-core-promise
+
+[![GitHub Workflow Status (main)](https://img.shields.io/github/actions/workflow/status/fellowapp/graphql-core-promise/test.yml?branch=main&style=flat)][main CI]
+[![PyPI](https://img.shields.io/pypi/v/graphql-core-promise?style=flat)][package]
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/graphql-core-promise?style=flat)][package]
+[![License](https://img.shields.io/pypi/l/prosemirror.svg?style=flat)](https://github.com/fellowapp/graphql-core-promise/blob/master/LICENSE.md)
+[![Fellow Careers](https://img.shields.io/badge/fellow.app-hiring-576cf7.svg?style=flat)](https://fellow.app/careers/)
+
+[main CI]: https://github.com/fellowapp/graphql-core-promise/actions?query=workflow%3ACI+branch%3Amain
+[package]: https://pypi.org/project/graphql-core-promise/
+
+Add support for promise-based dataloaders and resolvers to graphql-core v3+. This aims to make migrating to graphene 3 and graphql-core 3 easier for existing projects.
+
+## Usage
+
+This package provides an `ExecuteContext` that can be used as a drop-in replacement for the default one.
+
+```python
+from graphql_core_promise import PromiseExecutionContext
+from graphql.execution.execute import execute
+
+execute(schema=..., document=..., execution_context_class=PromiseExecutionContext)
+```
+
+### With Django
+
+graphene-django's `GraphqlView` accepts a `execution_context_class` argument in the constructor. Or you can specify it as a class variable when subclassing.
+
+For example:
+
+```python
+view = GraphQLView.as_view(execution_context_class=PromiseExecutionContext)
+# OR
+class MyGraphQLView(GraphQLView):
+	execution_context_class = PromiseExecutionContext
+```
+
+Note that this project requires graphene-django 3, which is not fully compatible with graphene-django 2.
+
+### How it works
+
+This packages is done by translating the asyncio code in the default `ExecuteContext` into promise based code.

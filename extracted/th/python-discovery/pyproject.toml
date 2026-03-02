@@ -1,0 +1,181 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs>=0.5",
+  "hatchling>=1.28",
+]
+
+[project]
+name = "python-discovery"
+description = "Python interpreter discovery"
+readme = "README.md"
+keywords = [
+  "discovery",
+  "interpreter",
+  "python",
+]
+license.file = "LICENSE"
+maintainers = [
+  { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
+]
+requires-python = ">=3.8"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Utilities",
+]
+dynamic = [
+  "version",
+]
+dependencies = [
+  "filelock>=3.15.4",
+  "platformdirs<5,>=4.3.6",
+]
+optional-dependencies.docs = [
+  "furo>=2025.12.19",
+  "sphinx>=9.1",
+  "sphinx-autodoc-typehints>=3.6.3",
+  "sphinxcontrib-mermaid>=2",
+]
+optional-dependencies.testing = [
+  "covdefaults>=2.3",
+  "coverage>=7.5.4",
+  "pytest>=8.3.5",
+  "pytest-mock>=3.14",
+  "setuptools>=75.1",
+]
+urls.Changelog = "https://github.com/tox-dev/python-discovery/releases"
+urls.Documentation = "https://python-discovery.readthedocs.io"
+urls.Homepage = "https://github.com/tox-dev/python-discovery"
+urls.Source = "https://github.com/tox-dev/python-discovery"
+urls.Tracker = "https://github.com/tox-dev/python-discovery/issues"
+
+[tool.hatch]
+version.source = "vcs"
+
+[tool.ruff]
+line-length = 120
+format.preview = true
+format.docstring-code-line-length = 100
+format.docstring-code-format = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "COM812", # Conflict with formatter
+  "CPY",    # No copyright statements
+  "D203",   # `one-blank-line-before-class` and `no-blank-line-before-class` are incompatible
+  "D212",   # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
+  "DOC201", # `return` is not documented in docstring
+  "DOC402", # `yield` is not documented in docstring
+  "DOC501", # `raises` is not documented in docstring
+  "ISC001", # Conflict with formatter
+  "S104",   # Possible binding to all interface
+]
+lint.per-file-ignores."docs/**/*.py" = [
+  "INP001", # no __init__.py in docs directory
+]
+lint.per-file-ignores."src/python_discovery/_discovery.py" = [
+  "PTH", # shim resolution uses string-based os.path for consistency with env variables
+]
+lint.per-file-ignores."src/python_discovery/_py_info.py" = [
+  "PTH", # must use os.path — file runs as subprocess script with only stdlib
+]
+lint.per-file-ignores."src/python_discovery/_windows/_pep514.py" = [
+  "PTH", # os.path.exists is monkeypatched in tests; pathlib.Path.exists bypasses the mock
+]
+lint.per-file-ignores."tests/**/*.py" = [
+  "D",       # don't care about documentation in tests
+  "FBT",     # don't care about booleans as positional arguments in tests
+  "INP001",  # no implicit namespace
+  "PLC0415", # imports inside test functions (conditional on mocking)
+  "PLC2701", # private imports needed to test internal APIs
+  "PLR0913", # too many arguments (pytest fixtures)
+  "PLR2004", # Magic value used in comparison
+  "S101",    # asserts allowed in tests
+  "S404",    # subprocess import
+  "S603",    # `subprocess` call: check for execution of untrusted input
+  "SLF001",  # private member access needed to test internals
+]
+lint.per-file-ignores."tests/windows/winreg_mock_values.py" = [
+  "F821", # undefined name (winreg available only on Windows)
+]
+lint.isort = { known-first-party = [
+  "python_discovery",
+], required-imports = [
+  "from __future__ import annotations",
+] }
+lint.preview = true
+
+[tool.codespell]
+builtin = "clear,usage,en-GB_to_en-US"
+write-changes = true
+count = true
+
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
+
+[tool.pytest.ini_options]
+markers = [ "graalpy" ]
+
+[tool.coverage]
+run.source = [
+  "python_discovery",
+  "tests",
+]
+run.dynamic_context = "test_function"
+run.branch = true
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+report.fail_under = 100
+report.show_missing = true
+report.partial_branches = [
+  "assert any\\(",
+]
+report.omit = [
+  "src/python_discovery/_windows/*",
+  "tests/windows/*",
+]
+html.show_contexts = true
+html.skip_covered = false
+paths.source = [
+  "src",
+  ".tox*/*/lib/python*/site-packages",
+  ".tox*/pypy*/site-packages",
+  ".tox*\\*\\Lib\\site-packages",
+  "*/src",
+  "*\\src",
+]
+
+[tool.ty]
+src.exclude = [ "tests/windows/winreg_mock_values.py" ]
+
+[[tool.ty.overrides]]
+include = [ "src/python_discovery/_py_info.py", "src/python_discovery/_py_spec.py" ]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.invalid-return-type = "ignore"
+rules.no-matching-overload = "ignore"
+
+[[tool.ty.overrides]]
+include = [ "tests/**/*.py" ]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.no-matching-overload = "ignore"
+rules.unresolved-attribute = "ignore"

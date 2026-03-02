@@ -1,0 +1,74 @@
+Metadata-Version: 2.4
+Name: tosa-adapter-model-explorer
+Version: 0.1.0
+Summary: Adapter for ai-edge-model-explorer to support TOSA files
+License-Expression: Apache-2.0
+Project-URL: Repository, https://github.com/arm/tosa-adapter-model-explorer
+Keywords: model-explorer,tosa,visualization
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: <3.13,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: ai-edge-model-explorer<0.2.0,>=0.1.26
+Requires-Dist: flatbuffers
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: ai-edge-model-explorer==0.1.28; extra == "test"
+Provides-Extra: format
+Requires-Dist: ruff==0.14.2; extra == "format"
+Provides-Extra: coverage
+Requires-Dist: pytest-cov; extra == "coverage"
+Provides-Extra: build
+Requires-Dist: build; extra == "build"
+Dynamic: license-file
+
+# TOSA Adapter for Model Explorer
+
+TOSA Adapter for [google-ai-edge/model-explorer](https://github.com/google-ai-edge/model-explorer) that enables visualization of [TOSA](https://www.mlplatform.org/tosa/) files.
+
+![](https://raw.githubusercontent.com/arm/tosa-adapter-model-explorer/main/screenshots/tosa-adapter-readme-screenshot.png)
+
+## Requirements
+
+- Python >= 3.10
+
+## Installation
+
+### pip + PyPI
+    pip install tosa-adapter-model-explorer
+
+### GitHub
+
+    gh release download \
+    --repo arm/tosa-adapter-model-explorer \
+    --pattern "*.whl" &&
+    pip install *.whl
+
+Or through the [GitHub Releases](https://github.com/arm/tosa-adapter-model-explorer/releases) UI.
+
+## Usage
+
+Install Model Explorer:
+
+    pip install torch ai-edge-model-explorer==0.1.25
+
+Launch Model Explorer with the TOSA adapter enabled:
+
+    model-explorer --extensions=tosa_adapter_model_explorer
+
+See the [Model Explorer wiki](https://github.com/google-ai-edge/model-explorer/wiki) for more information.
+
+## Trademark notice
+
+Arm® is a registered trademark of Arm Limited (or its subsidiaries) in the US and/or elsewhere.
+
+## Contributions
+
+We are not accepting direct contributions at this time.
+If you have any feedback or feature requests, please use the repository issues section.

@@ -1,0 +1,13 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "setuptools_scm",
+    "cython",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+test-requires = "pytest"
+before-test = "pip install -r requirements.txt"
+test-command = "pytest {project}/tests"

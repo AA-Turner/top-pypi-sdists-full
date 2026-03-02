@@ -14,7 +14,7 @@ __unittest = True
 
 
 class LayerSuite(unittest.BaseTestSuite):
-    def __init__(self, session, tests=(), layer=None):
+    def __init__(self, session, tests=(), layer=None) -> None:
         super().__init__(tests)
         self.layer = layer
         self.wasSetup = False
@@ -105,7 +105,7 @@ class LayerSuite(unittest.BaseTestSuite):
 
         event = events.StopLayerTeardownTestEvent(self.layer, test)
         self.session.hooks.stopLayerTeardownTest(event)
-        delattr(test, "_layer_wasSetUp")
+        del test._layer_wasSetUp
 
     def tearDown(self):
         if self.layer is None:

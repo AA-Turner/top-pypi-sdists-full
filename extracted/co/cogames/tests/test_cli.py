@@ -1,0 +1,132 @@
+"""Tests for cogames CLI commands."""
+
+import subprocess
+import tempfile
+from pathlib import Path
+
+
+def test_missions_list_command():
+    """Test that 'cogames missions' lists only top-level missions."""
+    result = subprocess.run(
+        ["cogames", "missions"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+
+    # Check that the output contains expected content (CogsGuard is the default game)
+    output = result.stdout
+    assert "cogsguard_arena" in output
+    # Only the table (pre-help section) should avoid listing sub-missions
+    table_only = output.split("To set", 1)[0]
+    assert "cogsguard_arena.basic" not in table_only
+    assert "Cogs" in output
+    assert "Map Size" in output
+
+
+def test_missions_describe_command():
+    """Test that 'cogames missions <mission_name>' describes a specific mission."""
+    result = subprocess.run(
+        ["cogames", "missions", "-m", "cogsguard_arena"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+
+    # Check that the output contains expected game details
+    output = result.stdout
+    assert "cogsguard_arena" in output
+    assert "Mission Configuration:" in output
+    assert "Number of agents:" in output
+    assert "Available Actions:" in output
+
+
+def test_missions_list_for_specific_site():
+    """Test that a positional site argument lists only that site's missions."""
+    result = subprocess.run(
+        ["cogames", "missions", "cogsguard_arena"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+
+    output = result.stdout
+    assert "cogsguard_arena.basic" in output
+
+
+def test_missions_nonexistent_mission():
+    """Test that describing a nonexistent game returns an error."""
+    result = subprocess.run(
+        ["cogames", "missions", "-m", "nonexistent_mission"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, "Command should succeed but show error message for nonexistent mission"
+    combined_output = (result.stdout + result.stderr).lower()
+    assert "could not find" in combined_output or "not found" in combined_output, (
+        f"Expected 'not found' message, got:\n{result.stdout}\n{result.stderr}"
+    )
+
+
+def test_missions_help_command():
+    """Test that 'cogames --help' shows help text."""
+    result = subprocess.run(
+        ["cogames", "--help"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+
+    # Check that help text contains expected commands
+    output = result.stdout
+    assert "missions" in output
+    assert "play" in output
+    assert "tutorial" in output
+
+
+def test_make_mission_command():
+    """Test that 'cogames make-mission' creates a new mission configuration."""
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+        tmp_path = Path(f.name)
+
+    try:
+        # Run make-game and write to temp file
+        # Note: Don't set width/height or agents since training_facility uses an AsciiMapBuilder
+        # with fixed dimensions and spawn points
+        result = subprocess.run(
+            [
+                "cogames",
+                "make-mission",
+                "-m",
+                "cogsguard_arena.basic",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"make-mission failed: {result.stderr}"
+
+        # Run games command with the generated file
+        result = subprocess.run(
+            ["cogames", "missions", "-m", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"missions failed: {result.stderr}"
+
+        assert tmp_path.exists()
+    finally:
+        tmp_path.unlink(missing_ok=True)

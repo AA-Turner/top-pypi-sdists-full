@@ -1,0 +1,25 @@
+[package]
+name = "rustpy-xlsxwriter"
+version = "0.0.12"
+edition = "2021"
+authors = ["Rahmad Afandi <rahmadafandiii@gmail.com>"]
+description = "Rust Python bindings for rust_xlsxwriter"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/rahmadafandi/rustpy-xlsxwriter"
+repository = "https://github.com/rahmadafandi/rustpy-xlsxwriter"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rustpy_xlsxwriter"
+crate-type = ["cdylib"]
+
+[dependencies]
+indexmap = "2.8.0"
+num_cpus = "1.16.0"
+pyo3 = { version = "0.28.0", features = ["extension-module"] }
+rust_xlsxwriter = { version = "0.93.0", features = ["chrono", "constant_memory", "ryu", "serde", "zlib"] }
+
+[package.metadata.pyo3]
+name = "rustpy_xlsxwriter.rustpy_xlsxwriter"

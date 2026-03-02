@@ -1,0 +1,61 @@
+[package]
+name = "kreuzberg-tesseract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Rust bindings for Tesseract OCR with cross-compilation, C++17, and caching improvements"
+license.workspace = true
+repository.workspace = true
+homepage = "https://kreuzberg.dev"
+documentation = "https://docs.kreuzberg.dev"
+readme = "README.md"
+keywords = ["tesseract", "ocr", "bindings", "vision", "recognition"]
+categories = ["external-ffi-bindings", "computer-vision", "text-processing"]
+build = "build.rs"
+links = "kreuzberg_tesseract"
+exclude = ["tessdata/*", "third_party/*"]
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+image = { workspace = true, features = ["png"] }
+
+[build-dependencies]
+cc = { version = "^1.2.56", optional = true }
+cmake = { version = "0.1.57", optional = true }
+zip = { version = "8.1.0", optional = true, default-features = false, features = [
+    "deflate-flate2-zlib-rs",
+] }
+
+# Use native-tls on Windows to avoid aws-lc-sys CMake build issues with MinGW
+[target.'cfg(target_os = "windows")'.build-dependencies]
+reqwest = { workspace = true, default-features = false, features = [
+    "blocking",
+    "native-tls",
+], optional = true }
+
+[target.'cfg(not(target_os = "windows"))'.build-dependencies]
+reqwest = { workspace = true, default-features = false, features = [
+    "blocking",
+    "rustls",
+], optional = true }
+
+[features]
+default = ["static-linking"]
+build-tesseract = ["cc", "cmake", "reqwest", "zip"]
+build-tesseract-wasm = ["cmake", "reqwest", "zip"]
+static-linking = ["build-tesseract"]
+dynamic-linking = []
+
+[package.metadata.docs.rs]
+features = ["docs-only"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+ignored = ["cc", "cmake", "reqwest", "zip"]
+
+[lib]
+name = "kreuzberg_tesseract"
+crate-type = ["lib"]

@@ -1,0 +1,13 @@
+[package]
+name = "pyfracturedjson"
+version = "2.0.0"
+edition = "2024"
+readme = "README.md"
+
+[lib]
+name = "_rust_wrapper"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.28.0"
+fracturedjson = "0.1.1"

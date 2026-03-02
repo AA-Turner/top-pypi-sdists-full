@@ -1,0 +1,104 @@
+[package]
+name = "ferrox"
+version = "0.0.7"
+edition = "2024"
+rust-version = "1.93"
+authors = ["Janosh Riebesell <janosh.riebesell@gmail.com>"]
+description = "High-performance base layer for computational materials science"
+license = "MIT"
+repository = "https://github.com/janosh/matterviz"
+keywords = ["atomistic-simulation", "materials-science", "molecular-dynamics", "crystallography", "rust"]
+include = [
+  "src/**/*.rs",
+  "src/**/*.json", # atomic scattering params - SSOT shared with TypeScript
+  "Cargo.toml",
+  "readme.md",
+]
+
+[lib]
+name = "ferrox"
+crate-type = ["cdylib", "rlib"] # cdylib for Python/WASM, rlib for Rust
+
+[dependencies]
+# Python bindings
+# When building the extension module (python feature), use extension-module
+# When generating stubs (stub-gen feature), link against Python directly
+pyo3 = { version = "0.27.2", optional = true }
+pyo3-stub-gen = { version = "0.18", optional = true }
+
+# WASM bindings
+wasm-bindgen = { version = "0.2.108", optional = true }
+js-sys = { version = "0.3.85", optional = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+tsify-next = { version = "0.5", features = ["js"], optional = true }
+# WASM random number generation
+# getrandom 0.2.x: needs "js" feature for wasm32-unknown-unknown (used by rand 0.8)
+# getrandom 0.3.x: needs "wasm_js" feature + rustflag config in .cargo/config.toml (used by meshless_voronoi -> ahash)
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+# Math
+nalgebra = "0.34"
+glam = "0.27"  # Vector math for Voronoi (compatible with meshless_voronoi)
+
+# Symmetry - same underlying Rust crate as moyopy
+moyo = "0.7"
+
+# Parallelism (not used in WASM builds)
+rayon = { version = "1.11", optional = true }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Algorithms
+pathfinding = "4.14"      # Hungarian algorithm (kuhn_munkres)
+itertools = "0.14"        # permutations for fit_anonymous
+rand = "0.8"              # random perturbations (0.8 uses getrandom 0.2 with simpler WASM support)
+regex = "1.12"            # formula parsing
+meshless_voronoi = "0.7"  # Voronoi tessellation for coordination analysis
+num-complex = "0.4"       # complex numbers for spherical harmonics
+
+# Utilities
+indexmap = { version = "2.13", features = ["serde"] }
+thiserror = "2.0"
+glob = "0.3"
+tracing = "0.1"
+flate2 = "1.1"  # gzip decompression for element data
+
+# File format parsing
+extxyz = "0.2"
+
+[dev-dependencies]
+approx = "0.5"
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1.9"
+tempfile = "3"
+
+[build-dependencies]
+pyo3-build-config = { version = "0.27.2", optional = true }
+
+[features]
+default = ["rayon"]
+# python feature: for building the extension module (loaded into Python interpreter)
+python = ["dep:pyo3", "dep:pyo3-build-config", "dep:pyo3-stub-gen", "rayon", "pyo3/extension-module", "pyo3/abi3-py311"]
+# stub-gen feature: for running stub_gen binary (no extension-module, doesn't need Python runtime)
+stub-gen = ["dep:pyo3", "dep:pyo3-build-config", "dep:pyo3-stub-gen", "rayon", "pyo3/abi3-py311"]
+wasm = [
+  "dep:console_error_panic_hook",
+  "dep:js-sys",
+  "dep:serde-wasm-bindgen",
+  "dep:tsify-next",
+  "dep:wasm-bindgen",
+]
+rayon = ["dep:rayon"]
+
+[[bin]]
+name = "stub_gen"
+path = "src/bin/stub_gen.rs"
+required-features = ["stub-gen"]
+
+[[bench]]
+name = "matcher_bench"
+harness = false

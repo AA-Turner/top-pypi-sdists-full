@@ -106,7 +106,7 @@ def object_from_name(name, module=None):
     import_error = None
     parts = name.split(".")
     if module is None:
-        (module, import_error) = try_import_module_from_name(parts[:])
+        module, import_error = try_import_module_from_name(parts[:])
         parts = parts[1:]
     parent = None
     obj = module
@@ -330,7 +330,7 @@ def _count_relevant_tb_levels(tb):
 class _WritelnDecorator:
     """Used to decorate file-like objects with a handy :func:`writeln` method"""
 
-    def __init__(self, stream):
+    def __init__(self, stream) -> None:
         self.stream = stream
 
     def __getattr__(self, attr):

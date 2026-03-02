@@ -102,7 +102,7 @@ class JUnitXmlReporter(events.Plugin):
     configSection = "junit-xml"
     commandLineSwitch = ("X", "junit-xml", "Generate junit-xml output report")
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Read argument from configuration file, or filled with default
         self.path = os.path.realpath(
             self.config.as_str("path", default="nose2-junit.xml")
@@ -361,8 +361,8 @@ def string_cleanup(string, keep_restricted=False):
     if not issubclass(type(string), str):
         string = str(string, encoding="utf-8", errors="replace")
 
-    string = _ILLEGAL_REGEX.sub("\uFFFD", string)
+    string = _ILLEGAL_REGEX.sub("\ufffd", string)
     if not keep_restricted:
-        string = _RESTRICTED_REGEX.sub("\uFFFD", string)
+        string = _RESTRICTED_REGEX.sub("\ufffd", string)
 
     return string

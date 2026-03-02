@@ -1,0 +1,13 @@
+[project]
+name = "runtime_builder"
+description = "Allow automatic builds in edit mode"
+authors = [{name = "Richard Kiss", email = "him@richardkiss.com"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+version = "0.1.5"
+dependencies = ["importlib_resources>=6.1.1"]
+
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"

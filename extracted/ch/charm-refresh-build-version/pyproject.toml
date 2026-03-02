@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "charm-refresh-build-version"
+version = "0.4.0"  # Overriden by poetry-dynamic-versioning
+description = "Write `charm` version in refresh_versions.toml from git tag"
+authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+dunamai = ">=1.23.1"
+tomlkit = ">=0.13.2"
+
+[tool.poetry.scripts]
+write-charm-version = 'charm_refresh_build_version._main:_main'
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+dirty = true
+strict = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0,<2.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused import

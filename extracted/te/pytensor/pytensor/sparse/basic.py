@@ -926,6 +926,8 @@ class GetItem2Lists(Op):
         assert x.format in ("csr", "csc")
         ind1 = ptb.as_tensor_variable(ind1)
         ind2 = ptb.as_tensor_variable(ind2)
+        assert ind1.ndim == 1
+        assert ind2.ndim == 1
         assert ind1.dtype in integer_dtypes
         assert ind2.dtype in integer_dtypes
 
@@ -1244,52 +1246,6 @@ class Transpose(Op):
 transpose = Transpose()
 
 
-class Neg(Op):
-    """Negative of the sparse matrix (i.e. multiply by ``-1``).
-
-    Notes
-    -----
-    The grad is regular, i.e. not structured.
-
-    """
-
-    __props__ = ()
-
-    def __str__(self):
-        return "Sparse" + self.__class__.__name__
-
-    def make_node(self, x):
-        """
-
-        Parameters
-        ----------
-        x
-            Sparse matrix.
-
-        """
-        x = as_sparse_variable(x)
-        assert x.format in ("csr", "csc")
-        return Apply(self, [x], [x.type()])
-
-    def perform(self, node, inputs, outputs):
-        (x,) = inputs
-        (out,) = outputs
-        assert _is_sparse(x)
-        out[0] = -x
-
-    def grad(self, inputs, gout):
-        (x,) = inputs
-        (gz,) = gout
-        assert _is_sparse_variable(x) and _is_sparse_variable(gz)
-        return (-gz,)
-
-    def infer_shape(self, fgraph, node, shapes):
-        return [shapes[0]]
-
-
-neg = Neg()
-
-
 class ColScaleCSC(Op):
     # Scale each columns of a sparse matrix by the corresponding
     # element of a dense vector
@@ -1489,53 +1445,13 @@ class Diag(Op):
 diag = Diag()
 
 
-class SquareDiagonal(Op):
-    """Produce a square sparse (csc) matrix with a diagonal given by a dense vector.
-
-    Notes
-    -----
-    The grad implemented is regular, i.e. not structured.
-
-    """
-
-    __props__ = ()
-
-    def make_node(self, diag):
-        """
-
-        Parameters
-        ----------
-        x
-            Dense vector for the diagonal.
-
-        """
-        diag = ptb.as_tensor_variable(diag)
-        if diag.type.ndim != 1:
-            raise TypeError("data argument must be a vector", diag.type)
-
-        return Apply(self, [diag], [SparseTensorType(dtype=diag.dtype, format="csc")()])
-
-    def perform(self, node, inputs, outputs):
-        (z,) = outputs
-        diag = inputs[0]
-
-        N = len(diag)
-        data = diag[:N]
-        indices = list(range(N))
-        indptr = list(range(N + 1))
-        tup = (data, indices, indptr)
-
-        z[0] = scipy.sparse.csc_matrix(tup, copy=True)
-
-    def grad(self, inputs, gout):
-        (gz,) = gout
-        return [diag(gz)]
-
-    def infer_shape(self, fgraph, nodes, shapes):
-        return [(shapes[0][0], shapes[0][0])]
-
-
-square_diagonal = SquareDiagonal()
+def square_diagonal(diag):
+    """Produce a square sparse (csc) matrix with a diagonal given by a dense vector."""
+    n = diag.shape[0]
+    data = ptb.as_tensor_variable(diag)
+    indices = ptb.arange(n, dtype=np.int32)
+    indptr = ptb.arange(n + 1, dtype=np.int32)
+    return CSC(data, indices, indptr, ptb.as_tensor((n, n)))
 
 
 class EnsureSortedIndices(Op):

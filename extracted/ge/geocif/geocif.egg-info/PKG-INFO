@@ -1,0 +1,342 @@
+Metadata-Version: 2.4
+Name: geocif
+Version: 0.4.150
+Summary: Models to visualize and forecast crop conditions and yields
+Author-email: Ritvik Sahajpal <ritvik@umd.edu>
+License: MIT
+Project-URL: Homepage, https://ritviksahajpal.github.io/yield_forecasting/
+Keywords: geocif
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boruta>=0.4.3
+Requires-Dist: catboost>=1.2.8
+Requires-Dist: fiona
+Requires-Dist: gdal==3.10.2; sys_platform == "win32"
+Requires-Dist: gdal==3.11.0; sys_platform != "win32"
+Requires-Dist: pyeogpr>=2.4.7
+Requires-Dist: pyproj
+Requires-Dist: rasterio
+Requires-Dist: rtree
+Requires-Dist: shap>=0.48.0
+Requires-Dist: shapely
+Requires-Dist: optuna
+Requires-Dist: xarray>=2026.2.0
+Requires-Dist: pooch>=1.8.0
+Requires-Dist: arrow>=1.4.0
+Requires-Dist: icclim>=7.0.4
+Requires-Dist: geoprepare>=0.6.129
+Requires-Dist: logzero>=1.7.0
+Requires-Dist: geopandas>=1.1.2
+Requires-Dist: tabpfn>=6.4.1
+Requires-Dist: tabicl>=2.0.2
+Requires-Dist: statsmodels>=0.14.6
+Requires-Dist: palettable>=3.3.3
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: scikit-misc>=0.5.2
+Dynamic: license-file
+
+# geocif
+
+
+[![image](https://img.shields.io/pypi/v/geocif.svg)](https://pypi.python.org/pypi/geocif)
+[![image](https://img.shields.io/conda/vn/conda-forge/geocif.svg)](https://anaconda.org/conda-forge/geocif)
+
+
+**Generate Climatic Impact-Drivers (CIDs) from Earth Observation (EO) data**
+
+[Climatic Impact-Drivers for Crop Yield Assessment at NASA Harvest](https://www.loom.com/share/5c2dc62356c6406193cd9d9725c2a6a9)
+
+**Models to visualize and forecast crop conditions and yields**
+
+
+-   Free software: MIT license
+-   Documentation: https://ritviksahajpal.github.io/yield_forecasting/
+
+
+## Setup
+
+### Requirements
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+### Install
+
+```bash
+cd geocif                   # project root (where pyproject.toml lives)
+uv sync                     # creates .venv and installs all dependencies
+```
+
+On **Windows**, uv automatically pulls pre-built geospatial wheels (GDAL, rasterio, fiona, shapely, pyproj, rtree) from the URLs in `[tool.uv.sources]`. On **Linux/macOS**, those entries are skipped (platform marker) and packages are installed from PyPI.
+
+To activate the environment:
+
+```bash
+# Windows
+.venv\Scripts\activate
+
+# Linux/macOS
+source .venv/bin/activate
+```
+
+### Fresh reinstall
+
+```bash
+rm -rf .venv && uv sync
+```
+
+## Config files
+
+| File | Purpose | Used by |
+|------|---------|---------|
+| [`geobase.txt`](#geobasetxt) | Paths, shapefile column mappings | both |
+| [`countries.txt`](#countriestxt) | Per-country config (boundary files, admin levels, seasons, crops) | both |
+| [`crops.txt`](#cropstxt) | Crop masks, calendar categories (EWCM, AMIS) | both |
+| [`geoextract.txt`](#geoextracttxt) | Extraction-only settings (method, threshold, parallelism) | geoprepare |
+| [`geocif.txt`](#geociftxt) | Indices/ML/agmet settings, country overrides, runtime selections | geocif |
+
+## Usage
+
+**Order matters:** Config files are loaded left-to-right. When the same key appears in multiple files, the last file wins. The tool-specific file (`geoextract.txt` or `geocif.txt`) must be last so its `[DEFAULT]` values (countries, method, etc.) override the shared defaults in `countries.txt`.
+
+```python
+config_dir = "/path/to/config"  # full path to your config directory
+
+cfg_geoprepare = [f"{config_dir}/geobase.txt", f"{config_dir}/countries.txt", f"{config_dir}/crops.txt", f"{config_dir}/geoextract.txt"]
+cfg_geocif = [f"{config_dir}/geobase.txt", f"{config_dir}/countries.txt", f"{config_dir}/crops.txt", f"{config_dir}/geocif.txt"]
+```
+
+### geoprepare (download, extract, merge)
+
+```python
+from geoprepare import geodownload
+geodownload.run([f"{config_dir}/geobase.txt"])
+
+from geoprepare import geoextract
+geoextract.run(cfg_geoprepare)
+
+from geoprepare import geomerge
+geomerge.run(cfg_geoprepare)
+```
+
+### geocif (indices, ML, agmet, analysis)
+
+```python
+from geocif import indices_runner
+indices_runner.run(cfg_geocif)
+
+from geocif import geocif_runner
+geocif_runner.run(cfg_geocif)
+
+from geocif.agmet import geoagmet
+geoagmet.run(cfg_geocif)
+
+from geocif import analysis
+analysis.run(cfg_geocif)
+
+from geocif import experiments
+experiments.run(cfg_geocif, n_trials=30)
+```
+
+### Experiments output
+
+The experiments runner writes to a dedicated DB and analysis folder under `dir_output`:
+
+```
+{dir_output}/
+└── ml/
+    ├── db/
+    │   └── experiments_{MMMM_DD_YYYY_HH}H.db
+    │
+    └── analysis/
+        └── {MMMM_DD_YYYY}/
+            ├── experiments/                            # Experiment 0 (model comparison)
+            │   ├── experiment_metrics.csv
+            │   ├── heatmap_models.png
+            │   ├── boxplot_models.png
+            │   ├── regional_mape_models_{country}.png
+            │   ├── error_distribution_models.png
+            │   └── metric_comparison.png
+            │
+            └── optimization/                           # Optuna hyperparameter search
+                ├── optuna_trials.csv
+                ├── best_params.csv
+                ├── convergence.png
+                ├── optimization_history.png
+                ├── param_importances.png
+                └── parallel_coordinate.png
+```
+
+## Config file documentation
+
+### geobase.txt
+
+Shared paths and dataset settings. All directory paths are derived from `dir_base`.
+
+```ini
+[PATHS]
+dir_base = /gpfs/data1/cmongp1/GEO
+
+dir_inputs = ${dir_base}/inputs
+dir_logs = ${dir_base}/logs
+dir_download = ${dir_inputs}/download
+dir_intermed = ${dir_inputs}/intermed
+dir_metadata = ${dir_inputs}/metadata
+dir_condition = ${dir_inputs}/crop_condition
+dir_crop_inputs = ${dir_condition}/crop_t20
+
+dir_boundary_files = ${dir_metadata}/boundary_files
+dir_crop_calendars = ${dir_metadata}/crop_calendars
+dir_crop_masks = ${dir_metadata}/crop_masks
+dir_images = ${dir_metadata}/images
+dir_production_statistics = ${dir_metadata}/production_statistics
+
+dir_output = ${dir_base}/outputs
+
+[DATASETS]
+datasets = ['CHIRPS', 'CPC', 'NDVI', 'ESI', 'NSIDC', 'AEF']
+```
+
+### countries.txt
+
+Single source of truth for per-country config. Shared by both geoprepare and geocif.
+
+```ini
+[DEFAULT]
+boundary_file = gaul1_asap_v04.shp
+admin_level = admin_1
+seasons = [1]
+crops = ['maize']
+category = AMIS
+use_cropland_mask = False
+calendar_file = crop_calendar.csv
+
+; AMIS countries (inherit from DEFAULT, override crops if needed)
+[argentina]
+crops = ['soybean', 'winter_wheat', 'maize']
+
+; EWCM countries (full per-country config)
+[kenya]
+category = EWCM
+admin_level = admin_1
+seasons = [1, 2]
+use_cropland_mask = True
+boundary_file = adm_shapefile.gpkg
+calendar_file = EWCM_2025-04-21.xlsx
+crops = ['maize']
+
+[malawi]
+category = EWCM
+admin_level = admin_2
+use_cropland_mask = True
+boundary_file = adm_shapefile.gpkg
+calendar_file = EWCM_2025-04-21.xlsx
+crops = ['maize']
+```
+
+### crops.txt
+
+Crop mask filenames and calendar category definitions.
+
+```ini
+; Crop masks
+[maize]
+mask = Percent_Maize.tif
+
+[winter_wheat]
+mask = Percent_Winter_Wheat.tif
+
+[sorghum]
+mask = cropland_v9.tif
+
+; Calendar categories
+[EWCM]
+use_cropland_mask = True
+calendar_file = EWCM_2026-01-05.xlsx
+crops = ['maize', 'sorghum', 'millet', 'rice', 'winter_wheat', 'teff']
+eo_model = ['aef', 'nsidc_surface', 'nsidc_rootzone', 'ndvi', 'cpc_tmax', 'cpc_tmin', 'chirps', 'chirps_gefs', 'esi_4wk']
+
+[AMIS]
+calendar_file = AMISCM_2026-01-05.xlsx
+```
+
+### geoextract.txt
+
+Extraction-only settings for geoprepare. Loaded last so its `[DEFAULT]` overrides shared defaults.
+
+```ini
+[DEFAULT]
+method = JRC
+redo = False
+threshold = True
+floor = 20
+ceil = 90
+countries = ["malawi"]
+forecast_seasons = [2022]
+
+[PROJECT]
+parallel_extract = True
+parallel_merge = False
+```
+
+### geocif.txt
+
+Indices, ML, and agmet settings for geocif. Country overrides go here when geocif needs different values than countries.txt (e.g., a subset of crops).
+
+```ini
+[AGMET]
+eo_plot = ['ndvi', 'cpc_tmax', 'cpc_tmin', 'chirps', 'esi_4wk', 'nsidc_surface', 'nsidc_rootzone']
+logo_harvest = harvest.png
+logo_geoglam = geoglam.png
+
+; Country overrides (only where geocif differs from countries.txt)
+[ethiopia]
+crops = ['winter_wheat']
+
+[bangladesh]
+crops = ['rice']
+admin_level = admin_2
+boundary_file = bangladesh.shp
+
+; ML model definitions
+[catboost]
+ML_model = True
+
+[analog]
+ML_model = False
+
+[ML]
+model_type = REGRESSION
+target = Yield (tn per ha)
+feature_selection = BorutaPy
+lag_years = 3
+panel_model = True
+
+[LOGGING]
+log_level = INFO
+
+[DEFAULT]
+data_source = harvest
+method = monthly_r
+project_name = geocif
+countries = ["kenya"]
+crops = ['maize']
+admin_level = admin_1
+models = ['catboost']
+seasons = [1]
+threshold = True
+floor = 20
+```
+
+## Credits
+
+This project was supported by NASA Applied Sciences Grant No. 80NSSC17K0625 through the NASA Harvest Consortium, and the NASA Acres Consortium under NASA Grant #80NSSC23M0034.

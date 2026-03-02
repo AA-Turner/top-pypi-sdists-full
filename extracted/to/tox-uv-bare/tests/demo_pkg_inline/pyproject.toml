@@ -1,0 +1,9 @@
+[build-system]
+build-backend = "build"
+requires = []
+backend-path = [
+  ".",
+]
+
+[tool.black]
+line-length = 120

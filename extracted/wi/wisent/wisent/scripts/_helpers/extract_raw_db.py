@@ -10,7 +10,7 @@ if DATABASE_URL and '?' in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.split('?')[0]
 
 if not DATABASE_URL:
-    DATABASE_URL = 'postgresql://postgres.rbqjqnouluslojmmnuqi:BsKuEnPFLCFurN4a@aws-0-eu-west-2.pooler.supabase.com:5432/postgres'
+    raise RuntimeError("DATABASE_URL environment variable is required")
 
 _db_conn = None
 

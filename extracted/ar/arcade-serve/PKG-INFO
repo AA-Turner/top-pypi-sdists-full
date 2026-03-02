@@ -1,0 +1,105 @@
+Metadata-Version: 2.4
+Name: arcade-serve
+Version: 3.2.1
+Summary: Arcade Serve - Serving infrastructure for Arcade tools and workers
+Author-email: Arcade <dev@arcade.dev>
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: aiohttp<4.0.0,>=3.0.0
+Requires-Dist: arcade-core<5.0.0,>=4.0.0
+Requires-Dist: fastapi>=0.115.3
+Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.28.2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.28.2
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client==0.49b2
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.49b2
+Requires-Dist: opentelemetry-instrumentation-httpx==0.49b2
+Requires-Dist: opentelemetry-instrumentation-requests==0.49b2
+Requires-Dist: sse-starlette>=2.0.0
+Requires-Dist: uvicorn>=0.30.0
+Requires-Dist: watchfiles>=1.0.5
+Provides-Extra: dev
+Requires-Dist: mypy>=1.5.1; extra == 'dev'
+Requires-Dist: pre-commit>=3.4.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23.7; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
+Requires-Dist: pytest>=8.1.2; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Arcade Serve
+
+Serving infrastructure for Arcade tools and workers.
+
+## Overview
+
+Arcade Serve provides the infrastructure for serving Arcade tools:
+
+- **FastAPI Worker**: High-performance FastAPI-based worker implementation
+- **MCP Server**: Model Context Protocol server for tool integration
+- **Core Abstractions**: Base worker classes and components
+- **Authentication**: Auth utilities and routing
+- **Runtime Management**: Tool execution and lifecycle management
+
+## Installation
+
+```bash
+pip install arcade-serve
+```
+
+## Usage
+
+To add a toolkit to a hosted worker such as FastAPI, you can register them in the worker itself.
+This allows you to explicitly define which tools should be included on a particular worker.
+
+
+Here is an example of adding the math toolkit (pip install arcade-math) to a FastAPI Worker:
+```python
+import arcade_math
+from fastapi import FastAPI
+from arcade_tdk import Toolkit
+from arcade_serve.fastapi import FastAPIWorker
+
+app = FastAPI()
+
+worker_secret = os.environ.get("ARCADE_WORKER_SECRET")
+worker = FastAPIWorker(app, secret=worker_secret)
+
+worker.register_toolkit(Toolkit.from_module(arcade_math))
+```
+
+Here is an example of adding the math toolkit (pip install arcade-math) to a MCP Worker
+```python
+import arcade_math
+from arcade_core.catalog import ToolCatalog
+from arcade_serve.mcp.stdio import StdioServer
+
+# 1. Create and populate the tool catalog
+catalog = ToolCatalog()
+catalog.add_module(arcade_math)
+
+
+# 2. Main entrypoint
+async def main():
+    # Create the worker with the tool catalog
+    worker = StdioServer(catalog)
+
+    # Run the worker
+    await worker.run()
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())
+```
+
+## License
+
+MIT License - see LICENSE file for details.

@@ -1,0 +1,121 @@
+Metadata-Version: 2.1
+Name: sphinxcontrib.datatemplates
+Version: 0.11.0
+Summary: Sphinx extension for rendering data files as nice HTML
+Author-email: Doug Hellmann <doug@doughellmann.com>
+Project-URL: homepage, https://sphinxcontribdatatemplates.readthedocs.io/en/latest/
+Project-URL: repository, http://github.com/sphinx-contrib/datatemplates
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Documentation
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: Sphinx
+Requires-Dist: PyYAML
+Requires-Dist: defusedxml
+Requires-Dist: sphinxcontrib-runcmd
+Provides-Extra: linter
+Requires-Dist: flake8; extra == "linter"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: beautifulsoup4; extra == "test"
+Provides-Extra: build
+Requires-Dist: build; extra == "build"
+Requires-Dist: twine; extra == "build"
+
+.. -*- mode: rst -*-
+
+=============================
+ sphinxcontrib-datatemplates
+=============================
+
+This package contains sphinxcontrb.datatemplates, an extension for
+Sphinx to render parts of reStructuredText pages from data files in
+formats like JSON, YAML, and CSV.
+
+* Repo: https://github.com/sphinxcontrib/sphinxcontrib.datatemplates
+* Docs: http://sphinxcontribdatatemplates.readthedocs.io/
+
+Sample YAML Input
+=================
+
+::
+
+    ---
+    key1: value1
+    key2:
+      - list item 1
+      - list item 2
+      - list item 3
+    nested-list:
+      - ['a', 'b', 'c']
+      - ['A', 'B', 'C']
+    mapping-series:
+      - cola: a
+        colb: b
+        colc: c
+      - cola: A
+        colb: B
+        colc: C
+
+Sample Template
+===============
+
+::
+
+    .. -*- mode: rst -*-
+    
+    Individual Item
+    ~~~~~~~~~~~~~~~
+    
+    {{ data['key1'] }}
+    
+    List of Items
+    ~~~~~~~~~~~~~
+    
+    {% for item in data['key2'] %}
+    - {{item}}
+    {% endfor %}
+    
+    Nested List Table
+    ~~~~~~~~~~~~~~~~~
+    
+    Rendering a table from a list of nested sequences using hard-coded
+    headers.
+    
+    {{ make_list_table(
+        ['One', 'Two', 'Three'],
+        data['nested-list'],
+        title='Table from nested lists',
+        ) }}
+    
+    Mapping Series Table
+    ~~~~~~~~~~~~~~~~~~~~
+    
+    Rendering a table from a list of nested dictionaries using dynamic
+    headers.
+    
+    {{ make_list_table_from_mappings(
+        [('One', 'cola'), ('Two', 'colb'), ('Three', 'colc')],
+        data['mapping-series'],
+        title='Table from series of mappings',
+        ) }}
+
+Rendered Output
+===============
+
+See the `sphinx output
+<https://sphinxcontribdatatemplates.readthedocs.io/en/latest/yaml.html#rendered-output>`_ online.

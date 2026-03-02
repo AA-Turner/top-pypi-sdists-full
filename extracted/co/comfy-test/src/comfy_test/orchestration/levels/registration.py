@@ -35,6 +35,8 @@ def run(ctx: LevelContext) -> LevelContext:
             cuda_mock_packages=list(ctx.cuda_packages),
             log_callback=ctx.log,
             env_vars=ctx.env_vars,
+            novram=ctx.novram,
+            vram_debug=ctx.vram_debug,
         )
 
     # Start the server (enters context manager)

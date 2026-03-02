@@ -1,0 +1,114 @@
+[build-system]
+requires = [
+  "setuptools >= 62",
+  "wheel >= 0.37",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pydocstringformatter"
+dynamic = ["version"]
+authors = [
+    {name = "Daniël van Noord", email = "13665637+DanielNoord@users.noreply.github.com"}
+]
+description = "A tool to automatically format Python docstrings that tries to follow recommendations from PEP 8 and PEP 257."
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Quality Assurance",
+]
+keywords = ["python", "docstring", "format"]
+requires-python = ">=3.8"
+dependencies = ["tomli>=1.1.0;python_version<'3.11'"]
+
+[project.urls]
+"Repository" = "https://github.com/DanielNoord/pydocstringformatter"
+"Releases" = "https://github.com/DanielNoord/pydocstringformatter/releases"
+"Bug Tracker" = "https://github.com/DanielNoord/pydocstringformatter/issues"
+
+[project.scripts]
+pydocstringformatter = "pydocstringformatter:run_docstring_formatter"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pydocstringformatter.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["pydocstringformatter*"]
+
+[tool.pytest]
+testpaths = "tests"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error"
+]
+
+[tool.mypy]
+files = "pydocstringformatter,tests"
+exclude = "tests/data.*"
+strict = true
+show_error_codes = true
+enable_error_code = "ignore-without-code"
+
+[[tool.mypy.overrides]]
+module = ["git.*"]
+ignore_missing_imports = true
+
+[tool.pylint]
+load-plugins=[
+    "pylint.extensions.check_elif",
+    "pylint.extensions.code_style",
+    "pylint.extensions.confusing_elif",
+    "pylint.extensions.docparams",
+    "pylint.extensions.docstyle",
+    "pylint.extensions.empty_comment",
+    "pylint.extensions.for_any_all",
+    "pylint.extensions.set_membership",
+    "pylint.extensions.typing"
+]
+py-version="3.8"
+disable = [
+    "missing-module-docstring",
+    "too-few-public-methods",
+    "duplicate-code"
+]
+enable = [
+    "c-extension-no-member",
+]
+good-names = "f"
+notes-rgx = 'TODO(?!\(#\d+\))'
+
+[tool.isort]
+profile = "black"
+known_third_party = ["pytest"]
+skip_glob = "tests/data/**"
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+
+[tool.black]
+# Use force-exclude due to the way that pre-commit passes filenames to black
+# See https://github.com/psf/black/issues/1985
+force-exclude = ".*tests/data/.*"
+quiet = true

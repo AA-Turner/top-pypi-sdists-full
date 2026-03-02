@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: sqlfluffrs
+Version: 4.0.4
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Unix
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development :: Quality Assurance
+License-File: LICENSE.md
+Summary: The SQL Linter for Humans
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Project-URL: Documentation, https://docs.sqlfluff.com
+Project-URL: Homepage, https://www.sqlfluff.com
+Project-URL: Issue Tracker, https://github.com/sqlfluff/sqlfluff/issues
+Project-URL: Source, https://github.com/sqlfluff/sqlfluff
+
+# SQLFluff-rs
+
+This package is an optional installation for [SQLFluff](https://github.com/sqlfluff/sqlfluff) and is **not** intended to be used as a standalone linting solution.
+
+## Purpose
+
+SQLFluff-rs serves as a Rust-based component that can be integrated with the main SQLFluff package. It is currently in development and should be considered experimental.
+
+## Installation
+
+This package is automatically handled when installing SQLFluff with the appropriate optional dependencies. Direct installation or standalone usage is not supported.
+
+To install from pip:
+```sh
+pip install sqlfluff[rs]
+```
+
+## Development Status
+
+This is a supplementary component and is not meant to replace or function independently of the main SQLFluff package. For SQL linting, please use the main [SQLFluff](https://github.com/sqlfluff/sqlfluff) package.
+

@@ -1,0 +1,214 @@
+Metadata-Version: 2.4
+Name: requests-mock-flask
+Version: 2026.2.16
+Summary: Helpers to use requests_mock and responses with a Flask test client.
+Author-email: Adam Dangoor <adamdangoor@gmail.com>
+License-Expression: MIT
+Project-URL: Documentation, https://adamtheturtle.github.io/requests-mock-flask/
+Project-URL: Source, https://github.com/adamtheturtle/requests-mock-flask
+Keywords: flask,mock,requests
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Pytest
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: httpretty>=1.1.4
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: requests-mock>=1.12.1
+Requires-Dist: responses!=0.25.5,>=0.25.3
+Requires-Dist: respx>=0.22.0
+Requires-Dist: werkzeug>=2.3
+Provides-Extra: dev
+Requires-Dist: actionlint-py==1.7.10.24; extra == "dev"
+Requires-Dist: beartype==0.22.9; extra == "dev"
+Requires-Dist: check-manifest==0.51; extra == "dev"
+Requires-Dist: deptry==0.24.0; extra == "dev"
+Requires-Dist: doc8==2.0.0; extra == "dev"
+Requires-Dist: doccmd==2026.1.31.3; extra == "dev"
+Requires-Dist: flask==3.1.2; extra == "dev"
+Requires-Dist: furo==2025.12.19; extra == "dev"
+Requires-Dist: httpx==0.28.1; extra == "dev"
+Requires-Dist: interrogate==1.7.0; extra == "dev"
+Requires-Dist: mypy[faster-cache]==1.19.1; extra == "dev"
+Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
+Requires-Dist: prek==0.3.2; extra == "dev"
+Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
+Requires-Dist: pylint[spelling]==4.0.4; extra == "dev"
+Requires-Dist: pylint-per-file-ignores==3.2.0; extra == "dev"
+Requires-Dist: pyproject-fmt==2.16.0; extra == "dev"
+Requires-Dist: pyrefly==0.52.0; extra == "dev"
+Requires-Dist: pyright==1.1.408; extra == "dev"
+Requires-Dist: pyroma==5.0.1; extra == "dev"
+Requires-Dist: pytest==9.0.2; extra == "dev"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev"
+Requires-Dist: requests==2.32.5; extra == "dev"
+Requires-Dist: ruff==0.15.1; extra == "dev"
+Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
+Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
+Requires-Dist: sphinx==9.1.0; extra == "dev"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
+Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
+Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
+Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
+Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
+Requires-Dist: sybil==9.3.0; extra == "dev"
+Requires-Dist: ty==0.0.17; extra == "dev"
+Requires-Dist: types-requests==2.32.4.20260107; extra == "dev"
+Requires-Dist: vulture==2.14; extra == "dev"
+Requires-Dist: yamlfix==1.19.1; extra == "dev"
+Requires-Dist: zizmor==1.22.0; extra == "dev"
+Provides-Extra: release
+Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
+Dynamic: license-file
+
+|Build Status| |PyPI|
+
+requests-mock-flask
+===================
+
+``requests-mock-flask`` helps with testing `Flask`_ applications with `httpretty`_, `respx`_, `responses`_ or `requests-mock`_.
+
+.. contents::
+   :local:
+
+Installation
+------------
+
+Requires Python |minimum-python-version|\+.
+
+.. code-block:: sh
+
+   pip install requests-mock-flask
+
+
+Usage examples
+--------------
+
+.. code-block:: python
+
+   """Examples of using requests-mock-flask."""
+
+   from http import HTTPStatus
+
+   import flask
+   import httpretty  # pyright: ignore[reportMissingTypeStubs]
+   import httpx
+   import requests
+   import requests_mock
+   import responses
+   import respx
+
+   from requests_mock_flask import add_flask_app_to_mock
+
+   app = flask.Flask(import_name="example_app")
+
+
+   @app.route(rule="/")
+   def _() -> str:
+       """Return a simple message."""
+       return "Hello, World!"
+
+
+   # Using responses
+   with responses.RequestsMock(assert_all_requests_are_fired=False) as resp_m:
+       add_flask_app_to_mock(
+           mock_obj=resp_m,
+           flask_app=app,
+           base_url="http://www.example.com",
+       )
+
+       response = requests.get(url="http://www.example.com", timeout=30)
+
+   assert response.status_code == HTTPStatus.OK
+   assert response.text == "Hello, World!"
+
+
+   # Using requests-mock
+   with requests_mock.Mocker() as req_m:
+       add_flask_app_to_mock(
+           mock_obj=req_m,
+           flask_app=app,
+           base_url="http://www.example.com",
+       )
+
+       response = requests.get(url="http://www.example.com", timeout=30)
+
+   assert response.status_code == HTTPStatus.OK
+   assert response.text == "Hello, World!"
+
+
+   # Using a requests-mock adapter
+   session = requests.Session()
+   adapter = requests_mock.Adapter()
+   session.mount(prefix="mock", adapter=adapter)
+
+   add_flask_app_to_mock(
+       mock_obj=adapter,
+       flask_app=app,
+       base_url="mock://www.example.com",
+   )
+
+   response = session.get(url="mock://www.example.com", timeout=30)
+
+   assert response.status_code == HTTPStatus.OK
+   assert response.text == "Hello, World!"
+
+
+   # Using httpretty
+   with httpretty.core.httprettized():  # type: ignore[no-untyped-call]
+       add_flask_app_to_mock(
+           mock_obj=httpretty,
+           flask_app=app,
+           base_url="http://www.example.com",
+       )
+
+       response = requests.get(url="http://www.example.com", timeout=30)
+
+   assert response.status_code == HTTPStatus.OK
+   assert response.text == "Hello, World!"
+
+
+   # Using respx
+   with respx.mock(assert_all_called=False) as respx_mock:
+       add_flask_app_to_mock(
+           mock_obj=respx_mock,
+           flask_app=app,
+           base_url="http://www.example.com",
+       )
+
+       httpx_response = httpx.get(url="http://www.example.com")
+
+   assert httpx_response.status_code == HTTPStatus.OK
+   assert httpx_response.text == "Hello, World!"
+
+Use cases
+---------
+
+* Use ``requests`` or other Python APIs for testing Flask applications.
+* Create a test suite which can test a Flask application as well as a live web application, to make a verified fake.
+* Test a service which calls a Flask application that you have the source code for.
+
+
+Full documentation
+------------------
+
+See the `full documentation <https://adamtheturtle.github.io/requests-mock-flask/>`__ for more information including how to contribute.
+
+.. _Flask: https://flask.palletsprojects.com/
+.. _requests-mock: https://requests-mock.readthedocs.io/en/latest/
+.. _respx: https://lundberg.github.io/respx/
+.. _responses: https://github.com/getsentry/responses
+.. _httpretty: https://httpretty.readthedocs.io
+
+.. |Build Status| image:: https://github.com/adamtheturtle/requests-mock-flask/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/adamtheturtle/requests-mock-flask/actions
+.. |PyPI| image:: https://badge.fury.io/py/requests-mock-flask.svg
+   :target: https://badge.fury.io/py/requests-mock-flask
+.. |minimum-python-version| replace:: 3.12

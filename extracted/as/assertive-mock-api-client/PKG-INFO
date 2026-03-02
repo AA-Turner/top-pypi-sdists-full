@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: assertive-mock-api-client
+Version: 1.4.0
+Summary: Client package for assertive mock API
+Project-URL: Homepage, https://peter-daly.github.io/assertive-mock-api/
+Project-URL: Documentation, https://peter-daly.github.io/assertive-mock-api/
+Project-URL: Repository, https://github.com/peter-daly/assertive-mock-api
+Keywords: api-testing,contract-testing,http-client,mock-api,test-automation
+Requires-Python: >=3.10
+Requires-Dist: assertive>=1.2.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic>=2.11.3

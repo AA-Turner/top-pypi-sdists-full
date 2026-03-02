@@ -1,0 +1,72 @@
+"""Create Test Case Review"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+
+from plato._generated.errors import raise_for_status
+from plato._generated.models import TestCaseReviewRequest
+
+
+def _build_request_args(
+    body: TestCaseReviewRequest,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
+) -> dict[str, Any]:
+    """Build request arguments."""
+    url = "/api/v1/evals/test-case-review"
+
+    headers: dict[str, str] = {}
+    if authorization is not None:
+        headers["authorization"] = authorization
+    if x_api_key is not None:
+        headers["X-API-Key"] = x_api_key
+
+    return {
+        "method": "POST",
+        "url": url,
+        "json": body.model_dump(mode="json", exclude_none=True),
+        "headers": headers,
+    }
+
+
+def sync(
+    client: httpx.Client,
+    body: TestCaseReviewRequest,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
+) -> Any:
+    """Create or update a test case review for OUTPUT scoring.
+    This stores the reviewer's decision at the test case level."""
+
+    request_args = _build_request_args(
+        body=body,
+        authorization=authorization,
+        x_api_key=x_api_key,
+    )
+
+    response = client.request(**request_args)
+    raise_for_status(response)
+    return response.json()
+
+
+async def asyncio(
+    client: httpx.AsyncClient,
+    body: TestCaseReviewRequest,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
+) -> Any:
+    """Create or update a test case review for OUTPUT scoring.
+    This stores the reviewer's decision at the test case level."""
+
+    request_args = _build_request_args(
+        body=body,
+        authorization=authorization,
+        x_api_key=x_api_key,
+    )
+
+    response = await client.request(**request_args)
+    raise_for_status(response)
+    return response.json()

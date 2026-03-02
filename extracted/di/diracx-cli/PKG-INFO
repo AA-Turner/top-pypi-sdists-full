@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: diracx-cli
+Version: 0.0.9
+Summary: TODO
+License: GPL-3.0-only
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: System :: Distributed Computing
+Requires-Python: >=3.11
+Requires-Dist: diraccfg
+Requires-Dist: diracx-api
+Requires-Dist: diracx-client
+Requires-Dist: diracx-core
+Requires-Dist: gitpython
+Requires-Dist: pydantic>=2.10
+Requires-Dist: pyyaml
+Requires-Dist: rich
+Requires-Dist: typer>=0.15.4
+Provides-Extra: testing
+Requires-Dist: diracx-testing; extra == 'testing'
+Provides-Extra: types
+Requires-Dist: types-pyyaml; extra == 'types'

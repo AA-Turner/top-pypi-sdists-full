@@ -3,9 +3,12 @@
 from .observables import (
     Completed,
     Observable,
+    ObservableStream,
     ObservableTask,
     ObservableTaskCallbackReturnType,
     ObservableTaskCallbackType,
+    ObservableValue,
+    ObservableValueValidatorType,
     as_observable_task,
 )
 from .observers import Observer
@@ -19,9 +22,12 @@ from .subscribers import (
 __all__ = [
     "Completed",
     "Observable",
+    "ObservableStream",
     "ObservableTask",
     "ObservableTaskCallbackReturnType",
     "ObservableTaskCallbackType",
+    "ObservableValue",
+    "ObservableValueValidatorType",
     "as_observable_task",
     "Observer",
     "CompleteCallbackType",

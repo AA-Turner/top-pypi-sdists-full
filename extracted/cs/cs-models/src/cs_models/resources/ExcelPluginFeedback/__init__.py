@@ -1,1 +1,0 @@
-"""ExcelPluginFeedback resource."""

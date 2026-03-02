@@ -321,6 +321,40 @@ class Num2(Base):
     )
 
 
+@pytest.mark.parametrize("engine", ["mysql"], indirect=["engine"])
+@pytest.mark.parametrize("generator", [["keep_dialect_types"]], indirect=True)
+def test_keep_dialect_types_keeps_mysql_char_collation(
+    generator: CodeGenerator,
+) -> None:
+    from sqlalchemy.dialects.mysql import CHAR as MYSQL_CHAR
+    from sqlalchemy.dialects.mysql import INTEGER as MYSQL_INTEGER
+
+    Table(
+        "result_logs",
+        generator.metadata,
+        Column("id", MYSQL_INTEGER, primary_key=True),
+        Column("result_code", MYSQL_CHAR(1, collation="utf8mb3_bin"), nullable=False),
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+from sqlalchemy.dialects.mysql import CHAR, INTEGER
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+
+class ResultLogs(Base):
+    __tablename__ = 'result_logs'
+
+    id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
+    result_code: Mapped[str] = mapped_column(CHAR(1, collation='utf8mb3_bin'), nullable=False)
+        """,
+    )
+
+
 def test_onetomany(generator: CodeGenerator) -> None:
     Table(
         "simple_items",
@@ -3125,5 +3159,77 @@ def test_array_enum_named_with_schema(generator: CodeGenerator) -> None:
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
             tags: Mapped[list[TagEnum]] = mapped_column(ARRAY(Enum(TagEnum, values_callable=lambda cls: [member.value for member in cls], name='tag_enum', schema='custom_schema')), nullable=False)
+        """,
+    )
+
+
+def test_index_with_empty_kwargs(generator: CodeGenerator) -> None:
+    simple_items = Table(
+        "simple_items",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+        Column("name", VARCHAR),
+    )
+    simple_items.indexes.add(
+        Index(
+            "idx_name",
+            simple_items.c.name,
+            postgresql_using="gist",
+            postgresql_include=[],
+        )
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+from typing import Optional
+
+from sqlalchemy import Index, Integer, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+
+class SimpleItems(Base):
+    __tablename__ = 'simple_items'
+    __table_args__ = (
+        Index('idx_name', 'name', postgresql_using='gist'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[Optional[str]] = mapped_column(String)
+        """,
+    )
+
+
+@pytest.mark.parametrize("generator", [["include_dialect_options"]], indirect=True)
+def test_include_dialect_options_empty_values_skipped(
+    generator: CodeGenerator,
+) -> None:
+    Table(
+        "t_opts3",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+        mysql_engine="InnoDB",
+        mysql_partition_by=[],
+        mysql_PROPERTIES={},
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+from sqlalchemy import Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+
+class TOpts3(Base):
+    __tablename__ = 't_opts3'
+    __table_args__ = {'mysql_engine': 'InnoDB'}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
         """,
     )

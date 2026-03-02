@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 5.9.41
+Version: 5.9.42
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -231,7 +231,7 @@ export GITHUB_TOKEN=your_github_token
 cd ~
 
 # Install with Python 3.13 (not 3.9 or 3.14)
-uv tool install claude-mpm[monitor,data-processing] --python 3.13
+uv tool install "claude-mpm[monitor,data-processing]" --python 3.13
 ```
 
 **Homebrew (macOS):**

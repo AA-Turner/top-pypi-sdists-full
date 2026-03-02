@@ -1,0 +1,2341 @@
+"""
+Stylometry module for authorship attribution and document clustering.
+
+Inspired by the R package 'stylo' (https://github.com/computationalstylistics/stylo),
+a much more comprehensive implementation for computational stylistics.
+
+Workflow:
+1. Create a Stylometry instance with desired parameters
+2. Call fit_transform() with your corpus (dict or list of tokenized documents)
+3. Analyze with: plot(), dendrogram(), most_similar(), similarity(), distance(), predict()
+
+Two modes for supervised learning:
+- 'centroid': Aggregate all author texts into one profile, compare disputed text to centroids
+- 'instance': Keep individual texts separate, find nearest neighbor among all texts
+"""
+
+import logging
+import warnings
+from collections import Counter
+from collections.abc import Iterable
+from itertools import chain
+from typing import Callable
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
+from .cython_ext.statistics import batch_fisher_exact, batch_chi2, batch_log_likelihood
+from .vectors import cosine_similarity as _cosine_similarity, cosine_distance
+from ..config import resolve_seed
+from ..utils import validate_filters, apply_p_value_correction, VALID_CORRECTIONS
+
+logger = logging.getLogger("qhchina.analytics.stylometry")
+
+
+__all__ = [
+    'Stylometry',
+    'compare_corpora',
+    'extract_mfw',
+    'burrows_delta',
+    'cosine_distance',
+    'manhattan_distance',
+    'euclidean_distance',
+    'eder_delta',
+    'get_relative_frequencies',
+    'compute_yule_k',
+    'type_token_ratio',
+    'mattr',
+]
+
+
+# =============================================================================
+# Standalone Functions
+# =============================================================================
+
+def extract_mfw(ngram_counts: Counter, n: int = 100) -> list[str]:
+    """
+    Extract the Most Frequent Words (MFW) from a frequency counter.
+    
+    Args:
+        ngram_counts (Counter): A Counter object with n-gram/word frequencies.
+        n (int): Number of most frequent items to return (default: 100).
+    
+    Returns:
+        list: The n most common n-grams/words, ordered by frequency.
+    
+    Example:
+        from collections import Counter
+        from qhchina.analytics.stylometry import extract_mfw
+        counts = Counter(['的', '是', '了', '的', '我', '的'])
+        mfw = extract_mfw(counts, n=2)
+        print(mfw)
+        ['的', '是']
+    """
+    return [ngram for ngram, _ in ngram_counts.most_common(n)]
+
+
+def burrows_delta(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """
+    Compute Burrows' Delta distance between two feature vectors.
+    
+    A classic stylometric measure for authorship attribution. Calculates the
+    mean absolute difference between z-score normalized frequency vectors.
+    Lower values indicate more similar writing styles.
+    
+    Args:
+        vec_a (np.ndarray): First z-score feature vector.
+        vec_b (np.ndarray): Second z-score feature vector.
+    
+    Returns:
+        float: Burrows' Delta distance (lower = more similar).
+    
+    Reference:
+        Burrows, J. (2002). "Delta: A measure of stylistic difference and a guide
+        to likely authorship." Literary and Linguistic Computing, 17(3), 267-287.
+    """
+    return np.mean(np.abs(vec_a - vec_b))
+
+
+def manhattan_distance(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """
+    Compute Manhattan (L1) distance between two vectors.
+    
+    Args:
+        vec_a (np.ndarray): First feature vector.
+        vec_b (np.ndarray): Second feature vector.
+    
+    Returns:
+        float: Sum of absolute differences between corresponding elements.
+    """
+    return np.sum(np.abs(vec_a - vec_b))
+
+
+def euclidean_distance(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """
+    Compute Euclidean (L2) distance between two vectors.
+    
+    Args:
+        vec_a (np.ndarray): First feature vector.
+        vec_b (np.ndarray): Second feature vector.
+    
+    Returns:
+        float: Square root of sum of squared differences.
+    """
+    return np.sqrt(np.sum((vec_a - vec_b) ** 2))
+
+
+def eder_delta(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """
+    Eder's Delta distance: a variation of Burrows' Delta with different weighting.
+    
+    Eder's Delta squares the differences and takes the square root of the mean,
+    giving more weight to larger differences. It also normalizes by vector length.
+    
+    Formula: $\\Delta_E = \\sqrt{\\frac{1}{n} \\sum_{i=1}^{n} (a_i - b_i)^2}$
+    
+    Reference: Eder, M. (2013). "Mind your corpus: systematic errors in authorship attribution"
+    """
+    n = len(vec_a)
+    if n == 0:
+        return 0.0
+    return np.sqrt(np.sum((vec_a - vec_b) ** 2) / n)
+
+
+def get_relative_frequencies(items: list[str]) -> dict[str, float]:
+    """
+    Compute relative frequencies for a list of items (tokens or n-grams).
+    
+    Returns:
+        Dict mapping each unique item to its relative frequency (count / total)
+    """
+    if not items:
+        return {}
+    counts = Counter(items)
+    total = len(items)
+    return {item: count / total for item, count in counts.items()}
+
+
+def compute_yule_k(tokens: list[str]) -> float:
+    """
+    Compute Yule's K characteristic for vocabulary richness.
+    
+    Yule's K is a measure of lexical diversity that is relatively independent
+    of text length. Higher values indicate less diverse vocabulary.
+    
+    Formula: $K = 10^4 \\cdot \\frac{M_2 - M_1}{M_1^2}$
+    
+    where $M_1$ = total tokens, $M_2 = \\sum_r r^2 \\cdot V_r$ (sum of frequency squared 
+    times count of words with that frequency)
+    
+    Args:
+        tokens: List of tokens
+        
+    Returns:
+        Yule's K value (typically between 50-200 for normal texts)
+    """
+    if not tokens:
+        return 0.0
+    
+    freq_counts = Counter(tokens)
+    m1 = len(tokens)  # Total number of tokens
+    
+    # Count how many words have each frequency
+    freq_of_freqs = Counter(freq_counts.values())
+    
+    # M2 = sum of (r^2 * V_r) where V_r is number of words appearing r times
+    m2 = sum(r * r * v_r for r, v_r in freq_of_freqs.items())
+    
+    if m1 <= 1:
+        return 0.0
+    
+    # Yule's K formula
+    k = 10000 * (m2 - m1) / (m1 * m1)
+    return k
+
+
+def type_token_ratio(tokens: Iterable[str], variant: str = 'standard') -> float:
+    """
+    Calculate Type-Token Ratio (TTR) for lexical diversity.
+    
+    TTR measures lexical diversity - the ratio of unique words (types)
+    to total words (tokens). Higher values indicate more diverse vocabulary.
+    
+    Note: Standard TTR is sensitive to text length (longer texts tend to
+    have lower TTR). Use 'root' or 'log' variants for length-normalized
+    measures, or use ``mattr()`` for comparing texts of different lengths.
+    
+    Args:
+        tokens: Iterable of string tokens (e.g., list of words from a text).
+        variant: Calculation method:
+            - 'standard': types / tokens (range: 0.0 to 1.0)
+            - 'root': types / sqrt(tokens) - Guiraud's R
+            - 'log': log(types) / log(tokens) - Herdan's C
+    
+    Returns:
+        The TTR value. For 'standard', this is between 0.0 and 1.0.
+        For 'root' and 'log', values vary based on text size.
+    
+    Raises:
+        ValueError: If variant is not recognized or tokens is empty.
+    
+    Example:
+        >>> from qhchina.analytics import type_token_ratio
+        >>> tokens = ['我', '爱', '北京', '天安门', '天安门', '上', '太阳', '升']
+        >>> type_token_ratio(tokens)
+        0.875
+        >>> type_token_ratio(tokens, variant='root')
+        2.474...
+    """
+    if variant not in ('standard', 'root', 'log'):
+        raise ValueError(
+            f"variant must be 'standard', 'root', or 'log', got '{variant}'"
+        )
+    
+    # Convert to list if needed (to allow multiple iterations)
+    if not isinstance(tokens, list):
+        tokens = list(tokens)
+    
+    n_tokens = len(tokens)
+    if n_tokens == 0:
+        raise ValueError("Cannot calculate TTR for empty token sequence")
+    
+    n_types = len(set(tokens))
+    
+    if variant == 'standard':
+        return n_types / n_tokens
+    elif variant == 'root':
+        # Guiraud's R: types / sqrt(tokens)
+        return n_types / np.sqrt(n_tokens)
+    else:  # log
+        # Herdan's C: log(types) / log(tokens)
+        if n_tokens == 1:
+            return 1.0  # Edge case: single token
+        return np.log(n_types) / np.log(n_tokens)
+
+
+def mattr(tokens: Iterable[str], window_size: int = 500) -> float:
+    """
+    Calculate Moving Average Type-Token Ratio (MATTR).
+    
+    MATTR is more reliable than standard TTR for comparing texts of
+    different lengths. It calculates TTR for a sliding window across
+    the token sequence and returns the mean.
+    
+    Args:
+        tokens: Iterable of string tokens (e.g., list of words from a text).
+        window_size: Number of tokens per window. Default is 500,
+            which is standard in the literature. Smaller windows
+            give higher MATTR values.
+    
+    Returns:
+        Mean TTR across all windows (0.0 to 1.0).
+    
+    Raises:
+        ValueError: If tokens has fewer than window_size elements.
+    
+    Example:
+        >>> from qhchina.analytics import mattr
+        >>> tokens = ['word'] * 1000  # 1000 identical tokens
+        >>> mattr(tokens, window_size=100)
+        0.01
+        >>> 
+        >>> # More diverse text
+        >>> diverse_tokens = [f'word_{i}' for i in range(1000)]
+        >>> mattr(diverse_tokens, window_size=100)
+        1.0
+    
+    Reference:
+        Covington, M. A., & McFall, J. D. (2010). Cutting the Gordian knot:
+        The moving-average type-token ratio (MATTR). Journal of Quantitative
+        Linguistics, 17(2), 94-100.
+    """
+    if window_size < 1:
+        raise ValueError(f"window_size must be positive, got {window_size}")
+    
+    # Convert to list for indexing
+    if not isinstance(tokens, list):
+        tokens = list(tokens)
+    
+    n_tokens = len(tokens)
+    
+    if n_tokens < window_size:
+        raise ValueError(
+            f"Token sequence has {n_tokens} tokens, but window_size is {window_size}. "
+            f"Use a smaller window_size or provide more tokens."
+        )
+    
+    # Calculate TTR for each window position
+    n_windows = n_tokens - window_size + 1
+    ttr_sum = 0.0
+    
+    # Use a sliding window with incremental updates for efficiency
+    window_counts: Counter = Counter(tokens[:window_size])
+    ttr_sum += len(window_counts) / window_size
+    
+    for i in range(1, n_windows):
+        # Remove token leaving the window
+        leaving = tokens[i - 1]
+        window_counts[leaving] -= 1
+        if window_counts[leaving] == 0:
+            del window_counts[leaving]
+        
+        # Add token entering the window
+        entering = tokens[i + window_size - 1]
+        window_counts[entering] += 1
+        
+        # Calculate TTR for this window
+        ttr_sum += len(window_counts) / window_size
+    
+    return ttr_sum / n_windows
+
+
+# =============================================================================
+# Main Stylometry Class
+# =============================================================================
+
+class Stylometry:
+    """
+    Stylometry for authorship attribution and document clustering.
+    
+    Implements classic and modern stylometric methods for analyzing writing style,
+    comparing authors, and attributing disputed texts. Inspired by the R package
+    'stylo' but designed for Chinese text analysis.
+    
+    Args:
+        n_features (int): Number of most frequent n-grams to use as features (default: 100).
+            Higher values capture more stylistic variation but may include noise.
+        ngram_range (tuple): Range of n-gram sizes as (min_n, max_n). Default (1, 1) = unigrams.
+            Use (1, 2) for unigrams + bigrams, (2, 2) for bigrams only.
+        transform (str): Feature transformation method:
+            - 'zscore': Z-score normalization (default, recommended for Delta methods)
+            - 'tfidf': TF-IDF weighting
+        distance (str): Distance metric for comparing documents:
+            - 'cosine': Cosine distance (default)
+            - 'burrows_delta': Classic Burrows' Delta
+            - 'manhattan': Manhattan/L1 distance
+            - 'euclidean': Euclidean/L2 distance
+            - 'eder_delta': Eder's Delta variant
+        classifier (str): Classification method for authorship attribution:
+            - 'delta': Delta-based nearest neighbor (default)
+            - 'svm': Support Vector Machine
+        cull (float): Minimum document frequency ratio (0.0-1.0). N-grams appearing in
+            fewer than cull*100% of documents are removed. Helps filter rare words.
+            Default: None (no culling).
+        chunk_size (int): If set, split documents into chunks of this many tokens.
+            Useful for comparing texts of similar length.
+        mode (str): Attribution mode for delta classifier:
+            - 'centroid': Compare to author centroids (averaged profiles)
+            - 'instance': Compare to individual text instances
+    
+    Example:
+        from qhchina.analytics.stylometry import Stylometry
+        
+        # Prepare corpus: dict mapping author names to lists of tokenized documents
+        corpus = {
+        ...     '鲁迅': [tokens_luxun_1, tokens_luxun_2],
+        ...     '茅盾': [tokens_maodun_1, tokens_maodun_2]
+        ... }
+        
+        # Create and fit stylometry model
+        stylo = Stylometry(n_features=100, ngram_range=(1, 2), cull=0.2)
+        stylo.fit_transform(corpus)
+        
+        # Visualize results
+        stylo.plot()  # PCA/MDS scatter plot
+        stylo.dendrogram()  # Hierarchical clustering
+        
+        # Attribute disputed text
+        author = stylo.predict_author(disputed_tokens)
+        # Or get ranked results with scores
+        results = stylo.predict(disputed_tokens, k=3)  # [(author, score), ...]
+    """
+    
+    # Registries for extensibility
+    DISTANCE_FUNCTIONS = {
+        'burrows_delta': burrows_delta,
+        'cosine': cosine_distance,
+        'manhattan': manhattan_distance,
+        'euclidean': euclidean_distance,
+        'eder_delta': eder_delta,
+    }
+    
+    VALID_TRANSFORMS = ('zscore', 'tfidf')
+    VALID_CLASSIFIERS = ('delta', 'svm')
+    VALID_MODES = ('centroid', 'instance')
+    VALID_CLUSTERING_METHODS = ('single', 'complete', 'average', 'weighted', 'ward')
+    
+    def __init__(
+        self,
+        n_features: int = 100,
+        ngram_range: tuple[int, int] = (1, 1),
+        transform: str = 'zscore',
+        distance: str = 'cosine',
+        classifier: str = 'delta',
+        cull: float | None = None,
+        chunk_size: int | None = None,
+        mode: str = 'centroid',
+    ):
+        # Validate n_features
+        if not isinstance(n_features, int):
+            raise TypeError(f"n_features must be an integer, got {type(n_features).__name__}")
+        if n_features < 1:
+            raise ValueError(f"n_features must be at least 1, got {n_features}")
+        
+        # Validate ngram_range
+        if not isinstance(ngram_range, tuple) or len(ngram_range) != 2:
+            raise TypeError(f"ngram_range must be a tuple of (min_n, max_n), got {ngram_range}")
+        min_n, max_n = ngram_range
+        if not (isinstance(min_n, int) and isinstance(max_n, int)):
+            raise TypeError(f"ngram_range values must be integers")
+        if min_n < 1 or max_n < min_n:
+            raise ValueError(f"ngram_range must satisfy 1 <= min_n <= max_n, got {ngram_range}")
+        
+        # Validate transform
+        if transform not in self.VALID_TRANSFORMS:
+            raise ValueError(f"transform must be one of {self.VALID_TRANSFORMS}, got '{transform}'")
+        
+        # Validate distance metric
+        if distance not in self.DISTANCE_FUNCTIONS:
+            raise ValueError(f"distance must be one of {list(self.DISTANCE_FUNCTIONS.keys())}, got '{distance}'")
+        
+        # Validate classifier
+        if classifier not in self.VALID_CLASSIFIERS:
+            raise ValueError(f"classifier must be one of {self.VALID_CLASSIFIERS}, got '{classifier}'")
+        
+        # Validate cull
+        if cull is not None:
+            if not isinstance(cull, (int, float)) or not (0.0 < cull < 1.0):
+                raise ValueError(f"cull must be a float between 0 and 1, got {cull}")
+        
+        # Validate chunk_size
+        if chunk_size is not None:
+            if not isinstance(chunk_size, int) or chunk_size < 1:
+                raise ValueError(f"chunk_size must be a positive integer, got {chunk_size}")
+        
+        # Validate mode
+        if mode not in self.VALID_MODES:
+            raise ValueError(f"mode must be one of {self.VALID_MODES}, got '{mode}'")
+        
+        # Store parameters
+        self.n_features = n_features
+        self.ngram_range = ngram_range
+        self.transform_type = transform
+        self.distance_metric = distance
+        self.classifier = classifier
+        self.cull = cull
+        self.chunk_size = chunk_size
+        self.mode = mode
+        
+        # Feature vocabulary learned from corpus
+        self.features: list[str] = []  # Selected n-gram features
+        self.feature_means: np.ndarray | None = None  # For z-score
+        self.feature_stds: np.ndarray | None = None   # For z-score
+        self.idf_weights: np.ndarray | None = None    # For TF-IDF
+        
+        # Author information
+        self.authors: list[str] = []
+        
+        # Document storage - extensible structure
+        # Each doc has: tokens, ngrams, ngram_freqs, yule_k, etc.
+        self._doc_features: dict[str, dict] = {}
+        
+        # Transformed vectors for classification
+        self.document_vectors: list[np.ndarray] = []
+        self.document_labels: list[str] = []  # Author name for each document
+        self.document_ids: list[str] = []     # Unique ID for each document
+        
+        # Centroid mode: one vector per author
+        self.author_centroids: dict[str, np.ndarray] = {}
+        
+        # Mapping from doc_id to index for fast lookup
+        self._doc_id_to_index: dict[str, int] = {}
+        
+        # SVM model (fitted on demand)
+        self._svm_model = None
+        
+        self._is_fitted: bool = False
+    
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+    
+    def _get_distance_fn(self, distance: str | None = None) -> tuple[Callable, str]:
+        """Get the distance function, using provided metric or falling back to default."""
+        metric = distance if distance is not None else self.distance_metric
+        if metric not in self.DISTANCE_FUNCTIONS:
+            raise ValueError(f"distance must be one of {list(self.DISTANCE_FUNCTIONS.keys())}, got '{metric}'")
+        return self.DISTANCE_FUNCTIONS[metric], metric
+    
+    def _validate_tokens(self, tokens: list[str], name: str = "tokens") -> None:
+        """Validate that tokens is a non-empty list of strings."""
+        if not isinstance(tokens, list):
+            raise TypeError(f"{name} must be a list, got {type(tokens).__name__}")
+        if not tokens:
+            raise ValueError(f"{name} cannot be empty")
+        # Only check first few for performance
+        for i, token in enumerate(tokens[:10]):
+            if not isinstance(token, str):
+                raise TypeError(f"Token {i} must be a string, got {type(token).__name__}")
+    
+    def _validate_level(self, level: str) -> None:
+        """Validate the level parameter."""
+        if level not in ('document', 'author'):
+            raise ValueError(f"level must be 'document' or 'author', got '{level}'")
+    
+    # =========================================================================
+    # N-gram Extraction
+    # =========================================================================
+    
+    def _extract_ngrams(self, tokens: list[str]) -> list[str]:
+        """
+        Extract n-grams from a list of tokens based on ngram_range.
+        
+        Args:
+            tokens: List of word tokens
+            
+        Returns:
+            List of n-gram strings (joined with space for n > 1, e.g., "the cat")
+        """
+        min_n, max_n = self.ngram_range
+        ngrams = []
+        
+        for n in range(min_n, max_n + 1):
+            if n == 1:
+                ngrams.extend(tokens)
+            else:
+                for i in range(len(tokens) - n + 1):
+                    ngram = ' '.join(tokens[i:i + n])
+                    ngrams.append(ngram)
+        
+        return ngrams
+    
+    # =========================================================================
+    # Culling (Sparsity Filter)
+    # =========================================================================
+    
+    def _apply_culling(
+        self, 
+        corpus_ngram_counts: Counter, 
+        doc_ngram_sets: list[set],
+    ) -> Counter:
+        """
+        Remove n-grams that appear in fewer than cull% of documents.
+        
+        Args:
+            corpus_ngram_counts: Total n-gram counts across corpus
+            doc_ngram_sets: List of sets, each containing unique n-grams in a document
+            
+        Returns:
+            Filtered Counter with sparse n-grams removed
+        """
+        if self.cull is None:
+            return corpus_ngram_counts
+        
+        n_docs = len(doc_ngram_sets)
+        min_docs = int(np.ceil(self.cull * n_docs))
+        
+        # Count document frequency for each n-gram
+        doc_freq = Counter()
+        for ngram_set in doc_ngram_sets:
+            doc_freq.update(ngram_set)
+        
+        # Filter: keep only n-grams appearing in >= min_docs documents
+        filtered = Counter()
+        for ngram, count in corpus_ngram_counts.items():
+            if doc_freq[ngram] >= min_docs:
+                filtered[ngram] = count
+        
+        if len(filtered) == 0:
+            warnings.warn(
+                f"Culling with cull={self.cull} removed all n-grams. "
+                f"Consider lowering the cull threshold.",
+                UserWarning
+            )
+        
+        return filtered
+    
+    # =========================================================================
+    # Document Chunking
+    # =========================================================================
+    
+    def _chunk_documents(
+        self, 
+        corpus: dict[str, list[list[str]]],
+    ) -> dict[str, list[list[str]]]:
+        """
+        Split documents into chunks of chunk_size tokens.
+        
+        Args:
+            corpus: Dict mapping author -> list of tokenized documents
+            
+        Returns:
+            New corpus dict with chunked documents
+        """
+        if self.chunk_size is None:
+            return corpus
+        
+        chunked_corpus: dict[str, list[list[str]]] = {}
+        
+        for author, documents in corpus.items():
+            chunks = []
+            for doc in documents:
+                # Split document into chunks
+                for i in range(0, len(doc), self.chunk_size):
+                    chunk = doc[i:i + self.chunk_size]
+                    if chunk:  # Include even small remainder chunks
+                        chunks.append(chunk)
+            chunked_corpus[author] = chunks
+        
+        return chunked_corpus
+    
+    # =========================================================================
+    # Transformation Methods
+    # =========================================================================
+    
+    def _compute_zscore(self, freq_vector: np.ndarray) -> np.ndarray:
+        """Convert a frequency vector to z-scores using corpus statistics."""
+        return (freq_vector - self.feature_means) / self.feature_stds
+    
+    def _compute_tfidf(self, freq_vector: np.ndarray) -> np.ndarray:
+        """Apply TF-IDF weighting to a frequency vector."""
+        return freq_vector * self.idf_weights
+    
+    def _transform_vector(self, freq_vector: np.ndarray) -> np.ndarray:
+        """Transform frequency vector according to configured transform type."""
+        if self.transform_type == 'zscore':
+            return self._compute_zscore(freq_vector)
+        elif self.transform_type == 'tfidf':
+            return self._compute_tfidf(freq_vector)
+        else:
+            return freq_vector
+    
+    # =========================================================================
+    # Vector Resolution
+    # =========================================================================
+    
+    def _tokens_to_vector(self, tokens: list[str]) -> np.ndarray:
+        """
+        Transform raw tokens to a feature vector using fitted features and transformation.
+        """
+        ngrams = self._extract_ngrams(tokens)
+        freq_dict = get_relative_frequencies(ngrams)
+        freq_vector = np.array([freq_dict.get(f, 0.0) for f in self.features])
+        return self._transform_vector(freq_vector)
+    
+    def _get_author_vector(self, author: str) -> np.ndarray:
+        """
+        Get the vector for an author.
+        
+        In centroid mode, returns the precomputed centroid.
+        In instance mode, returns the mean of all document vectors for that author.
+        """
+        if self.mode == 'centroid':
+            return self.author_centroids[author]
+        else:
+            author_indices = [i for i, lbl in enumerate(self.document_labels) if lbl == author]
+            author_vecs = [self.document_vectors[i] for i in author_indices]
+            return np.mean(author_vecs, axis=0)
+    
+    def _resolve_to_vector(self, query: str | list[str]) -> tuple[np.ndarray, str | None]:
+        """
+        Resolve a query (doc_id or tokens) to a feature vector.
+        
+        Returns:
+            Tuple of (vector, doc_id if query was a doc_id else None)
+        """
+        if isinstance(query, str):
+            # It's a doc_id
+            if query not in self._doc_id_to_index:
+                partial_matches = [doc_id for doc_id in self.document_ids if query in doc_id]
+                if partial_matches:
+                    hint = f"Did you mean one of: {partial_matches[:10]}"
+                    if len(partial_matches) > 10:
+                        hint += f" ... ({len(partial_matches)} matches)"
+                else:
+                    hint = f"Available: {self.document_ids[:10]}"
+                    if len(self.document_ids) > 10:
+                        hint += f" ... ({len(self.document_ids)} total)"
+                raise ValueError(f"Unknown document ID '{query}'. {hint}")
+            idx = self._doc_id_to_index[query]
+            return self.document_vectors[idx], query
+        elif isinstance(query, list):
+            self._validate_tokens(query, "query")
+            return self._tokens_to_vector(query), None
+        else:
+            raise TypeError(f"query must be a string (doc_id) or list of tokens, got {type(query).__name__}")
+    
+    def _get_vectors_and_labels(self, level: str) -> tuple[list[np.ndarray], list[str]]:
+        """Get vectors and labels for the specified level."""
+        self._validate_level(level)
+        
+        if level == 'document':
+            return self.document_vectors, self.document_ids.copy()
+        else:  # level == 'author'
+            vectors = [self._get_author_vector(author) for author in self.authors]
+            return vectors, self.authors.copy()
+    
+    # =========================================================================
+    # Fit / Transform
+    # =========================================================================
+    
+    def fit_transform(
+        self, 
+        corpus: dict[str, list[list[str]]] | list[list[str]],
+        labels: list[str] | None = None,
+    ) -> None:
+        """
+        Fit the model on a corpus and transform documents to feature vectors.
+        
+        Args:
+            corpus: Either:
+                - Dict mapping author names to their documents (supervised):
+                  {'AuthorA': [[tok1, tok2, ...], [tok1, ...]], 'AuthorB': [...]}
+                - List of tokenized documents (unsupervised):
+                  [[tok1, tok2, ...], [tok1, ...], ...]
+            labels: Optional list of labels for list input. Documents sharing
+                    the same label are grouped together.
+        
+        Pipeline:
+        1. Apply chunking (if chunk_size is set)
+        2. Extract n-grams from all documents
+        3. Apply culling (remove sparse n-grams)
+        4. Select top n_features by frequency
+        5. Compute feature vectors for each document
+        6. Apply transformation (z-score or TF-IDF)
+        7. Compute author centroids (if mode='centroid')
+        """
+        # Convert list input to dict format
+        if isinstance(corpus, list):
+            corpus = self._list_to_dict(corpus, labels)
+        elif not isinstance(corpus, dict):
+            raise TypeError(f"corpus must be a dict or list, got {type(corpus).__name__}")
+        
+        # Validate corpus
+        if not corpus:
+            raise ValueError("corpus cannot be empty")
+        
+        for author, documents in corpus.items():
+            if not isinstance(author, str):
+                raise TypeError(f"Author keys must be strings")
+            if not isinstance(documents, list) or len(documents) == 0:
+                raise ValueError(f"Author '{author}' must have at least one document")
+            for i, doc in enumerate(documents):
+                if not isinstance(doc, list) or len(doc) == 0:
+                    raise ValueError(f"Document {i} for '{author}' must be non-empty list of tokens")
+        
+        # Step 1: Apply chunking
+        corpus = self._chunk_documents(corpus)
+        
+        # Validate we have enough documents
+        total_docs = sum(len(docs) for docs in corpus.values())
+        if total_docs < 2:
+            raise ValueError("corpus must contain at least 2 documents (after chunking)")
+        
+        self.authors = list(corpus.keys())
+        
+        # Check for imbalanced corpus sizes
+        if len(self.authors) >= 2:
+            author_token_counts = {}
+            for author, documents in corpus.items():
+                total_tokens = sum(len(doc) for doc in documents)
+                author_token_counts[author] = total_tokens
+            
+            min_tokens = min(author_token_counts.values())
+            max_tokens = max(author_token_counts.values())
+            
+            if min_tokens > 0 and max_tokens >= 3 * min_tokens:
+                min_author = min(author_token_counts, key=author_token_counts.get)
+                max_author = max(author_token_counts, key=author_token_counts.get)
+                ratio = max_tokens / min_tokens
+                warnings.warn(
+                    f"Imbalanced corpus: '{max_author}' has {max_tokens:,} tokens while "
+                    f"'{min_author}' has only {min_tokens:,} tokens ({ratio:.1f}x difference). "
+                    f"This may skew feature selection toward the larger corpus.",
+                    UserWarning
+                )
+        
+        # Step 2: Extract n-grams and build corpus-wide counts
+        corpus_ngram_counts = Counter()
+        doc_ngram_sets: list[set] = []
+        
+        # Temporary storage for per-document data
+        temp_doc_data: list[dict] = []
+        
+        for author, documents in corpus.items():
+            for i, tokens in enumerate(documents):
+                ngrams = self._extract_ngrams(tokens)
+                doc_ngram_set = set(ngrams)
+                doc_ngram_sets.append(doc_ngram_set)
+                corpus_ngram_counts.update(ngrams)
+                
+                # Generate doc_id
+                if len(documents) == 1 and self.chunk_size is None:
+                    doc_id = author
+                else:
+                    doc_id = f"{author}_{i + 1}"
+                
+                temp_doc_data.append({
+                    'doc_id': doc_id,
+                    'author': author,
+                    'tokens': tokens,
+                    'ngrams': ngrams,
+                    'yule_k': compute_yule_k(tokens),
+                })
+        
+        # Step 3: Apply culling
+        filtered_counts = self._apply_culling(corpus_ngram_counts, doc_ngram_sets)
+        
+        if len(filtered_counts) == 0:
+            raise ValueError("No features remaining after culling. Lower the cull threshold.")
+        
+        # Step 4: Select top n_features
+        self.features = extract_mfw(filtered_counts, min(self.n_features, len(filtered_counts)))
+        
+        if len(self.features) < self.n_features:
+            warnings.warn(
+                f"Only {len(self.features)} features available (requested {self.n_features}). "
+                f"Consider lowering n_features or cull threshold.",
+                UserWarning
+            )
+        
+        # Step 5: Compute frequency vectors for each document
+        all_freq_vectors = []
+        doc_freq_counts = np.zeros(len(self.features))  # For IDF calculation
+        
+        for doc_data in temp_doc_data:
+            freq_dict = get_relative_frequencies(doc_data['ngrams'])
+            freq_vector = np.array([freq_dict.get(f, 0.0) for f in self.features])
+            doc_data['freq_vector'] = freq_vector
+            all_freq_vectors.append(freq_vector)
+            
+            # Track document frequency for IDF
+            doc_freq_counts += (freq_vector > 0).astype(float)
+        
+        freq_matrix = np.array(all_freq_vectors)
+        n_docs = len(temp_doc_data)
+        
+        # Step 6: Compute transformation statistics
+        if self.transform_type == 'zscore':
+            self.feature_means = np.mean(freq_matrix, axis=0)
+            self.feature_stds = np.std(freq_matrix, axis=0)
+            self.feature_stds[self.feature_stds < 1e-10] = 1.0  # Avoid division by zero
+        elif self.transform_type == 'tfidf':
+            # IDF = log(N / df) where df is document frequency
+            doc_freq_counts[doc_freq_counts == 0] = 1  # Avoid division by zero
+            self.idf_weights = np.log(n_docs / doc_freq_counts)
+        
+        # Step 7: Build final document storage and transformed vectors
+        self._doc_features = {}
+        self.document_vectors = []
+        self.document_labels = []
+        self.document_ids = []
+        self._doc_id_to_index = {}
+        
+        for idx, doc_data in enumerate(temp_doc_data):
+            doc_id = doc_data['doc_id']
+            author = doc_data['author']
+            
+            # Store document features (extensible dict)
+            self._doc_features[doc_id] = {
+                'tokens': doc_data['tokens'],
+                'ngrams': doc_data['ngrams'],
+                'freq_vector': doc_data['freq_vector'],
+                'yule_k': doc_data['yule_k'],
+                # Future: add more features here
+            }
+            
+            # Transform and store vector
+            transformed = self._transform_vector(doc_data['freq_vector'])
+            self.document_vectors.append(transformed)
+            self.document_labels.append(author)
+            self.document_ids.append(doc_id)
+            self._doc_id_to_index[doc_id] = idx
+        
+        # Step 8: Compute author centroids (for centroid mode)
+        if self.mode == 'centroid':
+            for author in self.authors:
+                author_indices = [i for i, lbl in enumerate(self.document_labels) if lbl == author]
+                # Average the raw frequency vectors, then transform
+                author_freq_vecs = [temp_doc_data[i]['freq_vector'] for i in author_indices]
+                avg_freq = np.mean(author_freq_vecs, axis=0)
+                self.author_centroids[author] = self._transform_vector(avg_freq)
+        
+        # Reset SVM model (needs retraining)
+        self._svm_model = None
+        
+        self._is_fitted = True
+    
+    def transform(self, tokens: list[str], warn_oov: bool = True) -> np.ndarray:
+        """
+        Transform a tokenized text to a feature vector using fitted features.
+        
+        Args:
+            tokens: List of tokens (a tokenized document)
+            warn_oov: If True (default), warn when the text has low overlap with
+                      the trained features (less than 50% of n-grams recognized).
+        
+        Returns:
+            Feature vector (numpy array)
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        self._validate_tokens(tokens)
+        
+        # Check OOV ratio and warn if needed
+        if warn_oov:
+            ngrams = self._extract_ngrams(tokens)
+            if ngrams:
+                feature_set = set(self.features)
+                known_count = sum(1 for ng in ngrams if ng in feature_set)
+                overlap_ratio = known_count / len(ngrams)
+                
+                if overlap_ratio < 0.5:
+                    warnings.warn(
+                        f"Low feature overlap: only {known_count}/{len(ngrams)} "
+                        f"({overlap_ratio:.1%}) of the text's n-grams match trained features. "
+                        f"Results may be unreliable. This can happen when the text is from "
+                        f"a very different domain or style than the training corpus.",
+                        UserWarning
+                    )
+        
+        return self._tokens_to_vector(tokens)
+    
+    def _list_to_dict(
+        self, 
+        documents: list[list[str]], 
+        labels: list[str] | None = None,
+    ) -> dict[str, list[list[str]]]:
+        """Convert a list of documents to dict format, grouped by label."""
+        if not documents:
+            raise ValueError("documents cannot be empty")
+        
+        if labels is None:
+            return {'unk': documents}
+        
+        if len(labels) != len(documents):
+            raise ValueError(f"labels length ({len(labels)}) must match documents length ({len(documents)})")
+        
+        result: dict[str, list[list[str]]] = {}
+        for label, doc in zip(labels, documents):
+            if not isinstance(label, str):
+                raise TypeError(f"labels must be strings, got {type(label).__name__}")
+            if label not in result:
+                result[label] = []
+            result[label].append(doc)
+        
+        return result
+    
+    # =========================================================================
+    # Prediction Methods
+    # =========================================================================
+    
+    def predict(
+        self, 
+        text: list[str],
+        k: int = 1,
+        distance: str | None = None,
+        classifier: str | None = None,
+    ) -> list[tuple[str, float]]:
+        """
+        Predict the most likely author for a tokenized text.
+        
+        Args:
+            text: List of tokens (the disputed text)
+            k: Number of top results to return.
+            distance: Distance metric override (for delta classifier).
+            classifier: Classifier override ('delta' or 'svm').
+        
+        Returns:
+            List of (author, score) tuples.
+            - For 'delta': score is distance (lower = more similar)
+            - For 'svm': score is probability (higher = more likely)
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        self._validate_tokens(text, "text")
+        
+        if not isinstance(k, int) or k < 1:
+            raise ValueError(f"k must be a positive integer, got {k}")
+        
+        clf = classifier if classifier is not None else self.classifier
+        
+        if clf == 'delta':
+            return self._predict_delta(text, k, distance)
+        elif clf == 'svm':
+            return self._predict_svm(text, k)
+        else:
+            raise ValueError(f"Unknown classifier: {clf}")
+    
+    def _predict_delta(
+        self, 
+        text: list[str], 
+        k: int,
+        distance: str | None = None,
+    ) -> list[tuple[str, float]]:
+        """Delta (distance-based) prediction."""
+        text_vector = self._tokens_to_vector(text)
+        distance_fn, _ = self._get_distance_fn(distance)
+        
+        if self.mode == 'centroid':
+            results = []
+            for author in self.authors:
+                dist = distance_fn(text_vector, self.author_centroids[author])
+                results.append((author, float(dist)))
+            results.sort(key=lambda x: x[1])
+            return results[:k]
+        else:  # mode == 'instance'
+            distances = []
+            for i, doc_vector in enumerate(self.document_vectors):
+                dist = distance_fn(text_vector, doc_vector)
+                distances.append((self.document_labels[i], self.document_ids[i], float(dist)))
+            distances.sort(key=lambda x: x[2])
+            results = [(author, dist) for author, doc_id, dist in distances[:k]]
+            return results
+    
+    def _predict_svm(self, text: list[str], k: int) -> list[tuple[str, float]]:
+        """SVM prediction with probability output."""
+        if self._svm_model is None:
+            self._fit_svm()
+        
+        text_vector = self._tokens_to_vector(text).reshape(1, -1)
+        
+        # Get probability predictions
+        probas = self._svm_model.predict_proba(text_vector)[0]
+        classes = self._svm_model.classes_
+        
+        # Sort by probability (descending)
+        results = [(str(cls), float(prob)) for cls, prob in zip(classes, probas)]
+        results.sort(key=lambda x: x[1], reverse=True)
+        
+        return results[:k]
+    
+    def _fit_svm(self) -> None:
+        """Fit SVM classifier on current document vectors."""
+        from sklearn.svm import SVC
+        
+        X = np.array(self.document_vectors)
+        y = np.array(self.document_labels)
+        unique_classes = np.unique(y)
+        if len(unique_classes) < 2:
+            raise ValueError(
+                "SVM classifier requires at least 2 classes/authors. "
+                f"Found {len(unique_classes)}: {unique_classes.tolist()}"
+            )
+        
+        # SVM with probability=True for predict_proba
+        # Use global seed if set, otherwise use None for sklearn's default behavior
+        seed = resolve_seed(None)
+        self._svm_model = SVC(kernel='linear', probability=True, random_state=seed)
+        self._svm_model.fit(X, y)
+    
+    def predict_author(
+        self, 
+        text: list[str], 
+        k: int = 1, 
+        distance: str | None = None,
+        classifier: str | None = None,
+    ) -> str:
+        """
+        Convenience method to get just the predicted author name.
+        
+        Args:
+            text: List of tokens (the disputed text)
+            k: For 'instance' mode only: number of nearest neighbors for majority voting.
+                In 'centroid' mode, this parameter is ignored.
+            distance: Distance metric override (for delta classifier).
+            classifier: Classifier override ('delta' or 'svm').
+        
+        Returns:
+            Predicted author name (str).
+        """
+        clf = classifier if classifier is not None else self.classifier
+        
+        # In centroid mode, k doesn't affect the result, so we always use k=1
+        effective_k = k if (clf == 'delta' and self.mode == 'instance') else 1
+        results = self.predict(text, k=effective_k, distance=distance, classifier=classifier)
+        
+        if clf == 'delta' and self.mode == 'instance' and k > 1:
+            # Majority vote for instance mode
+            author_counts = Counter(author for author, _ in results)
+            return author_counts.most_common(1)[0][0]
+        else:
+            return results[0][0]
+    
+    def predict_confidence(
+        self, 
+        text: list[str], 
+        k: int = 1,
+        classifier: str | None = None,
+    ) -> list[tuple[str, float]]:
+        """
+        Predict with unified confidence scores (higher = more likely).
+        
+        Abstracts away the difference between delta (distance) and SVM (probability).
+        
+        Returns:
+            List of (author, confidence) tuples where confidence is 0-1, higher = more likely.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        clf = classifier if classifier is not None else self.classifier
+        
+        if clf == 'svm':
+            # SVM already returns probabilities
+            return self.predict(text, k=k, classifier='svm')
+        else:
+            # Delta: convert distances to confidences
+            results = self.predict(text, k=len(self.authors), distance=None, classifier='delta')
+            
+            # Convert distances to similarities using softmax-like normalization
+            distances = np.array([dist for _, dist in results])
+            # Avoid overflow by subtracting max
+            exp_neg_dist = np.exp(-distances + distances.min())
+            confidences = exp_neg_dist / exp_neg_dist.sum()
+            
+            conf_results = [(author, float(conf)) for (author, _), conf in zip(results, confidences)]
+            return conf_results[:k]
+    
+    # =========================================================================
+    # Bootstrap Analysis
+    # =========================================================================
+    
+    def bootstrap_predict(
+        self,
+        text: list[str],
+        n_iter: int = 100,
+        sample_ratio: float = 0.8,
+        distance: str | None = None,
+        seed: int | None = None,
+    ) -> dict:
+        """
+        Bootstrap analysis for prediction robustness.
+        
+        Resamples features n_iter times and computes prediction statistics
+        to assess how robust the attribution is.
+        
+        Args:
+            text: List of tokens (the disputed text)
+            n_iter: Number of bootstrap iterations
+            sample_ratio: Fraction of features to use per iteration (0.0-1.0)
+            distance: Distance metric override
+            seed: Random seed for reproducibility. If None, results will vary
+                between calls.
+        
+        Returns:
+            Dict with:
+                - 'prediction': Most frequent prediction across iterations
+                - 'confidence': Proportion of iterations agreeing with top prediction
+                - 'distribution': Dict of author -> proportion of iterations
+                - 'distances': Dict of author -> (mean_distance, std_distance)
+                - 'n_iterations': Number of iterations performed
+        
+        Example:
+            # Prepare corpus with known authors
+            corpus = {'author1': [list_of_tokens1, ...], 'author2': [list_of_tokens2, ...]}
+            
+            # Fit model
+            stylo = Stylometry(n_features=500)
+            stylo.fit_transform(corpus)
+            
+            # Bootstrap analysis on disputed text
+            disputed_text = ['token1', 'token2', ...]  # flat list of tokens
+            result = stylo.bootstrap_predict(
+                disputed_text,
+                n_iter=100,       # 100 bootstrap iterations
+                sample_ratio=0.8  # use 80% of features each iteration
+            )
+            
+            print(f"Predicted author: {result['prediction']}")
+            print(f"Confidence: {result['confidence']:.1%}")
+            print(f"Vote distribution: {result['distribution']}")
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        self._validate_tokens(text, "text")
+        
+        if not isinstance(n_iter, int) or n_iter < 1:
+            raise ValueError(f"n_iter must be a positive integer, got {n_iter}")
+        if not (0.0 < sample_ratio <= 1.0):
+            raise ValueError(f"sample_ratio must be between 0 and 1, got {sample_ratio}")
+        
+        distance_fn, _ = self._get_distance_fn(distance)
+        n_features = len(self.features)
+        sample_size = max(1, int(n_features * sample_ratio))
+        
+        # Extract n-grams from text once
+        text_ngrams = self._extract_ngrams(text)
+        text_freq_dict = get_relative_frequencies(text_ngrams)
+        
+        # Track predictions and distances per iteration
+        predictions = []
+        author_distances: dict[str, list[float]] = {author: [] for author in self.authors}
+        
+        rng = np.random.default_rng(seed)
+        
+        for _ in range(n_iter):
+            # Sample features
+            feature_indices = rng.choice(n_features, size=sample_size, replace=False)
+            sampled_features = [self.features[i] for i in feature_indices]
+            
+            # Build text vector with sampled features
+            text_freq_vec = np.array([text_freq_dict.get(f, 0.0) for f in sampled_features])
+            
+            # Transform using sampled feature statistics
+            if self.transform_type == 'zscore':
+                sampled_means = self.feature_means[feature_indices]
+                sampled_stds = self.feature_stds[feature_indices]
+                text_vec = (text_freq_vec - sampled_means) / sampled_stds
+            elif self.transform_type == 'tfidf':
+                sampled_idf = self.idf_weights[feature_indices]
+                text_vec = text_freq_vec * sampled_idf
+            else:
+                text_vec = text_freq_vec
+            
+            # Compare to each author centroid (using sampled features)
+            best_author = None
+            best_dist = float('inf')
+            
+            for author in self.authors:
+                if self.mode == 'centroid':
+                    author_full_vec = self.author_centroids[author]
+                else:
+                    author_full_vec = self._get_author_vector(author)
+                
+                author_vec = author_full_vec[feature_indices]
+                dist = distance_fn(text_vec, author_vec)
+                author_distances[author].append(float(dist))
+                
+                if dist < best_dist:
+                    best_dist = dist
+                    best_author = author
+            
+            predictions.append(best_author)
+        
+        # Compute statistics
+        prediction_counts = Counter(predictions)
+        top_prediction = prediction_counts.most_common(1)[0][0]
+        confidence = prediction_counts[top_prediction] / n_iter
+        
+        distribution = {author: count / n_iter for author, count in prediction_counts.items()}
+        # Ensure all authors are in distribution
+        for author in self.authors:
+            if author not in distribution:
+                distribution[author] = 0.0
+        
+        distances_stats = {
+            author: (float(np.mean(dists)), float(np.std(dists)))
+            for author, dists in author_distances.items()
+        }
+        
+        return {
+            'prediction': top_prediction,
+            'confidence': confidence,
+            'distribution': distribution,
+            'distances': distances_stats,
+            'n_iterations': n_iter,
+        }
+    
+    # =========================================================================
+    # Rolling Delta Analysis
+    # =========================================================================
+    
+    def rolling_delta(
+        self,
+        text: list[str],
+        reference: str | None = None,
+        window: int = 5000,
+        step: int = 1000,
+        distance: str | None = None,
+        show: bool = True,
+        figsize: tuple[int, int] = (12, 6),
+        title: str | None = None,
+        filename: str | None = None,
+    ) -> pd.DataFrame:
+        """
+        Rolling window analysis across a long text.
+        
+        Computes distance to a reference at each window position,
+        useful for detecting authorship changes or style variation within a text.
+        
+        Args:
+            text: List of tokens (the long text to analyze)
+            reference: Author name to compare against. If None, compares each
+                      window to the average representation of the entire text
+                      (self-comparison mode for detecting internal variation).
+            window: Window size in tokens
+            step: Step size for sliding window
+            distance: Distance metric override
+            show: If True, display plot
+            figsize: Figure size for plot
+            title: Plot title
+            filename: If provided, save figure to this path
+        
+        Returns:
+            DataFrame with columns:
+                - 'position': Starting token position of window
+                - 'distance': Distance to reference
+                - 'end_position': Ending token position of window
+        
+        Example:
+            # Prepare corpus with known authors
+            corpus = {'author1': [list_of_tokens1, ...], 'author2': [list_of_tokens2, ...]}
+            
+            # Fit model on known authors
+            stylo = Stylometry(n_features=500)
+            stylo.fit_transform(corpus)
+            
+            # Analyze a long disputed text for authorship changes
+            disputed_text = ['token1', 'token2', ...]  # flat list of tokens
+            results = stylo.rolling_delta(
+                disputed_text,
+                reference='author1',  # compare windows to author1's style
+                window=5000,          # 5000-token windows
+                step=1000             # slide by 1000 tokens
+            )
+            
+            # Results show distance at each position
+            print(results[['position', 'distance']])
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        self._validate_tokens(text, "text")
+        
+        if reference is not None and reference not in self.authors:
+            raise ValueError(f"Unknown reference author '{reference}'. Known authors: {self.authors}")
+        
+        if not isinstance(window, int) or window < 1:
+            raise ValueError(f"window must be a positive integer, got {window}")
+        if not isinstance(step, int) or step < 1:
+            raise ValueError(f"step must be a positive integer, got {step}")
+        
+        if len(text) < window:
+            raise ValueError(f"text length ({len(text)}) is shorter than window size ({window})")
+        
+        distance_fn, _ = self._get_distance_fn(distance)
+        
+        # Determine reference vector
+        if reference is None:
+            # Self-comparison mode: use average of entire text
+            ref_vector = self._tokens_to_vector(text)
+            ref_label = "text average"
+        else:
+            # Compare to fitted author
+            if self.mode == 'centroid':
+                ref_vector = self.author_centroids[reference]
+            else:
+                ref_vector = self._get_author_vector(reference)
+            ref_label = reference
+        
+        # Compute rolling delta
+        results = []
+        positions = range(0, len(text) - window + 1, step)
+        
+        for pos in positions:
+            window_tokens = text[pos:pos + window]
+            window_vector = self._tokens_to_vector(window_tokens)
+            dist = distance_fn(window_vector, ref_vector)
+            
+            results.append({
+                'position': pos,
+                'distance': float(dist),
+                'end_position': pos + window,
+            })
+        
+        df = pd.DataFrame(results)
+        
+        # Plot if requested
+        if show or filename:
+            fig, ax = plt.subplots(figsize=figsize)
+            
+            ax.plot(df['position'], df['distance'], 'b-', linewidth=1.5, alpha=0.8)
+            ax.fill_between(df['position'], df['distance'], alpha=0.3)
+            
+            ax.set_xlabel('Token Position', fontsize=12)
+            ax.set_ylabel(f'Distance to {ref_label}', fontsize=12)
+            
+            if title:
+                ax.set_title(title, fontsize=14)
+            else:
+                mode_str = "self-comparison" if reference is None else f"vs {reference}"
+                ax.set_title(f'Rolling Delta ({mode_str}, window={window}, step={step})', fontsize=14)
+            
+            ax.grid(True, alpha=0.3, linestyle='--')
+            
+            # Add horizontal line for mean
+            mean_dist = df['distance'].mean()
+            ax.axhline(y=mean_dist, color='r', linestyle='--', alpha=0.7, 
+                      label=f'Mean: {mean_dist:.4f}')
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            if filename:
+                plt.savefig(filename, bbox_inches='tight', dpi=300)
+            
+            if show:
+                plt.show()
+            else:
+                plt.close()
+        
+        return df
+    
+    # =========================================================================
+    # Similarity / Distance Methods
+    # =========================================================================
+    
+    def most_similar(
+        self, 
+        query: str | list[str], 
+        k: int | None = None,
+        return_distance: bool = False,
+        distance: str | None = None,
+    ) -> list[tuple[str, float]]:
+        """
+        Find the most similar documents to a query.
+        
+        Args:
+            query: Document ID (str) or list of tokens.
+            k: Number of results to return. If None, returns all.
+            return_distance: If False, returns similarity. If True, returns distance.
+            distance: Distance metric override.
+        
+        Returns:
+            List of (doc_id, value) tuples sorted by similarity (most similar first).
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        query_vector, query_doc_id = self._resolve_to_vector(query)
+        distance_fn, metric = self._get_distance_fn(distance)
+        
+        results = []
+        for i, doc_vector in enumerate(self.document_vectors):
+            doc_id = self.document_ids[i]
+            if query_doc_id is not None and doc_id == query_doc_id:
+                continue
+            dist = distance_fn(query_vector, doc_vector)
+            
+            if return_distance:
+                results.append((doc_id, float(dist)))
+            else:
+                similarity = self._distance_to_similarity(dist, metric)
+                results.append((doc_id, float(similarity)))
+        
+        results.sort(key=lambda x: x[1], reverse=(not return_distance))
+        
+        if k is not None:
+            results = results[:k]
+        
+        return results
+    
+    def _distance_to_similarity(self, dist: float, metric: str | None = None) -> float:
+        """Convert distance to similarity based on the metric."""
+        metric = metric if metric is not None else self.distance_metric
+        if metric == 'cosine':
+            return 1.0 - dist
+        else:
+            return 1.0 / (1.0 + dist)
+    
+    def distance(
+        self, 
+        a: str | list[str], 
+        b: str | list[str],
+        distance: str | None = None,
+    ) -> float:
+        """
+        Compute the distance between two documents. Lower = more similar.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        vector_a, _ = self._resolve_to_vector(a)
+        vector_b, _ = self._resolve_to_vector(b)
+        
+        distance_fn, _ = self._get_distance_fn(distance)
+        return float(distance_fn(vector_a, vector_b))
+    
+    def similarity(
+        self, 
+        a: str | list[str], 
+        b: str | list[str],
+        distance: str | None = None,
+    ) -> float:
+        """
+        Compute the similarity between two documents. Higher = more similar.
+        """
+        _, metric = self._get_distance_fn(distance)
+        return self._distance_to_similarity(self.distance(a, b, distance=distance), metric)
+    
+    # =========================================================================
+    # Distance Matrix / Clustering
+    # =========================================================================
+    
+    def _compute_distance_matrix(
+        self, 
+        vectors: list[np.ndarray], 
+        distance: str | None = None,
+    ) -> np.ndarray:
+        """Compute pairwise distance matrix for a list of vectors."""
+        from scipy.spatial.distance import cdist
+        
+        _, metric = self._get_distance_fn(distance)
+        vectors_array = np.array(vectors)
+        
+        # Map our metric names to scipy's cdist metrics
+        metric_map = {
+            'burrows_delta': 'cityblock',
+            'cosine': 'cosine',
+            'manhattan': 'cityblock',
+            'euclidean': 'euclidean',
+            'eder_delta': 'euclidean',  # Eder's delta uses euclidean, then normalizes
+        }
+        
+        scipy_metric = metric_map[metric]
+        dist_matrix = cdist(vectors_array, vectors_array, metric=scipy_metric)
+        
+        # Apply metric-specific post-processing
+        n_features = vectors_array.shape[1]
+        if metric == 'burrows_delta':
+            # Burrows' Delta: mean absolute difference
+            dist_matrix = dist_matrix / n_features
+        elif metric == 'eder_delta':
+            # Eder's Delta: sqrt(sum((a-b)^2) / n) = euclidean / sqrt(n)
+            dist_matrix = dist_matrix / np.sqrt(n_features)
+        
+        np.fill_diagonal(dist_matrix, 0.0)
+        return dist_matrix
+    
+    def distance_matrix(
+        self, 
+        level: str = 'document', 
+        distance: str | None = None,
+    ) -> tuple[np.ndarray, list[str]]:
+        """
+        Compute pairwise distance matrix from fitted data.
+        
+        Args:
+            level: 'document' for individual documents, 'author' for author profiles
+            distance: Distance metric override.
+        
+        Returns:
+            (distance_matrix, labels)
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        vectors, labels = self._get_vectors_and_labels(level)
+        return self._compute_distance_matrix(vectors, distance=distance), labels
+    
+    def hierarchical_clustering(
+        self,
+        method: str = 'average',
+        level: str = 'document',
+        distance: str | None = None,
+    ) -> tuple[np.ndarray, list[str]]:
+        """
+        Perform hierarchical clustering on fitted data.
+        
+        Args:
+            method: Linkage method - 'single', 'complete', 'average', 'weighted', or 'ward'
+            level: 'document' or 'author'
+            distance: Distance metric override.
+        
+        Returns:
+            (linkage_matrix, labels)
+        """
+        from scipy.cluster.hierarchy import linkage
+        from scipy.spatial.distance import squareform
+        
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        if method not in self.VALID_CLUSTERING_METHODS:
+            raise ValueError(f"method must be one of {self.VALID_CLUSTERING_METHODS}, got '{method}'")
+        
+        vectors, doc_labels = self._get_vectors_and_labels(level)
+        
+        if len(vectors) < 2:
+            raise ValueError("Need at least 2 items for hierarchical clustering")
+        
+        dist_matrix = self._compute_distance_matrix(vectors, distance=distance)
+        condensed = squareform(dist_matrix)
+        linkage_matrix = linkage(condensed, method=method)
+        
+        return linkage_matrix, doc_labels
+    
+    # =========================================================================
+    # Analysis Methods
+    # =========================================================================
+    
+    def vocabulary_stats(self) -> pd.DataFrame:
+        """
+        Get vocabulary richness statistics for all fitted documents.
+        
+        Returns:
+            DataFrame with columns: doc_id, author, yule_k, token_count, type_count
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        rows = []
+        for doc_id in self.document_ids:
+            doc_data = self._doc_features[doc_id]
+            tokens = doc_data['tokens']
+            author = self.document_labels[self._doc_id_to_index[doc_id]]
+            
+            rows.append({
+                'doc_id': doc_id,
+                'author': author,
+                'yule_k': doc_data['yule_k'],
+                'token_count': len(tokens),
+                'type_count': len(set(tokens)),
+                'ttr': len(set(tokens)) / len(tokens) if tokens else 0.0,
+            })
+        
+        return pd.DataFrame(rows)
+    
+    def get_author_profile(self, author: str) -> pd.DataFrame:
+        """
+        Get the feature values for a specific author.
+        
+        Returns a DataFrame with 'feature' and 'value' columns, sorted by value descending.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        if author not in self.authors:
+            raise ValueError(f"Unknown author '{author}'. Known authors: {self.authors}")
+        
+        vector = self._get_author_vector(author)
+        
+        return pd.DataFrame({
+            'feature': self.features,
+            'value': vector,
+        }).sort_values('value', ascending=False)
+    
+    def get_feature_comparison(self) -> pd.DataFrame:
+        """
+        Get a comparison table of feature values across all fitted authors.
+        
+        Returns a DataFrame with one column per author plus a 'variance' column.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        data = {'feature': self.features}
+        
+        for author in self.authors:
+            data[author] = self._get_author_vector(author)
+        
+        df = pd.DataFrame(data)
+        author_cols = [col for col in df.columns if col != 'feature']
+        df['variance'] = df[author_cols].var(axis=1)
+        
+        return df.sort_values('variance', ascending=False)
+    
+    # =========================================================================
+    # Visualization Methods
+    # =========================================================================
+    
+    def plot(
+        self,
+        method: str = 'pca',
+        level: str = 'document',
+        figsize: tuple[int, int] = (10, 8),
+        show_labels: bool = True,
+        labels: list[str] | None = None,
+        title: str | None = None,
+        colors: dict[str, str] | None = None,
+        marker_size: int = 100,
+        fontsize: int = 12,
+        filename: str | None = None,
+        random_state: int = 42,
+        show: bool = True,
+    ) -> tuple[plt.Figure, plt.Axes] | None:
+        """
+        Create a 2D scatter plot of documents or authors.
+        
+        Args:
+            method: Dimensionality reduction - 'pca', 'tsne', or 'mds'
+            level: 'document' for individual documents, 'author' for author profiles
+            figsize: Figure size as (width, height)
+            show_labels: Whether to show text labels on points
+            labels: Custom labels for points
+            title: Custom title
+            colors: Dict mapping author names to colors
+            marker_size: Size of scatter points
+            fontsize: Base font size
+            filename: If provided, save figure to this path
+            random_state: Random seed for t-SNE/MDS
+            show: If True, display plot. If False, return (fig, ax).
+        
+        Returns:
+            None if show=True, otherwise (fig, ax) tuple.
+        """
+        import matplotlib
+        
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        if method not in ('pca', 'tsne', 'mds'):
+            raise ValueError(f"method must be 'pca', 'tsne', or 'mds', got '{method}'")
+        
+        vectors, doc_labels = self._get_vectors_and_labels(level)
+        author_for_point = self.document_labels if level == 'document' else self.authors
+        unique_authors = self.authors
+        
+        if labels is not None:
+            if len(labels) != len(doc_labels):
+                raise ValueError(f"labels length ({len(labels)}) must match number of points ({len(doc_labels)})")
+            doc_labels = list(labels)
+        
+        vectors = np.array(vectors)
+        
+        if len(vectors) < 2:
+            raise ValueError("Need at least 2 items to create a plot")
+        
+        coords, axis_labels = self._reduce_dimensions(vectors, method, random_state)
+        
+        if coords.ndim == 1 or coords.shape[1] == 1:
+            coords = np.column_stack([coords.flatten(), np.zeros(len(vectors))])
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        
+        is_unsupervised = len(unique_authors) == 1 and unique_authors[0] == 'unk'
+        
+        if is_unsupervised:
+            self._plot_unsupervised(ax, coords, doc_labels, show_labels, marker_size, fontsize)
+        else:
+            cmap = matplotlib.colormaps['tab10']
+            self._plot_supervised(
+                ax, coords, doc_labels, author_for_point, unique_authors,
+                colors, show_labels, marker_size, fontsize, cmap
+            )
+        
+        ax.set_xlabel(axis_labels[0], fontsize=fontsize + 2)
+        ax.set_ylabel(axis_labels[1], fontsize=fontsize + 2)
+        
+        if title:
+            ax.set_title(title, fontsize=fontsize + 4)
+        
+        ax.grid(True, alpha=0.3, linestyle='--')
+        plt.tight_layout()
+        
+        if filename:
+            plt.savefig(filename, bbox_inches='tight', dpi=300)
+        
+        if show:
+            plt.show()
+            return None
+        else:
+            return fig, ax
+    
+    def _reduce_dimensions(
+        self,
+        vectors: np.ndarray,
+        method: str,
+        random_state: int,
+    ) -> tuple[np.ndarray, tuple[str, str]]:
+        """Reduce high-dimensional vectors to 2D for visualization."""
+        if method == 'pca':
+            from sklearn.decomposition import PCA
+            reducer = PCA(n_components=min(2, len(vectors)))
+            coords = reducer.fit_transform(vectors)
+            var_explained = reducer.explained_variance_ratio_
+            if len(var_explained) >= 2:
+                axis_labels = (
+                    f'PC1 ({var_explained[0]*100:.1f}% variance)',
+                    f'PC2 ({var_explained[1]*100:.1f}% variance)'
+                )
+            else:
+                axis_labels = (f'PC1 ({var_explained[0]*100:.1f}% variance)', 'PC2')
+        elif method == 'tsne':
+            from sklearn.manifold import TSNE
+            perplexity = min(30, len(vectors) - 1)
+            reducer = TSNE(n_components=2, perplexity=max(1, perplexity), random_state=random_state)
+            coords = reducer.fit_transform(vectors)
+            axis_labels = ('t-SNE 1', 't-SNE 2')
+        else:  # mds
+            from sklearn.manifold import MDS
+            reducer = MDS(n_components=2, random_state=random_state)
+            coords = reducer.fit_transform(vectors)
+            axis_labels = ('MDS 1', 'MDS 2')
+        
+        return coords, axis_labels
+    
+    def _plot_unsupervised(
+        self,
+        ax: plt.Axes,
+        coords: np.ndarray,
+        doc_labels: list[str],
+        show_labels: bool,
+        marker_size: int,
+        fontsize: int,
+    ) -> None:
+        """Plot points for unsupervised mode."""
+        ax.scatter(
+            coords[:, 0], coords[:, 1],
+            c='steelblue', s=marker_size,
+            edgecolors='black', linewidths=0.5, alpha=0.7
+        )
+        if show_labels:
+            for i, label in enumerate(doc_labels):
+                ax.annotate(
+                    label, (coords[i, 0], coords[i, 1]),
+                    xytext=(5, 5), textcoords='offset points',
+                    fontsize=fontsize - 2, alpha=0.8
+                )
+    
+    def _plot_supervised(
+        self,
+        ax: plt.Axes,
+        coords: np.ndarray,
+        doc_labels: list[str],
+        author_for_point: list[str],
+        unique_authors: list[str],
+        colors: dict[str, str] | None,
+        show_labels: bool,
+        marker_size: int,
+        fontsize: int,
+        cmap,
+    ) -> None:
+        """Plot points for supervised mode."""
+        if colors is None:
+            color_map = {author: cmap(i % 10) for i, author in enumerate(unique_authors)}
+        else:
+            color_map = colors
+        
+        plotted_authors = set()
+        for i, (label, author) in enumerate(zip(doc_labels, author_for_point)):
+            color = color_map.get(author, 'gray')
+            legend_label = author if author not in plotted_authors else None
+            plotted_authors.add(author)
+            
+            ax.scatter(
+                coords[i, 0], coords[i, 1],
+                c=[color], s=marker_size,
+                label=legend_label, edgecolors='black', linewidths=0.5
+            )
+            
+            if show_labels:
+                ax.annotate(
+                    label, (coords[i, 0], coords[i, 1]),
+                    xytext=(5, 5), textcoords='offset points',
+                    fontsize=fontsize - 2, alpha=0.8
+                )
+        
+        ax.legend(loc='best', fontsize=fontsize - 2)
+    
+    def dendrogram(
+        self,
+        method: str = 'average',
+        level: str = 'document',
+        orientation: str = 'top',
+        figsize: tuple[int, int] = (12, 8),
+        labels: list[str] | None = None,
+        title: str | None = None,
+        fontsize: int = 10,
+        color_threshold: float | None = None,
+        filename: str | None = None,
+        show: bool = True,
+        distance: str | None = None,
+    ) -> dict | None:
+        """
+        Visualize hierarchical clustering as a dendrogram.
+        
+        Args:
+            method: Linkage method
+            level: 'document' or 'author'
+            orientation: 'top', 'bottom', 'left', or 'right'
+            figsize: Figure size
+            labels: Custom labels for leaves
+            title: Plot title
+            fontsize: Font size for labels
+            color_threshold: Distance threshold for coloring
+            filename: If provided, save figure to this path
+            show: If True, display plot. If False, return result dict.
+            distance: Distance metric override.
+        
+        Returns:
+            None if show=True, otherwise dict with 'fig', 'ax', and dendrogram data.
+        """
+        from scipy.cluster.hierarchy import dendrogram as scipy_dendrogram
+        
+        if not self._is_fitted:
+            raise RuntimeError("Model has not been fitted. Call fit_transform() first.")
+        
+        valid_orientations = ('top', 'bottom', 'left', 'right')
+        if orientation not in valid_orientations:
+            raise ValueError(f"orientation must be one of {valid_orientations}, got '{orientation}'")
+        
+        linkage_matrix, doc_labels = self.hierarchical_clustering(
+            method=method,
+            level=level,
+            distance=distance,
+        )
+        
+        if labels is not None:
+            if len(labels) != len(doc_labels):
+                raise ValueError(f"labels length ({len(labels)}) must match number of leaves ({len(doc_labels)})")
+            doc_labels = list(labels)
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        dendro_result = scipy_dendrogram(
+            linkage_matrix,
+            labels=doc_labels,
+            orientation=orientation,
+            leaf_font_size=fontsize,
+            color_threshold=color_threshold,
+            ax=ax,
+        )
+        
+        if title:
+            ax.set_title(title, fontsize=fontsize + 4)
+        
+        plt.tight_layout()
+        if filename:
+            plt.savefig(filename, bbox_inches='tight', dpi=300)
+        
+        if show:
+            plt.show()
+            return None
+        else:
+            dendro_result['fig'] = fig
+            dendro_result['ax'] = ax
+            return dendro_result
+
+
+# =============================================================================
+# Corpus Comparison Functions
+# =============================================================================
+
+_EMPTY = object()
+
+
+def _iter_corpus_tokens(corpus: Iterable[str] | Iterable[Iterable[str]]) -> Iterable[str]:
+    """
+    Yield tokens from a flat token iterable or nested sentence/doc iterable.
+    """
+    iterator = iter(corpus)
+    first = next(iterator, _EMPTY)
+    if first is _EMPTY:
+        return iter(())
+
+    # Flat token stream (e.g., list[str], generator[str])
+    if isinstance(first, str):
+        return chain((first,), iterator)
+
+    # Nested stream (e.g., list[list[str]], generator[list[str]])
+    def _flattened_tokens() -> Iterable[str]:
+        for sentence in chain((first,), iterator):
+            if not sentence:
+                continue
+            for token in sentence:
+                yield token
+
+    return _flattened_tokens()
+
+
+def compare_corpora(corpusA: Iterable[str] | Iterable[list[str]], 
+                    corpusB: Iterable[str] | Iterable[list[str]], 
+                    method: str = 'fisher', 
+                    filters: dict | None = None,
+                    correction: str | None = None,
+                    as_dataframe: bool = True,
+                    sort_by: str = 'rel_ratio',
+                    ascending: bool = False) -> pd.DataFrame | list[dict]:
+    """
+    Compare two corpora to identify statistically significant differences in word usage.
+    
+    Args:
+        corpusA: Iterable of tokens (flat) or iterable of token lists (nested).
+            Accepts lists, generators, or any iterable.
+        corpusB: Iterable of tokens (flat) or iterable of token lists (nested).
+            Accepts lists, generators, or any iterable.
+        method (str): Statistical test to use. All tests use two-sided alternatives.
+            
+            - 'fisher': Fisher's exact test (default). Exact, recommended for small
+              sample sizes. Does not produce a test statistic.
+            - 'chi2': Pearson's chi-squared test.
+            - 'chi2_corrected': Chi-squared with Yates' continuity correction.
+            - 'log_likelihood': Log-likelihood ratio (G2) test. Standard "keyness"
+              measure in corpus linguistics (used by AntConc, Sketch Engine).
+        filters (dict, optional): Dictionary of filters to apply to results.
+            
+            Eligibility filters (applied before testing; define the hypothesis family):
+            
+            - 'min_count': int or tuple - Minimum count threshold(s) for a word to be 
+              included (can be a single int for both corpora or tuple (min_countA, 
+              min_countB)). Default is 0.
+            - 'stopwords': list - Words to exclude from results.
+            - 'min_word_length': int - Minimum character length for words.
+            
+            These filters are based on word properties (not p-values) and are
+            applied before any statistical tests are computed. They safely reduce the
+            hypothesis family and improve both performance and statistical power.
+            
+            P-value filters (two mutually exclusive workflows):
+            
+            - 'max_p': float - Maximum raw p-value threshold. Only valid when 
+              ``correction`` is None. Use for simple unadjusted hypothesis testing.
+            - 'max_adjusted_p': float - Maximum adjusted p-value. Only valid when 
+              ``correction`` is set. Applied after correction is computed.
+            
+            Using ``max_p`` together with ``correction`` raises a ValueError, because
+            pre-filtering on raw p-values violates the distributional assumptions
+            required by multiple testing procedures (BH, Bonferroni).
+              
+        correction (str, optional): Multiple testing correction method. When set,
+            an ``adjusted_p_value`` column is added to the results. The correction
+            is applied after eligibility filters, so only words that pass those
+            filters count toward the number of tests.
+            
+            - 'bonferroni': Bonferroni correction (conservative, controls family-wise 
+              error rate).
+            - 'fdr_bh': Benjamini-Hochberg procedure (controls false discovery rate,
+              recommended for corpus comparison).
+            - None: No correction (default).
+        as_dataframe (bool): Whether to return a pandas DataFrame.
+        sort_by (str): Field to sort results by. Default is 'rel_ratio'.
+        ascending (bool): Sort direction. Default is False (descending).
+    
+    Returns:
+        pandas.DataFrame or list[dict] with columns/keys:
+        
+            - **word** (str): The word.
+            - **abs_freqA** / **abs_freqB** (int): Absolute frequency in each corpus.
+            - **rel_freqA** / **rel_freqB** (float): Relative frequency in each corpus.
+            - **rel_ratio** (float): Ratio of relative frequencies (relA / relB).
+            - **statistic** (float, optional): Test statistic (chi-squared or G2).
+              Present for 'chi2', 'chi2_corrected', and 'log_likelihood' methods.
+              Not present for 'fisher' (which has no test statistic).
+            - **p_value** (float): Two-sided p-value.
+            - **adjusted_p_value** (float, optional): Present only if ``correction`` is set.
+    
+    Note:
+        Two-sided tests are used because we want to detect whether words are 
+        overrepresented in either corpus.
+    
+    Example:
+        # Compare word usage between two authors:
+        
+        import os
+        from qhchina import download_corpus, load_stopwords
+        from qhchina.preprocessing import create_segmenter
+        from qhchina.analytics import compare_corpora
+        
+        # Download corpora
+        download_corpus("莫言", parent_dir="corpora")
+        download_corpus("张爱玲", parent_dir="corpora")
+        
+        # Set up segmenter
+        segmenter = create_segmenter(
+            backend="jieba", 
+            strategy="sentence",
+        )
+        
+        # Load and segment
+        moyan = []
+        for f in os.listdir("corpora/莫言"):
+            with open(f"corpora/莫言/{f}", encoding="utf-8") as fp:
+                moyan.extend(segmenter.segment(fp.read()))
+        
+        zal = []
+        for f in os.listdir("corpora/张爱玲"):
+            with open(f"corpora/张爱玲/{f}", encoding="utf-8") as fp:
+                zal.extend(segmenter.segment(fp.read()))
+        
+        # Compare corpora
+        stopwords = load_stopwords("zh")
+        results = compare_corpora(
+            moyan, zal,
+            filters={"min_count": 5, 
+                    "max_p": 0.05, 
+                    "min_word_length": 2, 
+                    "stopwords": stopwords
+                    }
+        )
+        results.to_csv("results.csv", index=False)
+    """
+    # Validate correction parameter
+    if correction is not None and correction not in VALID_CORRECTIONS:
+        raise ValueError(
+            f"Unknown correction method '{correction}'. "
+            f"Valid methods are: {VALID_CORRECTIONS}"
+        )
+    if not isinstance(sort_by, str):
+        raise ValueError("sort_by must be a string")
+    if not isinstance(ascending, bool):
+        raise ValueError("ascending must be a boolean")
+    valid_sort_keys = {
+        "word", "abs_freqA", "abs_freqB", "rel_freqA",
+        "rel_freqB", "rel_ratio", "statistic", "p_value", "adjusted_p_value",
+    }
+    if sort_by not in valid_sort_keys:
+        raise ValueError(f"Invalid sort_by '{sort_by}'. Valid keys are: {valid_sort_keys}")
+    if sort_by == "adjusted_p_value" and correction is None:
+        raise ValueError("sort_by='adjusted_p_value' requires a correction method to be set")
+    if sort_by == "statistic" and method == 'fisher':
+        raise ValueError("sort_by='statistic' is not available for method='fisher' (Fisher's test has no test statistic)")
+    
+    # Validate filter keys
+    valid_filter_keys = {'min_count', 'max_p', 'max_adjusted_p', 'stopwords', 'min_word_length'}
+    validate_filters(filters, valid_filter_keys, context='compare_corpora')
+    
+    # Validate and print filters
+    if filters:
+        
+        # Validate filter values
+        if 'min_count' in filters:
+            min_count_val = filters['min_count']
+            if isinstance(min_count_val, int):
+                if min_count_val < 0:
+                    raise ValueError("min_count must be non-negative")
+            elif isinstance(min_count_val, tuple):
+                if len(min_count_val) != 2 or any(v < 0 for v in min_count_val):
+                    raise ValueError("min_count tuple must have 2 non-negative values")
+            else:
+                raise ValueError("min_count must be an int or tuple of 2 ints")
+        
+        if 'max_p' in filters:
+            if not isinstance(filters['max_p'], (int, float)) or filters['max_p'] < 0 or filters['max_p'] > 1:
+                raise ValueError("max_p must be a number between 0 and 1")
+            if correction is not None:
+                raise ValueError(
+                    "max_p cannot be used with a correction method. "
+                    "Pre-filtering on raw p-values violates the assumptions of "
+                    "multiple testing correction. Use max_adjusted_p instead."
+                )
+        
+        if 'max_adjusted_p' in filters:
+            if not isinstance(filters['max_adjusted_p'], (int, float)) or filters['max_adjusted_p'] < 0 or filters['max_adjusted_p'] > 1:
+                raise ValueError("max_adjusted_p must be a number between 0 and 1")
+            if correction is None:
+                raise ValueError("max_adjusted_p filter requires a correction method to be set")
+        
+        if 'stopwords' in filters:
+            if not isinstance(filters['stopwords'], (list, set)):
+                raise ValueError("stopwords must be a list or set")
+        
+        if 'min_word_length' in filters:
+            if not isinstance(filters['min_word_length'], int) or filters['min_word_length'] < 1:
+                raise ValueError("min_word_length must be a positive integer")
+        
+        # Print filters
+        filter_strs = []
+        if 'min_count' in filters:
+            filter_strs.append(f"min_count={filters['min_count']}")
+        if 'max_p' in filters:
+            filter_strs.append(f"max_p={filters['max_p']}")
+        if 'max_adjusted_p' in filters:
+            filter_strs.append(f"max_adjusted_p={filters['max_adjusted_p']}")
+        if 'stopwords' in filters:
+            filter_strs.append(f"stopwords=<{len(filters['stopwords'])} words>")
+        if 'min_word_length' in filters:
+            filter_strs.append(f"min_word_length={filters['min_word_length']}")
+        logger.info(f"Filters: {', '.join(filter_strs)}")
+    
+    # Consume each corpus once; supports one-time generators.
+    abs_freqA = Counter(_iter_corpus_tokens(corpusA))
+    abs_freqB = Counter(_iter_corpus_tokens(corpusB))
+    totalA = sum(abs_freqA.values())
+    totalB = sum(abs_freqB.values())
+    
+    if totalA == 0:
+        raise ValueError("corpusA is empty or contains only empty sentences")
+    if totalB == 0:
+        raise ValueError("corpusB is empty or contains only empty sentences")
+    
+    # Extract eligibility filters
+    min_count = filters.get('min_count', 0) if filters else 0
+    if isinstance(min_count, int):
+        min_count = (min_count, min_count)
+    stopwords_set: set | None = None
+    if filters and 'stopwords' in filters:
+        stopwords_set = set(filters["stopwords"])
+    min_word_len: int | None = filters.get('min_word_length') if filters else None
+    
+    # =========================================================================
+    # Pre-filter: apply all eligibility filters (min_count, stopwords,
+    # min_word_length) before computing any p-values. These are based on word
+    # properties, not test statistics, so they safely define the hypothesis
+    # family and avoid wasted computation.
+    # =========================================================================
+    all_words = set(abs_freqA).union(abs_freqB)
+    kept_words = []
+    a_list = []
+    b_list = []
+    for w in all_words:
+        if stopwords_set is not None and w in stopwords_set:
+            continue
+        if min_word_len is not None and len(w) < min_word_len:
+            continue
+        a = abs_freqA.get(w, 0)
+        b = abs_freqB.get(w, 0)
+        if a >= min_count[0] and b >= min_count[1]:
+            kept_words.append(w)
+            a_list.append(a)
+            b_list.append(b)
+    
+    if not kept_words:
+        if as_dataframe:
+            cols = [
+                "word", "abs_freqA", "abs_freqB",
+                "rel_freqA", "rel_freqB", "rel_ratio",
+            ]
+            if method != 'fisher':
+                cols.append("statistic")
+            cols.append("p_value")
+            if correction is not None:
+                cols.append("adjusted_p_value")
+            return pd.DataFrame(columns=cols)
+        return []
+    
+    a_arr = np.asarray(a_list, dtype=np.int64)
+    b_arr = np.asarray(b_list, dtype=np.int64)
+    c_arr = totalA - a_arr
+    d_arr = totalB - b_arr
+    
+    n_words = len(kept_words)
+    stat_values = None
+    
+    if method == 'fisher':
+        pvals = batch_fisher_exact(a_arr, b_arr, c_arr, d_arr, 'two-sided')
+    elif method in ('chi2', 'chi2_corrected'):
+        corr = (method == 'chi2_corrected')
+        stat_values, pvals = batch_chi2(a_arr, b_arr, c_arr, d_arr, correction=corr)
+    elif method == 'log_likelihood':
+        stat_values, pvals = batch_log_likelihood(a_arr, b_arr, c_arr, d_arr)
+    else:
+        raise ValueError("method must be 'fisher', 'chi2', 'chi2_corrected', or 'log_likelihood'")
+    
+    # Vectorized relative frequencies and ratios
+    relA = a_arr / totalA
+    relB = b_arr / totalB
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = np.where(relB > 0, relA / relB, np.inf)
+    
+    # =========================================================================
+    # Apply max_p filter (only valid when correction is None; validated above)
+    # =========================================================================
+    if filters and 'max_p' in filters:
+        mask = pvals <= filters['max_p']
+        if not mask.all():
+            indices = np.nonzero(mask)[0]
+            kept_words = [kept_words[i] for i in indices]
+            a_arr = a_arr[indices]
+            b_arr = b_arr[indices]
+            relA = relA[indices]
+            relB = relB[indices]
+            ratio = ratio[indices]
+            pvals = pvals[indices]
+            if stat_values is not None:
+                stat_values = stat_values[indices]
+    
+    # =========================================================================
+    # Multiple testing correction (based on the hypothesis family defined by
+    # the eligibility filters above)
+    # =========================================================================
+    p_adj = None
+    if correction is not None and len(kept_words) > 0:
+        p_adj = apply_p_value_correction(pvals.tolist(), method=correction)
+    
+    # =========================================================================
+    # Filter by adjusted p-value (must come after correction)
+    # =========================================================================
+    if filters and 'max_adjusted_p' in filters and p_adj is not None:
+        adj_mask = p_adj <= filters['max_adjusted_p']
+        if not adj_mask.all():
+            indices = np.nonzero(adj_mask)[0]
+            kept_words = [kept_words[i] for i in indices]
+            a_arr = a_arr[indices]
+            b_arr = b_arr[indices]
+            relA = relA[indices]
+            relB = relB[indices]
+            ratio = ratio[indices]
+            pvals = pvals[indices]
+            p_adj = p_adj[indices]
+            if stat_values is not None:
+                stat_values = stat_values[indices]
+    
+    if as_dataframe:
+        data = {
+            "word": kept_words,
+            "abs_freqA": a_arr,
+            "abs_freqB": b_arr,
+            "rel_freqA": relA,
+            "rel_freqB": relB,
+            "rel_ratio": ratio,
+        }
+        if stat_values is not None:
+            data["statistic"] = stat_values
+        data["p_value"] = pvals
+        if p_adj is not None:
+            data["adjusted_p_value"] = p_adj
+        results = pd.DataFrame(data)
+        if sort_by in results.columns:
+            results = results.sort_values(sort_by, ascending=ascending, kind="mergesort").reset_index(drop=True)
+        return results
+    
+    out = []
+    for i, w in enumerate(kept_words):
+        entry = {
+            "word": w,
+            "abs_freqA": int(a_arr[i]),
+            "abs_freqB": int(b_arr[i]),
+            "rel_freqA": float(relA[i]),
+            "rel_freqB": float(relB[i]),
+            "rel_ratio": float(ratio[i]) if np.isfinite(ratio[i]) else np.inf,
+        }
+        if stat_values is not None:
+            entry["statistic"] = float(stat_values[i])
+        entry["p_value"] = float(pvals[i])
+        if p_adj is not None:
+            entry["adjusted_p_value"] = float(p_adj[i])
+        out.append(entry)
+    out.sort(key=lambda r: r[sort_by], reverse=not ascending)
+    return out

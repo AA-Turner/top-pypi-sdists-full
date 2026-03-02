@@ -1,0 +1,63 @@
+Metadata-Version: 2.1
+Name: redash-toolbelt
+Version: 0.1.9
+Summary: Redash API client and tools to manage your instance.
+Home-page: https://github.com/getredash/redash-toolbelt
+License: BSD-2-Clause
+Author: Redash Maintainers
+Requires-Python: >=3.6,<4.0
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: click (>=8.0.3,<9.0.0)
+Requires-Dist: requests (>=2.22.0,<3.0.0)
+Project-URL: Repository, https://github.com/getredash/redash-toolbelt
+Description-Content-Type: text/markdown
+
+redash-toolbelt - The official API client and utilities to manage a Redash instance
+
+
+- [INSTALLATION](#installation)
+- [EXAMPLE SCRIPTS](#example-scripts)
+
+
+## INSTALLATION
+
+To install it you will need Python 3.6 or above. We recommend that you use a [virtual environment].
+
+
+```bash
+pip install --upgrade redash-toolbelt
+```
+
+This command will update `redash-toolbelt` if you have already installed it.
+
+[virtual environment]: https://pythonbasics.org/virtualenv/
+
+
+## EXAMPLE SCRIPTS
+
+With `redash-toolbelt` installed you will have access to several example CLI scripts within your terminal.
+
+```text
+
+gdpr-scrub                  Search for a string term in  your Redash queries
+                            and query results. The script returns a list of
+                            URLs in your instance that contain references to
+                            the search term you provide
+find-tables                 Search the text of queries against a data source
+                            to see which table names are used in queries of
+                            that source. This script relies on regex that is
+                            tested against ANSI SQL.
+clone-dashboard-and-queries Completely duplicate a dashboard by copying all 
+                            its queries and visualizations.
+export-queries              Export all the queries of your Redash instance
+                            as text files.
+redash-migrate              Move data from one instance of Redash to another.
+                            See docs/redash-migrate/README.md for more info
+```
+

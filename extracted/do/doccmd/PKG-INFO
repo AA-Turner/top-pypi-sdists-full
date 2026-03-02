@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doccmd
-Version: 2026.2.27.1
+Version: 2026.3.1
 Summary: Run commands against code blocks in reStructuredText and Markdown files.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -12,12 +12,11 @@ Classifier: Environment :: Web Environment
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beartype>=0.22.9
@@ -28,7 +27,7 @@ Requires-Dist: cloup>=3.0.0
 Requires-Dist: dulwich>=0.22.1
 Requires-Dist: pygments>=2.18.0
 Requires-Dist: sybil<10.0.0,>=9.3.0
-Requires-Dist: sybil-extras==2026.2.27
+Requires-Dist: sybil-extras==2026.3.1.6
 Provides-Extra: dev
 Requires-Dist: actionlint-py==1.7.11.24; extra == "dev"
 Requires-Dist: ansi==0.3.7; extra == "dev"
@@ -128,7 +127,7 @@ Pre-built Linux (x86) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27/doccmd-linux -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27.1/doccmd-linux -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -136,7 +135,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27.1/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -144,7 +143,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.02.27.1/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 You may need to remove the quarantine attribute to run the binary:
@@ -174,7 +173,7 @@ Requires `Nix`_.
 
 .. code-block:: shell
 
-   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.02.27" -- --help
+   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.02.27.1" -- --help
 
 To avoid passing ``--extra-experimental-features`` every time, `enable flakes`_ permanently.
 
@@ -197,7 +196,7 @@ To run ``doccmd`` with `pre-commit`_, add hooks like the following to your ``.pr
 .. code-block:: yaml
 
    -   repo: https://github.com/adamtheturtle/doccmd-pre-commit
-       rev: v2026.2.27
+       rev: v2026.2.27.1
        hooks:
        -   id: doccmd
            args: ["--language", "shell", "--command", "shellcheck --shell=bash"]

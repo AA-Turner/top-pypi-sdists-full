@@ -1,0 +1,39 @@
+Metadata-Version: 2.1
+Name: chialisp_builder
+Version: 0.1.2
+Summary: Allow on-demand builds of chialisp with recursive dependency checking.
+Author-email: Richard Kiss <him@richardkiss.com>
+License: Copyright 2023 by Richard Kiss
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+            http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+        
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: clvm_tools_rs
+Requires-Dist: runtime_builder>=0.1.3
+
+# Chialisp Builder
+
+Use this wheel in conjunction with `runtime_builder` to manage building of chialisp at build time or during development.
+
+# Use
+
+Add `chialisp_builder` as a buildtime dependency and a development-time dependency. Don't add it as a runtime dependency, as the clvm `.hex` files should be built and included with the wheel. The source does not need to be.
+
+Add `chialisp_loader` as a runtime dependency to get the `load_program` function, which will call the building function if present (as it should be at development time.)
+
+# FAQ
+
+Why isn't this included as part of `runtime_builder`?
+
+The `runtime_builder` wheel is intended to provide a general solution for non-python artifacts. Although Chialisp build was the inspiration for `runtime_builder`, it's just one potential use. This wheel is the specific implementation of chialisp builds for use with `runtime_builder`.

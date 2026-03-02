@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: matrice_inference
+Version: 0.1.162
+Summary: Common server utilities for Matrice.ai services
+Author-email: "Matrice.ai" <dipendra@matrice.ai>
+License: MIT
+Keywords: matrice,inference,utilities,mypyc,compiled
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Dynamic: license-file
+Dynamic: requires-python
+
+
+# matrice\_inference

@@ -1,0 +1,75 @@
+"""_summary_
+"""
+
+import typing
+
+try:
+    from typing import Annotated
+except ImportError:
+    # This import is required in Python 3.8
+    from typing_extensions import Annotated  # type: ignore
+
+import shapely
+from pydantic import AfterValidator, Field
+
+from ._base import GeometryBase
+from .point import CoordinatesPoint2D, CoordinatesPoint3D
+
+
+def check_linearring(
+    value: typing.List[CoordinatesPoint2D],
+) -> typing.List[CoordinatesPoint2D]:
+    """Validate that the input value is a valid LinearRing, i.e. the last coordinate should
+    be equal to the first coordinate."""
+    if value[0] != value[-1]:
+        raise ValueError("The first and last point of a LinearRing must be the same.")
+    return value
+
+
+CoordinatesPolygon2D = Annotated[
+    typing.List[
+        Annotated[
+            typing.List[CoordinatesPoint2D],
+            AfterValidator(check_linearring),
+            Field(min_length=4),
+        ]
+    ],
+    Field(min_length=1),
+]
+CoordinatesPolygon3D = Annotated[
+    typing.List[
+        Annotated[
+            typing.List[CoordinatesPoint3D],
+            AfterValidator(check_linearring),
+            Field(min_length=4),
+        ]
+    ],
+    Field(min_length=1),
+]
+CoordinatesPolygon = typing.Union[CoordinatesPolygon2D, CoordinatesPolygon3D]
+PolygonTypeVar = typing.TypeVar(
+    "PolygonTypeVar", CoordinatesPolygon2D, CoordinatesPolygon3D, CoordinatesPolygon
+)
+
+
+class PolygonBase(GeometryBase, typing.Generic[PolygonTypeVar]):
+    """A polygon geometry."""
+
+    type: str = "Polygon"
+    coordinates: PolygonTypeVar
+
+    def to_shapely(self) -> shapely.Polygon:
+        """Convert the polygon to a Shapely polygon."""
+        return shapely.Polygon(self.coordinates[0], self.coordinates[1:])
+
+
+class Polygon2D(PolygonBase[CoordinatesPolygon2D]):
+    """A 2D polygon geometry."""
+
+
+class Polygon3D(PolygonBase[CoordinatesPolygon3D]):
+    """A 3D polygon geometry."""
+
+
+class Polygon(PolygonBase[CoordinatesPolygon]):
+    """A polygon geometry, both 2D and 3D polygons are allowed."""

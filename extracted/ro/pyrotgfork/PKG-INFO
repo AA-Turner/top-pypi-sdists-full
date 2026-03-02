@@ -1,0 +1,122 @@
+Metadata-Version: 2.4
+Name: pyrotgfork
+Version: 2.2.19
+Summary: Fork of Pyrogram. Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
+Project-URL: Homepage, https://telegramplayground.github.io/pyrogram/
+Project-URL: Tracker, https://github.com/TelegramPlayGround/Pyrogram/issues
+Project-URL: community, https://PyroTGFork.t.me/2
+Project-URL: Source, https://github.com/TelegramPlayGround/Pyrogram
+Project-URL: Documentation, https://telegramplayground.github.io/pyrogram/releases/changes-in-this-fork.html
+Author-email: SpEcHIDe <pyrogram@iamidiotareyoutoo.com>
+License-Expression: LGPL-3.0-or-later
+License-File: COPYING
+License-File: COPYING.lesser
+License-File: NOTICE
+Keywords: telegram chat messenger mtproto api client library python
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Communications
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: pyaes<=1.6.1
+Requires-Dist: pysocks<=1.7.1
+Provides-Extra: dev
+Requires-Dist: hatch<=1.7.0; extra == 'dev'
+Requires-Dist: keyring<=25.1.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<=0.21.1; extra == 'dev'
+Requires-Dist: pytest-cov<=4.1.0; extra == 'dev'
+Requires-Dist: pytest<=7.4.3; extra == 'dev'
+Requires-Dist: twine<=4.0.2; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: furo<=2023.9.10; extra == 'docs'
+Requires-Dist: pygments<=2.17.2; extra == 'docs'
+Requires-Dist: sphinx-autobuild<=2021.3.14; extra == 'docs'
+Requires-Dist: sphinx-copybutton<=0.5.2; extra == 'docs'
+Requires-Dist: sphinx-llms-txt==0.7.1; extra == 'docs'
+Requires-Dist: sphinx<=7.2.6; extra == 'docs'
+Provides-Extra: fast
+Requires-Dist: pytgcrypto<=1.4,>1.2.9.2; extra == 'fast'
+Requires-Dist: uvloop<=0.19.0,>0.18.0; extra == 'fast'
+Description-Content-Type: text/markdown
+
+<p align="center">
+    <a href="https://github.com/TelegramPlayground/pyrogram">
+        <img src="https://raw.githubusercontent.com/pyrogram/artwork/master/artwork/pyrogram-logo.png" alt="Pyrogram" width="128">
+    </a>
+    <br>
+    <b>Telegram MTProto API Framework for Python</b>
+    <br>
+    <a href="https://telegramplayground.github.io/pyrogram/">
+        Documentation
+    </a>
+    •
+    <a href="https://telegramplayground.github.io/pyrogram/releases/changes-in-this-fork.html">
+        Releases
+    </a>
+    •
+    <a href="https://PyroTGFork.t.me/2">
+        News
+    </a>
+</p>
+
+## Pyrogram
+
+> Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
+
+``` python
+from pyrogram import Client, filters
+
+app = Client("my_account")
+
+
+@app.on_message(filters.private)
+async def hello(client, message):
+    await message.reply("Hello from Pyrogram!")
+
+
+app.run()
+```
+
+**Pyrogram** is a modern, elegant and asynchronous [MTProto API](https://telegramplayground.github.io/pyrogram/topics/mtproto-vs-botapi)
+framework. It enables you to easily interact with the main Telegram API through a user account (custom client) or a bot
+identity (bot API alternative) using Python.
+
+### Key Features
+
+- **Ready**: Install Pyrogram with pip and start building your applications right away.
+- **Easy**: Makes the Telegram API simple and intuitive, while still allowing advanced usages.
+- **Elegant**: Low-level details are abstracted and re-presented in a more convenient way.
+- **Fast**: Boosted up by [TgCrypto](https://github.com/TelegramPlayGround/pyrogram-tgcrypto), a high-performance cryptography library written in C.  
+- **Type-hinted**: Types and methods are all type-hinted, enabling excellent editor support.
+- **Async**: Fully asynchronous (also usable synchronously if wanted, for convenience).
+- **Powerful**: Full access to Telegram's API to execute any official client action and more.
+
+### Installing
+
+``` bash
+pip3 install pyrotgfork
+```
+
+### Resources
+
+- Check out [the docs](https://telegramplayground.github.io/pyrogram) to learn more about Pyrogram, get started right
+away and discover more in-depth material for building your client applications.
+- Join the official channel at [PyroTGFork](https://PyroTGFork.t.me/2) and stay tuned for news, updates and announcements.

@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: hotglue-etl-exceptions
+Version: 0.1.0
+Summary: Exception classes for Hotglue ETL
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+
+# hotglue-etl-exceptions
+
+Python module providing exception classes for Hotglue ETL operations.
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Usage
+
+```python
+from hotglue_etl_exceptions import InvalidCredentialsError, InvalidPayloadError
+
+# Raise InvalidCredentialsError exception
+raise InvalidCredentialsError("Invalid username or password")
+
+# Raise InvalidPayloadError exception
+raise InvalidPayloadError("Payload validation failed")
+```
+
+## Exported Classes
+
+- `InvalidCredentialsError`: Exception raised when credentials are invalid
+- `InvalidPayloadError`: Exception raised when payload is invalid
+

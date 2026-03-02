@@ -102,6 +102,7 @@ pub mod main;
 mod main_helpers;
 pub mod media;
 mod metadata;
+pub mod plain_text;
 pub mod preprocessing_helpers;
 pub mod semantic;
 pub mod text;

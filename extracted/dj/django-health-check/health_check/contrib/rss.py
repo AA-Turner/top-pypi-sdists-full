@@ -8,7 +8,7 @@ import feedparser
 import httpx
 
 from health_check import HealthCheck, __version__
-from health_check.exceptions import ServiceUnavailable, ServiceWarning
+from health_check.exceptions import ServiceUnavailable, StatusPageWarning
 
 logger = logging.getLogger(__name__)
 
@@ -89,28 +89,31 @@ class Feed(HealthCheck):
             logger.debug("No entries found in feed")
             return
 
-        if incidents := [
-            entry for entry in feed.entries if self._is_recent_incident(entry)
-        ]:
-            raise ServiceWarning(
+        if incidents := list(self._recent_incidents(feed.entries)):
+            raise StatusPageWarning(
                 "\n".join(
                     f"{getattr(entry, 'title', 'Unknown Incident') or 'Unknown Incident'}:"
                     f" {getattr(entry, 'link', self.feed_url) or self.feed_url}"
-                    for entry in incidents
-                )
+                    for entry, _ in incidents
+                ),
+                timestamp=max(
+                    filter(None, (date for _, date in incidents)), default=None
+                ),
             )
 
         logger.debug("No recent incidents found in feed")
 
-    def _is_recent_incident(self, entry):
-        """Check if entry is a recent incident."""
-        published_at = self._extract_date(entry)
-        if not published_at:
-            return True
+    def _recent_incidents(self, entries):
+        """Yield recent (entry, timestamp) pairs from feed entries."""
+        for entry in entries:
+            date = self._extract_date(entry)
+            if date is None or self._is_date_recent(date):
+                yield entry, date
 
+    def _is_date_recent(self, date):
+        """Check if a timestamp falls within the configured max_age window."""
         now = datetime.datetime.now(tz=datetime.timezone.utc)
-        cutoff = now - self.max_age
-        return now >= published_at > cutoff
+        return now >= date > now - self.max_age
 
     def _extract_date(self, entry):
         # feedparser normalizes both RSS and Atom dates to struct_time
@@ -179,6 +182,28 @@ class Heroku(Feed):
     )
     feed_url: str = dataclasses.field(
         default="https://status.heroku.com/feed", init=False, repr=False
+    )
+
+
+@dataclasses.dataclass
+class Hetzner(Feed):
+    """
+    Check Hetzner platform status via their public ATOM status feed.
+
+    Args:
+        timeout: Request timeout duration.
+        max_age: Maximum age for an incident to be considered active.
+
+    """
+
+    timeout: datetime.timedelta = dataclasses.field(
+        default=datetime.timedelta(seconds=10), repr=False
+    )
+    max_age: datetime.timedelta = dataclasses.field(
+        default=datetime.timedelta(hours=8), repr=False
+    )
+    feed_url: str = dataclasses.field(
+        default="https://status.hetzner.com/en.atom", init=False, repr=False
     )
 
 

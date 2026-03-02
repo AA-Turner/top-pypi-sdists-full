@@ -1,0 +1,43 @@
+# Safety policy file needed for development
+# For documentation, see https://docs.pyup.io/docs/safety-20-policy-file
+#
+# Generally package vulnerabilites listed in the ignore-vulnerabilities
+# list below are there because:
+# 1. There is no release that resolves the vulnerability.  In this case, there
+#    should also be an expire entry to remind the pywbem team to recheck
+# 2. The required version of a package to resolve the issue is not available
+#    for all of the python version supported by pywbem. In that case, the
+#    vulnerability will remain ignored until such time as the versions of
+#    python that cannot support the required version of the package are no
+#    longer supported by pywbem.
+
+# Configuration for the 'safety check' command
+security:
+
+    # Ignore certain severities.
+    # A number between 0 and 10, with the following significant values:
+    # - 9: ignore all vulnerabilities except CRITICAL severity
+    # - 7: ignore all vulnerabilities except CRITICAL & HIGH severity
+    # - 4: ignore all vulnerabilities except CRITICAL, HIGH & MEDIUM severity
+    ignore-cvss-severity-below: 0
+
+    # Ignore unknown severities.
+    # Should be set to False.
+    ignore-cvss-unknown-severity: False
+
+    # List of specific vulnerabilities to ignore.
+    # {id}:                 # vulnerability ID
+    #     reason: {text}    # optional: Reason for ignoring it. Will be reported in the Safety reports
+    #     expires: {date}   # optional: Date when this ignore will expire
+    ignore-vulnerabilities:
+        51457:
+            reason: Py package is no longer being fixed (latest version 1.11.0)
+        70612:
+            reason: Safety issue and CVE do not list a fixed version of Jinja2
+        79993:
+            reason: Fixed jupyterlab version 4.4.8 requires Python>=3.9 and other upgrades
+        82754:
+            reason: Fixed filelock version 3.20.1 requires Python>=3.10 and is used there
+
+    # Continue with exit code 0 when vulnerabilities are found.
+    continue-on-vulnerability-error: False

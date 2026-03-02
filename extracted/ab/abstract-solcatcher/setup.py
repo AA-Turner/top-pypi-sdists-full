@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="abstract_solcatcher",
-    version='0.0.3.260',  # Consider using dynamic versioning
+    version='0.0.3.262',  # Consider using dynamic versioning
     author="putkoff",
     author_email="partners@abstractendeavors.com",
     description=(
@@ -41,6 +41,7 @@ setup(
         "abstract_apis",
         "requests",
         "abstract_security",
+        "mplfinance",
     ],
     extras_require={
         "dev": ["pytest", "flake8", "mypy"],

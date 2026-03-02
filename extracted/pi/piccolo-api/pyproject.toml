@@ -1,0 +1,37 @@
+[tool.black]
+line-length = 79
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.isort]
+profile = "black"
+line_length = 79
+
+[tool.mypy]
+[[tool.mypy.overrides]]
+module = [
+    "asyncpg.exceptions",
+    "jinja2",
+    "uvicorn",
+    "jwt",
+    "boto3",
+    "moto",
+    "botocore",
+    "botocore.config",
+    "httpx",
+    "qrcode"
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = [
+    "*/piccolo_app.py",
+    "*/piccolo_migrations/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "return self.render_template",
+    "raise HTTPException",
+]

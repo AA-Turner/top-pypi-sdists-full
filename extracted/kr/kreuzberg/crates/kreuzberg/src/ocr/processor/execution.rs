@@ -1,0 +1,914 @@
+//! OCR execution and result processing.
+//!
+//! This module handles the core OCR execution logic, including image processing,
+//! text extraction, and result formatting.
+
+use super::config::{apply_tesseract_variables, hash_config};
+use super::validation::{
+    resolve_all_installed_languages, resolve_tessdata_path, strip_control_characters, validate_language_and_traineddata,
+};
+use crate::core::config::ExtractionConfig;
+use crate::ocr::cache::OcrCache;
+use crate::ocr::conversion::{TsvRow, tsv_row_to_element};
+use crate::ocr::error::OcrError;
+use crate::ocr::hocr::convert_hocr_to_markdown;
+use crate::ocr::table::{extract_words_from_tsv, post_process_table, reconstruct_table, table_to_markdown};
+use crate::ocr::types::{BatchItemResult, TesseractConfig};
+use crate::types::{OcrExtractionResult, OcrTable, OcrTableBoundingBox};
+use kreuzberg_tesseract::{TessPageSegMode, TesseractAPI};
+use std::collections::HashMap;
+use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::types::OcrElement;
+
+/// Parse Tesseract TSV output into structured OcrElements.
+///
+/// TSV format columns: level, page_num, block_num, par_num, line_num, word_num, left, top, width, height, conf, text
+///
+/// # Arguments
+///
+/// * `tsv_data` - Raw TSV output from Tesseract
+/// * `min_confidence` - Minimum confidence threshold (0-100 scale)
+///
+/// # Returns
+///
+/// Vector of OcrElements for word-level and line-level entries
+fn parse_tsv_to_elements(tsv_data: &str, min_confidence: f64) -> Vec<OcrElement> {
+    let mut elements = Vec::new();
+
+    for line in tsv_data.lines().skip(1) {
+        // Skip header row
+        let fields: Vec<&str> = line.split('\t').collect();
+        if fields.len() < 12 {
+            continue;
+        }
+
+        // Parse fields
+        let level = fields[0].parse::<i32>().unwrap_or(0);
+        let page_num = fields[1].parse::<i32>().unwrap_or(1);
+        let block_num = fields[2].parse::<i32>().unwrap_or(0);
+        let par_num = fields[3].parse::<i32>().unwrap_or(0);
+        let line_num = fields[4].parse::<i32>().unwrap_or(0);
+        let word_num = fields[5].parse::<i32>().unwrap_or(0);
+        let left = fields[6].parse::<u32>().unwrap_or(0);
+        let top = fields[7].parse::<u32>().unwrap_or(0);
+        let width = fields[8].parse::<u32>().unwrap_or(0);
+        let height = fields[9].parse::<u32>().unwrap_or(0);
+        let conf = fields[10].parse::<f64>().unwrap_or(-1.0);
+        let text = fields[11].to_string();
+
+        // Skip low-confidence or empty entries
+        // Tesseract uses -1 for non-text levels
+        if conf < 0.0 || conf < min_confidence || text.trim().is_empty() {
+            continue;
+        }
+
+        // Only include word-level (5) and line-level (4) entries
+        // Tesseract TSV levels: 1=page, 2=block, 3=paragraph, 4=line, 5=word
+        if level != 4 && level != 5 {
+            continue;
+        }
+
+        let tsv_row = TsvRow {
+            level,
+            page_num,
+            block_num,
+            par_num,
+            line_num,
+            word_num,
+            left,
+            top,
+            width,
+            height,
+            conf,
+            text,
+        };
+
+        elements.push(tsv_row_to_element(&tsv_row));
+    }
+
+    elements
+}
+
+/// CI debug logging utility.
+///
+/// Logs debug messages when KREUZBERG_CI_DEBUG environment variable is set.
+fn log_ci_debug<F>(enabled: bool, stage: &str, details: F)
+where
+    F: FnOnce() -> String,
+{
+    if !enabled {
+        return;
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0);
+
+    tracing::debug!("[ci-debug][ocr::processor::{stage}] {timestamp:.3}s {}", details());
+}
+
+/// Build content with OCR tables inlined at their correct vertical positions.
+///
+/// Parses TSV word positions to separate table words from non-table words,
+/// groups non-table words into lines and paragraphs, then interleaves
+/// paragraphs and table markdown sorted by Y-position.
+fn build_content_with_inline_tables(tsv_data: &str, tables: &[OcrTable], min_confidence: f64) -> String {
+    let words = match extract_words_from_tsv(tsv_data, min_confidence) {
+        Ok(w) => w,
+        Err(_) => return String::new(),
+    };
+
+    if words.is_empty() {
+        return String::new();
+    }
+
+    // Collect table bounding boxes
+    let table_bboxes: Vec<_> = tables.iter().filter_map(|t| t.bounding_box.as_ref()).collect();
+
+    // Classify words as inside a table bbox or not
+    let mut non_table_words = Vec::new();
+    for word in &words {
+        let in_table = table_bboxes.iter().any(|bbox| {
+            let word_cx = word.left + word.width / 2;
+            let word_cy = word.top + word.height / 2;
+            word_cx >= bbox.left && word_cx <= bbox.right && word_cy >= bbox.top && word_cy <= bbox.bottom
+        });
+        if !in_table {
+            non_table_words.push(word);
+        }
+    }
+
+    // Group non-table words into lines by Y-proximity.
+    // Words on the same line have similar top values (within half the average word height).
+    if non_table_words.is_empty() && tables.is_empty() {
+        return String::new();
+    }
+
+    // Sort non-table words by (top, left)
+    let mut sorted_words = non_table_words;
+    sorted_words.sort_by(|a, b| a.top.cmp(&b.top).then(a.left.cmp(&b.left)));
+
+    // Group into lines: words within line_threshold pixels vertically are on the same line
+    let avg_height = if sorted_words.is_empty() {
+        20
+    } else {
+        let total_h: u32 = sorted_words.iter().map(|w| w.height).sum();
+        (total_h / sorted_words.len() as u32).max(1)
+    };
+    let line_threshold = avg_height / 2;
+
+    struct TextLine {
+        y_center: u32,
+        text: String,
+    }
+
+    let mut lines: Vec<TextLine> = Vec::new();
+    for word in &sorted_words {
+        let word_y = word.top + word.height / 2;
+        if let Some(last_line) = lines.last_mut()
+            && word_y.abs_diff(last_line.y_center) <= line_threshold
+        {
+            last_line.text.push(' ');
+            last_line.text.push_str(&word.text);
+            continue;
+        }
+        lines.push(TextLine {
+            y_center: word_y,
+            text: word.text.clone(),
+        });
+    }
+
+    // Group lines into paragraphs: large Y-gap between consecutive lines = paragraph break
+    let paragraph_gap = avg_height * 2;
+
+    struct Paragraph {
+        y_start: u32,
+        text: String,
+    }
+
+    let mut paragraphs: Vec<Paragraph> = Vec::new();
+    for line in &lines {
+        if let Some(last_para) = paragraphs.last_mut() {
+            let last_y = last_para.y_start;
+            // Check gap - we use the line's y_center vs the last line added
+            if line.y_center.saturating_sub(last_y) <= paragraph_gap {
+                last_para.text.push('\n');
+                last_para.text.push_str(&line.text);
+                last_para.y_start = line.y_center; // track last line position
+                continue;
+            }
+        }
+        paragraphs.push(Paragraph {
+            y_start: line.y_center,
+            text: line.text.clone(),
+        });
+    }
+
+    // Build sorted elements: paragraphs + tables, ordered by Y-position
+    enum ContentElement<'a> {
+        Paragraph { y: u32, text: String },
+        Table { y: u32, markdown: &'a str },
+    }
+
+    let mut elements: Vec<ContentElement> = Vec::new();
+
+    // Re-derive paragraph y_start from the first line in each paragraph
+    // We need the first y_center of the paragraph, which we track by rebuilding
+    {
+        let mut para_idx = 0;
+        let mut line_idx = 0;
+        for para in &paragraphs {
+            let line_count = para.text.matches('\n').count() + 1;
+            let first_y = if line_idx < lines.len() {
+                lines[line_idx].y_center
+            } else {
+                para.y_start
+            };
+            elements.push(ContentElement::Paragraph {
+                y: first_y,
+                text: para.text.clone(),
+            });
+            line_idx += line_count;
+            para_idx += 1;
+        }
+        let _ = para_idx; // suppress unused warning
+    }
+
+    for table in tables {
+        if let Some(ref bbox) = table.bounding_box {
+            elements.push(ContentElement::Table {
+                y: bbox.top,
+                markdown: &table.markdown,
+            });
+        } else {
+            // Tables without bbox go at the end
+            elements.push(ContentElement::Table {
+                y: u32::MAX,
+                markdown: &table.markdown,
+            });
+        }
+    }
+
+    // Sort by Y-position (ascending = top of image first)
+    elements.sort_by_key(|e| match e {
+        ContentElement::Paragraph { y, .. } => *y,
+        ContentElement::Table { y, .. } => *y,
+    });
+
+    // Join with double newlines
+    let mut output = String::new();
+    for elem in &elements {
+        let text = match elem {
+            ContentElement::Paragraph { text, .. } => text.as_str(),
+            ContentElement::Table { markdown, .. } => markdown,
+        };
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !output.is_empty() {
+            output.push_str("\n\n");
+        }
+        output.push_str(trimmed);
+    }
+
+    output
+}
+
+/// Perform OCR on an image using Tesseract.
+///
+/// This function handles the complete OCR pipeline:
+/// 1. Image loading and preprocessing
+/// 2. Tesseract initialization and configuration
+/// 3. Text recognition
+/// 4. Output formatting (text, markdown, hOCR, or TSV)
+/// 5. Optional table detection
+///
+/// # Arguments
+///
+/// * `image_bytes` - Raw image data
+/// * `config` - OCR configuration
+/// * `extraction_config` - Optional extraction config for output format (markdown vs djot)
+///
+/// # Returns
+///
+/// OCR extraction result containing text and optional tables
+pub(super) fn perform_ocr(
+    image_bytes: &[u8],
+    config: &TesseractConfig,
+    extraction_config: Option<&ExtractionConfig>,
+) -> Result<OcrExtractionResult, OcrError> {
+    let ci_debug_enabled = env::var_os("KREUZBERG_CI_DEBUG").is_some();
+    log_ci_debug(ci_debug_enabled, "perform_ocr:start", || {
+        format!(
+            "bytes={} language={} output={} use_cache={}",
+            image_bytes.len(),
+            config.language,
+            config.output_format,
+            config.use_cache
+        )
+    });
+
+    let img = {
+        // Check for JPEG 2000 format which the image crate doesn't support
+        if crate::extraction::image::is_jp2(image_bytes) || crate::extraction::image::is_j2k(image_bytes) {
+            crate::extraction::image::decode_jp2_to_rgb(image_bytes)
+                .map(image::DynamicImage::ImageRgb8)
+                .map_err(|e| OcrError::ImageProcessingFailed(format!("Failed to decode JP2 image: {}", e)))?
+        } else if crate::extraction::image::is_jbig2(image_bytes) {
+            crate::extraction::image::decode_jbig2_to_gray(image_bytes)
+                .map(image::DynamicImage::ImageLuma8)
+                .map_err(|e| OcrError::ImageProcessingFailed(format!("Failed to decode JBIG2 image: {}", e)))?
+        } else {
+            image::load_from_memory(image_bytes)
+                .map_err(|e| OcrError::ImageProcessingFailed(format!("Failed to decode image: {}", e)))?
+        }
+    };
+
+    let rgb_image = img.to_rgb8();
+    let (width, height) = rgb_image.dimensions();
+    let bytes_per_pixel = 3;
+    let bytes_per_line = width * bytes_per_pixel;
+
+    log_ci_debug(ci_debug_enabled, "image", || {
+        format!(
+            "dimensions={}x{} bytes_per_line={} color_type=RGB8",
+            width, height, bytes_per_line
+        )
+    });
+
+    let api = TesseractAPI::new();
+    let tessdata_path = resolve_tessdata_path();
+
+    log_ci_debug(ci_debug_enabled, "tessdata", || {
+        let path_preview = env::var_os("PATH").map(|paths| {
+            env::split_paths(&paths)
+                .take(6)
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        });
+        let resolved_exists = !tessdata_path.is_empty() && std::path::Path::new(&tessdata_path).exists();
+
+        format!(
+            "env={:?} resolved={} exists={} path_preview={:?}",
+            env::var("TESSDATA_PREFIX").ok(),
+            if tessdata_path.is_empty() {
+                "unset"
+            } else {
+                &tessdata_path
+            },
+            resolved_exists,
+            path_preview
+        )
+    });
+
+    log_ci_debug(ci_debug_enabled, "tesseract_version", || {
+        format!("version={}", TesseractAPI::version())
+    });
+
+    // Validate language and traineddata files
+    validate_language_and_traineddata(&config.language, &tessdata_path)?;
+
+    let init_result = api.init(&tessdata_path, &config.language);
+    log_ci_debug(ci_debug_enabled, "init", || match &init_result {
+        Ok(_) => format!("language={} datapath='{}'", config.language, tessdata_path),
+        Err(err) => format!(
+            "language={} datapath='{}' error={:?}",
+            config.language, tessdata_path, err
+        ),
+    });
+
+    init_result.map_err(|e| {
+        OcrError::TesseractInitializationFailed(format!("Failed to initialize language '{}': {}", config.language, e))
+    })?;
+
+    if ci_debug_enabled {
+        match api.get_available_languages() {
+            Ok(languages) => {
+                log_ci_debug(ci_debug_enabled, "available_languages", move || {
+                    let preview = languages.iter().take(10).cloned().collect::<Vec<_>>();
+                    format!("count={} preview={:?}", languages.len(), preview)
+                });
+            }
+            Err(err) => {
+                log_ci_debug(ci_debug_enabled, "available_languages_error", move || {
+                    format!("error={:?}", err)
+                });
+            }
+        }
+    }
+
+    let psm_mode = TessPageSegMode::from_int(config.psm as i32);
+    let psm_result = api.set_page_seg_mode(psm_mode);
+    log_ci_debug(ci_debug_enabled, "set_psm", || match &psm_result {
+        Ok(_) => format!("mode={}", config.psm),
+        Err(err) => format!("error={:?}", err),
+    });
+    psm_result.map_err(|e| OcrError::InvalidConfiguration(format!("Failed to set PSM mode: {}", e)))?;
+
+    apply_tesseract_variables(&api, config)?;
+
+    api.set_image(
+        rgb_image.as_raw(),
+        width as i32,
+        height as i32,
+        bytes_per_pixel as i32,
+        bytes_per_line as i32,
+    )
+    .map_err(|e| OcrError::ProcessingFailed(format!("Failed to set image: {}", e)))?;
+
+    log_ci_debug(ci_debug_enabled, "set_image", || {
+        format!(
+            "width={} height={} bytes_per_pixel={} bytes_per_line={}",
+            width, height, bytes_per_pixel, bytes_per_line
+        )
+    });
+
+    api.recognize()
+        .map_err(|e| OcrError::ProcessingFailed(format!("Failed to recognize text: {}", e)))?;
+
+    log_ci_debug(ci_debug_enabled, "recognize", || "completed".to_string());
+
+    let tsv_data_for_tables = if config.enable_table_detection || config.output_format == "tsv" {
+        Some(
+            api.get_tsv_text(0)
+                .map_err(|e| OcrError::ProcessingFailed(format!("Failed to extract TSV: {}", e)))?,
+        )
+    } else {
+        None
+    };
+
+    let (raw_content, mime_type) = match config.output_format.as_str() {
+        "text" => {
+            let text = api
+                .get_utf8_text()
+                .map_err(|e| OcrError::ProcessingFailed(format!("Failed to extract text: {}", e)))?;
+            (text, "text/plain".to_string())
+        }
+        "markdown" => {
+            let hocr = api
+                .get_hocr_text(0)
+                .map_err(|e| OcrError::ProcessingFailed(format!("Failed to extract hOCR: {}", e)))?;
+
+            // Pass output format from extraction config
+            let output_format = extraction_config.map(|c| c.output_format);
+            let content = convert_hocr_to_markdown(&hocr, None, output_format)?;
+
+            // Set mime_type based on actual output format
+            let mime_type = extraction_config
+                .map(|c| match c.output_format {
+                    crate::core::config::OutputFormat::Djot => "text/djot",
+                    _ => "text/markdown",
+                })
+                .unwrap_or("text/markdown");
+
+            (content, mime_type.to_string())
+        }
+        "hocr" => {
+            let hocr = api
+                .get_hocr_text(0)
+                .map_err(|e| OcrError::ProcessingFailed(format!("Failed to extract hOCR: {}", e)))?;
+            (hocr, "text/html".to_string())
+        }
+        "tsv" => {
+            let tsv = tsv_data_for_tables
+                .as_ref()
+                .ok_or_else(|| OcrError::ProcessingFailed("TSV data not available".to_string()))?
+                .clone();
+            (tsv, "text/plain".to_string())
+        }
+        _ => {
+            return Err(OcrError::InvalidConfiguration(format!(
+                "Unsupported output format: {}",
+                config.output_format
+            )));
+        }
+    };
+
+    let mut metadata = HashMap::new();
+    metadata.insert(
+        "language".to_string(),
+        serde_json::Value::String(config.language.clone()),
+    );
+    metadata.insert("psm".to_string(), serde_json::Value::String(config.psm.to_string()));
+    metadata.insert(
+        "output_format".to_string(),
+        serde_json::Value::String(config.output_format.clone()),
+    );
+    metadata.insert("table_count".to_string(), serde_json::Value::String("0".to_string()));
+    metadata.insert(
+        "tables_detected".to_string(),
+        serde_json::Value::String("0".to_string()),
+    );
+    if config.output_format == "markdown" {
+        metadata.insert(
+            "source_format".to_string(),
+            serde_json::Value::String("hocr".to_string()),
+        );
+    }
+
+    let mut tables = Vec::new();
+    let mut ocr_elements = None;
+
+    if config.enable_table_detection {
+        let tsv_data = tsv_data_for_tables.as_ref().unwrap();
+
+        let words = extract_words_from_tsv(tsv_data, config.table_min_confidence)?;
+
+        if words.len() >= 6 {
+            let table = reconstruct_table(&words, config.table_column_threshold, config.table_row_threshold_ratio);
+            if !table.is_empty() && !table[0].is_empty() {
+                // Apply full post-processing validation to reject false positives.
+                if let Some(cleaned) = post_process_table(table) {
+                    metadata.insert("table_count".to_string(), serde_json::Value::String("1".to_string()));
+                    metadata.insert(
+                        "tables_detected".to_string(),
+                        serde_json::Value::String("1".to_string()),
+                    );
+                    metadata.insert(
+                        "table_rows".to_string(),
+                        serde_json::Value::String(cleaned.len().to_string()),
+                    );
+                    metadata.insert(
+                        "table_cols".to_string(),
+                        serde_json::Value::String(cleaned[0].len().to_string()),
+                    );
+
+                    let markdown_table = table_to_markdown(&cleaned);
+
+                    // Compute bounding box from the TSV words used for table reconstruction
+                    let bbox = if !words.is_empty() {
+                        let left = words.iter().map(|w| w.left).min().unwrap_or(0);
+                        let top = words.iter().map(|w| w.top).min().unwrap_or(0);
+                        let right = words.iter().map(|w| w.left + w.width).max().unwrap_or(0);
+                        let bottom = words.iter().map(|w| w.top + w.height).max().unwrap_or(0);
+                        Some(OcrTableBoundingBox {
+                            left,
+                            top,
+                            right,
+                            bottom,
+                        })
+                    } else {
+                        None
+                    };
+
+                    tables.push(OcrTable {
+                        cells: cleaned,
+                        markdown: markdown_table,
+                        page_number: 0,
+                        bounding_box: bbox,
+                    });
+                }
+            }
+        }
+    }
+
+    // Parse TSV data into structured OcrElements if available
+    if let Some(ref tsv_data) = tsv_data_for_tables {
+        let elements = parse_tsv_to_elements(tsv_data, config.min_confidence);
+        if !elements.is_empty() {
+            ocr_elements = Some(elements);
+        }
+    }
+
+    let mut content = strip_control_characters(&raw_content).into_owned();
+
+    // When tables were detected and output is markdown, rebuild content with tables inlined
+    // at their correct vertical positions. This mirrors the PDF path's assemble_markdown_with_tables.
+    let is_markdown_output = extraction_config
+        .map(|c| c.output_format == crate::core::config::OutputFormat::Markdown)
+        .unwrap_or(config.output_format == "markdown");
+
+    if !tables.is_empty()
+        && is_markdown_output
+        && let Some(ref tsv_data) = tsv_data_for_tables
+    {
+        let rebuilt = build_content_with_inline_tables(tsv_data, &tables, config.table_min_confidence);
+        if !rebuilt.is_empty() {
+            content = rebuilt;
+            // Signal that content is already formatted as markdown so
+            // apply_output_format() in the pipeline skips re-conversion.
+            metadata.insert(
+                "pre_formatted".to_string(),
+                serde_json::Value::String("markdown".to_string()),
+            );
+        }
+    }
+
+    Ok(OcrExtractionResult {
+        content,
+        mime_type,
+        metadata,
+        tables,
+        ocr_elements,
+    })
+}
+
+/// Process an image file and return OCR results.
+///
+/// # Arguments
+///
+/// * `file_path` - Path to image file
+/// * `config` - OCR configuration
+/// * `cache` - Cache instance
+/// * `output_format` - Optional output format (Plain, Markdown, Djot) for proper mime_type handling
+///
+/// # Returns
+///
+/// OCR extraction result
+pub(super) fn process_file_with_cache(
+    file_path: &str,
+    config: &TesseractConfig,
+    cache: &OcrCache,
+    output_format: Option<crate::core::config::OutputFormat>,
+) -> Result<OcrExtractionResult, OcrError> {
+    let image_bytes = std::fs::read(file_path)
+        .map_err(|e| OcrError::IOError(format!("Failed to read file '{}': {}", file_path, e)))?;
+    process_image_with_cache(&image_bytes, config, cache, output_format)
+}
+
+/// Check if a language value is the "all" wildcard (case-insensitive).
+fn is_all_languages(lang: &str) -> bool {
+    let lower = lang.to_ascii_lowercase();
+    lower == "all" || lower == "*"
+}
+
+/// Resolve the "all"/"*" wildcard in a config's language field.
+///
+/// If the language is a wildcard, scans the tessdata directory for installed
+/// languages and returns a new config with the resolved language string.
+/// Otherwise returns `None`, indicating the original config should be used as-is.
+fn resolve_config_language(config: &TesseractConfig) -> Result<Option<TesseractConfig>, OcrError> {
+    if is_all_languages(&config.language) {
+        let tessdata_path = resolve_tessdata_path();
+        let resolved = resolve_all_installed_languages(&tessdata_path)?;
+        let mut resolved_config = config.clone();
+        resolved_config.language = resolved;
+        Ok(Some(resolved_config))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Process an image and return OCR results, using cache if enabled.
+///
+/// Resolves the `"all"` / `"*"` language wildcard, then delegates to
+/// [`process_image_resolved`] for caching and OCR execution.
+///
+/// # Arguments
+///
+/// * `image_bytes` - Raw image data
+/// * `config` - OCR configuration
+/// * `cache` - Cache instance
+/// * `output_format` - Optional output format (Plain, Markdown, Djot) for proper mime_type handling
+///
+/// # Returns
+///
+/// OCR extraction result
+pub(super) fn process_image_with_cache(
+    image_bytes: &[u8],
+    config: &TesseractConfig,
+    cache: &OcrCache,
+    output_format: Option<crate::core::config::OutputFormat>,
+) -> Result<OcrExtractionResult, OcrError> {
+    config.validate().map_err(OcrError::InvalidConfiguration)?;
+
+    // Resolve "all" / "*" before hashing so cache keys reflect actual languages.
+    // If not a wildcard, resolved is None and we use the original config (no clone).
+    let resolved = resolve_config_language(config)?;
+    let config = resolved.as_ref().unwrap_or(config);
+
+    process_image_resolved(image_bytes, config, cache, output_format)
+}
+
+/// Inner implementation operating on an already-resolved config.
+///
+/// Handles cache lookup, OCR execution, and cache storage. Callers are
+/// responsible for validating and resolving wildcards in the config before
+/// calling this function.
+fn process_image_resolved(
+    image_bytes: &[u8],
+    config: &TesseractConfig,
+    cache: &OcrCache,
+    output_format: Option<crate::core::config::OutputFormat>,
+) -> Result<OcrExtractionResult, OcrError> {
+    let mut hasher = ahash::AHasher::default();
+    use std::hash::{Hash, Hasher};
+    image_bytes.hash(&mut hasher);
+    let image_hash = format!("{:016x}", hasher.finish());
+
+    let config_str = hash_config(config);
+
+    if config.use_cache
+        && let Some(cached_result) = cache.get_cached_result(&image_hash, "tesseract", &config_str)?
+    {
+        #[cfg(feature = "otel")]
+        tracing::Span::current().record("cache.hit", true);
+        return Ok(cached_result);
+    }
+
+    #[cfg(feature = "otel")]
+    tracing::Span::current().record("cache.hit", false);
+
+    // Create minimal ExtractionConfig with just the output format if provided
+    let extraction_config = output_format.map(|fmt| ExtractionConfig {
+        output_format: fmt,
+        ..Default::default()
+    });
+
+    let result = perform_ocr(image_bytes, config, extraction_config.as_ref())?;
+
+    if config.use_cache {
+        let _ = cache.set_cached_result(&image_hash, "tesseract", &config_str, &result);
+    }
+
+    Ok(result)
+}
+
+/// Process multiple image files in parallel using Rayon.
+///
+/// Validates and resolves the language wildcard once, then processes all files
+/// in parallel using [`process_image_resolved`] directly (skipping redundant
+/// per-image resolution).
+///
+/// Results are returned in the same order as the input file paths.
+pub(super) fn process_files_batch(
+    file_paths: Vec<String>,
+    config: &TesseractConfig,
+    cache: &OcrCache,
+) -> Vec<BatchItemResult> {
+    use rayon::prelude::*;
+
+    // Validate once for the entire batch.
+    if let Err(e) = config.validate().map_err(OcrError::InvalidConfiguration) {
+        return file_paths
+            .into_iter()
+            .map(|path| BatchItemResult {
+                file_path: path,
+                success: false,
+                result: None,
+                error: Some(e.to_string()),
+            })
+            .collect();
+    }
+
+    // Resolve "all" / "*" once for the entire batch.
+    let resolved = match resolve_config_language(config) {
+        Ok(r) => r,
+        Err(e) => {
+            return file_paths
+                .into_iter()
+                .map(|path| BatchItemResult {
+                    file_path: path,
+                    success: false,
+                    result: None,
+                    error: Some(e.to_string()),
+                })
+                .collect();
+        }
+    };
+    let config = resolved.as_ref().unwrap_or(config);
+
+    file_paths
+        .par_iter()
+        .map(|path| {
+            let image_bytes = match std::fs::read(path) {
+                Ok(b) => b,
+                Err(e) => {
+                    return BatchItemResult {
+                        file_path: path.clone(),
+                        success: false,
+                        result: None,
+                        error: Some(OcrError::IOError(format!("Failed to read file '{}': {}", path, e)).to_string()),
+                    };
+                }
+            };
+            match process_image_resolved(&image_bytes, config, cache, None) {
+                Ok(result) => BatchItemResult {
+                    file_path: path.clone(),
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                },
+                Err(e) => BatchItemResult {
+                    file_path: path.clone(),
+                    success: false,
+                    result: None,
+                    error: Some(e.to_string()),
+                },
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_is_all_languages() {
+        assert!(is_all_languages("all"));
+        assert!(is_all_languages("ALL"));
+        assert!(is_all_languages("All"));
+        assert!(is_all_languages("*"));
+        assert!(!is_all_languages("eng"));
+        assert!(!is_all_languages("eng+fra"));
+        assert!(!is_all_languages(""));
+    }
+
+    #[test]
+    fn test_resolve_config_language_passthrough() {
+        let config = TesseractConfig {
+            language: "eng".to_string(),
+            ..TesseractConfig::default()
+        };
+        let resolved = resolve_config_language(&config).unwrap();
+        assert!(resolved.is_none(), "non-wildcard should return None (no clone)");
+    }
+
+    #[test]
+    fn test_compute_image_hash_deterministic() {
+        use ahash::AHasher;
+        use std::hash::{Hash, Hasher};
+
+        let image_bytes = vec![1, 2, 3, 4, 5];
+
+        let mut hasher1 = AHasher::default();
+        image_bytes.hash(&mut hasher1);
+        let hash1 = format!("{:016x}", hasher1.finish());
+
+        let mut hasher2 = AHasher::default();
+        image_bytes.hash(&mut hasher2);
+        let hash2 = format!("{:016x}", hasher2.finish());
+
+        assert_eq!(hash1, hash2);
+        assert_eq!(hash1.len(), 16);
+    }
+
+    #[test]
+    fn test_compute_image_hash_different_data() {
+        use ahash::AHasher;
+        use std::hash::{Hash, Hasher};
+
+        let image_bytes1 = vec![1, 2, 3, 4, 5];
+        let image_bytes2 = vec![5, 4, 3, 2, 1];
+
+        let mut hasher1 = AHasher::default();
+        image_bytes1.hash(&mut hasher1);
+        let hash1 = format!("{:016x}", hasher1.finish());
+
+        let mut hasher2 = AHasher::default();
+        image_bytes2.hash(&mut hasher2);
+        let hash2 = format!("{:016x}", hasher2.finish());
+
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_log_ci_debug_disabled() {
+        log_ci_debug(false, "test_stage", || "test message".to_string());
+    }
+
+    #[test]
+    fn test_log_ci_debug_enabled() {
+        log_ci_debug(true, "test_stage", || "test message".to_string());
+    }
+
+    #[test]
+    fn test_process_file_nonexistent() {
+        let temp_dir = tempdir().unwrap();
+        let cache = OcrCache::new(Some(temp_dir.path().to_path_buf())).unwrap();
+        let config = TesseractConfig {
+            output_format: "text".to_string(),
+            enable_table_detection: false,
+            use_cache: false,
+            ..TesseractConfig::default()
+        };
+
+        let result = process_file_with_cache("/nonexistent/file.png", &config, &cache, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Failed to read file"));
+    }
+
+    #[test]
+    fn test_process_image_invalid_image_data() {
+        let temp_dir = tempdir().unwrap();
+        let cache = OcrCache::new(Some(temp_dir.path().to_path_buf())).unwrap();
+        let config = TesseractConfig {
+            output_format: "text".to_string(),
+            enable_table_detection: false,
+            use_cache: false,
+            ..TesseractConfig::default()
+        };
+
+        let invalid_data = vec![0, 1, 2, 3, 4];
+        let result = process_image_with_cache(&invalid_data, &config, &cache, None);
+
+        assert!(result.is_err());
+    }
+}

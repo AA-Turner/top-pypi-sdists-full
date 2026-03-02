@@ -3,7 +3,7 @@
 //! Processes definition lists with:
 //! - Definition terms (dt)
 //! - Definition descriptions (dd)
-//! - Proper Markdown formatting with `:   ` separator
+//! - Plain block formatting (no Pandoc colon syntax)
 
 use crate::options::ConversionOptions;
 use tl;
@@ -24,12 +24,12 @@ pub(crate) fn handle_dl(
     depth: usize,
     dom_ctx: &DomContext,
 ) {
-    if ctx.convert_as_inline {
-        let tag = match node_handle.get(parser) {
-            Some(tl::Node::Tag(t)) => t,
-            _ => return,
-        };
+    let tag = match node_handle.get(parser) {
+        Some(tl::Node::Tag(t)) => t,
+        _ => return,
+    };
 
+    if ctx.convert_as_inline {
         let children = tag.children();
         {
             for child_handle in children.top().iter() {
@@ -40,48 +40,11 @@ pub(crate) fn handle_dl(
         return;
     }
 
-    let tag = match node_handle.get(parser) {
-        Some(tl::Node::Tag(t)) => t,
-        _ => return,
-    };
-
     let mut content = String::new();
-    let mut in_dt_group = false;
     let children = tag.children();
     {
         for child_handle in children.top().iter() {
-            let (is_definition_term, is_definition_description) =
-                if let Some(tl::Node::Tag(child_tag)) = child_handle.get(parser) {
-                    let tag_name = {
-                        use crate::converter::normalized_tag_name;
-                        normalized_tag_name(child_tag.name().as_utf8_str())
-                    };
-                    (tag_name == "dt", tag_name == "dd")
-                } else {
-                    (false, false)
-                };
-
-            let child_ctx = Context {
-                last_was_dt: in_dt_group && is_definition_description,
-                ..ctx.clone()
-            };
-            crate::converter::walk_node(child_handle, parser, &mut content, options, &child_ctx, depth, dom_ctx);
-
-            match child_handle.get(parser) {
-                Some(tl::Node::Tag(_)) => {
-                    if is_definition_term {
-                        in_dt_group = true;
-                    } else if !is_definition_description {
-                        in_dt_group = false;
-                    }
-                }
-                Some(tl::Node::Raw(raw)) => {
-                    if !raw.as_utf8_str().trim().is_empty() {
-                        in_dt_group = false;
-                    }
-                }
-                Some(tl::Node::Comment(_)) | None => {}
-            }
+            crate::converter::walk_node(child_handle, parser, &mut content, options, ctx, depth, dom_ctx);
         }
     }
 
@@ -132,8 +95,7 @@ pub(crate) fn handle_dt(
 
 /// Handle definition description element (<dd>).
 ///
-/// Outputs the description with `:   ` prefix if it follows a dt,
-/// or on its own with proper spacing.
+/// Outputs the description as a plain block.
 pub(crate) fn handle_dd(
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -161,27 +123,6 @@ pub(crate) fn handle_dd(
     if ctx.convert_as_inline {
         if !trimmed.is_empty() {
             output.push_str(trimmed);
-        }
-    } else if ctx.last_was_dt {
-        if trimmed.is_empty() {
-            output.push_str(":   \n\n");
-        } else {
-            let mut lines = trimmed.lines();
-            if let Some(first) = lines.next() {
-                output.push_str(":   ");
-                output.push_str(first);
-                output.push('\n');
-            }
-            for line in lines {
-                if line.is_empty() {
-                    output.push('\n');
-                } else {
-                    output.push_str("    ");
-                    output.push_str(line);
-                    output.push('\n');
-                }
-            }
-            output.push('\n');
         }
     } else if !trimmed.is_empty() {
         output.push_str(trimmed);

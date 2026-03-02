@@ -18,8 +18,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def opt_grp_name() -> tuple[str, str]:
-    return "options", "options"  # pragma: no cover
-    return "optional arguments", "optional-arguments"  # pragma: no cover
+    return "options", "options"
 
 
 @pytest.fixture
@@ -50,6 +49,7 @@ def build_outcome(app: SphinxTestApp, request: SubRequest, monkeypatch: pytest.M
 @pytest.mark.sphinx(buildername="html", testroot="basic")
 def test_basic_as_html(build_outcome: str) -> None:
     assert build_outcome
+    assert "custom.css" not in build_outcome
 
 
 @pytest.mark.sphinx(buildername="text", testroot="complex")
@@ -99,7 +99,7 @@ def test_set_description_as_text(build_outcome: str) -> None:
 
 @pytest.mark.sphinx(buildername="text", testroot="description-empty")
 def test_empty_description_as_text(build_outcome: str) -> None:
-    assert build_outcome == "foo - CLI interface\n*******************\n\n   foo\n"
+    assert build_outcome == "foo - CLI interface\n*******************\n\n\n   foo\n"
 
 
 @pytest.mark.sphinx(buildername="html", testroot="description-multiline")
@@ -121,7 +121,7 @@ def test_set_epilog_as_text(build_outcome: str) -> None:
 
 @pytest.mark.sphinx(buildername="text", testroot="epilog-empty")
 def test_empty_epilog_as_text(build_outcome: str) -> None:
-    assert build_outcome == "foo - CLI interface\n*******************\n\n   foo\n"
+    assert build_outcome == "foo - CLI interface\n*******************\n\n   foo\n\n"
 
 
 @pytest.mark.sphinx(buildername="html", testroot="epilog-multiline")
@@ -148,8 +148,8 @@ def test_usage_width_custom(build_outcome: str) -> None:
 @pytest.mark.sphinx(buildername="text", testroot="complex")
 @pytest.mark.prepare(directive_args=[":usage_first:"])
 def test_set_usage_first(build_outcome: str) -> None:
-    assert "complex [-h]" in build_outcome.split("argparse tester")[0]
-    assert "complex first [-h]" in build_outcome.split("a-first-desc")[0]
+    assert "complex [-h]" in build_outcome.split("argparse tester", maxsplit=1)[0]
+    assert "complex first [-h]" in build_outcome.split("a-first-desc", maxsplit=1)[0]
 
 
 @pytest.mark.sphinx(buildername="text", testroot="suppressed-action")
@@ -348,3 +348,65 @@ def test_subparsers(build_outcome: str) -> None:
     assert '<section id="test-no_child">' in build_outcome
     assert '<section id="test-no_child-positional-arguments">' in build_outcome
     assert '<section id="test-no_child-options">' in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="bad-module")
+def test_bad_module(app: SphinxTestApp, warning: StringIO) -> None:
+    app.build()
+    assert "Failed to import module 'nonexistent_module'" in warning.getvalue()
+
+
+@pytest.mark.sphinx(buildername="text", testroot="bad-func")
+def test_bad_func(app: SphinxTestApp, warning: StringIO) -> None:
+    app.build()
+    assert "Module 'parser' has no attribute 'nonexistent_func'" in warning.getvalue()
+
+
+@pytest.mark.sphinx(buildername="text", testroot="nargs")
+def test_nargs(build_outcome: str) -> None:
+    assert "pos_optional" in build_outcome
+    assert "pos_zero_or_more" in build_outcome
+    assert "pos_one_or_more" in build_outcome
+    assert "KEY VALUE" in build_outcome
+    assert "(default: " in build_outcome  # default_val is not None, should show
+    assert 'default: "None"' not in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="choices")
+def test_choices(build_outcome: str) -> None:
+    assert "output format" in build_outcome
+    assert "verbosity level" in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="actions")
+def test_actions(build_outcome: str) -> None:
+    assert "increase verbosity" in build_outcome
+    assert "paths to include" in build_outcome
+    assert "a required optional argument" in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="tuple-metavar")
+def test_tuple_metavar(build_outcome: str) -> None:
+    assert '"A B"' in build_outcome or "A B" in build_outcome
+    assert "select a pair" in build_outcome
+    assert "default: None" not in build_outcome
+    assert '"VAL"' in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="prog-subcommands")
+def test_prog_subcommands(build_outcome: str) -> None:
+    assert "my-tool" in build_outcome
+    assert "original-name" not in build_outcome
+    assert "my-tool foo" in build_outcome
+
+
+@pytest.mark.sphinx(buildername="text", testroot="multiword-prog")
+def test_multiword_prog(build_outcome: str) -> None:
+    assert "python -m build positional arguments" in build_outcome
+    assert "python -m build options" in build_outcome
+
+
+@pytest.mark.sphinx(buildername="html", testroot="title-empty-groups")
+def test_empty_title_groups_in_toctree(build_outcome: str) -> None:
+    assert '<section id="tool-options">' in build_outcome
+    assert "be verbose" in build_outcome

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from asyncio import Queue
 from dataclasses import dataclass
 from pathlib import Path
@@ -564,17 +565,17 @@ class DirectoryTree(Tree[DirEntry]):
         dir_entry = event.node.data
         if dir_entry is None:
             return
-        if self._safe_is_dir(dir_entry.path):
+        if await asyncio.to_thread(self._safe_is_dir, dir_entry.path):
             await self._add_to_load_queue(event.node)
         else:
             self.post_message(self.FileSelected(event.node, dir_entry.path))
 
-    def _on_tree_node_selected(self, event: Tree.NodeSelected[DirEntry]) -> None:
+    async def _on_tree_node_selected(self, event: Tree.NodeSelected[DirEntry]) -> None:
         event.stop()
         dir_entry = event.node.data
         if dir_entry is None:
             return
-        if self._safe_is_dir(dir_entry.path):
+        if await asyncio.to_thread(self._safe_is_dir, dir_entry.path):
             self.post_message(self.DirectorySelected(event.node, dir_entry.path))
         else:
             self.post_message(self.FileSelected(event.node, dir_entry.path))

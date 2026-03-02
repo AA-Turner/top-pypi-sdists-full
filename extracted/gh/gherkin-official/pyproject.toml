@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.9.0,<0.10.0"]
+requires = ["uv_build>=0.10.0,<0.11.0"]
 build-backend = "uv_build"
 
 [project]
 name = "gherkin-official"
-version = "38.0.0"
+version = "39.0.0"
 description = "Gherkin parser (official, by Cucumber team)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -88,6 +88,7 @@ extend-select = [
   "N",
   "PERF",
   "PIE",
+  "PTH",
   "RET",
   "TID",
   "UP",

@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        os: ["ubuntu", "windows", "macos"]
+        include:
+          - os: ubuntu
+            build-manylinux: auto
+            build-args: --release --sdist -o dist --find-interpreter
+          - os: windows
+            build-manylinux: false
+            build-args: --release -o dist --find-interpreter
+          - os: macos
+            build-manylinux: auto
+            build-args: --release -o dist --universal2 --find-interpreter
+
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: messense/maturin-action@v1
+      with:
+        manylinux: ${{ matrix.build-manylinux }}
+        command: build
+        args: ${{ matrix.build-args }}
+
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: dist

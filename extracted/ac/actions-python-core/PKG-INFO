@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: actions-python-core
+Version: 0.1.3
+Summary: Actions core lib
+Project-URL: Homepage, https://github.com/actions-python/toolkit
+Author-email: sudosubin <sudosubin@gmail.com>
+License-Expression: MIT
+Keywords: action,ci,github
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: aiofiles>=23.1
+Requires-Dist: httpx<1.0.0,>=0.23
+Requires-Dist: typing-extensions>=4.6; python_version < '3.11'
+Description-Content-Type: text/markdown
+
+# `actions-python-core`
+
+> Core functions for setting results, logging, registering secrets and exporting variables across actions
+
+## Usage
+
+### Import the package
+
+```python
+from actions import core
+```
+
+#### Inputs/Outputs
+
+Action inputs can be read with `get_input` which returns a `str` or `get_boolean_input` which parses a boolean based on the [yaml 1.2 specification](https://yaml.org/spec/1.2/spec.html#id2804923). If `required` set to be false, the input should have a default value in `action.yml`.
+
+Outputs can be set with `set_output` which makes them available to be mapped into inputs of other actions to ensure they are decoupled.
+
+```python
+my_input = core.get_input("input_name", required=True)
+my_boolean_input = core.get_boolean_input("boolean_input_name", required=True)
+my_multiline_input = core.get_multiline_input("multiline_input_name", required=True)
+
+core.set_output("output_key", "output_value")
+```
+
+#### TBD

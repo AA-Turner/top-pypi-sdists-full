@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import attr
 import attrs
@@ -89,16 +89,22 @@ def test_backfill_classic_attrs_creates_annotations_when_missing() -> None:
     assert NoAnnotations.__annotations__["x"] is int
 
 
-@pytest.fixture
-def _attrs_mod() -> Any:
-    sys.path.insert(0, str(ATTRS_ROOT))
-    try:
-        import attrs_mod  # noqa: PLC0415  # ty: ignore[unresolved-import]
+@pytest.mark.sphinx("text", testroot="attrs")
+def test_sphinx_build_nested_attrs_forward_ref(app: SphinxTestApp, status: StringIO, warning: StringIO) -> None:
+    template = """\
+.. autoclass:: attrs_mod.Outer
+   :members:
+   :undoc-members:
 
-        yield attrs_mod
-    finally:
-        sys.path.pop(0)
-        sys.modules.pop("attrs_mod", None)
+.. autoclass:: attrs_mod.Outer.Bar
+   :members:
+   :undoc-members:
+"""
+    (Path(app.srcdir) / "index.rst").write_text(template)
+    app.build()
+    assert "build succeeded" in status.getvalue()
+    assert "Foo" in normalize_sphinx_text((Path(app.srcdir) / "_build/text/index.txt").read_text())
+    assert "forward reference" not in warning.getvalue()
 
 
 @pytest.mark.sphinx("text", testroot="attrs")

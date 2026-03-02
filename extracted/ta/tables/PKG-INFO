@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tables
-Version: 3.11.0
+Version: 3.11.1
 Summary: Hierarchical datasets for Python
 Author: Francesc Alted, Ivan Vilata, Antonio Valentino, Anthony Scopatz, et al.
 Author-email: pytables@pytables.org

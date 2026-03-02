@@ -1,0 +1,42 @@
+[project]
+name = "django-mcp-server"
+version = "0.5.7"
+description = "Django MCP Server is a Django extensions to easily enable AI Agents to interact with Django Apps through the Model Context Protocol it works equally well on WSGI and ASGI"
+authors = [
+    {name = "Omar BENHAMID",email = "omar.benhamid@smart-gts.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+homepage = "https://github.com/omarbenhamid/django-mcp-server"
+repository = "https://github.com/omarbenhamid/django-mcp-server"
+documentation = "https://github.com/omarbenhamid/django-mcp-server"
+keywords = ["django", "mcp", "model context protocol", "tools"]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp (>=1.8.0)",
+    "django (>=4.0)",
+    "djangorestframework (>=3.15.0)",
+    "inflection (>=0.5.1,<0.6.0)",
+    "uritemplate (>=4.1.1,<5.0.0)",
+]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: 4",
+    "Framework :: Django :: 5",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.packages]]
+include = "mcp_server"
+[tool.poetry.group.dev.dependencies]
+djangorestframework = "^3.16.0"
+pytest-django = "^4.11.1"
+uvicorn = "^0.34.3"
+djangorestframework-csv = "^3.0.2"
+drf-excel = "^2.5.3"
+

@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: quick-start
+Version: 0.0.dev10
+Summary: My short description for my project.
+Home-page: http://github.com/andreztz/quick-start
+Author: André Pereira dos Santos
+Author-email: andreztz@gmail.com
+License: MIT
+Description: # QuickStart
+        > Cria um projeto baseado em um modelo
+        
+        ## Instalação
+        
+        Linux:
+        
+        ```sh
+         $ python setup.py install --user
+         $ ~/.local/bin/quickstart_installer
+        ```
+        
+        
+        ## Exemplo de uso
+        
+        ``` sh
+        $ pyinit nome_do_projeto
+        ```
+        
+        ## Configuração para Desenvolvimento
+        
+        ```sh
+        python setup.py develop
+        ```
+        
+        ## Histórico de lançamentos
+        
+            * Trabalho em andamento
+        
+        ## Meta
+        
+        Seu Nome – [@ztzandre](https://twitter.com/ztzandre) – andreztz@gmail.com
+        
+        Distribuído sob a licença XYZ. Veja `LICENSE` para mais informações.
+        
+        [https://github.com/andreztz/quick-install](https://github.com/andreztz/)
+        
+Keywords: quick start project
+Platform: UNKNOWN
+Classifier: Development Status :: 1 - Planning
+Classifier: Environment :: Console
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.7.0
+Description-Content-Type: text/markdown

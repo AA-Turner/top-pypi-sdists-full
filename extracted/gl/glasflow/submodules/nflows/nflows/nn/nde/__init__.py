@@ -1,1 +1,0 @@
-from .made import MixtureOfGaussiansMADE

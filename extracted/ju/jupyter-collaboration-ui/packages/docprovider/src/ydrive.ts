@@ -1,0 +1,491 @@
+// Copyright (c) Jupyter Development Team.
+// Distributed under the terms of the Modified BSD License.
+
+import { PageConfig } from '@jupyterlab/coreutils';
+import { TranslationBundle } from '@jupyterlab/translation';
+import {
+  Contents,
+  IContentProvider,
+  SharedDocumentFactory,
+  ServerConnection,
+  User
+} from '@jupyterlab/services';
+import { PromiseDelegate } from '@lumino/coreutils';
+import { ISignal, Signal } from '@lumino/signaling';
+
+import {
+  DocumentChange,
+  ISharedDocument,
+  StateChange,
+  YDocument
+} from '@jupyter/ydoc';
+
+import { WebSocketProvider } from './yprovider';
+import {
+  IDocumentProvider,
+  ISharedModelFactory
+} from '@jupyter/collaborative-drive';
+import { Awareness } from 'y-protocols/awareness';
+import { ISettingRegistry } from '@jupyterlab/settingregistry';
+import * as decoding from 'lib0/decoding';
+import * as encoding from 'lib0/encoding';
+
+const DISABLE_RTC =
+  PageConfig.getOption('disableRTC') === 'true' ? true : false;
+
+const RAW_MESSAGE_TYPE = 2;
+
+export interface IForkProvider {
+  connectToForkDoc: (forkRoomId: string, sessionId: string) => Promise<void>;
+  reconnect: () => Promise<void>;
+  contentType: string;
+  format: string;
+}
+
+namespace RtcContentProvider {
+  export interface IOptions {
+    user: User.IManager;
+    trans: TranslationBundle;
+    globalAwareness: Awareness | null;
+    serverSettings: ServerConnection.ISettings;
+    docmanagerSettings: ISettingRegistry.ISettings | null;
+    currentDrive: Contents.IDrive;
+    fileChanged?: ISignal<Contents.IDrive, Contents.IChangedArgs>;
+  }
+}
+
+export class RtcContentProvider implements IContentProvider {
+  constructor(options: RtcContentProvider.IOptions) {
+    this._user = options.user;
+    this._trans = options.trans;
+    this._globalAwareness = options.globalAwareness;
+    this._serverSettings = options.serverSettings;
+    this._currentDrive = options.currentDrive;
+    this.sharedModelFactory = new SharedModelFactory(this._onCreate);
+    this._providers = new Map<string, WebSocketProvider>();
+    this._docmanagerSettings = options.docmanagerSettings;
+    this._driveFileChanged = options.fileChanged;
+  }
+
+  /**
+   * SharedModel factory for the content provider.
+   */
+  readonly sharedModelFactory: ISharedModelFactory;
+
+  get providers(): Map<string, IDocumentProvider> {
+    return this._providers;
+  }
+
+  /**
+   * Get a file or directory.
+   *
+   * @param localPath: The path to the file.
+   *
+   * @param options: The options used to fetch the file.
+   *
+   * @returns A promise which resolves with the file content.
+   */
+  async get(
+    localPath: string,
+    options?: Contents.IFetchOptions
+  ): Promise<Contents.IModel> {
+    if (options && options.format && options.type) {
+      const key = `${options.format}:${options.type}:${localPath}`;
+      const provider = this._providers.get(key);
+
+      if (provider) {
+        // If the document doesn't exist, `super.get` will reject with an
+        // error and the provider will never be resolved.
+        // Use `Promise.all` to reject as soon as possible. The Context will
+        // show a dialog to the user.
+        const [model] = await Promise.all([
+          // Not calling get() with options.contentProviderId otherwise it's an infinite loop
+          this._currentDrive.get(localPath, {
+            ...options,
+            content: false,
+            contentProviderId: undefined
+          }),
+          provider.ready
+        ]);
+        // The server doesn't return a model with a format when content is false,
+        // so set it back.
+        return { ...model, format: options.format };
+      }
+    }
+
+    // Not calling get() with options.contentProviderId otherwise it's an infinite loop
+    return this._currentDrive.get(localPath, {
+      ...options,
+      contentProviderId: undefined
+    });
+  }
+
+  /**
+   * Save a file.
+   *
+   * @param localPath - The desired file path.
+   *
+   * @param options - Optional overrides to the model.
+   *
+   * @returns A promise which resolves with the file content model when the
+   *   file is saved.
+   */
+  async save(
+    localPath: string,
+    options: Partial<Contents.IModel> & Contents.IContentProvisionOptions = {}
+  ): Promise<Contents.IModel> {
+    // Check that there is a provider - it won't e.g. if the document model is not collaborative.
+    if (options.format && options.type) {
+      const key = `${options.format}:${options.type}:${localPath}`;
+      const provider = this._providers.get(key);
+      const saveId = ++this._saveCounter;
+
+      if (provider) {
+        const ws = provider.wsProvider?.ws;
+        if (ws) {
+          const delegate = new PromiseDelegate<void>();
+          const handler = (event: MessageEvent) => {
+            const data = new Uint8Array(event.data);
+            const decoder = decoding.createDecoder(data);
+            try {
+              const messageType = decoding.readVarUint(decoder);
+              if (messageType !== RAW_MESSAGE_TYPE) {
+                return;
+              }
+            } catch {
+              return;
+            }
+            const rawReply = decoding.readVarString(decoder);
+            let reply: {
+              type: 'save';
+              responseTo: number;
+              status: 'success' | 'skipped' | 'failed';
+            } | null = null;
+            try {
+              reply = JSON.parse(rawReply);
+            } catch (e) {
+              console.debug('The raw reply received was not a JSON reply');
+            }
+            if (
+              reply &&
+              reply['type'] === 'save' &&
+              reply['responseTo'] === saveId
+            ) {
+              if (reply.status === 'success') {
+                delegate.resolve();
+              } else if (reply.status === 'failed') {
+                delegate.reject('Saving failed');
+              } else if (reply.status === 'skipped') {
+                delegate.reject('Saving already in progress');
+              } else {
+                delegate.reject('Unrecognised save reply status');
+              }
+            }
+          };
+          ws.addEventListener('message', handler);
+          const encoder = encoding.createEncoder();
+          encoding.writeVarUint(encoder, RAW_MESSAGE_TYPE);
+          encoding.writeVarString(encoder, 'save');
+          encoding.writeVarUint(encoder, saveId);
+          const saveMessage = encoding.toUint8Array(encoder);
+          ws.send(saveMessage);
+          await delegate.promise;
+          ws.removeEventListener('message', handler);
+        }
+        const fetchOptions: Contents.IFetchOptions = {
+          type: options.type,
+          format: options.format,
+          content: false
+        };
+        return this.get(localPath, fetchOptions);
+      } else {
+        console.warn(
+          `Could not find a provider for ${localPath}, falling back to REST API save`
+        );
+      }
+    }
+
+    return this._currentDrive.save(localPath, {
+      ...options,
+      contentProviderId: undefined
+    });
+  }
+
+  /**
+   * A signal emitted when a file operation takes place.
+   */
+  get fileChanged(): ISignal<this, Contents.IChangedArgs> {
+    return this._providerFileChanged;
+  }
+
+  private _onCreate = (
+    options: Contents.ISharedFactoryOptions,
+    sharedModel: YDocument<DocumentChange>
+  ) => {
+    if (typeof options.format !== 'string') {
+      return;
+    }
+    // Set initial autosave value, used to determine backend autosave (default: true)
+    const autosave =
+      (this._docmanagerSettings?.composite?.['autosave'] as boolean) ?? true;
+
+    sharedModel.awareness.setLocalStateField('autosave', autosave);
+
+    // Watch for changes in settings
+    this._docmanagerSettings?.changed.connect(() => {
+      const newAutosave =
+        (this._docmanagerSettings?.composite?.['autosave'] as boolean) ?? true;
+      sharedModel.awareness.setLocalStateField('autosave', newAutosave);
+    });
+
+    try {
+      const provider = new WebSocketProvider({
+        path: options.path,
+        format: options.format,
+        contentType: options.contentType,
+        model: sharedModel,
+        user: this._user,
+        translator: this._trans,
+        serverSettings: this._serverSettings
+      });
+
+      // Add the document path in the list of opened ones for this user.
+      const state = this._globalAwareness?.getLocalState() || {};
+      const documents: string[] = state.documents || [];
+      if (!documents.includes(options.path)) {
+        documents.push(options.path);
+        this._globalAwareness?.setLocalStateField('documents', documents);
+      }
+
+      let path = options.path;
+      let key = `${options.format}:${options.contentType}:${path}`;
+      this._providers.set(key, provider);
+
+      const handlePathChange = (
+        pathChange: StateChange<string | undefined>
+      ) => {
+        const oldPath = pathChange.oldValue;
+        const newPath = pathChange.newValue;
+        if (!oldPath || !newPath) {
+          // This is expected when shared model initializes and the path is first populated
+          console.debug('New or old path not given', pathChange);
+          return;
+        }
+
+        const oldKey = `${options.format}:${options.contentType}:${oldPath}`;
+        if (oldKey !== key) {
+          console.error(
+            'The computed old provider key is different from the current key'
+          );
+          return;
+        }
+        const newKey = `${options.format}:${options.contentType}:${newPath}`;
+
+        // Check if the provider is still registered (it may have been disposed if document was closed)
+        const provider = this._providers.get(oldKey);
+        if (!provider) {
+          console.warn(
+            `Could not find a provider to update after rename ${oldKey}, ${newKey}`
+          );
+          return;
+        }
+
+        // Re-register the provider under the new key
+        this._providers.set(newKey, provider);
+        this._providers.delete(oldKey);
+
+        // Update the provider key so that it can be disposed correctly when shared document closes
+        key = newKey;
+        path = newPath;
+
+        // Update the documents field
+        const state = this._globalAwareness?.getLocalState() || {};
+        const documents: string[] = state.documents || [];
+        const oldPathIndex = documents.indexOf(oldPath);
+        if (documents.includes(oldPath) && !documents.includes(newPath)) {
+          documents.splice(oldPathIndex, 1);
+          documents.push(newPath);
+          this._globalAwareness?.setLocalStateField('documents', documents);
+        }
+      };
+
+      // The information about file being renamed can come from two places:
+      // - from the sharedModel via changed signal with documentChange
+      // - from the fileChanged signal of the drive
+      // Neither method is foolproof:
+      // - the shared model approach can be delayed as the change needs to be
+      //   reflected by the server and come back, in which case we get a race condition
+      // - the fileChanged signal is emitted with a larger delay for renames of collaborators
+      // Thus we need both.
+      const handleFileChangedSignal = (
+        _: Contents.IDrive,
+        change: Contents.IChangedArgs
+      ) => {
+        if (change.type !== 'rename') {
+          return;
+        }
+        const oldPath = change.oldValue?.path;
+        const newPath = change.newValue?.path;
+        if (oldPath !== path) {
+          return;
+        }
+        handlePathChange({
+          oldValue: oldPath,
+          newValue: newPath,
+          name: 'path'
+        });
+      };
+
+      this._driveFileChanged?.connect(handleFileChangedSignal);
+
+      sharedModel.changed.connect(async (_, change) => {
+        if (!change.stateChange) {
+          return;
+        }
+
+        const pathChanges = change.stateChange.filter(
+          change => change.name === 'path'
+        );
+        for (const pathChange of pathChanges) {
+          handlePathChange(pathChange);
+        }
+
+        const hashChanges = change.stateChange.filter(
+          change => change.name === 'hash'
+        );
+        if (hashChanges.length === 0) {
+          return;
+        }
+        if (hashChanges.length > 1) {
+          console.error(
+            'Unexpected multiple changes to hash value in a single transaction'
+          );
+        }
+        const hashChange = hashChanges[0];
+
+        // A change in hash signifies that a save occurred on the server-side
+        // (e.g. a collaborator performed the save) - we want to notify the
+        // observers about this change so that they can store the new hash value.
+        const newPath = sharedModel.state.path ?? options.path;
+        const model = await this.get(newPath as string, { content: false });
+
+        this._providerFileChanged.emit({
+          type: 'save',
+          newValue: { ...model, hash: hashChange.newValue },
+          // we do not have the old model because it was discarded when server made the change,
+          // we only have the old hash here (which may be empty if the file was newly created!)
+          oldValue: { hash: hashChange.oldValue }
+        });
+      });
+
+      sharedModel.disposed.connect(() => {
+        const provider = this._providers.get(key);
+        if (provider) {
+          provider.dispose();
+          this._providers.delete(key);
+        }
+
+        // Remove the document path from the list of opened ones for this user.
+        const state = this._globalAwareness?.getLocalState() || {};
+        const documents: string[] = state.documents || [];
+        const index = documents.indexOf(path);
+        if (index > -1) {
+          documents.splice(index, 1);
+        }
+        this._globalAwareness?.setLocalStateField('documents', documents);
+
+        // Disconnect signal
+        this._driveFileChanged?.disconnect(handleFileChangedSignal);
+      });
+    } catch (error) {
+      // Falling back to the contents API if opening the websocket failed
+      //  This may happen if the shared document is not a YDocument.
+      console.error(
+        `Failed to open websocket connection for ${options.path}.\n:${error}`
+      );
+    }
+  };
+
+  private _user: User.IManager;
+  private _saveCounter = 0;
+  private _currentDrive: Contents.IDrive;
+  private _trans: TranslationBundle;
+  private _globalAwareness: Awareness | null;
+  private _providers: Map<string, WebSocketProvider>;
+  // This is for emitting signals to be proxied to `Drive.fileChanged`
+  private _providerFileChanged = new Signal<this, Contents.IChangedArgs>(this);
+  // This is for listening to `Drive.fileChanged` signal
+  private _driveFileChanged?: ISignal<Contents.IDrive, Contents.IChangedArgs>;
+  private _serverSettings: ServerConnection.ISettings;
+  private _docmanagerSettings: ISettingRegistry.ISettings | null;
+}
+
+/**
+ * Yjs sharedModel factory for real-time collaboration.
+ */
+class SharedModelFactory implements ISharedModelFactory {
+  documentFactories: Map<Contents.ContentType, SharedDocumentFactory>;
+
+  /**
+   * Shared model factory constructor
+   *
+   * @param _onCreate Callback on new document model creation
+   */
+  constructor(
+    private _onCreate: (
+      options: Contents.ISharedFactoryOptions,
+      sharedModel: YDocument<DocumentChange>
+    ) => void
+  ) {
+    this.documentFactories = new Map();
+  }
+
+  /**
+   * Whether the IDrive supports real-time collaboration or not.
+   */
+  readonly collaborative = !DISABLE_RTC;
+
+  /**
+   * Register a SharedDocumentFactory.
+   *
+   * @param type Document type
+   * @param factory Document factory
+   */
+  registerDocumentFactory(
+    type: Contents.ContentType,
+    factory: SharedDocumentFactory
+  ) {
+    if (this.documentFactories.has(type)) {
+      throw new Error(`The content type ${type} already exists`);
+    }
+    this.documentFactories.set(type, factory);
+  }
+
+  /**
+   * Create a new `ISharedDocument` instance.
+   *
+   * It should return `undefined` if the factory is not able to create a `ISharedDocument`.
+   */
+  createNew(
+    options: Contents.ISharedFactoryOptions
+  ): ISharedDocument | undefined {
+    if (typeof options.format !== 'string') {
+      console.warn(`Only defined format are supported; got ${options.format}.`);
+      return;
+    }
+
+    if (!this.collaborative || !options.collaborative) {
+      // Bail if the document model does not support collaboration
+      // the `sharedModel` will be the default one.
+      return;
+    }
+    if (this.documentFactories.has(options.contentType)) {
+      const factory = this.documentFactories.get(options.contentType)!;
+      const sharedModel = factory(options);
+      this._onCreate(options, sharedModel);
+      return sharedModel;
+    }
+
+    return;
+  }
+}

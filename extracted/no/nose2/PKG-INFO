@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nose2
-Version: 0.15.1
+Version: 0.16.0
 Summary: unittest with plugins
 Author-email: Stephen Rosen <dev@nose2.io>
 License: BSD-2-Clause
@@ -15,17 +15,17 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
@@ -35,6 +35,7 @@ Provides-Extra: dev
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-issues; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
+Dynamic: license-file
 
 .. image:: https://results.pre-commit.ci/badge/github/nose-devs/nose2/main.svg
    :target: https://results.pre-commit.ci/latest/github/nose-devs/nose2/main

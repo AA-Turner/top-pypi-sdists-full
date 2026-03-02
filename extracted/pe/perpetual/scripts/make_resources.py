@@ -1,0 +1,209 @@
+import os
+import subprocess
+
+import pandas as pd
+import seaborn as sns
+from perpetual.utils import convert_input_frame, transform_input_frame
+from sklearn.datasets import fetch_california_housing, fetch_covtype, fetch_openml
+from sklearn.model_selection import train_test_split
+
+if __name__ == "__main__":
+    df = sns.load_dataset("titanic")
+    df.to_csv("resources/titanic.csv", index=False)
+
+    X = df.select_dtypes("number").drop(columns=["survived"]).astype(float)
+    y = df["survived"].astype(float)
+
+    pd.Series(X.fillna(0).to_numpy().ravel(order="F")).to_csv(
+        "resources/contiguous_no_missing.csv",
+        index=False,
+        header=False,
+    )
+
+    pd.Series(X.to_numpy().ravel(order="F")).to_csv(
+        "resources/contiguous_with_missing.csv",
+        index=False,
+        header=False,
+    )
+
+    y.to_csv(
+        "resources/performance.csv",
+        index=False,
+        header=False,
+    )
+
+    X.fare.to_csv(
+        "resources/performance-fare.csv",
+        index=False,
+        header=False,
+    )
+
+    dfb = df.sample(
+        100_000,
+        random_state=0,
+        replace=True,
+    ).reset_index(drop=True)
+
+    Xb = dfb.select_dtypes("number").drop(columns=["survived"]).astype(float)
+    yb = dfb["survived"].astype(float)
+
+    pd.Series(Xb.fillna(0).to_numpy().ravel(order="F")).to_csv(
+        "resources/contiguous_no_missing_100k_samp_seed0.csv",
+        index=False,
+        header=False,
+    )
+
+    yb.to_csv(
+        "resources/performance_100k_samp_seed0.csv",
+        index=False,
+        header=False,
+    )
+
+    data = fetch_california_housing(as_frame=True)
+    data_train, data_test = train_test_split(data.frame, test_size=0.2, random_state=42)
+    data_train.to_csv("resources/cal_housing_train.csv", index=False)
+    data_test.to_csv("resources/cal_housing_test.csv", index=False)
+
+    data = fetch_covtype(as_frame=True)
+    data_train, data_test = train_test_split(data.frame, test_size=0.2, random_state=42)
+    data_train.to_csv("resources/cover_types_train.csv", index=False)
+    data_test.to_csv("resources/cover_types_test.csv", index=False)
+
+    X = df.drop(columns=["survived"])
+    y = df["survived"]
+
+    X["sex"] = pd.get_dummies(X["sex"], drop_first=True, dtype=float).to_numpy()
+    X["adult_male"] = pd.get_dummies(
+        X["adult_male"], drop_first=True, dtype=float
+    ).to_numpy()
+    X.drop(columns=["alive"], inplace=True)
+    X["alone"] = pd.get_dummies(X["alone"], drop_first=True, dtype=float).to_numpy()
+    cols = [
+        "pclass",
+        "sibsp",
+        "parch",
+        "embarked",
+        "class",
+        "who",
+        "deck",
+        "embark_town",
+    ]
+    X[cols] = X[cols].astype("category")
+
+    data_train, data_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    (
+        features_,
+        titanic_train_flat,
+        rows,
+        cols,
+        categorical_features_,
+        cat_mapping,
+    ) = convert_input_frame(data_train, "auto", 1000)
+    features_, titanic_test_flat, rows, cols = transform_input_frame(
+        data_test, cat_mapping
+    )
+
+    data_test.to_csv("resources/titanic_test_df.csv", index=False)
+
+    pd.Series(titanic_train_flat).to_csv(
+        "resources/titanic_train_flat.csv", index=False, header=False
+    )
+    pd.Series(titanic_test_flat).to_csv(
+        "resources/titanic_test_flat.csv", index=False, header=False
+    )
+    pd.Series(y_train).to_csv(
+        "resources/titanic_train_y.csv", index=False, header=False
+    )
+    pd.Series(y_test).to_csv("resources/titanic_test_y.csv", index=False, header=False)
+
+    # https://www.openml.org/search?type=data&id=546&sort=runs&status=active
+    df = fetch_openml(data_id=546)
+    X = df.data
+    y = df.target
+    (
+        features_,
+        sensory_flat,
+        rows,
+        cols,
+        categorical_features_,
+        cat_mapping,
+    ) = convert_input_frame(X, "auto", 1000)
+    pd.Series(sensory_flat).to_csv(
+        "resources/sensory_flat.csv", index=False, header=False
+    )
+    pd.Series(y).to_csv("resources/sensory_y.csv", index=False, header=False)
+
+    # https://www.openml.org/search?type=data&id=43493&sort=runs&status=active
+    df = fetch_openml(data_id=43493)
+    cols_to_drop = ["title", "authors", "votes"]
+    data = df.data.drop(columns=cols_to_drop)
+
+    data["category"] = data["category"].astype("category")
+    data["published"] = data["published"].astype("category")
+
+    data.to_csv("resources/goodreads.csv", index=False, header=True)
+
+    # ---------------------------------------------------------
+    # Generate v0.10.0 Model Artifact for Backward Compatibility
+    # ---------------------------------------------------------
+    print("Generating v0.10.0 model artifact...")
+
+    gen_script = """
+import pandas as pd
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from perpetual import PerpetualBooster
+
+# Replicate Titanic data loading
+df = sns.load_dataset("titanic")
+X = df.drop(columns=["survived"])
+y = df["survived"]
+X["sex"] = pd.get_dummies(X["sex"], drop_first=True, dtype=float).to_numpy()
+X["adult_male"] = pd.get_dummies(X["adult_male"], drop_first=True, dtype=float).to_numpy()
+X.drop(columns=["alive"], inplace=True)
+X["alone"] = pd.get_dummies(X["alone"], drop_first=True, dtype=float).to_numpy()
+cols = ['pclass', 'sibsp', 'parch', 'embarked', 'class', 'who', 'deck', 'embark_town']
+X[cols] = X[cols].astype('category')
+
+data_train, data_test, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = PerpetualBooster(objective="LogLoss")
+model.fit(data_train, y_train)
+model.save_booster("resources/model_v0.10.0.json")
+
+# Save predictions for verification
+preds = model.predict(data_test)
+pd.Series(preds).to_csv("resources/model_v0.10.0_preds.csv", index=False, header=False)
+probs = model.predict_proba(data_test)
+pd.DataFrame(probs).to_csv("resources/model_v0.10.0_probs.csv", index=False, header=False)
+print("Successfully generated resources/model_v0.10.0.json and predictions")
+"""
+    with open("temp_gen_model.py", "w") as f:
+        f.write(gen_script)
+
+    try:
+        subprocess.check_call(
+            [
+                "uv",
+                "run",
+                "--with",
+                "perpetual==0.10.0",
+                "--with",
+                "pandas",
+                "--with",
+                "seaborn",
+                "--with",
+                "scikit-learn",
+                "python",
+                "temp_gen_model.py",
+            ]
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to generate model: {e}")
+        raise e
+    finally:
+        if os.path.exists("temp_gen_model.py"):
+            os.remove("temp_gen_model.py")

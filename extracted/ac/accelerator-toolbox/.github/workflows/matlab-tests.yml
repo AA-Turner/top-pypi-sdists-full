@@ -1,0 +1,58 @@
+# This workflow will install Python dependencies, run tests and lint with a
+# variety of Python version
+# https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Run Matlab tests
+
+on:
+  push:
+  workflow_dispatch:
+#  pull_request:
+#
+#defaults:
+#  run:
+#    working-directory: pyat
+
+jobs:
+  matlab_tests:
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-13, windows-latest]
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - name: Set up python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: pip
+
+    - name: Set up MATLAB
+      uses: matlab-actions/setup-matlab@v2
+      with:
+        release: R2024a
+
+    - name: Atmexall
+      uses: matlab-actions/run-command@v2
+      with:
+        command: run('atmat/atpath');githubsetup('-v');
+
+    - name: Build and install at
+      run: python -m pip install -v .
+
+    - name: Run tests
+      uses: matlab-actions/run-command@v2
+      with:
+        command: githubrun
+#
+#    - name: Set up Matlab engine for python
+#      run: python setup.py build --build-base=$(mktemp -d) install
+#      working-directory: /usr/local/MATLAB/R2022a/extern/engines/python
+#
+#    - name: Test with pytest
+#      run: python -m pytest pyat/test_matlab

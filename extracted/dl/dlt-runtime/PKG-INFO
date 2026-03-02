@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: dlt-runtime
+Version: 0.21.2
+Summary: CLI tool for accessing dltHub runtime
+Author-email: "dltHub Inc." <services@dlthub.com>
+Maintainer-email: Ivan Chebotar <ivan@dlthub.com>
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
+Keywords: etl
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Python: <3.15,>=3.9.2
+Requires-Dist: attrs>=23.2.0
+Requires-Dist: cron-descriptor>=1.2.32
+Requires-Dist: httpx>=0.26.0
+Requires-Dist: pathspec>=0.11.2
+Requires-Dist: python-jose>=3.5.0
+Requires-Dist: tabulate>=0.9.0
+Description-Content-Type: text/markdown
+
+<h1 align="center">
+    <strong>dlt-runtime</strong>
+</h1>
+
+<div align="center">
+  <a target="_blank" href="https://dlthub.com/community" style="background:none">
+    <img src="https://img.shields.io/badge/slack-join-dlt.svg?labelColor=191937&color=6F6FF7&logo=slack" style="width: 260px;"  />
+  </a>
+</div>
+<div align="center">
+  <a target="_blank" href="https://pypi.org/project/dlt-runtime/" style="background:none">
+    <img src="https://img.shields.io/pypi/v/dlt-runtime?labelColor=191937&color=6F6FF7">
+  </a>
+  <a target="_blank" href="https://pypi.org/project/dlt-runtime/" style="background:none">
+    <img src="https://img.shields.io/pypi/pyversions/dlt-runtime?labelColor=191937&color=6F6FF7">
+  </a>
+</div>
+
+`dlt-runtime` is an extension to the open source data load tool ([dlt]((https://dlthub.com/docs/))) that implements
+**dltHub Runtime** API Client and extends the `dlt` command line with `dlt runtime` command. Overall it enables `dlt` users
+to quickly deploy and run their pipelines, datasets, notebooks and mcp servers.
+
+
+## Installation
+
+`dlt-runtime` supports Python 3.10 and above and is a plugin (based on [pluggy](https://github.com/pytest-dev/pluggy)) Use `hub` extra on `dlt` to pick the matching plugin version:
+
+```sh
+pip install "dlt[hub]"
+```
+
+
+## Documentation
+
+Learn more in the [dlthub docs](https://dlthub.com/docs/hub/intro).

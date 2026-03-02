@@ -1,0 +1,29 @@
+services:
+  platform-backend:
+    build:
+      context: ..
+      dockerfile: saas-platform/Dockerfile.platform-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  platform-frontend:
+    build:
+      context: ..
+      dockerfile: saas-platform/Dockerfile.platform-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - PLATFORM_DOMAIN=${PLATFORM_DOMAIN}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - PLATFORM_BACKEND_URL=http://platform-backend:8000
+      - PROVISIONER_API_KEY=${PROVISIONER_API_KEY}
+    depends_on:
+      - platform-backend

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tox.tox_env.python.pip.req_file import PythonDeps
+from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -74,3 +74,31 @@ def test_req_iadd(tmp_path: Path) -> None:
     b = PythonDeps(raw="bar", root=tmp_path)
     a += b
     assert a.lines() == ["foo", "bar"]
+
+
+def test_deps_factory_invalid_list(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="deps expected str, list\\[str\\], or list\\[Requirement\\]") as exc_info:
+        PythonDeps.factory(tmp_path, ["ok", 42, "also-ok"])
+    assert "got list with invalid items: [1] int" in str(exc_info.value)
+
+
+def test_deps_factory_invalid_type(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="deps expected str, list\\[str\\], or list\\[Requirement\\]") as exc_info:
+        PythonDeps.factory(tmp_path, 123)
+    assert "got int: 123" in str(exc_info.value)
+
+
+def test_constraints_factory_invalid_list(tmp_path: Path) -> None:
+    with pytest.raises(
+        TypeError, match="constraints expected str, list\\[str\\], or list\\[Requirement\\]"
+    ) as exc_info:
+        PythonConstraints.factory(tmp_path, [["nested"]])
+    assert "got list with invalid items: [0] list" in str(exc_info.value)
+
+
+def test_constraints_factory_invalid_type(tmp_path: Path) -> None:
+    with pytest.raises(
+        TypeError, match="constraints expected str, list\\[str\\], or list\\[Requirement\\]"
+    ) as exc_info:
+        PythonConstraints.factory(tmp_path, {"key": "val"})
+    assert "got dict: {'key': 'val'}" in str(exc_info.value)

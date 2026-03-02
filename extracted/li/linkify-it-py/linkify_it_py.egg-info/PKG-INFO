@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: linkify-it-py
-Version: 2.0.3
+Version: 2.1.0
 Summary: Links recognition library with FULL unicode support.
 Author: tsutsu3
 License: MIT
@@ -8,31 +8,45 @@ Project-URL: Homepage, https://github.com/tsutsu3/linkify-it-py
 Keywords: linkify,linkifier,autolink,autolinker
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: dev
-Provides-Extra: benchmark
-Provides-Extra: doc
 License-File: LICENSE
+Requires-Dist: uc-micro-py
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: pyproject-flake8; extra == "dev"
+Provides-Extra: benchmark
+Requires-Dist: pytest; extra == "benchmark"
+Requires-Dist: pytest-benchmark; extra == "benchmark"
+Provides-Extra: doc
+Requires-Dist: sphinx; extra == "doc"
+Requires-Dist: sphinx_book_theme; extra == "doc"
+Requires-Dist: myst-parser; extra == "doc"
+Dynamic: license-file
 
 # linkify-it-py
 
-[![CI](https://github.com/tsutsu3/linkify-it-py/workflows/CI/badge.svg?branch=main)](https://github.com/tsutsu3/linkify-it-py/actions)
+[![CI](https://github.com/tsutsu3/linkify-it-py/actions/workflows/github-ci.yml/badge.svg)](https://github.com/tsutsu3/linkify-it-py/actions/workflows/github-ci.yml)
 [![pypi](https://img.shields.io/pypi/v/linkify-it-py)](https://pypi.org/project/linkify-it-py/)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/linkify-it-py/badges/version.svg)](https://anaconda.org/conda-forge/linkify-it-py)
 [![Documentation Status](https://readthedocs.org/projects/linkify-it-py/badge/?version=latest)](https://linkify-it-py.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/tsutsu3/linkify-it-py/branch/main/graph/badge.svg)](https://codecov.io/gh/tsutsu3/linkify-it-py)
-[![Maintainability](https://api.codeclimate.com/v1/badges/6341fd3ec5f05fde392f/maintainability)](https://codeclimate.com/github/tsutsu3/linkify-it-py/maintainability)
 
 This is Python port of [linkify-it](https://github.com/markdown-it/linkify-it).
 
@@ -49,6 +63,10 @@ Why it's awesome:
 - International domains support.
 - Allows rules extension & custom normalizers.
 
+## Python Version Support
+
+Tested on Python 3.10–3.14. The primary version for code coverage follows the latest
+[security phase](https://devguide.python.org/versions/) release (currently __3.12__).
 
 ## Install
 
@@ -143,7 +161,6 @@ def normalize(obj, match):
 linkify.add("@", {"validate": validate, "normalize": normalize})
 ```
 
-
 ## API
 
 [API documentation](https://linkify-it-py.readthedocs.io/en/latest/)
@@ -182,11 +199,9 @@ By default understands:
 - __fuzzy_email__ - recognize emails without `mailto:` prefix. Default `True`.
 - __---__ - set `True` to terminate link with `---` (if it's considered as long dash).
 
-
 ### .test(text)
 
 Searches linkifiable pattern and returns `True` on success or `False` on fail.
-
 
 ### .pretest(text)
 
@@ -194,12 +209,10 @@ Quick check if link MAY BE can exist. Can be used to optimize more expensive
 `.test()` calls. Return `False` if link can not be found, `True` - if `.test()`
 call needed to know exactly.
 
-
 ### .test_schema_at(text, name, position)
 
 Similar to `.test()` but checks only specific protocol tail exactly at given
 position. Returns length of found pattern (0 on fail).
-
 
 ### .match(text)
 
@@ -240,11 +253,9 @@ is a `str` to alias to another schema, or an `dict` with `validate` and
 optionally `normalize` definitions.  To disable an existing rule, use
 `.add(key, None)`.
 
-
 ### .set(options)
 
 Override default options. Missed properties will not be changed.
-
 
 ## License
 

@@ -9,7 +9,7 @@ import sys
 import textwrap
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -50,11 +50,11 @@ from sybil_extras.evaluators.shell_evaluator.source_preparer import (
 )
 from sybil_extras.languages import (
     DJOT,
-    MARKDOWN,
+    DOCUTILS_RST,
+    MARKDOWN_IT,
     MDX,
-    MYST,
+    MYST_PARSER,
     NORG,
-    RESTRUCTUREDTEXT,
     MarkupLanguage,
 )
 from sybil_extras.parsers.mdx.attribute_grouped_source import (
@@ -1612,9 +1612,9 @@ def main(
     document_workers = _resolve_workers(requested_workers=document_workers)
 
     suffix_groups: Mapping[MarkupLanguage, Sequence[str]] = {
-        MYST: myst_suffixes,
-        RESTRUCTUREDTEXT: rst_suffixes,
-        MARKDOWN: markdown_suffixes,
+        replace(MYST_PARSER, name="MyST"): myst_suffixes,
+        replace(DOCUTILS_RST, name="reStructuredText"): rst_suffixes,
+        replace(MARKDOWN_IT, name="Markdown"): markdown_suffixes,
         MDX: mdx_suffixes,
         DJOT: djot_suffixes,
         NORG: norg_suffixes,

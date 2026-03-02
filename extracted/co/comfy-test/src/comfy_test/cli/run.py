@@ -114,6 +114,8 @@ def cmd_run(args) -> int:
         server_url = getattr(args, 'server_url', None)
         comfyui_dir = Path(args.comfyui_dir) if getattr(args, 'comfyui_dir', None) else None
         deps_installed = getattr(args, 'deps_installed', False)
+        novram = getattr(args, 'novram', False)
+        vram_debug = getattr(args, 'vram_debug', False)
 
         results = [manager.run_platform(
             platform,
@@ -124,6 +126,8 @@ def cmd_run(args) -> int:
             server_url=server_url,
             comfyui_dir=comfyui_dir,
             deps_installed=deps_installed,
+            novram=novram,
+            vram_debug=vram_debug,
         )]
 
         # Report results
@@ -139,6 +143,30 @@ def cmd_run(args) -> int:
                 all_passed = False
                 if result.error:
                     print(f"    Error: {_safe_str(result.error)}")
+
+        # Per-workflow resource summary
+        results_file = output_dir / "results.json"
+        if results_file.exists():
+            import json as _json
+            results_data = _json.loads(results_file.read_text())
+            workflows = [w for w in results_data.get("workflows", []) if w.get("resources")]
+            if workflows:
+                has_vram = any(w.get("resources", {}).get("vram") for w in workflows)
+                header = f"\n  {'Workflow':<30s} {'Status':<9s}"
+                header += " Peak VRAM  " if has_vram else ""
+                header += " Peak RAM"
+                print(header)
+                for w in workflows:
+                    name = w["name"] + ".json"
+                    st = w["status"].upper()
+                    res = w.get("resources", {})
+                    line = f"  {name:<30s} {st:<9s}"
+                    if has_vram:
+                        vram = res.get("vram", {}).get("peak")
+                        line += f" {vram:>5.2f} GB   " if vram is not None else "     -      "
+                    ram = res.get("ram", {}).get("peak")
+                    line += f" {ram:>5.2f} GB" if ram is not None else "    -"
+                    print(line)
 
         print(f"\nOutput: {output_dir}")
         return 0 if all_passed else 1
@@ -213,5 +241,15 @@ def add_run_parser(subparsers):
         "--force",
         action="store_true",
         help="Overwrite existing workspace directory",
+    )
+    run_parser.add_argument(
+        "--novram",
+        action="store_true",
+        help="Pass --novram to ComfyUI (no VRAM reservation)",
+    )
+    run_parser.add_argument(
+        "--vram-debug",
+        action="store_true",
+        help="Enable VRAM debug logging (logs model load/unload with per-module breakdown)",
     )
     run_parser.set_defaults(func=cmd_run)

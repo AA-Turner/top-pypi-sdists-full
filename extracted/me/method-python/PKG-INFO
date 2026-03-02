@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: method-python
+Version: 2.1.1
+Summary: Python library for the Method API
+Home-page: https://github.com/MethodFi/method-python
+Author: Marco del Carmen
+Author-email: marco@mdelcarmen.me
+License: MIT
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: hammock==0.2.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Python library for the Method API

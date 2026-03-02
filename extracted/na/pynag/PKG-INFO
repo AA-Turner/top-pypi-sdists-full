@@ -1,0 +1,14 @@
+Metadata-Version: 1.1
+Name: pynag
+Version: 1.1.2
+Summary: Python modules for Nagios plugins and configuration
+Home-page: http://pynag.org/
+Author: Drew Stinnett
+Author-email: drew@drewlink.com
+License: GPLv2
+Description: 
+        Python modules and utilities for pragmatically handling Nagios configuration
+        file maintenance, status information, log file parsing and plug-in development.
+        
+Platform: UNKNOWN
+Requires: unittest2

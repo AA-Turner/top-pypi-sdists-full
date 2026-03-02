@@ -52,7 +52,7 @@ dependencies = [
     "typing-inspection>=0.4.2",
     "annotated-doc>=0.0.2",
 ]
-version = "0.134.0"
+version = "0.135.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"
@@ -385,6 +385,9 @@ ignore = [
     "UP028",
 ]
 "docs_src/stream_data/tutorial002_py310.py" = [
+    "UP028",
+]
+"docs_src/server_sent_events/tutorial001_py310.py" = [
     "UP028",
 ]
 

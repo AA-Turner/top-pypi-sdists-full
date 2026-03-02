@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: snowplow_analytics_sdk
+Version: 0.2.3
+Summary: Snowplow Analytics Python SDK
+Home-page: https://github.com/snowplow/snowplow-python-analytics-sdk
+Author: Fred Blundun
+Author-email: support@snowplowanalytics.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

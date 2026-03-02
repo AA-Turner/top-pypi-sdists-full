@@ -9,41 +9,50 @@ to efficiently cope with extremely large amounts of data.
 
 
 # Load the blosc2 library:
-# 1. Without a path (default, only the filename)
-# 2. In site-packages/blosc2/lib/ (venv, conda env, or system Python; same one where this tables is running)
-# 3. In tables.libs/ sibling (delvewheel, Windows-only)
+# 1. In tables.libs/ sibling (delvewheel, Windows-only)
+# 2. In tables
+# 3. In site-packages/blosc2/lib/ (venv, conda env, or system Python; same one where this tables is running)
+# 4. Without a path (default, only the filename)
 def _load_blosc2():
     import ctypes
     import platform
     import sysconfig
     from pathlib import Path
 
-    search_paths = ("default", "site-packages", "delvewheel")
+    search_paths = (
+        # "delvewheel"
+        Path(__file__).parent.with_suffix(".libs"),
+        # tables package
+        Path(__file__).parent,
+        # "site-packages"
+        Path(sysconfig.get_path("platlib")) / "blosc2" / "lib",
+        # "site-packages" purelib - this should be redundant
+        Path(sysconfig.get_path("purelib")) / "blosc2" / "lib",
+        # "default"
+        "",
+    )
     platform_system = platform.system()
     ext = (
         "so"
         if platform_system == "Linux"
         else ("dylib" if platform_system == "Darwin" else "dll")
     )
-    lib_file = f"libblosc2.{ext}"
+    lib_name = "blosc2"
+    lib_file = f"lib{lib_name}.{ext}"
 
     for where in search_paths:
-        lib_path = (
-            Path(lib_file)
-            if where == "default"
-            else (
-                Path(__file__).parent.with_suffix(".libs")
-                if where == "delvewheel"
-                else Path(sysconfig.get_path("purelib")) / "blosc2" / "lib"
-            )
-            / lib_file
-        )
-        if where == "default" or lib_path.exists():
+        lib_path = Path(where) / lib_file
+        if where == "" or lib_path.exists():
             try:
                 ctypes.CDLL(str(lib_path))  # may be Path in Python 3.12+
                 return True
             except OSError:
                 pass
+
+    import ctypes.util
+
+    if ctypes.util.find_library(lib_name):
+        return True
 
     return False
 

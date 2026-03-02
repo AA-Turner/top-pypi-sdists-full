@@ -1,0 +1,620 @@
+"""LLM call loop — streaming, failover, cooldowns, routing.
+
+Extracted from engine.py for maintainability.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import threading as _threading
+import time as _time
+from salmalm.constants import DATA_DIR as _DATA_DIR, MODEL_FALLBACKS as _DEFAULT_FALLBACKS
+from typing import Any, Callable, Dict, Optional, Tuple
+
+from salmalm.security.crypto import log
+from salmalm.core.llm import (
+    call_llm as _call_llm_sync,
+    stream_anthropic as _stream_anthropic,
+    stream_google as _stream_google,
+    stream_openai as _stream_openai,
+)
+
+# ============================================================
+# Model Failover — exponential backoff cooldown + fallback chain
+# ============================================================
+_FAILOVER_CONFIG_FILE = _DATA_DIR / "failover.json"
+_COOLDOWN_FILE = _DATA_DIR / "cooldowns.json"
+_cooldown_lock = _threading.Lock()
+
+# _DEFAULT_FALLBACKS imported from constants.py as MODEL_FALLBACKS
+_COOLDOWN_STEPS = [60, 300, 1500, 3600]  # 1m, 5m, 25m, 1h (rate-limit / transient)
+_BILLING_COOLDOWN_STEPS = [5 * 3600, 12 * 3600, 24 * 3600]  # 5h, 12h, 24h (billing / quota)
+_BILLING_PATTERNS = (
+    "insufficient_quota",
+    "billing",
+    "credit_balance_too_low",
+    "insufficient credits",
+    "out of credits",
+    "exceeded your current quota",
+    "exceeded your monthly",
+    "payment_required",
+    "payment required",
+    "account_deactivated",
+    "account deactivated",
+    "you exceeded",
+    "quota exceeded",
+    "no credits",
+    "your balance",
+)
+
+
+def _load_failover_config() -> dict:
+    """Load user failover chain config, falling back to defaults."""
+    try:
+        if _FAILOVER_CONFIG_FILE.exists():
+            cfg = json.loads(_FAILOVER_CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(cfg, dict):
+                merged = dict(_DEFAULT_FALLBACKS)
+                merged.update(cfg)
+                return merged
+    except Exception as e:
+        log.debug(f"Suppressed: {e}")
+    return dict(_DEFAULT_FALLBACKS)
+
+
+def _load_cooldowns() -> dict:
+    """Load cooldown state: {model: {until: float, failures: int}}."""
+    try:
+        if _COOLDOWN_FILE.exists():
+            data = json.loads(_COOLDOWN_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception as e:
+        log.debug(f"Suppressed: {e}")
+    return {}
+
+
+def _save_cooldowns(cd: dict) -> None:
+    """Save cooldowns atomically (tempfile + rename — safe on process kill)."""
+    import os as _os, tempfile as _tf
+    try:
+        _COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = _tf.mkstemp(dir=_COOLDOWN_FILE.parent, suffix=".tmp")
+        try:
+            with _os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(cd))
+                f.flush()
+                _os.fsync(f.fileno())
+            _os.replace(tmp, _COOLDOWN_FILE)
+        except Exception:
+            try:
+                _os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+    except Exception as e:
+        log.debug(f"[COOLDOWN] Save failed: {e}")
+
+
+def _is_model_cooled_down(model: str) -> bool:
+    """Check if a model is in cooldown."""
+    with _cooldown_lock:
+        cd = _load_cooldowns()
+        entry = cd.get(model)
+        if not entry:
+            return False
+        return _time.time() < entry.get("until", 0)
+
+
+def _cooldown_provider(model: str, cooldown_seconds: int = 3600) -> None:
+    """Cooldown all models from the same provider (e.g., invalid API key)."""
+    provider = model.split("/")[0] if "/" in model else model
+    with _cooldown_lock:
+        cd = _load_cooldowns()
+        # Find all models from this provider — both built-in fallbacks AND
+        # any user-added models from the live failover config.
+        all_models = set()
+        for m in _DEFAULT_FALLBACKS:
+            if m.startswith(provider + "/"):
+                all_models.add(m)
+        try:
+            live_cfg = get_failover_config()
+            for m in live_cfg:
+                if isinstance(m, str) and m.startswith(provider + "/"):
+                    all_models.add(m)
+        except Exception:
+            pass  # Non-critical: built-in fallbacks already covered
+        all_models.add(model)
+        for m in all_models:
+            cd[m] = {"until": _time.time() + cooldown_seconds, "failures": 99}
+        _save_cooldowns(cd)
+    log.warning(f"[AUTH] Provider {provider} cooled down for {cooldown_seconds}s ({len(all_models)} models)")
+
+
+def reset_cooldowns() -> None:
+    """Clear all model/provider cooldowns."""
+    with _cooldown_lock:
+        _save_cooldowns({})
+    log.info("[COOLDOWN] All cooldowns cleared")
+
+
+def get_cooldown_status() -> dict:
+    """Return current cooldown state with human-readable info."""
+    with _cooldown_lock:
+        cd = _load_cooldowns()
+    now = _time.time()
+    result = {}
+    for model, entry in cd.items():
+        remaining = entry.get("until", 0) - now
+        if remaining > 0:
+            result[model] = {"remaining_seconds": int(remaining), "failures": entry.get("failures", 0)}
+    return result
+
+
+def _record_model_failure(model: str, cooldown_seconds: int = 0) -> None:
+    """Record a model failure and set cooldown."""
+    with _cooldown_lock:
+        cd = _load_cooldowns()
+        entry = cd.get(model, {"until": 0, "failures": 0})
+        failures = entry.get("failures", 0)
+        if cooldown_seconds > 0:
+            cooldown_secs = cooldown_seconds
+        else:
+            step = min(failures, len(_COOLDOWN_STEPS) - 1)
+            cooldown_secs = _COOLDOWN_STEPS[step]
+        cd[model] = {
+            "until": _time.time() + cooldown_secs,
+            "failures": failures + 1,
+        }
+        _save_cooldowns(cd)
+        log.warning(f"[FAILOVER] {model} cooled down for {cooldown_secs}s (failure #{failures + 1})")
+    # Sync to CircuitBreakerRegistry so global_circuit_breaker sees provider state
+    try:
+        from salmalm.core.error_recovery import circuit_breakers
+        provider = model.split("/")[0] if "/" in model else model
+        circuit_breakers.record_failure(provider)
+    except Exception:
+        pass  # Non-critical — cooldown file is the primary state
+
+
+def _clear_model_cooldown(model: str) -> None:
+    """Clear cooldown on successful call. Also resets failure counter so next
+    failure starts from 0 rather than inheriting stale escalated backoff.
+    Also notifies CircuitBreakerRegistry so the provider circuit resets."""
+    with _cooldown_lock:
+        cd = _load_cooldowns()
+        if model in cd:
+            del cd[model]  # Full removal resets failures implicitly
+            _save_cooldowns(cd)
+    # Sync success to CircuitBreakerRegistry — provider circuit closes if it was open
+    try:
+        from salmalm.core.error_recovery import circuit_breakers
+        provider = model.split("/")[0] if "/" in model else model
+        circuit_breakers.record_success(provider)
+    except Exception:
+        pass  # Non-critical — cooldown file is the primary state
+
+
+def get_failover_config() -> dict:
+    """Public getter for failover config (used by web API / settings)."""
+    return _load_failover_config()
+
+
+def save_failover_config(config: dict) -> None:
+    """Save user's failover chain config."""
+    try:
+        _FAILOVER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _FAILOVER_CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    except Exception as e:
+        log.debug(f"Suppressed: {e}")
+
+
+# ============================================================
+# Status callback types for typing indicators
+# ============================================================
+STATUS_TYPING = "typing"
+STATUS_THINKING = "thinking"
+STATUS_TOOL_RUNNING = "tool_running"
+STATUS_COMPACTING = "compacting"
+
+
+# ============================================================
+# Async LLM call wrappers
+# ============================================================
+
+
+async def _call_llm_async(*args, **kwargs):
+    """Non-blocking LLM call — runs urllib in a thread to avoid blocking the event loop."""
+    return await asyncio.to_thread(_call_llm_sync, *args, **kwargs)
+
+
+async def _call_google_streaming(messages: list, model=None, tools=None, max_tokens=4096, on_token=None) -> dict:
+    """Streaming Google Gemini call — yields tokens via on_token callback, returns final result.
+
+    Handles streaming interruptions gracefully — preserves partial content.
+    """
+
+    def _run() -> dict:
+        """Run."""
+        final_result = None
+        accumulated_text = []
+        try:
+            for event in _stream_google(messages, model=model, tools=tools, max_tokens=max_tokens):
+                if on_token:
+                    on_token(event)
+                if event.get("type") == "content_block_delta":
+                    delta = event.get("delta", {})
+                    if delta.get("type") == "text_delta":
+                        accumulated_text.append(delta.get("text", ""))
+                if event.get("type") == "message_end":
+                    final_result = event
+                elif event.get("type") == "error":
+                    return {
+                        "content": event.get("error", "❌ Google streaming error"),
+                        "tool_calls": [],
+                        "usage": {"input": 0, "output": 0},
+                        "model": model or "?",
+                    }
+        except Exception as e:
+            partial = "".join(accumulated_text)
+            if partial:
+                log.warning(f"[STREAM] Google streaming interrupted with {len(partial)} chars: {e}")
+                return {
+                    "content": partial + "\n\n⚠️ [Streaming interrupted]",
+                    "tool_calls": [],
+                    "usage": {"input": 0, "output": 0},
+                    "model": model or "?",
+                }
+            raise
+        return final_result or {
+            "content": "".join(accumulated_text) if accumulated_text else "",
+            "tool_calls": [],
+            "usage": {"input": 0, "output": 0},
+            "model": model or "?",
+        }
+
+    return await asyncio.to_thread(_run)
+
+
+async def _call_llm_streaming(
+    messages: list, model=None, tools=None, max_tokens=4096, thinking=False, on_token=None
+) -> dict:
+    """Streaming LLM call — yields tokens via on_token callback, returns final result.
+
+    on_token: callback(event_dict) called for each streaming event.
+    Returns the same dict format as call_llm.
+    Handles streaming interruptions gracefully — preserves partial content.
+    """
+
+    def _run() -> dict:
+        """Run."""
+        import os as _os
+
+        _early_stop = _os.environ.get("SALMALM_EARLY_STOP", "0") == "1"
+        final_result = None
+        accumulated_text = []
+        _has_tool_calls = False
+        try:
+            for event in _stream_anthropic(
+                messages, model=model, tools=tools, max_tokens=max_tokens, thinking=thinking
+            ):
+                if on_token:
+                    on_token(event)
+                # Track text deltas for recovery
+                if event.get("type") == "content_block_delta":
+                    delta = event.get("delta", {})
+                    if delta.get("type") == "text_delta":
+                        accumulated_text.append(delta.get("text", ""))
+                if event.get("type") == "content_block_start":
+                    cb = event.get("content_block", {})
+                    if cb.get("type") == "tool_use":
+                        _has_tool_calls = True
+                # Early stop: if text-only response looks complete, break
+                if _early_stop and not _has_tool_calls and not tools and len(accumulated_text) > 5:
+                    tail = "".join(accumulated_text[-3:]).rstrip()
+                    if tail.endswith((".", "!", "?", "。", "！", "？", "```")) and len("".join(accumulated_text)) > 200:
+                        log.info("[EARLY_STOP] Response looks complete, stopping stream")
+                        break
+                if event.get("type") == "message_end":
+                    final_result = event
+                elif event.get("type") == "error":
+                    return {
+                        "content": event.get("error", "❌ Streaming error"),
+                        "tool_calls": [],
+                        "usage": {"input": 0, "output": 0},
+                        "model": model or "?",
+                    }
+        except Exception as e:
+            # Streaming interrupted — return partial content if available
+            partial = "".join(accumulated_text)
+            if partial:
+                log.warning(f"[STREAM] Interrupted with {len(partial)} chars partial: {e}")
+                return {
+                    "content": partial + "\n\n⚠️ [Streaming interrupted]",
+                    "tool_calls": [],
+                    "usage": {"input": 0, "output": 0},
+                    "model": model or "?",
+                }
+            raise
+        return final_result or {
+            "content": "".join(accumulated_text) if accumulated_text else "",
+            "tool_calls": [],
+            "usage": {"input": 0, "output": 0},
+            "model": model or "?",
+        }
+
+    return await asyncio.to_thread(_run)
+
+
+async def _call_openai_streaming(messages: list, model=None, tools=None, max_tokens=4096, on_token=None) -> dict:
+    """Streaming OpenAI-compatible call — yields tokens via on_token, returns final result.
+
+    Supports: openai, xai, deepseek, openrouter, meta-llama, mistralai, qwen, ollama.
+    """
+    def _run() -> dict:
+        accumulated_text = []
+        tool_calls_out = []
+        final_result = None
+        try:
+            for event in _stream_openai(messages, model=model, tools=tools, max_tokens=max_tokens):
+                if on_token:
+                    on_token(event)
+                if event.get("type") == "text_delta":
+                    accumulated_text.append(event.get("text", ""))
+                elif event.get("type") == "tool_use_end":
+                    tool_calls_out.append({
+                        "id": event["id"],
+                        "name": event["name"],
+                        "arguments": event["arguments"],
+                    })
+                elif event.get("type") == "message_end":
+                    final_result = event
+                elif event.get("type") == "error":
+                    return {
+                        "content": event.get("error", "❌ OpenAI streaming error"),
+                        "tool_calls": [],
+                        "usage": {"input": 0, "output": 0},
+                        "model": model or "?",
+                    }
+        except Exception as e:
+            partial = "".join(accumulated_text)
+            if partial:
+                log.warning(f"[STREAM] OpenAI interrupted with {len(partial)} chars partial: {e}")
+                return {
+                    "content": partial + "\n\n⚠️ [Streaming interrupted]",
+                    "tool_calls": [],
+                    "usage": {"input": 0, "output": 0},
+                    "model": model or "?",
+                }
+            raise
+        return final_result or {
+            "content": "".join(accumulated_text),
+            "tool_calls": tool_calls_out,
+            "usage": {"input": 0, "output": 0},
+            "model": model or "?",
+        }
+
+    return await asyncio.to_thread(_run)
+
+
+# OpenAI-compatible providers that support our streaming implementation
+_OPENAI_COMPATIBLE_PROVIDERS = frozenset({
+    "openai", "xai", "deepseek", "openrouter",
+    "meta-llama", "mistralai", "qwen", "ollama",
+})
+
+
+# ============================================================
+# Failover-aware LLM calls (used by IntelligenceEngine)
+# ============================================================
+
+
+async def call_with_failover(
+    messages: list,
+    model: str,
+    tools: Optional[list] = None,
+    max_tokens: int = 4096,
+    thinking: bool = False,
+    on_token: Optional[Callable] = None,
+    on_status: Optional[Callable] = None,
+) -> Tuple[Dict[str, Any], Optional[str]]:
+    """LLM call with automatic failover on failure.
+
+    on_status: optional callback(status_type, detail_str) for typing indicators.
+    Returns (result_dict, failover_warning_or_None).
+    """
+    # Check if primary model is cooled down
+    if _is_model_cooled_down(model):
+        log.info(f"[FAILOVER] {model} is in cooldown, trying fallbacks")
+        chain = _load_failover_config().get(model, [])
+        for fb in chain:
+            if not _is_model_cooled_down(fb):
+                warn = f"⚠️ {model.split('/')[-1]} in cooldown, using {fb.split('/')[-1]}"
+                result = await try_llm_call(messages, fb, tools, max_tokens, thinking, on_token)
+                if not result.get("_failed"):
+                    _clear_model_cooldown(fb)
+                    return result, warn
+                _record_model_failure(fb)
+        # All fallbacks in cooldown — reject immediately without hammering dead endpoints
+        log.warning(f"[FAILOVER] {model} + all fallbacks in cooldown — rejecting request")
+        return {
+            "content": "⚠️ 모든 AI 모델이 일시적으로 사용 불가합니다. 잠시 후 다시 시도해주세요.",
+            "tool_calls": [],
+            "_failed": True,
+            "usage": {"input": 0, "output": 0},
+        }, f"⚠️ {model.split('/')[-1]} and all fallbacks in cooldown"
+
+    # Try primary model
+    result = await try_llm_call(messages, model, tools, max_tokens, thinking, on_token)
+    if not result.get("_failed"):
+        _clear_model_cooldown(model)
+        # Service recovered — drain any queued messages
+        try:
+            from salmalm.features.message_queue import message_queue
+
+            if message_queue.get_status()["queued"] > 0:
+                import asyncio
+
+                asyncio.create_task(message_queue.drain())
+        except Exception as e:
+            log.debug(f"Suppressed: {e}")
+        # Notify user if router silently fell back to a different model
+        if result.get("fallback"):
+            actual = result.get("model", "unknown").split("/")[-1]
+            requested = model.split("/")[-1]
+            warn = f"⚠️ **{requested}** 모델을 사용할 수 없어 **{actual}** 로 전환됐소."
+            if result.get("content"):
+                result["content"] = warn + "\n\n" + result["content"]
+            return result, warn
+        return result, None
+
+    # Primary failed — record and try fallbacks
+    _record_model_failure(model)
+    chain = _load_failover_config().get(model, [])
+    for fb in chain:
+        if _is_model_cooled_down(fb):
+            continue
+        log.info(f"[FAILOVER] {model} failed, trying {fb}")
+        if on_status:
+            _cb_result = on_status(
+                STATUS_TYPING, f"⚠️ {model.split('/')[-1]} failed, falling back to {fb.split('/')[-1]}"
+            )
+            if asyncio.iscoroutine(_cb_result):
+                await _cb_result
+        result = await try_llm_call(messages, fb, tools, max_tokens, thinking, on_token)
+        if not result.get("_failed"):
+            _clear_model_cooldown(fb)
+            warn = f"⚠️ {model.split('/')[-1]} failed, fell back to {fb.split('/')[-1]}"
+            return result, warn
+        _record_model_failure(fb)
+
+    # All failed — try to queue the message for later processing
+    try:
+        from salmalm.features.message_queue import message_queue
+
+        # Extract the last user message for queuing
+        user_msgs = [m for m in messages if m.get("role") == "user"]
+        if user_msgs:
+            last_user = user_msgs[-1]
+            content = last_user.get("content", "")
+            if isinstance(content, str) and content:
+                message_queue.enqueue("unknown", content, model_override=model)
+                log.info("[QUEUE] Message queued after all-models-failed")
+    except Exception as e:
+        log.debug(f"Suppressed: {e}")
+
+    return result, "⚠️ All models failed"
+
+
+async def try_llm_call(
+    messages: list, model: str, tools: Optional[list], max_tokens: int, thinking: bool, on_token: Optional[Callable]
+) -> Dict[str, Any]:
+    """Single LLM call attempt with transient error retry.
+
+    Retries once on transient errors (timeout, 5xx, connection reset).
+    Sets _failed=True on persistent failure.
+    """
+    provider = model.split("/")[0] if "/" in model else "anthropic"
+    _TRANSIENT_PATTERNS = (
+        "timeout",
+        "timed out",
+        "529",
+        "503",
+        "502",
+        "connection reset",
+        "connection refused",
+        "overloaded",
+        "rate limit",
+        "429",
+    )
+    _AUTH_PATTERNS = ("401", "invalid api key", "unauthorized", "authentication", "invalid x-api-key")
+
+    last_error = None
+    for attempt in range(2):  # 1 initial + 1 retry
+        try:
+            if on_token and provider == "anthropic":
+                result = await _call_llm_streaming(
+                    messages, model=model, tools=tools, thinking=thinking, on_token=on_token
+                )
+            elif on_token and provider == "google":
+                result = await _call_google_streaming(
+                    messages, model=model, tools=tools, max_tokens=max_tokens, on_token=on_token
+                )
+            elif on_token and provider in _OPENAI_COMPATIBLE_PROVIDERS:
+                result = await _call_openai_streaming(
+                    messages, model=model, tools=tools, max_tokens=max_tokens, on_token=on_token
+                )
+            else:
+                result = await _call_llm_async(messages, model=model, tools=tools, thinking=thinking)
+            # Check for error responses — prefer explicit 'error' field over content sniffing
+            if result.get("error"):
+                error_str = str(result["error"]).lower()
+                # Billing / quota errors: long cooldown (5h→12h→24h), not retried
+                if any(p in error_str for p in _BILLING_PATTERNS):
+                    _cd = _load_cooldowns()
+                    _billing_failures = _cd.get(model, {}).get("failures", 0)
+                    _billing_step = min(_billing_failures, len(_BILLING_COOLDOWN_STEPS) - 1)
+                    _billing_secs = _BILLING_COOLDOWN_STEPS[_billing_step]
+                    log.warning(
+                        f"[BILLING] {model} billing/quota error — cooldown {_billing_secs//3600}h "
+                        f"(failure #{_billing_failures + 1}): {result['error']}"
+                    )
+                    _record_model_failure(model, cooldown_seconds=_billing_secs)
+                    result["_failed"] = True
+                    result["_billing_error"] = True
+                    return result
+                # Auth errors: cooldown entire provider (invalid key affects all models)
+                if any(p in error_str for p in _AUTH_PATTERNS):
+                    log.warning(f"[AUTH] {model} API key invalid — provider cooldown 1h: {result['error']}")
+                    _cooldown_provider(model, cooldown_seconds=3600)
+                    result["_failed"] = True
+                    return result
+                if attempt == 0 and any(p in error_str for p in _TRANSIENT_PATTERNS):
+                    log.warning(f"[RETRY] Transient error from {model}: {result['error']}")
+                    await asyncio.sleep(1.5)
+                    continue
+                result["_failed"] = True
+                return result
+
+            # Fallback: detect error from content (for providers that return errors as text)
+            # Only flag as failed if content is ONLY an error message (short + starts with ❌)
+            content = result.get("content", "")
+            if (
+                isinstance(content, str)
+                and content.startswith("❌")
+                and len(content) < 500
+                and "API key" not in content
+            ):
+                content_lower = content.lower()
+                if attempt == 0 and any(p in content_lower for p in _TRANSIENT_PATTERNS):
+                    log.warning(f"[RETRY] Transient error from {model}, retrying: {content[:100]}")
+                    await asyncio.sleep(1.5)
+                    continue
+                result["_failed"] = True
+            return result
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            if attempt == 0 and any(p in err_str for p in _TRANSIENT_PATTERNS):
+                log.warning(f"[RETRY] Transient exception from {model}, retrying: {e}")
+                await asyncio.sleep(1.5)
+                continue
+            log.error(f"[FAILOVER] {model} call error: {e}")
+            return {
+                "content": f"❌ {e}",
+                "tool_calls": [],
+                "_failed": True,
+                "usage": {"input": 0, "output": 0},
+                "model": model,
+            }
+
+    # Both attempts failed
+    log.error(f"[FAILOVER] {model} failed after retry: {last_error}")
+    return {
+        "content": f"❌ {last_error}",
+        "tool_calls": [],
+        "_failed": True,
+        "usage": {"input": 0, "output": 0},
+        "model": model,
+    }

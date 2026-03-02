@@ -1,0 +1,26 @@
+[project]
+name = "chia_base"
+description = "Common types and simple utilities used through chia code base"
+authors = [{ name = "Richard Kiss", email = "him@richardkiss.com" }]
+license = { text = "Apache-2.0" }
+readme = "README.md"
+dependencies = ["clvm_rs==0.2.5", "chia_rs>=0.5.2"]
+dynamic = ["version"]
+
+# version is defined with `setuptools_scm`. See `SConstruct` file.
+
+[project.urls]
+Repository = "https://github.com/richardkiss/chia_base.git"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.0.252", "black>=23.1.0", "pytest>=7.2.1"]
+
+[project.scripts]
+
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+# version is defined with `setuptools_scm`
+[tool.setuptools_scm]
+local_scheme = "no-local-version"

@@ -1,6 +1,0 @@
-NAME: str
-DOMAIN: str
-MANUFACTURER: str
-POWER: str
-INPUT: str
-SOURCE: str

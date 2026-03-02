@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: networkx-stubs
+Version: 0.0.1
+Summary: Typing stubs for NetworkX
+Home-page: https://github.com/eggplants/networkx-stubs
+Author: eggplants
+Author-email: w10776e8w@yahoo.co.jp
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+
+# networkx-stubs
+
+[![Release Package](https://github.com/eggplants/networkx-stubs/actions/workflows/release.yml/badge.svg)](https://github.com/eggplants/networkx-stubs/actions/workflows/release.yml) [![PyPI](https://img.shields.io/pypi/v/networkx-stubs?color=blue)](https://pypi.org/project/networkx-stubs/)
+
+Typing stubs for NetworkX

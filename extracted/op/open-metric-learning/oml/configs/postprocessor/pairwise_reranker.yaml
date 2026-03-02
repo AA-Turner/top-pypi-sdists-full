@@ -1,0 +1,17 @@
+name: pairwise_reranker
+args:
+  top_n: 3
+  pairwise_model:
+    name: trivial_distance_siamese
+    args:
+      extractor:
+        name: resnet
+        args:
+          arch: resnet50_projector
+          gem_p: 7.0
+          remove_fc: True
+          normalise_features: False
+          weights: resnet50_moco_v2
+  num_workers: 0
+  batch_size: 4
+  verbose: False

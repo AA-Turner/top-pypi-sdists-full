@@ -562,19 +562,20 @@ fn fast_text_only(html: &str, options: &ConversionOptions) -> Option<String> {
         Cow::Borrowed(trimmed)
     };
 
-    let escaped =
-        if options.escape_misc || options.escape_asterisks || options.escape_underscores || options.escape_ascii {
-            text::escape(
-                normalized.as_ref(),
-                options.escape_misc,
-                options.escape_asterisks,
-                options.escape_underscores,
-                options.escape_ascii,
-            )
-            .into_owned()
-        } else {
-            normalized.into_owned()
-        };
+    let escaped = if options.output_format == crate::options::OutputFormat::Plain {
+        normalized.into_owned()
+    } else if options.escape_misc || options.escape_asterisks || options.escape_underscores || options.escape_ascii {
+        text::escape(
+            normalized.as_ref(),
+            options.escape_misc,
+            options.escape_asterisks,
+            options.escape_underscores,
+            options.escape_ascii,
+        )
+        .into_owned()
+    } else {
+        normalized.into_owned()
+    };
 
     let mut output = String::with_capacity(escaped.len() + 1);
     output.push_str(&escaped);

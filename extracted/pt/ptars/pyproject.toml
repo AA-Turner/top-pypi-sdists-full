@@ -1,0 +1,105 @@
+[build-system]
+build-backend = "maturin"
+requires = [ "maturin>=1,<2" ]
+
+[project]
+name = "ptars"
+description = "Convert from protobuf to arrow and back in rust"
+readme = "README.md"
+keywords = [ "apache-arrow", "data", "protobuf", "rust" ]
+license = { text = "Apache-2.0" }
+maintainers = [
+  { name = "0x26res", email = "0x26res@gmail.com" },
+]
+authors = [
+  { name = "0x26res", email = "0x26res@gmail.com.co" },
+]
+requires-python = "<4.0,>=3.10"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Natural Language :: English",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Rust",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "googleapis-common-protos",
+  "protobuf",
+  "pyarrow",
+]
+urls.changelog = "https://github.com/0x26res/ptars/releases"
+urls.code-of-conduct = "https://github.com/0x26res/ptars/blob/main/CODE_OF_CONDUCT.md"
+urls.contributing = "https://github.com/0x26res/ptars/blob/main/CONTRIBUTING.md"
+urls.documentation = "https://ptars.readthedocs.io/en/latest/"
+urls.issues = "https://github.com/0x26res/ptars/issues"
+urls.repository = "https://github.com/0x26res/ptars"
+
+[dependency-groups]
+dev = [
+  "bump-my-version>=0.28",
+  "coverage>=6.5",
+  "git-changelog>=2.2",
+  "inflection>=0.5.1",
+  "mkdocs>=1.4.2",
+  "mkdocs-material>=9.0.3",
+  "mkdocstrings[python]>=0.21.2",
+  "pandas",
+  "pipdeptree",
+  "prek>=0.3.1",
+  "pylint>=2.15",
+  "pytest>=7.2",
+  "pytest-benchmark>=4",
+  "pytest-xdist>=3.1",
+  "ruff",
+  "tabulate",
+  "ty",
+  "types-protobuf",
+  { include-group = "test" },
+]
+test = [
+  "coverage",
+  "grpcio-tools>=1.46",
+  "maturin",
+  "protarrow",
+  "pytest",
+]
+docs = [
+  "mkdocs>=1.4.2",
+  "mkdocs-material>=9.0.3",
+  "mkdocstrings[python]>=0.21.2",
+]
+
+[tool.maturin]
+bindings = "pyo3"
+exclude = [ "python/test/**", ".**", "sdist/**", ".github/**" ]
+features = [ "pyo3/extension-module" ]
+include = [ "LICENSE", "python/ptars/py.typed" ]
+manifest-path = "ptars-python/Cargo.toml"
+module-name = "ptars._lib"
+python-packages = [ "ptars" ]
+python-source = "python"
+
+[tool.ruff]
+lint.select = [ "C", "E", "F", "I", "RET" ]
+lint.ignore = [
+  "RET505", # Control the flow with if/elif/else, not return/raise/continue/break
+  "RET506",
+  "RET507",
+  "RET508",
+]
+
+[tool.isort]
+known_first_party = [ "ptars", "ptars_protos" ]
+profile = "black"
+skip = [ ".gitignore" ]
+src_paths = [ "ptars", "tests" ]
+
+[tool.bandit]
+skips = [ "B101" ]

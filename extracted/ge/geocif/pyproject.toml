@@ -1,0 +1,92 @@
+[project]
+name = "geocif"
+version = "0.4.150"
+
+description = "Models to visualize and forecast crop conditions and yields"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Ritvik Sahajpal", email = "ritvik@umd.edu"}
+]
+keywords = ["geocif"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "boruta>=0.4.3",
+    "catboost>=1.2.8",
+    "fiona",
+    "gdal==3.10.2; sys_platform == 'win32'",   # Windows: matched by uv.sources wheel
+    "gdal==3.11.0; sys_platform != 'win32'",  # HPC Linux: must match system libgdal 3.11.0
+    "pyeogpr>=2.4.7",
+    "pyproj",
+    "rasterio",
+    "rtree",
+    "shap>=0.48.0",
+    "shapely",
+    "optuna",
+    "xarray>=2026.2.0",
+    "pooch>=1.8.0",
+    "arrow>=1.4.0",
+    "icclim>=7.0.4",
+    "geoprepare>=0.6.129",
+    "logzero>=1.7.0",
+    "geopandas>=1.1.2",
+    "tabpfn>=6.4.1",
+    "tabicl>=2.0.2",
+    "statsmodels>=0.14.6",
+    "palettable>=3.3.3",
+    "seaborn>=0.13.2",
+    "scikit-misc>=0.5.2",
+]
+
+[project.urls]
+Homepage = "https://ritviksahajpal.github.io/yield_forecasting/"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["geocif", "geocif.*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.uv.sources]
+gdal = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/gdal-3.10.2-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+rasterio = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/rasterio-1.4.3-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+shapely = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/shapely-2.0.7-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+pyproj = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/pyproj-3.7.1-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+rtree = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/rtree-1.4.0-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+fiona = { url = "https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.3.30/fiona-1.10.1-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32'" }
+
+[tool.uv]
+override-dependencies = [
+    "cuda-bindings; python_version < '0'",
+    "cuda-pathfinder; python_version < '0'",
+    "nvidia-cublas-cu12; python_version < '0'",
+    "nvidia-cuda-cupti-cu12; python_version < '0'",
+    "nvidia-cuda-nvrtc-cu12; python_version < '0'",
+    "nvidia-cuda-runtime-cu12; python_version < '0'",
+    "nvidia-cudnn-cu12; python_version < '0'",
+    "nvidia-cufft-cu12; python_version < '0'",
+    "nvidia-cufile-cu12; python_version < '0'",
+    "nvidia-curand-cu12; python_version < '0'",
+    "nvidia-cusolver-cu12; python_version < '0'",
+    "nvidia-cusparse-cu12; python_version < '0'",
+    "nvidia-cusparselt-cu12; python_version < '0'",
+    "nvidia-nccl-cu12; python_version < '0'",
+    "nvidia-nvjitlink-cu12; python_version < '0'",
+    "nvidia-nvshmem-cu12; python_version < '0'",
+    "nvidia-nvtx-cu12; python_version < '0'",
+]

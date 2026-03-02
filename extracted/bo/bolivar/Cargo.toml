@@ -1,0 +1,69 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "1.5.2"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/harubi/bolivar"
+authors = ["Ahmed Aloufi <936636+harubi@users.noreply.github.com>"]
+keywords = ["pdf", "text-extraction", "pdfminer", "pdfplumber"]
+categories = ["parser-implementations", "text-processing"]
+
+[workspace.dependencies]
+# Internal crates
+bolivar-core = { path = "crates/core", version = "1.5.2" }
+
+# Core dependencies
+aes = "0.8"
+byteorder = "1.5"
+bytes = "1"
+cbc = "0.1"
+flate2 = "1.1"
+html-escape = "0.2"
+indexmap = "2.12"
+itertools = "0.14"
+lazy_static = "1.5"
+md5 = "0.8.0"
+num-traits = "0.2"
+sha2 = "0.10"
+once_cell = "1.21"
+regex = "1.12"
+rustc-hash = "2.1"
+thiserror = "2.0"
+unicode-normalization = "0.1"
+unicode-bidi = "0.3"
+weezl = "0.1"
+rstar = "0.12"
+ordered-float = "5.1.0"
+geo-index = "0.3.2"
+rayon = "1.11"
+memmap2 = "0.9"
+stats_alloc = "0.1.10"
+stats_alloc_helper = "0.3.1"
+smallvec = "1.13"
+
+# CLI dependencies
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+tracing = "0.1"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+
+# Python bindings
+pyo3 = { version = "0.27", features = ["experimental-inspect"] }
+
+# Stub generation
+pyo3-introspection = "0.27.1"
+
+# Dev dependencies
+criterion = { version = "0.8.1", features = ["html_reports"] }
+criterion-perf-events = "0.4"
+hex = "0.4"
+insta = "1.46"
+perfcnt = "0.8"
+rustversion = "1.0"
+
+[profile.release]
+debug = true

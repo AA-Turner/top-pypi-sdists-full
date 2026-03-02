@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.14.5"
+version = "0.14.6"
 description = "GitHub SDK for Python"
 authors = [{ name = "yanyongyu", email = "yyy@yyydl.top" }]
 license = "MIT"
@@ -549,6 +549,18 @@ source = "descriptions-next/ghec/ghec.2022-11-28.json"
 "/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
 "/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
 "/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
+
+# https://github.com/yanyongyu/githubkit/issues/275
+# https://github.com/github/rest-api-description/issues/6058
+"/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
+# https://github.com/yanyongyu/githubkit/issues/276
+# https://github.com/github/rest-api-description/issues/6059
+"/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/state/enum" = { "<add>" = [
+  "dismissed",
+] }
 
 # webhook repository dispatch action can be any string
 "/webhooks/repository-dispatch-sample.collected/post" = { operationId = "repository-dispatch" }

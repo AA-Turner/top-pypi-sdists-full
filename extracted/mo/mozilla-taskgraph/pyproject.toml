@@ -1,0 +1,87 @@
+[project]
+name = "mozilla-taskgraph"
+version = "4.1.0"
+description = "Mozilla specific transforms and utilities for Taskgraph"
+readme = "README.md"
+authors = [
+  { name = "Mozilla Release Engineering", email =  "release+mozilla-taskgraph@mozilla.com"}
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "taskcluster-taskgraph>=19.1,<20",
+]
+
+[project.urls]
+Repository = "https://github.com/mozilla-releng/mozilla-taskgraph"
+Issues = "https://github.com/mozilla-releng/mozilla-taskgraph/issues"
+
+[dependency-groups]
+dev = [
+  "commitizen",
+  "coverage",
+  "pytest",
+  "pytest-mock",
+  "responses",
+  "taskcluster_urls",
+]
+
+docs = [
+  "sphinx~=9.1.0",
+  "sphinx-autobuild",
+  "sphinx-argparse",
+  "sphinx-book-theme",
+]
+
+[tool.uv.dependency-groups]
+docs = {requires-python = ">=3.12"}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+
+[tool.pytest.ini_options]
+xfail_strict = true
+
+[tool.commitizen]
+bump_message = "chore: version bump $new_version"
+changelog_incremental = true
+gpg_sign = true
+tag_format = "$version"
+update_changelog_on_bump = true
+version_provider = "pep621"
+
+[tool.coverage.run]
+branch = true
+source = ["src/mozilla_taskgraph/", "mozilla_taskgraph"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",       # pycodestyle
+    "F",            # pyflakes
+    "I",            # isort
+    "PLC", "PLE",   # pylint
+    "UP",           # pyupgrade
+]
+ignore = [
+    "E402",
+    "E501",  # let black handle line-length
+    "E741",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mozilla_taskgraph"]

@@ -1,0 +1,224 @@
+"""Extracted helpers from IntelligenceEngine._execute_loop.
+
+Breaks the god object into composable functions.
+"""
+
+import asyncio
+import hashlib
+import json
+import logging
+import re
+from collections import Counter
+
+log = logging.getLogger("salmalm")
+
+
+def check_abort(session_id: str) -> str | None:
+    """Check if generation was aborted. Returns partial response or None."""
+    from salmalm.features.abort import abort_controller
+
+    if abort_controller.is_aborted(session_id):
+        partial = abort_controller.get_partial(session_id) or ""
+        abort_controller.clear(session_id)
+        return (partial + "\n\n⏹ [생성 중단됨 / Generation aborted]").strip()
+    return None
+
+
+def select_model(model_override: str | None, user_message: str, tier: int, iteration: int, router) -> str:
+    """Select model based on override, tier, or router."""
+    if model_override:
+        return model_override
+    model = router.route(user_message, has_tools=True, iteration=iteration)
+    if tier == 3 and iteration == 0:
+        model = router._pick_available(3)
+    elif tier == 2 and iteration == 0:
+        model = router._pick_available(2)
+    return model
+
+
+def trim_history(session, classification) -> None:
+    """Aggressive history trim for simple intents."""
+    _INTENT_HISTORY_LIMIT = {"chat": 10, "memory": 10, "creative": 20}
+    _hist_limit = _INTENT_HISTORY_LIMIT.get(classification["intent"])
+    if _hist_limit and len(session.messages) > _hist_limit:
+        _sys = [m for m in session.messages if m.get("role") == "system"]
+        _recent = [m for m in session.messages if m.get("role") != "system"][-_hist_limit:]
+        session.messages = _sys + _recent
+
+
+def prune_session_context(session, model: str) -> list:
+    """Prune context. Runs three stages when needed:
+
+    A (tool-result pruning) — always run when cache TTL has expired.
+    B (role-aware pair dropping) — run when Stage A is insufficient.
+    C (critical truncation) — last resort, keeps minimum pairs.
+    """
+    from salmalm.core.engine import _should_prune_for_cache, estimate_context_window, prune_context
+    from salmalm.core.session_manager import recover_overflow, _estimate_total_tokens
+
+    _ctx_win = estimate_context_window(model)
+    _sid = getattr(session, "id", "__global__")
+
+    # ── Stage A: tool-result pruning (cache-TTL aware) ──
+    if _should_prune_for_cache(session_id=_sid):
+        pruned, a_stats = prune_context(session.messages, context_window_tokens=_ctx_win, session_id=_sid)
+        if a_stats["soft_trimmed"] or a_stats["hard_cleared"]:
+            log.info("[PRUNE-A] soft=%d hard=%d", a_stats["soft_trimmed"], a_stats["hard_cleared"])
+    else:
+        pruned = list(session.messages)
+
+    # ── Stage B/C: role-aware overflow recovery ──
+    # Run whenever estimated tokens exceed 90% of the context window,
+    # regardless of cache TTL (overflow must be handled proactively).
+    _overflow_threshold = int(_ctx_win * 0.90)
+    if _estimate_total_tokens(pruned) > _overflow_threshold:
+        pruned, bc_stats = recover_overflow(pruned, _ctx_win)
+        if bc_stats["stage"] != "A":
+            log.warning(
+                "[PRUNE-%s] dropped %d pair(s), ~%d → ~%d tokens",
+                bc_stats["stage"],
+                bc_stats["pairs_dropped"],
+                bc_stats["estimated_tokens_before"],
+                bc_stats["estimated_tokens_after"],
+            )
+
+    return pruned
+
+
+def record_usage(session_id: str, model: str, result, classification, iteration) -> None:
+    """Record API usage and audit log."""
+    from salmalm.core.engine import record_response_usage, estimate_cost, audit_log
+
+    usage = result.get("usage", {})
+    record_response_usage(session_id, result.get("model", model), usage)
+
+    api_detail = {
+        "model": result.get("model", model),
+        "input_tokens": usage.get("input", 0),
+        "output_tokens": usage.get("output", 0),
+        "iteration": iteration,
+    }
+    if usage.get("input", 0) or usage.get("output", 0):
+        audit_log(
+            "api_call",
+            f"{model} in={usage.get('input', 0)} out={usage.get('output', 0)}",
+            detail_dict=api_detail,
+        )
+        try:
+            from salmalm.features.edge_cases import usage_tracker
+
+            _inp, _out = usage.get("input", 0), usage.get("output", 0)
+            _cost = estimate_cost(model, usage)
+            usage_tracker.record(session_id, model, _inp, _out, _cost, classification.get("intent", ""))
+        except Exception as _exc:
+            log.debug(f"Suppressed: {_exc}")
+
+
+_MAX_TOOL_CALLS_PER_TURN = 20  # Guard against LLM returning runaway tool lists
+
+def validate_tool_calls(tool_calls: list) -> tuple[list, dict]:
+    """Validate and parse tool call arguments. Returns (valid_tools, error_outputs)."""
+    valid_tools = []
+    error_outputs = {}
+    # Hard cap: ignore excess tool calls to prevent DoS / runaway loops
+    if len(tool_calls) > _MAX_TOOL_CALLS_PER_TURN:
+        log.warning("[TOOLS] %d tool calls in one turn — capped to %d",
+                    len(tool_calls), _MAX_TOOL_CALLS_PER_TURN)
+        tool_calls = tool_calls[:_MAX_TOOL_CALLS_PER_TURN]
+    _TOOL_NAME_RE = re.compile(r'^[a-zA-Z0-9_\-]{1,128}$')
+    for tc in tool_calls:
+        # Validate tool name: alphanumeric/underscore/hyphen only, max 128 chars
+        tc_name = tc.get("name", "")
+        if not _TOOL_NAME_RE.match(str(tc_name)):
+            error_outputs[tc.get("id", "")] = f"❌ Invalid tool name: {str(tc_name)[:64]!r}"
+            continue
+        if not isinstance(tc.get("arguments"), dict):
+            try:
+                tc["arguments"] = json.loads(tc["arguments"]) if isinstance(tc["arguments"], str) else {}
+            except (json.JSONDecodeError, TypeError):
+                error_outputs[tc["id"]] = f"❌ Invalid tool arguments for {tc_name} / 잘못된 도구 인자"
+                continue
+        valid_tools.append(tc)
+    return valid_tools, error_outputs
+
+
+def check_circuit_breaker(tool_outputs: dict, consecutive_errors: int, max_errors: int) -> tuple[int, str | None]:
+    """Check for consecutive tool errors. Returns (new_error_count, error_message_or_None)."""
+    errors = sum(1 for v in tool_outputs.values() if str(v).startswith("❌"))
+    if errors > 0:
+        consecutive_errors += errors
+        if consecutive_errors >= max_errors:
+            log.warning(f"[BREAK] {consecutive_errors} consecutive tool errors — stopping loop")
+            err_summary = "\n".join(f"• {v}" for v in tool_outputs.values() if str(v).startswith("❌"))
+            return consecutive_errors, f"⚠️ Tool errors detected, stopping:\n{err_summary}"
+        return consecutive_errors, None
+    return 0, None
+
+
+def check_loop_detection(tool_calls: list, recent_calls: list) -> str | None:
+    """Detect infinite loops from repeated tool calls. Returns error message or None."""
+    for tc in tool_calls:
+        sig = (
+            tc.get("name", ""),
+            hashlib.sha256(json.dumps(tc.get("arguments", {}), sort_keys=True).encode()).hexdigest()[:12],
+        )
+        recent_calls.append(sig)
+
+    if len(recent_calls) >= 6:
+        freq = Counter(recent_calls[-6:])
+        top = freq.most_common(1)[0]
+        if top[1] >= 3:
+            log.warning(f"[BREAK] Loop detected: {top[0][0]} called {top[1]}x with same args in last 6 iterations")
+            return f"⚠️ Infinite loop detected — tool `{top[0][0]}` repeating with same arguments. Stopping."
+    return None
+
+
+async def handle_empty_response(call_fn, pruned_messages, model: str, tools: list) -> str:
+    """Retry empty responses up to 2 times with backoff."""
+    for _retry in range(2):
+        log.warning(f"[LLM] Empty response, retry #{_retry + 1}")
+        await asyncio.sleep(0.5 * (_retry + 1))
+        retry_result, _ = await call_fn(pruned_messages, model=model, tools=tools, max_tokens=4096, thinking=False)
+        response = retry_result.get("content", "")
+        if response and response.strip():
+            return response
+    return "⚠️ 응답을 생성할 수 없습니다. / Could not generate a response."
+
+
+def finalize_response(result: dict, response: str) -> str:
+    """Handle truncation and content filter edge cases.
+
+    Truncation is no longer flagged — continuation is handled in _finalize_loop_response.
+    """
+    stop_reason = result.get("stop_reason", "")
+    if stop_reason in ("content_filter", "safety"):
+        response = "⚠️ 안전 필터에 의해 응답이 차단되었습니다. / Response blocked by content filter."
+    return response
+
+
+def is_truncated(result: dict) -> bool:
+    """Check if a response was truncated (hit max_tokens)."""
+    stop_reason = result.get("stop_reason", "")
+    return stop_reason == "max_tokens"
+
+
+def auto_log_conversation(user_message: str, response: str, classification: dict) -> None:
+    """Auto-log significant conversations to daily memory."""
+    try:
+        # Skip trivial exchanges
+        if not user_message or len(user_message) < 20:
+            return
+        intent = classification.get("intent", "")
+        if intent in ("chat",) and len(response) < 100:
+            return  # Skip short casual chat
+
+        # Log code/search/action results and substantial conversations
+        from salmalm.core import write_daily_log
+
+        q_snippet = user_message[:150].replace("\n", " ")
+        a_snippet = response[:200].replace("\n", " ")
+        tag = f"[{intent}]" if intent else "[conv]"
+        entry = f"{tag} Q: {q_snippet}\n  A: {a_snippet}"
+        write_daily_log(entry)
+    except Exception as e:  # noqa: broad-except
+        pass  # Memory logging should never break the main flow

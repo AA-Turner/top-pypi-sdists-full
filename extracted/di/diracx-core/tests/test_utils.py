@@ -1,0 +1,301 @@
+from __future__ import annotations
+
+import fcntl
+import os
+import stat
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from diracx.core.exceptions import NotReadyError
+from diracx.core.models.auth import TokenResponse
+from diracx.core.utils import (
+    TwoLevelCache,
+    dotenv_files_from_environment,
+    read_credentials,
+    serialize_credentials,
+    write_credentials,
+)
+
+
+def test_dotenv_files_from_environment(monkeypatch):
+    monkeypatch.setattr("os.environ", {})
+    assert dotenv_files_from_environment("TEST_PREFIX") == []
+
+    monkeypatch.setattr("os.environ", {"TEST_PREFIX": "/a"})
+    assert dotenv_files_from_environment("TEST_PREFIX") == ["/a"]
+
+    monkeypatch.setattr("os.environ", {"TEST_PREFIX": "/a", "TEST_PREFIX_1": "/b"})
+    assert dotenv_files_from_environment("TEST_PREFIX") == ["/a", "/b"]
+
+    monkeypatch.setattr(
+        "os.environ",
+        {"TEST_PREFIX_2": "/c", "TEST_PREFIX": "/a", "TEST_PREFIX_1": "/b"},
+    )
+    assert dotenv_files_from_environment("TEST_PREFIX") == ["/a", "/b", "/c"]
+
+    monkeypatch.setattr(
+        "os.environ",
+        {"TEST_PREFIX_2a": "/c", "TEST_PREFIX": "/a", "TEST_PREFIX_1": "/b"},
+    )
+    assert dotenv_files_from_environment("TEST_PREFIX") == ["/a", "/b"]
+
+
+TOKEN_RESPONSE_DICT = {
+    "access_token": "test_token",
+    "expires_in": int((datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()),
+    "token_type": "Bearer",
+    "refresh_token": "test_refresh",
+}
+CREDENTIALS_CONTENT: str = serialize_credentials(TokenResponse(**TOKEN_RESPONSE_DICT))
+
+
+def test_read_credentials_reading_locked_file(monkeypatch, tmp_path):
+    """Test that read_credentials waits to read a locked file.
+
+    To keep the test simple and deterministic, we patch 'fcntl.flock' within the 'diracx.core.utils' module.
+    This will raise a BlockingIOError when attempting to read the file.
+    """
+    token_location = tmp_path / "credentials.json"
+
+    # Write valid credentials to the file to ensure read_credentials attempts to lock
+    token_location.write_text(CREDENTIALS_CONTENT)
+
+    # Patch 'fcntl.flock' within the 'diracx.core.utils' module
+    # This will raise a BlockingIOError when attempting to read the file
+    flock_calls = []
+
+    def mock_flock(file, operation):
+        flock_calls.append((file, operation))
+        if operation == fcntl.LOCK_SH:
+            raise BlockingIOError("File is locked")
+
+    monkeypatch.setattr("diracx.core.utils.fcntl.flock", mock_flock)
+
+    # Attempt to read credentials, expecting a BlockingIOError due to the lock
+    with pytest.raises(BlockingIOError) as exc_info:
+        read_credentials(location=token_location)
+
+    # Verify that flock was called with LOCK_SH
+    assert len(flock_calls) == 1, "fcntl.flock was not called"
+    assert flock_calls[-1][1] == fcntl.LOCK_SH, (
+        f"Expected LOCK_SH, got {flock_calls[-1][1]}"
+    )
+    assert "File is locked" in str(exc_info.value)
+
+
+def test_write_credentials_writing_locked_file(monkeypatch, tmp_path):
+    """Test that write_credentials waits to write into a locked file.
+
+    To keep the test simple and deterministic, we patch 'fcntl.flock' within the 'diracx.core.utils' module.
+    This will raise a BlockingIOError when attempting to write to the file.
+    """
+    token_location = tmp_path / "credentials.json"
+
+    # Write valid credentials to the file to ensure write_credentials attempts to lock
+    token_location.write_text(CREDENTIALS_CONTENT)
+
+    # Patch 'fcntl.flock' within the 'diracx.core.utils' module
+    flock_calls = []
+
+    def mock_flock(file, operation):
+        flock_calls.append((file, operation))
+        if operation == fcntl.LOCK_EX:
+            raise BlockingIOError("File is locked")
+
+    monkeypatch.setattr("diracx.core.utils.fcntl.flock", mock_flock)
+
+    # Attempt to write credentials, expecting a BlockingIOError due to the lock
+    with pytest.raises(BlockingIOError) as exc_info:
+        write_credentials(TokenResponse(**TOKEN_RESPONSE_DICT), location=token_location)
+
+    # Verify that flock was called (for LOCK_EX)
+    assert len(flock_calls) == 1, "fcntl.flock was not called"
+    assert flock_calls[-1][1] == fcntl.LOCK_EX, (
+        f"Expected LOCK_EX, got {flock_calls[-1][1]}"
+    )
+    assert "File is locked" in str(exc_info.value)
+
+
+def test_write_credentials_writing_unlocked_file(monkeypatch, tmp_path):
+    """Test that write_credentials waits to write into an unlocked file."""
+    token_location = tmp_path / "credentials.json"
+
+    # Write credentials to the file
+    write_credentials(TokenResponse(**TOKEN_RESPONSE_DICT), location=token_location)
+
+    # Verify the permissions
+    mode = os.stat(token_location).st_mode
+    assert mode == (stat.S_IFREG | stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_read_credentials_empty_file(tmp_path):
+    """Test that read_credentials raises an appropriate error for an empty file."""
+    empty_location = tmp_path / "credentials.json"
+    empty_location.touch()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        read_credentials(location=empty_location)
+
+    assert "Error reading credentials:" in str(exc_info.value)
+    assert "Expecting value" in str(exc_info.value)
+
+
+def test_read_credentials_missing_file(tmp_path):
+    """Test that read_credentials raises an appropriate error for a missing file."""
+    missing_file = tmp_path / "missing.json"
+    with pytest.raises(RuntimeError) as exc_info:
+        read_credentials(location=missing_file)
+
+    assert "Error reading credentials:" in str(exc_info.value)
+    assert "No such file or directory" in str(exc_info.value)
+
+
+def test_write_credentials_unavailable_path():
+    """Test that write_credentials raises error when it can't create path."""
+    wrong_path = Path("/wrong/path/file.txt")
+    with pytest.raises((PermissionError, OSError)):
+        write_credentials(TokenResponse(**TOKEN_RESPONSE_DICT), location=wrong_path)
+
+
+def test_read_credentials_invalid_content(tmp_path):
+    """Test that read_credentials raises an appropriate error for a file with invalid content."""
+    malformed_token_location = tmp_path / "credentials.json"
+    malformed_token_location.write_text("invalid content")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        read_credentials(location=malformed_token_location)
+
+    assert "Error reading credentials:" in str(exc_info.value)
+    assert "Expecting value" in str(exc_info.value)
+
+
+def test_read_credentials_valid_file(tmp_path):
+    """Test that read_credentials works correctly with a valid file."""
+    token_location = tmp_path / "credentials.json"
+    token_location.write_text(CREDENTIALS_CONTENT)
+
+    credentials = read_credentials(location=token_location)
+
+    token_response = TokenResponse(**TOKEN_RESPONSE_DICT)
+
+    assert credentials.access_token == token_response.access_token
+    assert credentials.expires_in < token_response.expires_in
+    assert credentials.token_type == token_response.token_type
+    assert credentials.refresh_token == token_response.refresh_token
+
+
+class TestTwoLevelCache:
+    """Tests for TwoLevelCache."""
+
+    def test_successful_population(self):
+        """Test that cache is populated successfully."""
+        cache = TwoLevelCache(soft_ttl=10, hard_ttl=60)
+        call_count = 0
+
+        def populate():
+            nonlocal call_count
+            call_count += 1
+            return "test_value"
+
+        result = cache.get("key", populate)
+        assert result == "test_value"
+        assert call_count == 1
+
+        # Second call should use cached value
+        result = cache.get("key", populate)
+        assert result == "test_value"
+        assert call_count == 1
+
+    def test_failed_population_logs_and_allows_retry(self, caplog):
+        """Test that failed population logs error and allows retry on next request."""
+        cache = TwoLevelCache(soft_ttl=10, hard_ttl=60)
+        call_count = 0
+
+        def failing_populate():
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("Test error")
+
+        # First call should fail and log the error
+        with pytest.raises(ValueError, match="Test error"):
+            cache.get("key", failing_populate, blocking=True)
+
+        assert call_count == 1
+        assert "Failed to populate cache key 'key'" in caplog.text
+        assert "Test error" in caplog.text
+
+        # Future should be removed, so next call should retry
+        with pytest.raises(ValueError, match="Test error"):
+            cache.get("key", failing_populate, blocking=True)
+
+        assert call_count == 2  # Should have retried
+
+    def test_failed_population_then_success(self):
+        """Test that after a failure, subsequent successful call works."""
+        cache = TwoLevelCache(soft_ttl=10, hard_ttl=60)
+        should_fail = True
+
+        def populate():
+            if should_fail:
+                raise ValueError("Test error")
+            return "success_value"
+
+        # First call fails
+        with pytest.raises(ValueError):
+            cache.get("key", populate, blocking=True)
+
+        # Second call succeeds
+        should_fail = False
+        result = cache.get("key", populate, blocking=True)
+        assert result == "success_value"
+
+    def test_none_return_value_is_cached(self):
+        """Test that None return values are properly cached."""
+        cache = TwoLevelCache(soft_ttl=10, hard_ttl=60)
+        call_count = 0
+
+        def populate_none():
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        result = cache.get("key", populate_none)
+        assert result is None
+        assert call_count == 1
+
+        # Second call should use cached None value
+        result = cache.get("key", populate_none)
+        assert result is None
+        assert call_count == 1  # Should not have called populate again
+
+    def test_non_blocking_raises_not_ready(self):
+        """Test that non-blocking mode raises NotReadyError when cache is empty."""
+        import threading
+        import time
+
+        cache = TwoLevelCache(soft_ttl=10, hard_ttl=60)
+        started = threading.Event()
+
+        def slow_populate():
+            started.set()
+            time.sleep(0.5)
+            return "value"
+
+        def start_slow():
+            cache.get("key", slow_populate, blocking=True)
+
+        # Start population in background
+        thread = threading.Thread(target=start_slow)
+        thread.start()
+
+        # Wait until slow_populate has started to avoid race conditions
+        assert started.wait(timeout=1.0)
+
+        # Non-blocking call should raise NotReadyError since cache isn't populated yet
+        with pytest.raises(NotReadyError, match="not ready yet"):
+            cache.get("key", slow_populate, blocking=False)
+
+        # Ensure background thread completes
+        thread.join()

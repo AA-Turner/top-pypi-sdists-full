@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_webtools
-Version: 0.1.6.393
+Version: 0.1.6.402
 Summary: Utilities for fetching/parsing web content with requests/urllib3/BS4 and helpers.
 Home-page: https://github.com/AbstractEndeavors/abstract_webtools
 Author: putkoff
@@ -15,6 +15,12 @@ Description-Content-Type: text/markdown
 Requires-Dist: requests>=2.31.0
 Requires-Dist: urllib3>=2.0.4
 Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: opencv-python
+Requires-Dist: moviepy==1.0.3
+Requires-Dist: SpeechRecognition
+Requires-Dist: pydub
+Requires-Dist: selenium
+Requires-Dist: playwright
 Provides-Extra: gui
 Requires-Dist: PySimpleGUI>=4.60.5; extra == "gui"
 Requires-Dist: PyQt5>=5.15.0; extra == "gui"

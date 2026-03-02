@@ -1,0 +1,255 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+from alipay.aop.api.response.AlipayResponse import AlipayResponse
+
+
+class AlipayFundTransCommonQueryResponse(AlipayResponse):
+
+    def __init__(self):
+        super(AlipayFundTransCommonQueryResponse, self).__init__()
+        self._arrival_time_end = None
+        self._deduct_bill_info = None
+        self._error_code = None
+        self._fail_inst_error_code = None
+        self._fail_inst_name = None
+        self._fail_inst_reason = None
+        self._fail_reason = None
+        self._inflow_settle_serial_no = None
+        self._order_fee = None
+        self._order_id = None
+        self._out_biz_no = None
+        self._passback_params = None
+        self._pay_date = None
+        self._pay_fund_order_id = None
+        self._receiver_open_id = None
+        self._receiver_user_id = None
+        self._settle_serial_no = None
+        self._status = None
+        self._sub_order_error_code = None
+        self._sub_order_fail_reason = None
+        self._sub_order_status = None
+        self._sub_status = None
+        self._trans_amount = None
+        self._transfer_bill_info = None
+
+    @property
+    def arrival_time_end(self):
+        return self._arrival_time_end
+
+    @arrival_time_end.setter
+    def arrival_time_end(self, value):
+        self._arrival_time_end = value
+    @property
+    def deduct_bill_info(self):
+        return self._deduct_bill_info
+
+    @deduct_bill_info.setter
+    def deduct_bill_info(self, value):
+        self._deduct_bill_info = value
+    @property
+    def error_code(self):
+        return self._error_code
+
+    @error_code.setter
+    def error_code(self, value):
+        self._error_code = value
+    @property
+    def fail_inst_error_code(self):
+        return self._fail_inst_error_code
+
+    @fail_inst_error_code.setter
+    def fail_inst_error_code(self, value):
+        self._fail_inst_error_code = value
+    @property
+    def fail_inst_name(self):
+        return self._fail_inst_name
+
+    @fail_inst_name.setter
+    def fail_inst_name(self, value):
+        self._fail_inst_name = value
+    @property
+    def fail_inst_reason(self):
+        return self._fail_inst_reason
+
+    @fail_inst_reason.setter
+    def fail_inst_reason(self, value):
+        self._fail_inst_reason = value
+    @property
+    def fail_reason(self):
+        return self._fail_reason
+
+    @fail_reason.setter
+    def fail_reason(self, value):
+        self._fail_reason = value
+    @property
+    def inflow_settle_serial_no(self):
+        return self._inflow_settle_serial_no
+
+    @inflow_settle_serial_no.setter
+    def inflow_settle_serial_no(self, value):
+        self._inflow_settle_serial_no = value
+    @property
+    def order_fee(self):
+        return self._order_fee
+
+    @order_fee.setter
+    def order_fee(self, value):
+        self._order_fee = value
+    @property
+    def order_id(self):
+        return self._order_id
+
+    @order_id.setter
+    def order_id(self, value):
+        self._order_id = value
+    @property
+    def out_biz_no(self):
+        return self._out_biz_no
+
+    @out_biz_no.setter
+    def out_biz_no(self, value):
+        self._out_biz_no = value
+    @property
+    def passback_params(self):
+        return self._passback_params
+
+    @passback_params.setter
+    def passback_params(self, value):
+        self._passback_params = value
+    @property
+    def pay_date(self):
+        return self._pay_date
+
+    @pay_date.setter
+    def pay_date(self, value):
+        self._pay_date = value
+    @property
+    def pay_fund_order_id(self):
+        return self._pay_fund_order_id
+
+    @pay_fund_order_id.setter
+    def pay_fund_order_id(self, value):
+        self._pay_fund_order_id = value
+    @property
+    def receiver_open_id(self):
+        return self._receiver_open_id
+
+    @receiver_open_id.setter
+    def receiver_open_id(self, value):
+        self._receiver_open_id = value
+    @property
+    def receiver_user_id(self):
+        return self._receiver_user_id
+
+    @receiver_user_id.setter
+    def receiver_user_id(self, value):
+        self._receiver_user_id = value
+    @property
+    def settle_serial_no(self):
+        return self._settle_serial_no
+
+    @settle_serial_no.setter
+    def settle_serial_no(self, value):
+        self._settle_serial_no = value
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+    @property
+    def sub_order_error_code(self):
+        return self._sub_order_error_code
+
+    @sub_order_error_code.setter
+    def sub_order_error_code(self, value):
+        self._sub_order_error_code = value
+    @property
+    def sub_order_fail_reason(self):
+        return self._sub_order_fail_reason
+
+    @sub_order_fail_reason.setter
+    def sub_order_fail_reason(self, value):
+        self._sub_order_fail_reason = value
+    @property
+    def sub_order_status(self):
+        return self._sub_order_status
+
+    @sub_order_status.setter
+    def sub_order_status(self, value):
+        self._sub_order_status = value
+    @property
+    def sub_status(self):
+        return self._sub_status
+
+    @sub_status.setter
+    def sub_status(self, value):
+        self._sub_status = value
+    @property
+    def trans_amount(self):
+        return self._trans_amount
+
+    @trans_amount.setter
+    def trans_amount(self, value):
+        self._trans_amount = value
+    @property
+    def transfer_bill_info(self):
+        return self._transfer_bill_info
+
+    @transfer_bill_info.setter
+    def transfer_bill_info(self, value):
+        self._transfer_bill_info = value
+
+    def parse_response_content(self, response_content):
+        response = super(AlipayFundTransCommonQueryResponse, self).parse_response_content(response_content)
+        if 'arrival_time_end' in response:
+            self.arrival_time_end = response['arrival_time_end']
+        if 'deduct_bill_info' in response:
+            self.deduct_bill_info = response['deduct_bill_info']
+        if 'error_code' in response:
+            self.error_code = response['error_code']
+        if 'fail_inst_error_code' in response:
+            self.fail_inst_error_code = response['fail_inst_error_code']
+        if 'fail_inst_name' in response:
+            self.fail_inst_name = response['fail_inst_name']
+        if 'fail_inst_reason' in response:
+            self.fail_inst_reason = response['fail_inst_reason']
+        if 'fail_reason' in response:
+            self.fail_reason = response['fail_reason']
+        if 'inflow_settle_serial_no' in response:
+            self.inflow_settle_serial_no = response['inflow_settle_serial_no']
+        if 'order_fee' in response:
+            self.order_fee = response['order_fee']
+        if 'order_id' in response:
+            self.order_id = response['order_id']
+        if 'out_biz_no' in response:
+            self.out_biz_no = response['out_biz_no']
+        if 'passback_params' in response:
+            self.passback_params = response['passback_params']
+        if 'pay_date' in response:
+            self.pay_date = response['pay_date']
+        if 'pay_fund_order_id' in response:
+            self.pay_fund_order_id = response['pay_fund_order_id']
+        if 'receiver_open_id' in response:
+            self.receiver_open_id = response['receiver_open_id']
+        if 'receiver_user_id' in response:
+            self.receiver_user_id = response['receiver_user_id']
+        if 'settle_serial_no' in response:
+            self.settle_serial_no = response['settle_serial_no']
+        if 'status' in response:
+            self.status = response['status']
+        if 'sub_order_error_code' in response:
+            self.sub_order_error_code = response['sub_order_error_code']
+        if 'sub_order_fail_reason' in response:
+            self.sub_order_fail_reason = response['sub_order_fail_reason']
+        if 'sub_order_status' in response:
+            self.sub_order_status = response['sub_order_status']
+        if 'sub_status' in response:
+            self.sub_status = response['sub_status']
+        if 'trans_amount' in response:
+            self.trans_amount = response['trans_amount']
+        if 'transfer_bill_info' in response:
+            self.transfer_bill_info = response['transfer_bill_info']

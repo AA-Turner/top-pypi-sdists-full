@@ -22,17 +22,57 @@ class UniqueNullableModel(models.Model):
     title = models.CharField(null=True, unique=True, max_length=255)
 
 
+class CustomUniqueConstraint(models.UniqueConstraint):
+    pass
+
+
 class ModelWithConstraint(models.Model):
-    title = models.CharField(max_length=255)
-    sub_title = models.CharField(max_length=255)
+    title1 = models.CharField(max_length=255)
+    title2 = models.CharField(max_length=255)
+    title3 = models.CharField(max_length=255)
+    title4 = models.CharField(max_length=255)
+    sub_title1 = models.CharField(max_length=255)
+    sub_title2 = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
 
     class Meta:
-        unique_together = (("title", "sub_title"),)
+        unique_together = (("title1", "sub_title1"),)
         constraints = [
             models.UniqueConstraint(
-                fields=["title", "sub_title"],
-                name="unique_fields",
-            )
+                fields=["title2"],
+                name="unique_sfield",
+            ),
+            models.UniqueConstraint(
+                fields=["title3", "sub_title2"],
+                name="unique_mfields",
+            ),
+            models.UniqueConstraint(
+                fields=["title3", "email"],
+                name="unique_partfield",
+            ),
+            CustomUniqueConstraint(
+                fields=["title4", "email"],
+                name="unique_custom",
+            ),
+        ]
+
+
+class CustomIndex(models.Index):
+    pass
+
+
+class ModelWithIndex(models.Model):
+    title = models.CharField(max_length=255)
+    sub_title = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["title"], name="idx_title"),
+            models.Index(fields=["title", "sub_title"], name="idx_title_sub_title"),
+            models.Index(fields=["sub_title"]),
+            models.Index(fields=["email"], name="idx_email"),
+            CustomIndex(fields=["title", "email"], name="idx_custom"),
         ]
 
 
@@ -536,8 +576,17 @@ class ModelY(AbstractModelY):
     pass
 
 
-# Non-abstract base models whose Manager is not allowed to be overwritten
+# #########  Non-abstract base models whose Manager is not allowed to be overwritten
 
 
 class InheritedPermission(Permission):
     translated_var = models.CharField(max_length=255)
+
+
+# #########  field_options testing
+
+
+class FieldOptionsModel(models.Model):
+    title = models.CharField(max_length=255)
+    sub_title1 = models.CharField(max_length=255)
+    sub_title2 = models.CharField(max_length=255)

@@ -10,12 +10,15 @@ add additional detail to the error report.
 
 """
 
+from __future__ import annotations
+
 import collections
 import inspect
 import io
 import re
 import textwrap
 import tokenize
+import typing as t
 
 from nose2 import events
 
@@ -57,6 +60,11 @@ class PrettyAssert(events.Plugin):
 
         trace: a traceback object for the exception
         """
+        # if the trace is a string, that means it was pickled/unpickled via the mp
+        # plugin, and is not a real traceback -- we won't be able to do anything with it
+        if isinstance(trace, str):
+            return
+
         assert_statement, token_descriptions = _collect_assert_data(trace)
 
         # no message was given
@@ -134,9 +142,9 @@ def _get_inspection_info(trace):
     - statement which failed (which can be garbage -- don't trust it)
     - can_tokenize: a bool indicating that the lines of source can be parsed
     """
-    (frame, fname, lineno, funcname, context, ctx_index) = inspect.getinnerframes(
-        trace
-    )[-1]
+    frame, fname, lineno, funcname, context, ctx_index = inspect.getinnerframes(trace)[
+        -1
+    ]
     original_source_lines, firstlineno = inspect.getsourcelines(frame)
 
     # truncate to the code in this frame to remove anything after current
@@ -245,7 +253,7 @@ def _tokenize_assert(source_lines, frame_locals, frame_globals):
 
 
 class TokenProcessor:
-    def __init__(self, frame_locals, frame_globals):
+    def __init__(self, frame_locals, frame_globals) -> None:
         # local and global variables from the frame which we're inspecting
         self.frame_locals, self.frame_globals = frame_locals, frame_globals
 
@@ -262,7 +270,7 @@ class TokenProcessor:
         # they were encountered
         # track which tokens we've seen to avoid duplicates if a name appears
         # twice, as in `assert x != x`
-        self.seen_tokens = collections.OrderedDict()
+        self.seen_tokens: dict[str, t.Any] = {}
 
         # the previous token seen as a tuple of (tok_type, token_name)
         # (or None when we start)

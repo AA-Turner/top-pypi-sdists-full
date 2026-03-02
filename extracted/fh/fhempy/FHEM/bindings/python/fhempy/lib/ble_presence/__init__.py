@@ -1,1 +1,0 @@
-# BLE presence checker

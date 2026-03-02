@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: dbs3-pycurl
+Version: 3.18.3
+Home-page: https://github.com/dmwm/PycurlClient/tree/3.17.8
+Maintainer: CMS DWMWM Group
+Maintainer-email: hn-cms-dmDevelopment@cern.ch
+License: Apache License, Version 2.0
+License-File: LICENSE
+Requires-Dist: pycurl~=7.45.1
+Requires-Dist: certifi~=2024.8.30

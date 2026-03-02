@@ -1,0 +1,25 @@
+[package]
+name = "actfast"
+version = "1.2.0"
+edition = "2024"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "actfast"
+crate-type = ["cdylib"]
+
+[dependencies]
+numpy = "0.27"
+zip = { version = "7.2.0", features = ["deflate"], default-features = false }
+chrono = "0.4.43"
+bitreader = "0.3.10"
+assert_approx_eq = "1.1.0"
+
+[dependencies.pyo3]
+version = "0.27"
+# "abi3-py38" tells pyo3 (and maturin) to build using the stable ABI with minimum Python version 3.8
+features = ["abi3-py310"]
+
+[dev-dependencies]
+proptest = "1.9.0"

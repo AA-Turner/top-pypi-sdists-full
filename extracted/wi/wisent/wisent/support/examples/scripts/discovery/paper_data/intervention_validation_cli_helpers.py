@@ -8,12 +8,12 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
-from wisent.core.constants import (
+from wisent.core.utils.config_tools.constants import (
     DEFAULT_STRENGTH,
     PAIR_GENERATORS_DEFAULT_N,
     DISPLAY_TRUNCATION_LARGE,
 )
-from wisent.core.utils.core.hardware import subprocess_timeout_long_s
+from wisent.core.utils.infra_tools.infra.core.hardware import subprocess_timeout_long_s
 
 GCS_BUCKET = "wisent-images-bucket"
 GCS_PREFIX = "intervention_validation"

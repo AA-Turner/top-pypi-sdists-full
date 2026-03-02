@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: seledroid
+Version: 2.0.4
+Summary: Android WebDriver based WebView
+Home-page: https://github.com/luanon404/Seledroid
+Author: luanon404
+Author-email: luanon404@gmail.com
+Requires-Python: ~=3.7
+Description-Content-Type: text/markdown
+
+# Note
+
+- This project has been **deprecated** and has moved to [luanon](https://github.com/luanon404/luanon).
+- To remove a deprecated warning noise, run the following code once:
+
+    ```
+    from seledroid import webdriver
+    webdriver.remove_deprecation_warning()
+    ```

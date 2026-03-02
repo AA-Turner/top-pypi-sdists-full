@@ -1,15 +1,8 @@
 Metadata-Version: 2.4
 Name: toml-fmt-common
-Version: 1.2.0
+Version: 1.3.1
 Summary: Common logic to the TOML formatter.
-Project-URL: Changelog, https://github.com/tox-dev/toml-fmt-common/releases
-Project-URL: Documentation, https://github.com/tox-dev/toml-fmt-common#toml-fmt-common
-Project-URL: Homepage, https://github.com/tox-dev/toml-fmt-common
-Project-URL: Source, https://github.com/tox-dev/toml-fmt-common
-Project-URL: Tracker, https://github.com/tox-dev/toml-fmt-common/issues
-Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>
 License-Expression: MIT
-License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -24,8 +17,15 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System
+Requires-Dist: tomli>=2.4 ; python_full_version < '3.11'
+Maintainer: Bernát Gábor
+Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>
 Requires-Python: >=3.10
-Requires-Dist: tomli>=2.2.1; python_version < '3.11'
+Project-URL: Changelog, https://github.com/tox-dev/toml-fmt/releases
+Project-URL: Documentation, https://github.com/tox-dev/toml-fmt/tree/main/toml-fmt-common#toml-fmt-common
+Project-URL: Homepage, https://github.com/tox-dev/toml-fmt
+Project-URL: Source, https://github.com/tox-dev/toml-fmt/tree/main/toml-fmt-common
+Project-URL: Tracker, https://github.com/tox-dev/toml-fmt/issues
 Description-Content-Type: text/markdown
 
 # toml-fmt-common

@@ -1,0 +1,7 @@
+name: resnet
+args:
+  arch: resnet50_projector
+  gem_p: 5.0
+  remove_fc: True
+  normalise_features: False
+  weights: null

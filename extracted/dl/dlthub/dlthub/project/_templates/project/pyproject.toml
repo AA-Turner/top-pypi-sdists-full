@@ -1,0 +1,15 @@
+[project]
+name = ""
+version = "0.0.1"
+description = ""
+requires-python = ">=3.9.2, <3.14, !=3.9.7"
+
+dependencies = [
+]
+
+# This is the entry point for the dlthub project package
+[project.entry-points.dlt_package]
+dlt-project = ""
+
+# section for adding dlt.yml file to the project
+[tool.setuptools.package-data]

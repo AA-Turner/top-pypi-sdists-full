@@ -1,0 +1,51 @@
+site_name: "mkdocs-shadcn"
+site_url: "https://asiffer.github.io/mkdocs-shadcn"
+site_description: "Documentation that also shines"
+site_author: "Alban Siffer <31479857+asiffer@users.noreply.github.com>"
+dev_addr: "127.0.0.1:8080"
+repo_url: "https://github.com/asiffer/mkdocs-shadcn"
+theme:
+  name: shadcn
+  icon: null
+  topbar_sections: false
+  pygments_style:
+    light: shadcn-light
+    dark: github-dark
+  katex_options:
+    macros:
+      "\\dx": "\\mathrm{d}x"
+  # show_datetime: true
+
+# nav:
+#   - Welcome: index.md
+#   - get_started.md
+#   - Extensions:
+#       - Footnotes: extensions/footnotes.md
+#       - Tabs: extensions/pymdownx_blocks_tab.md
+#       - Details: extensions/pymdownx_blocks_details.md
+#       - Codexec: extensions/codexec.md
+
+plugins:
+  - search
+  - excalidraw
+  - mkdocstrings
+
+markdown_extensions:
+  admonition:
+  codehilite:
+  fenced_code:
+  footnotes:
+  extra:
+  pymdownx.blocks.details:
+  pymdownx.tabbed:
+  pymdownx.blocks.tab:
+    combine_header_slug: true
+    separator: ___
+  pymdownx.progressbar:
+  pymdownx.snippets:
+  pymdownx.arithmatex:
+    generic: true
+  shadcn.extensions.echarts.alpha:
+  shadcn.extensions.codexec:
+  shadcn.extensions.iconify:
+  pymdownx.blocks.caption:

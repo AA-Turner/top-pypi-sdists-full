@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trainstation"
+description = "Convenient training of linear models"
+dynamic = ["version"]
+dependencies = [
+    "scipy",
+    "numpy>=1.12",
+    "scikit-learn",
+]
+requires-python = ">=3.9"
+authors = [
+  {name = "The trainstation developers group"},
+]
+maintainers = [
+  {name = "The trainstation developers group"},
+]
+readme = "README.rst"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Documentation = "https://trainstation.materialsmodeling.org"
+Repository = "https://gitlab.com/materials-modeling/trainstation/"
+
+[tool.setuptools.dynamic]
+version = {attr = "trainstation.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["trainstation*"]

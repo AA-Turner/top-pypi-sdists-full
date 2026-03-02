@@ -1,0 +1,16 @@
+build:
+  docker:
+    web: Dockerfile
+run:
+  web:
+    command:
+      - dallinger_heroku_web
+    image: web
+  worker:
+    command:
+      - dallinger_heroku_worker
+    image: web
+  clock:
+    command:
+      - dallinger_heroku_clock
+    image: web

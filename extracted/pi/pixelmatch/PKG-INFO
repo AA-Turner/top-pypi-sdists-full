@@ -1,17 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pixelmatch
-Version: 0.3.0
+Version: 0.3.1
 Summary: A pixel-level image comparison library.
-Home-page: https://github.com/whtsky/pixelmatch-py
 License: ISC
+License-File: LICENSE
 Author: Wu Haotian
 Author-email: whtsky@gmail.com
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Repository, https://github.com/whtsky/pixelmatch-py
 Description-Content-Type: text/markdown
 
@@ -105,6 +107,11 @@ Compares two images, writes the output diff and returns the number of mismatched
 | ![https://github.com/whtsky/pixelmatch-py/raw/master/fixtures/7a.png](https://github.com/whtsky/pixelmatch-py/raw/master/fixtures/7a.png) | ![https://github.com/whtsky/pixelmatch-py/raw/master/fixtures/7b.png](https://github.com/whtsky/pixelmatch-py/raw/master/fixtures/7b.png) | ![1diff](https://github.com/whtsky/pixelmatch-py/raw/master/fixtures/7diff.png) |
 
 ## Changelog
+
+### v0.3.1
+
+- fix: remove use of deprecated Pillow function [#178](https://github.com/whtsky/pixelmatch-py/pull/178) ([@brianhelba](https://github.com/brianhelba))
+- chore: drop EOL Python versions (3.7-3.9), add support for 3.10-3.14 [#171](https://github.com/whtsky/pixelmatch-py/pull/171)
 
 ### v0.3.0
 

@@ -48,6 +48,7 @@ from __future__ import annotations
 import zipfile
 from collections.abc import Mapping
 from io import BytesIO
+from logging import getLogger
 from numbers import Number
 from pathlib import Path
 from typing import Any, TextIO
@@ -67,6 +68,8 @@ except ImportError:
     ArrayLike = Any
 
 from . import plotting as skrf_plt
+
+logger = getLogger(__name__)
 
 
 class NetworkSet:
@@ -144,7 +147,7 @@ class NetworkSet:
         """
         if ntwk_set is None:
             ntwk_set = []
-        if not isinstance(ntwk_set, (list, dict)):
+        if not isinstance(ntwk_set, list | dict):
             raise ValueError('NetworkSet requires a list as argument')
 
         # dict is authorized for convenience
@@ -240,7 +243,7 @@ class NetworkSet:
         Examples
         --------
         >>> import skrf as rf
-        >>> my_set = rf.NetworkSet.from_zip('myzip.zip')
+        >>> my_set = rf.networkSet.NetworkSet.from_zip('myzip.zip')
 
         """
         z = zipfile.ZipFile(zip_file_name)
@@ -277,7 +280,7 @@ class NetworkSet:
 
         This just calls ::
 
-            rf.NetworkSet(rf.read_all_networks(dir), *args, **kwargs)
+            rf.networkSet.NetworkSet(rf.read_all_networks(dir), *args, **kwargs)
 
         Parameters
         ----------
@@ -289,7 +292,7 @@ class NetworkSet:
 
         Examples
         --------
-        >>> my_set = rf.NetworkSet.from_dir('./data/')
+        >>> my_set = rf.networkSet.NetworkSet.from_dir('./data/')
 
         """
         from .io.general import read_all_networks
@@ -622,7 +625,7 @@ class NetworkSet:
 
         Examples
         --------
-        >>> ns = rf.NetworkSet.from_dir('mydir')
+        >>> ns = rf.networkSet.NetworkSet.from_dir('mydir')
         >>> ns.sort()
 
         Sort by other property:
@@ -682,7 +685,7 @@ class NetworkSet:
 
         Returns
         --------
-        ns : :class: `skrf.NetworkSet`
+        ns : :class: `skrf.networkSet.NetworkSet`
 
 
         Examples
@@ -1296,7 +1299,7 @@ class NetworkSet:
                                        comment=f'ntwk_{m}',
                                        params=params) \
                                     for (m, params) in enumerate(params) ]
-        >>> ns = rf.NetworkSet(ntwks_params)
+        >>> ns = rf.networkSet.NetworkSet(ntwks_params)
 
         Selecting the sub-NetworkSet matching scalar parameters:
 
@@ -1390,7 +1393,7 @@ class NetworkSet:
                                        comment=f'ntwk_{m}',
                                        params=params) \
                                     for (m, params) in enumerate(params) ]
-        >>> ns = rf.NetworkSet(ntwks_params)
+        >>> ns = rf.networkSet.NetworkSet(ntwks_params)
 
         Interpolated Network for a=1.2 within X=10 Networks:
 
@@ -1561,7 +1564,7 @@ def getset(ntwk_dict, s, *args, **kwargs):
     if len(ntwk_list) > 0:
         return NetworkSet( ntwk_list,*args, **kwargs)
     else:
-        print(f'Warning: No keys in ntwk_dict contain \'{s}\'')
+        logger.warning(f"No keys in ntwk_dict contain '{s}'")
         return None
 
 

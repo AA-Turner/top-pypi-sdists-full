@@ -1,0 +1,90 @@
+Metadata-Version: 2.4
+Name: vibefoundry
+Version: 0.1.186
+Summary: A local IDE for data science workflows with script running, metadata generation, and GitHub Codespace sync
+Author: VibeFoundry
+License: MIT
+Project-URL: Homepage, https://vibefoundry.ai
+Project-URL: Repository, https://github.com/vibefoundry/vibefoundry-ide
+Keywords: ide,data-science,scripts,codespace
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development :: User Interfaces
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn>=0.23.0
+Requires-Dist: polars-lts-cpu>=1.0.0
+Requires-Dist: pyarrow>=14.0.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: websockets>=11.0.0
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: xlsx2csv>=0.8.0
+Requires-Dist: python-multipart>=0.0.6
+Requires-Dist: watchdog>=3.0.0
+Requires-Dist: python-dateutil>=2.8.0
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+
+# VibeFoundry IDE
+
+A local desktop IDE for data analysis with Claude Code running in a GitHub Codespace sandbox.
+
+## Features
+
+- **Local File Management** - Browse and manage your project files
+- **Codespace Integration** - Connect to a GitHub Codespace running Claude Code
+- **Script Runner** - Run Python scripts locally with auto-preview of outputs
+- **Data Preview** - View CSV, Excel, and image files directly in the IDE
+- **Bidirectional Sync** - Scripts sync between local and codespace
+
+## Installation
+
+```bash
+# Install the package
+pip install -e .
+
+# Build the frontend
+cd frontend && npm install && npm run build && cd ..
+```
+
+## Usage
+
+```bash
+# Launch the IDE
+vibefoundry
+
+# Or specify a project folder
+vibefoundry /path/to/project
+```
+
+## Development
+
+```bash
+# Run frontend dev server
+cd frontend && npm run dev
+
+# Run backend separately
+python -m vibefoundry.server
+```
+
+## Architecture
+
+- `frontend/` - React-based UI (Vite + React)
+- `src/vibefoundry/` - Python backend (FastAPI)
+  - `server.py` - Main API server
+  - `watcher.py` - File change detection
+  - `runner.py` - Script execution
+  - `metadata.py` - Metadata generation

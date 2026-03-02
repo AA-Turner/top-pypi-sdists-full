@@ -1,0 +1,67 @@
+exclude: ^LICENSE/|\.(html|csv|svg|md)$
+default_stages: [pre-commit, pre-push]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/MarcoGorelli/absolufy-imports
+    rev: v0.3.1
+    hooks:
+      - id: absolufy-imports
+        files: ^gridstatus/
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v3.2.0
+    hooks:
+      - id: add-trailing-comma
+        name: Add trailing comma
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.13.2
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+        types_or: [ python, jupyter ]
+        args:
+          - --config=./pyproject.toml
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        args: ["--config-file=pyproject.toml"]
+        exclude: >
+          (?x)^(
+            docs/.*|
+            gridstatus/tests/.*|
+            scripts/.*|
+            examples/.*|
+            setup\.py|
+            gridstatus/__init__\.py|
+            gridstatus/base\.py|
+            gridstatus/aeso/.*|
+            gridstatus/caiso/caiso\.py|
+            gridstatus/caiso/caiso_constants\.py|
+            gridstatus/caiso/caiso_utils\.py|
+            gridstatus/decorators\.py|
+            gridstatus/eia\.py|
+            gridstatus/ercot\.py|
+            gridstatus/ercot_api/.*|
+            gridstatus/gs_logging\.py|
+            gridstatus/ieso\.py|
+            gridstatus/isone\.py|
+            gridstatus/isone_api/.*|
+            gridstatus/lmp_config\.py|
+            gridstatus/miso\.py|
+            gridstatus/nyiso\.py|
+            gridstatus/pjm\.py|
+            gridstatus/spp\.py|
+            gridstatus/utils\.py|
+            gridstatus/version\.py|
+            gridstatus/viz\.py
+          )$

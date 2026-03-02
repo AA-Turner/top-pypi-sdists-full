@@ -1,0 +1,13 @@
+Metadata-Version: 1.2
+Name: tincan
+Version: 1.0.0
+Summary: A Python library for implementing Tin Can API.
+Home-page: http://rusticisoftware.github.io/TinCanPython/
+Author: Rustici Software
+Author-email: mailto:support+tincanpython@tincanapi.com
+Maintainer: Brian J. Miller
+Maintainer-email: mailto:brian.miller@tincanapi.com
+License: Apache License 2.0
+Description: UNKNOWN
+Keywords: Tin Can,TinCan,Tin Can API,TinCanAPI,Experience API,xAPI,SCORM,AICC
+Platform: UNKNOWN

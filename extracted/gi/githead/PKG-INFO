@@ -1,0 +1,47 @@
+Metadata-Version: 2.4
+Name: githead
+Version: 1.2.2
+Summary: Simple utility for getting the current git commit hash (HEAD)
+Project-URL: Issues, https://github.com/Zaczero/githead/issues
+Project-URL: Repository, https://github.com/Zaczero/githead
+Author-email: Kamil Monicz <kamil@monicz.dev>
+License-File: LICENSE
+Keywords: commit,git,git-commit,hash,head,vcs,version-control
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Zero-Clause BSD (0BSD)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# githead
+
+[![PyPI - Python Version](https://shields.monicz.dev/pypi/pyversions/githead)](https://pypi.org/project/githead)
+[![Liberapay Patrons](https://shields.monicz.dev/liberapay/patrons/Zaczero?logo=liberapay&label=Patrons)](https://liberapay.com/Zaczero/)
+[![GitHub Sponsors](https://shields.monicz.dev/github/sponsors/Zaczero?logo=github&label=Sponsors&color=%23db61a2)](https://github.com/sponsors/Zaczero)
+
+Simple utility for getting the current git commit hash (HEAD).
+
+## Installation
+
+```sh
+pip install githead
+```
+
+## Basic usage
+
+```py
+from githead import githead
+
+githead() # -> 'bca663418428d603eea8243d08a5ded19eb19a34'
+
+# defaults to '.git' directory but can be changed:
+githead('path/to/.git')
+```

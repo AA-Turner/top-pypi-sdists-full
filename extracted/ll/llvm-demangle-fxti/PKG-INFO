@@ -1,0 +1,200 @@
+Metadata-Version: 2.4
+Name: llvm-demangle-fxti
+Version: 1.0.0
+Summary: Python bindings for the LLVM Demangle library, with vendored LLVM source.
+Home-page: https://github.com/FXTi/llvmdemangle/tree/master
+Author: FXTi
+Author-email: fx.ti@outlook.com
+License: 0BSD AND Apache-2.0 WITH LLVM-exception
+Keywords: demangling c++ cxx cpp llvm
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
+
+# LLVM-Demangle
+
+Python bindings for the LLVM Demangle library, with vendored LLVM source.
+
+Exposes Itanium, Microsoft, Rust, and D language demanglers, plus `ItaniumPartialDemangler` for querying individual symbol components. Ships all LLVM versions 11–21 in a single package with runtime version selection. No system LLVM installation required.
+
+## Install
+
+```bash
+pip install llvm-demangle-fxti
+```
+
+## Quick start
+
+```python
+import llvmdemangle
+
+llvmdemangle.demangle("_Z3fooi")           # 'foo(int)'
+llvmdemangle.demangle("?foo@@YAHH@Z")      # 'int __cdecl foo(int)'
+```
+
+## Version selection
+
+By default, the highest available LLVM version (21) is used. Use `backend()` to get a specific version:
+
+```python
+import llvmdemangle
+
+# Default (LLVM 21)
+llvmdemangle.demangle("_Z3fooi")
+
+# Use a specific LLVM version
+v18 = llvmdemangle.backend(18)
+v18.demangle("_Z3fooi")
+v18.ItaniumPartialDemangler("_ZN3Foo3barEid")
+v18.LLVM_VERSION  # 18
+
+# See what's available
+llvmdemangle.SUPPORTED_VERSIONS  # [11, 12, 13, ..., 21]
+```
+
+## API reference
+
+### `LLVM_VERSION`
+
+Integer constant indicating the LLVM version of the default backend (e.g. `21`).
+
+### `SUPPORTED_VERSIONS`
+
+List of all available LLVM backend versions (e.g. `[11, 12, ..., 21]`).
+
+### `backend(llvm_version) -> module`
+
+Return the backend module for a specific LLVM version. The returned module has the same API as the top-level `llvmdemangle` module.
+
+### `demangle(name) -> str`
+
+Auto-detect mangling scheme and demangle. Returns the original string if unrecognized.
+
+```python
+llvmdemangle.demangle("_Z3fooi")       # 'foo(int)'
+llvmdemangle.demangle("?foo@@YAHH@Z")  # 'int __cdecl foo(int)'
+llvmdemangle.demangle("plain")         # 'plain'
+```
+
+### `itanium_demangle(name, *, parse_params=True) -> str | None`
+
+Demangle an Itanium C++ ABI symbol. Returns `None` on failure.
+
+`parse_params=False` omits function parameters (LLVM >= 18; ignored on older versions).
+
+```python
+llvmdemangle.itanium_demangle("_Z3fooi")                        # 'foo(int)'
+llvmdemangle.itanium_demangle("_Z3fooi", parse_params=False)    # 'foo'  (LLVM 18+)
+```
+
+### `microsoft_demangle(name, *, flags=0) -> tuple[str, int] | None`
+
+Demangle a Microsoft Visual C++ symbol. Returns `(demangled_name, n_read)` or `None`.
+
+```python
+llvmdemangle.microsoft_demangle("?foo@@YAHH@Z")
+# ('int __cdecl foo(int)', 12)
+
+llvmdemangle.microsoft_demangle("?foo@@YAHH@Z", flags=llvmdemangle.MSDF_NO_CALLING_CONVENTION)
+# ('int foo(int)', 12)
+```
+
+Flag constants:
+
+| Constant | Value | Description |
+|---|---|---|
+| `MSDF_NONE` | 0 | No flags |
+| `MSDF_DUMP_BACKREFS` | 1 | Dump back-references |
+| `MSDF_NO_ACCESS_SPECIFIER` | 2 | Omit access specifiers |
+| `MSDF_NO_CALLING_CONVENTION` | 4 | Omit calling convention |
+| `MSDF_NO_RETURN_TYPE` | 8 | Omit return type |
+| `MSDF_NO_MEMBER_TYPE` | 16 | Omit member type |
+| `MSDF_NO_VARIABLE_TYPE` | 32 | Omit variable type (LLVM >= 14) |
+
+### `rust_demangle(name) -> str | None`
+
+Demangle a Rust v0 symbol. Returns `None` on failure. Requires LLVM >= 13.
+
+```python
+llvmdemangle.rust_demangle("_RNvC8my_crate3foo")  # 'my_crate::foo'
+```
+
+### `dlang_demangle(name) -> str | None`
+
+Demangle a D language symbol. Returns `None` on failure. Requires LLVM >= 14.
+
+```python
+llvmdemangle.dlang_demangle("_Dmain")  # 'D main'
+```
+
+### `non_microsoft_demangle(name, *, can_have_leading_dot=True, parse_params=True) -> str | None`
+
+Demangle a non-Microsoft symbol (Itanium, Rust, or D). Returns `None` on failure. Requires LLVM >= 14. `parse_params` requires LLVM >= 18.
+
+### `get_arm64ec_insertion_point(name) -> int | None`
+
+Get the Arm64EC insertion point in a mangled name. Requires LLVM >= 19.
+
+### `ItaniumPartialDemangler(name)`
+
+Parse Itanium C++ symbols into an AST and query individual components. Raises `ValueError` if the name cannot be parsed.
+
+```python
+d = llvmdemangle.ItaniumPartialDemangler("_ZN3Foo3barIiEEvi")
+d.full_name              # 'void Foo::bar<int>(int)'
+d.function_base_name     # 'bar'
+d.function_decl_context  # 'Foo'
+d.function_name          # 'Foo::bar<int>'
+d.function_parameters    # '(int)'
+d.function_return_type   # 'void'
+d.is_function            # True
+d.is_data                # False
+d.is_ctor_or_dtor        # False
+d.is_special_name        # False
+d.has_function_qualifiers  # False
+```
+
+String properties return `None` when the property doesn't apply (e.g. `function_name` on a data symbol).
+
+### Version availability
+
+| Feature | Minimum LLVM |
+|---|---|
+| `demangle`, `itanium_demangle`, `microsoft_demangle` | 11 |
+| `ItaniumPartialDemangler` | 11 |
+| `rust_demangle` | 13 |
+| `dlang_demangle`, `non_microsoft_demangle` | 14 |
+| `MSDF_NO_VARIABLE_TYPE` | 14 |
+| `itanium_demangle(parse_params=)` | 18 |
+| `non_microsoft_demangle(parse_params=)` | 18 |
+| `get_arm64ec_insertion_point` | 19 |
+
+Functions unavailable for the selected LLVM backend raise `NotImplementedError`.
+
+## Build from source
+
+```bash
+# 1. Vendor LLVM Demangle source (downloads from GitHub releases)
+python vendor_llvm.py --llvm-version 18
+python vendor_llvm.py --llvm-version 21
+
+# 2. Build & install (compiles backends for all vendored versions)
+pip install .
+```
+
+Supported LLVM versions: 11–21. Only vendored versions are compiled.
+
+## License
+
+- Wrapper code: [0BSD](LICENSE.txt)
+- LLVM Demangle source: [Apache 2.0 with LLVM Exception](LLVM_LICENSE.txt)

@@ -234,6 +234,8 @@ pub enum OutputFormatWrapper {
     Markdown,
     /// Djot lightweight markup language.
     Djot,
+    /// Plain text (no markup).
+    Plain,
 }
 
 impl From<OutputFormatWrapper> for OutputFormat {
@@ -241,6 +243,7 @@ impl From<OutputFormatWrapper> for OutputFormat {
         match wrapper {
             OutputFormatWrapper::Markdown => Self::Markdown,
             OutputFormatWrapper::Djot => Self::Djot,
+            OutputFormatWrapper::Plain => Self::Plain,
         }
     }
 }
@@ -250,6 +253,7 @@ impl From<OutputFormat> for OutputFormatWrapper {
         match format {
             OutputFormat::Markdown => Self::Markdown,
             OutputFormat::Djot => Self::Djot,
+            OutputFormat::Plain => Self::Plain,
         }
     }
 }

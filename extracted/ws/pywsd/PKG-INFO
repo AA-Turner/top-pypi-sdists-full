@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: pywsd
+Version: 1.2.5
+Summary: Python WSD
+Home-page: https://github.com/alvations/pywsd
+License: MIT
+License-File: LICENSE.md
+
+Python Implementations of Word Sense Disambiguation (WSD) technologies

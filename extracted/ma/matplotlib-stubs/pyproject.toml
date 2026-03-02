@@ -1,0 +1,122 @@
+[project]
+name = "matplotlib-stubs"
+dynamic = ["version"]
+authors = [{ name = "Bagard Hoel" }]
+description = "Unofficial stubs for the matplotlib package."
+keywords = ["matplotlib", "stubs"]
+readme = "README.md"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Developers",
+]
+license = { text = "MIT" }
+dependencies = ["matplotlib>=3.0", "numpy>=1.21", "pandas>=2.0"]
+requires-python = ">=3.8"
+
+[project.urls]
+"Homepage" = "https://github.com/hoel-bagard/matplotlib-stubs"
+"Bug Tracker" = "https://github.com/hoel-bagard/matplotlib-stubs/issues"
+
+[build-system]
+requires = ["hatchling>=1.10.0"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["ipython>=8.12.3", "pre-commit>=3.5.0"]
+lint = [
+  # Typing
+  "pyright>=1.1.389",
+  "pygobject-stubs>=2.12.0",
+  "pandas-stubs>=2.0.2.230605",
+  "traitlets>=5.14.3",
+  # Python formatting
+  "ruff>=0.11.9",
+  # Spelling
+  "codespell>=2.3.0",
+  # Markdown
+  "mdformat>=0.7.22; python_version >= '3.9'",
+  # To support GitHub's Markdown
+  "mdformat-footnote>=0.1.1",
+  "mdformat-frontmatter>=2.0.8; python_version >= '3.9'",
+  "mdformat-gfm>=0.3.6; python_version >= '3.9'",
+  "mdformat-gfm-alerts>=1.0.1; python_version >= '3.9'",
+  # Format python, bash (requires shfmt to be present), JSON, TOML and YAML code blocks.
+  "markdown-format-ruff>=1.0.0",
+  "mdformat-shfmt>=0.1.0",
+  "mdformat-taplo>=0.9.3",
+  "mdformat-yamlfmt>=0.0.1",
+  "mdformat-json>=1.0.0",
+]
+
+[tool.hatch.version]
+path = "src/matplotlib-stubs/__init__.pyi"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/build", "/dist", "/docs"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/matplotlib-stubs"]
+
+[tool.ruff]
+line-length = 10000 # Because some docstrings are included.
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "A002",   # Shadowing builtins, nothing we can do about that.
+  "A003",
+  "ANN",    # The stub is too incomplete to use these rules
+  "B006",
+  "B019",   # functools.lru_cache check, not relevant here.
+  "CPY001", # Missing copyright notice rule, not relevant here
+  "COM812", # Conflict with formatter.
+  "D",
+  "FBT",
+  "N",
+  "PYI021",
+  "PYI051", # Some Literal are redundant with `str`, keep them for now.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.pyi" = ["F401"]
+
+[tool.ruff.lint.isort]
+order-by-type = false
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.pyright]
+include = ["src/matplotlib-stubs"]
+pythonVersion = "3.11"
+pythonPlatform = "Linux"
+typeCheckingMode = "strict"
+reportMissingTypeArgument = false
+reportUnknownParameterType = false
+reportMissingParameterType = false
+reportUndefinedVariable = false
+reportIncompatibleMethodOverride = false
+reportOverlappingOverload = false
+reportIncompleteStub = false
+reportIncompatibleVariableOverride = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportFunctionMemberAccess = false
+reportPrivateUsage = false
+reportUntypedClassDecorator = false
+reportUntypedBaseClass = false
+
+[tool.uv.sources]
+matplotlib-stubs = { workspace = true }
+
+[tool.codespell]
+ignore-words-list = "whis"

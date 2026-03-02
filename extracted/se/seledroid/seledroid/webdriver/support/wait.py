@@ -1,0 +1,59 @@
+import os
+import time
+import threading
+
+from seledroid.webdriver.remote.command import Command
+
+
+class WebDriverWait:
+
+    def __init__(self, driver, timeout):
+        self.driver = driver
+        self.timeout = timeout
+        self.kill = False
+        self.result = None
+
+    def time(self):
+        end_time = time.time() + self.timeout
+        while True:
+            if self.kill:
+                self.kill = False
+                break
+            if time.time() > end_time:
+                self.kill = True
+                raise TimeoutError("Time out to wait element")
+
+    def recv_result(self, method, command):
+        self.result = method(self.driver, command)
+
+    def until(self, method):
+        time_thread = threading.Thread(target=self.time, daemon=True)
+        recv_thread = threading.Thread(target=self.recv_result, args=(method, Command.WAIT_UNTIL_ELEMENT), daemon=True)
+        time_thread.start()
+        recv_thread.start()
+        while True:
+            if self.kill or not time_thread.is_alive():
+                os._exit(0)
+            try:
+                if self.result:
+                    if time_thread.is_alive():
+                        self.kill = True
+                    return self.result
+            except Exception as ex:
+                raise ex
+
+    def until_not(self, method):
+        time_thread = threading.Thread(target=self.time, daemon=True)
+        recv_thread = threading.Thread(target=self.recv_result, args=(method, Command.WAIT_UNTIL_NOT_ELEMENT), daemon=True)
+        time_thread.start()
+        recv_thread.start()
+        while True:
+            if self.kill or not time_thread.is_alive():
+                os._exit(0)
+            try:
+                if self.result:
+                    if time_thread.is_alive():
+                        self.kill = True
+                    return None
+            except Exception as ex:
+                raise ex

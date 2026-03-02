@@ -1,0 +1,684 @@
+from pathlib import Path
+from typing import Any, Dict
+
+import numpy as np
+import pytest
+
+from cdflib import cdfread, cdfwrite
+from cdflib.xarray import cdf_to_xarray
+
+R = Path(__file__).parent
+fnbasic = "testing.cdf"
+
+
+def cdf_create(fn: Path, spec: Dict[str, Any]) -> cdfwrite.CDF:
+    return cdfwrite.CDF(fn, cdf_spec=spec)
+
+
+def cdf_read(fn: Path, validate: bool = False) -> cdfread.CDF:
+    return cdfread.CDF(fn, validate=validate)
+
+
+def test_cdf_creation(tmp_path):
+    fn = tmp_path / fnbasic
+    cdf_create(fn, {"rDim_sizes": [1]}).close()
+
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    info = reader.cdf_info()
+    assert info.Majority == "Row_major"
+
+
+def test_checksum(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+    tfile = cdf_create(fn, {"Checksum": True})
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 4
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = 1
+    varatts["Attribute2"] = "500"
+
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    tfile.close()
+
+    # %% Open the file to read
+    reader = cdf_read(fn, validate=True)
+    # Test CDF info
+    var = reader.varget("Variable1")
+    np.testing.assert_equal(var, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    # test convenience info
+    np.testing.assert_equal(reader["Variable1"], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+
+def test_checksum_compressed(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 2
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = 1
+    varatts["Attribute2"] = "500"
+
+    v = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+    tfile = cdf_create(fn, {"Compressed": 6, "Checksum": True})
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=v)
+
+    tfile.close()
+    # Open the file to read
+    reader = cdf_read(fn, validate=True)
+
+    var = reader.varget("Variable1")
+    np.testing.assert_equal(var, v)
+
+    att = reader.attget("Attribute1", entry=0)
+    assert att.Data == 1
+
+    att = reader.attget("Attribute2", entry=0)
+    assert att.Data == "500"
+
+
+def test_file_compression(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 2
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = 1
+    varatts["Attribute2"] = "500"
+
+    v = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+    tfile = cdf_create(fn, {"Compressed": 6, "Checksum": True})
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=v)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+    # Test CDF info
+    var = reader.varget("Variable1")
+    np.testing.assert_equal(var, v)
+
+
+def test_globalattrs(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    globalAttrs: Dict[str, Any] = {}
+    globalAttrs["Global1"] = {0: "Global Value 1"}
+    globalAttrs["Global2"] = {0: "Global Value 2"}
+    globalAttrs["Global3"] = {0: [12, "cdf_int4"]}
+    globalAttrs["Global4"] = {0: [12.34, "cdf_double"]}
+    globalAttrs["Global5"] = {0: [12.34, 21.43]}
+
+    GA6: Dict[int, Any] = {}
+    GA6[0] = "abcd"
+    GA6[1] = [12, "cdf_int2"]
+    GA6[2] = [12.5, "cdf_float"]
+    GA6[3] = [[0, 1, 2], "cdf_int8"]
+
+    globalAttrs["Global6"] = GA6
+
+    tfile = cdf_create(fn, {"Checksum": True})
+    tfile.write_globalattrs(globalAttrs)
+
+    tfile.close()
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    attrib = reader.attinq("Global2")
+    assert attrib.num_gr_entry == 1
+
+    attrib = reader.attinq("Global6")
+    assert attrib.num_gr_entry == 4
+
+    entry = reader.attget("Global6", 3)
+    assert entry.Data_Type == "CDF_INT8"
+
+    np.testing.assert_equal(entry.Data, [0, 1, 2])
+
+
+def test_create_zvariable(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+    vs: Dict[str, Any] = {}
+    vs["Variable"] = "Variable1"
+    vs["Data_Type"] = 1
+    vs["Num_Elements"] = 1
+    vs["Rec_Vary"] = True
+    vs["Dim_Sizes"] = []
+    vs["Dim_Vary"] = True
+
+    tfile = cdf_create(fn, {"Checksum": True})
+    tfile.write_var(vs, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+    assert varinfo.Data_Type == 1
+
+    var = reader.varget("Variable1")
+    np.testing.assert_equal(var, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+
+def test_create_rvariable(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+    vs: Dict[str, Any] = {}
+    vs["Variable"] = "Variable1"
+    vs["Var_Type"] = "rvariable"
+    vs["Data_Type"] = 12
+    vs["Num_Elements"] = 1
+    vs["Rec_Vary"] = True
+    vs["Dim_Sizes"] = []
+    vs["Dim_Vary"] = [True]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(vs, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+    assert varinfo.Data_Type == 12
+
+    var = reader.varget("Variable1")
+    for x in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+        assert var[x] == x
+
+
+def test_create_zvariable_no_recvory(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = False
+    var_spec["Dim_Sizes"] = []
+    var_spec["Dim_Vary"] = True
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=np.array([2]))
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+    assert varinfo.Data_Type == 8
+
+    var = reader.varget("Variable1")
+    assert var == 2
+
+
+def test_create_zvariables_with_attributes(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = 1
+    varatts["Attribute2"] = "500"
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    var_spec["Variable"] = "Variable2"
+    varatts2: Dict[str, Any] = {}
+    varatts2["Attribute1"] = 2
+    varatts2["Attribute2"] = "1000"
+    tfile.write_var(var_spec, var_attrs=varatts2, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    att = reader.attget("Attribute1", entry=0)
+    assert att.Data == 1
+
+    att = reader.attget("Attribute2", entry=1)
+    assert att.Data == "1000"
+
+
+def test_create_zvariables_then_attributes(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    var_spec["Variable"] = "Variable2"
+    tfile.write_var(var_spec, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = {"Variable1": 1, "Variable2": 2}
+    varatts["Attribute2"] = {0: "500", 1: "1000"}
+
+    tfile.write_variableattrs(varatts)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    att = reader.attget("Attribute1", entry=0)
+    assert att.Data == 1
+
+    att = reader.attget("Attribute2", entry=1)
+    att.Data == "1000"
+
+
+def test_nonsparse_zvariable_blocking(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Block_Factor"] = 10000
+    data = np.linspace(0, 999999, num=1000000)
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=data)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    var = reader.varget("Variable1")
+    assert var[99999] == 99999
+
+
+def test_sparse_virtual_zvariable_blocking(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Block_Factor"] = 10000
+    var_spec["Sparse"] = "pad_sparse"
+    data = np.linspace(0, 140000, num=140001)
+    physical_records1 = np.linspace(1, 10000, num=10000)
+    physical_records2 = np.linspace(20001, 30000, num=10000)
+    physical_records3 = np.linspace(50001, 60000, num=10000)
+    physical_records4 = np.linspace(70001, 140000, num=70000)
+    physical_records = np.concatenate((physical_records1, physical_records2, physical_records3, physical_records4)).astype(int)
+    sparse_data = [physical_records, data]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=sparse_data)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinq = reader.varinq("Variable1")
+    var = reader.varget("Variable1")
+
+    pad_num = varinq.Pad[0]
+    assert var[30001] == pad_num
+    assert var[70001] == 70001
+
+
+def test_sparse_zvariable_blocking(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Block_Factor"] = 10000
+    var_spec["Sparse"] = "pad_sparse"
+    data = np.linspace(0, 99999, num=100000)
+    physical_records1 = np.linspace(1, 10000, num=10000)
+    physical_records2 = np.linspace(20001, 30000, num=10000)
+    physical_records3 = np.linspace(50001, 60000, num=10000)
+    physical_records4 = np.linspace(70001, 140000, num=70000)
+    physical_records = np.concatenate((physical_records1, physical_records2, physical_records3, physical_records4)).astype(int)
+    sparse_data = [physical_records, data]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=sparse_data)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    # tfile = cdf_create(fn, {'rDim_sizes': [1]})
+    varinq = reader.varinq("Variable1")
+    var = reader.varget("Variable1")
+    pad_num = varinq.Pad[0]
+
+    assert var[30001] == pad_num
+    assert var[70001] == 30000
+
+
+def test_sparse_zvariable_pad(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Sparse"] = "pad_sparse"
+    data = [[200, 3000, 3100, 3500, 4000, 5000, 6000, 10000, 10001, 10002, 20000], np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=data)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinq = reader.varinq("Variable1")
+    var = reader.varget("Variable1")
+    pad_num = varinq.Pad[0]
+
+    assert var[100] == pad_num
+    assert var[3000] == 1
+
+
+def test_sparse_zvariable_previous(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Sparse"] = "prev_sparse"
+    data = [[200, 3000, 3100, 3500, 4000, 5000, 6000, 10000, 10001, 10002, 20000], np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=data)
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinq = reader.varinq("Variable1")
+    var = reader.varget("Variable1")
+    pad_num = varinq.Pad[0]
+
+    assert var[100] == pad_num
+    assert var[6001] == var[6000]
+
+
+def test_create_2d_rvariable(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Var_Type"] = "rvariable"
+    var_spec["Data_Type"] = 14
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Dim_Vary"] = [True, True]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [2, 2]})
+    tfile.write_var(
+        var_spec, var_data=np.array([[[0, 1], [1, 2]], [[2, 3], [3, 4]], [[4, 5], [5, 6]], [[6, 7], [7, 8]], [[8, 9], [9, 10]]])
+    )
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+    assert varinfo.Data_Type == 14
+
+    var = reader.varget("Variable1")
+    for x in [0, 1, 2, 3, 4]:
+        assert var[x][0][0] == 2 * x
+        assert var[x][0][1] == 2 * x + 1
+        assert var[x][1][0] == 2 * x + 1
+        assert var[x][1][1] == 2 * x + 2
+
+
+def test_create_2d_rvariable_dimvary(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Var_Type"] = "rvariable"
+    var_spec["Data_Type"] = 21
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Dim_Vary"] = [True, False]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [2, 20]})
+
+    tfile.write_var(var_spec, var_data=np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]))
+
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+
+    assert varinfo.Data_Type == 21
+    var = reader.varget("Variable1")
+    for x in [0, 1, 2, 3, 4]:
+        assert var[x][0] == 2 * x
+        assert var[x][1] == 2 * x + 1
+
+
+def test_create_2d_r_and_z_variables(tmp_path):
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Var_Type"] = "rvariable"
+    var_spec["Data_Type"] = 22
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    var_spec["Dim_Vary"] = [True, False]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [2, 20]})
+    tfile.write_var(var_spec, var_data=np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]))
+
+    var_spec["Variable"] = "Variable2"
+    var_spec["Var_Type"] = "zvariable"
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = 2
+    varatts["Attribute2"] = "1000"
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    tfile.close()
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    varinfo = reader.varinq("Variable1")
+    assert varinfo.Data_Type == 22
+
+    var = reader.varget("Variable1")
+    for x in [0, 1, 2, 3, 4]:
+        assert var[x][0] == 2 * x
+        assert var[x][1] == 2 * x + 1
+
+    var = reader.varget("Variable2")
+    np.testing.assert_equal(var, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+    att = reader.attget("Attribute1", entry="Variable2")
+    assert att.Data == 2
+
+    att = reader.attget("Attribute2", entry="Variable2")
+    assert att.Data == "1000"
+
+
+def test_create_zvariables_with_attributes_to_convert(tmp_path):
+    # This unit test verify that attributes will be cast to the appropriate type
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+    varatts: Dict[str, Any] = {}
+    varatts["Attribute1"] = [1, "CDF_REAL8"]
+    varatts["Attribute2"] = [500.1, "CDF_INT8"]
+    varatts["Attribute3"] = [700, "CDF_INT8"]
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_attrs=varatts, var_data=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    att = reader.attget("Attribute1", entry=0)
+    assert att.Data == 1
+
+    att = reader.attget("Attribute2", entry=0)
+    assert att.Data == 500  # Verifies that it casted correctly and removed the ".1"
+
+
+def test_create_zvariables_with_data_to_convert(tmp_path):
+    # This unit test verify that data given to write_var will be cast to the appropriate type
+    # i.e. if CDF_INT8 is specified, then the data will be cast to an int before writing to the file
+
+    # Setup the test_file
+    fn = tmp_path / fnbasic
+
+    var_spec: Dict[str, Any] = {}
+    var_spec["Variable"] = "Variable1"
+    var_spec["Data_Type"] = 8
+    var_spec["Num_Elements"] = 1
+    var_spec["Rec_Vary"] = True
+    var_spec["Dim_Sizes"] = []
+
+    tfile = cdf_create(fn, {"rDim_sizes": [1]})
+    tfile.write_var(var_spec, var_data=[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
+
+    tfile.close()
+
+    # Open the file to read
+    reader = cdf_read(fn)
+
+    # Test CDF info
+    var = reader.varget("Variable1")
+    assert var[3] == 3
+
+
+def test_convert_data_error(tmp_path):
+    indata = int(-9223372036854775808)
+    cdf = cdfwrite.CDF(tmp_path / "test.cdf", cdf_spec={"rDim_sizes": [1]})
+    with pytest.raises(ValueError):
+        # Data from list of strings with dimension "epoch"
+        cdf._convert_data(51, 1, 1, indata)
+
+
+def test_string_input_but_number_type(tmp_path):
+    # This small example used to create a corrupted CDF file.
+    # Because the FILLVAL was input as a string, but it is told to be a double
+    cdf = cdfwrite.CDF(tmp_path / "test.cdf")
+    var_data = np.random.rand(5, 3) * 30
+    var_spec = {
+        "Variable": "temperature",
+        "Data_Type": 45,
+        "Num_Elements": 1,
+        "Rec_Vary": False,
+        "Dim_Sizes": [5, 3],
+        "Compress": 0,
+    }
+    var_att_dict = {"FILLVAL": [np.str_("12"), "CDF_DOUBLE"]}
+    cdf.write_var(var_spec, var_attrs=var_att_dict, var_data=var_data)
+    cdf.close()
+
+    # Reading it back in would cause an error
+    cdf_to_xarray(tmp_path / "test.cdf")
+
+
+def test_array_string_input_but_number_type(tmp_path):
+    # This small example used to create a corrupted CDF file.
+    # Because the FILLVAL was input as a string, but it is told to be a double
+    cdf = cdfwrite.CDF(tmp_path / "test.cdf")
+    var_data = np.random.rand(5, 3) * 30
+    var_spec = {
+        "Variable": "temperature",
+        "Data_Type": 45,
+        "Num_Elements": 1,
+        "Rec_Vary": False,
+        "Dim_Sizes": [5, 3],
+        "Compress": 0,
+    }
+    var_att_dict = {"FILLVAL": [np.array([np.str_("12"), np.str_("13")]), "CDF_DOUBLE"]}
+    cdf.write_var(var_spec, var_attrs=var_att_dict, var_data=var_data)
+    cdf.close()
+
+    # Reading it back in would cause an error
+    cdf_to_xarray(tmp_path / "test.cdf")

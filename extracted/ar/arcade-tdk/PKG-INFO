@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: arcade-tdk
+Version: 3.6.0
+Summary: Arcade TDK - Toolkit Development Kit for building Arcade tools
+Author-email: Arcade <dev@arcade.dev>
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: arcade-core<5.0.0,>=4.4.0
+Requires-Dist: pydantic>=2.7.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.5.1; extra == 'dev'
+Requires-Dist: pre-commit>=3.4.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23.7; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
+Requires-Dist: pytest>=8.1.2; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Arcade TDK (Toolkit Development Kit)
+
+Toolkit Development Kit for building and testing Arcade tools.
+
+## Overview
+
+Arcade TDK provides the essential tools and utilities for building Arcade tools:
+
+- **Tool Decorator**: Simple `@tool` decorator for creating Arcade tools
+- **Authentication**: Auth providers and helpers for tool security
+- **Annotations**: Type annotations and parameter validation
+- **Core Integration**: Seamless integration with arcade-core components
+
+## Installation
+
+```bash
+pip install arcade-tdk
+```
+
+## Usage
+
+```python
+from typing import Annotated
+
+from arcade_tdk import tool
+
+@tool
+def hello_world(name: Annotated[str, "The name of the person to greet"]) -> str:
+    """Say hello to someone."""
+    return f"Hello, {name}!"
+
+# The tool is automatically registered and available for use
+```
+
+## Advanced Usage
+
+```python
+from typing import Annotated
+
+from arcade_tdk import tool, ToolCatalog, Toolkit
+from arcade_tdk.auth import Reddit
+
+# Create tools with auth requirement
+@tool(requires_auth=Reddit(scopes=["read"]))
+def get_posts_in_subreddit(
+    subreddit: Annotated[str, "The name of the subreddit"],
+    limit: Annotated[int, "The number of posts to return]
+) -> dict:
+    """Get posts from a specific subreddit"""
+    # TODO: Implement your Reddit tool
+    return {}
+```
+
+## License
+
+MIT License - see LICENSE file for details.

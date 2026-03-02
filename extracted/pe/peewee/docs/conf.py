@@ -97,11 +97,16 @@ add_module_names = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #html_theme = 'sphinx_rtd_theme'
+#html_theme = 'bizstyle'
+#html_theme_options = {
+#    'body_max_width': '800px',
+#}
 html_theme = 'alabaster'
 html_theme_options = {
     'github_user': 'coleifer',
     'github_repo': 'peewee',
     'page_width': '1000px',
+    'sidebar_width': '240px',
     'font_size': '15px',
 }
 

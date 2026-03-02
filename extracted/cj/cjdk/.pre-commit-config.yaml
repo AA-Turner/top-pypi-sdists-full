@@ -1,0 +1,38 @@
+# This file is part of cjdk.
+# Copyright 2022-25 Board of Regents of the University of Wisconsin System
+# SPDX-License-Identifier: MIT
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.2.0
+    hooks:
+      - id: editorconfig-checker
+        alias: ec
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+        args: ["--wrap=79", "--end-of-line=keep"]
+        exclude: '^docs/.*$'
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-myst
+        args: ["--wrap=79", "--end-of-line=keep"]
+        exclude: '^(?!docs/.*)$'
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v5.0.2
+    hooks:
+      - id: reuse

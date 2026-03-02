@@ -1,0 +1,65 @@
+[project]
+name = "graphql-core-promise"
+dynamic = ["version"]
+description = "Add support for promise-based dataloaders and resolvers to graphql-core v3+"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Samuel Cormier-Iijima", email = "sam@fellow.co" },
+    { name = "Shen Li", email = "dustet@gmail.com" },
+]
+license = { text = "BSD-3-Clause" }
+dependencies = ["graphql-core>=3.2", "promise>=2.3"]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/fellowapp/graphql-core-promise"
+Repository = "https://github.com/fellowapp/graphql-core-promise"
+Changelog = "https://github.com/fellowapp/graphql-core-promise/releases"
+
+[dependency-groups]
+dev = ["pyright>=1.1.396", "pytest~=8.2", "pytest-benchmark~=4.0", "ruff~=0.4"]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "COM",
+    "E",
+    "EM",
+    "F",
+    "I",
+    "I",
+    "N",
+    "PT",
+    "RSE",
+    "RUF",
+    "SIM",
+    "UP",
+    "W",
+]
+ignore = ["COM812"]
+preview = true
+
+[tool.ruff.format]
+preview = true

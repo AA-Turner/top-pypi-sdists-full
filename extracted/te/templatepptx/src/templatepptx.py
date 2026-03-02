@@ -1,0 +1,201 @@
+import warnings
+from pptx import Presentation
+from pptx.presentation import Presentation as PowerPoint
+from  pptx.shapes.autoshape import Shape
+from pptx.slide import Slide
+from pptx.util import Inches
+import os
+import glob
+import copy
+import tempfile
+
+from text_processor import TextProcessor
+from table_processor import TableProcessor
+from picture_processor import PictureProcessor
+from template_pptx_options import TemplatePptxOptions
+
+class SlideMasterIndexError(Exception):
+    """A valid slide master does not seem to exist"""
+    pass
+
+class TemplatePptx:
+ 
+    def __init__(self, ppt: str, context: dict, output_path: str, special_character: str="$"):
+        self._ppt: PowerPoint = Presentation(ppt)
+        self._context = context
+        self._output_path = output_path
+        self._validation()
+        self._special_character = special_character
+        self._options = TemplatePptxOptions()
+
+    @property
+    def options(self) -> TemplatePptxOptions:
+        return self._options
+
+    def _validation(self) -> None:
+        
+        # Warn user if context obj is empty
+        if self._context == {}:
+            warnings.warn("Context file is empty")
+        
+        # Check if the context is a valid dictionary
+        if not isinstance(self._context, dict):
+            raise ValueError(f"Your context is not a valid dictionary. Please check the context.")
+
+        # Check if the output is valid
+        try:
+            with open(self._output_path, 'w') as out_pptx:
+                pass
+        except Exception as e:
+            raise IOError(f"Cannot open a PPTX file at the desired output dir: {e}")
+
+
+    def parse_template_pptx(self) -> PowerPoint:
+        
+        """
+        Description: The parent method that parses the powerpoint into a PPTX Presentation and replaces magic words
+
+        @input ppt: A file path to the template PPTX
+        @input context: A dictionary containing all of the data that is fed into the template. It contains the data 
+        and the magic keywords.
+
+        @output ppt: A Python pptx Presentation object which contains all of the new changes
+        """
+
+        # Loop through every shape element in each slide and replace template words with values from context
+        for slide in self._ppt.slides:
+            slide: Slide
+            slide_number: int = (self._ppt.slides.index(slide)) + 1
+            shapes_on_slide: list[Shape]= slide.shapes
+            for shape in shapes_on_slide:
+                shape: Shape
+                # Process all text on the shape
+                TextProcessor(shape, self._context, slide_number, self._special_character).replace_text()               
+                # If shape object has a table associated, process table
+                # NOTE: relationship is a key word and is used to specify table relates                      
+                if shape.has_table:
+                    TableProcessor(shape, self._context, slide_number,
+                                    self._special_character).process_table(self._options)
+                # 13 is the shapetype for an image
+                if shape.shape_type == 13:
+                    PictureProcessor(shape, self._context, slide_number, slide).replace_picture(self._options)
+                # 6 is a group shape
+                if shape.shape_type == 6:
+                    for sub_shape in shape.shapes:
+                        sub_shape: Shape
+                        TextProcessor(sub_shape, self._context, slide_number, self._special_character).replace_text()
+                        if sub_shape.shape_type == 13:
+                            PictureProcessor(shape, self._context, slide_number, slide).replace_picture(self._options)
+        self._ppt.save(self._output_path)
+        return self._output_path
+
+
+class BatchTool():
+    
+    """
+    Description: Combines slides from multiple PowerPoints into one PowerPoint File. This function
+    does not use PowerPoint. However, it has limited functionality and is restricted to pictures,
+    text and tables.
+
+    @input pres_dir: A folder path to directory containing all of the PPTX
+    @input final_output: A file string that specifies where the final combined output PowerPoint is written
+
+    """
+
+    def __init__(self, pptx_dir: str, output_pptx: str):
+        self._pptx_dir = pptx_dir
+        self._output_pptx = output_pptx
+    
+    def _sort_by_number_file_names(self, in_string: str):
+
+        """
+        Description: Sorts a list of file names by their mumeric names. 
+        Function assumes filename only contains number characters.
+
+        @input: A file string path which contains a file with only a numeric name. Ex. 'C:\\Users\\Bob\\AppData\\Local\\Temp\\tmp0cnkqzuj\\9.pptx'
+        
+        """
+
+        file_name = os.path.basename(in_string)
+
+        if os.path.splitext(file_name)[0].isnumeric():
+            return int(os.path.splitext(file_name)[0])
+        else:
+            return in_string
+
+    def combine_slides(self, sort_numeric: bool = True, specify_master: str = None, master_slide_index: int = -1):
+        """Combine slides, combine slides based on numeric numbering. """
+
+        # Find all slides in the temp output dir
+        pres = glob.glob(os.path.join(self._pptx_dir,"*.pptx"))
+        if sort_numeric is not False:
+            pres.sort(key=self._sort_by_number_file_names)
+        if specify_master is not None:
+            combined_presentation: PowerPoint = Presentation(specify_master)
+        else:
+            combined_presentation: PowerPoint = Presentation()
+            combined_presentation.slide_width = Inches(13.333)
+            combined_presentation.slide_height = Inches(7.5)
+        
+        for presentation in pres:
+            pres = Presentation(presentation)
+            for slide in pres.slides:
+                slide: Slide
+                combined_slide = self._get_slide_from_slide_master(
+                    combined_presentation=combined_presentation, chosen_slide_index=master_slide_index)
+
+                for shape in slide.shapes:
+                    if shape.shape_type == 17: # Text
+                        element = copy.deepcopy(shape.element)
+                        combined_slide.shapes._spTree.insert_element_before(element, 'p:extLst')
+                    elif shape.shape_type == 19: # Table
+                        element = copy.deepcopy(shape.element)
+                        combined_slide.shapes._spTree.insert_element_before(element, 'p:extLst')
+                    elif shape.shape_type == 13: # Image
+                        self._replace_picture_pptx(shape, combined_slide)
+                    elif shape.shape_type == 1: #  Autoshape
+                        element = copy.deepcopy(shape.element)
+                        combined_slide.shapes._spTree.insert_element_before(element, 'p:extLst')
+                    else:
+                        element = copy.deepcopy(shape.element)
+                        combined_slide.shapes._spTree.insert_element_before(element, 'p:extLst')
+
+        combined_presentation.save(self._output_pptx)
+
+    def _get_slide_from_slide_master(self, combined_presentation: PowerPoint, chosen_slide_index: int):
+        """Get the specific slide from the slide master to insert into the main powerpoint"""
+        combined_slide: Slide
+        if chosen_slide_index == -1:
+            try:
+                combined_slide: Slide = combined_presentation.slides.add_slide(combined_presentation.slide_layouts[6])
+            except IndexError as e:
+                combined_slide: Slide = combined_presentation.slides.add_slide(combined_presentation.slide_layouts[0])
+            except IndexError as e:
+                raise SlideMasterIndexError("A valid master slide does not exist for 1 or 6 which are defaults: ", e)
+        else:
+            try:
+                combined_slide: Slide = combined_presentation.slides.add_slide(combined_presentation.slide_layouts[chosen_slide_index])
+            except Exception as e:
+                raise SlideMasterIndexError(f"The custom slide index chosen from the slide master is not valid. The index chosen was: {chosen_slide_index}: ", e)
+
+        return combined_slide
+
+
+    def _replace_picture_pptx(self, shape: Shape, slide: Slide):
+
+        """
+        Description: The function to replace an image in the PowerPoint Template that does not use context
+        @input shape: A container which has a image attribute associated
+        @input slide: Slide object which will have the picture added to it
+        """
+        # Get info about template picture in order to mimic it
+        img_width: float = shape.width
+        img_height: float = shape.height
+        img_left: float = shape.left
+        img_top: float = shape.top
+
+        blob = shape.image._blob
+        with tempfile.TemporaryFile() as image:
+            image.write(blob)
+            slide.shapes.add_picture(image_file=image, left=img_left, top=img_top, width=img_width, height=img_height)
+        

@@ -1,0 +1,505 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+from alipay.aop.api.constant.ParamConstants import *
+
+
+class RentRoyalty(object):
+
+    def __init__(self):
+        self._biz_order_id = None
+        self._buyer_id = None
+        self._buyer_open_id = None
+        self._buyout_repay_time = None
+        self._buyout_royalty_interest_price = None
+        self._buyout_royalty_principal_price = None
+        self._current_buyout_after_price = None
+        self._current_buyout_price = None
+        self._expect_royalty_time = None
+        self._is_current_request = None
+        self._out_order_id = None
+        self._period = None
+        self._repay_time = None
+        self._repayment_interest_price = None
+        self._repayment_principal_price = None
+        self._repayment_time = None
+        self._repayment_total_price = None
+        self._royalty_after_price = None
+        self._royalty_deliver_type = None
+        self._royalty_installment_no = None
+        self._royalty_interest_price = None
+        self._royalty_payment_method = None
+        self._royalty_payment_method_note = None
+        self._royalty_price = None
+        self._royalty_principal_price = None
+        self._royalty_status = None
+        self._royalty_time = None
+        self._royalty_trigger_type = None
+        self._settle_serial_no = None
+        self._stage = None
+        self._trade_no = None
+        self._type = None
+
+    @property
+    def biz_order_id(self):
+        return self._biz_order_id
+
+    @biz_order_id.setter
+    def biz_order_id(self, value):
+        self._biz_order_id = value
+    @property
+    def buyer_id(self):
+        return self._buyer_id
+
+    @buyer_id.setter
+    def buyer_id(self, value):
+        self._buyer_id = value
+    @property
+    def buyer_open_id(self):
+        return self._buyer_open_id
+
+    @buyer_open_id.setter
+    def buyer_open_id(self, value):
+        self._buyer_open_id = value
+    @property
+    def buyout_repay_time(self):
+        return self._buyout_repay_time
+
+    @buyout_repay_time.setter
+    def buyout_repay_time(self, value):
+        self._buyout_repay_time = value
+    @property
+    def buyout_royalty_interest_price(self):
+        return self._buyout_royalty_interest_price
+
+    @buyout_royalty_interest_price.setter
+    def buyout_royalty_interest_price(self, value):
+        self._buyout_royalty_interest_price = value
+    @property
+    def buyout_royalty_principal_price(self):
+        return self._buyout_royalty_principal_price
+
+    @buyout_royalty_principal_price.setter
+    def buyout_royalty_principal_price(self, value):
+        self._buyout_royalty_principal_price = value
+    @property
+    def current_buyout_after_price(self):
+        return self._current_buyout_after_price
+
+    @current_buyout_after_price.setter
+    def current_buyout_after_price(self, value):
+        self._current_buyout_after_price = value
+    @property
+    def current_buyout_price(self):
+        return self._current_buyout_price
+
+    @current_buyout_price.setter
+    def current_buyout_price(self, value):
+        self._current_buyout_price = value
+    @property
+    def expect_royalty_time(self):
+        return self._expect_royalty_time
+
+    @expect_royalty_time.setter
+    def expect_royalty_time(self, value):
+        self._expect_royalty_time = value
+    @property
+    def is_current_request(self):
+        return self._is_current_request
+
+    @is_current_request.setter
+    def is_current_request(self, value):
+        self._is_current_request = value
+    @property
+    def out_order_id(self):
+        return self._out_order_id
+
+    @out_order_id.setter
+    def out_order_id(self, value):
+        self._out_order_id = value
+    @property
+    def period(self):
+        return self._period
+
+    @period.setter
+    def period(self, value):
+        self._period = value
+    @property
+    def repay_time(self):
+        return self._repay_time
+
+    @repay_time.setter
+    def repay_time(self, value):
+        self._repay_time = value
+    @property
+    def repayment_interest_price(self):
+        return self._repayment_interest_price
+
+    @repayment_interest_price.setter
+    def repayment_interest_price(self, value):
+        self._repayment_interest_price = value
+    @property
+    def repayment_principal_price(self):
+        return self._repayment_principal_price
+
+    @repayment_principal_price.setter
+    def repayment_principal_price(self, value):
+        self._repayment_principal_price = value
+    @property
+    def repayment_time(self):
+        return self._repayment_time
+
+    @repayment_time.setter
+    def repayment_time(self, value):
+        self._repayment_time = value
+    @property
+    def repayment_total_price(self):
+        return self._repayment_total_price
+
+    @repayment_total_price.setter
+    def repayment_total_price(self, value):
+        self._repayment_total_price = value
+    @property
+    def royalty_after_price(self):
+        return self._royalty_after_price
+
+    @royalty_after_price.setter
+    def royalty_after_price(self, value):
+        self._royalty_after_price = value
+    @property
+    def royalty_deliver_type(self):
+        return self._royalty_deliver_type
+
+    @royalty_deliver_type.setter
+    def royalty_deliver_type(self, value):
+        self._royalty_deliver_type = value
+    @property
+    def royalty_installment_no(self):
+        return self._royalty_installment_no
+
+    @royalty_installment_no.setter
+    def royalty_installment_no(self, value):
+        self._royalty_installment_no = value
+    @property
+    def royalty_interest_price(self):
+        return self._royalty_interest_price
+
+    @royalty_interest_price.setter
+    def royalty_interest_price(self, value):
+        self._royalty_interest_price = value
+    @property
+    def royalty_payment_method(self):
+        return self._royalty_payment_method
+
+    @royalty_payment_method.setter
+    def royalty_payment_method(self, value):
+        self._royalty_payment_method = value
+    @property
+    def royalty_payment_method_note(self):
+        return self._royalty_payment_method_note
+
+    @royalty_payment_method_note.setter
+    def royalty_payment_method_note(self, value):
+        self._royalty_payment_method_note = value
+    @property
+    def royalty_price(self):
+        return self._royalty_price
+
+    @royalty_price.setter
+    def royalty_price(self, value):
+        self._royalty_price = value
+    @property
+    def royalty_principal_price(self):
+        return self._royalty_principal_price
+
+    @royalty_principal_price.setter
+    def royalty_principal_price(self, value):
+        self._royalty_principal_price = value
+    @property
+    def royalty_status(self):
+        return self._royalty_status
+
+    @royalty_status.setter
+    def royalty_status(self, value):
+        self._royalty_status = value
+    @property
+    def royalty_time(self):
+        return self._royalty_time
+
+    @royalty_time.setter
+    def royalty_time(self, value):
+        self._royalty_time = value
+    @property
+    def royalty_trigger_type(self):
+        return self._royalty_trigger_type
+
+    @royalty_trigger_type.setter
+    def royalty_trigger_type(self, value):
+        self._royalty_trigger_type = value
+    @property
+    def settle_serial_no(self):
+        return self._settle_serial_no
+
+    @settle_serial_no.setter
+    def settle_serial_no(self, value):
+        self._settle_serial_no = value
+    @property
+    def stage(self):
+        return self._stage
+
+    @stage.setter
+    def stage(self, value):
+        self._stage = value
+    @property
+    def trade_no(self):
+        return self._trade_no
+
+    @trade_no.setter
+    def trade_no(self, value):
+        self._trade_no = value
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, value):
+        self._type = value
+
+
+    def to_alipay_dict(self):
+        params = dict()
+        if self.biz_order_id:
+            if hasattr(self.biz_order_id, 'to_alipay_dict'):
+                params['biz_order_id'] = self.biz_order_id.to_alipay_dict()
+            else:
+                params['biz_order_id'] = self.biz_order_id
+        if self.buyer_id:
+            if hasattr(self.buyer_id, 'to_alipay_dict'):
+                params['buyer_id'] = self.buyer_id.to_alipay_dict()
+            else:
+                params['buyer_id'] = self.buyer_id
+        if self.buyer_open_id:
+            if hasattr(self.buyer_open_id, 'to_alipay_dict'):
+                params['buyer_open_id'] = self.buyer_open_id.to_alipay_dict()
+            else:
+                params['buyer_open_id'] = self.buyer_open_id
+        if self.buyout_repay_time:
+            if hasattr(self.buyout_repay_time, 'to_alipay_dict'):
+                params['buyout_repay_time'] = self.buyout_repay_time.to_alipay_dict()
+            else:
+                params['buyout_repay_time'] = self.buyout_repay_time
+        if self.buyout_royalty_interest_price:
+            if hasattr(self.buyout_royalty_interest_price, 'to_alipay_dict'):
+                params['buyout_royalty_interest_price'] = self.buyout_royalty_interest_price.to_alipay_dict()
+            else:
+                params['buyout_royalty_interest_price'] = self.buyout_royalty_interest_price
+        if self.buyout_royalty_principal_price:
+            if hasattr(self.buyout_royalty_principal_price, 'to_alipay_dict'):
+                params['buyout_royalty_principal_price'] = self.buyout_royalty_principal_price.to_alipay_dict()
+            else:
+                params['buyout_royalty_principal_price'] = self.buyout_royalty_principal_price
+        if self.current_buyout_after_price:
+            if hasattr(self.current_buyout_after_price, 'to_alipay_dict'):
+                params['current_buyout_after_price'] = self.current_buyout_after_price.to_alipay_dict()
+            else:
+                params['current_buyout_after_price'] = self.current_buyout_after_price
+        if self.current_buyout_price:
+            if hasattr(self.current_buyout_price, 'to_alipay_dict'):
+                params['current_buyout_price'] = self.current_buyout_price.to_alipay_dict()
+            else:
+                params['current_buyout_price'] = self.current_buyout_price
+        if self.expect_royalty_time:
+            if hasattr(self.expect_royalty_time, 'to_alipay_dict'):
+                params['expect_royalty_time'] = self.expect_royalty_time.to_alipay_dict()
+            else:
+                params['expect_royalty_time'] = self.expect_royalty_time
+        if self.is_current_request:
+            if hasattr(self.is_current_request, 'to_alipay_dict'):
+                params['is_current_request'] = self.is_current_request.to_alipay_dict()
+            else:
+                params['is_current_request'] = self.is_current_request
+        if self.out_order_id:
+            if hasattr(self.out_order_id, 'to_alipay_dict'):
+                params['out_order_id'] = self.out_order_id.to_alipay_dict()
+            else:
+                params['out_order_id'] = self.out_order_id
+        if self.period:
+            if hasattr(self.period, 'to_alipay_dict'):
+                params['period'] = self.period.to_alipay_dict()
+            else:
+                params['period'] = self.period
+        if self.repay_time:
+            if hasattr(self.repay_time, 'to_alipay_dict'):
+                params['repay_time'] = self.repay_time.to_alipay_dict()
+            else:
+                params['repay_time'] = self.repay_time
+        if self.repayment_interest_price:
+            if hasattr(self.repayment_interest_price, 'to_alipay_dict'):
+                params['repayment_interest_price'] = self.repayment_interest_price.to_alipay_dict()
+            else:
+                params['repayment_interest_price'] = self.repayment_interest_price
+        if self.repayment_principal_price:
+            if hasattr(self.repayment_principal_price, 'to_alipay_dict'):
+                params['repayment_principal_price'] = self.repayment_principal_price.to_alipay_dict()
+            else:
+                params['repayment_principal_price'] = self.repayment_principal_price
+        if self.repayment_time:
+            if hasattr(self.repayment_time, 'to_alipay_dict'):
+                params['repayment_time'] = self.repayment_time.to_alipay_dict()
+            else:
+                params['repayment_time'] = self.repayment_time
+        if self.repayment_total_price:
+            if hasattr(self.repayment_total_price, 'to_alipay_dict'):
+                params['repayment_total_price'] = self.repayment_total_price.to_alipay_dict()
+            else:
+                params['repayment_total_price'] = self.repayment_total_price
+        if self.royalty_after_price:
+            if hasattr(self.royalty_after_price, 'to_alipay_dict'):
+                params['royalty_after_price'] = self.royalty_after_price.to_alipay_dict()
+            else:
+                params['royalty_after_price'] = self.royalty_after_price
+        if self.royalty_deliver_type:
+            if hasattr(self.royalty_deliver_type, 'to_alipay_dict'):
+                params['royalty_deliver_type'] = self.royalty_deliver_type.to_alipay_dict()
+            else:
+                params['royalty_deliver_type'] = self.royalty_deliver_type
+        if self.royalty_installment_no:
+            if hasattr(self.royalty_installment_no, 'to_alipay_dict'):
+                params['royalty_installment_no'] = self.royalty_installment_no.to_alipay_dict()
+            else:
+                params['royalty_installment_no'] = self.royalty_installment_no
+        if self.royalty_interest_price:
+            if hasattr(self.royalty_interest_price, 'to_alipay_dict'):
+                params['royalty_interest_price'] = self.royalty_interest_price.to_alipay_dict()
+            else:
+                params['royalty_interest_price'] = self.royalty_interest_price
+        if self.royalty_payment_method:
+            if hasattr(self.royalty_payment_method, 'to_alipay_dict'):
+                params['royalty_payment_method'] = self.royalty_payment_method.to_alipay_dict()
+            else:
+                params['royalty_payment_method'] = self.royalty_payment_method
+        if self.royalty_payment_method_note:
+            if hasattr(self.royalty_payment_method_note, 'to_alipay_dict'):
+                params['royalty_payment_method_note'] = self.royalty_payment_method_note.to_alipay_dict()
+            else:
+                params['royalty_payment_method_note'] = self.royalty_payment_method_note
+        if self.royalty_price:
+            if hasattr(self.royalty_price, 'to_alipay_dict'):
+                params['royalty_price'] = self.royalty_price.to_alipay_dict()
+            else:
+                params['royalty_price'] = self.royalty_price
+        if self.royalty_principal_price:
+            if hasattr(self.royalty_principal_price, 'to_alipay_dict'):
+                params['royalty_principal_price'] = self.royalty_principal_price.to_alipay_dict()
+            else:
+                params['royalty_principal_price'] = self.royalty_principal_price
+        if self.royalty_status:
+            if hasattr(self.royalty_status, 'to_alipay_dict'):
+                params['royalty_status'] = self.royalty_status.to_alipay_dict()
+            else:
+                params['royalty_status'] = self.royalty_status
+        if self.royalty_time:
+            if hasattr(self.royalty_time, 'to_alipay_dict'):
+                params['royalty_time'] = self.royalty_time.to_alipay_dict()
+            else:
+                params['royalty_time'] = self.royalty_time
+        if self.royalty_trigger_type:
+            if hasattr(self.royalty_trigger_type, 'to_alipay_dict'):
+                params['royalty_trigger_type'] = self.royalty_trigger_type.to_alipay_dict()
+            else:
+                params['royalty_trigger_type'] = self.royalty_trigger_type
+        if self.settle_serial_no:
+            if hasattr(self.settle_serial_no, 'to_alipay_dict'):
+                params['settle_serial_no'] = self.settle_serial_no.to_alipay_dict()
+            else:
+                params['settle_serial_no'] = self.settle_serial_no
+        if self.stage:
+            if hasattr(self.stage, 'to_alipay_dict'):
+                params['stage'] = self.stage.to_alipay_dict()
+            else:
+                params['stage'] = self.stage
+        if self.trade_no:
+            if hasattr(self.trade_no, 'to_alipay_dict'):
+                params['trade_no'] = self.trade_no.to_alipay_dict()
+            else:
+                params['trade_no'] = self.trade_no
+        if self.type:
+            if hasattr(self.type, 'to_alipay_dict'):
+                params['type'] = self.type.to_alipay_dict()
+            else:
+                params['type'] = self.type
+        return params
+
+    @staticmethod
+    def from_alipay_dict(d):
+        if not d:
+            return None
+        o = RentRoyalty()
+        if 'biz_order_id' in d:
+            o.biz_order_id = d['biz_order_id']
+        if 'buyer_id' in d:
+            o.buyer_id = d['buyer_id']
+        if 'buyer_open_id' in d:
+            o.buyer_open_id = d['buyer_open_id']
+        if 'buyout_repay_time' in d:
+            o.buyout_repay_time = d['buyout_repay_time']
+        if 'buyout_royalty_interest_price' in d:
+            o.buyout_royalty_interest_price = d['buyout_royalty_interest_price']
+        if 'buyout_royalty_principal_price' in d:
+            o.buyout_royalty_principal_price = d['buyout_royalty_principal_price']
+        if 'current_buyout_after_price' in d:
+            o.current_buyout_after_price = d['current_buyout_after_price']
+        if 'current_buyout_price' in d:
+            o.current_buyout_price = d['current_buyout_price']
+        if 'expect_royalty_time' in d:
+            o.expect_royalty_time = d['expect_royalty_time']
+        if 'is_current_request' in d:
+            o.is_current_request = d['is_current_request']
+        if 'out_order_id' in d:
+            o.out_order_id = d['out_order_id']
+        if 'period' in d:
+            o.period = d['period']
+        if 'repay_time' in d:
+            o.repay_time = d['repay_time']
+        if 'repayment_interest_price' in d:
+            o.repayment_interest_price = d['repayment_interest_price']
+        if 'repayment_principal_price' in d:
+            o.repayment_principal_price = d['repayment_principal_price']
+        if 'repayment_time' in d:
+            o.repayment_time = d['repayment_time']
+        if 'repayment_total_price' in d:
+            o.repayment_total_price = d['repayment_total_price']
+        if 'royalty_after_price' in d:
+            o.royalty_after_price = d['royalty_after_price']
+        if 'royalty_deliver_type' in d:
+            o.royalty_deliver_type = d['royalty_deliver_type']
+        if 'royalty_installment_no' in d:
+            o.royalty_installment_no = d['royalty_installment_no']
+        if 'royalty_interest_price' in d:
+            o.royalty_interest_price = d['royalty_interest_price']
+        if 'royalty_payment_method' in d:
+            o.royalty_payment_method = d['royalty_payment_method']
+        if 'royalty_payment_method_note' in d:
+            o.royalty_payment_method_note = d['royalty_payment_method_note']
+        if 'royalty_price' in d:
+            o.royalty_price = d['royalty_price']
+        if 'royalty_principal_price' in d:
+            o.royalty_principal_price = d['royalty_principal_price']
+        if 'royalty_status' in d:
+            o.royalty_status = d['royalty_status']
+        if 'royalty_time' in d:
+            o.royalty_time = d['royalty_time']
+        if 'royalty_trigger_type' in d:
+            o.royalty_trigger_type = d['royalty_trigger_type']
+        if 'settle_serial_no' in d:
+            o.settle_serial_no = d['settle_serial_no']
+        if 'stage' in d:
+            o.stage = d['stage']
+        if 'trade_no' in d:
+            o.trade_no = d['trade_no']
+        if 'type' in d:
+            o.type = d['type']
+        return o
+
+

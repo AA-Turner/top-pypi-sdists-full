@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: voxels_rs
+Version: 0.2.16
+Requires-Dist: maturin>=1.11.0,<1.14.0
+Requires-Dist: pytest>=9.0.2
+Requires-Dist: numpy>=1.28.0
+Summary: Python bindings for the voxels-rs library.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+

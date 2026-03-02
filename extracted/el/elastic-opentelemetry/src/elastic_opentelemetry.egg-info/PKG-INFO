@@ -1,0 +1,68 @@
+Metadata-Version: 2.4
+Name: elastic-opentelemetry
+Version: 1.11.0
+Summary: Elastic Distribution of OpenTelemetry Python
+Author-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>
+Maintainer-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/elastic/elastic-otel-python
+Project-URL: Bug Tracker, https://github.com/elastic/elastic-otel-python/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Framework :: OpenTelemetry
+Classifier: Framework :: OpenTelemetry :: Distros
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.txt
+Requires-Dist: opentelemetry-api==1.39.1
+Requires-Dist: opentelemetry-exporter-otlp==1.39.1
+Requires-Dist: opentelemetry-instrumentation==0.60b1
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
+Requires-Dist: opentelemetry-resourcedetector-gcp~=1.8.0a0
+Requires-Dist: opentelemetry-resource-detector-azure~=0.1.5
+Requires-Dist: opentelemetry-resource-detector-containerid==0.60b1
+Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: opentelemetry-sdk-extension-aws~=2.1.0
+Requires-Dist: opentelemetry-semantic-conventions==0.60b1
+Requires-Dist: packaging
+Requires-Dist: uuid-utils
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pip-tools; extra == "dev"
+Requires-Dist: oteltest==0.24.0; extra == "dev"
+Requires-Dist: leb128; extra == "dev"
+Requires-Dist: pytest-vcr; python_version > "3.9" and extra == "dev"
+Dynamic: license-file
+
+# Elastic Distribution of OpenTelemetry Python
+
+The Elastic Distribution of OpenTelemetry Python (EDOT Python) is a customized version of [OpenTelemetry Python](https://opentelemetry.io/docs/languages/python).
+EDOT Python makes it easier to get started using OpenTelemetry in your Python applications through strictly OpenTelemetry native means, while also providing a smooth and rich out of the box experience with [Elastic Observability](https://www.elastic.co/observability). It's an explicit goal of this distribution to introduce **no new concepts** in addition to those defined by the wider OpenTelemetry community.
+
+With EDOT Python you have access to all the features of the OpenTelemetry Python agent plus:
+
+* Access to improvements and bug fixes contributed by the Elastic team _before_ the changes are available upstream in OpenTelemetry repositories.
+* Access to optional features that can enhance OpenTelemetry data that is being sent to Elastic.
+* Elastic-specific processors that ensure optimal compatibility when exporting OpenTelemetry signal data to an Elastic backend like an Elastic Observability deployment.
+* Preconfigured collection of tracing and metrics signals, applying some opinionated defaults, such as which sources are collected by default.
+
+**Ready to try out EDOT Python?** Follow the step-by-step instructions in [Setting up EDOT Python](https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python/setup/index.html).
+
+## Configuration
+
+The distribution supports all the configuration variables from OpenTelemetry Python project version 1.39.1.
+
+See [Configuration](https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python/configuration.html) for more details.
+
+## License
+
+This software is licensed under the Apache License, version 2 ("Apache-2.0").

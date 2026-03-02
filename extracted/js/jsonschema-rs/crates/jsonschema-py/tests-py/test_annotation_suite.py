@@ -4,6 +4,9 @@ import pytest
 import jsonschema_rs
 
 
+# Keywords whose annotation is the schema value itself.
+_SCHEMA_VALUED_KEYWORDS = frozenset({"contentSchema"})
+
 SUITE_PATH = os.path.join(
     os.path.dirname(__file__),
     "../../jsonschema/tests/suite/annotations/tests",
@@ -20,12 +23,11 @@ def load_test_cases():
         for suite_case in data.get("suite", []):
             schema = suite_case["schema"]
             description = suite_case.get("description", filename)
-            for test in suite_case.get("tests", []):
+            tests = suite_case.get("tests", [])
+            for test in tests:
                 instance = test["instance"]
                 assertions = test.get("assertions", [])
-                cases.append(
-                    pytest.param(schema, instance, assertions, id=f"{filename}::{description}")
-                )
+                cases.append(pytest.param(schema, instance, assertions, id=f"{filename}::{description}"))
     return cases
 
 
@@ -37,21 +39,25 @@ def get_annotations(schema, instance):
     result = {}
     for ann in raw:
         instance_loc = ann.get("instanceLocation", "")
-        annotations_dict = ann.get("annotations", {})
+        annotations = ann.get("annotations", {})
 
-        if isinstance(annotations_dict, dict):
-            for keyword, value in annotations_dict.items():
+        schema_loc = ann.get("schemaLocation", "")
+        segments = [s for s in schema_loc.split("/") if s]
+        keyword_from_loc = segments[-1] if segments else None
+
+        if keyword_from_loc in _SCHEMA_VALUED_KEYWORDS:
+            # Keep schema-valued annotations as a single value.
+            key = (instance_loc, keyword_from_loc)
+            result.setdefault(key, []).append(annotations)
+        elif isinstance(annotations, dict):
+            # Hash bundles are {keyword: value}.
+            for keyword, value in annotations.items():
                 key = (instance_loc, keyword)
                 result.setdefault(key, []).append(value)
         else:
-            # For non-dict annotations (e.g. format), extract the keyword from
-            # the last segment of schemaLocation (e.g. "/format" -> "format").
-            schema_loc = ann.get("schemaLocation", "")
-            segments = [s for s in schema_loc.split("/") if s]
-            if segments:
-                keyword = segments[-1]
-                key = (instance_loc, keyword)
-                result.setdefault(key, []).append(annotations_dict)
+            if keyword_from_loc:
+                key = (instance_loc, keyword_from_loc)
+                result.setdefault(key, []).append(annotations)
     return result
 
 
@@ -68,11 +74,19 @@ def test_annotation(schema, instance, assertions):
         key = (location, keyword)
         actual_values = collected.get(key, [])
 
-        for schema_loc, expected_value in expected.items():
-            assert expected_value in actual_values, (
+        if not expected:
+            assert not actual_values, (
                 f"\nKeyword   : {keyword!r}"
                 f"\nInstance  : {location!r}"
-                f"\nSchema    : {schema_loc!r}"
-                f"\nExpected  : {expected_value!r}"
+                f"\nExpected  : no annotation"
                 f"\nGot       : {actual_values!r}"
             )
+        else:
+            for schema_loc, expected_value in expected.items():
+                assert expected_value in actual_values, (
+                    f"\nKeyword   : {keyword!r}"
+                    f"\nInstance  : {location!r}"
+                    f"\nSchema    : {schema_loc!r}"
+                    f"\nExpected  : {expected_value!r}"
+                    f"\nGot       : {actual_values!r}"
+                )

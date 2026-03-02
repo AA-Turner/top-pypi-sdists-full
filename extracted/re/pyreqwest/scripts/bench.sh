@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-uv sync
+uv sync --all-groups
 uv run maturin develop --uv --all-features --release
 
 libs=(
@@ -15,6 +15,7 @@ libs=(
   "rnet"
   "ry"
   "niquests"
+  "curl_cffi"
 )
 for lib in "${libs[@]}"; do
   uv run python -m tests.bench.latency --lib "$lib"

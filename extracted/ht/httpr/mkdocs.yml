@@ -1,0 +1,151 @@
+site_name: httpr
+site_description: Blazing fast HTTP client for Python, built in Rust
+site_url: https://thomasht86.github.io/httpr
+repo_name: thomasht86/httpr
+repo_url: https://github.com/thomasht86/httpr
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            docstring_options:
+              ignore_init_summary: false
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            show_bases: false
+            members_order: source
+            heading_level: 2
+  - blog:
+      blog_dir: writings
+  - llmstxt:
+      full_output: llms-full.txt
+      markdown_description: |
+        httpr is a high-performance HTTP client for Python built in Rust using PyO3 and reqwest.
+        It provides a familiar requests/httpx-like API with significantly better performance through
+        Rust's native speed. Zero Python dependencies - all functionality is implemented in Rust.
+      sections:
+        Getting Started:
+          - index.md: Overview of httpr features and installation
+          - quickstart.md: Quick guide to get started with httpr
+        Tutorial:
+          - tutorial/index.md: Introduction to the tutorial
+          - tutorial/making-requests.md: How to make HTTP requests
+          - tutorial/response-handling.md: Working with HTTP responses
+          - tutorial/authentication.md: Authentication methods
+          - tutorial/async.md: Using the async client
+        Advanced Usage:
+          - advanced/index.md: Advanced topics overview
+          - advanced/ssl-tls.md: SSL/TLS and mTLS configuration
+          - advanced/proxy.md: Proxy configuration
+          - advanced/cookies.md: Cookie handling
+        API Reference:
+          - api/index.md: API reference overview
+          - api/client.md: Client class API
+          - api/async-client.md: AsyncClient class API
+          - api/response.md: Response object API
+          - api/functions.md: Module-level functions
+        Blog:
+          - writings/posts/*.md: Blog posts about httpr
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Tutorial:
+    - tutorial/index.md
+    - Making Requests: tutorial/making-requests.md
+    - Response Handling: tutorial/response-handling.md
+    - Authentication: tutorial/authentication.md
+    - Async Client: tutorial/async.md
+  - Advanced:
+    - advanced/index.md
+    - SSL/TLS & mTLS: advanced/ssl-tls.md
+    - Proxy Configuration: advanced/proxy.md
+    - Cookie Handling: advanced/cookies.md
+  - API Reference:
+    - api/index.md
+    - Client: api/client.md
+    - AsyncClient: api/async-client.md
+    - Response: api/response.md
+    - Module Functions: api/functions.md
+  - Blog: writings/index.md
+
+theme:
+  name: material
+  font:
+    text: Lato
+    code: Fira Code
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition
+  - pymdownx.details
+  - pymdownx.betterem
+  - def_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - footnotes
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thomasht86/httpr
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/httpr/
+    - icon: material/robot
+      link: /llms.txt
+      name: LLM-friendly docs

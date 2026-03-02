@@ -1,0 +1,38 @@
+# Production environment values
+# Copy to values-prod.yaml and fill in real values
+environment: production
+domain: mindroom.chat
+
+# Production Supabase instance
+supabase:
+  url: # Production Supabase URL
+  anonKey: # Production anon key
+  serviceKey: # Production service key
+
+# Stripe live keys
+stripe:
+  publishableKey: # pk_live_...
+  secretKey: # sk_live_...
+  webhookSecret: # whsec_...
+
+# Gitea registry
+gitea:
+  token: # Production token
+
+cleanupScheduler:
+  enabled: "true"
+
+monitoring:
+  enabled: true
+  releaseLabel: monitoring
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  alerts:
+    blockedIpThreshold: 0
+    blockedIpFor: 5m
+    adminUnauthorizedWindow: 5m
+    adminUnauthorizedThreshold: 5
+    adminUnauthorizedFor: 1m
+    blockedRequestWindow: 5m
+    blockedRequestThreshold: 10
+    blockedRequestFor: 2m

@@ -32,10 +32,12 @@ from sybil_extras.evaluators.shell_evaluator.source_preparer import (
 )
 from sybil_extras.languages import (
     DJOT,
+    DOCUTILS_RST,
     MARKDOWN,
     MARKDOWN_IT,
     MDX,
     MYST,
+    MYST_PARSER,
     NORG,
     RESTRUCTUREDTEXT,
     MarkupLanguage,
@@ -426,23 +428,26 @@ def test_write_to_file_new_content_trailing_newlines(
         @end
         """
     )
+    rst_original_content = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+           x = 2 + 2
+           assert x == 4
+        """
+    )
     original_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-               x = 2 + 2
-               assert x == 4
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_original_content,
+        DOCUTILS_RST: rst_original_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
     source_file.write_text(data=original_content, encoding="utf-8")
@@ -499,24 +504,27 @@ def test_write_to_file_new_content_trailing_newlines(
         @end
         """
     )
+    # There is no code block in reStructuredText that ends with multiple
+    # newlines.
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+           foobar
+        """
+    )
     expected_content = {
-        # There is no code block in reStructuredText that ends with multiple
-        # newlines.
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-               foobar
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
     if write_to_file:
         assert source_file_content == expected_content
@@ -568,23 +576,26 @@ def test_write_to_file_new_content_no_trailing_newlines(
         @end
         """
     )
+    rst_original_content = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+           x = 2 + 2
+           assert x == 4
+        """
+    )
     original_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-               x = 2 + 2
-               assert x == 4
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_original_content,
+        DOCUTILS_RST: rst_original_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
     source_file.write_text(data=original_content, encoding="utf-8")
@@ -636,24 +647,27 @@ def test_write_to_file_new_content_no_trailing_newlines(
         @end
         """
     )
+    # There is no code block in reStructuredText that ends with multiple
+    # newlines.
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+           foobar
+        """
+    )
     expected_content = {
-        # There is no code block in reStructuredText that ends with multiple
-        # newlines.
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-               foobar
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
     if write_to_file:
         assert source_file_content == expected_content

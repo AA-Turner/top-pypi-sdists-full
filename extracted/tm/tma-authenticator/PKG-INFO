@@ -1,0 +1,224 @@
+Metadata-Version: 2.4
+Name: tma-authenticator
+Version: 2.2.1
+Summary: Verifying telegram user token.
+Author-email: Pavel Mulin <pavel@tg-shops.com>
+Requires-Python: >=3.9
+Requires-Dist: aiocache>=0.12.3
+Requires-Dist: eth-account>=0.13.7
+Requires-Dist: fastapi>=0.112.2
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pynacl>=1.5.0
+Requires-Dist: python-jose>=3.3.0
+Requires-Dist: pytoniq-core>=0.1.0
+Description-Content-Type: text/markdown
+
+
+# TMA Authenticator
+
+Python library for Telegram Mini App (TMA) and Web3 TON wallet authentication.
+
+## Features
+
+- 🔐 **TMA Authentication**: Telegram Mini App user authentication
+- 🌐 **Web3 TON Authentication**: TON wallet authentication via TON Connect
+- 🔑 **JWT Token Generation**: Secure token generation for both auth methods
+- 🔗 **Unified Authentication**: Single endpoint supporting TMA, Web3, and service tokens
+- 💾 **Caching**: Built-in caching for nonces and tokens
+- ✅ **Full Test Coverage**: Comprehensive test suite
+- 📚 **Type Hints**: Full type annotation support
+
+## Installation
+
+```bash
+pip install tma-authenticator
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/your-repo/python-tma-authorization
+cd python-tma-authorization
+pip install -e .
+```
+
+## Quick Start
+
+### TMA Authentication
+
+```python
+from tma_authenticator.tma_authentication_router import TMAAuthenticationRouter
+from tma_authenticator.tma_authenticator import TMAAuthenticator
+from database.users import UsersDatabase
+from config import TELEGRAM_BOT_TOKEN, IMPERSONATE_ADMIN_PASSWORD
+
+user_database: UsersDatabase = UsersDatabase()
+authenticator = TMAAuthenticator(TELEGRAM_BOT_TOKEN, IMPERSONATE_ADMIN_PASSWORD, user_database)
+authentication_router = authenticator.authentication_router
+```
+
+### Web3 TON Authentication
+
+```python
+from fastapi import FastAPI
+from aiocache import Cache
+from tma_authenticator.web3_ton_router import Web3TonRouter
+
+app = FastAPI()
+
+# Setup cache
+Cache.from_url("memory://")
+
+# Create Web3 TON router
+web3_router = Web3TonRouter(
+    jwt_secret="your-super-secret-jwt-key",
+    jwt_algorithm="HS256",
+    jwt_expiration_minutes=60,
+    nonce_ttl_seconds=300,
+)
+
+# Include router
+app.include_router(web3_router)
+```
+
+## Unified Authentication
+
+The `TMAAuthenticator` supports three authentication methods that can be used independently or combined:
+
+1. **TMA Authorization** (`Authorization` header) - Telegram Mini App token
+2. **Service Token** (`X-Service-Token` header) - Service-to-service JWT
+3. **Web3 Token** (`X-Web3-Token` header) - Wallet-based JWT (NEW)
+
+### Web3 Token Authentication
+
+```python
+from tma_authenticator import TMAAuthenticator
+
+authenticator = TMAAuthenticator(
+    service_name="my-app",
+    bot_token="YOUR_BOT_TOKEN",
+    auth_url="https://auth-service.com",
+    storage_provider=storage,
+    jwt_secret="your-secret-key",  # Enable Web3 support
+    jwt_algorithm="HS256"
+)
+
+@app.get("/protected")
+async def protected_route(user = Depends(authenticator.oauth_verify_token)):
+    # Accepts any of the three token types
+    return {
+        "user_id": user.tg_id,
+        "username": user.username,
+        "wallet": user.wallet_address  # Present when Web3 token is used
+    }
+```
+
+**Usage:**
+```bash
+# Web3 token only
+curl -H "X-Web3-Token: Bearer <JWT>" https://api.example.com/protected
+
+# TMA + Web3 (combine Telegram identity with wallet)
+curl -H "Authorization: Bearer <TMA_TOKEN>" \
+     -H "X-Web3-Token: Bearer <WEB3_JWT>" \
+     https://api.example.com/protected
+```
+
+See [WEB3_TOKEN_AUTHENTICATION.md](./WEB3_TOKEN_AUTHENTICATION.md) for complete documentation.
+
+## Web3 TON Authentication
+
+The library now supports TON wallet authentication following the TON Connect 2.0 specification.
+
+### Available Endpoints
+
+1. **GET `/.well-known/jwks.json`** - JWKS public keys endpoint
+2. **GET `/web3/nonce?wallet=<address>`** - Generate nonce for wallet
+3. **POST `/web3/ton/check-proof`** - Verify TON proof and get JWT token
+
+### Authentication Flow
+
+```
+1. Client requests nonce: GET /web3/nonce?wallet=0:abc...
+2. Client signs proof with TON wallet using TON Connect
+3. Client submits proof: POST /web3/ton/check-proof
+4. Server verifies proof and returns JWT token
+5. Client uses JWT token for authenticated requests
+```
+
+### Example Usage
+
+See [WEB3_TON_AUTH.md](./WEB3_TON_AUTH.md) for complete documentation and examples.
+
+Quick example:
+
+```bash
+# Step 1: Get nonce
+curl "http://localhost:8000/web3/nonce?wallet=0:0e911c7..."
+
+# Step 2: Submit proof (after signing with wallet)
+curl -X POST "http://localhost:8000/web3/ton/check-proof" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ton_addr": {
+      "address": "0:0e911c7...",
+      "network": "-3",
+      "publicKey": "b3e155...",
+      "walletStateInit": "te6cc..."
+    },
+    "ton_proof": {
+      "proof": {
+        "domain": {"lengthBytes": 4, "value": "t.me"},
+        "payload": "2025-12-22T14:55:08.825Z",
+        "signature": "360QU7...",
+        "timestamp": 1734876508
+      }
+    }
+  }'
+```
+
+## Documentation
+
+- [Web3 Token Authentication](./WEB3_TOKEN_AUTHENTICATION.md) - Web3 token usage and integration
+- [Web3 TON Authentication Guide](./WEB3_TON_AUTH.md) - Complete Web3 TON auth documentation
+- [Web3 TON Quickstart](./QUICKSTART_WEB3_TON.md) - Quick start guide
+- [Examples](./examples/) - Example implementations
+- [Tests](./tests/) - Test suite and usage examples
+
+## Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run Web3 TON tests only
+pytest tests/test_web3_ton_router.py -v
+
+# Run with coverage
+pytest --cov=tma_authenticator
+```
+
+## Examples
+
+- [TMA Example](./examples/app.py) - Basic TMA authentication
+- [Web3 Token Example](./examples/web3_token_example.py) - Web3 token authentication examples
+- [Web3 TON Example](./examples/web3_ton_example.py) - Complete Web3 TON auth flow
+
+## Requirements
+
+- Python 3.8+
+- FastAPI
+- aiocache
+- python-jose
+- pytoniq-core
+- pynacl
+
+See [requirements.txt](./requirements.txt) for complete list.
+
+## License
+
+MIT License - See LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

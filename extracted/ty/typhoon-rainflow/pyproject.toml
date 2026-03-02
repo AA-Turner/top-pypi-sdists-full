@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+
+[project]
+name = "typhoon-rainflow"
+description = "Fast rainflow counting for streaming input written in Rust"
+authors = [{ email = "mw@techanokrat.ch" }, { name = "Markus Wegmann" }]
+requires-python = ">=3.8"
+readme = { file = "README.md", content-type = "text/markdown" }
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = ["numpy", "pandas"]
+
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "typhoon.typhoon"
+
+
+[project.optional-dependencies]
+test = ["nox"]

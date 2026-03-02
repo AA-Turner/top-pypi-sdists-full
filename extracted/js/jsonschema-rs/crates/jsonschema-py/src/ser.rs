@@ -71,7 +71,7 @@ impl SerializePyObject {
 }
 
 #[inline]
-unsafe fn pyfloat_as_double(object: *mut pyo3::ffi::PyObject) -> f64 {
+pub(crate) unsafe fn pyfloat_as_double(object: *mut pyo3::ffi::PyObject) -> f64 {
     #[cfg(Py_LIMITED_API)]
     {
         pyo3::ffi::PyFloat_AsDouble(object)
@@ -83,7 +83,7 @@ unsafe fn pyfloat_as_double(object: *mut pyo3::ffi::PyObject) -> f64 {
 }
 
 #[inline]
-unsafe fn pylist_len(object: *mut pyo3::ffi::PyObject) -> usize {
+pub(crate) unsafe fn pylist_len(object: *mut pyo3::ffi::PyObject) -> usize {
     #[cfg(Py_LIMITED_API)]
     {
         pyo3::ffi::PyList_Size(object) as usize
@@ -95,7 +95,7 @@ unsafe fn pylist_len(object: *mut pyo3::ffi::PyObject) -> usize {
 }
 
 #[inline]
-unsafe fn pylist_get_item(
+pub(crate) unsafe fn pylist_get_item(
     object: *mut pyo3::ffi::PyObject,
     index: pyo3::ffi::Py_ssize_t,
 ) -> *mut pyo3::ffi::PyObject {
@@ -110,7 +110,7 @@ unsafe fn pylist_get_item(
 }
 
 #[inline]
-unsafe fn pytuple_len(object: *mut pyo3::ffi::PyObject) -> usize {
+pub(crate) unsafe fn pytuple_len(object: *mut pyo3::ffi::PyObject) -> usize {
     #[cfg(Py_LIMITED_API)]
     {
         pyo3::ffi::PyTuple_Size(object) as usize
@@ -122,7 +122,7 @@ unsafe fn pytuple_len(object: *mut pyo3::ffi::PyObject) -> usize {
 }
 
 #[inline]
-unsafe fn pytuple_get_item(
+pub(crate) unsafe fn pytuple_get_item(
     object: *mut pyo3::ffi::PyObject,
     index: pyo3::ffi::Py_ssize_t,
 ) -> *mut pyo3::ffi::PyObject {
@@ -137,7 +137,7 @@ unsafe fn pytuple_get_item(
 }
 
 #[inline]
-unsafe fn dict_len(object: *mut pyo3::ffi::PyObject) -> usize {
+pub(crate) unsafe fn dict_len(object: *mut pyo3::ffi::PyObject) -> usize {
     #[cfg(any(Py_LIMITED_API, PyPy))]
     {
         pyo3::ffi::PyDict_Size(object) as usize
@@ -149,7 +149,7 @@ unsafe fn dict_len(object: *mut pyo3::ffi::PyObject) -> usize {
 }
 
 #[inline]
-fn is_enum_subclass(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
+pub(crate) fn is_enum_subclass(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
     unsafe { PyType_IsSubtype(object_type, types::ENUM_BASE) != 0 }
 }
 
@@ -158,14 +158,14 @@ fn is_dict_subclass(object_type: *mut pyo3::ffi::PyTypeObject) -> bool {
     unsafe { PyType_IsSubtype(object_type, types::DICT_TYPE) != 0 }
 }
 
-fn get_object_type_from_object(object: *mut pyo3::ffi::PyObject) -> ObjectType {
+pub(crate) fn get_object_type_from_object(object: *mut pyo3::ffi::PyObject) -> ObjectType {
     unsafe {
         let object_type = Py_TYPE(object);
         get_object_type(object_type)
     }
 }
 
-fn get_type_name(object_type: *mut pyo3::ffi::PyTypeObject) -> Cow<'static, str> {
+pub(crate) fn get_type_name(object_type: *mut pyo3::ffi::PyTypeObject) -> Cow<'static, str> {
     unsafe {
         let name_obj = PyObject_GetAttrString(
             object_type.cast::<pyo3::ffi::PyObject>(),
@@ -228,7 +228,7 @@ macro_rules! tri {
 
 /// Helper function to serialize a large integer that doesn't fit in i64
 /// by converting it to a string and parsing as serde_json::Number
-fn serialize_large_int<S>(
+pub(crate) fn serialize_large_int<S>(
     object: *mut pyo3::ffi::PyObject,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -273,6 +273,13 @@ impl Serialize for SerializePyObject {
             ObjectType::Str => {
                 let mut str_size: pyo3::ffi::Py_ssize_t = 0;
                 let ptr = unsafe { PyUnicode_AsUTF8AndSize(self.object, &raw mut str_size) };
+                if ptr.is_null() {
+                    let py = unsafe { Python::assume_attached() };
+                    let py_error = pyo3::PyErr::fetch(py);
+                    return Err(ser::Error::custom(format!(
+                        "Failed to get UTF-8 representation: {py_error}",
+                    )));
+                }
                 let slice = unsafe {
                     std::str::from_utf8_unchecked(std::slice::from_raw_parts(
                         ptr.cast::<u8>(),
@@ -353,9 +360,9 @@ impl Serialize for SerializePyObject {
                             );
                         }
                         let object_type = unsafe { Py_TYPE(key) };
-                        let key_unicode = if object_type == unsafe { types::STR_TYPE } {
+                        let (key_unicode, owned) = if object_type == unsafe { types::STR_TYPE } {
                             // if the key type is string, use it as is
-                            key
+                            (key, false)
                         } else {
                             let is_str = unsafe {
                                 PyObject_IsInstance(
@@ -370,7 +377,15 @@ impl Serialize for SerializePyObject {
                             // cover for both old-style str enums subclassing str and Enum and for new-style
                             // ones subclassing StrEnum
                             if is_str > 0 && is_enum_subclass(object_type) {
-                                unsafe { PyObject_GetAttr(key, types::VALUE_STR) }
+                                let attr = unsafe { PyObject_GetAttr(key, types::VALUE_STR) };
+                                if attr.is_null() {
+                                    let py = unsafe { Python::assume_attached() };
+                                    let py_error = pyo3::PyErr::fetch(py);
+                                    return Err(ser::Error::custom(format!(
+                                        "Failed to access enum key value: {py_error}",
+                                    )));
+                                }
+                                (attr, true)
                             } else {
                                 return Err(ser::Error::custom(format!(
                                     "Dict key must be str or str enum. Got '{}'",
@@ -381,16 +396,30 @@ impl Serialize for SerializePyObject {
 
                         let ptr =
                             unsafe { PyUnicode_AsUTF8AndSize(key_unicode, &raw mut str_size) };
+                        if ptr.is_null() {
+                            let py = unsafe { Python::assume_attached() };
+                            let py_error = pyo3::PyErr::fetch(py);
+                            if owned {
+                                unsafe { pyo3::ffi::Py_DECREF(key_unicode) };
+                            }
+                            return Err(ser::Error::custom(format!(
+                                "Failed to get key as UTF-8: {py_error}",
+                            )));
+                        }
                         let slice = unsafe {
                             std::str::from_utf8_unchecked(std::slice::from_raw_parts(
                                 ptr.cast::<u8>(),
                                 str_size as usize,
                             ))
                         };
-                        tri!(map.serialize_entry(
+                        let entry_result = map.serialize_entry(
                             slice,
                             &SerializePyObject::new(value, self.recursion_depth + 1),
-                        ));
+                        );
+                        if owned {
+                            unsafe { pyo3::ffi::Py_DECREF(key_unicode) };
+                        }
+                        tri!(entry_result);
                     }
                     map.end()
                 }
@@ -480,8 +509,18 @@ impl Serialize for SerializePyObject {
             }
             ObjectType::Enum => {
                 let value = unsafe { PyObject_GetAttr(self.object, types::VALUE_STR) };
+                if value.is_null() {
+                    let py = unsafe { Python::assume_attached() };
+                    let py_error = pyo3::PyErr::fetch(py);
+                    return Err(ser::Error::custom(format!(
+                        "Failed to access enum value: {py_error}",
+                    )));
+                }
                 #[allow(clippy::arithmetic_side_effects)]
-                SerializePyObject::new(value, self.recursion_depth + 1).serialize(serializer)
+                let result =
+                    SerializePyObject::new(value, self.recursion_depth + 1).serialize(serializer);
+                unsafe { pyo3::ffi::Py_DECREF(value) };
+                result
             }
             ObjectType::Unknown => {
                 let object_type = unsafe { Py_TYPE(self.object) };

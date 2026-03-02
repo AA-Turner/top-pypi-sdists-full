@@ -1,0 +1,89 @@
+Metadata-Version: 2.4
+Name: cdflib
+Version: 1.3.8
+Summary: A python CDF reader toolkit
+Author-email: Bryan Harter <harter@lasp.colorado.edu>
+License: MIT License
+        
+        Copyright (c) 2025 Regents of the University of Colorado
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/lasp/cdflib
+Keywords: CDF,maven,lasp,PDS,GSFC
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.21
+Provides-Extra: tests
+Requires-Dist: astropy; extra == "tests"
+Requires-Dist: hypothesis; extra == "tests"
+Requires-Dist: pytest>=3.9; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-remotedata; extra == "tests"
+Requires-Dist: xarray; extra == "tests"
+Requires-Dist: h5netcdf; extra == "tests"
+Requires-Dist: netcdf4; extra == "tests"
+Requires-Dist: pooch; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Dynamic: license-file
+
+[![Run tests](https://github.com/lasp/cdflib/actions/workflows/ci.yml/badge.svg)](https://github.com/lasp/cdflib/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/lasp/cdflib/branch/master/graph/badge.svg?token=IJ6moGc40e)](https://codecov.io/gh/lasp/cdflib)
+[![DOI](https://zenodo.org/badge/102912691.svg)](https://zenodo.org/badge/latestdoi/102912691)
+[![Documentation Status](https://readthedocs.org/projects/cdflib/badge/?version=latest)](https://cdflib.readthedocs.io/en/latest/?badge=latest)
+
+# CDFlib
+
+`cdflib` is a python module to read/write CDF (Common Data Format `.cdf`) files without needing to install the
+[CDF NASA library](https://cdf.gsfc.nasa.gov/).
+
+Python >= 3.9 is required.
+The core of this package uses only numpy, with no complicated compiler requirements.
+
+## Install
+
+To install, open up your terminal/command prompt, and type:
+```sh
+pip install cdflib
+```
+
+## Documentation
+
+The full documentation can be found here
+
+[https://lasp.github.io/cdflib/](https://lasp.github.io/cdflib/)

@@ -1,0 +1,56 @@
+# Config file for the pyup.io Python update service.
+# See https://pyup.io/docs/configuration/ for all available options
+
+# Global option for selection of the kinds of updates
+# default: all
+# allowed: all, insecure, False
+update: insecure
+
+# Global option for pinning unpinned dependencies
+# default: True
+# allowed: True, False
+pin: False
+
+# Search for requirement files
+# default: True
+# allowed: True, False
+search: False
+
+# Specify requirement files by hand, default is empty
+# default: empty
+# allowed: list of file paths.
+# Each file path can be a string value, or an object (=dict) specifying options
+# for the file. Other than documented, they do not inherit the global defaults,
+# but default to the following:
+# - pin: True
+# - compile: False
+# - update: all
+requirements:
+#  - requirements.txt:
+#      pin: False
+#      update: insecure
+#  - dev-requirements.txt:
+#      pin: False
+#      update: insecure
+#  - rtd-requirements.txt:
+#      pin: False
+#      update: insecure
+  - minimum-constraints-install.txt:
+      pin: True
+      update: insecure
+  - minimum-constraints-develop.txt:
+      pin: True
+      update: insecure
+
+# Add a label to pull requests created by the pyup bot.
+# Default is no label (empty).
+label_prs: "review needed"
+
+# Assign users to pull requests created by the pyup bot.
+# Default is no assigned user (empty).
+assignees:
+ - andy-maier
+
+# Branch prefix used for pull requests created by the pyup bot.
+# Default: pyup-
+branch_prefix: pyup/

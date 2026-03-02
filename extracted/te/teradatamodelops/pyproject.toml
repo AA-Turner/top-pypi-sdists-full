@@ -1,0 +1,106 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teradatamodelops"
+dynamic = ["version"]
+requires-python = ">= 3.10"
+authors = [
+    {name = "Christian Axel Schmidt Dick", email = "christianaxel.schmidt@teradata.com"},
+    {name = "Anton Zadorozhniy", email = "anton.zadorozhniy@teradata.com"},
+    {name = "Sheheryar Ali Bhatti", email = "sheheryar.bhatti@teradata.com"},
+    {name = "Will Fleury", email = "will.fleury@teradata.com"},
+    {name = "Mengyu Mo", email = "mengyu.mo@teradata.com"},
+    {name = "Hiya Devli", email = "hiya.devli@teradata.com"},
+]
+maintainers = [
+    {name = "Christian Axel Schmidt Dick", email = "christianaxel.schmidt@teradata.com"},
+    {name = "Anton Zadorozhniy", email = "anton.zadorozhniy@teradata.com"},
+    {name = "Mengyu Mo", email = "mengyu.mo@teradata.com"},
+    {name = "Hiya Devli", email = "hiya.devli@teradata.com"},
+]
+description = "Python client for Teradata ModelOps (TMO)"
+keywords = ["teradata", "vantage", "data science", "devops", "vantagecloud"]
+readme = "tmo/docs/pypi.md"
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Manufacturing",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: Science/Research",
+    "License :: Other/Proprietary License",
+    # Python supported versions
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Utilities"
+]
+dependencies = [
+    "jinja2>=3.1.6",
+    "requests>=2.32.5",
+    "requests-oauthlib>=2.0.0",
+    "oauthlib>=3.3.1",
+    "aia>=0.2.0",
+    "pyyaml>=6.0.3",
+    "gitpython>=3.1.45",
+    "cryptography>=46.0.3",
+    "teradataml>=20.0.0.8",
+    "certifi>=2025.11.12",
+    "matplotlib>=3.10.7",
+    "numpy==1.26.4",
+    "pandas>=2.3.3"
+]
+[project.scripts]
+aoa = 'tmo.tmo_cli:main'
+tmo = 'tmo.tmo_cli:main'
+teradatamodelops = 'tmo.tmo_cli:main'
+
+[project.urls]
+Homepage = "https://pypi.org/project/teradatamodelops/"
+Documentation = "https://pypi.org/project/teradatamodelops/#cli"
+Repository = "https://github.com/Teradata-PE/avmo-ModelOpsPythonSDK"
+Changelog = "https://github.com/Teradata-PE/avmo-ModelOpsPythonSDK/CHANGELOG.md"
+
+# NOTE: you have to use single-quoted strings in TOML for regular expressions.
+# It's the equivalent of r-strings in Python.  Multiline strings are treated as
+# verbose regular expressions by Black.  Use [ ] to denote a significant space
+# character.
+
+[tool.setuptools.dynamic]
+version = {attr = "tmo.__version__"}
+
+[tool.setuptools.package-dir]
+aoa = "aoa"
+tmo = "tmo"
+
+[tool.setuptools.package-data]
+scripts = ["tmo"]
+"tmo.examples" = ["*.ipynb", "*.pmml", "*.txt", "*.py"]
+"tmo.docs" = ["*.rst", "*.md", "*.txt"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # The following are specific to Black, you probably don't want those.
+  tests/data/
+  | profiling/
+  | scripts/generate_schema.py  # Uses match syntax
+)
+'''
+# We use the unstable style for formatting Black itself. If you
+# want bug-free formatting, you should keep this off. If you want
+# stable formatting across releases, you should also keep `preview = true`
+# (which is implied by this flag) off.
+unstable = true

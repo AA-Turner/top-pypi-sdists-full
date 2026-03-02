@@ -1,6 +1,6 @@
 import math
 import os
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, cast
 
 import torch
 from torch import nn
@@ -24,6 +24,7 @@ class LOMO(BaseOptimizer):
         clip_grad_norm (Optional[float]): Gradient norm clipping value.
         clip_grad_value (Optional[float]): Gradient value clipping threshold.
         maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+
     """
 
     def __init__(
@@ -219,6 +220,7 @@ class AdaLOMO(BaseOptimizer):
         clip_grad_value (Optional[float]): Clip gradient value.
         eps1 (float): Term added to the denominator to improve numerical stability.
         eps2 (float): Term added to the denominator to improve numerical stability.
+
     """
 
     def __init__(
@@ -343,7 +345,8 @@ class AdaLOMO(BaseOptimizer):
                         self.exp_avg_sq[n].mul_(beta2_t).add_(update, alpha=1.0 - beta2_t)
                         update = self.exp_avg_sq[n].rsqrt().mul_(grad_fp32)
 
-                    update.div_((self.get_rms(update) / self.clip_threshold).clamp_(min=1.0))
+                    factor = cast(torch.Tensor, self.get_rms(update)).div_(self.clip_threshold).clamp_min_(1.0)
+                    update.div_(factor)
 
                     p_fp32 = p.to(torch.float32)
                     p_rms = torch.norm(p_fp32, 2.0) / math.sqrt(p.numel())
@@ -411,7 +414,8 @@ class AdaLOMO(BaseOptimizer):
                     self.exp_avg_sq[n].mul_(beta2_t).add_(update, alpha=1.0 - beta2_t)
                     update = self.exp_avg_sq[n].rsqrt().mul_(grad_fp32)
 
-                update.div_((self.get_rms(update) / self.clip_threshold).clamp_(min=1.0))
+                factor = cast(torch.Tensor, self.get_rms(update)).div_(self.clip_threshold).clamp_min_(1.0)
+                update.div_(factor)
 
                 one_dim_update = update.view(-1)
                 partitioned_update = one_dim_update.narrow(0, start, end - start)

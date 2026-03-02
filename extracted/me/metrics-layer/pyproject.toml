@@ -1,0 +1,68 @@
+[tool.poetry]
+name = "metrics_layer"
+version = "0.16.30"
+description = "The open source metrics layer."
+authors = ["Paul Blankley <paul@zenlytic.com>"]
+keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
+readme = "README.md"
+license = "Apache 2.0"
+homepage = "https://github.com/Zenlytic/metrics_layer"
+repository = "https://github.com/Zenlytic/metrics_layer"
+documentation = "https://docs.zenlytic.com"
+
+[tool.poetry.dependencies]
+python = ">=3.9, <3.13"
+GitPython = ">=3.1.20"
+sqlparse = ">=0.4.1"
+PyPika = "^0.48.8"
+pandas = "^1.5.2"
+numpy = "^1.24.4"
+jinja2 = "^3.1.2"
+redshift-connector = {version = "^2.0.905", optional = true}
+snowflake-connector-python = {version = "^3.5.0", optional = true}
+pyarrow = {version = ">=10", optional = true}
+google-cloud-bigquery = {version = "^3.13.0", optional = true}
+psycopg2-binary = {version = "^2.9.9", optional = true}
+SQLAlchemy = {version = "^2.0.21", optional = true}
+networkx = "^2.8.2"
+click = "^8.0"
+colorama = "^0.4.4"
+"ruamel.yaml" = "^0.17.20"
+pendulum = "^3.0.0"
+PyYAML = "^6.0"
+sqlglot = {version = "^27.2.0", extras = ["rs"]}
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+black = "^24.3.0"
+flake8 = "^3.9.2"
+pre-commit = "^2.15.0"
+isort = "^5.9.3"
+pytest-cov = "^2.12.1"
+pytest-mock = "^3.6.1"
+pytest-xdist = "^3.5.0"
+pendulum = {version = "^3.0.0", extras = ["test"]}
+
+
+[tool.poetry.extras]
+snowflake = ["snowflake-connector-python", "pyarrow"]
+bigquery = ["google-cloud-bigquery", "pyarrow"]
+redshift = ["redshift-connector"]
+postgres = ["psycopg2-binary"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "redshift-connector", "psycopg2-binary"]
+
+[tool.black]
+line-length = 110
+preview = true
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+# command_name = module_for_handler : function_for_handler
+metrics_layer = 'metrics_layer:cli_group'
+ml = 'metrics_layer:cli_group'

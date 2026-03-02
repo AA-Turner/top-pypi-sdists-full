@@ -45,26 +45,14 @@ pub fn handle_hgroup(
 
 /// Handles the `<dl>` element.
 ///
-/// A definition list contains terms and their definitions. In Markdown, this is
-/// represented using the Pandoc-style definition list format with `:` for definitions.
+/// A definition list contains terms and their definitions. Terms and definitions
+/// are output as plain blocks without Pandoc-style colon syntax, since standard
+/// Markdown and GFM do not support definition lists.
 ///
 /// # Behavior
 ///
 /// - **Inline mode**: Children are processed inline without block spacing
 /// - **Block mode**: Content is collected and wrapped with proper spacing
-/// - Uses context to track when a `dt` was encountered to format `dd` properly
-///
-/// # Markdown Format
-///
-/// Produces Pandoc-style definition lists:
-///
-/// ```text
-/// Term 1
-/// :   Definition 1
-///
-/// Term 2
-/// :   Definition 2
-/// ```
 pub fn handle_dl(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
@@ -87,44 +75,12 @@ pub fn handle_dl(
             return;
         }
 
-        // Collect content and track dt/dd relationships
+        // Collect content from children
         let mut content = String::new();
-        let mut in_dt_group = false;
         let children = tag.children();
         {
             for child_handle in children.top().iter() {
-                // Check if child is dt or dd
-                let (is_definition_term, is_definition_description) =
-                    if let Some(tl::Node::Tag(child_tag)) = child_handle.get(parser) {
-                        let tag_name = crate::converter::normalized_tag_name(child_tag.name().as_utf8_str());
-                        (tag_name == "dt", tag_name == "dd")
-                    } else {
-                        (false, false)
-                    };
-
-                // Pass context indicating if we should format this dd after a dt
-                let child_ctx = super::Context {
-                    last_was_dt: in_dt_group && is_definition_description,
-                    ..ctx.clone()
-                };
-                walk_node(child_handle, parser, &mut content, options, &child_ctx, depth, dom_ctx);
-
-                // Update state for next iteration
-                match child_handle.get(parser) {
-                    Some(tl::Node::Tag(_)) => {
-                        if is_definition_term {
-                            in_dt_group = true;
-                        } else if !is_definition_description {
-                            in_dt_group = false;
-                        }
-                    }
-                    Some(tl::Node::Raw(raw)) => {
-                        if !raw.as_utf8_str().trim().is_empty() {
-                            in_dt_group = false;
-                        }
-                    }
-                    Some(tl::Node::Comment(_)) | None => {}
-                }
+                walk_node(child_handle, parser, &mut content, options, ctx, depth, dom_ctx);
             }
         }
 
@@ -182,24 +138,13 @@ pub fn handle_dt(
 
 /// Handles the `<dd>` element.
 ///
-/// A dd element contains the definition for a term. When preceded by a `dt`,
-/// it uses the Pandoc definition list format (`:   definition`).
-/// Otherwise, it is output as a standalone block.
+/// A dd element contains the definition for a term. It is output as a plain
+/// block since standard Markdown and GFM do not support definition list syntax.
 ///
 /// # Behavior
 ///
 /// - **Inline mode**: Content is output as-is
-/// - **Block mode with preceding dt**: Content is prefixed with `:   ` (Pandoc format)
-/// - **Block mode without preceding dt**: Content is output as a block
-///
-/// # Markdown Format
-///
-/// When `last_was_dt` is true (from parent dl context):
-///
-/// ```text
-/// Term
-/// :   Definition
-/// ```
+/// - **Block mode**: Content is output as a block
 pub fn handle_dd(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
@@ -225,30 +170,7 @@ pub fn handle_dd(
             if !trimmed.is_empty() {
                 output.push_str(trimmed);
             }
-        } else if ctx.last_was_dt {
-            // Pandoc definition list format: `:   definition`
-            if trimmed.is_empty() {
-                output.push_str(":   \n\n");
-            } else {
-                let mut lines = trimmed.lines();
-                if let Some(first) = lines.next() {
-                    output.push_str(":   ");
-                    output.push_str(first);
-                    output.push('\n');
-                }
-                for line in lines {
-                    if line.is_empty() {
-                        output.push('\n');
-                    } else {
-                        output.push_str("    ");
-                        output.push_str(line);
-                        output.push('\n');
-                    }
-                }
-                output.push('\n');
-            }
         } else if !trimmed.is_empty() {
-            // Standalone definition (no preceding dt)
             output.push_str(trimmed);
             output.push_str("\n\n");
         }

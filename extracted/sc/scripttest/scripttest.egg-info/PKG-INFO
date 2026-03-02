@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: scripttest
+Version: 2.0.post1
+Summary: Helper to test command-line scripts
+Home-page: https://scripttest.readthedocs.io/en/stable/
+Author: Ian Bicking
+Author-email: ianb@colorstudy.com
+License: MIT
+Keywords: test unittest doctest command line scripts
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Software Development :: Testing
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: summary
+
+scripttest
+==========
+
+.. image:: https://img.shields.io/pypi/v/scripttest.svg
+    :target: https://pypi.python.org/pypi/scripttest/
+    :alt: Latest Version
+
+.. image:: https://github.com/pypa/scripttest/actions/workflows/ci.yaml/badge.svg
+    :target: https://github.com/pypa/scripttest/actions/workflows/ci.yaml
+    :alt: Build Status
+
+scripttest is a library to help you test your interactive command-line
+applications.
+
+With it you can easily run the command (in a subprocess) and see the
+output (stdout, stderr) and any file modifications.
+
+* The `source repository <https://github.com/pypa/scripttest>`_.
+* The `documentation <https://scripttest.readthedocs.io/>`_.

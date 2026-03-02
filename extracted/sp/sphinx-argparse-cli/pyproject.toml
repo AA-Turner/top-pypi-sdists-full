@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.27",
+  "hatchling>=1.28",
 ]
 
 [project]
@@ -16,7 +16,7 @@ keywords = [
 license = "MIT"
 maintainers = [
   { name = "Bernat Gabor", email = "gaborjbernat@gmail.com" },
-] # noqa: E999
+]
 requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -39,18 +39,38 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "sphinx>=8.2.3",
-]
-optional-dependencies.testing = [
-  "covdefaults>=2.3",
-  "defusedxml>=0.7.1", # needed for sphinx.testing
-  "pytest>=8.4.2",
-  "pytest-cov>=7",
+  "sphinx>=9.0.4",
 ]
 urls.Documentation = "https://github.com/tox-dev/sphinx-argparse-cli#sphinx-argparse-cli"
 urls.Homepage = "https://github.com/tox-dev/sphinx-argparse-cli"
 urls.Source = "https://github.com/tox-dev/sphinx-argparse-cli"
 urls.Tracker = "https://github.com/tox-dev/sphinx-argparse-cli/issues"
+
+[dependency-groups]
+dev = [
+  { include-group = "lint" },
+  { include-group = "pkg-meta" },
+  { include-group = "test" },
+  { include-group = "type" },
+]
+test = [
+  "covdefaults>=2.3",
+  "defusedxml>=0.7.1",
+  "pytest>=9.0.2",
+  "pytest-cov>=7",
+]
+type = [
+  "ty>=0.0.17",
+  { include-group = "test" },
+]
+lint = [
+  "pre-commit-uv>=4.2",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.10.2",
+]
 
 [tool.hatch]
 build.hooks.vcs.version-file = "src/sphinx_argparse_cli/version.py"
@@ -82,7 +102,6 @@ lint.ignore = [
   "ISC001", # Conflict with formatter
   "S104",   # Possible binding to all interface
 ]
-
 lint.per-file-ignores."roots/**/*.py" = [
   "D",      # no docs
   "INP001", # no namespace
@@ -112,20 +131,18 @@ count = true
 max_supported_python = "3.14"
 
 [tool.coverage]
-html.show_contexts = true
-html.skip_covered = false
-paths.source = [
-  "src",
-  "**/site-packages",
-]
-report.fail_under = 76
 run.parallel = true
 run.plugins = [
   "covdefaults",
 ]
 run.relative_files = true
+paths.source = [
+  "src",
+  "**/site-packages",
+]
+report.fail_under = 100
+html.show_contexts = true
+html.skip_covered = false
 
-[tool.mypy]
-python_version = "3.12"
-show_error_codes = true
-strict = true
+[tool.ty]
+environment.python-version = "3.14"

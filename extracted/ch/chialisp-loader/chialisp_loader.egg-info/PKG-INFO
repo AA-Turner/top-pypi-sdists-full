@@ -1,0 +1,31 @@
+Metadata-Version: 2.1
+Name: chialisp-loader
+Version: 0.1.2
+Summary: Provides `load_puzzle` which dynamic rebuilds if `chialisp_builder` is available.
+Author-email: Richard Kiss <him@richardkiss.com>
+License: Copyright 2023 by Richard Kiss
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+            http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+        
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: clvm_rs
+Requires-Dist: importlib_resources
+
+# chialisp_loader
+
+This tiny wheel exports `load_program`, which is used to load [chialisp](https://chialisp.com/) programs from resources included with python wheels.
+
+Chialisp `.clsp` files are compiled into `.hex` output. Only `.hex` output files need to be included in binary wheels
+
+When `load_program` is called, it tries to import `chialisp_builder`. If it fails, it assumes this is running at deploy time: any `.clsp` files are ignored, and the corresponding program is loaded from the `.hex` file.

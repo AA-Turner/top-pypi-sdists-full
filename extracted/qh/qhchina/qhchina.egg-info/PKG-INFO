@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: qhchina
+Version: 0.1.38
+Summary: A Python package for NLP tasks related to Chinese text.
+Author-email: Maciej Kurzynski <makurz@gmail.com>
+License: MIT
+Project-URL: Homepage, https://www.qhchina.org/docs
+Project-URL: Documentation, https://www.qhchina.org/docs
+Project-URL: Repository, https://github.com/mcjkurz/qhchina
+Project-URL: Bug Tracker, https://github.com/mcjkurz/qhchina/issues
+Keywords: digital humanities,nlp,Chinese,text analysis,corpus linguistics,topic modeling,stylometry
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Cython
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Natural Language :: Chinese (Simplified)
+Classifier: Natural Language :: Chinese (Traditional)
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=2.0.2
+Requires-Dist: scipy>=1.14.1
+Requires-Dist: matplotlib>=3.10.0
+Requires-Dist: scikit-learn>=1.6.1
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: requests>=2.28.0
+Dynamic: license-file
+
+# qhChina
+
+A Python toolkit for computational analysis of Chinese texts in humanities research.
+
+## Features
+
+- **Preprocessing**: Chinese text segmentation with multiple backends (spaCy, Jieba, BERT, LLM)
+- **Word Embeddings**: Word2Vec training and temporal semantic change analysis (TempRefWord2Vec)
+- **Topic Modeling**: LDA with Gibbs sampling and Cython acceleration
+- **Stylometry**: Authorship attribution and document clustering
+- **Collocations**: Statistical collocation analysis and co-occurrence matrices
+- **Corpus Comparison**: Identify significant vocabulary differences between corpora
+- **Helpers**: CJK font management, text loading, stopwords
+
+## Installation
+
+```bash
+pip install qhchina
+```
+
+## Building from Source
+
+```bash
+git clone https://github.com/mcjkurz/qhchina.git
+cd qhchina
+pip install -e .
+```
+
+This will compile the Cython extensions and install the package in editable mode.
+
+## Documentation
+
+Full documentation and examples: [www.qhchina.org/docs/](https://www.qhchina.org/docs/)
+
+## Tests
+
+```bash
+pip install pytest
+pytest tests/
+```
+
+## License
+
+MIT License

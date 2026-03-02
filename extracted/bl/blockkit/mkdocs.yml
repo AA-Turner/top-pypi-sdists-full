@@ -1,0 +1,27 @@
+repo_url: https://github.com/imryche/blockkit
+repo_name: imryche/blockkit
+site_name: BlockKit for Python
+site_url: https://blockkit.botsignals.co
+
+theme:
+  name: material
+  palette:
+    primary: black
+    accent: deep purple
+  features:
+    - content.code.copy
+
+nav:
+  - Introduction: "index.md"
+  - Quickstart: "quickstart.md"
+  - Beyond basics: "beyond.md"
+  - Releases: "releases.md"
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

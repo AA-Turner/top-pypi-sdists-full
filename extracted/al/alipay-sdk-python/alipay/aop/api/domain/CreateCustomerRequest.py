@@ -1,0 +1,445 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+from alipay.aop.api.constant.ParamConstants import *
+
+
+class CreateCustomerRequest(object):
+
+    def __init__(self):
+        self._bd = None
+        self._charge_person_name = None
+        self._cid = None
+        self._cloud_tag = None
+        self._country = None
+        self._creator = None
+        self._customer_industry = None
+        self._customer_short_name = None
+        self._customer_source = None
+        self._ep_cert_no = None
+        self._ep_name = None
+        self._ep_reg_no = None
+        self._ep_status = None
+        self._ep_type = None
+        self._established_date = None
+        self._industry = None
+        self._industry_category = None
+        self._key_customer = None
+        self._leads_cloud_tag = None
+        self._location = None
+        self._memo = None
+        self._platform_cloud_tag = None
+        self._pub_cloud_first_level_industry = None
+        self._pub_cloud_second_level_industry = None
+        self._region = None
+        self._registered_address = None
+        self._registered_capital = None
+        self._social_security_account = None
+
+    @property
+    def bd(self):
+        return self._bd
+
+    @bd.setter
+    def bd(self, value):
+        self._bd = value
+    @property
+    def charge_person_name(self):
+        return self._charge_person_name
+
+    @charge_person_name.setter
+    def charge_person_name(self, value):
+        self._charge_person_name = value
+    @property
+    def cid(self):
+        return self._cid
+
+    @cid.setter
+    def cid(self, value):
+        self._cid = value
+    @property
+    def cloud_tag(self):
+        return self._cloud_tag
+
+    @cloud_tag.setter
+    def cloud_tag(self, value):
+        self._cloud_tag = value
+    @property
+    def country(self):
+        return self._country
+
+    @country.setter
+    def country(self, value):
+        self._country = value
+    @property
+    def creator(self):
+        return self._creator
+
+    @creator.setter
+    def creator(self, value):
+        self._creator = value
+    @property
+    def customer_industry(self):
+        return self._customer_industry
+
+    @customer_industry.setter
+    def customer_industry(self, value):
+        self._customer_industry = value
+    @property
+    def customer_short_name(self):
+        return self._customer_short_name
+
+    @customer_short_name.setter
+    def customer_short_name(self, value):
+        self._customer_short_name = value
+    @property
+    def customer_source(self):
+        return self._customer_source
+
+    @customer_source.setter
+    def customer_source(self, value):
+        self._customer_source = value
+    @property
+    def ep_cert_no(self):
+        return self._ep_cert_no
+
+    @ep_cert_no.setter
+    def ep_cert_no(self, value):
+        self._ep_cert_no = value
+    @property
+    def ep_name(self):
+        return self._ep_name
+
+    @ep_name.setter
+    def ep_name(self, value):
+        self._ep_name = value
+    @property
+    def ep_reg_no(self):
+        return self._ep_reg_no
+
+    @ep_reg_no.setter
+    def ep_reg_no(self, value):
+        self._ep_reg_no = value
+    @property
+    def ep_status(self):
+        return self._ep_status
+
+    @ep_status.setter
+    def ep_status(self, value):
+        self._ep_status = value
+    @property
+    def ep_type(self):
+        return self._ep_type
+
+    @ep_type.setter
+    def ep_type(self, value):
+        self._ep_type = value
+    @property
+    def established_date(self):
+        return self._established_date
+
+    @established_date.setter
+    def established_date(self, value):
+        self._established_date = value
+    @property
+    def industry(self):
+        return self._industry
+
+    @industry.setter
+    def industry(self, value):
+        self._industry = value
+    @property
+    def industry_category(self):
+        return self._industry_category
+
+    @industry_category.setter
+    def industry_category(self, value):
+        self._industry_category = value
+    @property
+    def key_customer(self):
+        return self._key_customer
+
+    @key_customer.setter
+    def key_customer(self, value):
+        self._key_customer = value
+    @property
+    def leads_cloud_tag(self):
+        return self._leads_cloud_tag
+
+    @leads_cloud_tag.setter
+    def leads_cloud_tag(self, value):
+        self._leads_cloud_tag = value
+    @property
+    def location(self):
+        return self._location
+
+    @location.setter
+    def location(self, value):
+        self._location = value
+    @property
+    def memo(self):
+        return self._memo
+
+    @memo.setter
+    def memo(self, value):
+        self._memo = value
+    @property
+    def platform_cloud_tag(self):
+        return self._platform_cloud_tag
+
+    @platform_cloud_tag.setter
+    def platform_cloud_tag(self, value):
+        self._platform_cloud_tag = value
+    @property
+    def pub_cloud_first_level_industry(self):
+        return self._pub_cloud_first_level_industry
+
+    @pub_cloud_first_level_industry.setter
+    def pub_cloud_first_level_industry(self, value):
+        self._pub_cloud_first_level_industry = value
+    @property
+    def pub_cloud_second_level_industry(self):
+        return self._pub_cloud_second_level_industry
+
+    @pub_cloud_second_level_industry.setter
+    def pub_cloud_second_level_industry(self, value):
+        self._pub_cloud_second_level_industry = value
+    @property
+    def region(self):
+        return self._region
+
+    @region.setter
+    def region(self, value):
+        self._region = value
+    @property
+    def registered_address(self):
+        return self._registered_address
+
+    @registered_address.setter
+    def registered_address(self, value):
+        self._registered_address = value
+    @property
+    def registered_capital(self):
+        return self._registered_capital
+
+    @registered_capital.setter
+    def registered_capital(self, value):
+        self._registered_capital = value
+    @property
+    def social_security_account(self):
+        return self._social_security_account
+
+    @social_security_account.setter
+    def social_security_account(self, value):
+        self._social_security_account = value
+
+
+    def to_alipay_dict(self):
+        params = dict()
+        if self.bd:
+            if hasattr(self.bd, 'to_alipay_dict'):
+                params['bd'] = self.bd.to_alipay_dict()
+            else:
+                params['bd'] = self.bd
+        if self.charge_person_name:
+            if hasattr(self.charge_person_name, 'to_alipay_dict'):
+                params['charge_person_name'] = self.charge_person_name.to_alipay_dict()
+            else:
+                params['charge_person_name'] = self.charge_person_name
+        if self.cid:
+            if hasattr(self.cid, 'to_alipay_dict'):
+                params['cid'] = self.cid.to_alipay_dict()
+            else:
+                params['cid'] = self.cid
+        if self.cloud_tag:
+            if hasattr(self.cloud_tag, 'to_alipay_dict'):
+                params['cloud_tag'] = self.cloud_tag.to_alipay_dict()
+            else:
+                params['cloud_tag'] = self.cloud_tag
+        if self.country:
+            if hasattr(self.country, 'to_alipay_dict'):
+                params['country'] = self.country.to_alipay_dict()
+            else:
+                params['country'] = self.country
+        if self.creator:
+            if hasattr(self.creator, 'to_alipay_dict'):
+                params['creator'] = self.creator.to_alipay_dict()
+            else:
+                params['creator'] = self.creator
+        if self.customer_industry:
+            if hasattr(self.customer_industry, 'to_alipay_dict'):
+                params['customer_industry'] = self.customer_industry.to_alipay_dict()
+            else:
+                params['customer_industry'] = self.customer_industry
+        if self.customer_short_name:
+            if hasattr(self.customer_short_name, 'to_alipay_dict'):
+                params['customer_short_name'] = self.customer_short_name.to_alipay_dict()
+            else:
+                params['customer_short_name'] = self.customer_short_name
+        if self.customer_source:
+            if hasattr(self.customer_source, 'to_alipay_dict'):
+                params['customer_source'] = self.customer_source.to_alipay_dict()
+            else:
+                params['customer_source'] = self.customer_source
+        if self.ep_cert_no:
+            if hasattr(self.ep_cert_no, 'to_alipay_dict'):
+                params['ep_cert_no'] = self.ep_cert_no.to_alipay_dict()
+            else:
+                params['ep_cert_no'] = self.ep_cert_no
+        if self.ep_name:
+            if hasattr(self.ep_name, 'to_alipay_dict'):
+                params['ep_name'] = self.ep_name.to_alipay_dict()
+            else:
+                params['ep_name'] = self.ep_name
+        if self.ep_reg_no:
+            if hasattr(self.ep_reg_no, 'to_alipay_dict'):
+                params['ep_reg_no'] = self.ep_reg_no.to_alipay_dict()
+            else:
+                params['ep_reg_no'] = self.ep_reg_no
+        if self.ep_status:
+            if hasattr(self.ep_status, 'to_alipay_dict'):
+                params['ep_status'] = self.ep_status.to_alipay_dict()
+            else:
+                params['ep_status'] = self.ep_status
+        if self.ep_type:
+            if hasattr(self.ep_type, 'to_alipay_dict'):
+                params['ep_type'] = self.ep_type.to_alipay_dict()
+            else:
+                params['ep_type'] = self.ep_type
+        if self.established_date:
+            if hasattr(self.established_date, 'to_alipay_dict'):
+                params['established_date'] = self.established_date.to_alipay_dict()
+            else:
+                params['established_date'] = self.established_date
+        if self.industry:
+            if hasattr(self.industry, 'to_alipay_dict'):
+                params['industry'] = self.industry.to_alipay_dict()
+            else:
+                params['industry'] = self.industry
+        if self.industry_category:
+            if hasattr(self.industry_category, 'to_alipay_dict'):
+                params['industry_category'] = self.industry_category.to_alipay_dict()
+            else:
+                params['industry_category'] = self.industry_category
+        if self.key_customer:
+            if hasattr(self.key_customer, 'to_alipay_dict'):
+                params['key_customer'] = self.key_customer.to_alipay_dict()
+            else:
+                params['key_customer'] = self.key_customer
+        if self.leads_cloud_tag:
+            if hasattr(self.leads_cloud_tag, 'to_alipay_dict'):
+                params['leads_cloud_tag'] = self.leads_cloud_tag.to_alipay_dict()
+            else:
+                params['leads_cloud_tag'] = self.leads_cloud_tag
+        if self.location:
+            if hasattr(self.location, 'to_alipay_dict'):
+                params['location'] = self.location.to_alipay_dict()
+            else:
+                params['location'] = self.location
+        if self.memo:
+            if hasattr(self.memo, 'to_alipay_dict'):
+                params['memo'] = self.memo.to_alipay_dict()
+            else:
+                params['memo'] = self.memo
+        if self.platform_cloud_tag:
+            if hasattr(self.platform_cloud_tag, 'to_alipay_dict'):
+                params['platform_cloud_tag'] = self.platform_cloud_tag.to_alipay_dict()
+            else:
+                params['platform_cloud_tag'] = self.platform_cloud_tag
+        if self.pub_cloud_first_level_industry:
+            if hasattr(self.pub_cloud_first_level_industry, 'to_alipay_dict'):
+                params['pub_cloud_first_level_industry'] = self.pub_cloud_first_level_industry.to_alipay_dict()
+            else:
+                params['pub_cloud_first_level_industry'] = self.pub_cloud_first_level_industry
+        if self.pub_cloud_second_level_industry:
+            if hasattr(self.pub_cloud_second_level_industry, 'to_alipay_dict'):
+                params['pub_cloud_second_level_industry'] = self.pub_cloud_second_level_industry.to_alipay_dict()
+            else:
+                params['pub_cloud_second_level_industry'] = self.pub_cloud_second_level_industry
+        if self.region:
+            if hasattr(self.region, 'to_alipay_dict'):
+                params['region'] = self.region.to_alipay_dict()
+            else:
+                params['region'] = self.region
+        if self.registered_address:
+            if hasattr(self.registered_address, 'to_alipay_dict'):
+                params['registered_address'] = self.registered_address.to_alipay_dict()
+            else:
+                params['registered_address'] = self.registered_address
+        if self.registered_capital:
+            if hasattr(self.registered_capital, 'to_alipay_dict'):
+                params['registered_capital'] = self.registered_capital.to_alipay_dict()
+            else:
+                params['registered_capital'] = self.registered_capital
+        if self.social_security_account:
+            if hasattr(self.social_security_account, 'to_alipay_dict'):
+                params['social_security_account'] = self.social_security_account.to_alipay_dict()
+            else:
+                params['social_security_account'] = self.social_security_account
+        return params
+
+    @staticmethod
+    def from_alipay_dict(d):
+        if not d:
+            return None
+        o = CreateCustomerRequest()
+        if 'bd' in d:
+            o.bd = d['bd']
+        if 'charge_person_name' in d:
+            o.charge_person_name = d['charge_person_name']
+        if 'cid' in d:
+            o.cid = d['cid']
+        if 'cloud_tag' in d:
+            o.cloud_tag = d['cloud_tag']
+        if 'country' in d:
+            o.country = d['country']
+        if 'creator' in d:
+            o.creator = d['creator']
+        if 'customer_industry' in d:
+            o.customer_industry = d['customer_industry']
+        if 'customer_short_name' in d:
+            o.customer_short_name = d['customer_short_name']
+        if 'customer_source' in d:
+            o.customer_source = d['customer_source']
+        if 'ep_cert_no' in d:
+            o.ep_cert_no = d['ep_cert_no']
+        if 'ep_name' in d:
+            o.ep_name = d['ep_name']
+        if 'ep_reg_no' in d:
+            o.ep_reg_no = d['ep_reg_no']
+        if 'ep_status' in d:
+            o.ep_status = d['ep_status']
+        if 'ep_type' in d:
+            o.ep_type = d['ep_type']
+        if 'established_date' in d:
+            o.established_date = d['established_date']
+        if 'industry' in d:
+            o.industry = d['industry']
+        if 'industry_category' in d:
+            o.industry_category = d['industry_category']
+        if 'key_customer' in d:
+            o.key_customer = d['key_customer']
+        if 'leads_cloud_tag' in d:
+            o.leads_cloud_tag = d['leads_cloud_tag']
+        if 'location' in d:
+            o.location = d['location']
+        if 'memo' in d:
+            o.memo = d['memo']
+        if 'platform_cloud_tag' in d:
+            o.platform_cloud_tag = d['platform_cloud_tag']
+        if 'pub_cloud_first_level_industry' in d:
+            o.pub_cloud_first_level_industry = d['pub_cloud_first_level_industry']
+        if 'pub_cloud_second_level_industry' in d:
+            o.pub_cloud_second_level_industry = d['pub_cloud_second_level_industry']
+        if 'region' in d:
+            o.region = d['region']
+        if 'registered_address' in d:
+            o.registered_address = d['registered_address']
+        if 'registered_capital' in d:
+            o.registered_capital = d['registered_capital']
+        if 'social_security_account' in d:
+            o.social_security_account = d['social_security_account']
+        return o
+
+

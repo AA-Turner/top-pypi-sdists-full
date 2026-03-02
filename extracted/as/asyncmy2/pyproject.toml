@@ -1,0 +1,107 @@
+[project]
+authors = [
+    { name = "vpmedia", email = "andras@vpmedia.hu" },
+    { name = "long2ice", email = "long2ice@gmail.com" },
+]
+description = "A fast asyncio MySQL driver"
+keywords = [
+    "driver",
+    "asyncio",
+    "mysql",
+]
+license = "Apache-2.0"
+name = "asyncmy2"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+dynamic = []
+version = "0.2.20"
+
+[project.urls]
+documentation = "https://github.com/vpmedia/asyncmy2"
+homepage = "https://github.com/vpmedia/asyncmy2"
+repository = "https://github.com/vpmedia/asyncmy2.git"
+
+[dependency-groups]
+dev = [
+    "cython",
+    "mypy",
+    "rich",
+    "ruff",
+]
+test = [
+    "aiomysql",
+    "cryptography",
+    "mysqlclient",
+    "pymysql",
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-xdist",
+    "pytest",
+    "rich",
+    "uvloop; sys_platform != 'win32' and implementation_name == 'cpython'",
+]
+
+[tool.pdm.version]
+source = "file"
+path = "asyncmy/version.py"
+
+[tool.pdm.build]
+run-setuptools = true
+custom-hook = "build.py"
+includes = [
+    "asyncmy",
+]
+
+[tool.cibuildwheel]
+build-frontend = "pip"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+asyncio_mode = "auto"
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "-ra",
+]
+testpaths = [
+    "tests",
+]
+markers = []
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.mypy]
+pretty = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pyright]
+include = [
+    "asyncmy",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = [
+    "FA",
+    "UP",
+    "RUF100",
+]
+ignore = [
+    "UP031",
+    "UP032",
+]
+
+[build-system]
+build-backend = "pdm.backend"
+requires = [
+    "pdm-backend",
+    "setuptools",
+    "wheel",
+    "cython",
+]

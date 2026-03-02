@@ -1,6 +1,0 @@
-data_label_placement:
-  url: https://developers.google.com/slides/api/reference/rest/v1/presentations.pages/getThumbnail#ThumbnailProperties
-  params:
-    - LARGE
-    - MEDIUM
-    - SMALL

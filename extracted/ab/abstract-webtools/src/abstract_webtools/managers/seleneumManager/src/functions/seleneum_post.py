@@ -2,6 +2,21 @@ from ..imports import *
 from .functions import *
 from .functions import _free_port,_make_chrome_options,_looks_like_html,_requests_fallback,_wait_until_ready,_make_profile_dir
 from .seleneumManager import *
+def _auto_age_gate(driver):
+    try:
+        yes = driver.find_element(By.ID, "age-button-yes")
+        yes.click()
+        time.sleep(0.3)
+        return True
+    except Exception:
+        return False
+
+
+# --- NEW: auto-click age-verification if present ---
+try:
+    _auto_age_gate(driver)
+except Exception:
+    pass
 # ---- Hardened page-source retrieval with fallback ----
 def get_selenium_source(url, max_retries: int = 2, request_fallback: bool = True, timeout: float = 12.0):
     url_mgr = urlManager(url)
@@ -11,7 +26,8 @@ def get_selenium_source(url, max_retries: int = 2, request_fallback: bool = True
 
     manager = seleneumManager(url)
     key, driver = manager.get_driver(url)
-
+    driver.get(url)
+    _wait_until_ready(driver, timeout=timeout)
     last_exc = None
     try:
         for attempt in range(1, max_retries + 1):

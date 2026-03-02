@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.5, <2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyVRL"
+requires-python = ">=3.10"
+authors = [
+  { name="Crowdalert, Inc", email="hello@crowdalert.com" },
+]
+
+description = "Exposes Vector VRL to Python"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/crowdalert/pyvrl"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

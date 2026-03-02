@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: charm-refresh-build-version
+Version: 0.4.0
+Summary: Write `charm` version in refresh_versions.toml from git tag
+Author: Carl Csaposs
+Author-email: carl.csaposs@canonical.com
+Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: dunamai (>=1.23.1)
+Requires-Dist: tomlkit (>=0.13.2)
+Description-Content-Type: text/markdown
+
+Docs: https://github.com/canonical/charm-refresh
+<!--- TODO update link after charm-refresh docs published -->
+

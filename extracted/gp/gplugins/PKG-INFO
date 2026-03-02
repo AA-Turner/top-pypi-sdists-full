@@ -1,0 +1,176 @@
+Metadata-Version: 2.4
+Name: gplugins
+Version: 2.0.1
+Summary: gdsfactory plugins
+Keywords: python
+Author-email: gdsfactory <contact@gdsfactory.com>
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: gdsfactory>=9.15.1
+Requires-Dist: pint
+Requires-Dist: tqdm
+Requires-Dist: numpy==2.2
+Requires-Dist: xarray==2025.7.1
+Requires-Dist: hypothesis ; extra == "dev"
+Requires-Dist: numba ; extra == "dev"
+Requires-Dist: pre-commit ; extra == "dev"
+Requires-Dist: pyswarms ; extra == "dev"
+Requires-Dist: pytest ; extra == "dev"
+Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: pytest_regressions ; extra == "dev"
+Requires-Dist: devsim ; extra == "devsim"
+Requires-Dist: pyvista<=0.46.0 ; extra == "devsim"
+Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "devsim"
+Requires-Dist: jupytext ; extra == "docs"
+Requires-Dist: matplotlib ; extra == "docs"
+Requires-Dist: jupyter-book~=1.0 ; extra == "docs"
+Requires-Dist: pyvista[all]<=0.46.0 ; extra == "docs"
+Requires-Dist: bokeh ; extra == "docs"
+Requires-Dist: scikit-learn ; extra == "docs"
+Requires-Dist: femwell~=0.1.11 ; extra == "femwell"
+Requires-Dist: meshwell~=2.1.1 ; extra == "femwell"
+Requires-Dist: jinja2 ; extra == "gfviz"
+Requires-Dist: fastapi ; extra == "gfviz"
+Requires-Dist: shapely ; extra == "gfviz"
+Requires-Dist: natsort ; extra == "gfviz"
+Requires-Dist: klayout ; extra == "klayout"
+Requires-Dist: pyvis<=0.3.1 ; extra == "klayout"
+Requires-Dist: vlsir ; extra == "klayout"
+Requires-Dist: vlsirtools ; extra == "klayout"
+Requires-Dist: gitpython ; extra == "klayout"
+Requires-Dist: luminescent>=0.2.12,<0.4.0 ; extra == "luminescent"
+Requires-Dist: sortedcontainers ; extra == "luminescent"
+Requires-Dist: mypy ; extra == "maintainer"
+Requires-Dist: tbump ; extra == "maintainer"
+Requires-Dist: towncrier ; extra == "maintainer"
+Requires-Dist: meow-sim>=0.14.1,<0.15 ; extra == "meow"
+Requires-Dist: sax~=0.16.3 ; extra == "meow"
+Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "meow"
+Requires-Dist: shapely ; extra == "meshwell"
+Requires-Dist: meshwell~=2.1.1 ; extra == "meshwell"
+Requires-Dist: bokeh ; extra == "path-length-analysis"
+Requires-Dist: numba ; extra == "path-length-analysis"
+Requires-Dist: shapely ; extra == "path-length-analysis"
+Requires-Dist: sax~=0.16.3 ; extra == "sax"
+Requires-Dist: bokeh ; extra == "schematic"
+Requires-Dist: ipywidgets ; extra == "schematic"
+Requires-Dist: natsort ; extra == "schematic"
+Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "tidy3d"
+Requires-Dist: gdstk ; extra == "tidy3d"
+Requires-Dist: vlsir ; extra == "vlsir"
+Requires-Dist: vlsirtools ; extra == "vlsir"
+Provides-Extra: dev
+Provides-Extra: devsim
+Provides-Extra: docs
+Provides-Extra: femwell
+Provides-Extra: gfviz
+Provides-Extra: klayout
+Provides-Extra: luminescent
+Provides-Extra: maintainer
+Provides-Extra: meow
+Provides-Extra: meshwell
+Provides-Extra: path-length-analysis
+Provides-Extra: sax
+Provides-Extra: schematic
+Provides-Extra: tidy3d
+Provides-Extra: vlsir
+
+# gplugins 2.0.1
+
+[![docs](https://github.com/gdsfactory/gplugins/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gplugins/)
+[![PyPI](https://img.shields.io/pypi/v/gplugins)](https://pypi.org/project/gplugins/)
+[![PyPI Python](https://img.shields.io/pypi/pyversions/gplugins.svg)](https://pypi.python.org/pypi/gplugins)
+[![MIT](https://img.shields.io/github/license/gdsfactory/gplugins)](https://choosealicense.com/licenses/mit/)
+[![codecov](https://img.shields.io/codecov/c/github/gdsfactory/gplugins)](https://codecov.io/gh/gdsfactory/gdsfactory/tree/main/gplugins)
+
+## GDSFactory plugins
+
+Run simulations with GDSFactory by installing plugins.
+
+- Device simulators
+    - Meshing
+    - FDTD
+        - `Ansys Lumerical`
+        - tidy3d
+        - Luminescent
+        - FDTDz
+        - MEEP
+    - FEM
+        - `femwell` Finite Element Method Solver (heaters, modes, TCAD, RF waveguides).
+        - `elmer` for electrostatic (capacitive) simulations.
+        - `palace` for full-wave driven (S parameter) and electrostatic (capacitive) simulations.
+    - EME
+        - `meow` Eigen Mode Expansion (EME).
+    - Mode Solver
+        - Tidy3d
+        - Femwell
+        - MPB
+    - TCAD
+        - `devsim` TCAD device simulator.
+- Circuit simulations
+    - `sax` S-parameter circuit solver.
+    - `vlsir` for parsing GDS-extracted circuit netlists into Cadence Spectre, NgSpice and Xyce Schematic File formats.
+
+
+## Installation
+
+You can install most plugins with:
+
+```bash
+pip install "gdsfactory[full]" --upgrade
+```
+
+Or list the plugins individually:
+
+```bash
+pip install "gplugins[devsim,femwell,gmsh,schematic,meow,meshwell,sax,tidy3d]" --upgrade
+```
+
+Or install only the plugins you need. For example:
+
+```bash
+pip install "gplugins[schematic,femwell,meow,sax,tidy3d]" --upgrade
+```
+
+### Non-pip plugins
+
+The following plugins require special installation as they can't be installed with `pip`:
+
+- For Meep and MPB you need to use `conda` or `mamba` on MacOS, Linux or [Windows WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) with `conda install pymeep=*=mpi_mpich_* -c conda-forge -y`
+- For Elmer, refer to [Elmer FEM – Installation](https://www.elmerfem.org/blog/binaries/) for installation or compilation instructions each platform. Gplugins assumes `ElmerSolver`, `ElmerSolver_mpi`, and `ElmerGrid` are available in your PATH environment variable.
+- For Palace, refer to [Palace – Installation](https://awslabs.github.io/palace/stable/install/) for compilation instructions using Spack or Singularity. Gplugins assumes `palace` is available in your PATH environment variable.
+
+## Installation for contributors
+
+We recommend `uv` for installing GDSfactory.
+If you don't already have uv, install with the following command:
+
+```bash
+# On macOS and Linux.
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```bash
+# On Windows.
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+-Then you can install GDSFactory with:
+
+```bash
+uv venv --python 3.12
+uv sync --extra docs --extra dev
+```
+
+## Getting started
+
+- [Read the gplugins docs](https://gdsfactory.github.io/gplugins/)
+- [Read the GDSFactory docs](https://gdsfactory.github.io/gdsfactory/)
+- [Read the GDSFactory+ docs](https://gdsfactory.com/plus/))
+- [Join the discussion at GDSFactory Community Slack](https://join.slack.com/t/gdsfactory-community/shared_invite/zt-3aoygv7cg-r5BH6yvL4YlHfY8~UXp0Wg)
+

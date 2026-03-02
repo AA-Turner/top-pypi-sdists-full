@@ -1,0 +1,29 @@
+# Read the Docs (RTD) configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# RTD config file version
+version: 2
+
+# Environment RTD sets up for the docs build
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  jobs:
+    post_checkout:
+      - git fetch --unshallow --tags  # setuptools_scm needs a full depth repo with tags
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  configuration: docs/conf.py
+
+# If using Sphinx, optionally build your docs in additional formats such as PDF
+# formats:
+#    - pdf
+
+# Python requirements required to build the docs
+python:
+   install:
+     - requirements: base-requirements.txt
+     - requirements: requirements.txt
+     - requirements: dev-requirements.txt

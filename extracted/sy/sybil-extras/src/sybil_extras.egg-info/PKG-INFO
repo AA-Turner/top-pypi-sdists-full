@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.2.27
+Version: 2026.3.1.6
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
+Project-URL: Documentation, https://adamtheturtle.github.io/sybil-extras/
 Project-URL: Source, https://github.com/adamtheturtle/sybil-extras
 Keywords: markdown,rst,sphinx,sybil,testing
 Classifier: Development Status :: 5 - Production/Stable
@@ -11,16 +12,17 @@ Classifier: Environment :: Web Environment
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beartype>=0.22.9
+Requires-Dist: docutils>=0.21
 Requires-Dist: markdown-it-py>=3.0.0
+Requires-Dist: myst-parser>=5.0.0
 Requires-Dist: sybil>=9.3.0
 Provides-Extra: dev
 Requires-Dist: actionlint-py==1.7.11.24; extra == "dev"
@@ -29,6 +31,7 @@ Requires-Dist: check-manifest==0.51; extra == "dev"
 Requires-Dist: click==8.3.1; extra == "dev"
 Requires-Dist: deptry==0.24.0; extra == "dev"
 Requires-Dist: doc8==2.0.0; extra == "dev"
+Requires-Dist: furo==2025.12.19; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
 Requires-Dist: mypy[faster-cache]==1.19.1; extra == "dev"
 Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
@@ -43,13 +46,19 @@ Requires-Dist: pyright==1.1.408; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
 Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-cov==7.0.0; extra == "dev"
-Requires-Dist: ruff==0.15.2; extra == "dev"
+Requires-Dist: ruff==0.15.4; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
+Requires-Dist: sphinx>=8.1.3; extra == "dev"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
+Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
+Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
+Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
 Requires-Dist: sybil==9.3.0; extra == "dev"
 Requires-Dist: ty==0.0.19; extra == "dev"
-Requires-Dist: uv==0.10.6; extra == "dev"
+Requires-Dist: types-docutils==0.22.3.20260223; extra == "dev"
+Requires-Dist: uv==0.10.7; extra == "dev"
 Requires-Dist: vulture==2.14; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
 Requires-Dist: zizmor==1.22.0; extra == "dev"
@@ -253,8 +262,10 @@ CustomDirectiveSkipParser
     # Similar parsers are available at
     # sybil_extras.parsers.markdown.custom_directive_skip,
     # sybil_extras.parsers.markdown_it.custom_directive_skip,
-    # sybil_extras.parsers.mdx.custom_directive_skip and
-    # sybil_extras.parsers.myst.custom_directive_skip.
+    # sybil_extras.parsers.mdx.custom_directive_skip,
+    # sybil_extras.parsers.myst.custom_directive_skip,
+    # sybil_extras.parsers.myst_parser.custom_directive_skip and
+    # sybil_extras.parsers.docutils_rst.custom_directive_skip.
     from sybil_extras.parsers.rest.custom_directive_skip import (
         CustomDirectiveSkipParser,
     )
@@ -290,8 +301,10 @@ GroupedSourceParser
     # Similar parsers are available at
     # sybil_extras.parsers.markdown.grouped_source,
     # sybil_extras.parsers.markdown_it.grouped_source,
-    # sybil_extras.parsers.mdx.grouped_source and
-    # sybil_extras.parsers.myst.grouped_source.
+    # sybil_extras.parsers.mdx.grouped_source,
+    # sybil_extras.parsers.myst.grouped_source,
+    # sybil_extras.parsers.myst_parser.grouped_source and
+    # sybil_extras.parsers.docutils_rst.grouped_source.
     from sybil_extras.parsers.rest.grouped_source import GroupedSourceParser
 
 
@@ -387,8 +400,10 @@ GroupAllParser
     # Similar parsers are available at
     # sybil_extras.parsers.markdown.group_all,
     # sybil_extras.parsers.markdown_it.group_all,
-    # sybil_extras.parsers.mdx.group_all and
-    # sybil_extras.parsers.myst.group_all.
+    # sybil_extras.parsers.mdx.group_all,
+    # sybil_extras.parsers.myst.group_all,
+    # sybil_extras.parsers.myst_parser.group_all and
+    # sybil_extras.parsers.docutils_rst.group_all.
     from sybil_extras.parsers.rest.group_all import GroupAllParser
 
 
@@ -529,7 +544,10 @@ This extracts the source, arguments and options from ``.. jinja::`` directive bl
     from sybil import Sybil
     from sybil.example import Example
 
-    # A similar parser is available at sybil_extras.parsers.myst.sphinx_jinja2.
+    # Similar parsers are available at
+    # sybil_extras.parsers.docutils_rst.sphinx_jinja2,
+    # sybil_extras.parsers.myst.sphinx_jinja2 and
+    # sybil_extras.parsers.myst_parser.sphinx_jinja2.
     # There are no Markdown or MDX parsers as Sphinx is not used with them
     # without MyST.
     from sybil_extras.parsers.rest.sphinx_jinja2 import SphinxJinja2Parser
@@ -628,6 +646,58 @@ The module also provides ``CustomDirectiveSkipParser``, ``GroupedSourceParser``,
 ``GroupAllParser``, and ``DirectiveInHTMLCommentLexer`` that use the MarkdownIt library
 for parsing HTML comments containing directives.
 
+MystParser code block parser
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``myst_parser`` module provides MyST parsers that use the
+`myst-parser <https://myst-parser.readthedocs.io/>`_ library instead of regex.
+This provides more accurate parsing of MyST documents, including support for
+percent-style comment directives (``% skip: next``) in addition to HTML comment
+directives.
+
+.. code-block:: python
+
+    """Use the myst_parser CodeBlockParser for MyST documents."""
+
+    from sybil import Sybil
+
+    from sybil_extras.evaluators.no_op import NoOpEvaluator
+    from sybil_extras.parsers.myst_parser.codeblock import CodeBlockParser
+
+    parser = CodeBlockParser(language="python", evaluator=NoOpEvaluator())
+    sybil = Sybil(parsers=[parser])
+
+    pytest_collect_file = sybil.pytest()
+
+The module also provides ``CustomDirectiveSkipParser``, ``GroupedSourceParser``,
+``GroupAllParser``, ``SphinxJinja2Parser``, ``DirectiveInHTMLCommentLexer``, and
+``DirectiveInPercentCommentLexer`` that use the myst-parser library.
+
+DocutilsRST code block parser
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``docutils_rst`` module provides reStructuredText parsers that use the
+`docutils <https://docutils.sourceforge.io/>`_ library instead of regex.
+This provides more accurate parsing of reStructuredText documents, supporting
+both ``.. code-block::`` and ``.. code::`` directives.
+
+.. code-block:: python
+
+    """Use the docutils_rst CodeBlockParser for reStructuredText documents."""
+
+    from sybil import Sybil
+
+    from sybil_extras.evaluators.no_op import NoOpEvaluator
+    from sybil_extras.parsers.docutils_rst.codeblock import CodeBlockParser
+
+    parser = CodeBlockParser(language="python", evaluator=NoOpEvaluator())
+    sybil = Sybil(parsers=[parser])
+
+    pytest_collect_file = sybil.pytest()
+
+The module also provides ``CustomDirectiveSkipParser``, ``GroupedSourceParser``,
+``GroupAllParser``, and ``DirectiveInCommentLexer`` that use the docutils library.
+
 Markup Languages
 ----------------
 
@@ -645,19 +715,23 @@ This is useful for building tools that need to work consistently across multiple
     from sybil_extras.evaluators.no_op import NoOpEvaluator
     from sybil_extras.languages import (
         DJOT,
+        DOCUTILS_RST,
         MARKDOWN,
         MDX,
         MYST,
+        MYST_PARSER,
         NORG,
         RESTRUCTUREDTEXT,
     )
 
     assert MYST.name == "MyST"
+    assert MYST_PARSER.name == "MystParser"
     assert MARKDOWN.name == "Markdown"
     assert MDX.name == "MDX"
     assert DJOT.name == "Djot"
     assert NORG.name == "Norg"
     assert RESTRUCTUREDTEXT.name == "reStructuredText"
+    assert DOCUTILS_RST.name == "DocutilsRST"
 
     code_parser = RESTRUCTUREDTEXT.code_block_parser_cls(
         language="python",
@@ -669,6 +743,11 @@ This is useful for building tools that need to work consistently across multiple
 
     for example in document.examples():
         example.evaluate()
+
+Full documentation
+------------------
+
+See the `full documentation <https://adamtheturtle.github.io/sybil-extras/>`__.
 
 .. |Build Status| image:: https://github.com/adamtheturtle/sybil-extras/actions/workflows/ci.yml/badge.svg?branch=main
    :target: https://github.com/adamtheturtle/sybil-extras/actions

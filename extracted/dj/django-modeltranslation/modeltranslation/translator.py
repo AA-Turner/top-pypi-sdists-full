@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from textwrap import dedent
-from copy import deepcopy
 from functools import partial
+from warnings import warn
 from typing import Any, ClassVar, cast
 from collections.abc import Callable
 from collections.abc import Collection, Iterable, Sequence
@@ -17,12 +17,11 @@ from django.db.models import (
     OneToOneField,
     options,
 )
-from django.db.models import UniqueConstraint
+from django.db.models import Index, UniqueConstraint
 from django.db.models.base import ModelBase
 from django.db.models.signals import post_init
 from django.utils.functional import cached_property
 
-from modeltranslation.utils import get_translation_fields
 from modeltranslation import settings as mt_settings
 from modeltranslation.fields import (
     NONE,
@@ -97,6 +96,17 @@ class FieldsAggregationMetaClass(type):
             if isinstance(base, FieldsAggregationMetaClass):
                 attrs["fields"].update(base.fields)
         attrs["fields"] = tuple(attrs["fields"])
+
+        merged_field_options: dict = {}
+        for base in reversed(bases):  # parent first so child overrides
+            if isinstance(base, FieldsAggregationMetaClass):
+                for field_name, lang_map in getattr(base, "field_options", {}).items():
+                    merged_field_options.setdefault(field_name, {}).update(lang_map)
+        # child class's own declaration wins
+        for field_name, lang_map in attrs.get("field_options", {}).items():
+            merged_field_options.setdefault(field_name, {}).update(lang_map)
+        attrs["field_options"] = merged_field_options
+
         return super().__new__(cls, name, bases, attrs)
 
 
@@ -124,6 +134,7 @@ class TranslationOptions(metaclass=FieldsAggregationMetaClass):
     required_languages: ClassVar[_ListOrTuple[str] | dict[str, _ListOrTuple[str]]] = (
         mt_settings.REQUIRED_LANGUAGES
     )
+    field_options: ClassVar[dict[str, dict[str, dict[str, object]]]] = {}
 
     def __init__(self, model: type[Model]) -> None:
         """
@@ -207,13 +218,20 @@ def add_translation_fields(model: type[Model], opts: TranslationOptions) -> None
     Adds newly created translation fields to the given translation options.
     """
     model_empty_values = getattr(opts, "empty_values", NONE)
+    model_field_options = getattr(opts, "field_options", {})
     for field_name in opts.local_fields.keys():
         field_empty_value = parse_field(model_empty_values, field_name, NONE)
+        per_field_opts = model_field_options.get(field_name, {})
         for lang in mt_settings.AVAILABLE_LANGUAGES:
             # Create a dynamic translation field
             translation_field = create_translation_field(
                 model=model, field_name=field_name, lang=lang, empty_value=field_empty_value
             )
+            # Apply language-specific (or default) kwargs
+            lang_kwargs = per_field_opts.get(lang, per_field_opts.get("default", {}))
+            for attr, value in lang_kwargs.items():
+                setattr(translation_field, attr, value)
+            translation_field._field_options_kwargs = lang_kwargs.copy()
             # Construct the name for the localized field
             localized_field_name = build_localized_fieldname(field_name, lang)
             # Check if the model already has a field by that name
@@ -336,25 +354,37 @@ def patch_constructor(model: type[Model]) -> None:
 def patch_constraints(model: type[Model], opts: TranslationOptions) -> None:
     def add_unique_together():
         for constraint in model._meta.unique_together:
-            for field_name in opts.fields:
-                if field_name in constraint:
-                    for translated_name in get_translation_fields(field_name):
-                        new_constraint = list(constraint)
-                        new_constraint[constraint.index(field_name)] = translated_name
-                        yield new_constraint
+            translatable_fields_in_constraint = []
+            for field_name in constraint:
+                if field_name in opts.fields:
+                    translatable_fields_in_constraint.append(field_name)
+            if translatable_fields_in_constraint:
+                for lang in mt_settings.AVAILABLE_LANGUAGES:
+                    new_constraint = list(constraint)
+                    for field_name in translatable_fields_in_constraint:
+                        new_constraint[new_constraint.index(field_name)] = (
+                            build_localized_fieldname(field_name, lang)
+                        )
+                    yield tuple(new_constraint)
 
     def add_constraints():
         for c in model._meta.constraints:
             if isinstance(c, UniqueConstraint):
-                for field_name in opts.fields:
-                    if field_name in c.fields:
-                        for translated_name in get_translation_fields(field_name):
-                            new_constraint = deepcopy(c)
-                            new_fields = list(new_constraint.fields)
-                            new_fields[new_fields.index(field_name)] = translated_name
-                            new_constraint.name += f"-{translated_name}"
-                            new_constraint.fields = new_fields
-                            yield new_constraint
+                translatable_fields_in_constraint = []
+                for field_name in c.fields:
+                    if field_name in opts.fields:
+                        translatable_fields_in_constraint.append(field_name)
+                if translatable_fields_in_constraint:
+                    for lang in mt_settings.AVAILABLE_LANGUAGES:
+                        path, args, kwargs = c.deconstruct()
+                        new_fields = list(kwargs["fields"])
+                        for field_name in translatable_fields_in_constraint:
+                            new_fields[new_fields.index(field_name)] = build_localized_fieldname(
+                                field_name, lang
+                            )
+                        kwargs["fields"] = new_fields
+                        kwargs["name"] = c.name + f"-{lang}"
+                        yield c.__class__(*args, **kwargs)
 
     model._meta.unique_together += tuple(add_unique_together())  # type: ignore[operator]
     model._meta.constraints += tuple(add_constraints())  # type: ignore[operator]
@@ -362,6 +392,37 @@ def patch_constraints(model: type[Model], opts: TranslationOptions) -> None:
     for attr_name in ("unique_together",):
         if value := getattr(model._meta, attr_name):
             model._meta.original_attrs[attr_name] = value
+
+
+def patch_indexes(model: type[Model], opts: TranslationOptions) -> None:
+    def add_indexes():
+        for idx in model._meta.indexes:
+            if isinstance(idx, Index):
+                translatable_fields_in_index = []
+                for field_name in idx.fields:
+                    if field_name in opts.fields:
+                        translatable_fields_in_index.append(field_name)
+                if translatable_fields_in_index:
+                    for lang in mt_settings.AVAILABLE_LANGUAGES:
+                        path, args, kwargs = idx.deconstruct()
+                        new_fields = list(kwargs["fields"])
+                        for field_name in translatable_fields_in_index:
+                            new_fields[new_fields.index(field_name)] = build_localized_fieldname(
+                                field_name, lang
+                            )
+                        kwargs["fields"] = new_fields
+                        kwargs["name"] = idx.name + f"-{lang}"
+                        new_index = idx.__class__(*args, **kwargs)
+                        if len(new_index.name) > 30:
+                            warn(
+                                f"Index name '{new_index.name}' exceeds 30 characters and will be regenerated.",
+                                UserWarning,
+                                stacklevel=3,
+                            )
+                            new_index.set_name_with_model(model)
+                        yield new_index
+
+    model._meta.indexes += list(add_indexes())  # type: ignore[operator]
 
 
 def delete_mt_init(sender: type[Model], instance: Model, **kwargs: Any) -> None:
@@ -442,6 +503,16 @@ def _delete_cache_fields(model: type[Model]) -> None:
 
     if hasattr(model._meta, "_expire_cache"):
         model._meta._expire_cache()
+
+
+def _delete_cached_col(model: type[Model]) -> None:
+    """
+    In some cases we need to clean up `cached_col` cached_property on fields.
+
+    Refs https://github.com/deschler/django-modeltranslation/issues/593
+    """
+    for field in model._meta.get_fields():
+        field.__dict__.pop("cached_col", None)
 
 
 def populate_translation_fields(sender: type[Model], kwargs: Any):
@@ -586,6 +657,8 @@ class Translator:
         # options of all models, registered or not.
         opts.registered = True
 
+        _delete_cached_col(model)
+
         # Add translation fields to the model.
         if model._meta.proxy:
             _delete_cache_fields(model)
@@ -610,6 +683,9 @@ class Translator:
 
         # Patch constraints to correctly handle new fields
         patch_constraints(model, opts)
+
+        # Patch indexes to correctly handle new fields
+        patch_indexes(model, opts)
 
         # Connect signal for model
         post_init.connect(delete_mt_init, sender=model)

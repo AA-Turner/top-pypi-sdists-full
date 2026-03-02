@@ -1,0 +1,695 @@
+import logging
+import os
+import time
+import warnings
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import requests
+
+from plato.v1.config import get_config
+from plato.v1.exceptions import PlatoClientError
+from plato.v1.models import PlatoTask, PlatoTaskMetadata
+from plato.v1.models.flow import Flow
+from plato.v1.models.task import EvaluationResult, ScoringType
+from plato.v1.sync_env import SyncPlatoEnvironment
+from plato.v1.sync_flow_executor import SyncFlowExecutor
+
+logger = logging.getLogger(__name__)
+
+config = get_config()
+
+
+class SyncPlato:
+    """Synchronous client for interacting with the Plato API.
+
+    This class provides synchronous methods to create and manage Plato environments, handle API authentication,
+    and manage HTTP sessions.
+
+    Attributes:
+        api_key (str): The API key used for authentication with Plato API.
+        base_url (str): The base URL of the Plato API.
+        http_session (Optional[requests.Session]): The requests session for making HTTP requests.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        feature_flags: dict[str, Any] | None = None,
+    ):
+        """Initialize a new SyncPlato.
+
+        Args:
+            api_key (Optional[str]): The API key for authentication. If not provided,
+                falls back to the key from config.
+            base_url (Optional[str]): The base URL for the Plato API. If not provided,
+                falls back to the URL from config.
+            feature_flags (Optional[Dict[str, Any]]): Feature flags to include in all requests.
+        """
+        warnings.warn(
+            "plato.SyncPlato is deprecated and will be removed in a future version. Use plato.v2.sync.Client instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.api_key = api_key or config.api_key
+        self.base_url = base_url or config.base_url
+        self.feature_flags = feature_flags or {}
+        self._http_session: requests.Session | None = None
+
+    @property
+    def http_session(self) -> requests.Session:
+        """Get or create a requests client session.
+
+        Returns:
+            requests.Session: The active HTTP client session.
+        """
+        if self._http_session is None:
+            self._http_session = requests.Session()
+            self._http_session.headers.update({"X-API-Key": self.api_key})
+            # Attach feature flags as default cookies for all requests
+            if self.feature_flags:
+                for name, value in self.feature_flags.items():
+                    self._http_session.cookies.set(name, str(value))
+        return self._http_session
+
+    def close(self):
+        """Close the requests client session if it exists."""
+        if self._http_session is not None:
+            self._http_session.close()
+            self._http_session = None
+
+    def _handle_response_error(self, response: requests.Response) -> None:
+        """Handle HTTP error responses by extracting the actual error message.
+
+        Args:
+            response: The requests response object
+
+        Raises:
+            PlatoClientError: With the actual error message from the response
+        """
+        if response.status_code >= 400:  # type: ignore[operator]
+            try:
+                # Try to get the error message from the response body
+                error_data = response.json()
+                error_message = error_data.get("error") or error_data.get("message") or str(error_data)
+            except (ValueError, requests.exceptions.JSONDecodeError):
+                # Fallback to status text if we can't parse JSON
+                error_message = response.reason or f"HTTP {response.status_code}"
+
+            raise PlatoClientError(f"HTTP {response.status_code}: {error_message}")
+
+    def make_environment(
+        self,
+        env_id: str,
+        open_page_on_start: bool = False,
+        viewport_width: int = 1920,
+        viewport_height: int = 1080,
+        interface_type: str | None = None,
+        record_network_requests: bool = False,
+        record_actions: bool = False,
+        env_config: dict[str, Any] | None = None,
+        keepalive: bool = False,
+        alias: str | None = None,
+        fast: bool = False,
+        version: str | None = None,
+        tag: str | None = None,
+        dataset: str | None = None,
+        artifact_id: str | None = None,
+    ) -> SyncPlatoEnvironment:
+        """Create a new Plato environment for the given task.
+
+        Args:
+            env_id (str): The ID of the environment to create.
+            open_page_on_start (bool): Whether to open the page on start.
+            viewport_width (int): The width of the viewport.
+            viewport_height (int): The height of the viewport.
+            interface_type (Optional[str]): The type of interface to create. Defaults to "browser".
+            record_network_requests (bool): Whether to record network requests.
+            record_actions (bool): Whether to record actions.
+            env_config (Optional[Dict[str, Any]]): Environment configuration.
+            keepalive (bool): If true, jobs will not be killed due to heartbeat failures.
+            alias (Optional[str]): Optional alias for the job group.
+            fast (bool): Fast mode flag.
+            version (Optional[str]): Optional version of the environment.
+
+        Returns:
+            SyncPlatoEnvironment: The created environment instance.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(
+            f"{self.base_url}/env/make2",
+            json={
+                "interface_type": interface_type or "noop",
+                "interface_width": viewport_width,
+                "interface_height": viewport_height,
+                "source": "SDK",
+                "open_page_on_start": open_page_on_start,
+                "env_id": env_id,
+                "env_config": env_config or {},
+                "record_network_requests": record_network_requests,
+                "record_actions": record_actions,
+                "keepalive": keepalive,
+                "alias": alias,
+                "fast": fast,
+                "version": version,
+                "tag": tag,
+                "dataset": dataset,
+                "artifact_id": artifact_id,
+            },
+        )
+        self._handle_response_error(response)
+        data = response.json()
+        return SyncPlatoEnvironment(
+            client=self,
+            env_id=env_id,
+            id=data["job_id"],
+            alias=data.get("alias"),
+            fast=fast,
+        )
+
+    def get_job_status(self, job_id: str) -> dict[str, Any]:
+        """Get the status of a job.
+
+        Args:
+            job_id (str): The ID of the job to check.
+
+        Returns:
+            Dict[str, Any]: The job status information.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/{job_id}/status")
+        self._handle_response_error(response)
+        data = response.json()
+        logger.debug(f"Job status for job {job_id}: {data}")
+        return data
+
+    def get_cdp_url(self, job_id: str) -> str:
+        """Get the Chrome DevTools Protocol URL for a job.
+
+        Args:
+            job_id (str): The ID of the job to get the CDP URL for.
+
+        Returns:
+            str: The CDP URL for the job.
+
+        Raises:
+            PlatoClientError: If the API request fails or returns an error.
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/{job_id}/cdp_url")
+        data = response.json()
+        if data.get("error") is not None:
+            raise PlatoClientError(data.get("error"))
+        return data.get("data", {}).get("cdp_url")
+
+    def get_proxy_url(self, job_id: str) -> str:
+        """Get the proxy URL for a job.
+
+        Args:
+            job_id (str): The ID of the job to get the proxy URL for.
+
+        Returns:
+            str: The proxy URL for the job.
+
+        Raises:
+            PlatoClientError: If the API request fails or returns an error.
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/{job_id}/proxy_url")
+        data = response.json()
+        if data["error"] is not None:
+            raise PlatoClientError(data["error"])
+        return data["data"]["proxy_url"]
+
+    def close_environment(self, job_id: str) -> dict[str, Any]:
+        """Close an environment.
+
+        Args:
+            job_id (str): The ID of the job to close.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(f"{self.base_url}/env/{job_id}/close")
+        self._handle_response_error(response)
+        return response.json()
+
+    def backup_environment(self, job_id: str) -> dict[str, Any]:
+        """Create a backup of an environment.
+
+        Args:
+            job_id (str): The ID of the job to backup.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(f"{self.base_url}/env/{job_id}/backup")
+        self._handle_response_error(response)
+        return response.json()
+
+    def reset_environment(
+        self,
+        job_id: str,
+        task: PlatoTask | None = None,
+        agent_version: str | None = None,
+        model: str | None = None,
+        load_authenticated: bool = False,
+        **kwargs,
+    ) -> dict[str, Any]:
+        """Reset an environment with an optional new task.
+
+        Args:
+            job_id (str): The ID of the job to reset.
+            task (Optional[PlatoTask]): Optional new task for the environment.
+            agent_version (Optional[str]): Optional agent version.
+            model (Optional[str]): Optional model.
+            load_authenticated (bool): Whether to load authenticated browser state.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        body = {
+            "test_case_public_id": task.public_id if task else None,
+            "agent_version": agent_version,
+            "model": model,
+            "load_browser_state": load_authenticated,
+            **kwargs,
+        }
+        start_time = time.time()
+        response = self.http_session.post(
+            f"{self.base_url}/env/{job_id}/reset",
+            json=body,
+        )
+        end_time = time.time()
+        print(f"Reset time: {end_time - start_time} seconds")
+        self._handle_response_error(response)
+        return response.json()
+
+    def get_environment_state(self, job_id: str, merge_mutations: bool = False) -> dict[str, Any]:
+        """Get the current state of an environment.
+
+        Args:
+            job_id (str): The ID of the job to get state for.
+            merge_mutations (bool): Whether to merge mutations into the state.
+
+        Returns:
+            Dict[str, Any]: The current state of the environment.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(
+            f"{self.base_url}/env/{job_id}/state",
+            params={"merge_mutations": str(merge_mutations).lower()},
+        )
+        self._handle_response_error(response)
+        data = response.json()
+        return data["data"]["state"]
+
+    def get_worker_ready(self, job_id: str) -> dict[str, Any]:
+        """Check if the worker for this job is ready and healthy.
+
+        Args:
+            job_id (str): The ID of the job to check.
+
+        Returns:
+            Dict[str, Any]: The worker ready status information.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/{job_id}/worker_ready")
+        self._handle_response_error(response)
+        return response.json()
+
+    def get_live_view_url(self, job_id: str) -> str:
+        """Get the URL for accessing the live view of the environment.
+
+        Args:
+            job_id (str): The ID of the job to get the live view URL for.
+
+        Returns:
+            str: The URL for accessing the live view of the environment.
+
+        Raises:
+            PlatoClientError: If the worker is not ready.
+            requests.RequestException: If the API request fails.
+        """
+        try:
+            worker_status = self.get_worker_ready(job_id)
+            if not worker_status.get("ready"):
+                raise PlatoClientError("Worker is not ready yet")
+            root_url = self.base_url.split("/api")[0]
+            return os.path.join(root_url, "live", f"{job_id}/")
+        except requests.RequestException as e:
+            raise PlatoClientError(str(e)) from e
+
+    def send_heartbeat(self, job_id: str) -> dict[str, Any]:
+        """Send a heartbeat to keep the environment active.
+
+        Args:
+            job_id (str): The ID of the job to send a heartbeat for.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(f"{self.base_url}/env/{job_id}/heartbeat")
+        self._handle_response_error(response)
+        return response.json()
+
+    def process_snapshot(self, session_id: str) -> dict[str, Any]:
+        """Process a snapshot of the environment.
+
+        Args:
+            session_id (str): The ID of the session to process.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(f"{self.base_url}/snapshot/process/{session_id}")
+        self._handle_response_error(response)
+        return response.json()
+
+    def evaluate(
+        self,
+        session_id: str,
+        value: Any | None = None,
+        agent_version: str | None = None,
+    ) -> dict[str, Any]:
+        """Evaluate the environment.
+
+        Args:
+            session_id (str): The ID of the session to evaluate.
+            value (Optional[Any]): Optional value to include in the evaluation request.
+            agent_version (Optional[str]): Optional agent version.
+
+        Returns:
+            Dict[str, Any]: The evaluation result.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        body = {}
+        if value is not None:
+            body = {"value": value}
+
+        response = self.http_session.post(
+            f"{self.base_url}/env/session/{session_id}/evaluate",
+            json=body,
+        )
+        self._handle_response_error(response)
+        res_data = response.json()
+        return res_data["score"]
+
+    def post_evaluation_result(
+        self,
+        session_id: str,
+        evaluation_result: EvaluationResult,
+        agent_version: str | None = None,
+        mutations: list[dict] | None = None,
+    ) -> dict[str, Any]:
+        """Post an evaluation result to the server.
+
+        Args:
+            session_id (str): The ID of the session to post the evaluation result for.
+            evaluation_result (EvaluationResult): The evaluation result to post.
+            agent_version (Optional[str]): Optional agent version.
+            mutations (Optional[List[dict]]): Optional list of mutations.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        body = {
+            "success": evaluation_result.success,
+            "reason": evaluation_result.reason,
+            "agent_version": agent_version,
+            "mutations": mutations,
+        }
+        response = self.http_session.post(
+            f"{self.base_url}/env/session/{session_id}/score",
+            json=body,
+        )
+        self._handle_response_error(response)
+        return response.json()
+
+    def log(self, session_id: str, log: dict, type: str = "info") -> dict[str, Any]:
+        """Log a message to the server.
+
+        Args:
+            session_id (str): The ID of the session to log the message for.
+            log (dict): The log to log.
+            type (str): The type of log to log.
+
+        Returns:
+            Dict[str, Any]: The response from the server.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.post(
+            f"{self.base_url}/env/{session_id}/log",
+            json={
+                "source": "agent",
+                "type": type,
+                "message": log,
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+        self._handle_response_error(response)
+        return response.json()
+
+    def list_simulators(self) -> list[dict[str, Any]]:
+        """List all environments.
+
+        Returns:
+            List[Dict[str, Any]]: List of dictionaries containing environments.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/simulators")
+        self._handle_response_error(response)
+        simulators = response.json()
+        return [s for s in simulators if s["enabled"]]
+
+    def load_tasks(self, simulator_name: str) -> list[PlatoTask]:
+        """Load tasks from a simulator.
+
+        Args:
+            simulator_name (str): The name of the simulator to load tasks from. Ex: "espocrm", "doordash"
+
+        Returns:
+            List[PlatoTask]: List of tasks from the simulator.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(
+            f"{self.base_url}/testcases?simulator_name={simulator_name}&page_size=10000",
+        )
+        self._handle_response_error(response)
+        res = response.json()
+        test_cases = res["testcases"]
+        return [
+            PlatoTask(
+                public_id=t["publicId"],
+                name=t["name"],
+                prompt=t["prompt"],
+                start_url=t["startUrl"],
+                env_id=t["simulator"]["name"],
+                average_time=t.get("averageTimeTaken"),
+                average_steps=t.get("averageStepsTaken"),
+                num_validator_human_scores=t.get("defaultScoringConfig", {}).get("num_sessions_used", 0),
+                default_scoring_config=t.get("defaultScoringConfig", {}),
+                scoring_type=[ScoringType(st) for st in t.get("scoringTypes", [])]
+                if t.get("scoringTypes")
+                else [ScoringType.MUTATIONS],
+                output_schema=t.get("outputSchema"),
+                is_sample=t.get("isSample", False),
+                simulator_artifact_id=(
+                    t["testCaseArtifacts"][0].get("simulatorArtifact", {}).get("publicId")
+                    if t.get("testCaseArtifacts")
+                    else None
+                ),
+                metadata=PlatoTaskMetadata(
+                    reasoning_level=t.get("metadataConfig", {}).get("reasoningLevel"),
+                    skills=t.get("metadataConfig", {}).get("skills", []),
+                    capabilities=t.get("metadataConfig", {}).get("capabilities", []),
+                    tags=t.get("metadataConfig", {}).get("tags", []),
+                    rejected=t.get("metadataConfig", {}).get("rejected", False),
+                )
+                if t.get("metadataConfig")
+                else None,
+                version=t.get("version"),
+            )
+            for t in test_cases
+        ]
+
+    def get_active_session(self, job_id: str) -> dict[str, Any]:
+        """Get the active session for a job group.
+
+        Args:
+            job_id (str): The ID of the job group to get the active session for.
+
+        Returns:
+            Dict[str, Any]: The active session information.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+            PlatoClientError: If no active session is found.
+        """
+        response = self.http_session.get(f"{self.base_url}/env/{job_id}/active_session")
+        self._handle_response_error(response)
+        data = response.json()
+        if "error" in data:
+            raise PlatoClientError(data["error"])
+        return data
+
+    def get_running_sessions_count(self) -> dict[str, Any]:
+        """Get the current number of running sessions for the user's organization.
+
+        Returns:
+            Dict[str, Any]: Organization data including organization ID and running sessions count.
+
+        Raises:
+            requests.RequestException: If the API request fails.
+        """
+        response = self.http_session.get(f"{self.base_url}/user/organization/running-sessions")
+        self._handle_response_error(response)
+        return response.json()
+
+    def get_simulator_flows(self, artifact_id: str) -> list[dict[str, Any]]:
+        """Get login flows for a simulator artifact.
+
+        This method fetches flow configurations from the API using a simulator artifact ID,
+        allowing you to retrieve login flows independently of an environment instance.
+
+        Args:
+            artifact_id (str): The simulator artifact ID to fetch flows for.
+
+        Returns:
+            List[Dict[str, Any]]: List of flow configurations parsed from the YAML response.
+
+        Raises:
+            PlatoClientError: If the API request fails or flows cannot be parsed.
+            requests.RequestException: If the API request fails.
+
+        Example:
+            ```python
+            client = SyncPlato()
+            flows = client.get_simulator_flows("artifact_123")
+            # Use the flows for authentication
+            ```
+        """
+        import json
+
+        import yaml
+
+        try:
+            headers = {"X-API-Key": self.api_key}
+            response = self.http_session.get(f"{self.base_url}/simulator/{artifact_id}/flows", headers=headers)
+            self._handle_response_error(response)
+            body_text = response.text
+
+            # Endpoint may return JSON with { data: { flows: "...yaml..." } } or raw YAML
+            try:
+                parsed = json.loads(body_text)
+                flows_yaml = parsed.get("data", {}).get("flows") if isinstance(parsed, dict) else None
+                if not flows_yaml:
+                    raise ValueError("flows missing in JSON body")
+            except Exception:
+                flows_yaml = body_text
+
+            scripts = yaml.safe_load(flows_yaml)
+            flows_data = scripts.get("flows", [])
+            return flows_data
+        except Exception as e:
+            raise PlatoClientError(f"Failed to load flows from API: {e}") from e
+
+    def login_artifact(
+        self,
+        artifact_id: str,
+        page,
+        throw_on_login_error: bool = False,
+        screenshots_dir: Path | None = None,
+        dataset: str = "base",
+    ) -> None:
+        """Login using flows from a simulator artifact.
+
+        This method fetches flow configurations from the API using a simulator artifact ID
+        and executes the login flow on the provided Playwright page. This is independent
+        of any environment instance.
+
+        Args:
+            artifact_id (str): The simulator artifact ID to fetch flows for.
+            page: The Playwright page to authenticate (sync_api.Page).
+            throw_on_login_error (bool): Whether to raise an error on login failure.
+            screenshots_dir (Optional[Path]): Directory to store screenshots during the flow.
+            dataset (str): The dataset/flow name to use for login (default: "base", which maps to "login").
+
+        Raises:
+            PlatoClientError: If flows cannot be fetched, parsed, or executed.
+
+        Example:
+            ```python
+            from plato.sync_sdk import SyncPlato
+            from playwright.sync_api import sync_playwright
+
+            client = SyncPlato()
+            with sync_playwright() as p:
+                browser = p.chromium.launch()
+                page = browser.new_page()
+                client.login_artifact("artifact_123", page)
+                # Page is now authenticated
+            ```
+        """
+
+        try:
+            flows_data = self.get_simulator_flows(artifact_id)
+            flows_list = [Flow.model_validate(f) for f in flows_data]
+
+            # Determine flow name based on dataset
+            if dataset == "base":
+                flow_name = "login"
+            else:
+                flow_name = dataset
+
+            login_flow = next((flow for flow in flows_list if flow.name == flow_name), None)
+            if not login_flow:
+                raise PlatoClientError(f"No login flow '{flow_name}' found")
+
+            flow_executor = SyncFlowExecutor(page, login_flow, logger=logger, screenshots_dir=screenshots_dir)
+            if not flow_executor.execute_flow():
+                if throw_on_login_error:
+                    raise PlatoClientError("Failed to login")
+                else:
+                    logger.warning("Failed to login")
+        except Exception as e:
+            if throw_on_login_error:
+                raise PlatoClientError(f"Login failed: {e}") from e
+            else:
+                logger.error(f"Login failed: {e}")

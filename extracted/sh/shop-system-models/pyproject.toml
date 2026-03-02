@@ -1,0 +1,47 @@
+[project]
+name = "shop-system-models"
+version = "v1.6.0"
+description = "Shared model definitions for shop system services"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Pavel Mulin", email = "pavel@shopsbuilder.app" }]
+dependencies = [
+  "pydantic>=2.10.3",
+]
+
+# If you expose public imports, you can optionally add:
+# [project.urls]
+# Homepage = "..."
+# Repository = "..."
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- Packaging (replaces Poetry's packages/include) ---
+
+[tool.hatch.build.targets.wheel]
+packages = ["shop_system_models"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"shop_system_models/py.typed" = "shop_system_models/py.typed"
+
+# (Optional but nice) include these in sdist too
+[tool.hatch.build.targets.sdist]
+include = [
+  "shop_system_models/**",
+  "README.md",
+  "pyproject.toml",
+]
+
+# --- uv config (optional) ---
+[tool.uv]
+dev-dependencies = []
+
+# --- pyright (optional) ---
+[tool.pyright]
+# Adjust to your monorepo layout if needed
+# venvPath = "../.."
+# venv = ".venv"
+pythonVersion = "3.9"
+strict = ["**/*.py"]

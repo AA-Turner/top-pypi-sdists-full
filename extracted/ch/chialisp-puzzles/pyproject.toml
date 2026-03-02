@@ -1,0 +1,18 @@
+[project]
+name = "chialisp_puzzles"
+description = "Some canonical puzzles deployed on chia-blockchain"
+authors = [{name = "Richard Kiss", email = "him@richardkiss.com"}]
+license = {file = "LICENSE"}
+readme = "README.md"
+version = "0.1.1"
+dependencies = ["chialisp_loader>=0.1.2"]
+
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+    "chialisp_builder>=0.1.1",
+    "chialisp_stdlib>=0.1.1",
+    "clvm_rs",
+]
+build-backend = "setuptools.build_meta"

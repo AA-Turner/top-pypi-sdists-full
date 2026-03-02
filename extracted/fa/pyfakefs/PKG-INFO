@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyfakefs
-Version: 6.1.2
+Version: 6.1.3
 Summary: Implements a fake file system that mocks the Python file system modules.
 Author-email: Google <google-pyfakefs@google.com>, John McGehee <pyfakefs@johnnado.com>
 Maintainer-email: mrbean-bremen <hansemrbean@googlemail.com>
@@ -68,8 +68,6 @@ Refer to the [usage documentation](https://pytest-pyfakefs.readthedocs.io/en/lat
   covers the latest released version
 * [Development documentation](https://pytest-pyfakefs.readthedocs.io/en/latest)
   for the current main branch
-* [Release 3.7 documentation](https://pytest-pyfakefs.readthedocs.io/en/v3.7.2/)
-  for the last version supporting Python 2.7
 * [Release Notes](https://github.com/pytest-dev/pyfakefs/blob/main/CHANGES.md)
 * [Contributing Guide](https://github.com/pytest-dev/pyfakefs/blob/main/CONTRIBUTING.md) - contributions are welcome!
 

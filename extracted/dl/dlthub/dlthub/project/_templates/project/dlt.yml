@@ -1,0 +1,19 @@
+profiles:
+  # profiles allow you to configure different settings for different environments
+  dev:
+
+# your sources are the data sources you want to load from
+sources: {}
+
+# your destinations are the databases where your data will be saved
+destinations: {}
+
+# your datasets are the datasets on your destinations where your data will go
+datasets: {}
+
+# your pipelines orchestrate data loading actions
+pipelines: {}
+
+runtime:
+  loglevel: WARNING
+  dlthub_telemetry: true

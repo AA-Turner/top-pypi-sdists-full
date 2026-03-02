@@ -1,0 +1,28 @@
+#
+# This part of the CIJOE qemu package is not retargetable, that means, this
+# scripts only run on the initiator, thus, there is no "cijoe.transport"
+# configuration here.
+#
+
+[cijoe.workflow]
+fail_fast=true
+
+# Used by: qemu.build.py
+[qemu.repository]
+remote = "https://github.com/qemu/qemu.git"
+path = "{{ local.env.HOME }}/git/qemu"
+tag = "v9.2.0"
+
+# Used by: qemu.build.py
+[qemu.build]
+prefix = "{{ local.env.HOME }}/opt/qemu"
+
+# Used by: the qemu.*.py scripts
+[qemu]
+img_bin = "{{ local.env.HOME }}/opt/qemu/bin/qemu-img"
+
+[qemu.systems.x86_64]
+bin = "{{ local.env.HOME }}/opt/qemu/bin/qemu-system-x86_64"
+
+[qemu.systems.aarch64]
+bin = "{{ local.env.HOME }}/opt/qemu/bin/qemu-system-aarch64"

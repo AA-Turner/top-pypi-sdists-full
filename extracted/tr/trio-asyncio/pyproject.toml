@@ -1,0 +1,49 @@
+[tool.pytest.ini_options]
+addopts = ["-p", "no:asyncio"]
+filterwarnings = [
+    "error",
+    "ignore:The loop argument is deprecated since Python 3.8:DeprecationWarning",
+    'ignore:"@coroutine" decorator is deprecated since Python 3.8:DeprecationWarning',
+    "default:Tried to add marker .* but that test doesn't exist.:RuntimeWarning",
+    "ignore:the imp module is deprecated in favour of importlib.*:DeprecationWarning",
+    "ignore:'AbstractChildWatcher' is deprecated.*:DeprecationWarning"
+]
+junit_family = "xunit2"
+xfail_strict = true
+
+[tool.flake8]
+max-line-length = 99
+extend-ignore = ['D', 'E402', 'E731', 'E127', 'E502', 'E123', 'W503']
+
+[tool.towncrier]
+package = "trio_asyncio"
+title_format = "trio-asyncio {version} ({project_date})"
+filename = "docs/source/history.rst"
+directory = "newsfragments"
+underlines = ["-", "~", "^"]
+issue_format = "`#{issue} <https://github.com/python-trio/trio-asyncio/issues/{issue}>`__"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bugfixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Improved documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Deprecations and removals"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneous"
+showcontent = true

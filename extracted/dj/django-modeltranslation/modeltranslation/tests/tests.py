@@ -37,7 +37,7 @@ from modeltranslation.utils import (
 )
 
 # How many models are registered for tests.
-TEST_MODELS = 41
+TEST_MODELS = 43
 
 
 class reload_override_settings(override_settings):

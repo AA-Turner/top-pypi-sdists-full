@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel", "pyarmor>=8.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_analytics"
+dynamic = ["version"]
+description = "Common server utilities for Matrice.ai services"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+license = "MIT"
+requires-python = ">=3.8, <4"
+keywords = ["matrice", "common", "utilities", "pyarmor", "obfuscated"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+
+# PyArmor configuration is handled via pyarmor.yml file
+# The [tool.pyarmor] section is not used in PyArmor 8.x

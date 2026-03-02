@@ -59,6 +59,11 @@ def test_invalid_type(func):
         func(set(), True)
 
 
+def test_lone_surrogate_instance_raises():
+    with pytest.raises(ValueError, match="surrogates not allowed"):
+        is_valid(True, "\ud800")
+
+
 def test_repr():
     assert repr(validator_for({"minimum": 5})) == "<Draft202012Validator>"
 
@@ -723,6 +728,38 @@ def test_enum_as_keys_invalid(enum_type):
     schema = {"properties": {"a": {"type": "string"}}}
     with pytest.raises(ValueError, match=f"Dict key must be str or str enum. Got '{EnumCls.__name__}'"):
         is_valid(schema, {EnumCls.A: "xyz"})
+
+
+class BrokenValueStrEnum(str, E.Enum):
+    A = "a"
+
+    def __getattribute__(self, name):
+        if name == "value":
+            raise RuntimeError("boom from value")
+        return super().__getattribute__(name)
+
+
+def test_enum_key_value_lookup_error():
+    schema = {"properties": {"a": {"type": "string"}}}
+    with pytest.raises(ValueError, match="boom from value"):
+        is_valid(schema, {BrokenValueStrEnum.A: "xyz"})
+
+
+def test_enum_value_lookup_error():
+    with pytest.raises(ValueError, match="boom from value"):
+        is_valid(True, BrokenValueStrEnum.A)
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"), reason="PyPy does not have sys.getrefcount")
+def test_enum_value_refcount_is_stable():
+    class PayloadEnum(E.Enum):
+        ITEM = [1]
+
+    payload = PayloadEnum.ITEM.value
+    baseline = sys.getrefcount(payload)
+    for _ in range(200):
+        assert is_valid(True, PayloadEnum.ITEM)
+    assert sys.getrefcount(payload) == baseline
 
 
 def test_validate_error_instance_path_traverses_instance():

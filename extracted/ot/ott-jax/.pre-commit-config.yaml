@@ -1,0 +1,59 @@
+fail_fast: false
+default_language_version:
+  python: python3
+default_stages:
+- pre-commit
+- pre-push
+minimum_pre_commit_version: 3.0.0
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: detect-private-key
+  - id: check-ast
+  - id: check-toml
+  - id: end-of-file-fixer
+  - id: mixed-line-ending
+    args: [--fix=lf]
+  - id: file-contents-sorter
+    files: docs/spelling/.*\.txt
+  - id: trailing-whitespace
+  - id: check-case-conflict
+- repo: https://github.com/charliermarsh/ruff-pre-commit
+  rev: v0.4.10
+  hooks:
+  - id: ruff
+    args: [--fix, --exit-non-zero-on-fix]
+- repo: https://github.com/pycqa/isort
+  rev: 5.13.2
+  hooks:
+  - id: isort
+    name: isort
+- repo: https://github.com/google/yapf
+  rev: v0.40.2
+  hooks:
+  - id: yapf
+    additional_dependencies: [toml]
+- repo: https://github.com/nbQA-dev/nbQA
+  rev: 1.8.5
+  hooks:
+  - id: nbqa-pyupgrade
+    args: [--py39-plus]
+  - id: nbqa-black
+  - id: nbqa-isort
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.13.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+- repo: https://github.com/rstcheck/rstcheck
+  rev: v6.2.0
+  hooks:
+  - id: rstcheck
+    additional_dependencies: [tomli]
+    args: [--config=pyproject.toml]
+- repo: https://github.com/PyCQA/doc8
+  rev: v1.1.1
+  hooks:
+  - id: doc8
+    args: [--config=pyproject.toml]

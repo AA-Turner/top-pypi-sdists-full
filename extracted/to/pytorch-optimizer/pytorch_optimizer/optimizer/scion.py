@@ -1,12 +1,12 @@
 import math
 from enum import IntEnum
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, ParamsT
 from pytorch_optimizer.optimizer.shampoo_utils import zero_power_via_newton_schulz_5
 
 
@@ -42,6 +42,7 @@ class Col(Norm):
         normalized (bool): normalize by the input dimension; use for non-input layers.
         transpose (bool): transpose input before normalization; use for embedding layers with shape
             (vocab_size, embedding_dim).
+
     """
 
     def __init__(self, normalized: bool = False, transpose: bool = False) -> None:
@@ -90,6 +91,7 @@ class Row(Norm):
         normalized (bool): normalize by the input dimension; use for non-input layers.
         transpose (bool): transpose input before normalization; use for embedding layers with shape
             (vocab_size, embedding_dim).
+
     """
 
     def __init__(self, normalized: bool = True, transpose: bool = False) -> None:
@@ -146,6 +148,7 @@ class SpectralConv(Norm):
 
     Args:
         num_steps (int): number of steps of zero-power Newton-Schulz normalization, typically 5.
+
     """
 
     def __init__(self, num_steps: int = 5) -> None:
@@ -181,6 +184,7 @@ class Spectral(Norm):
         max_scale (bool): set upper bound (1.0) of the scale.
         normalize (bool): normalize by the input dimension; use for non-input layers.
         num_steps (int): number of zero-power Newton-Schulz normalization steps, typically 5.
+
     """
 
     def __init__(self, max_scale: bool = False, normalize: bool = True, num_steps: int = 5) -> None:
@@ -223,6 +227,7 @@ class Sign(Norm):
     Args:
         zero_init (bool): initialize with zero.
         normalize (bool): normalize by the input dimension; use for non-input layers.
+
     """
 
     def __init__(self, zero_init: bool = False, normalize: bool = True) -> None:
@@ -293,7 +298,7 @@ class SCION(BaseOptimizer):
     """Training Deep Learning Models with Norm-Constrained LMOs.
 
     Args:
-        params (Parameters): iterable of parameters to optimize or dicts defining parameter groups.
+        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
         lr (float): learning rate.
         momentum (float): momentum factor. 1.0 - usual momentum.
         constraint (bool): whether to use a constraint SCG or not.
@@ -304,6 +309,8 @@ class SCION(BaseOptimizer):
             (e.g., Embeddings, LM head).
         weight_decay (float): weight decay (L2 penalty).
         weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
+        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
+            None means auto-detect based on device (True for CUDA, False otherwise).
         maximize (bool): maximize the objective with respect to the params, instead of minimizing.
 
     Example:
@@ -322,11 +329,12 @@ class SCION(BaseOptimizer):
         >>> optimizer = SCION(parameter_groups)
 
         For more details, checkout here https://github.com/LIONS-EPFL/scion/tree/main?tab=readme-ov-file#examples
+
     """
 
     def __init__(
         self,
-        params: Parameters,
+        params: ParamsT,
         lr: float = 1e-3,
         momentum: float = 0.1,
         constraint: bool = False,
@@ -335,6 +343,7 @@ class SCION(BaseOptimizer):
         scale: float = 1.0,
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
+        foreach: Optional[bool] = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -342,6 +351,7 @@ class SCION(BaseOptimizer):
         self.validate_range(momentum, 'momentum', 0.0, 1.0, '(]')
         self.validate_positive(scale, 'scale')
 
+        self.foreach = foreach
         self.maximize = maximize
 
         if norm_kwargs is None:
@@ -356,6 +366,7 @@ class SCION(BaseOptimizer):
             'scale': scale,
             'weight_decay': weight_decay,
             'weight_decouple': weight_decouple,
+            'foreach': foreach,
         }
 
         super().__init__(params, defaults)
@@ -388,6 +399,75 @@ class SCION(BaseOptimizer):
                 norm.init(p)
                 p.mul_(group['scale'])
 
+    def _can_use_foreach(self, group: ParamGroup) -> bool:
+        if group.get('foreach') is False:
+            return False
+
+        return self.can_use_foreach(group, group.get('foreach'))
+
+    def _step_foreach(
+        self,
+        group: ParamGroup,
+        params: List[torch.Tensor],
+        grads: List[torch.Tensor],
+        norm: Norm,
+        ds: List[torch.Tensor],
+    ) -> None:
+        if self.maximize:
+            torch._foreach_neg_(grads)
+
+        torch._foreach_lerp_(ds, grads, group['momentum'])
+
+        updates = [norm.lmo(d) for d in ds]
+        torch._foreach_mul_(updates, group['scale'])
+
+        if group['constraint']:
+            torch._foreach_mul_(params, 1.0 - group['lr'])
+
+        if not group['constraint'] and group['weight_decay'] > 0.0:
+            self.apply_weight_decay_foreach(
+                params,
+                grads=grads,
+                lr=group['lr'],
+                weight_decay=group['weight_decay'],
+                weight_decouple=group['weight_decouple'],
+                fixed_decay=False,
+            )
+
+        torch._foreach_add_(params, updates, alpha=-group['lr'])
+
+    def _step_per_param(self, group: ParamGroup, norm: Norm) -> None:
+        for p in group['params']:
+            if p.grad is None:
+                continue
+
+            grad = p.grad
+
+            self.maximize_gradient(grad, maximize=self.maximize)
+
+            state = self.state[p]
+
+            d = state['d']
+
+            d.mul_(1.0 - group['momentum']).add_(grad, alpha=group['momentum'])
+
+            update = norm.lmo(d).mul_(group['scale'])
+
+            if group['constraint']:
+                p.mul_(1.0 - group['lr'])
+
+            if not group['constraint'] and group['weight_decay'] > 0.0:
+                self.apply_weight_decay(
+                    p,
+                    grad=grad,
+                    lr=group['lr'],
+                    weight_decay=group['weight_decay'],
+                    weight_decouple=group['weight_decouple'],
+                    fixed_decay=False,
+                )
+
+            p.add_(update, alpha=-group['lr'])
+
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
         loss: Loss = None
@@ -401,42 +481,34 @@ class SCION(BaseOptimizer):
 
             norm = build_lmo_norm(group['norm_type'], **group['norm_kwargs'])
 
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                grad = p.grad
-
-                self.maximize_gradient(grad, maximize=self.maximize)
-
-                state = self.state[p]
-
-                d = state['d']
-
-                d.mul_(1.0 - group['momentum']).add_(grad, alpha=group['momentum'])
-
-                update = norm.lmo(d).mul_(group['scale'])
-
-                if group['constraint']:
-                    p.mul_(1.0 - group['lr'])
-
-                if not group['constraint'] and group['weight_decay'] > 0.0:
-                    self.apply_weight_decay(
-                        p,
-                        grad=grad,
-                        lr=group['lr'],
-                        weight_decay=group['weight_decay'],
-                        weight_decouple=group['weight_decouple'],
-                        fixed_decay=False,
-                    )
-
-                p.add_(update, alpha=-group['lr'])
+            if self._can_use_foreach(group):
+                params, grads, state_dict = self.collect_trainable_params(group, self.state, state_keys=['d'])
+                if params:
+                    self._step_foreach(group, params, grads, norm, state_dict['d'])
+            else:
+                self._step_per_param(group, norm)
 
         return loss
 
 
 class SCIONLight(BaseOptimizer):
     r"""Memory-efficient variant of the Scion optimizer.
+
+    Args:
+        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): learning rate.
+        momentum (float): momentum factor. 1.0 - usual momentum.
+        constraint (bool): whether to use a constraint SCG or not.
+        norm_type (int): supported LMO norm types. 0 stands for no normalization and 1 stands for AUTO. 0 to 7.
+            Please check LMONorm Enum class for the details.
+        norm_kwargs (Optional[Dict]): arguments for the Norm.
+        scale (float): scale factor. For Transformer block typical value is 50.0, and 3000.0 for others
+            (e.g., Embeddings, LM head).
+        weight_decay (float): weight decay (L2 penalty).
+        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
+        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
+            None means auto-detect based on device (True for CUDA, False otherwise).
+        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
 
     Example:
         >>> radius = 50.0
@@ -455,23 +527,11 @@ class SCIONLight(BaseOptimizer):
 
         For more details, checkout here https://github.com/LIONS-EPFL/scion/tree/main?tab=readme-ov-file#examples
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param momentum: float. momentum factor. 1.0 - usual momentum.
-    :param constraint: bool. whether to use a constraint SCG or not.
-    :param norm_type: int. supported LMO norm types. 0 stands for no normalization and 1 stands for AUTO. 0 to 7.
-        please check LMONorm Enum class for the details.
-    :param norm_kwargs: Optional[Dict]. arguments for the Norm.
-    :param scale: float. based on the usage of the original intend, 50.0 is used for Transformer block, and 3000.0 is
-        used for others (e.g. Embedding, LM head)
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: Parameters,
+        params: ParamsT,
         lr: float = 1e-3,
         momentum: float = 0.1,
         constraint: bool = False,
@@ -480,6 +540,7 @@ class SCIONLight(BaseOptimizer):
         scale: float = 1.0,
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
+        foreach: Optional[bool] = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -487,6 +548,7 @@ class SCIONLight(BaseOptimizer):
         self.validate_range(momentum, 'momentum', 0.0, 1.0, '(]')
         self.validate_positive(scale, 'scale')
 
+        self.foreach = foreach
         self.maximize = maximize
 
         if norm_kwargs is None:
@@ -501,6 +563,7 @@ class SCIONLight(BaseOptimizer):
             'scale': scale,
             'weight_decay': weight_decay,
             'weight_decouple': weight_decouple,
+            'foreach': foreach,
         }
         super().__init__(params, defaults)
 
@@ -519,6 +582,78 @@ class SCIONLight(BaseOptimizer):
                 norm.init(p)
                 p.mul_(group['scale'])
 
+    def _can_use_foreach(self, group: ParamGroup) -> bool:
+        if group.get('foreach') is False:
+            return False
+
+        return self.can_use_foreach(group, group.get('foreach'))
+
+    def _step_foreach(
+        self,
+        group: ParamGroup,
+        params: List[torch.Tensor],
+        grads: List[torch.Tensor],
+        norm: Norm,
+    ) -> None:
+        momentum = group['momentum']
+
+        if self.maximize:
+            torch._foreach_neg_(grads)
+
+        updates = [norm.lmo(grad) for grad in grads]
+        torch._foreach_mul_(updates, group['scale'])
+
+        if group['constraint']:
+            torch._foreach_mul_(params, 1.0 - group['lr'])
+
+        if not group['constraint'] and group['weight_decay'] > 0.0:
+            self.apply_weight_decay_foreach(
+                params,
+                grads=grads,
+                lr=group['lr'],
+                weight_decay=group['weight_decay'],
+                weight_decouple=group['weight_decouple'],
+                fixed_decay=False,
+            )
+
+        torch._foreach_add_(params, updates, alpha=-group['lr'])
+
+        if momentum != 1.0:
+            torch._foreach_mul_(grads, 1.0 - momentum)
+
+    def _step_per_param(self, group: ParamGroup, norm: Norm) -> None:
+        momentum = group['momentum']
+
+        for p in group['params']:
+            if p.grad is None:
+                continue
+
+            grad = p.grad
+            if grad.is_sparse:
+                raise NoSparseGradientError(str(self))
+
+            self.maximize_gradient(grad, maximize=self.maximize)
+
+            update = norm.lmo(grad).mul_(group['scale'])
+
+            if group['constraint']:
+                p.mul_(1.0 - group['lr'])
+
+            if not group['constraint'] and group['weight_decay'] > 0.0:
+                self.apply_weight_decay(
+                    p,
+                    grad=grad,
+                    lr=group['lr'],
+                    weight_decay=group['weight_decay'],
+                    weight_decouple=group['weight_decouple'],
+                    fixed_decay=False,
+                )
+
+            p.add_(update, alpha=-group['lr'])
+
+            if momentum != 1.0:
+                grad.mul_(1.0 - momentum)
+
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
         loss: Loss = None
@@ -532,34 +667,11 @@ class SCIONLight(BaseOptimizer):
 
             norm = build_lmo_norm(group['norm_type'], **group['norm_kwargs'])
 
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                grad = p.grad
-                if grad.is_sparse:
-                    raise NoSparseGradientError(str(self))
-
-                self.maximize_gradient(grad, maximize=self.maximize)
-
-                update = norm.lmo(grad).mul_(group['scale'])
-
-                if group['constraint']:
-                    p.mul_(1.0 - group['lr'])
-
-                if not group['constraint'] and group['weight_decay'] > 0.0:
-                    self.apply_weight_decay(
-                        p,
-                        grad=grad,
-                        lr=group['lr'],
-                        weight_decay=group['weight_decay'],
-                        weight_decouple=group['weight_decouple'],
-                        fixed_decay=False,
-                    )
-
-                p.add_(update, alpha=-group['lr'])
-
-                if group['momentum'] != 1.0:
-                    grad.mul_(1.0 - group['momentum'])
+            if self._can_use_foreach(group):
+                params, grads, _ = self.collect_trainable_params(group, self.state)
+                if params:
+                    self._step_foreach(group, params, grads, norm)
+            else:
+                self._step_per_param(group, norm)
 
         return loss

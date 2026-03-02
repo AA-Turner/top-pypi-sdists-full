@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traveltimepy"
+dynamic = ["version"]
+description = "Python Interface to Travel Time."
+readme = { file = "README.md", content-type = "text/markdown" }
+keywords = ["traveltimepy", "api", "maps"]
+license = { text = "MIT" }
+authors = [{ name = "TravelTime" }]
+requires-python = ">=3.8"
+dependencies = [
+	"pydantic",
+	"typing-extensions",
+	"geojson-pydantic>=1.0.1",
+	"shapely",
+	"dacite",
+	"certifi>=2021.5.30",
+	"aiohttp",
+	"aiolimiter",
+	"tenacity",
+	"requests",
+	"requests-ratelimiter",
+]
+classifiers = [
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"License :: OSI Approved :: MIT License",
+]
+
+[project.optional-dependencies]
+proto = [
+	"protobuf==4.25.8",
+	"types-protobuf",
+]
+test = [
+	"pytest",
+	"pytest-asyncio",
+	"flake8",
+	"flake8-pyproject",
+	"mypy",
+	"black",
+	"types-shapely",
+	"docformatter",
+]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+py-modules = [
+    "RequestsCommon_pb2",
+    "TimeFilterFastRequest_pb2", 
+    "TimeFilterFastResponse_pb2"
+]
+packages = { find = {} }
+
+[tool.setuptools_scm]
+
+[tool.flake8]
+per-file-ignores = ["**/__init__.py:F401"]
+max-line-length = 88
+extend-ignore = ["E203"]                             # See https://github.com/PyCQA/pycodestyle/issues/373
+

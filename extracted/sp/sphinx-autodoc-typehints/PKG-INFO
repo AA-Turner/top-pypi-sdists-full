@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-autodoc-typehints
-Version: 3.8.0
+Version: 3.9.3
 Summary: Type hints (PEP 484) support for the Sphinx autodoc extension
 Project-URL: Changelog, https://github.com/tox-dev/sphinx-autodoc-typehints/releases
 Project-URL: Homepage, https://github.com/tox-dev/sphinx-autodoc-typehints
@@ -46,6 +46,7 @@ documentation -- so you write types once in code and they appear in your docs wi
   [dataclass](https://docs.python.org/3/library/dataclasses.html) classes
 - Shows default parameter values alongside types
 - Controls union display style (`Union[X, Y]` vs `X | Y`)
+- Automatically fixes cross-references for stdlib types whose runtime module differs from their documented path
 - Supports custom type formatters and module name rewriting
 - Extracts descriptions from [`Annotated[T, Doc(...)]`](https://typing-extensions.readthedocs.io/en/latest/#Doc)
   metadata
@@ -66,6 +67,7 @@ features above. See [Avoid duplicate types with built-in Sphinx](#avoid-duplicat
   - [Control return type display](#control-return-type-display)
   - [Change how union types look](#change-how-union-types-look)
   - [Show default parameter values](#show-default-parameter-values)
+  - [Control overload signature display](#control-overload-signature-display)
   - [Keep type hints in function signatures](#keep-type-hints-in-function-signatures)
   - [Handle circular imports](#handle-circular-imports)
   - [Resolve types from `TYPE_CHECKING` blocks](#resolve-types-from-type_checking-blocks)
@@ -73,6 +75,7 @@ features above. See [Avoid duplicate types with built-in Sphinx](#avoid-duplicat
   - [Write a custom type formatter](#write-a-custom-type-formatter)
   - [Document a `NewType` or `type` alias without expanding it](#document-a-newtype-or-type-alias-without-expanding-it)
   - [Add types for C extensions or packages without annotations](#add-types-for-c-extensions-or-packages-without-annotations)
+  - [Fix cross-reference links for stdlib types](#fix-cross-reference-links-for-stdlib-types)
   - [Fix cross-reference links for renamed modules](#fix-cross-reference-links-for-renamed-modules)
   - [Suppress warnings](#suppress-warnings)
 - [Reference](#reference)
@@ -216,6 +219,31 @@ typehints_defaults = "braces"
 typehints_defaults = "braces-after"
 ```
 
+### Control overload signature display
+
+When a function has [`@overload`](https://docs.python.org/3/library/typing.html#typing.overload) signatures, they are
+rendered automatically in the docstring. To disable this globally:
+
+```python
+typehints_document_overloads = False
+```
+
+To disable overloads for a single function while keeping them everywhere else, add `:no-overloads:` to the docstring:
+
+```python
+@overload
+def f(x: int) -> str: ...
+@overload
+def f(x: str) -> bool: ...
+def f(x):
+    """:no-overloads:
+
+    f accepts int or str, see docs for details.
+    """
+```
+
+The `:no-overloads:` directive is stripped from the rendered output.
+
 ### Keep type hints in function signatures
 
 By default, type hints are removed from function signatures and shown in the parameter list below. To keep them visible
@@ -292,10 +320,37 @@ The extension reads [`.pyi` stub files](https://typing.python.org/en/latest/spec
 automatically. Place a `.pyi` file next to the `.so`/`.pyd` file (or as `__init__.pyi` in the package directory) with
 the type annotations, and they'll be picked up.
 
+### Fix cross-reference links for stdlib types
+
+Many Python stdlib classes have a `__module__` that points to an internal module rather than their public documented
+path. For example, `threading.local` reports its module as `_thread._local`, and `concurrent.futures.Executor` as
+`concurrent.futures._base.Executor`. This produces broken cross-reference links because the extension builds links from
+`__module__.__qualname__`.
+
+When [intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html) is enabled, the extension
+automatically fixes this. After intersphinx loads its inventories, it builds a reverse mapping from runtime paths to
+documented paths and applies it during annotation formatting. No configuration is needed — just make sure intersphinx is
+loaded:
+
+```python
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx_autodoc_typehints",
+]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+}
+```
+
+With this, a type hint like `threading.local` correctly links to `threading.local` in the Python docs instead of
+producing a broken `_thread._local` reference.
+
 ### Fix cross-reference links for renamed modules
 
-Some libraries expose types under a different module path than where they're documented. For example, GTK types live at
-`gi.repository.Gtk.Window` in Python, but their docs list them as `Gtk.Window`. This causes broken
+Some third-party libraries expose types under a different module path than where they're documented. For example, GTK
+types live at `gi.repository.Gtk.Window` in Python, but their docs list them as `Gtk.Window`. This causes broken
 [intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html) links.
 
 Use `typehints_fixup_module_name` to rewrite the module path before links are generated:
@@ -324,20 +379,21 @@ To suppress only specific warning types, see [Warning categories](#warning-categ
 
 ### Configuration options
 
-| Option                           | Default | Description                                                                                   |
-| -------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `typehints_document_rtype`       | `True`  | Show the return type in docs.                                                                 |
-| `typehints_document_rtype_none`  | `True`  | Show return type when it's `None`.                                                            |
-| `typehints_use_rtype`            | `True`  | Show return type as a separate block. When `False`, it's inlined with the return description. |
-| `always_use_bars_union`          | `False` | Use `X \| Y` instead of `Union[X, Y]`. Always on for Python 3.14+.                            |
-| `simplify_optional_unions`       | `True`  | Flatten `Optional[Union[A, B]]` to `Union[A, B, None]`.                                       |
-| `typehints_defaults`             | `None`  | Show default values: `"comma"`, `"braces"`, or `"braces-after"`.                              |
-| `typehints_use_signature`        | `False` | Keep parameter types in the function signature.                                               |
-| `typehints_use_signature_return` | `False` | Keep the return type in the function signature.                                               |
-| `typehints_fully_qualified`      | `False` | Show full module path for types (e.g., `module.Class` not `Class`).                           |
-| `always_document_param_types`    | `False` | Add types even for parameters that don't have a `:param:` entry in the docstring.             |
-| `typehints_formatter`            | `None`  | A function `(annotation, Config) -> str \| None` for custom type rendering.                   |
-| `typehints_fixup_module_name`    | `None`  | A function `(str) -> str` to rewrite module paths before generating cross-reference links.    |
+| Option                           | Default | Description                                                                                        |
+| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `typehints_document_rtype`       | `True`  | Show the return type in docs.                                                                      |
+| `typehints_document_rtype_none`  | `True`  | Show return type when it's `None`.                                                                 |
+| `typehints_document_overloads`   | `True`  | Show `@overload` signatures in docs. Use `:no-overloads:` in a docstring for per-function control. |
+| `typehints_use_rtype`            | `True`  | Show return type as a separate block. When `False`, it's inlined with the return description.      |
+| `always_use_bars_union`          | `False` | Use `X \| Y` instead of `Union[X, Y]`. Always on for Python 3.14+.                                 |
+| `simplify_optional_unions`       | `True`  | Flatten `Optional[Union[A, B]]` to `Union[A, B, None]`.                                            |
+| `typehints_defaults`             | `None`  | Show default values: `"comma"`, `"braces"`, or `"braces-after"`.                                   |
+| `typehints_use_signature`        | `False` | Keep parameter types in the function signature.                                                    |
+| `typehints_use_signature_return` | `False` | Keep the return type in the function signature.                                                    |
+| `typehints_fully_qualified`      | `False` | Show full module path for types (e.g., `module.Class` not `Class`).                                |
+| `always_document_param_types`    | `False` | Add types even for parameters that don't have a `:param:` entry in the docstring.                  |
+| `typehints_formatter`            | `None`  | A function `(annotation, Config) -> str \| None` for custom type rendering.                        |
+| `typehints_fixup_module_name`    | `None`  | A function `(str) -> str` to rewrite module paths before generating cross-reference links.         |
 
 ### Warning categories
 

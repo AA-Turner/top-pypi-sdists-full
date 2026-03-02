@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 120
+# required-version = '22.3.0' # see https://github.com/psf/black/issues/2493
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 120
+target-version = 'py37'
+
+[tool.ruff.lint]
+ignore = ["E501","E731"]
+extend-select = [
+  "UP",  # enable pyupgrade
+  "I",  # enable isort
+  "FLY",  # enable flynt
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fluent_compiler"]

@@ -257,7 +257,9 @@ def test_api_shoud_not_hang_in_fuzzy_mode_with_sequence_of_astrals():
 
     linkifyit.set({"fuzzy_link": True})
 
-    linkifyit.match("😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡 .com")
+    linkifyit.match(
+        "😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡😡 .com"
+    )
 
 
 def test_api_shoud_accept_triple_minus():
@@ -280,8 +282,8 @@ def test_api_shoud_accept_triple_minus():
 def test_api_add_alias_rule_with_excape_re_string(escape_str):
     linkifyit = LinkifyIt()
 
-    linkifyit.add("foo{}bar:".format(escape_str), "http:")
-    assert linkifyit.test("Check foo{}bar://test".format(escape_str)) is True
+    linkifyit.add(f"foo{escape_str}bar:", "http:")
+    assert linkifyit.test(f"Check foo{escape_str}bar://test") is True
 
 
 def test_api_blank_test_match_at_the_start():

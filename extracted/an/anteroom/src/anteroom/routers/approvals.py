@@ -1,0 +1,53 @@
+"""Approval response endpoint for destructive action safety gate."""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any, Literal
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["approvals"])
+
+
+_APPROVAL_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+
+
+class ApprovalRequest(BaseModel):
+    approved: bool = False
+    scope: Literal["once", "session", "always"] = "once"
+    answer: str | None = Field(None, max_length=4096)
+
+
+@router.post("/approvals/{approval_id}/respond")
+async def respond_approval(approval_id: str, body: ApprovalRequest, request: Request) -> Any:
+    ct = request.headers.get("content-type", "")
+    if not ct.startswith("application/json"):
+        raise HTTPException(status_code=415, detail="Content-Type must be application/json")
+
+    if not _APPROVAL_ID_RE.match(approval_id):
+        logger.warning("Invalid approval ID format: %r", approval_id[:80])
+        raise HTTPException(status_code=400, detail="Invalid approval ID format")
+
+    scope = body.scope
+
+    pending = getattr(request.app.state, "pending_approvals", {})
+    # Atomic pop to prevent TOCTOU: only the first responder gets the entry
+    entry = pending.pop(approval_id, None)
+    if not entry:
+        logger.info("Approval not found or already resolved: %s", approval_id)
+        raise HTTPException(status_code=404, detail="Approval not found or expired")
+
+    action = "approved" if body.approved else "denied"
+    logger.info("Safety approval %s (scope=%s): id=%s", action, scope, approval_id)
+
+    entry["approved"] = body.approved
+    entry["scope"] = scope
+    if body.answer is not None:
+        entry["answer"] = body.answer
+    entry["event"].set()
+    return {"status": "ok", "approved": body.approved, "scope": scope}

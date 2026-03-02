@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: weblate-fonts
+Version: 2026.1
+Summary: Weblate fonts collection
+Keywords: gettext,git,i18n,l10n,mercurial,translate
+Author: Michal Čihař
+Author-email: Michal Čihař <michal@weblate.org>
+License-Expression: OFL-1.1
+License-File: LICENSES/CC0-1.0.txt
+License-File: LICENSES/OFL-1.1.txt
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Internationalization
+Classifier: Topic :: Software Development :: Localization
+Classifier: Topic :: Utilities
+Requires-Python: >=3.11
+Project-URL: Documentation, https://docs.weblate.org/
+Project-URL: Download, https://github.com/WeblateOrg/fonts
+Project-URL: Funding, https://weblate.org/donate/
+Project-URL: Homepage, https://weblate.org/
+Project-URL: Issue Tracker, https://github.com/WeblateOrg/fonts/issues
+Project-URL: Source Code, https://github.com/WeblateOrg/fonts
+Project-URL: Twitter, https://twitter.com/WeblateOrg
+Description-Content-Type: text/markdown
+
+<a href="https://weblate.org/"><img alt="Weblate" src="https://s.weblate.org/cdn/Logo-Darktext-borders.png" height="80px" /></a>
+
+**Weblate is libre software web-based continuous localization system,
+used by over 2500 libre projects and companies in more than 165 countries.**
+
+# Weblate Fonts Collection
+
+Fonts used in Weblate.
+
+[![Website](https://img.shields.io/badge/website-weblate.org-blue.svg)](https://weblate.org/)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/552/badge)](https://bestpractices.coreinfrastructure.org/projects/552)
+[![PyPI package](https://img.shields.io/pypi/v/weblate-fonts.svg)](https://pypi.org/project/weblate-fonts/)
+
+## PIP Installation
+
+Install using pip:
+
+```console
+pip3 install weblate-fonts
+```
+
+Sources are available at <https://github.com/WeblateOrg/fonts>.

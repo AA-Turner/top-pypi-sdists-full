@@ -1,0 +1,370 @@
+"""OpenTelemetry integration for Plato agents and worlds.
+
+Provides tracing utilities using OpenTelemetry SDK. Traces are sent directly
+to the Chronos OTLP endpoint.
+
+Usage:
+    from plato.otel import init_tracing, get_tracer, shutdown_tracing
+
+    # Initialize tracing (sends to Chronos OTLP endpoint)
+    init_tracing(
+        service_name="my-world",
+        session_id="session-123",
+        otlp_endpoint="http://chronos/api/otel",
+    )
+
+    # Create spans
+    tracer = get_tracer()
+    with tracer.start_as_current_span("my-operation") as span:
+        span.set_attribute("key", "value")
+        # ... do work ...
+
+    # Cleanup
+    shutdown_tracing()
+
+ATIF helpers:
+    from plato.otel import emit_step, session_span
+
+    tracer = get_tracer()
+    with session_span(tracer, "my-agent", "1.0.0", model_name="gpt-4") as span:
+        emit_step(tracer, step_id=1, source="agent", message="Hello")
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Literal
+
+from opentelemetry import context as context_api
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+)
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags, Tracer
+
+logger = logging.getLogger(__name__)
+
+# Silence noisy OpenTelemetry exporter logs
+logging.getLogger("opentelemetry.exporter.otlp.proto.http.trace_exporter").setLevel(logging.CRITICAL)
+logging.getLogger("opentelemetry.exporter.otlp").setLevel(logging.CRITICAL)
+
+# Global state
+_tracer_provider = None
+_initialized = False
+_log_handler = None
+
+
+class OTelSpanLogHandler(logging.Handler):
+    """Logging handler that creates OTel spans for log messages."""
+
+    def __init__(self, tracer: Tracer, level: int = logging.INFO):
+        super().__init__(level)
+        self.tracer = tracer
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a log record as an OTel span."""
+        try:
+            with self.tracer.start_as_current_span(f"log.{record.levelname.lower()}") as span:
+                span.set_attribute("log.level", record.levelname)
+                span.set_attribute("log.message", record.getMessage())
+                span.set_attribute("log.logger", record.name)
+                span.set_attribute("source", "world")
+                span.set_attribute("content", record.getMessage()[:1000])
+
+                if record.funcName:
+                    span.set_attribute("log.function", record.funcName)
+                if record.lineno:
+                    span.set_attribute("log.lineno", record.lineno)
+
+                if record.levelno >= logging.ERROR:
+                    span.set_attribute("error", True)
+        except Exception:
+            pass
+
+
+def init_tracing(
+    service_name: str,
+    session_id: str,
+    otlp_endpoint: str,
+    parent_trace_id: str | None = None,
+    parent_span_id: str | None = None,
+) -> None:
+    """Initialize OpenTelemetry tracing.
+
+    Args:
+        service_name: Name of the service (e.g., world name or agent name)
+        session_id: Chronos session ID (added as resource attribute)
+        otlp_endpoint: Chronos OTLP endpoint (e.g., http://chronos/api/otel)
+        parent_trace_id: Optional parent trace ID for linking (hex string)
+        parent_span_id: Optional parent span ID for linking (hex string)
+    """
+    global _tracer_provider, _initialized, _log_handler
+
+    if _initialized:
+        logger.debug("Tracing already initialized")
+        return
+
+    try:
+        resource = Resource.create(
+            {
+                "service.name": service_name,
+                "plato.session.id": session_id,
+            }
+        )
+
+        _tracer_provider = TracerProvider(resource=resource)
+
+        otlp_exporter = OTLPSpanExporter(endpoint=f"{otlp_endpoint.rstrip('/')}/v1/traces")
+        _tracer_provider.add_span_processor(SimpleSpanProcessor(otlp_exporter))
+
+        trace.set_tracer_provider(_tracer_provider)
+
+        if parent_trace_id and parent_span_id:
+            parent_context = SpanContext(
+                trace_id=int(parent_trace_id, 16),
+                span_id=int(parent_span_id, 16),
+                is_remote=True,
+                trace_flags=TraceFlags(0x01),
+            )
+            parent_span = NonRecordingSpan(parent_context)
+            ctx = trace.set_span_in_context(parent_span)
+            context_api.attach(ctx)
+            logger.debug(f"Using parent context: trace_id={parent_trace_id}, span_id={parent_span_id}")
+
+        tracer = trace.get_tracer(service_name)
+        _log_handler = OTelSpanLogHandler(tracer, level=logging.INFO)
+
+        # Attach to root logger to capture ALL logs (including claude-agent-sdk, etc.)
+        root_logger = logging.getLogger()
+        root_logger.addHandler(_log_handler)
+
+        # Also ensure plato logger is configured
+        plato_logger = logging.getLogger("plato")
+        plato_logger.setLevel(logging.INFO)
+
+        _initialized = True
+        logger.debug(f"Tracing initialized: service={service_name}, session={session_id}")
+
+    except ImportError as e:
+        logger.warning(f"OpenTelemetry SDK not installed: {e}")
+    except Exception as e:
+        logger.error(f"Failed to initialize tracing: {e}")
+
+
+def shutdown_tracing(timeout_millis: int = 30000) -> None:
+    """Shutdown the tracer provider and flush spans.
+
+    Args:
+        timeout_millis: Timeout in milliseconds to wait for flush (default 30s)
+    """
+    global _tracer_provider, _initialized, _log_handler
+
+    if _log_handler:
+        try:
+            root_logger = logging.getLogger()
+            root_logger.removeHandler(_log_handler)
+        except Exception:
+            pass
+        _log_handler = None
+
+    if _tracer_provider:
+        try:
+            flush_success = _tracer_provider.force_flush(timeout_millis=timeout_millis)
+            if not flush_success:
+                logger.warning("Span flush timed out")
+            _tracer_provider.shutdown()
+            logger.debug("Tracing shutdown complete")
+        except Exception as e:
+            logger.warning(f"Error shutting down tracer: {e}")
+
+    _tracer_provider = None
+    _initialized = False
+
+
+def get_tracer(name: str = "plato") -> Tracer:
+    """Get a tracer instance.
+
+    Args:
+        name: Tracer name (default: "plato")
+
+    Returns:
+        OpenTelemetry Tracer
+    """
+    return trace.get_tracer(name)
+
+
+def is_initialized() -> bool:
+    """Check if OTel tracing is initialized."""
+    return _initialized
+
+
+def get_current_trace_context() -> dict[str, str]:
+    """Capture the current span's trace context for propagation to child sessions.
+
+    Returns a dict with ``trace_id`` and ``span_id`` (hex strings) if a valid
+    span is active, or an empty dict otherwise.  Pass the returned values as
+    ``parent_trace_id`` / ``parent_span_id`` when launching a child Chronos
+    session so its spans appear under this trace.
+
+    Example::
+
+        from plato.otel import get_current_trace_context
+
+        ctx = get_current_trace_context()
+        await chronos.launch(
+            package="plato-world-cua-benchmark:3.0.15",
+            config={**child_config, **ctx},
+            parent_session_id=self._session_id,
+        )
+    """
+    current_span = trace.get_current_span()
+    span_context = current_span.get_span_context()
+    if not span_context.is_valid:
+        return {}
+    return {
+        "parent_trace_id": format(span_context.trace_id, "032x"),
+        "parent_span_id": format(span_context.span_id, "016x"),
+    }
+
+
+def instrument(service_name: str = "plato-agent") -> Tracer:
+    """Initialize OTel tracing from environment variables.
+
+    Reads the following env vars:
+    - OTEL_EXPORTER_OTLP_ENDPOINT: Chronos OTLP endpoint (required for tracing)
+    - SESSION_ID: Chronos session ID (default: "local")
+    - OTEL_TRACE_ID: Parent trace ID for linking spans (optional)
+    - OTEL_PARENT_SPAN_ID: Parent span ID for linking spans (optional)
+
+    If OTEL_EXPORTER_OTLP_ENDPOINT is not set, returns a no-op tracer.
+
+    Args:
+        service_name: Name of the service for traces
+
+    Returns:
+        OpenTelemetry Tracer
+    """
+    otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    session_id = os.environ.get("SESSION_ID", "local")
+    parent_trace_id = os.environ.get("OTEL_TRACE_ID")
+    parent_span_id = os.environ.get("OTEL_PARENT_SPAN_ID")
+
+    if not otel_endpoint:
+        logger.debug("No OTEL_EXPORTER_OTLP_ENDPOINT set, using no-op tracer")
+        return trace.get_tracer(service_name)
+
+    init_tracing(
+        service_name=service_name,
+        session_id=session_id,
+        otlp_endpoint=otel_endpoint,
+        parent_trace_id=parent_trace_id,
+        parent_span_id=parent_span_id,
+    )
+
+    return trace.get_tracer(service_name)
+
+
+# =============================================================================
+# ATIF Step/Session Helpers
+# =============================================================================
+
+
+def emit_step(
+    tracer: Tracer,
+    step_id: int,
+    source: Literal["system", "user", "agent"],
+    message: str,
+    *,
+    model_name: str | None = None,
+    reasoning: str | None = None,
+    tool_calls: list[dict] | None = None,
+    observation: dict | None = None,
+    prompt_tokens: int | None = None,
+    completion_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+    reasoning_tokens: int | None = None,
+    cost_usd: float | None = None,
+    duration_ms: float | None = None,
+    screenshot: str | None = None,
+    screenshot_format: str | None = None,
+) -> None:
+    """Emit one ATIF step as an OTel span.
+
+    Args:
+        tracer: OTel tracer instance
+        step_id: Sequential step ID (from 1)
+        source: "system", "user", or "agent"
+        message: Text content of the step
+        model_name: LLM model identifier
+        reasoning: Chain-of-thought / extended thinking content
+        tool_calls: List of tool call dicts with tool_call_id, function_name, arguments
+        observation: Observation dict with results list
+        prompt_tokens: Input token count
+        completion_tokens: Output token count
+        cost_usd: Cost in USD
+        screenshot: Base64-encoded screenshot image data
+        screenshot_format: Image MIME type (e.g., "image/png")
+    """
+    with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
+        span.set_attribute("atif.step.id", step_id)
+        span.set_attribute("atif.step.source", source)
+        span.set_attribute("atif.step.message", message)
+
+        if model_name is not None:
+            span.set_attribute("atif.step.model_name", model_name)
+        if reasoning is not None:
+            span.set_attribute("atif.step.reasoning", reasoning)
+        if tool_calls is not None:
+            span.set_attribute("atif.step.tool_calls", json.dumps(tool_calls, default=str))
+        if observation is not None:
+            span.set_attribute("atif.step.observation", json.dumps(observation, default=str))
+        if prompt_tokens is not None:
+            span.set_attribute("atif.step.prompt_tokens", prompt_tokens)
+        if completion_tokens is not None:
+            span.set_attribute("atif.step.completion_tokens", completion_tokens)
+        if cache_read_tokens is not None:
+            span.set_attribute("atif.step.cache_read_tokens", cache_read_tokens)
+        if cache_write_tokens is not None:
+            span.set_attribute("atif.step.cache_write_tokens", cache_write_tokens)
+        if reasoning_tokens is not None:
+            span.set_attribute("atif.step.reasoning_tokens", reasoning_tokens)
+        if cost_usd is not None:
+            span.set_attribute("atif.step.cost_usd", cost_usd)
+        if duration_ms is not None:
+            span.set_attribute("atif.step.duration_ms", duration_ms)
+        if screenshot is not None:
+            span.set_attribute("atif.step.screenshot", screenshot)
+            span.set_attribute("atif.step.screenshot_format", screenshot_format or "image/png")
+
+
+@contextmanager
+def session_span(
+    tracer: Tracer,
+    agent_name: str,
+    agent_version: str,
+    model_name: str | None = None,
+) -> Iterator[Span]:
+    """Create root session span with atif.agent.* attributes.
+
+    Args:
+        tracer: OTel tracer instance
+        agent_name: Agent name (e.g., "claude-code")
+        agent_version: Agent version string
+        model_name: Default model used by the agent
+    """
+    with tracer.start_as_current_span("session") as span:
+        span.set_attribute("plato.phase", "agent")
+        span.set_attribute("atif.version", "0.1.0")
+        span.set_attribute("atif.agent.name", agent_name)
+        span.set_attribute("atif.agent.version", agent_version)
+        if model_name is not None:
+            span.set_attribute("atif.agent.model_name", model_name)
+        yield span

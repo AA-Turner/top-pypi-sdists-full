@@ -1,0 +1,107 @@
+import os
+
+import numpy as np
+import pandas as pd
+import pytest
+from perpetual import PerpetualBooster
+from perpetual.booster import compute_calibration_curve, expected_calibration_error
+from sklearn.model_selection import train_test_split
+
+
+@pytest.fixture
+def data():
+    # Use pre-generated resources to avoid external downloads in CI
+    resource_dir = os.path.join(os.path.dirname(__file__), "../../../resources")
+    train_df = pd.read_csv(os.path.join(resource_dir, "cal_housing_train.csv"))
+    test_df = pd.read_csv(os.path.join(resource_dir, "cal_housing_test.csv"))
+
+    # Merge them because the test does its own custom 3-way split
+    df = pd.concat([train_df, test_df], axis=0)
+    X = df.drop(columns=["MedHouseVal"])
+    y = df["MedHouseVal"]
+
+    X_rest, X_test, y_rest, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    X_train, X_cal, y_train, y_cal = train_test_split(
+        X_rest, y_rest, test_size=0.25, random_state=42
+    )
+    return X_train, y_train, X_cal, y_cal, X_test, y_test
+
+
+def test_calibration_grp(data):
+    X_train, y_train, X_cal, y_cal, X_test, y_test = data
+
+    model = PerpetualBooster(objective="SquaredLoss", save_node_stats=True)
+    model.fit(X_train, y_train)
+
+    # Calibrate using GRP
+    model.calibrate(X_cal, y_cal, alpha=0.1, method="GRP")
+    intervals = model.predict_intervals(X_test)
+
+    lower = intervals["0.1"][:, 0]
+    upper = intervals["0.1"][:, 1]
+
+    coverage = np.mean((y_test >= lower) & (y_test <= upper))
+    width = np.mean(upper - lower)
+
+    # Expected values based on Python logic in reproduce_issue.py
+    # Coverage ~ 0.9014, Width ~ 1.3793
+    print(f"GRP Coverage: {coverage}, Width: {width}")
+
+    assert coverage >= 0.89  # Allow some fluctuation but should be close to 0.9
+    # Prior to fix, width was likely > 3.0. With fix it is ~1.38.
+    assert width < 1.5
+
+
+def test_calibration_min_max(data):
+    X_train, y_train, X_cal, y_cal, X_test, y_test = data
+
+    model = PerpetualBooster(objective="SquaredLoss", save_node_stats=True)
+    model.fit(X_train, y_train)
+
+    # Calibrate using MinMax
+    model.calibrate(X_cal, y_cal, alpha=0.1, method="MinMax")
+    intervals = model.predict_intervals(X_test)
+
+    lower = intervals["0.1"][:, 0]
+    upper = intervals["0.1"][:, 1]
+
+    coverage = np.mean((y_test >= lower) & (y_test <= upper))
+    width = np.mean(upper - lower)
+
+    print(f"MinMax Coverage: {coverage}, Width: {width}")
+
+    assert coverage >= 0.89
+    # Without fix, MinMax width would also be inflated.
+    # We expect verify tight intervals with MinMax usually, but checking upper bound to ensuring fix worked.
+    assert width < 2.0
+
+
+def test_calibration_metrics():
+    y_true = np.random.randint(0, 2, 100)
+    y_prob = np.random.uniform(0, 1, 100)
+
+    # compute_calibration_curve
+    pt, pp = compute_calibration_curve(y_true, y_prob, n_bins=5, strategy="uniform")
+    assert len(pt) <= 5
+    pt_q, pp_q = compute_calibration_curve(
+        y_true, y_prob, n_bins=5, strategy="quantile"
+    )
+    assert len(pt_q) <= 5
+
+    try:
+        compute_calibration_curve(y_true, y_prob, strategy="invalid")
+    except ValueError:
+        pass
+
+    # expected_calibration_error
+    ece = expected_calibration_error(y_true, y_prob, strategy="uniform")
+    assert 0 <= ece <= 1
+    ece_q = expected_calibration_error(y_true, y_prob, strategy="quantile")
+    assert 0 <= ece_q <= 1
+
+    try:
+        expected_calibration_error(y_true, y_prob, strategy="invalid")
+    except ValueError:
+        pass

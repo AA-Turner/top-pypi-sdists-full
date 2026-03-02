@@ -1,0 +1,287 @@
+"""
+Extensions for pytest module.
+"""
+
+
+import functools
+import warnings
+from collections import namedtuple
+from inspect import signature
+import logging
+
+import pytest
+
+__all__ = ['simplified_test_function', 'ignore_warnings', 'expect_warnings']
+
+
+def simplified_test_function(test_func):
+    """
+    A decorator for test functions that simplifies the test function by
+    handling a number of things:
+
+    * Skipping the test if the `condition` item in the testcase is `False`,
+    * Invoking the Python debugger if the `condition` item in the testcase is
+      the string "pdb",
+    * Capturing and validating any warnings issued by the test function,
+      if the `exp_warn_types` item in the testcase is set,
+    * Catching and validating any exceptions raised by the test function,
+      if the `exp_exc_types` item in the testcase is set.
+
+    This is a signature-changing decorator. This decorator must be inserted
+    after the `pytest.mark.parametrize` decorator so that it is applied
+    first (see the example).
+
+    Parameters of the wrapper function returned by this decorator:
+
+    * desc (str): Short testcase description.
+
+    * kwargs (dict): Keyword arguments for the test function.
+
+    * exp_exc_types (Exception or list of Exception): Expected exception types,
+      or `None` if no exceptions are expected.
+
+    * exp_warn_types (Warning or list of Warning): Expected warning types,
+      or `None` if no warnings are expected.
+
+    * condition (bool or 'pdb'): Boolean condition for running the testcase.
+      If it evaluates to `bool(False)`, the testcase will be skipped.
+      If it evaluates to `bool(True)`, the testcase will be run.
+      The string value 'pdb' will cause the Python pdb debugger to be entered
+      before calling the test function.
+
+    Parameters of the test function that is decorated:
+
+    * testcase (testcase_tuple): The testcase, as a named tuple.
+
+    * **kwargs: Keyword arguments for the test function.
+
+    Example::
+
+        TESTCASES_CIMCLASS_EQUAL = [
+            # desc, kwargs, exp_exc_types, exp_warn_types, condition
+            (
+                "Equality with different lexical case of name",
+                dict(
+                    obj1=CIMClass('CIM_Foo'),
+                    obj2=CIMClass('cim_foo'),
+                    exp_equal=True,
+                ),
+                None, None, True
+            ),
+            # ... more testcases
+        ]
+
+        @pytest.mark.parametrize(
+            "desc, kwargs, exp_exc_types, exp_warn_types, condition",
+            TESTCASES_CIMCLASS_EQUAL)
+        @pytest_extensions.simplified_test_function
+        def test_CIMClass_equal(testcase, obj1, obj2, exp_equal):
+
+            # The code to be tested
+            equal = (obj1 == obj2)
+
+            # Ensure that exceptions raised in the remainder of this function
+            # are not mistaken as expected exceptions
+            assert testcase.exp_exc_types is None
+
+            # Verify the result
+            assert equal == exp_equal
+    """
+
+    # A testcase tuple
+    testcase_tuple = namedtuple(
+        'testcase_tuple',
+        ['desc', 'kwargs', 'exp_exc_types', 'exp_warn_types', 'condition']
+    )
+
+    def wrapper_func(desc, kwargs, exp_exc_types, exp_warn_types, condition):
+        """
+        Wrapper function that calls the test function that is decorated.
+        """
+
+        if not condition:
+            pytest.skip("Condition for test case not met")
+
+        if condition == 'pdb':
+            # pylint: disable=import-outside-toplevel
+            import pdb
+
+        testcase = testcase_tuple(desc, kwargs, exp_exc_types, exp_warn_types,
+                                  condition)
+
+        if exp_warn_types:
+            with pytest.warns(exp_warn_types) as rec_warnings:
+                if exp_exc_types:
+                    with pytest.raises(exp_exc_types):
+                        if condition == 'pdb':
+                            # pylint: disable=forgotten-debug-statement
+                            pdb.set_trace()
+
+                        test_func(testcase, **kwargs)  # expecting an exception
+
+                    ret = None  # Debugging hint
+                    # In combination with exceptions, we do not verify warnings
+                    # (they could have been issued before or after the
+                    # exception).
+                else:
+                    if condition == 'pdb':
+                        # pylint: disable=forgotten-debug-statement
+                        pdb.set_trace()
+
+                    test_func(testcase, **kwargs)  # not expecting an exception
+
+                    ret = None  # Debugging hint
+                    assert len(rec_warnings) >= 1, \
+                        f"Expected warning(s) missing: {exp_warn_types}"
+        else:
+            with warnings.catch_warnings(record=True) as rec_warnings:
+                if exp_exc_types:
+                    with pytest.raises(exp_exc_types):
+                        if condition == 'pdb':
+                            # pylint: disable=forgotten-debug-statement
+                            pdb.set_trace()
+
+                        test_func(testcase, **kwargs)  # expecting an exception
+
+                    ret = None  # Debugging hint
+                else:
+                    if condition == 'pdb':
+                        # pylint: disable=forgotten-debug-statement
+                        pdb.set_trace()
+
+                    test_func(testcase, **kwargs)  # not expecting an exception
+
+                    ret = None  # Debugging hint
+
+                    # Verify that no warnings have occurred
+                    if exp_warn_types is None and rec_warnings:
+                        lines = []
+                        for w in rec_warnings:
+                            tup = (w.filename, w.lineno, w.category.__name__,
+                                   str(w.message))
+                            line = "{t[0]}:{t[1]}: {t[2]}: {t[3]}".format(t=tup)
+                            if line not in lines:
+                                lines.append(line)
+                        msg = "Unexpected warnings:\n{}".format(
+                            '\n'.join(lines))
+                        raise AssertionError(msg)
+        return ret
+
+    # Needed because the decorator is signature-changing
+    wrapper_func.__signature__ = signature(wrapper_func)
+
+    return functools.update_wrapper(wrapper_func, test_func)
+
+
+def logger_name(test_mod_name):
+    """
+    Return the logger name to be used for the specified test module.
+
+    Parameters:
+        test_mod_name (str): Test module name, qualified with the module path.
+    """
+    return test_mod_name.rsplit('.', maxsplit=1)[-1]
+
+
+def get_logger(test_mod_name):
+    """
+    Get the Python logger for the test module.
+
+    Parameters:
+        test_mod_name (str): Test module name, optionally qualified with the
+          module path.
+
+    Returns:
+        logging.Logger: Python logger for the test module.
+    """
+    _logger_name = logger_name(test_mod_name)
+    _logger = logging.getLogger(_logger_name)
+    return _logger
+
+
+def log_entry_exit(func):
+    """
+    A decorator for test functions that logs entry and exit of the test
+    function.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        test_mod_name = func.__module__  # qualified with module path
+        test_func_name = func.__qualname__
+        _logger = get_logger(test_mod_name)
+
+        # Set the following to True when there is a need to see the test
+        # function arguments in the log:
+        with_args = False
+
+        if with_args:
+            args_str = f" with args: {args!r}; kwargs: {kwargs!r}"
+        else:
+            args_str = ""
+        _logger.debug("Entering test function %s%s", test_func_name, args_str)
+        try:
+            result = func(*args, **kwargs)
+            return result
+        finally:
+            _logger.debug("Leaving test function %s", test_func_name)
+
+    return wrapper
+
+
+@pytest.fixture
+def logger(request):
+    """
+    Pytest fixture that resolves to the Python logger for the test module.
+    """
+    test_mod_name = request.node.module.name  # qualified with module path
+    return get_logger(test_mod_name)
+
+
+class ignore_warnings(warnings.catch_warnings):
+    # pylint: disable=invalid-name,too-few-public-methods
+    """
+    Context manager that ignores the specified warning categories in its body.
+
+    The current warnings filters are saved upon entry and restored upon exit
+    of the context manager.
+    """
+
+    def __init__(self, categories=None):
+        """
+        Parameters:
+
+            categories:
+                The warning class(es) that are to be ignored.
+                Must be a single class, a list/tuple of classes, or None.
+                The classes must be subclasses of Warning.
+        """
+        super().__init__()
+        if categories is None:
+            categories = []
+        elif not isinstance(categories, (list, tuple)):
+            categories = [categories]
+        for category in categories:
+            assert issubclass(category, Warning)
+        self.categories = categories
+
+    def __enter__(self):
+        ret = super().__enter__()  # saves current filters
+        for category in self.categories:
+            warnings.simplefilter('ignore', category=category)
+        return ret
+
+
+def expect_warnings(testcase, warnings):
+    # pylint: disable=redefined-outer-name
+    """
+    Return whether a particular warning or one or more from a list of warnings
+    is expected in the testcase.
+    """
+    if testcase.exp_warn_types is None:
+        return False
+    exp_warnings = testcase.exp_warn_types
+    if not isinstance(exp_warnings, (tuple, list)):
+        exp_warnings = [exp_warnings]
+    if not isinstance(warnings, (tuple, list)):
+        warnings = [warnings]
+    return any(w in warnings for w in exp_warnings)

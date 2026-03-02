@@ -1,4 +1,0 @@
-"""
-Backend integration tests package.
-"""
-

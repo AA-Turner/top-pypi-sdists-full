@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1", "setuptools_scm==8.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cogames"
+description = "Multi-agent cooperative games"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+classifiers = ["Programming Language :: Python :: 3", "Programming Language :: Python :: 3.12"]
+dependencies = [
+  "mettagrid==0.16.7",
+  "packaging>=24.0.0",
+  "pufferlib-core",
+  "pydantic>=2.11.5",
+  "pyyaml>=6.0.2",
+  "questionary>=2.0.1",
+  "einops>=0.8.0",
+  "scipy>=1.15.3",
+  "typer>=0.19.2",
+  "rich>=13.7.0",
+  "questionary>=2.1.0",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.34.0",
+  "httpx>=0.28.1",
+  # For `cogames docsync` command
+  "nbstripout>=0.8.0",
+  "nbconvert>=7.16.0",
+  "jupytext>=1.16.0",
+  "ipykernel>=6.29.5",
+  # Only used by cogames upload tests; could be moved to optional dep group
+  "pytest-httpserver>=1.1.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-xdist", "ruff"]
+
+[project.scripts]
+cogames = "cogames.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cogames", "cogames.*", "metta_alo", "metta_alo.*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+cogames = ["py.typed", "maps/*.map", "maps/**/*.map", "assets/**/*"]
+metta_alo = ["py.typed"]
+
+[tool.setuptools_scm]
+tag_regex = "^cogames-v(?P<version>\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)$"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+root = "../.."
+fallback_version = "0.0.0"
+# Provide a specific git command to be used in order to find the correct versioning tags
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "cogames-v*"]
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+testpaths = ["tests"]
+[tool.coverage.run]
+source = ["cogames"]
+
+[tool.uv.sources]
+mettagrid = { workspace = true }
+
+[tool.ruff]
+extend = "../../.ruff.toml"
+
+[tool.ruff.lint.per-file-ignores]
+# Ignoring:
+# - E501 Line too long (notebook .py files can have long lines from cell content)
+# - E402 Module level import not at top of file (cells can have imports even when not the first cell)
+"README.py" = ["E501", "E402"]
+"tutorials/*.py" = ["E501", "E402"]

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "picosdk"
+authors = [{name = "Pico Technology Ltd"}]
+readme = "README.md"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Science/Research",
+	"License :: OSI Approved :: ISC License (ISCL)",
+	"Framework :: Matplotlib",
+	"Natural Language :: English",
+	"Programming Language :: Python :: 2.7",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.6",
+	"Programming Language :: Python :: 3.7",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Topic :: Scientific/Engineering"
+]
+
+dependencies = ["numpy>=1.12.1"]
+description = "PicoSDK Python Wrappers"
+version = "1.1"
+
+[project.license]
+file="LICENSE.md"
+
+[project.urls]
+Home = "https://www.picotech.com"

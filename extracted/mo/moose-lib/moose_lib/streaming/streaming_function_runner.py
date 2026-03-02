@@ -1,0 +1,748 @@
+"""
+Streaming Function Runner for Moose
+
+This module provides functionality to run streaming functions that process data from Kafka topics.
+It handles the lifecycle of consuming messages from a source topic, transforming them, and
+producing to a target topic.
+
+The runner handles:
+- Loading and executing streaming functions
+- Kafka consumer/producer setup with optional SASL authentication
+- Message transformation and routing
+- Basic metrics tracking
+- Error handling and logging
+"""
+
+import argparse
+import dataclasses
+import traceback
+from datetime import datetime, timezone
+from importlib import import_module
+import io
+import json
+import signal
+import sys
+from kafka import KafkaConsumer, KafkaProducer
+import requests
+import threading
+import time
+from typing import Optional, Callable, Tuple, Any
+
+from moose_lib.dmv2 import get_streams, DeadLetterModel
+from moose_lib import cli_log, CliLogData, DeadLetterQueue
+from moose_lib.commons import (
+    EnhancedJSONEncoder,
+    moose_management_port,
+    get_kafka_consumer,
+    get_kafka_producer,
+)
+from moose_lib.utilities import setup_structured_logging
+
+# Force stdout to be unbuffered
+sys.stdout = io.TextIOWrapper(
+    open(sys.stdout.fileno(), "wb", 0), write_through=True, line_buffering=True
+)
+
+# Setup structured logging context
+function_context = setup_structured_logging(
+    lambda ctx: ctx["function_name"], "function_name"
+)
+
+# Constants for consumer initialization
+# Maximum time (seconds) to wait for partition assignment during eager initialization
+PARTITION_ASSIGNMENT_TIMEOUT_SECONDS = 60
+# Polling interval (seconds) when waiting for partition assignment
+PARTITION_ASSIGNMENT_POLL_INTERVAL_SECONDS = 0.1
+
+
+@dataclasses.dataclass
+class KafkaTopicConfig:
+    """
+    Configuration for a Kafka topic including namespace support.
+
+    Attributes:
+        streaming_engine_type: The type of topic (source or target)
+        name: Full topic name including namespace if present
+        partitions: Number of partitions for the topic
+        retention_ms: Message retention period in milliseconds
+        max_message_bytes: Maximum size of messages in bytes
+        namespace: Optional namespace prefix for the topic
+        version: Optional version string for the topic
+    """
+
+    streaming_engine_type: str
+    name: str
+    partitions: int
+    retention_ms: int
+    max_message_bytes: int
+    namespace: Optional[str] = None
+    version: Optional[str] = None
+
+    def topic_name_to_stream_name(self) -> str:
+        """Returns the topic name with any namespace prefix removed."""
+
+        name = self.name
+        if self.version is not None:
+            version_suffix = f"_{self.version}".replace(".", "_")
+            if name.endswith(version_suffix):
+                name = name.removesuffix(version_suffix)
+            else:
+                raise Exception(
+                    f"Version suffix {version_suffix} not found in topic name {name}"
+                )
+
+        if self.namespace is not None and self.namespace != "":
+            prefix = self.namespace + "."
+            if name.startswith(prefix):
+                name = name.removeprefix(prefix)
+            else:
+                raise Exception(
+                    f"Namespace prefix {prefix} not found in topic name {name}"
+                )
+
+        return name
+
+
+def load_streaming_function(
+    function_file_dir: str, function_file_name: str
+) -> tuple[type, list[tuple[Callable, Optional[DeadLetterQueue]]]]:
+    """
+    Load a streaming function by finding the stream transformation that matches
+    the source and target topics.
+
+    Args:
+        function_file_dir: Directory containing the main.py file
+        function_file_name: Name of the main.py file (without extension)
+
+    Returns:
+        Tuple of (input_type, transformation_functions) where:
+            - input_type is the Pydantic model type of the source stream
+            - transformation_functions is a list of functions that transform source to target data and their dead letter queues
+
+    Raises:
+        SystemExit: If module import fails or if no matching transformation is found
+    """
+    sys.path.append(function_file_dir)
+
+    try:
+        # todo: check the flat naming
+        import_module(function_file_name)
+    except Exception as e:
+        cli_log(CliLogData(action="Function", message=str(e), message_type="Error"))
+        sys.exit(1)
+
+    # Find the stream that has a transformation matching our source/destination
+    for source_py_stream_name, stream in get_streams().items():
+        if source_py_stream_name != source_topic.topic_name_to_stream_name():
+            continue
+
+        if stream.has_consumers() and target_topic is None:
+            consumers = [
+                (entry.consumer, entry.config.dead_letter_queue)
+                for entry in stream.consumers
+            ]
+            if not consumers:
+                continue
+            return stream.model_type, consumers
+
+        # Check each transformation in the stream
+        for dest_stream_py_name, transform_entries in stream.transformations.items():
+            # The source topic name should match the stream name
+            # The destination topic name should match the destination stream name
+            if (
+                source_py_stream_name == source_topic.topic_name_to_stream_name()
+                and dest_stream_py_name == target_topic.topic_name_to_stream_name()
+            ):
+                # Found the matching transformation
+                transformations = [
+                    (entry.transformation, entry.config.dead_letter_queue)
+                    for entry in transform_entries
+                ]
+                if not transformations:
+                    continue
+                return stream.model_type, transformations
+
+    # If we get here, no matching transformation was found
+    cli_log(
+        CliLogData(
+            action="Function",
+            message=f"No transformation found from {source_topic.name} to {target_topic.name}",
+            message_type="Error",
+        )
+    )
+    sys.exit(1)
+
+
+parser = argparse.ArgumentParser(description="Run a streaming function")
+
+parser.add_argument(
+    "source_topic_json", type=str, help="The source topic for the streaming function"
+)
+# The dir is the dir of the main.py or index.ts file
+# and the function_file_name is the file name of main.py or index.ts
+parser.add_argument(
+    "function_file_dir", type=str, help="The dir of the streaming function file"
+)
+parser.add_argument(
+    "function_file_name",
+    type=str,
+    help="The file name of the streaming function without the .py extension",
+)
+parser.add_argument(
+    "broker", type=str, help="The broker to use for the streaming function"
+)
+parser.add_argument(
+    "--target_topic_json", type=str, help="The target topic for the streaming function"
+)
+parser.add_argument(
+    "--sasl_username",
+    type=str,
+    help="The SASL username to use for the streaming function",
+)
+parser.add_argument(
+    "--sasl_password",
+    type=str,
+    help="The SASL password to use for the streaming function",
+)
+parser.add_argument(
+    "--sasl_mechanism",
+    type=str,
+    help="The SASL mechanism to use for the streaming function",
+)
+parser.add_argument(
+    "--security_protocol",
+    type=str,
+    help="The security protocol to use for the streaming function",
+)
+parser.add_argument(
+    "--log-payloads",
+    action="store_true",
+    help="Log payloads for debugging",
+)
+
+args: argparse.Namespace = parser.parse_args()
+
+for arg in vars(args):
+    value = getattr(args, arg)
+    if "password" in arg and value is not None:
+        value = "******"
+    print(arg, value)
+
+source_topic = KafkaTopicConfig(**json.loads(args.source_topic_json))
+target_topic = (
+    KafkaTopicConfig(**json.loads(args.target_topic_json))
+    if args.target_topic_json
+    else None
+)
+function_file_dir = args.function_file_dir
+function_file_name = args.function_file_name
+broker = args.broker
+sasl_mechanism = args.sasl_mechanism
+
+# Setup SASL config w/ supported mechanisms
+if args.sasl_mechanism is not None:
+    if args.sasl_mechanism not in ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"]:
+        raise Exception(f"Unsupported SASL mechanism: {args.sasl_mechanism}")
+    if args.sasl_username is None or args.sasl_password is None:
+        raise Exception(
+            "SASL username and password must be provided if a SASL mechanism is specified"
+        )
+    if args.security_protocol is None:
+        raise Exception(
+            "Security protocol must be provided if a SASL mechanism is specified"
+        )
+
+sasl_config = {
+    "username": args.sasl_username,
+    "password": args.sasl_password,
+    "mechanism": args.sasl_mechanism,
+}
+
+# We use flow- instead of function- because that's what the ACLs in boreal are linked with
+# When migrating - make sure the ACLs are updated to use the new prefix.
+# And make sure the prefixes are the same in the ts-moose-lib and py-moose-lib
+streaming_function_id = (
+    f"flow-{source_topic.name}-{target_topic.name}"
+    if target_topic
+    else f"flow-{source_topic.name}"
+)
+log_prefix = (
+    f"{source_topic.name} -> {target_topic.name}"
+    if target_topic
+    else f"{source_topic.name} (consumer)"
+)
+
+
+def log(msg: str) -> None:
+    """Log a message with the source->target topic prefix."""
+    function_context.log("info", f"{log_prefix}: {msg}")
+
+
+def error(msg: str) -> None:
+    """Raise an exception with the source->target topic prefix."""
+    raise Exception(f"{log_prefix}: {msg}")
+
+
+# parse json into the input type
+def parse_input(run_input_type: type, json_input: dict) -> Any:
+    """
+    Parse JSON input data into the appropriate input type for the streaming function.
+
+    Handles Pydantic models, nested dataclass structures and lists of dataclasses.
+
+    Args:
+        run_input_type: The type to parse the JSON into
+        json_input: The JSON data as a Python dict
+
+    Returns:
+        An instance of run_input_type populated with the JSON data
+    """
+
+    def deserialize(data, cls):
+        if hasattr(cls, "model_validate"):  # Check if it's a Pydantic model
+            return cls.model_validate(data)
+        elif dataclasses.is_dataclass(cls):
+            field_types = {f.name: f.type for f in dataclasses.fields(cls)}
+            return cls(
+                **{
+                    name: deserialize(data.get(name), field_types[name])
+                    for name in field_types
+                }
+            )
+        elif isinstance(data, list):
+            return [deserialize(item, cls.__args__[0]) for item in data]
+        else:
+            return data
+
+    return deserialize(json_input, run_input_type)
+
+
+def create_consumer() -> KafkaConsumer:
+    """
+    Create a Kafka consumer configured for the source topic.
+
+    Handles SASL authentication if configured.
+    Disables auto-commit to ensure at-least-once processing semantics.
+
+    Returns:
+        Configured KafkaConsumer instance
+    """
+
+    def _sr_json_deserializer(m: bytes):
+        if m is None:
+            return None
+        # Schema Registry JSON envelope: 0x00 + 4-byte schema ID (big-endian) + JSON
+        if len(m) >= 5 and m[0] == 0x00:
+            m = m[5:]
+        return json.loads(m.decode("utf-8"))
+
+    kwargs = dict(
+        broker=broker,
+        client_id="python_streaming_function_consumer",
+        group_id=streaming_function_id,
+        value_deserializer=_sr_json_deserializer,
+        sasl_username=sasl_config.get("username"),
+        sasl_password=sasl_config.get("password"),
+        sasl_mechanism=sasl_config.get("mechanism"),
+        security_protocol=args.security_protocol,
+        enable_auto_commit=False,  # Disable auto-commit for at-least-once semantics
+        auto_offset_reset="earliest",
+    )
+    consumer = get_kafka_consumer(**kwargs)
+    return consumer
+
+
+def create_producer() -> Optional[KafkaProducer]:
+    """
+    Create a Kafka producer configured for the target topic.
+
+    Handles SASL authentication if configured and sets appropriate message size limits.
+
+    Returns:
+        Configured KafkaProducer instance
+    """
+    max_request_size = (
+        KafkaProducer.DEFAULT_CONFIG["max_request_size"]
+        if target_topic is None
+        else target_topic.max_message_bytes
+    )
+    return get_kafka_producer(
+        broker=broker,
+        sasl_username=sasl_config.get("username"),
+        sasl_password=sasl_config.get("password"),
+        sasl_mechanism=sasl_config.get("mechanism"),
+        security_protocol=args.security_protocol,
+        max_request_size=max_request_size,
+    )
+
+
+def main():
+    """
+    Main entry point for the streaming function runner.
+
+    This function:
+    1. Loads the streaming function
+    2. Sets up metrics reporting thread and message processing thread
+    3. Handles graceful shutdown on signals
+    """
+    log(f"Loading streaming function")
+
+    # Shared state for metrics and control
+    running = threading.Event()
+    running.set()  # Start in running state
+    # Signal fatal errors across threads using Event (thread-safe)
+    fatal_error = threading.Event()
+    metrics = {"count_in": 0, "count_out": 0, "bytes_count": 0}
+    metrics_lock = threading.Lock()
+
+    # Shared references for cleanup
+    kafka_refs = {"consumer": None, "producer": None}
+
+    def send_message_metrics():
+        while running.is_set():
+            time.sleep(1)
+            with metrics_lock:
+                requests.post(
+                    f"http://localhost:{moose_management_port}/metrics-logs",
+                    json={
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "count_in": metrics["count_in"],
+                        "count_out": metrics["count_out"],
+                        "bytes": metrics["bytes_count"],
+                        "function_name": log_prefix,
+                    },
+                )
+                metrics["count_in"] = 0
+                metrics["count_out"] = 0
+                metrics["bytes_count"] = 0
+
+    def process_messages():
+        try:
+            streaming_function_input_type, streaming_function_callables = (
+                load_streaming_function(function_file_dir, function_file_name)
+            )
+
+            needs_producer = target_topic is not None or any(
+                pair[1] is not None for pair in streaming_function_callables
+            )
+
+            # Initialize Kafka connections in the processing thread
+            consumer = create_consumer()
+            producer = create_producer() if needs_producer else None
+
+            # Store references for cleanup
+            kafka_refs["consumer"] = consumer
+            kafka_refs["producer"] = producer
+
+            consumer.subscribe([source_topic.name])
+
+            # Force eager initialization: trigger group join and wait for partition assignment
+            # kafka-python is lazy - first poll() triggers connection and group join
+            # We do this explicitly to ensure consumer is fully ready before processing
+            #
+            # IMPORTANT: poll() during assignment wait might return messages. We must
+            # save these and process them first, otherwise they would be lost!
+            log("Waiting for consumer group assignment...")
+            start_time = time.time()
+            got_assignment = False
+            initial_messages = {}  # Save any messages received during assignment wait
+
+            while running.is_set():
+                # poll(0) triggers group join without blocking
+                # We save any returned messages to process after assignment is complete
+                poll_result = consumer.poll(timeout_ms=0)
+                if poll_result:
+                    # Merge any messages into our initial buffer
+                    for tp, msgs in poll_result.items():
+                        if tp in initial_messages:
+                            initial_messages[tp].extend(msgs)
+                        else:
+                            initial_messages[tp] = list(msgs)
+
+                assignment = consumer.assignment()
+                if assignment:
+                    log(
+                        f"Consumer ready with {len(assignment)} partition(s): {assignment}"
+                    )
+                    got_assignment = True
+                    break
+                if time.time() - start_time > PARTITION_ASSIGNMENT_TIMEOUT_SECONDS:
+                    raise RuntimeError(
+                        f"Consumer failed to get partition assignment within {PARTITION_ASSIGNMENT_TIMEOUT_SECONDS}s"
+                    )
+                time.sleep(PARTITION_ASSIGNMENT_POLL_INTERVAL_SECONDS)
+
+            # If we exited because of shutdown signal, don't proceed to main loop
+            if not got_assignment:
+                log("Shutdown requested during initialization, exiting")
+                return
+
+            # Log how many messages we received during assignment wait (if any)
+            initial_msg_count = sum(len(msgs) for msgs in initial_messages.values())
+            if initial_msg_count > 0:
+                log(
+                    f"Processing {initial_msg_count} message(s) received during assignment wait"
+                )
+
+            log("Kafka consumer and producer initialized in processing thread")
+
+            # Track whether we need to process initial messages first
+            pending_initial_messages = initial_messages if initial_messages else None
+
+            while running.is_set():
+                try:
+                    # First process any messages received during assignment wait
+                    if pending_initial_messages:
+                        messages = pending_initial_messages
+                        pending_initial_messages = None
+                    else:
+                        # Poll with timeout to allow checking running state
+                        messages = consumer.poll(timeout_ms=1000)
+
+                    if not messages:
+                        continue
+
+                    # Accumulate all outputs from all messages in this poll batch
+                    # We process all messages before committing to ensure at-least-once semantics
+                    batch_outputs = []
+                    batch_processed = True
+
+                    # Process each partition's messages
+                    for partition_messages in messages.values():
+                        if not batch_processed:
+                            break
+                        for message in partition_messages:
+                            log(
+                                f"Message partition={message.partition} offset={message.offset}"
+                            )
+
+                            # Count input messages consumed from Kafka
+                            with metrics_lock:
+                                metrics["count_in"] += 1
+
+                            if not running.is_set():
+                                # Shutdown requested - don't commit, messages will be reprocessed
+                                batch_processed = False
+                                break
+
+                            # Parse the message into the input type
+                            input_data = parse_input(
+                                streaming_function_input_type, message.value
+                            )
+
+                            # Log payload before transformation if enabled
+                            if getattr(args, "log_payloads", False):
+                                log(
+                                    f"[PAYLOAD:STREAM_IN] {json.dumps(input_data, cls=EnhancedJSONEncoder)}"
+                                )
+
+                            # Run the flow
+                            message_outputs = []
+                            for (
+                                streaming_function_callable,
+                                dlq,
+                            ) in streaming_function_callables:
+                                try:
+                                    # Wrap user function execution with structured logging context
+                                    output_data = function_context.run(
+                                        {"function_name": log_prefix},
+                                        lambda: streaming_function_callable(input_data),
+                                    )
+                                except Exception as e:
+                                    traceback.print_exc()
+                                    if dlq is not None:
+                                        dead_letter = DeadLetterModel(
+                                            original_record=message.value,
+                                            error_message=str(e),
+                                            error_type=e.__class__.__name__,
+                                            failed_at=datetime.now(timezone.utc),
+                                            source="transform",
+                                        )
+                                        record = dead_letter.model_dump_json().encode(
+                                            "utf-8"
+                                        )
+                                        producer.send(dlq.name, record).get()
+                                        cli_log(
+                                            CliLogData(
+                                                action="DeadLetter",
+                                                message=f"Sent message to DLQ {dlq.name}: {str(e)}",
+                                                message_type=CliLogData.ERROR,
+                                            )
+                                        )
+                                    else:
+                                        cli_log(
+                                            CliLogData(
+                                                action="Function",
+                                                message=f"Error processing message (no DLQ configured): {str(e)}",
+                                                message_type=CliLogData.ERROR,
+                                            )
+                                        )
+                                    # Skip to the next transformation or message
+                                    continue
+
+                                # For consumers, output_data will be None
+                                if output_data is None:
+                                    continue
+
+                                # Handle streaming function returning an array or a single object
+                                output_data_list = (
+                                    output_data
+                                    if isinstance(output_data, list)
+                                    else [output_data]
+                                )
+                                message_outputs.extend(output_data_list)
+
+                                cli_log(
+                                    CliLogData(
+                                        action="Received",
+                                        message=f"{log_prefix} {len(output_data_list)} message(s)",
+                                    )
+                                )
+
+                            batch_outputs.extend(message_outputs)
+
+                    # Only send outputs and commit if we processed the entire batch
+                    if batch_processed and producer is not None:
+                        # Log payload after transformation if enabled (what we're actually sending to Kafka)
+                        if getattr(args, "log_payloads", False):
+                            # Filter out None values to match what actually gets sent
+                            outgoing_data = [
+                                item for item in batch_outputs if item is not None
+                            ]
+                            if len(outgoing_data) > 0:
+                                log(
+                                    f"[PAYLOAD:STREAM_OUT] {json.dumps(outgoing_data, cls=EnhancedJSONEncoder)}"
+                                )
+                            else:
+                                log(
+                                    "[PAYLOAD:STREAM_OUT] (no output from streaming function)"
+                                )
+                        for item in batch_outputs:
+                            # Ignore flow function returning null
+                            if item is not None:
+                                record = json.dumps(
+                                    item, cls=EnhancedJSONEncoder
+                                ).encode("utf-8")
+
+                                producer.send(target_topic.name, record)
+
+                                with metrics_lock:
+                                    metrics["bytes_count"] += len(record)
+                                    metrics["count_out"] += 1
+
+                        # Flush producer to ensure messages are sent before committing
+                        producer.flush()
+
+                    # Commit offset only after ALL messages in the batch are successfully
+                    # processed and flushed. This ensures at-least-once delivery semantics.
+                    # In kafka-python, commit() without args commits the current consumer
+                    # position (the offset after all polled messages), so we must only call
+                    # it after processing the entire batch.
+                    if batch_processed:
+                        consumer.commit()
+
+                except Exception as e:
+                    traceback.print_exc()
+                    cli_log(
+                        CliLogData(
+                            action="Function Error",
+                            message=str(e),
+                            message_type="Error",
+                        )
+                    )
+                    if not running.is_set():
+                        break
+                    # Add a small delay before retrying on error
+                    time.sleep(1)
+
+        except Exception as e:
+            log(f"Fatal error in processing thread: {e}")
+            traceback.print_exc()
+            fatal_error.set()
+
+        finally:
+            # Cleanup Kafka resources
+            try:
+                if consumer:
+                    consumer.close()
+                if producer and producer is not None:
+                    producer.flush()
+                    producer.close()
+            except Exception as e:
+                log(f"Error during Kafka cleanup: {e}")
+
+    def shutdown(signum, frame):
+        """Handle shutdown signals gracefully"""
+        log("Received shutdown signal, cleaning up...")
+        running.clear()  # This will trigger the main loop to exit
+
+    # Set up signal handlers
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGHUP, shutdown)  # Handle parent process termination
+    signal.signal(signal.SIGQUIT, shutdown)  # Handle quit signal from parent
+
+    # Start the metrics thread
+    metrics_thread = threading.Thread(target=send_message_metrics)
+    metrics_thread.daemon = True
+    metrics_thread.start()
+
+    # Start the message processing thread
+    processing_thread = threading.Thread(target=process_messages)
+    processing_thread.daemon = True
+    processing_thread.start()
+
+    log(f"Streaming function Started")
+
+    try:
+        # Main thread waits for threads to complete
+        while running.is_set():
+            time.sleep(1)
+
+            if not processing_thread.is_alive() and running.is_set():
+                log("Processing thread died unexpectedly!")
+                fatal_error.set()
+                break
+
+    except Exception as e:
+        log(f"Unexpected error in main loop: {e}")
+        traceback.print_exc()
+        fatal_error.set()
+
+    finally:
+        # Ensure cleanup happens even if main thread gets interrupted
+        running.clear()
+        log("Shutting down threads...")
+
+        # Give threads a chance to exit gracefully with timeout
+        metrics_thread.join(timeout=5)
+        processing_thread.join(timeout=5)
+
+        if metrics_thread.is_alive():
+            log("Metrics thread did not exit cleanly")
+            fatal_error.set()
+        if processing_thread.is_alive():
+            log("Processing thread did not exit cleanly")
+            fatal_error.set()
+
+        # Clean up Kafka resources regardless of thread state
+        if kafka_refs["consumer"]:
+            try:
+                kafka_refs["consumer"].close()
+            except Exception as e:
+                log(f"Error closing consumer: {e}")
+
+        if kafka_refs["producer"] and kafka_refs["producer"] is not None:
+            try:
+                kafka_refs["producer"].flush()
+                kafka_refs["producer"].close()
+            except Exception as e:
+                log(f"Error closing producer: {e}")
+
+        exit_code = 1 if fatal_error.is_set() else 0
+        log(f"Shutdown complete with exit code {exit_code}")
+        sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

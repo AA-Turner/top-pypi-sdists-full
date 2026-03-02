@@ -4,12 +4,22 @@ import platform
 import sys
 import unittest
 
-from nose2.tests._common import FunctionalTestCase, support_file, windows_ci_skip
+from nose2.tests._common import (
+    FunctionalTestCase,
+    skip_if_running_in_daemon,
+    support_file,
+    windows_ci_skip,
+)
 
 
 class TestCoverage(FunctionalTestCase):
     def setUp(self):
         super().setUp()
+        if sys.version_info >= (3, 14):
+            self.skipTest(
+                "the coverage plugin is not tested on newer Pythons, "
+                "as part of its deprecation"
+            )
         try:
             import coverage  # noqa: F401
         except ImportError:
@@ -76,6 +86,7 @@ class TestCoverage(FunctionalTestCase):
         "FIXME: this test fails on modern pythons on macos",
     )
     @windows_ci_skip
+    @skip_if_running_in_daemon
     def test_run_with_mp(self):
         # this test needs to be done with nose2 config because (as of 2019-12)
         # multiprocessing does not allow each test process to pick up on

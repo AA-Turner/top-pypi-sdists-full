@@ -1,0 +1,209 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rh-model-signing"
+dynamic = ["version"]
+description = "A tool for signing and verifying ML models (Red Hat Tech Preview)"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Sigstore Authors", email = "sigstore-dev@googlegroups.com" }
+]
+maintainers = [
+  { name = "Aleksy Siek", email = "asiek@redhat.com" },
+  { name = "Kevin Conner", email = "kconner@redhat.com" },
+  { name = "Nina Bongartz", email = "nolear@redhat.com" },
+  { name = "Sachin Sampras", email = "sacm@redhat.com" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Security",
+  "Topic :: Security :: Cryptography",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+dependencies = [
+  "asn1crypto",
+  "blake3",
+  "click",
+  "cryptography",
+  "in-toto-attestation",
+  "sigstore>=4.0",
+  "sigstore-models>=0.0.5",
+  "typing_extensions",
+]
+requires-python = ">=3.10"
+keywords = [
+  "machine learning",
+  "artificial intelligence",
+  "model signing",
+  "AI security",
+  "ML security",
+  "AI supply chain security",
+  "ML supply chain security",
+]
+
+[project.optional-dependencies]
+pkcs11 = [
+    "PyKCS11",
+]
+otel = [
+  "opentelemetry-api",
+  "opentelemetry-sdk",
+  "opentelemetry-distro",
+  "opentelemetry-instrumentation",
+  "opentelemetry-instrumentation-urllib3",
+  "opentelemetry-exporter-otlp",
+]
+
+[project.scripts]
+model_signing = "model_signing._cli:main"
+rh_model_signing = "model_signing._cli:main"
+
+[project.urls]
+Homepage = "https://pypi.org/project/rh-model-signing/"
+Changelog = "https://github.com/securesign/model-transparency/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/securesign/model-transparency"
+Source = "https://github.com/securesign/model-transparency"
+Issues = "https://github.com/securesign/model-transparency/issues"
+PyPI = "https://pypi.org/project/rh-model-signing/"
+
+[tool.hatch.version]
+path = "src/model_signing/__init__.py"
+
+[tool.hatch.build]
+packages = ["src/model_signing"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.hatch-test]
+installer = "pip"
+parallel = true
+randomize = true
+extra-args = ["-m", "not integration"]
+features = [
+    "pkcs11",
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tool.hatch.envs.bench]
+description = """Custom environment for running benchmarks.
+Use `hatch run +py=3... bench:generate ${args}` to generate test models.
+Use `hatch run +py=3... bench:serialize ${args}` to benchmark serialization code.
+Use `hatch run +py=3... bench:hash ${args}` to benchmark hashing code.
+Use `hatch run +py=3... bench:chunk ${args}` to benchmark the chunk size parameter.
+"""
+extra-dependencies = [
+  "numpy",
+  "psutil",
+  "py-cpuinfo",
+]
+
+[[tool.hatch.envs.bench.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tool.hatch.envs.bench.scripts]
+generate = "python benchmarks/generate.py {args}"
+serialize = "python benchmarks/serialize.py {args}"
+hash = "python benchmarks/exp_hash.py {args}"
+chunk = "python benchmarks/exp_chunk.py {args}"
+
+[tool.hatch.envs.docs]
+description = """Custom environment for pdoc.
+Use `hatch run docs:serve` to view documentation.
+"""
+extra-dependencies = [
+  "pdoc"
+]
+
+[tool.hatch.envs.docs.scripts]
+serve = "pdoc model_signing --docformat google --edit-url model_signing=https://github.com/securesign/model-transparency/blob/main/src/model_signing/ {args}"
+build = "serve --output-directory html"
+
+[tool.hatch.envs.type]
+description = """Custom environment for pytype.
+Use `hatch run type:check` to check types.
+"""
+extra-dependencies = [
+  "py-cpuinfo",
+  "pytest",
+  "pytype",
+]
+features = [
+    "pkcs11",
+]
+installer = "pip"
+python = "3.12"
+
+[tool.hatch.envs.type.scripts]
+check = "pytype -k -j auto src tests benchmarks"
+
+[tool.coverage.report]
+exclude_also = [
+  "pass",
+  "return NotImplemented",
+]
+omit = ["tests/*"]
+show_missing = true
+skip_covered = true
+skip_empty = true
+
+# Add support for testing via the old `pytest .` way, too.
+[tool.pytest.ini_options]
+markers = [
+  "integration: mark a test as an integration test.",
+]
+pythonpath = "src"
+
+[tool.ruff]
+line-length = 80
+exclude = [
+    "docs/demo.ipynb",
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = ["B", "D", "E", "F", "I", "N", "PLC", "PLE", "PT", "SIM", "UP", "W"]
+ignore = [
+  # TODO: selectively enable back most of these in subsequent PRs
+  "B024", "D100", "D101", "D102", "D103", "D104", "D105", "D107", "D417",
+  # Unnecessary arguments can help with clarity
+  "UP012", "UP015",
+  "PLC0415", # Lazy imports
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[tool.ruff.lint.isort]
+force-single-line = true
+force-sort-within-sections = true
+lines-after-imports = 2
+single-line-exclusions = ["collections.abc", "typing"]
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = ["TestOneInput"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

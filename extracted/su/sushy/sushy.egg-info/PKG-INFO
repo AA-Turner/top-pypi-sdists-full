@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: sushy
+Version: 5.10.0
+Summary: Sushy is a small Python library to communicate with Redfish based systems
+Home-page: https://docs.openstack.org/sushy/latest/
+Author: OpenStack
+Author-email: openstack-discuss@lists.openstack.org
+Classifier: Environment :: OpenStack
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: pbr>=6.0.0
+Requires-Dist: requests>=2.14.2
+Requires-Dist: python-dateutil>=2.7.0
+Requires-Dist: stevedore>=1.29.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Overview
+========
+
+Sushy is a Python library to communicate with `Redfish`_ based systems.
+
+The goal of the library is to be extremely simple, small, have as few
+dependencies as possible and be very conservative when dealing with BMCs
+by issuing just enough requests to it (BMCs are very flaky).
+
+Therefore, the scope of the library has been limited to what is supported
+by the `OpenStack Ironic <https://wiki.openstack.org/wiki/Ironic>`_
+project. As the project grows and more features from `Redfish`_ are
+needed we can expand Sushy to fulfill those requirements.
+
+* Free software: Apache license
+* Includes Redfish registry files licensed under
+    Creative Commons Attribution 4.0 License:
+    https://creativecommons.org/licenses/by/4.0/
+* Documentation: https://docs.openstack.org/sushy/latest/
+* Usage: https://docs.openstack.org/sushy/latest/reference/usage.html
+* Source: https://opendev.org/openstack/sushy
+* Bugs: https://bugs.launchpad.net/sushy
+* Release Notes: https://docs.openstack.org/releasenotes/sushy/
+
+.. _Redfish: http://www.dmtf.org/standards/redfish
+

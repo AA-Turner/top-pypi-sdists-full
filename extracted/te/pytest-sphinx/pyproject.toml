@@ -1,0 +1,137 @@
+[project]
+name = "pytest-sphinx"
+version = "0.7.1"
+description = "Doctest plugin for pytest with support for Sphinx-specific doctest-directives"
+readme = "README.rst"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["sphinx", "pytest", "rst"]
+authors = [
+    { name="Thomas Wimmer", email="thomaswimmer@posteo.com" }
+]
+maintainers = [
+    { name="Thomas Wimmer", email="thomaswimmer@posteo.com" }
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+]
+
+# Requirements
+dependencies = [
+    "pytest >=8.1.1",
+]
+
+[project.optional-dependencies]
+lint = [
+    "ruff",
+]
+
+[project.urls]
+homepage = "https://github.com/thisch/pytest-sphinx"
+
+[project.entry-points."pytest11"]
+"sphinx" = "pytest_sphinx"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "sphinx>=8.1.3",
+]
+
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+target-version = "py310"
+
+
+[tool.ruff.lint]
+select = ["E", # pycodestyle
+          "F", # pyflakes
+          "PL", # pylint
+          "UP", # refurb
+          "R", # pylint-related
+          "D", # docstring
+          "PT", # pytest
+          "B",  # bugbear
+          "D212", # summary of multi-line docstrings should start at first line
+          "D417", # undocumented-param
+          "I",  # isort
+]
+ignore = [
+    "PLR2004", # magic value used in comparison
+    "PLR0911", # too many return statements
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "D100", # missing docstring in public module
+    "D101", # missing docstring in public class
+    "D102", # missing docstring in public method
+    "D103", # missing docstring in public function
+    "D104", # missing docstring in public package
+    "D105", # missing docstring in magic method
+    "D107", # missing docstring in __init__
+    "D401", # imperative mood
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]

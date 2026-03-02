@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-aio"
+version = "2.1.7"
+description = "Pytest plugin for testing async python code"
+authors = [{ name = "Kirill Klenov", email = "horneds@gmail.com" }]
+requires-python = ">=3.10,<4"
+readme = "README.rst"
+license = "MIT"
+keywords = ["pytest", "asyncio", "trio", "curio"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Testing",
+  "Framework :: Pytest",
+]
+dependencies = ["pytest"]
+
+[project.optional-dependencies]
+trio = ["trio"]
+uvloop = ["uvloop"]
+curio = ["curio-compat"]
+
+[project.urls]
+Homepage = "https://github.com/klen/pytest-aio"
+Repository = "https://github.com/klen/pytest-aio"
+
+[project.entry-points.pytest11]
+aio = "pytest_aio.plugin"
+
+[dependency-groups]
+dev = [
+  "anyio",
+  "hypothesis",
+  "pre-commit",
+  "pytest",
+  "pytest-xdist",
+  "ruff",
+  "tox",
+  "trio_asyncio",
+  "curio-compat",
+  "trio",
+  "uvloop",
+  "pyrefly>=0.52.0",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["pytest_aio"]
+
+[tool.hatch.build.targets.wheel]
+include = ["pytest_aio"]
+
+[tool.pytest.ini_options]
+addopts = "-xsv"
+log_cli = true
+
+[tool.ruff]
+include = ["pytest_aio/*.py"]
+target-version = "py310"
+line-length = 100
+
+[tool.pyrefly]
+project-includes = ["pytest_aio"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+envlist = py310,py311,py312,py313,py314
+
+[testenv]
+allowlist_externals = uv
+commands_pre =
+    uv install
+commands
+    uv run pytest -n auto tests --import-mode importlib
+"""
+
+[tool.bumpversion]
+current_version = "2.1.7"
+commit = false
+tag = false
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

@@ -1,0 +1,39 @@
+version: 2
+
+jobs:
+  py39:
+    docker:
+      - image: circleci/python:3.9
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install tox
+            tox -e py39
+  py310:
+    docker:
+      - image: circleci/python:3.10
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install tox
+            tox -e py310
+  pep8:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install tox
+            tox -e pep8
+
+workflows:
+  version: 2
+
+  test:
+    jobs:
+      - pep8
+      - py39
+      - py310

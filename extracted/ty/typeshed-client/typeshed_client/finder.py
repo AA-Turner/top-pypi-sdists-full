@@ -125,18 +125,29 @@ def get_all_stub_files(
         for search_path_entry in search_context.search_path:
             if not safe_exists(search_path_entry):
                 continue
-            for directory in safe_scandir(search_path_entry):
-                if not safe_is_dir(directory):
+            for entry in safe_scandir(search_path_entry):
+                if not safe_is_dir(entry):
+                    path = Path(entry)
+                    if (
+                        not stub_packages
+                        and safe_is_file(entry)
+                        and path.suffix == ".pyi"
+                    ):
+                        module_name = path.stem
+                        if module_name in seen:
+                            continue
+                        yield (module_name, path)
+                        seen.add(module_name)
                     continue
                 condition = (
-                    directory.name.endswith("-stubs")
+                    entry.name.endswith("-stubs")
                     if stub_packages
-                    else directory.name.isidentifier()
+                    else entry.name.isidentifier()
                 )
                 if not condition:
                     continue
                 seen = yield from _get_all_stub_files_from_directory(
-                    directory, search_path_entry, seen
+                    entry, search_path_entry, seen
                 )
 
     # typeshed
@@ -186,11 +197,8 @@ def _get_all_stub_files_from_directory(
         current_dir = to_do.pop()
         for dir_entry in safe_scandir(current_dir):
             if safe_is_dir(dir_entry):
-                if not dir_entry.name.isidentifier():
-                    continue
-                path = Path(dir_entry)
-                if any(safe_is_file(path / init) for init in _INIT_NAMES):
-                    to_do.append(path)
+                if dir_entry.name.isidentifier():
+                    to_do.append(Path(dir_entry))
             elif safe_is_file(dir_entry):
                 path = Path(dir_entry)
                 if path.suffix != ".pyi":

@@ -1,0 +1,85 @@
+variables:
+  MPLBACKEND: agg # Necessary when running test which generate matplotlib figure
+  ENV_NAME: test_env
+  RESULT_IMAGES_FOLDER: 'result_images'
+
+trigger:
+  tags:
+    include:
+    # build on any tag
+    - '*'
+  branches:
+    include:
+    # build on all branches
+    - '*'
+
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: hyperspy/ci-scripts
+      # For more details on service connection endpoint, see
+      # https://docs.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints
+      endpoint: hyperspy # Azure DevOps service connection
+      ref: use_miniforge
+
+strategy:
+  matrix:
+    Linux_Python311:
+      vmImage: 'ubuntu-latest'
+      PYTHON_VERSION: '3.11'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)/miniforge3
+    Linux_Python312:
+      vmImage: 'ubuntu-latest'
+      PYTHON_VERSION: '3.12'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)/miniforge3
+    MacOS_Python311:
+      vmImage: 'macOS-latest'
+      PYTHON_VERSION: '3.11'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)/miniforge3
+    MacOS_Python312:
+      vmImage: 'macOS-latest'
+      PYTHON_VERSION: '3.12'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)/miniforge3
+    Windows_Python311:
+      vmImage: 'windows-latest'
+      PYTHON_VERSION: '3.11'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)\miniforge3
+    Windows_Python312:
+      vmImage: 'windows-latest'
+      PYTHON_VERSION: '3.12'
+      MINIFORGE_PATH: $(Agent.BuildDirectory)\miniforge3
+
+pool:
+  vmImage: '$(vmImage)'
+
+steps:
+- checkout: self
+  fetchDepth: '1' # Fetch only one commit
+- template: azure_pipelines/clone_ci-scripts_repo.yml@templates
+- template: azure_pipelines/install_miniforge.yml@templates
+- template: azure_pipelines/activate_conda.yml@templates
+- template: azure_pipelines/setup_anaconda_packages.yml@templates
+
+- bash: |
+    source activate $ENV_NAME
+    pip install --no-deps -e .
+    conda list
+  displayName: Install package
+
+- bash: |
+    source activate $ENV_NAME
+    conda clean --all -y
+  displayName: Clean conda cache
+
+# Note we must use `-n 2` argument for pytest-xdist due to
+# https://github.com/pytest-dev/pytest-xdist/issues/9.
+- bash: |
+    source activate $ENV_NAME
+    pytest --mpl --pyargs hyperspy --reruns 3 --instafail --mpl-results-path $RESULT_IMAGES_FOLDER
+  displayName: Run test suite
+
+- publish: $(System.DefaultWorkingDirectory)/$(RESULT_IMAGES_FOLDER)
+  artifact: $(Agent.JobName)-result_images
+  displayName: Publish Image Comparison
+  condition: failed()

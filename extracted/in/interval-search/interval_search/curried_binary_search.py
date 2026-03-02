@@ -1,0 +1,3 @@
+from .curried_binary_search_iterative import curried_binary_search_iterative
+
+curried_binary_search = curried_binary_search_iterative

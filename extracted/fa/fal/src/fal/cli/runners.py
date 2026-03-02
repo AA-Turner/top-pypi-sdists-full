@@ -27,7 +27,7 @@ from rich.console import Console
 from structlog.typing import EventDict
 
 from fal.api.client import SyncServerlessClient
-from fal.sdk import RunnerInfo, RunnerState
+from fal.sdk import ReplaceState, RunnerInfo, RunnerState
 
 from .parser import FalClientParser, SinceAction, get_output_parser
 
@@ -69,6 +69,9 @@ def runners_table(runners: List[RunnerInfo]):
         uptime = timedelta(
             seconds=int(runner.uptime.total_seconds()),
         )
+        state = runner.state.value
+        if runner.replacement == ReplaceState.WILL_REPLACE:
+            state = f"{state} (*)"
         table.add_row(
             runner.alias,
             runner.machine_type,
@@ -82,7 +85,7 @@ def runners_table(runners: List[RunnerInfo]):
             ),
             f"{uptime} ({uptime.total_seconds():.0f}s)",
             runner.revision,
-            runner.state.value,
+            state,
         )
 
     return table
@@ -249,7 +252,7 @@ def _shell(args):
 
 def _stop(args):
     client = SyncServerlessClient(host=args.host, team=args.team)
-    client.runners.stop(args.id)
+    client.runners.stop(args.id, replace_first=not args.no_replace)
 
 
 def _kill(args):
@@ -268,6 +271,7 @@ def _list_json(args, runners: list[RunnerInfo]):
             "uptime_seconds": int(r.uptime.total_seconds()),
             "revision": r.revision,
             "state": r.state.value,
+            "replacement": r.replacement.value,
         }
         for r in runners
     ]
@@ -328,6 +332,9 @@ def _list(args):
             )
         args.console.print(runners_table(runners))
 
+        if any(runner.replacement == ReplaceState.WILL_REPLACE for runner in runners):
+            args.console.print("[dim](*) Runner has been scheduled for replacement[/]")
+
         requests_table = runners_requests_table(runners)
         args.console.print(f"Requests: {len(requests_table.rows)}")
         args.console.print(requests_table)
@@ -348,6 +355,13 @@ def _add_stop_parser(subparsers, parents):
     parser.add_argument(
         "id",
         help="Runner ID.",
+    )
+    parser.add_argument(
+        "-r",
+        "--replace",
+        action="store_true",
+        default=False,
+        help="Stop the runner after first spawning a replacement.",
     )
     parser.set_defaults(func=_stop)
 

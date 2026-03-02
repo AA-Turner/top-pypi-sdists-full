@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mindroom-frontend-{{ .Values.customer }}
+  namespace: mindroom-instances
+  labels:
+    app: mindroom-frontend
+    customer: {{ .Values.customer | quote }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3003
+    targetPort: 8080  # Targets nginx auth proxy (non-root)
+    name: http
+  selector:
+    app: mindroom-frontend
+    customer: {{ .Values.customer | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mindroom-backend-{{ .Values.customer }}
+  namespace: mindroom-instances
+  labels:
+    app: mindroom-backend
+    customer: {{ .Values.customer | quote }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8765
+    targetPort: 8765  # API server in backend container
+    name: api
+  selector:
+    app: mindroom-backend
+    customer: {{ .Values.customer | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synapse-{{ .Values.customer }}
+  namespace: mindroom-instances
+  labels:
+    app: synapse
+    customer: {{ .Values.customer | quote }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8008
+    targetPort: 8008
+    name: http
+  selector:
+    app: synapse
+    customer: {{ .Values.customer | quote }}

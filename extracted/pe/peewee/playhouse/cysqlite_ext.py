@@ -6,6 +6,7 @@ from peewee import ImproperlyConfigured
 from peewee import OP
 from peewee import SqliteDatabase
 from peewee import __exception_wrapper__
+from playhouse.pool import _PooledSqliteDatabase
 from playhouse.sqlite_ext import (
     RowIDField,
     DocIDField,
@@ -24,7 +25,7 @@ from playhouse.sqlite_udf import rank
 try:
     import cysqlite
 except ImportError as exc:
-    raise ImportError('cysqlite is not installed') from exc
+    raise ImportError('cysqlite is not installed')
 
 
 logger = logging.getLogger('peewee')
@@ -269,6 +270,10 @@ class CySqliteDatabase(SqliteDatabase):
         cysqlite.SQLITE_DBSTATUS_CACHE_MISS, False, True)
     cache_write = __dbstatus__(
         cysqlite.SQLITE_DBSTATUS_CACHE_WRITE, False, True)
+
+
+class PooledCySqliteDatabase(_PooledSqliteDatabase, CySqliteDatabase):
+    pass
 
 
 OP.MATCH = 'MATCH'

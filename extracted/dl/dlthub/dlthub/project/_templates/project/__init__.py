@@ -1,0 +1,22 @@
+GIT_IGNORE = """
+.venv
+.pytest_cache
+.ruff_cache
+.dlt/profile-name
+_data
+.dlt/.var
+_local
+*.secrets.toml
+
+# oss .gitignore
+# ignore secrets, virtual environments and typical python compilation artifacts
+secrets.toml
+# ignore basic python artifacts
+.env
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+# ignore duckdb
+*.duckdb
+*.wal
+"""

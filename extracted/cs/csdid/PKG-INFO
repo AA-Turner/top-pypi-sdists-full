@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: csdid
+Version: 0.2.9
+Summary: Difference in Difference in Python
+Home-page: https://github.com/d2cml-ai/csdid
+Author: D2CML Team, Alexander Quispe, Carlos Guevara, Jhon Flroes
+License: MIT
+Keywords: Causal inference,Research
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: patsy
+Requires-Dist: plotnine
+Requires-Dist: twine
+Requires-Dist: joblib
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

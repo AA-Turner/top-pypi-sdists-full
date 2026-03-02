@@ -1,0 +1,294 @@
+Metadata-Version: 2.4
+Name: abstract_gui
+Version: 0.1.63.229
+Summary: abstract_gui provides reusable components, factories, utilities for logging, threading, state management, and more, making it easier to build responsive, feature-rich interfaces without boilerplate code.
+Home-page: https://github.com/AbstractEndeavors/abstract_gui
+Author: putkoff
+Author-email: partners@abstractendeavors.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: abstract_utilities
+Requires-Dist: PySimpleGUIWeb
+Requires-Dist: PySimpleGUI
+Requires-Dist: pydot
+Requires-Dist: clipboard
+Requires-Dist: PyQt6
+Requires-Dist: abstract_apis
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Abstract GUI
+
+[![PyPI version](https://badge.fury.io/py/abstract-gui.svg)](https://badge.fury.io/py/abstract-gui)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`abstract_gui` is a modular Python library designed to streamline the development of cross-platform GUI applications using PyQt5 and PyQt6. It provides reusable components, factories, utilities for logging, threading, state management, and more, making it easier to build responsive, feature-rich interfaces without boilerplate code. The library emphasizes modularity, backward compatibility between PyQt versions, and integration with other "abstract" ecosystem tools (e.g., `abstract_paths`, `abstract_utilities`).
+
+This library is particularly useful for:
+- Rapid prototyping of desktop tools (e.g., file explorers, consoles, data viewers).
+- Managing complex UIs with collapsible sections, shared state across tabs, and background workers.
+- Handling common tasks like table rendering, signal connections, and robust logging.
+
+## Features
+
+- **PyQt5/PyQt6 Compatibility**: Seamless support for both versions with shims for enums and APIs.
+- **Widget Factories**: Quick creation of buttons, combos, checkboxes, tables with auto-wiring (signals, properties).
+- **Logging Integration**: Thread-safe logging bridged to Qt widgets (e.g., `QTextEdit`), with file rotation and Qt message handling.
+- **Threading Utilities**: Background workers (e.g., `QThread` for file scanning, API requests) with progress signals.
+- **State Management**: Shared bus for syncing data across tabs/widgets (e.g., filters in multi-tab consoles).
+- **UI Enhancements**: Collapsible panels, resizable windows, screen-aware sizing, and visibility managers.
+- **Request Handling**: Built-in `QThread` for HTTP GET/POST with timeouts and error handling.
+- **Console Tools**: Base classes for tabbed consoles with shared state, results lists, and input forms.
+- **Dynamic Imports**: Auto-discovery and attachment of functions from `functions/` directories for modular code.
+
+The library is lightweight (no external GUI frameworks beyond PyQt) and integrates well with Python's standard library and tools like `subprocess`, `logging`, and `pathlib`.
+
+## Installation
+
+Install via pip:
+
+```bash
+pip install abstract-gui
+```
+
+### Requirements
+- Python >= 3.6
+- PyQt5 or PyQt6 (one is sufficient; the library handles compatibility)
+- Dependencies (auto-installed):
+  - `abstract_apis` (for HTTP utilities)
+  - `abstract_paths` (file/path helpers)
+  - `abstract_utilities` (general utilities)
+  - `clipboard` (for copy-paste)
+  - `dataclasses` (Python 3.7+ standard)
+  - `importlib`, `inspect`, `pathlib`, `shlex` (standard library)
+
+For development:
+```bash
+pip install -e .[dev]  # If cloning the repo
+```
+
+### Optional Extras
+- For advanced logging: `RotatingFileHandler` (standard).
+- For HTTP: `requests` (via `abstract_apis`).
+
+## Quick Start
+
+### Basic Window Creation
+```python
+from abstract_gui.QT6.widgets import createButton, getQHBoxLayout
+from abstract_gui.QT6.utils.console_utils.startConsole import startConsole
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout
+
+class MyWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Abstract GUI Example")
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+
+        # Add a button using the factory
+        btn = createButton(
+            parent=central,
+            layout=layout,
+            label="Click Me!",
+            connect=lambda: print("Button clicked!"),
+            props={"minimumWidth": 150}  # Apply properties
+        )
+
+        # Add a horizontal layout with label
+        row = getQHBoxLayout(label="Status:")
+        layout.addLayout(row)
+
+if __name__ == "__main__":
+    app = startConsole(MyWindow)  # Handles app creation, logging, and exec()
+```
+
+This creates a resizable window with a button and status row, auto-wires the click signal, and sets up basic logging.
+
+### Running the App
+The `startConsole` utility:
+- Ensures `QApplication` exists.
+- Wires logging to a collapsible panel.
+- Handles graceful shutdown for threads.
+- Runs `app.exec()` and returns the exit code.
+
+Output:
+```
+[INFO] Starting console application
+[INFO] Button clicked!
+```
+
+### Adding a Table
+```python
+from abstract_gui.QT6.widgets import createTable
+
+# In your window init:
+data = [
+    {"Name": "Alice", "Age": 30},
+    {"Name": "Bob", "Age": 25}
+]
+headers_config = {
+    "Name": {"horizontalHeader": "Stretch"},
+    "Age": {"ColumnWidth": 80}
+}
+
+table = createTable(
+    parent=central,
+    layout=layout,
+    data=data,
+    headers_config=headers_config,
+    connect={"signals": ["itemSelectionChanged"], "callbacks": self.on_row_select},
+    props={"alternatingRowColors": True}
+)
+
+def on_row_select(self):
+    print("Row selected!")
+```
+
+This auto-populates the table, configures columns, and connects selection signals.
+
+## Key Modules
+
+### QT6/Factories
+Core builders for widgets with auto-configuration:
+- `signal_registry.py`: Discovers and ranks Qt signals (e.g., `textChanged`, `clicked`).
+- `auto_signals.py`: Connects callbacks to signals (e.g., `connect_signals(widget, callback)`).
+- `tableFactory.py` / `table_factory_headers_config.py`: Creates `QTableWidget` with data, headers, resizing, and signals.
+- `properties_resolver.py`: Applies dict of properties (e.g., `{"readOnly": True}`) with type coercion.
+- `abstract_visibility.py`: `VisibilityMgr` for collapsible sections with animation and persistence.
+
+Example:
+```python
+from abstract_gui.QT6.factories import createTable, connect_signals
+
+table = createTable(parent=self, data=my_data, connect=self.on_table_event)
+```
+
+### QT6/Utils/Console_Utils
+Tools for console-like apps:
+- `consoleBase.py`: Base `QWidget` with shared state bus (`SharedStateBus`).
+- `startConsole.py`: Runner that sets up app, logging, and collapsible panels.
+- `ensure_resizable.py`: Caps window size to screen, handles multi-monitor drags.
+- `worker_scans.py`: `DirScanWorker` for background file scanning with progress.
+- `collapsable_log_panel.py`: Expandable log panel that resizes the window dynamically.
+
+### QT6/Utils/Log_Utils
+Robust logging:
+- `robustLogger/log_utils.py`: Bridges Python logging to `QTextEdit` with queueing and tailing.
+- `attach_textedit_to_logs(widget)`: Streams logs to a widget, filters by logger name.
+- Handles exceptions, Qt messages, and file rotation (`RotatingFileHandler`).
+
+Example:
+```python
+from abstract_gui.QT6.utils.log_utils import attach_textedit_to_logs, get_log_file_path
+
+log_widget = QTextEdit()
+attach_textedit_to_logs(log_widget, tail_file=get_log_file_path())
+```
+
+### QT6/Utils/Request_Utils
+Async HTTP:
+- `RequestThread`: `QThread` for GET/POST with timeouts, JSON handling, and API prefix detection.
+
+Example:
+```python
+from abstract_gui.QT6.utils.request_utils import requestThread
+
+thread = requestThread("GET", "https://api.example.com/data")
+thread.response_signal.connect(self.on_response)
+thread.start()
+```
+
+### QT6/Utils/Share_Utils
+Shared components for multi-tab UIs:
+- `shared/inputs.py`: Common input forms (dirs, filters, checkboxes) with state syncing.
+- `shared/states/`: Read/write state dicts for bus syncing.
+- `shared/results/`: `QListWidget` for results with double-click open.
+- `shared/visibility/`: Collapsible managers.
+
+### Widgets
+High-level creators:
+- `createButton`, `createCheckBox`, `createCombo`, `createTable`: Factories with props, connects, and layout helpers.
+- `addWidget`, `getQHBoxLayout`: Layout utilities.
+
+### SIMPLEGUI
+Legacy/simple mode:
+- `initFuncGen.py`: Auto-generates `__init__.py` and `initFuncs` for dynamic function attachment from `functions/` dirs.
+
+## Examples
+
+### Multi-Tab Console with Shared Filters
+See `runApiGui.py` in the repo for a full example. It creates tabs with shared search filters, results lists, and logging.
+
+### Background File Search
+```python
+from abstract_gui.QT6.utils.console_utils.worker_scans import DirScanWorker, wire_dir_scan
+
+def on_progress(self, paths):
+    for p in paths:
+        self.results.addItem(p)  # Update UI
+
+th, worker = wire_dir_scan(self, "/path/to/dir", {".py"}, on_progress=on_progress, on_done=self.on_done)
+```
+
+### API Request with Logging
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+thread = requestThread("POST", url, {"key": "value"})
+thread.error_signal.connect(lambda msg: logger.error(msg))
+thread.start()
+```
+
+## API Reference
+
+### Core Functions
+- `createTable(...)`: Builds configurable tables (see factories).
+- `connect_signals(widget, callbacks, signals=...)`: Auto-connects ranked signals.
+- `apply_properties(widget, props_dict)`: Sets properties with coercion (e.g., enums, size policies).
+- `attach_textedit_to_logs(widget)`: Streams logs to UI.
+- `VisibilityMgr.register(name, container)`: Collapsible animated sections.
+
+### Classes
+- `SharedStateBus`: Emits state changes across components.
+- `requestThread`: Threaded HTTP client.
+- `DirScanWorker`: File scanner with chunks.
+- `CollapsibleLogPanel`: Resizable log view.
+
+For full docs, see inline docstrings or generate with Sphinx.
+
+## Contributing
+
+1. Fork the repo.
+2. Install dev deps: `pip install -e .[dev]`.
+3. Add tests in `tests/`.
+4. Run `pytest` and `black .` for formatting.
+5. Submit PRs to `main`.
+
+Report issues on GitHub.
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+## Related Projects
+- [abstract_paths](https://github.com/AbstractEndeavors/abstract_paths): File/path utilities.
+- [abstract_utilities](https://github.com/AbstractEndeavors/abstract_utilities): General helpers.
+- [abstract_apis](https://github.com/AbstractEndeavors/abstract_apis): API/HTTP tools.
+
+Built by Abstract Endeavors. Questions? Email [partners@abstractendeavors.com](mailto:partners@abstractendeavors.com).
+

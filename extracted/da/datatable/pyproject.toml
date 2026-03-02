@@ -1,4 +1,0 @@
-[build-system]
-requires = []
-build-backend = "ext"
-backend-path = ["ci"]

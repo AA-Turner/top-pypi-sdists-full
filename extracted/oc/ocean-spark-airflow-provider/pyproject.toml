@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "ocean-spark-airflow-provider"
+version = "1.1.4"
+description = "Apache Airflow connector for Ocean for Apache Spark"
+authors = ["Ocean for Apache Spark authors <clement.rezvoy@netapp.com>" ]
+license = "Apache License 2.0"
+readme = "README.md"
+homepage = "https://spot.io/products/ocean-apache-spark/"
+repository = "https://github.com/spotinst/ocean-spark-airflow-provider"
+keywords = ["airflow", "provider", "spark", "ocean"]
+classifiers = [
+            "Development Status :: 4 - Beta",
+            "License :: OSI Approved :: Apache Software License",
+            "Programming Language :: Python :: 3",
+            "Operating System :: OS Independent"
+]
+include = [
+        "LICENSE",
+]
+packages = [
+         { include = "ocean_spark" },
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.7"
+apache-airflow = ">=1"
+requests = "^2.0.0"
+websockets = { version = "^13.0.1", python = "^3.8" }
+grpcio = { version =  ">=1.50.0", python = "^3.8" }
+grpcio-status = { version =  ">=1.48.2", python = "^3.8" }
+googleapis-common-protos = { version = ">=1.56.4", python = "^3.8" }
+pandas = { version = ">=1.5.1", python = "^3.8" }
+pyarrow = { version = "*", python = "^3.8" }
+pyspark = { version = ">=3.3.1", python = "^3.8" }
+packaging = ">=20.9"
+
+
+[tool.poetry.dev-dependencies]
+black = "^22.12.0"
+flake8 = "~=4.0.1"
+mypy = { version = "^1.11.2", python = "^3.9" }
+pytest = "~=6.1"
+pytest-mock = "~=3.5.1"
+requests-mock = "~=1.8.0"
+apache-airflow = "^2.2.3"
+types-requests = "^2.20"
+types-jinja2 = "^2.2.11"
+
+
+[tool.poetry.plugins]
+
+[tool.poetry.plugins."apache_airflow_provider"]
+provider_info="ocean_spark:get_provider_info"
+
+[tool.poetry.plugins."airflow.plugins"]
+ocean_spark="ocean_spark.plugins:OceanSparkPlugin"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

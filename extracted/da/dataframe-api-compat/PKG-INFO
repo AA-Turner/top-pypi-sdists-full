@@ -1,0 +1,28 @@
+Metadata-Version: 2.3
+Name: dataframe_api_compat
+Version: 0.2.7
+Summary: Implementation of the DataFrame Standard for pandas and Polars
+Project-URL: Homepage, https://github.com/data-apis/dataframe-api-compat
+Project-URL: Bug Tracker, https://github.com/data-apis/dataframe-api-compat
+Author-email: Marco Gorelli <33491632+MarcoGorelli@users.noreply.github.com>
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Requires-Dist: packaging; python_version < '3.9'
+Description-Content-Type: text/markdown
+
+[![Build Status](https://github.com/data-apis/dataframe-api-compat/workflows/tox/badge.svg)](https://github.com/data-apis/dataframe-api-compat/actions?workflow=tox)
+[![Coverage](https://codecov.io/gh/MarcoGorelli/cython-lint/branch/main/graph/badge.svg)](https://codecov.io/gh/data-apis/dataframe-api-compat)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/MarcoGorelli/dataframe-api-compat/main.svg)](https://results.pre-commit.ci/latest/github/MarcoGorelli/dataframe-api-compat/main)
+
+# Dataframe API Compat
+
+Extremely lightweight compatibility layer between pandas, Polars, Modin and any other project which implements the [Python Dataframe API Standard](https://data-apis.org/dataframe-api/).
+
+- ✅ No dependencies.
+- ✅ Lightweight: wheel is smaller than 50 kB.
+- ✅ Simple, minimal, and predictable.
+
+Documentation, including installation instructions and tutorial, are here: https://data-apis.org/dataframe-api-compat.

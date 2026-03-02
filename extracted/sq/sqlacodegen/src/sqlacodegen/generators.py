@@ -427,6 +427,7 @@ class TablesGenerator(CodeGenerator):
         kwargs = {
             key: repr(value) if isinstance(value, str) else value
             for key, value in sorted(index.kwargs.items(), key=lambda item: item[0])
+            if value not in ([], {})
         }
         if index.unique:
             kwargs["unique"] = True
@@ -541,6 +542,77 @@ class TablesGenerator(CodeGenerator):
         else:
             return render_callable("mapped_column", *args, kwargs=kwargs)
 
+    def _render_column_type_value(self, value: Any) -> str:
+        if isinstance(value, (JSONB, JSON)):
+            # Remove astext_type if it's the default
+            if isinstance(value.astext_type, Text) and value.astext_type.length is None:
+                value.astext_type = None  # type: ignore[assignment]
+            else:
+                self.add_import(Text)
+
+        if isinstance(value, TextClause):
+            self.add_literal_import("sqlalchemy", "text")
+            return render_callable("text", repr(value.text))
+
+        return repr(value)
+
+    def _collect_inherited_init_kwargs(
+        self,
+        column_type: Any,
+        init_sig: inspect.Signature,
+        seen_param_names: set[str],
+        missing: object,
+    ) -> dict[str, str]:
+        has_var_keyword = any(
+            param.kind is Parameter.VAR_KEYWORD
+            for param in init_sig.parameters.values()
+        )
+        has_var_positional = any(
+            param.kind is Parameter.VAR_POSITIONAL
+            for param in init_sig.parameters.values()
+        )
+        if not has_var_keyword or has_var_positional:
+            return {}
+
+        inherited_kwargs: dict[str, str] = {}
+        for supercls in column_type.__class__.__mro__[1:]:
+            if supercls is object:
+                break
+
+            try:
+                super_sig = inspect.signature(supercls.__init__)
+            except (TypeError, ValueError):
+                continue
+
+            for super_param in list(super_sig.parameters.values())[1:]:
+                if super_param.name.startswith("_"):
+                    continue
+
+                if super_param.kind in (
+                    Parameter.POSITIONAL_ONLY,
+                    Parameter.VAR_POSITIONAL,
+                    Parameter.VAR_KEYWORD,
+                ):
+                    continue
+
+                if super_param.name in seen_param_names:
+                    continue
+
+                seen_param_names.add(super_param.name)
+                value = getattr(column_type, super_param.name, missing)
+                if value is missing:
+                    continue
+
+                default = super_param.default
+                if default is not Parameter.empty and value == default:
+                    continue
+
+                inherited_kwargs[super_param.name] = self._render_column_type_value(
+                    value
+                )
+
+        return inherited_kwargs
+
     def render_column_type(self, column: Column[Any]) -> str:
         column_type = column.type
         # Check if this is an enum column with a Python enum class
@@ -586,6 +658,8 @@ class TablesGenerator(CodeGenerator):
         defaults = {param.name: param.default for param in sig.parameters.values()}
         missing = object()
         use_kwargs = False
+        seen_param_names: set[str] = set()
+
         for param in list(sig.parameters.values())[1:]:
             # Remove annoyances like _warn_on_bytestring
             if param.name.startswith("_"):
@@ -594,31 +668,24 @@ class TablesGenerator(CodeGenerator):
                 use_kwargs = True
                 continue
 
+            seen_param_names.add(param.name)
             value = getattr(column_type, param.name, missing)
-
-            if isinstance(value, (JSONB, JSON)):
-                # Remove astext_type if it's the default
-                if (
-                    isinstance(value.astext_type, Text)
-                    and value.astext_type.length is None
-                ):
-                    value.astext_type = None  # type: ignore[assignment]
-                else:
-                    self.add_import(Text)
-
             default = defaults.get(param.name, missing)
-            if isinstance(value, TextClause):
-                self.add_literal_import("sqlalchemy", "text")
-                rendered_value = render_callable("text", repr(value.text))
-            else:
-                rendered_value = repr(value)
-
             if value is missing or value == default:
                 use_kwargs = True
-            elif use_kwargs:
+                continue
+
+            rendered_value = self._render_column_type_value(value)
+            if use_kwargs:
                 kwargs[param.name] = rendered_value
             else:
                 args.append(rendered_value)
+
+        kwargs.update(
+            self._collect_inherited_init_kwargs(
+                column_type, sig, seen_param_names, missing
+            )
+        )
 
         vararg = next(
             (
@@ -710,6 +777,9 @@ class TablesGenerator(CodeGenerator):
             try:
                 value = dialect_kwargs[key]
             except Exception:
+                continue
+
+            if isinstance(value, list | dict) and not value:
                 continue
 
             # Render values:
@@ -1671,13 +1741,16 @@ class DeclarativeGenerator(TablesGenerator):
     ) -> Mapping[str, Any]:
         def render_column_attrs(column_attrs: list[ColumnAttribute]) -> str:
             rendered = []
+            render_as_string = False
             for attr in column_attrs:
-                if attr.model is relationship.source:
+                if not self.explicit_foreign_keys and attr.model is relationship.source:
                     rendered.append(attr.name)
                 else:
-                    rendered.append(repr(f"{attr.model.name}.{attr.name}"))
+                    rendered.append(f"{attr.model.name}.{attr.name}")
+                    render_as_string = True
 
-            return "[" + ", ".join(rendered) + "]"
+            joined = "[" + ", ".join(rendered) + "]"
+            return repr(joined) if render_as_string else joined
 
         def render_foreign_keys(column_attrs: list[ColumnAttribute]) -> str:
             rendered = []
@@ -1806,19 +1879,27 @@ class SQLModelGenerator(DeclarativeGenerator):
         self.add_import(Column)
         return render_callable("Column", *args, kwargs=kwargs)
 
+    def render_table(self, table: Table) -> str:
+        # Hack to fix #465 without breaking backwards compatibility
+        self.base.metadata_ref = "SQLModel.metadata"
+
+        return super().render_table(table)
+
     def generate_base(self) -> None:
         self.base = Base(
             literal_imports=[],
             declarations=[],
-            metadata_ref="",
+            metadata_ref="SQLModel.metadata",
         )
 
     def collect_imports(self, models: Iterable[Model]) -> None:
         super(DeclarativeGenerator, self).collect_imports(models)
         if any(isinstance(model, ModelClass) for model in models):
+            self.add_literal_import("sqlmodel", "Field")
+
+        if models:
             self.remove_literal_import("sqlalchemy", "MetaData")
             self.add_literal_import("sqlmodel", "SQLModel")
-            self.add_literal_import("sqlmodel", "Field")
 
     def collect_imports_for_model(self, model: Model) -> None:
         super(DeclarativeGenerator, self).collect_imports_for_model(model)

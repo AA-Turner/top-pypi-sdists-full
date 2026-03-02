@@ -1,0 +1,121 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    { name = "James Bennett" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+name = "pwned-passwords-django"
+description = "A Pwned Passwords implementation for Django sites."
+dependencies = [
+    "Django>=4.2,!=5.0.*",
+    "httpx",
+]
+keywords = [
+    "django",
+    "security",
+    "passwords",
+    "auth",
+    "authentication",
+]
+readme = "README.rst"
+requires-python = ">=3.9"
+version = "5.2.0"
+
+[project.license]
+text = "BSD-3-Clause"
+
+[project.urls]
+Documentation = "https://pwned-passwords-django.readthedocs.io/"
+"Source Code" = "https://github.com/ubernostrum/pwned-passwords-django"
+
+[dependency-groups]
+tests = [
+    "nox",
+]
+
+[tool.bandit]
+skips = [
+    "B101",
+    "B113",
+]
+
+[tool.black]
+target-version = [
+    "py39",
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".nox/tests_with_coverage*/**/site-packages",
+]
+
+[tool.coverage.report]
+fail_under = 100
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+    "*/_backports.py",
+]
+source = [
+    "pwned-passwords-django",
+]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+
+[tool.isort]
+profile = "black"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+source-includes = [
+    ".editorconfig",
+    ".flake8",
+    ".pre-commit-config.yaml",
+    ".readthedocs.yaml",
+    "AUTHORS",
+    "CONTRIBUTING.rst",
+    "docs/",
+    "noxfile.py",
+    "pdm.lock",
+    "runtests.py",
+    "tests/",
+]
+
+[tool.pylint]
+disable = [
+    "W1203",
+]

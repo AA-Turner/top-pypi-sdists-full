@@ -26,7 +26,19 @@ class UniqueNullableTranslationOptions(TranslationOptions):
 
 @register(models.ModelWithConstraint)
 class ModelWithConstrainTranslationOptions(TranslationOptions):
-    fields = ("sub_title",)
+    fields = (
+        "title1",
+        "title2",
+        "title3",
+        "title4",
+        "sub_title1",
+        "sub_title2",
+    )
+
+
+@register(models.ModelWithIndex)
+class ModelWithIndexTranslationOptions(TranslationOptions):
+    fields = ("title", "sub_title")
 
 
 # ######### Proxy model testing
@@ -322,3 +334,25 @@ class GroupTranslationOptions(TranslationOptions):
 class InheritedPermissionOptions(TranslationOptions):
     fields = ("translated_var",)
     required_languages = [x[0] for x in settings.LANGUAGES]
+
+
+# #########  field_options testing
+
+
+@register(models.FieldOptionsModel)
+class FieldOptionsTranslationOptions(TranslationOptions):
+    fields = ("title", "sub_title1", "sub_title2")
+    field_options = {
+        "title": {
+            "en": {"db_index": True},
+            "default": {"db_index": False},
+        },
+        "sub_title1": {
+            "de": {"db_index": True},
+            # no 'default' -> other languages get no override
+        },
+        "sub_title2": {
+            "de": {"db_index": False},
+            "default": {"db_index": True},
+        },
+    }

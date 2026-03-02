@@ -9,9 +9,9 @@ for _entry in sorted(os.listdir(_base)):
     if os.path.isdir(_path) and not _entry.startswith(('.', '_')):
         __path__.append(_path)
 
-__version__ = "0.7.1583"
+__version__ = "0.7.1616"
 
-from wisent.core.tasks.base.diversity_processors import (
+from wisent.core.control.tasks.base.diversity_processors import (
     OpenerPenaltyProcessor,
     TriePenaltyProcessor,
     PhraseLedger,
@@ -19,9 +19,9 @@ from wisent.core.tasks.base.diversity_processors import (
 )
 
 # Multi-modal support
-from wisent.core.wisent import Wisent, TraitConfig
+from wisent.core.primitives.model_interface.core.wisent import Wisent, TraitConfig
 
-from wisent.core.modalities import (
+from wisent.core.primitives.models.modalities import (
     Modality,
     ModalityContent,
     TextContent,
@@ -34,7 +34,7 @@ from wisent.core.modalities import (
     MultimodalContent,
 )
 
-from wisent.core.adapters import (
+from wisent.core.primitives.model_interface.adapters import (
     BaseAdapter,
     TextAdapter,
     AudioAdapter,

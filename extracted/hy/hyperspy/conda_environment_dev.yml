@@ -1,0 +1,16 @@
+channels:
+- conda-forge
+dependencies:
+# We pin freetype and matplotlib for the image comparison
+- freetype=2.12
+- git
+- matplotlib-base=3.9.2
+- pytest
+- pytest-mpl
+# Regression introduced in https://github.com/pytest-dev/pytest-xdist/pull/778
+# doesn't play well with some plotting tests, most likely related to copying reference images.
+- pytest-xdist <3.5
+- pytest-rerunfailures
+- pytest-instafail
+- pooch
+- setuptools-scm

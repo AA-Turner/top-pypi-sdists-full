@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: actfast
+Version: 1.2.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: numpy
+Requires-Dist: pytest>=7.0 ; extra == 'test'
+Provides-Extra: test
+License-File: LICENSE
+Requires-Python: >=3.10

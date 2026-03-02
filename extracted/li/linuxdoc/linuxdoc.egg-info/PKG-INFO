@@ -1,0 +1,67 @@
+Metadata-Version: 2.1
+Name: linuxdoc
+Version: 20240924
+Summary: Sphinx-doc extensions & tools to extract documentation from C/C++ source file comments.
+Home-page: https://github.com/return42/linuxdoc
+Author: Markus Heiser
+Author-email: markus.heiser@darmarIT.de
+License: AGPLv3+
+Project-URL: Documentation, https://return42.github.io/linuxdoc
+Project-URL: Code, https://github.com/return42/linuxdoc
+Project-URL: Issue tracker, https://github.com/return42/linuxdoc/issues
+Project-URL: Changelog, https://github.com/return42/linuxdoc/blob/master/CHANGELOG
+Keywords: sphinx extension doc source code comments kernel-doc linux
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Other Audience
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development :: Documentation
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Text Processing
+License-File: LICENSE
+Requires-Dist: fspath
+Requires-Dist: setuptools
+Requires-Dist: docutils
+Requires-Dist: sphinx
+
+========
+LinuxDoc
+========
+
+The LinuxDoc library contains Sphinx-doc extensions and command line tools to
+extract documentation from C/C++ source file comments.  Even if this project
+started in context of the Linux-Kernel documentation, you can use these
+extensions in common Sphinx-doc projects.
+
+
+Install
+=======
+
+`Install LinuxDoc <https://return42.github.io/linuxdoc/install.html>`__ using `pip
+<https://pip.pypa.io/en/stable/getting-started/>`__:
+
+.. code-block:: text
+
+   pip install --user -U linuxdoc
+
+
+Links
+=====
+
+- Documentation:   https://return42.github.io/linuxdoc
+- Releases:        https://pypi.org/project/linuxdoc/
+- Code:            https://github.com/return42/linuxdoc
+- Issue tracker:   https://github.com/return42/linuxdoc/issues
+
+
+============ ===============================================
+package:     linuxdoc (20240924)
+copyright:   2024 Markus Heiser
+e-mail:      markus.heiser@darmarIT.de
+license:     AGPLv3+
+============ ===============================================
+

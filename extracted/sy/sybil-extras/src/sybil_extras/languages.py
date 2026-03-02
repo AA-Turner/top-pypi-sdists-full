@@ -17,6 +17,11 @@ import sybil_extras.parsers.djot.codeblock
 import sybil_extras.parsers.djot.custom_directive_skip
 import sybil_extras.parsers.djot.group_all
 import sybil_extras.parsers.djot.grouped_source
+import sybil_extras.parsers.docutils_rst.codeblock
+import sybil_extras.parsers.docutils_rst.custom_directive_skip
+import sybil_extras.parsers.docutils_rst.group_all
+import sybil_extras.parsers.docutils_rst.grouped_source
+import sybil_extras.parsers.docutils_rst.sphinx_jinja2
 import sybil_extras.parsers.markdown.custom_directive_skip
 import sybil_extras.parsers.markdown.group_all
 import sybil_extras.parsers.markdown.grouped_source
@@ -32,6 +37,11 @@ import sybil_extras.parsers.myst.custom_directive_skip
 import sybil_extras.parsers.myst.group_all
 import sybil_extras.parsers.myst.grouped_source
 import sybil_extras.parsers.myst.sphinx_jinja2
+import sybil_extras.parsers.myst_parser.codeblock
+import sybil_extras.parsers.myst_parser.custom_directive_skip
+import sybil_extras.parsers.myst_parser.group_all
+import sybil_extras.parsers.myst_parser.grouped_source
+import sybil_extras.parsers.myst_parser.sphinx_jinja2
 import sybil_extras.parsers.norg.codeblock
 import sybil_extras.parsers.norg.custom_directive_skip
 import sybil_extras.parsers.norg.group_all
@@ -314,6 +324,24 @@ MYST = MarkupLanguage(
     jinja_block_builder=_myst_jinja_block,
 )
 
+MYST_PARSER = MarkupLanguage(
+    name="MystParser",
+    markup_separator="\n\n",
+    skip_parser_cls=(
+        sybil_extras.parsers.myst_parser.custom_directive_skip.CustomDirectiveSkipParser
+    ),
+    code_block_parser_cls=sybil_extras.parsers.myst_parser.codeblock.CodeBlockParser,
+    group_parser_cls=sybil_extras.parsers.myst_parser.grouped_source.GroupedSourceParser,
+    group_all_parser_cls=sybil_extras.parsers.myst_parser.group_all.GroupAllParser,
+    sphinx_jinja_parser_cls=sybil_extras.parsers.myst_parser.sphinx_jinja2.SphinxJinja2Parser,
+    code_block_builder=_markdown_code_block,
+    directive_builders=(
+        _html_comment_directive,
+        _percent_comment_directive,
+    ),
+    jinja_block_builder=_myst_jinja_block,
+)
+
 RESTRUCTUREDTEXT = MarkupLanguage(
     name="reStructuredText",
     markup_separator="\n\n",
@@ -392,12 +420,27 @@ NORG = MarkupLanguage(
     jinja_block_builder=None,
 )
 
+DOCUTILS_RST = MarkupLanguage(
+    name="DocutilsRST",
+    markup_separator="\n\n",
+    skip_parser_cls=sybil_extras.parsers.docutils_rst.custom_directive_skip.CustomDirectiveSkipParser,
+    code_block_parser_cls=sybil_extras.parsers.docutils_rst.codeblock.CodeBlockParser,
+    group_parser_cls=sybil_extras.parsers.docutils_rst.grouped_source.GroupedSourceParser,
+    group_all_parser_cls=sybil_extras.parsers.docutils_rst.group_all.GroupAllParser,
+    sphinx_jinja_parser_cls=sybil_extras.parsers.docutils_rst.sphinx_jinja2.SphinxJinja2Parser,
+    code_block_builder=_rst_code_block,
+    directive_builders=(_rst_directive,),
+    jinja_block_builder=_rst_jinja_block,
+)
+
 ALL_LANGUAGES: tuple[MarkupLanguage, ...] = (
     MYST,
+    MYST_PARSER,
     RESTRUCTUREDTEXT,
     MARKDOWN,
     MARKDOWN_IT,
     MDX,
     DJOT,
     NORG,
+    DOCUTILS_RST,
 )

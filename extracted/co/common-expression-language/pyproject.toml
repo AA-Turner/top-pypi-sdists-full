@@ -1,0 +1,122 @@
+
+[project]
+name = "common-expression-language"
+description = "Python bindings for the Common Expression Language (CEL)"
+readme = "README.md"
+authors = [
+    {name = "Brian Thorne", email = "brian@hardbyte.nz"}
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.0.0", 
+    "prompt-toolkit>=3.0.0",
+    "pygments>=2.0.0",
+]
+
+[project.scripts]
+cel = "cel.cli:cli_entry"
+
+[project.urls]
+Homepage = "https://github.com/hardbyte/python-common-expression-language"
+Repository = "https://github.com/hardbyte/python-common-expression-language"
+
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.4.1",
+    "maturin>=1.8.0",
+    "ruff>=0.12.7",
+    "mypy>=1.17.1",
+]
+
+[dependency-groups]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings>=0.24.0",
+    "mkdocstrings-python>=1.8.0",
+    "pygments>=2.0.0",
+    "mktestdocs>=0.2.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    ".venv",
+    "target",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "F403", # star imports (needed for Rust extension)
+    "F405", # undefined from star imports (expected with Rust extension)
+    "F401", # unused imports (CLI module imported for side effects)
+    "RUF001", # ambiguous unicode characters (intentional in tests)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+namespace_packages = true
+exclude = [
+    "tests/",
+    ".venv/",
+    "target/",
+    "shell/",
+    "test_tui_complete.py",
+]
+
+[[tool.mypy.overrides]]
+module = ["cel.cli"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["pygments", "pygments.lexer"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]

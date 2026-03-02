@@ -1,0 +1,60 @@
+Metadata-Version: 1.2
+Name: sentence-splitter
+Version: 1.4
+Summary: Text to sentence splitter using heuristic algorithm by Philipp Koehn and Josh Schroeder
+Home-page: https://github.com/berkmancenter/mediacloud-sentence-splitter
+Author: Philip Koehn, Josh Schroeder, Digital Silk Road, Linas Valiukas
+Author-email: lvaliukas@cyber.law.harvard.edu
+License: LGPLv3
+Description: 
+        Text to sentence splitter using heuristic algorithm by Philipp Koehn and Josh Schroeder.
+        
+        This module allows splitting of text paragraphs into sentences. It is based on scripts developed by Philipp
+        Koehn and Josh Schroeder for processing the `Europarl corpus <http://www.statmt.org/europarl/>`_.
+        
+        The module is a port of `Lingua::Sentence Perl module <http://search.cpan.org/perldoc?Lingua::Sentence>`_ with
+        some extra additions (improved non-breaking prefix lists for some languages and added support for Danish,
+        Finnish, Lithuanian, Norwegian (Bokmål), Romanian, and Turkish).
+            
+Keywords: sentence splitter tokenization tokenizer tokenize
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Programming Language :: Python
+Classifier: Natural Language :: Catalan
+Classifier: Natural Language :: Czech
+Classifier: Natural Language :: Danish
+Classifier: Natural Language :: Dutch
+Classifier: Natural Language :: English
+Classifier: Natural Language :: Finnish
+Classifier: Natural Language :: French
+Classifier: Natural Language :: German
+Classifier: Natural Language :: Greek
+Classifier: Natural Language :: Hungarian
+Classifier: Natural Language :: Icelandic
+Classifier: Natural Language :: Italian
+Classifier: Natural Language :: Latvian
+Classifier: Natural Language :: Norwegian
+Classifier: Natural Language :: Polish
+Classifier: Natural Language :: Portuguese
+Classifier: Natural Language :: Portuguese (Brazilian)
+Classifier: Natural Language :: Romanian
+Classifier: Natural Language :: Russian
+Classifier: Natural Language :: Slovak
+Classifier: Natural Language :: Slovenian
+Classifier: Natural Language :: Spanish
+Classifier: Natural Language :: Swedish
+Classifier: Natural Language :: Turkish
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Database
+Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Topic :: Text Processing :: Linguistic
+Requires-Python: >=3.5

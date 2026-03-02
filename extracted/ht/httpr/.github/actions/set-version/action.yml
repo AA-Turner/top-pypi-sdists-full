@@ -1,0 +1,48 @@
+name: 'Set Version'
+description: |
+  Compute and set version for httpr builds.
+  
+  Version logic:
+    - Tag release (refs/tags/v*): Extract version from tag (v1.2.3 -> 1.2.3)
+    - Dev release (workflow_dispatch): Base version + .devN (1.2.3.dev42)
+  
+  Updates both pyproject.toml (full version) and Cargo.toml (base version only,
+  since Cargo semver doesn't support .dev suffixes).
+  
+  The version in source files (0.0.0.dev0 / 0.0.0) is a placeholder and should
+  not be edited manually.
+inputs:
+  run-number:
+    description: 'GitHub run number for dev versions'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Compute and set version (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          # Tag release: use tag version (e.g., v0.2.0 -> 0.2.0)
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          # Dev release: use base version + run number (e.g., 0.1.0.dev42)
+          BASE_VERSION=$(uvx --with tomlkit python .github/workflows/set_version.py --get-base)
+          VERSION="${BASE_VERSION}.dev${{ inputs.run-number }}"
+        fi
+        echo "Setting version to: $VERSION"
+        uvx --with tomlkit python .github/workflows/set_version.py $VERSION
+    - name: Compute and set version (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        if ("${{ github.ref }}" -like "refs/tags/v*") {
+          # Tag release: use tag version (e.g., v0.2.0 -> 0.2.0)
+          $VERSION = $env:GITHUB_REF -replace 'refs/tags/v', ''
+        } else {
+          # Dev release: use base version + run number (e.g., 0.1.0.dev42)
+          $BASE_VERSION = $(uvx --with tomlkit python .github/workflows/set_version.py --get-base)
+          $VERSION = "${BASE_VERSION}.dev${{ inputs.run-number }}"
+        }
+        Write-Host "Setting version to: $VERSION"
+        uvx --with tomlkit python .github/workflows/set_version.py $VERSION

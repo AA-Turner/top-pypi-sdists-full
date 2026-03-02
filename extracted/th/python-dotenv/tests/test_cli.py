@@ -3,11 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-import sh
 
 import dotenv
 from dotenv.cli import cli as dotenv_cli
 from dotenv.version import __version__
+from tests.test_lib import check_process, run_dotenv
 
 
 @pytest.mark.parametrize(
@@ -174,78 +174,108 @@ def test_set_no_file(cli):
 
 
 def test_get_default_path(tmp_path):
-    with sh.pushd(tmp_path):
-        (tmp_path / ".env").write_text("a=b")
+    (tmp_path / ".env").write_text("A=x")
 
-        result = sh.dotenv("get", "a")
+    result = run_dotenv(["get", "A"], cwd=tmp_path)
 
-        assert result == "b\n"
+    check_process(result, exit_code=0, stdout="x\n")
 
 
 def test_run(tmp_path):
-    with sh.pushd(tmp_path):
-        (tmp_path / ".env").write_text("a=b")
+    (tmp_path / ".env").write_text("A=x")
 
-        result = sh.dotenv("run", "printenv", "a")
+    result = run_dotenv(["run", "printenv", "A"], cwd=tmp_path)
 
-        assert result == "b\n"
+    check_process(result, exit_code=0, stdout="x\n")
 
 
 def test_run_with_existing_variable(tmp_path):
-    with sh.pushd(tmp_path):
-        (tmp_path / ".env").write_text("a=b")
-        env = dict(os.environ)
-        env.update({"LANG": "en_US.UTF-8", "a": "c"})
+    (tmp_path / ".env").write_text("A=x")
+    env = dict(os.environ)
+    env.update({"LANG": "en_US.UTF-8", "A": "y"})
 
-        result = sh.dotenv("run", "printenv", "a", _env=env)
+    result = run_dotenv(["run", "printenv", "A"], cwd=tmp_path, env=env)
 
-        assert result == "b\n"
+    check_process(result, exit_code=0, stdout="x\n")
 
 
 def test_run_with_existing_variable_not_overridden(tmp_path):
-    with sh.pushd(tmp_path):
-        (tmp_path / ".env").write_text("a=b")
-        env = dict(os.environ)
-        env.update({"LANG": "en_US.UTF-8", "a": "c"})
+    (tmp_path / ".env").write_text("A=x")
+    env = dict(os.environ)
+    env.update({"LANG": "en_US.UTF-8", "A": "C"})
 
-        result = sh.dotenv("run", "--no-override", "printenv", "a", _env=env)
+    result = run_dotenv(
+        ["run", "--no-override", "printenv", "A"], cwd=tmp_path, env=env
+    )
 
-        assert result == "c\n"
+    check_process(result, exit_code=0, stdout="C\n")
 
 
 def test_run_with_none_value(tmp_path):
-    with sh.pushd(tmp_path):
-        (tmp_path / ".env").write_text("a=b\nc")
+    (tmp_path / ".env").write_text("A=x\nc")
 
-        result = sh.dotenv("run", "printenv", "a")
+    result = run_dotenv(["run", "printenv", "A"], cwd=tmp_path)
 
-        assert result == "b\n"
-
-
-def test_run_with_other_env(dotenv_path):
-    dotenv_path.write_text("a=b")
-
-    result = sh.dotenv("--file", dotenv_path, "run", "printenv", "a")
-
-    assert result == "b\n"
+    check_process(result, exit_code=0, stdout="x\n")
 
 
-def test_run_without_cmd(cli):
-    result = cli.invoke(dotenv_cli, ["run"])
+def test_run_with_other_env(dotenv_path, tmp_path):
+    dotenv_path.write_text("A=x")
 
-    assert result.exit_code == 2
-    assert "Invalid value for '-f'" in result.output
+    result = run_dotenv(
+        ["--file", str(dotenv_path), "run", "printenv", "A"],
+        cwd=tmp_path,
+    )
 
-
-def test_run_with_invalid_cmd(cli):
-    result = cli.invoke(dotenv_cli, ["run", "i_do_not_exist"])
-
-    assert result.exit_code == 2
-    assert "Invalid value for '-f'" in result.output
+    check_process(result, exit_code=0, stdout="x\n")
 
 
-def test_run_with_version(cli):
-    result = cli.invoke(dotenv_cli, ["--version"])
+def test_run_without_cmd(tmp_path):
+    result = run_dotenv(["run"], cwd=tmp_path)
 
-    assert result.exit_code == 0
-    assert result.output.strip().endswith(__version__)
+    check_process(result, exit_code=2)
+    assert "Invalid value for '-f'" in result.stderr
+
+
+def test_run_with_invalid_cmd(tmp_path):
+    result = run_dotenv(["run", "i_do_not_exist"], cwd=tmp_path)
+
+    check_process(result, exit_code=2)
+    assert "Invalid value for '-f'" in result.stderr
+
+
+def test_run_with_version(tmp_path):
+    result = run_dotenv(["--version"], cwd=tmp_path)
+
+    check_process(result, exit_code=0)
+    assert result.stdout.strip().endswith(__version__)
+
+
+def test_run_with_command_flags(dotenv_path, tmp_path):
+    """
+    Check that command flags passed after `dotenv run` are not interpreted.
+
+    Here, we want to run `printenv --version`, not `dotenv --version`.
+    """
+
+    result = run_dotenv(
+        ["--file", str(dotenv_path), "run", "printenv", "--version"],
+        cwd=tmp_path,
+    )
+
+    check_process(result, exit_code=0)
+    assert result.stdout.strip().startswith("printenv ")
+
+
+def test_run_with_dotenv_and_command_flags(dotenv_path, tmp_path):
+    """
+    Check that dotenv flags supersede command flags.
+    """
+
+    result = run_dotenv(
+        ["--version", "--file", str(dotenv_path), "run", "printenv", "--version"],
+        cwd=tmp_path,
+    )
+
+    check_process(result, exit_code=0)
+    assert result.stdout.strip().startswith("dotenv, version")

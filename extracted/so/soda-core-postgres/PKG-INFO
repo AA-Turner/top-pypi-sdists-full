@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: soda-core-postgres
+Version: 3.5.6
+License-File: LICENSE
+Requires-Dist: soda-core==3.5.6
+Requires-Dist: psycopg2-binary<3.0,>=2.8.5

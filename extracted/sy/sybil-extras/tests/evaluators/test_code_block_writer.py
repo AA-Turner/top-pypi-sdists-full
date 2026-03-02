@@ -10,10 +10,12 @@ from sybil_extras.evaluators.code_block_writer import CodeBlockWriterEvaluator
 from sybil_extras.evaluators.no_op import NoOpEvaluator
 from sybil_extras.languages import (
     DJOT,
+    DOCUTILS_RST,
     MARKDOWN,
     MARKDOWN_IT,
     MDX,
     MYST,
+    MYST_PARSER,
     NORG,
     RESTRUCTUREDTEXT,
     MarkupLanguage,
@@ -53,22 +55,25 @@ def test_writes_modified_content(
         @end
         """
     )
+    rst_content = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+            original
+        """
+    )
     original_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-                original
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_content,
+        DOCUTILS_RST: rst_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
 
     source_file = tmp_path / "source_file.txt"
@@ -115,22 +120,25 @@ def test_writes_modified_content(
         @end
         """
     )
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+            modified
+        """
+    )
     expected_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-                modified
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
 
     assert source_file.read_text(encoding="utf-8") == expected_content
@@ -198,6 +206,11 @@ def test_empty_code_block_write_content(
     markup_language: MarkupLanguage,
 ) -> None:
     """Content can be written to an empty code block."""
+    if markup_language == DOCUTILS_RST:
+        # Docutils treats empty code blocks as errors and doesn't parse them
+        # as valid code-block directives.
+        return
+
     rst_content = textwrap.dedent(
         text="""\
         Not in code block
@@ -242,12 +255,14 @@ def test_empty_code_block_write_content(
 
     content = {
         RESTRUCTUREDTEXT: rst_content,
+        DOCUTILS_RST: rst_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
     source_file.write_text(data=content, encoding="utf-8")
@@ -304,26 +319,29 @@ def test_empty_code_block_write_content(
         After empty code block
         """
     )
+    # There is no code block in reStructuredText that ends with multiple
+    # newlines.
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+
+           foobar
+
+        After empty code block
+        """
+    )
     expected_content = {
-        # There is no code block in reStructuredText that ends with multiple
-        # newlines.
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-
-               foobar
-
-            After empty code block
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
 
     example.evaluate()
@@ -340,8 +358,13 @@ def test_empty_code_block_with_options(
     code
     block has options.
     """
-    if markup_language in (MARKDOWN, MARKDOWN_IT, DJOT, NORG):
+    if markup_language in (MARKDOWN, MARKDOWN_IT, MYST_PARSER, DJOT, NORG):
         # Markdown-like formats do not support code block options.
+        return
+
+    if markup_language == DOCUTILS_RST:
+        # Docutils treats empty code blocks as errors and doesn't parse them
+        # as valid code-block directives.
         return
 
     rst_content = textwrap.dedent(
@@ -380,6 +403,7 @@ def test_empty_code_block_with_options(
 
     content = {
         RESTRUCTUREDTEXT: rst_content,
+        DOCUTILS_RST: rst_content,
         MYST: myst_content,
         MDX: mdx_content,
     }[markup_language]
@@ -412,19 +436,21 @@ def test_empty_code_block_with_options(
         After empty code block
         """
     )
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+        .. code-block:: python
+           :emphasize-lines: 2,3
+
+           foobar
+
+        After empty code block
+        """
+    )
     expected_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-            .. code-block:: python
-               :emphasize-lines: 2,3
-
-               foobar
-
-            After empty code block
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MYST: myst_expected,
         MDX: textwrap.dedent(
             text="""\
@@ -736,23 +762,26 @@ def test_indented_existing_block(
             @end
         """
     )
+    rst_original_content = textwrap.dedent(
+        text="""\
+        Not in code block
+
+            .. code-block:: python
+
+               x = 2 + 2
+               assert x == 4
+        """
+    )
     original_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-                .. code-block:: python
-
-                   x = 2 + 2
-                   assert x == 4
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_original_content,
+        DOCUTILS_RST: rst_original_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
     source_file.write_text(data=original_content, encoding="utf-8")
@@ -800,22 +829,25 @@ def test_indented_existing_block(
             @end
         """
     )
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+            .. code-block:: python
+
+               foobar
+        """
+    )
     expected_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-                .. code-block:: python
-
-                   foobar
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
     assert source_file_content == expected_content
 
@@ -828,6 +860,11 @@ def test_indented_empty_existing_block(
     """Changes are written to indented empty code blocks."""
     if markup_language == NORG:
         # Norg does not support indented code blocks in the same way.
+        return
+
+    if markup_language == DOCUTILS_RST:
+        # Docutils treats empty code blocks as errors and doesn't parse them
+        # as valid code-block directives.
         return
 
     markdown_content = textwrap.dedent(
@@ -860,22 +897,25 @@ def test_indented_empty_existing_block(
         After code block
         """
     )
+    rst_original_content = textwrap.dedent(
+        text="""\
+        Not in code block
+
+                .. code-block:: python
+
+        After code block
+        """
+    )
     original_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-                    .. code-block:: python
-
-            After code block
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_original_content,
+        DOCUTILS_RST: rst_original_content,
         MARKDOWN: markdown_content,
         MARKDOWN_IT: markdown_content,
         MDX: markdown_content,
         DJOT: markdown_content,
         NORG: norg_content,
         MYST: myst_content,
+        MYST_PARSER: markdown_content,
     }[markup_language]
     source_file = tmp_path / "source_file.txt"
     source_file.write_text(data=original_content, encoding="utf-8")
@@ -929,24 +969,27 @@ def test_indented_empty_existing_block(
         After code block
         """
     )
+    rst_expected = textwrap.dedent(
+        text="""\
+        Not in code block
+
+                .. code-block:: python
+
+                   foobar
+
+        After code block
+        """
+    )
     expected_content = {
-        RESTRUCTUREDTEXT: textwrap.dedent(
-            text="""\
-            Not in code block
-
-                    .. code-block:: python
-
-                       foobar
-
-            After code block
-            """
-        ),
+        RESTRUCTUREDTEXT: rst_expected,
+        DOCUTILS_RST: rst_expected,
         MARKDOWN: markdown_expected,
         MARKDOWN_IT: markdown_expected,
         MDX: markdown_expected,
         DJOT: markdown_expected,
         NORG: norg_expected,
         MYST: myst_expected,
+        MYST_PARSER: markdown_expected,
     }[markup_language]
     assert source_file_content == expected_content
 

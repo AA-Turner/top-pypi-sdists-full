@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: chialisp_puzzles
+Version: 0.1.1
+Summary: Some canonical puzzles deployed on chia-blockchain
+Author-email: Richard Kiss <him@richardkiss.com>
+License: Copyright 2023 by Richard Kiss
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+            http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+        
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: chialisp_loader>=0.1.2
+
+# chialisp_puzzles
+
+This project contains several standard and legacy puzzles commonly used on the chia network.
+
+Note that it uses `enscons` to build, as the more commonly used `setuptools` does not easily allow fine-grained control of the contents of the `sdist` and `wheel` files.
+
+In particular, this example takes pains to include the source files `runtime_build` or `*.clsp` in the sdist but not the wheel.
+
+## Use
+
+To load a puzzle, do something like
+
+```python
+from chialisp_puzzles import load_puzzle
+
+program = load_puzzle("p2_delegated_puzzle_or_hidden_puzzle")
+```
+
+## License
+- This project is licensed under the Apache 2 License. See the LICENSE file for more details.

@@ -1,0 +1,72 @@
+Metadata-Version: 2.4
+Name: trainstation
+Version: 1.2
+Summary: Convenient training of linear models
+Author: The trainstation developers group
+Maintainer: The trainstation developers group
+License: MIT License
+        
+        Copyright (c) 2018-2021 materials-modeling
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Documentation, https://trainstation.materialsmodeling.org
+Project-URL: Repository, https://gitlab.com/materials-modeling/trainstation/
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: scipy
+Requires-Dist: numpy>=1.12
+Requires-Dist: scikit-learn
+Dynamic: license-file
+
+**trainstation** — Convenient training of linear models
+*******************************************************
+
+**trainstation** is a tool that allows the efficient construction of linear models.
+It provides supplementary functionality for handling data and model metrics and relies on the **scikit-learn** library for the actual training.
+Many examples for the application of **trainstation** can be found in the documentation of `hiphive <https://hiphive.materialsmodeling.org/>`_ and `icet <https://icet.materialsmodeling.org/>`_.
+
+**trainstation** has been developed  at the `Department of Physics <https://www.chalmers.se/en/departments/physics/Pages/default.aspx>`_
+of `Chalmers University of Technology <https://www.chalmers.se/>`_ in Gothenburg, Sweden.
+Please consult the `credits page <https://trainstation.materialsmodeling.org/credits>`_ for information on how to cite **trainstation**.
+The development of **trainstation** is hosted on `gitlab <https://gitlab.com/materials-modeling/trainstation>`_.
+Bugs should be submitted via the `gitlab issue tracker <https://gitlab.com/materials-modeling/trainstation/issues>`_.
+
+Installation
+------------
+
+**trainstation** can be installed via ``pip``::
+
+    pip3 install trainstation
+
+If you want to get the absolutely latest version you can install from the repo::
+
+    pip3 install -e git+https://gitlab.com/materials-modeling/trainstation

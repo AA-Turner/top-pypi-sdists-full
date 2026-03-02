@@ -1,0 +1,145 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pymbolic"
+version = "2025.1"
+description = "A package for symbolic computation"
+readme = "README.rst"
+license = "MIT"
+authors = [
+    { name = "Andreas Kloeckner", email = "inform@tiker.net" },
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "constantdict",
+    "pytools>=2025.2",
+    # for TypeIs
+    "typing-extensions>=4.10",
+]
+
+[project.optional-dependencies]
+matchpy = [
+    "matchpy",
+]
+numpy = [
+    "numpy>=1.6",
+]
+test = [
+    "basedpyright",
+    "optype",
+    "pytest",
+    "ruff",
+]
+
+[project.urls]
+Documentation = "https://documen.tician.de/pymbolic"
+Homepage = "https://github.com/inducer/pymbolic"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.git*",
+  "/doc/_build",
+  "/.editorconfig",
+  "/run-*.sh",
+  "/.basedpyright",
+]
+
+
+[tool.ruff]
+preview = true
+
+[tool.ruff.lint]
+extend-select = [
+    "B",    # flake8-bugbear
+    "C",    # flake8-comprehensions
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "G",    # flake8-logging-format
+    "I",    # flake8-isort
+    "N",    # pep8-naming
+    "NPY",  # numpy
+    "PGH",  # pygrep-hooks
+    "Q",    # flake8-quotes
+    "RUF",  # ruff
+    "SIM",  # flake8-simplify
+    "TC",   # flake8-type-checking
+    "UP",   # pyupgrade
+    "W",    # pycodestyle
+]
+extend-ignore = [
+    "C409", # remove comprehension within tuple call
+    "C90",  # McCabe complexity
+    "E226", # missing whitespace around arithmetic operator
+    "E241", # multiple spaces after comma
+    "E242", # tab after comma
+    "E402", # module level import not at the top of file
+    "UP031", # use f-strings instead of %
+    "UP032", # use f-strings instead of .format
+]
+
+[tool.ruff.lint.per-file-ignores]
+"experiments/traversal-benchmark.py" = ["E501"]
+"doc/conf.py" = ["I002"]
+"experiments/*.py" = ["I002"]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["map_*"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+docstring-quotes = "double"
+multiline-quotes = "double"
+
+[tool.typos.default]
+extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker:\\s*disable-line"
+]
+
+[tool.typos.default.extend-words]
+"nd" = "nd"
+
+[tool.ruff.lint.isort]
+known-first-party = ["pytools"]
+known-local-folder = ["pymbolic"]
+lines-after-imports = 2
+combine-as-imports = true
+required-imports = ["from __future__ import annotations"]
+
+[tool.basedpyright]
+reportImplicitStringConcatenation = "none"
+reportUnnecessaryIsInstance = "none"
+reportUnusedCallResult = "none"
+reportExplicitAny = "none"
+reportUnusedParameter = "hint"
+
+# This reports even cycles that are qualified by 'if TYPE_CHECKING'. Not what
+# we care about at this moment.
+# https://github.com/microsoft/pyright/issues/746
+reportImportCycles = "none"
+
+pythonVersion = "3.10"
+pythonPlatform = "All"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "test"
+reportUnknownArgumentType = "hint"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "pymbolic/interop/symengine.py"
+reportMissingTypeStubs = "none"
+reportMissingImports = "none"

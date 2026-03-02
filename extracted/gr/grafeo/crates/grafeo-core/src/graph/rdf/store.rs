@@ -1,0 +1,1170 @@
+//! RDF Triple Store.
+//!
+//! Provides an in-memory triple store with efficient indexing for
+//! subject, predicate, and object queries.
+
+use super::term::Term;
+use super::triple::{Triple, TriplePattern};
+use grafeo_common::types::TxId;
+use grafeo_common::utils::hash::FxHashSet;
+use hashbrown::HashMap;
+use parking_lot::RwLock;
+use std::sync::Arc;
+
+/// A pending operation in a transaction buffer.
+#[derive(Debug, Clone)]
+enum PendingOp {
+    /// Insert a triple.
+    Insert(Triple),
+    /// Delete a triple.
+    Delete(Triple),
+}
+
+/// Transaction buffer for pending operations.
+#[derive(Debug, Default)]
+struct TransactionBuffer {
+    /// Pending operations for each transaction.
+    buffers: HashMap<TxId, Vec<PendingOp>>,
+}
+
+/// Configuration for the RDF store.
+#[derive(Debug, Clone)]
+pub struct RdfStoreConfig {
+    /// Initial capacity for triple storage.
+    pub initial_capacity: usize,
+    /// Whether to build object index (for reverse lookups).
+    pub index_objects: bool,
+}
+
+impl Default for RdfStoreConfig {
+    fn default() -> Self {
+        Self {
+            initial_capacity: 1024,
+            index_objects: true,
+        }
+    }
+}
+
+/// An in-memory RDF triple store.
+///
+/// The store maintains multiple indexes for efficient querying:
+/// - SPO (Subject, Predicate, Object): primary storage
+/// - POS (Predicate, Object, Subject): for predicate-based queries
+/// - OSP (Object, Subject, Predicate): for object-based queries (optional)
+///
+/// The store also supports transactional operations through buffering.
+/// When operations are performed within a transaction context, they are
+/// buffered until commit (applied) or rollback (discarded).
+pub struct RdfStore {
+    /// Configuration.
+    config: RdfStoreConfig,
+    /// All triples (primary storage).
+    triples: RwLock<FxHashSet<Arc<Triple>>>,
+    /// Subject index: subject -> triples.
+    subject_index: RwLock<hashbrown::HashMap<Term, Vec<Arc<Triple>>, ahash::RandomState>>,
+    /// Predicate index: predicate -> triples.
+    predicate_index: RwLock<hashbrown::HashMap<Term, Vec<Arc<Triple>>, ahash::RandomState>>,
+    /// Object index: object -> triples (optional).
+    object_index: RwLock<Option<hashbrown::HashMap<Term, Vec<Arc<Triple>>, ahash::RandomState>>>,
+    /// Transaction buffers for pending operations.
+    tx_buffer: RwLock<TransactionBuffer>,
+    /// Named graphs, each a separate `RdfStore` partition.
+    named_graphs: RwLock<HashMap<String, Arc<RdfStore>>>,
+}
+
+impl RdfStore {
+    /// Creates a new RDF store with default configuration.
+    pub fn new() -> Self {
+        Self::with_config(RdfStoreConfig::default())
+    }
+
+    /// Creates a new RDF store with the given configuration.
+    pub fn with_config(config: RdfStoreConfig) -> Self {
+        let object_index = if config.index_objects {
+            Some(hashbrown::HashMap::with_capacity_and_hasher(
+                config.initial_capacity,
+                ahash::RandomState::new(),
+            ))
+        } else {
+            None
+        };
+
+        Self {
+            triples: RwLock::new(FxHashSet::default()),
+            subject_index: RwLock::new(hashbrown::HashMap::with_capacity_and_hasher(
+                config.initial_capacity,
+                ahash::RandomState::new(),
+            )),
+            predicate_index: RwLock::new(hashbrown::HashMap::with_capacity_and_hasher(
+                config.initial_capacity,
+                ahash::RandomState::new(),
+            )),
+            object_index: RwLock::new(object_index),
+            tx_buffer: RwLock::new(TransactionBuffer::default()),
+            named_graphs: RwLock::new(HashMap::new()),
+            config,
+        }
+    }
+
+    /// Inserts a triple into the store.
+    ///
+    /// Returns `true` if the triple was newly inserted, `false` if it already existed.
+    pub fn insert(&self, triple: Triple) -> bool {
+        let triple = Arc::new(triple);
+
+        // Check if already exists
+        {
+            let triples = self.triples.read();
+            if triples.contains(&triple) {
+                return false;
+            }
+        }
+
+        // Insert into primary storage
+        {
+            let mut triples = self.triples.write();
+            if !triples.insert(Arc::clone(&triple)) {
+                return false;
+            }
+        }
+
+        // Update indexes
+        {
+            let mut subject_index = self.subject_index.write();
+            subject_index
+                .entry(triple.subject().clone())
+                .or_default()
+                .push(Arc::clone(&triple));
+        }
+
+        {
+            let mut predicate_index = self.predicate_index.write();
+            predicate_index
+                .entry(triple.predicate().clone())
+                .or_default()
+                .push(Arc::clone(&triple));
+        }
+
+        if self.config.index_objects {
+            let mut object_index = self.object_index.write();
+            if let Some(ref mut index) = *object_index {
+                index
+                    .entry(triple.object().clone())
+                    .or_default()
+                    .push(triple);
+            }
+        }
+
+        true
+    }
+
+    /// Inserts a batch of triples with single lock acquisition per index.
+    ///
+    /// Much more efficient than calling [`Self::insert`] in a loop because each
+    /// index lock is acquired once for the entire batch rather than once per
+    /// triple (4 lock acquisitions total vs 4 * N).
+    ///
+    /// Returns the number of triples that were newly inserted (duplicates are
+    /// skipped).
+    pub fn batch_insert(&self, triples: impl IntoIterator<Item = Triple>) -> usize {
+        // Phase 1: deduplicate against primary storage (single lock)
+        let mut new_triples = Vec::new();
+        {
+            let mut primary = self.triples.write();
+            for triple in triples {
+                let arc = Arc::new(triple);
+                if primary.insert(Arc::clone(&arc)) {
+                    new_triples.push(arc);
+                }
+            }
+        }
+
+        if new_triples.is_empty() {
+            return 0;
+        }
+
+        let count = new_triples.len();
+
+        // Phase 2: update subject index (single lock)
+        {
+            let mut subject_index = self.subject_index.write();
+            for triple in &new_triples {
+                subject_index
+                    .entry(triple.subject().clone())
+                    .or_default()
+                    .push(Arc::clone(triple));
+            }
+        }
+
+        // Phase 3: update predicate index (single lock)
+        {
+            let mut predicate_index = self.predicate_index.write();
+            for triple in &new_triples {
+                predicate_index
+                    .entry(triple.predicate().clone())
+                    .or_default()
+                    .push(Arc::clone(triple));
+            }
+        }
+
+        // Phase 4: update object index if enabled (single lock)
+        if self.config.index_objects {
+            let mut object_index = self.object_index.write();
+            if let Some(ref mut index) = *object_index {
+                for triple in new_triples {
+                    index
+                        .entry(triple.object().clone())
+                        .or_default()
+                        .push(triple);
+                }
+            }
+        }
+
+        count
+    }
+
+    /// Removes a triple from the store.
+    ///
+    /// Returns `true` if the triple was found and removed.
+    pub fn remove(&self, triple: &Triple) -> bool {
+        // Remove from primary storage
+        let removed = {
+            let mut triples = self.triples.write();
+            triples.remove(triple)
+        };
+
+        if !removed {
+            return false;
+        }
+
+        // Update indexes
+        {
+            let mut subject_index = self.subject_index.write();
+            if let Some(vec) = subject_index.get_mut(triple.subject()) {
+                vec.retain(|t| t.as_ref() != triple);
+                if vec.is_empty() {
+                    subject_index.remove(triple.subject());
+                }
+            }
+        }
+
+        {
+            let mut predicate_index = self.predicate_index.write();
+            if let Some(vec) = predicate_index.get_mut(triple.predicate()) {
+                vec.retain(|t| t.as_ref() != triple);
+                if vec.is_empty() {
+                    predicate_index.remove(triple.predicate());
+                }
+            }
+        }
+
+        if self.config.index_objects {
+            let mut object_index = self.object_index.write();
+            if let Some(ref mut index) = *object_index
+                && let Some(vec) = index.get_mut(triple.object())
+            {
+                vec.retain(|t| t.as_ref() != triple);
+                if vec.is_empty() {
+                    index.remove(triple.object());
+                }
+            }
+        }
+
+        true
+    }
+
+    /// Returns the number of triples in the store.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.triples.read().len()
+    }
+
+    /// Returns `true` if the store is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.triples.read().is_empty()
+    }
+
+    /// Checks if a triple exists in the store.
+    #[must_use]
+    pub fn contains(&self, triple: &Triple) -> bool {
+        self.triples.read().contains(triple)
+    }
+
+    /// Returns all triples in the store.
+    pub fn triples(&self) -> Vec<Arc<Triple>> {
+        self.triples.read().iter().cloned().collect()
+    }
+
+    /// Returns triples matching the given pattern.
+    pub fn find(&self, pattern: &TriplePattern) -> Vec<Arc<Triple>> {
+        // Use the most selective index
+        match (&pattern.subject, &pattern.predicate, &pattern.object) {
+            (Some(s), _, _) => {
+                // Use subject index
+                let index = self.subject_index.read();
+                if let Some(triples) = index.get(s) {
+                    triples
+                        .iter()
+                        .filter(|t| pattern.matches(t))
+                        .cloned()
+                        .collect()
+                } else {
+                    Vec::new()
+                }
+            }
+            (None, Some(p), _) => {
+                // Use predicate index
+                let index = self.predicate_index.read();
+                if let Some(triples) = index.get(p) {
+                    triples
+                        .iter()
+                        .filter(|t| pattern.matches(t))
+                        .cloned()
+                        .collect()
+                } else {
+                    Vec::new()
+                }
+            }
+            (None, None, Some(o)) if self.config.index_objects => {
+                // Use object index
+                let index = self.object_index.read();
+                if let Some(ref idx) = *index {
+                    if let Some(triples) = idx.get(o) {
+                        triples
+                            .iter()
+                            .filter(|t| pattern.matches(t))
+                            .cloned()
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            }
+            _ => {
+                // Full scan
+                self.triples
+                    .read()
+                    .iter()
+                    .filter(|t| pattern.matches(t))
+                    .cloned()
+                    .collect()
+            }
+        }
+    }
+
+    /// Returns triples with the given subject.
+    pub fn triples_with_subject(&self, subject: &Term) -> Vec<Arc<Triple>> {
+        let index = self.subject_index.read();
+        index.get(subject).cloned().unwrap_or_default()
+    }
+
+    /// Returns triples with the given predicate.
+    pub fn triples_with_predicate(&self, predicate: &Term) -> Vec<Arc<Triple>> {
+        let index = self.predicate_index.read();
+        index.get(predicate).cloned().unwrap_or_default()
+    }
+
+    /// Returns triples with the given object.
+    pub fn triples_with_object(&self, object: &Term) -> Vec<Arc<Triple>> {
+        let index = self.object_index.read();
+        if let Some(ref idx) = *index {
+            idx.get(object).cloned().unwrap_or_default()
+        } else {
+            // Fall back to full scan if object index is disabled
+            self.triples
+                .read()
+                .iter()
+                .filter(|t| t.object() == object)
+                .cloned()
+                .collect()
+        }
+    }
+
+    /// Returns all unique subjects in the store.
+    pub fn subjects(&self) -> Vec<Term> {
+        self.subject_index.read().keys().cloned().collect()
+    }
+
+    /// Returns all unique predicates in the store.
+    pub fn predicates(&self) -> Vec<Term> {
+        self.predicate_index.read().keys().cloned().collect()
+    }
+
+    /// Returns all unique objects in the store.
+    pub fn objects(&self) -> Vec<Term> {
+        if self.config.index_objects {
+            let index = self.object_index.read();
+            if let Some(ref idx) = *index {
+                return idx.keys().cloned().collect();
+            }
+        }
+        // Fall back to collecting from triples
+        let triples = self.triples.read();
+        let mut objects = FxHashSet::default();
+        for triple in triples.iter() {
+            objects.insert(triple.object().clone());
+        }
+        objects.into_iter().collect()
+    }
+
+    /// Clears all triples from the store.
+    pub fn clear(&self) {
+        self.triples.write().clear();
+        self.subject_index.write().clear();
+        self.predicate_index.write().clear();
+        if let Some(ref mut idx) = *self.object_index.write() {
+            idx.clear();
+        }
+    }
+
+    /// Returns store statistics.
+    #[must_use]
+    pub fn stats(&self) -> RdfStoreStats {
+        RdfStoreStats {
+            triple_count: self.len(),
+            subject_count: self.subject_index.read().len(),
+            predicate_count: self.predicate_index.read().len(),
+            object_count: if self.config.index_objects {
+                self.object_index.read().as_ref().map_or(0, |i| i.len())
+            } else {
+                0
+            },
+            graph_count: self.named_graphs.read().len(),
+        }
+    }
+
+    // =========================================================================
+    // Named graph support
+    // =========================================================================
+
+    /// Returns a named graph by IRI, or `None` if it doesn't exist.
+    #[must_use]
+    pub fn graph(&self, name: &str) -> Option<Arc<RdfStore>> {
+        self.named_graphs.read().get(name).cloned()
+    }
+
+    /// Returns a named graph, creating it if it doesn't exist.
+    pub fn graph_or_create(&self, name: &str) -> Arc<RdfStore> {
+        {
+            let graphs = self.named_graphs.read();
+            if let Some(g) = graphs.get(name) {
+                return Arc::clone(g);
+            }
+        }
+        let mut graphs = self.named_graphs.write();
+        Arc::clone(
+            graphs
+                .entry(name.to_string())
+                .or_insert_with(|| Arc::new(RdfStore::with_config(self.config.clone()))),
+        )
+    }
+
+    /// Creates a named graph. Returns `false` if it already exists.
+    pub fn create_graph(&self, name: &str) -> bool {
+        let mut graphs = self.named_graphs.write();
+        if graphs.contains_key(name) {
+            return false;
+        }
+        graphs.insert(
+            name.to_string(),
+            Arc::new(RdfStore::with_config(self.config.clone())),
+        );
+        true
+    }
+
+    /// Drops a named graph. Returns `false` if it didn't exist.
+    pub fn drop_graph(&self, name: &str) -> bool {
+        self.named_graphs.write().remove(name).is_some()
+    }
+
+    /// Returns all named graph IRIs.
+    #[must_use]
+    pub fn graph_names(&self) -> Vec<String> {
+        self.named_graphs.read().keys().cloned().collect()
+    }
+
+    /// Returns the number of named graphs.
+    #[must_use]
+    pub fn graph_count(&self) -> usize {
+        self.named_graphs.read().len()
+    }
+
+    /// Clears a specific graph, or the default graph if `name` is `None`.
+    pub fn clear_graph(&self, name: Option<&str>) {
+        match name {
+            None => self.clear(),
+            Some(n) => {
+                if let Some(g) = self.named_graphs.read().get(n) {
+                    g.clear();
+                }
+            }
+        }
+    }
+
+    /// Clears all named graphs (but not the default graph).
+    pub fn clear_all_named(&self) {
+        self.named_graphs.write().clear();
+    }
+
+    /// Copies all triples from source graph to destination graph.
+    ///
+    /// `None` = default graph, `Some(iri)` = named graph.
+    pub fn copy_graph(&self, source: Option<&str>, dest: Option<&str>) {
+        let triples = match source {
+            None => self.triples(),
+            Some(n) => self.graph(n).map(|g| g.triples()).unwrap_or_default(),
+        };
+        let dest_store: Arc<RdfStore> = match dest {
+            None => {
+                // Copying into default graph: clear and re-insert
+                self.clear();
+                // We need to insert directly, so just do it inline
+                for t in triples {
+                    self.insert((*t).clone());
+                }
+                return;
+            }
+            Some(n) => self.graph_or_create(n),
+        };
+        dest_store.clear();
+        for t in triples {
+            dest_store.insert((*t).clone());
+        }
+    }
+
+    /// Moves all triples from source graph to destination graph.
+    ///
+    /// `None` = default graph, `Some(iri)` = named graph.
+    pub fn move_graph(&self, source: Option<&str>, dest: Option<&str>) {
+        self.copy_graph(source, dest);
+        match source {
+            None => self.clear(),
+            Some(n) => {
+                self.drop_graph(n);
+            }
+        }
+    }
+
+    /// Adds all triples from source graph into destination graph (union).
+    ///
+    /// `None` = default graph, `Some(iri)` = named graph.
+    pub fn add_graph(&self, source: Option<&str>, dest: Option<&str>) {
+        let triples = match source {
+            None => self.triples(),
+            Some(n) => self.graph(n).map(|g| g.triples()).unwrap_or_default(),
+        };
+        match dest {
+            None => {
+                for t in triples {
+                    self.insert((*t).clone());
+                }
+            }
+            Some(n) => {
+                let dest_store = self.graph_or_create(n);
+                for t in triples {
+                    dest_store.insert((*t).clone());
+                }
+            }
+        }
+    }
+
+    /// Finds triples across specific graphs.
+    ///
+    /// - `graphs = None` searches the default graph only (backward compatible).
+    /// - `graphs = Some(&[])` searches ALL graphs (default + named).
+    /// - `graphs = Some(&["g1", "g2"])` searches those named graphs only.
+    pub fn find_in_graphs(
+        &self,
+        pattern: &TriplePattern,
+        graphs: Option<&[&str]>,
+    ) -> Vec<(Option<String>, Arc<Triple>)> {
+        match graphs {
+            None => {
+                // Default graph only
+                self.find(pattern).into_iter().map(|t| (None, t)).collect()
+            }
+            Some([]) => {
+                // ALL graphs
+                let mut results: Vec<(Option<String>, Arc<Triple>)> =
+                    self.find(pattern).into_iter().map(|t| (None, t)).collect();
+                for (name, store) in self.named_graphs.read().iter() {
+                    for t in store.find(pattern) {
+                        results.push((Some(name.clone()), t));
+                    }
+                }
+                results
+            }
+            Some(names) => {
+                // Specific named graphs
+                let mut results = Vec::new();
+                let graphs = self.named_graphs.read();
+                for name in names {
+                    if let Some(store) = graphs.get(*name) {
+                        for t in store.find(pattern) {
+                            results.push((Some((*name).to_string()), t));
+                        }
+                    }
+                }
+                results
+            }
+        }
+    }
+
+    // =========================================================================
+    // Transaction support
+    // =========================================================================
+
+    /// Inserts a triple within a transaction context.
+    ///
+    /// The insert is buffered until the transaction is committed.
+    /// If the transaction is rolled back, the insert is discarded.
+    pub fn insert_in_tx(&self, tx_id: TxId, triple: Triple) {
+        let mut buffer = self.tx_buffer.write();
+        buffer
+            .buffers
+            .entry(tx_id)
+            .or_default()
+            .push(PendingOp::Insert(triple));
+    }
+
+    /// Removes a triple within a transaction context.
+    ///
+    /// The removal is buffered until the transaction is committed.
+    /// If the transaction is rolled back, the removal is discarded.
+    pub fn remove_in_tx(&self, tx_id: TxId, triple: Triple) {
+        let mut buffer = self.tx_buffer.write();
+        buffer
+            .buffers
+            .entry(tx_id)
+            .or_default()
+            .push(PendingOp::Delete(triple));
+    }
+
+    /// Commits a transaction, applying all buffered operations.
+    ///
+    /// Returns the number of operations applied.
+    pub fn commit_tx(&self, tx_id: TxId) -> usize {
+        let ops = {
+            let mut buffer = self.tx_buffer.write();
+            buffer.buffers.remove(&tx_id).unwrap_or_default()
+        };
+
+        let count = ops.len();
+        for op in ops {
+            match op {
+                PendingOp::Insert(triple) => {
+                    self.insert(triple);
+                }
+                PendingOp::Delete(triple) => {
+                    self.remove(&triple);
+                }
+            }
+        }
+        count
+    }
+
+    /// Rolls back a transaction, discarding all buffered operations.
+    ///
+    /// Returns the number of operations discarded.
+    pub fn rollback_tx(&self, tx_id: TxId) -> usize {
+        let mut buffer = self.tx_buffer.write();
+        buffer.buffers.remove(&tx_id).map_or(0, |ops| ops.len())
+    }
+
+    /// Checks if a transaction has pending operations.
+    #[must_use]
+    pub fn has_pending_ops(&self, tx_id: TxId) -> bool {
+        let buffer = self.tx_buffer.read();
+        buffer
+            .buffers
+            .get(&tx_id)
+            .is_some_and(|ops| !ops.is_empty())
+    }
+
+    /// Returns triples matching the given pattern, including pending inserts
+    /// and excluding pending deletes from the specified transaction
+    /// (for read-your-writes within a transaction).
+    ///
+    /// This provides snapshot isolation semantics: within a transaction, you see
+    /// all your own pending changes (inserts and deletes) as if they were committed.
+    pub fn find_with_pending(
+        &self,
+        pattern: &TriplePattern,
+        tx_id: Option<TxId>,
+    ) -> Vec<Arc<Triple>> {
+        let mut results = self.find(pattern);
+
+        if let Some(tx) = tx_id {
+            let buffer = self.tx_buffer.read();
+            if let Some(ops) = buffer.buffers.get(&tx) {
+                // Collect pending deletes
+                let pending_deletes: FxHashSet<&Triple> = ops
+                    .iter()
+                    .filter_map(|op| match op {
+                        PendingOp::Delete(t) => Some(t),
+                        _ => None,
+                    })
+                    .collect();
+
+                // Filter out pending deletes from committed results
+                if !pending_deletes.is_empty() {
+                    results.retain(|t| !pending_deletes.contains(t.as_ref()));
+                }
+
+                // Include pending inserts
+                for op in ops {
+                    if let PendingOp::Insert(triple) = op
+                        && pattern.matches(triple)
+                    {
+                        results.push(Arc::new(triple.clone()));
+                    }
+                }
+            }
+        }
+
+        results
+    }
+}
+
+impl Default for RdfStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Statistics about an RDF store.
+#[derive(Debug, Clone, Copy)]
+pub struct RdfStoreStats {
+    /// Total number of triples.
+    pub triple_count: usize,
+    /// Number of unique subjects.
+    pub subject_count: usize,
+    /// Number of unique predicates.
+    pub predicate_count: usize,
+    /// Number of unique objects (0 if object index disabled).
+    pub object_count: usize,
+    /// Number of named graphs.
+    pub graph_count: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_triples() -> Vec<Triple> {
+        vec![
+            Triple::new(
+                Term::iri("http://example.org/alice"),
+                Term::iri("http://xmlns.com/foaf/0.1/name"),
+                Term::literal("Alice"),
+            ),
+            Triple::new(
+                Term::iri("http://example.org/alice"),
+                Term::iri("http://xmlns.com/foaf/0.1/age"),
+                Term::typed_literal("30", "http://www.w3.org/2001/XMLSchema#integer"),
+            ),
+            Triple::new(
+                Term::iri("http://example.org/alice"),
+                Term::iri("http://xmlns.com/foaf/0.1/knows"),
+                Term::iri("http://example.org/bob"),
+            ),
+            Triple::new(
+                Term::iri("http://example.org/bob"),
+                Term::iri("http://xmlns.com/foaf/0.1/name"),
+                Term::literal("Bob"),
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_insert_and_contains() {
+        let store = RdfStore::new();
+        let triples = sample_triples();
+
+        for triple in &triples {
+            assert!(store.insert(triple.clone()));
+        }
+
+        assert_eq!(store.len(), 4);
+
+        for triple in &triples {
+            assert!(store.contains(triple));
+        }
+
+        // Inserting duplicate should return false
+        assert!(!store.insert(triples[0].clone()));
+        assert_eq!(store.len(), 4);
+    }
+
+    #[test]
+    fn test_remove() {
+        let store = RdfStore::new();
+        let triples = sample_triples();
+
+        for triple in &triples {
+            store.insert(triple.clone());
+        }
+
+        assert!(store.remove(&triples[0]));
+        assert_eq!(store.len(), 3);
+        assert!(!store.contains(&triples[0]));
+
+        // Removing non-existent should return false
+        assert!(!store.remove(&triples[0]));
+    }
+
+    #[test]
+    fn test_query_by_subject() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        let alice = Term::iri("http://example.org/alice");
+        let alice_triples = store.triples_with_subject(&alice);
+
+        assert_eq!(alice_triples.len(), 3);
+        for triple in &alice_triples {
+            assert_eq!(triple.subject(), &alice);
+        }
+    }
+
+    #[test]
+    fn test_query_by_predicate() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        let name_pred = Term::iri("http://xmlns.com/foaf/0.1/name");
+        let name_triples = store.triples_with_predicate(&name_pred);
+
+        assert_eq!(name_triples.len(), 2);
+        for triple in &name_triples {
+            assert_eq!(triple.predicate(), &name_pred);
+        }
+    }
+
+    #[test]
+    fn test_query_by_object() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        let bob = Term::iri("http://example.org/bob");
+        let bob_triples = store.triples_with_object(&bob);
+
+        assert_eq!(bob_triples.len(), 1);
+        assert_eq!(bob_triples[0].object(), &bob);
+    }
+
+    #[test]
+    fn test_pattern_matching() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        // Find all triples with subject alice and predicate knows
+        let pattern = TriplePattern {
+            subject: Some(Term::iri("http://example.org/alice")),
+            predicate: Some(Term::iri("http://xmlns.com/foaf/0.1/knows")),
+            object: None,
+        };
+
+        let results = store.find(&pattern);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].object(), &Term::iri("http://example.org/bob"));
+    }
+
+    #[test]
+    fn test_stats() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        let stats = store.stats();
+        assert_eq!(stats.triple_count, 4);
+        assert_eq!(stats.subject_count, 2); // alice, bob
+        assert_eq!(stats.predicate_count, 3); // name, age, knows
+    }
+
+    #[test]
+    fn test_clear() {
+        let store = RdfStore::new();
+        for triple in sample_triples() {
+            store.insert(triple);
+        }
+
+        assert!(!store.is_empty());
+        store.clear();
+        assert!(store.is_empty());
+        assert_eq!(store.len(), 0);
+    }
+
+    #[test]
+    fn test_find_with_pending_filters_deletes() {
+        let store = RdfStore::new();
+        let triples = sample_triples();
+
+        // Insert all triples into committed storage
+        for triple in &triples {
+            store.insert(triple.clone());
+        }
+
+        // Create a transaction and add a pending delete
+        let tx_id = TxId::new(1);
+        store.remove_in_tx(tx_id, triples[0].clone()); // Delete Alice's name triple
+
+        // Query with transaction context - should NOT see the deleted triple
+        let pattern = TriplePattern {
+            subject: Some(Term::iri("http://example.org/alice")),
+            predicate: None,
+            object: None,
+        };
+
+        let results = store.find_with_pending(&pattern, Some(tx_id));
+        assert_eq!(results.len(), 2); // Should be 2, not 3 (one deleted)
+
+        // Verify the deleted triple is not in results
+        let deleted = &triples[0];
+        for result in &results {
+            assert_ne!(result.as_ref(), deleted);
+        }
+
+        // Query without transaction context - should still see all 3
+        let results_no_tx = store.find_with_pending(&pattern, None);
+        assert_eq!(results_no_tx.len(), 3);
+
+        // Verify pending inserts are still included
+        let new_triple = Triple::new(
+            Term::iri("http://example.org/alice"),
+            Term::iri("http://xmlns.com/foaf/0.1/email"),
+            Term::literal("alice@example.org"),
+        );
+        store.insert_in_tx(tx_id, new_triple.clone());
+
+        let results_with_insert = store.find_with_pending(&pattern, Some(tx_id));
+        assert_eq!(results_with_insert.len(), 3); // 2 committed - 1 deleted + 1 inserted
+
+        // Verify the new triple is in results
+        let found_new = results_with_insert
+            .iter()
+            .any(|t| t.as_ref() == &new_triple);
+        assert!(found_new, "Pending insert should be visible");
+    }
+
+    #[test]
+    fn test_named_graph_crud() {
+        let store = RdfStore::new();
+
+        // Create named graph
+        assert!(store.create_graph("http://example.org/g1"));
+        assert!(!store.create_graph("http://example.org/g1")); // already exists
+        assert_eq!(store.graph_count(), 1);
+
+        // Insert into named graph
+        let g1 = store.graph("http://example.org/g1").unwrap();
+        g1.insert(Triple::new(
+            Term::iri("http://example.org/s1"),
+            Term::iri("http://example.org/p1"),
+            Term::literal("o1"),
+        ));
+        assert_eq!(g1.len(), 1);
+
+        // Default graph is still empty
+        assert_eq!(store.len(), 0);
+
+        // Query named graph
+        let results = g1.find(&TriplePattern {
+            subject: None,
+            predicate: None,
+            object: None,
+        });
+        assert_eq!(results.len(), 1);
+
+        // Drop graph
+        assert!(store.drop_graph("http://example.org/g1"));
+        assert!(!store.drop_graph("http://example.org/g1"));
+        assert_eq!(store.graph_count(), 0);
+    }
+
+    #[test]
+    fn test_named_graph_isolation() {
+        let store = RdfStore::new();
+
+        // Insert into default graph
+        store.insert(Triple::new(
+            Term::iri("http://example.org/a"),
+            Term::iri("http://example.org/p"),
+            Term::literal("default"),
+        ));
+
+        // Insert into named graph
+        let g1 = store.graph_or_create("http://example.org/g1");
+        g1.insert(Triple::new(
+            Term::iri("http://example.org/a"),
+            Term::iri("http://example.org/p"),
+            Term::literal("named"),
+        ));
+
+        // Each graph sees only its own triples
+        assert_eq!(store.len(), 1);
+        assert_eq!(g1.len(), 1);
+        assert_eq!(store.triples()[0].object(), &Term::literal("default"));
+        assert_eq!(g1.triples()[0].object(), &Term::literal("named"));
+    }
+
+    #[test]
+    fn test_find_in_graphs() {
+        let store = RdfStore::new();
+        let pattern = TriplePattern {
+            subject: None,
+            predicate: None,
+            object: None,
+        };
+
+        store.insert(Triple::new(
+            Term::iri("http://example.org/s"),
+            Term::iri("http://example.org/p"),
+            Term::literal("default"),
+        ));
+
+        let g1 = store.graph_or_create("http://example.org/g1");
+        g1.insert(Triple::new(
+            Term::iri("http://example.org/s"),
+            Term::iri("http://example.org/p"),
+            Term::literal("g1"),
+        ));
+
+        // Default only
+        let results = store.find_in_graphs(&pattern, None);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].0.is_none());
+
+        // All graphs
+        let results = store.find_in_graphs(&pattern, Some(&[]));
+        assert_eq!(results.len(), 2);
+
+        // Specific named graph
+        let results = store.find_in_graphs(&pattern, Some(&["http://example.org/g1"]));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("http://example.org/g1"));
+    }
+
+    #[test]
+    fn test_copy_move_add_graph() {
+        let store = RdfStore::new();
+        let triple = Triple::new(
+            Term::iri("http://example.org/s"),
+            Term::iri("http://example.org/p"),
+            Term::literal("value"),
+        );
+
+        // Insert into default graph
+        store.insert(triple.clone());
+
+        // Copy default -> named
+        store.copy_graph(None, Some("http://example.org/copy"));
+        assert_eq!(store.len(), 1); // default still has it
+        let copy = store.graph("http://example.org/copy").unwrap();
+        assert_eq!(copy.len(), 1);
+
+        // Add named -> another named (union)
+        let g2 = store.graph_or_create("http://example.org/g2");
+        g2.insert(Triple::new(
+            Term::iri("http://example.org/s2"),
+            Term::iri("http://example.org/p2"),
+            Term::literal("extra"),
+        ));
+        store.add_graph(
+            Some("http://example.org/copy"),
+            Some("http://example.org/g2"),
+        );
+        assert_eq!(g2.len(), 2); // original + added
+
+        // Move named -> named
+        store.move_graph(Some("http://example.org/g2"), Some("http://example.org/g3"));
+        assert!(store.graph("http://example.org/g2").is_none());
+        let g3 = store.graph("http://example.org/g3").unwrap();
+        assert_eq!(g3.len(), 2);
+    }
+
+    #[test]
+    fn test_transaction_commit_and_rollback() {
+        let store = RdfStore::new();
+        let triples = sample_triples();
+
+        // Insert initial triples
+        for triple in &triples {
+            store.insert(triple.clone());
+        }
+        assert_eq!(store.len(), 4);
+
+        // Test rollback
+        let tx1 = TxId::new(1);
+        store.remove_in_tx(tx1, triples[0].clone());
+        assert!(store.has_pending_ops(tx1));
+
+        let discarded = store.rollback_tx(tx1);
+        assert_eq!(discarded, 1);
+        assert!(!store.has_pending_ops(tx1));
+        assert_eq!(store.len(), 4); // No change
+
+        // Test commit
+        let tx2 = TxId::new(2);
+        store.remove_in_tx(tx2, triples[0].clone());
+
+        let applied = store.commit_tx(tx2);
+        assert_eq!(applied, 1);
+        assert_eq!(store.len(), 3); // Triple removed
+        assert!(!store.contains(&triples[0]));
+    }
+
+    #[test]
+    fn test_batch_insert() {
+        let store = RdfStore::new();
+        let triples = sample_triples();
+
+        let inserted = store.batch_insert(triples.clone());
+        assert_eq!(inserted, 4);
+        assert_eq!(store.len(), 4);
+
+        // All triples should be queryable
+        for triple in &triples {
+            assert!(store.contains(triple));
+        }
+
+        // Indexes should be populated correctly
+        let alice = Term::iri("http://example.org/alice");
+        assert_eq!(store.triples_with_subject(&alice).len(), 3);
+    }
+
+    #[test]
+    fn test_batch_insert_with_duplicates() {
+        let store = RdfStore::new();
+
+        // Insert one triple first
+        let triples = sample_triples();
+        store.insert(triples[0].clone());
+        assert_eq!(store.len(), 1);
+
+        // Batch insert all 4 — only 3 should be new
+        let inserted = store.batch_insert(triples.clone());
+        assert_eq!(inserted, 3);
+        assert_eq!(store.len(), 4);
+    }
+
+    #[test]
+    fn test_batch_insert_empty() {
+        let store = RdfStore::new();
+        let inserted = store.batch_insert(Vec::<Triple>::new());
+        assert_eq!(inserted, 0);
+        assert_eq!(store.len(), 0);
+    }
+}

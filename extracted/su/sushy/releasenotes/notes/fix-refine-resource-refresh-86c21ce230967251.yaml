@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    New ``force`` argument to the ``refresh`` method on resources can be set to
+    ``False`` to prevent refreshing of resources that are not stale. Resources
+    can be marked as stale by calling a new ``invalidate`` method.

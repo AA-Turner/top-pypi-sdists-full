@@ -1,0 +1,50 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "robocorp-truststore"
+authors = [
+  {name = "Seth Michael Larson", email = "sethmichaellarson@gmail.com"},
+  {name = "David Glick", email = "david@glicksoftware.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version", "description"]
+requires-python = ">= 3.10"
+
+[project.urls]
+Source = "https://github.com/robocorp/truststore"
+Documentation = "https://truststore.readthedocs.io"
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+filterwarnings = [
+  "error",
+  # See: aio-libs/aiohttp#7545
+  "ignore:.*datetime.utcfromtimestamp().*:DeprecationWarning",
+]
+markers = [
+  "internet: test requires Internet access"
+]
+
+[tool.flit.module]
+name = "truststore"
+
+[tool.flit.sdist]
+include = ["docs", "tests"]

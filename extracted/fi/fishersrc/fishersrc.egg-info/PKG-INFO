@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: fishersrc
+Version: 0.1.15
+Summary: Fast Fisher's Exact Test
+Home-page: http://github.com/mmore500/fishersrc
+Author: maintainer Matthew Andres Moreno (original authors Haibao Tang, Brent Pedersen)
+Author-email: m.more500@gmail.com
+License: BSD
+Keywords: statistics cython
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+
+Source distribution of <https://github.com/brentp/fishers_exact_test>, as a stopgap until the original package is updated on PyPI.
+See <https://github.com/brentp/fishers_exact_test/issues/51>.

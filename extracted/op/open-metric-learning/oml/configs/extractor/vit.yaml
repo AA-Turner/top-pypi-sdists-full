@@ -1,0 +1,6 @@
+name: vit
+args:
+  arch: vits8
+  normalise_features: False
+  use_multi_scale: False
+  weights: null

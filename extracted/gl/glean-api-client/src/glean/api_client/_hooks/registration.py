@@ -1,0 +1,25 @@
+from .types import Hooks
+from .multipart_fix_hook import MultipartFileFieldFixHook
+from .agent_file_upload_error_hook import AgentFileUploadErrorHook
+from .x_glean import XGlean
+
+
+# This file is only ever generated once on the first generation and then is free to be modified.
+# Any hooks you wish to add should be registered in the init_hooks function. Feel free to define them
+# in this file or in separate files in the hooks folder.
+
+
+def init_hooks(hooks: Hooks):
+    # pylint: disable=unused-argument
+    """Add hooks by calling hooks.register{sdk_init/before_request/after_success/after_error}Hook
+    with an instance of a hook that implements that specific Hook interface
+    Hooks are registered per SDK instance, and are valid for the lifetime of the SDK instance"""
+
+    # Register hook to fix multipart file field names that incorrectly have '[]' suffix
+    hooks.register_sdk_init_hook(MultipartFileFieldFixHook())
+
+    # Register hook to provide helpful error messages for agent file upload issues
+    hooks.register_after_error_hook(AgentFileUploadErrorHook())
+
+    # Register hook for X-Glean headers (experimental features and deprecation testing)
+    hooks.register_before_request_hook(XGlean())

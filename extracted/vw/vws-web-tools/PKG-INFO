@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: vws-web-tools
+Version: 2026.2.22.1
+Summary: Tools for interacting with the Vuforia Web Services (VWS) website.
+Author-email: Adam Dangoor <adamdangoor@gmail.com>
+License-Expression: MIT
+Project-URL: Documentation, https://vws-python.github.io/vws-web-tools/
+Project-URL: Source, https://github.com/VWS-Python/vws-web-tools
+Keywords: vuforia,vws
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Pytest
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: beartype>=0.22.9
+Requires-Dist: click>=8.1.7
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: selenium>=4.25.0
+Requires-Dist: tenacity>=9.0.0
+Provides-Extra: dev
+Requires-Dist: actionlint-py==1.7.11.24; extra == "dev"
+Requires-Dist: check-manifest==0.51; extra == "dev"
+Requires-Dist: deptry==0.24.0; extra == "dev"
+Requires-Dist: doc8==2.0.0; extra == "dev"
+Requires-Dist: doccmd==2026.2.15; extra == "dev"
+Requires-Dist: furo==2025.12.19; extra == "dev"
+Requires-Dist: interrogate==1.7.0; extra == "dev"
+Requires-Dist: mypy[faster-cache]==1.19.1; extra == "dev"
+Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
+Requires-Dist: prek==0.3.3; extra == "dev"
+Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
+Requires-Dist: pylint[spelling]==4.0.5; extra == "dev"
+Requires-Dist: pyproject-fmt==2.16.1; extra == "dev"
+Requires-Dist: pyrefly==0.53.0; extra == "dev"
+Requires-Dist: pyright==1.1.408; extra == "dev"
+Requires-Dist: pyroma==5.0.1; extra == "dev"
+Requires-Dist: pytest==9.0.2; extra == "dev"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev"
+Requires-Dist: pytest-regressions==2.10.0; extra == "dev"
+Requires-Dist: ruff==0.15.2; extra == "dev"
+Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
+Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
+Requires-Dist: sphinx==9.1.0; extra == "dev"
+Requires-Dist: sphinx-click==6.2.0; extra == "dev"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
+Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
+Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
+Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
+Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
+Requires-Dist: ty==0.0.17; extra == "dev"
+Requires-Dist: types-pyyaml==6.0.12.20250915; extra == "dev"
+Requires-Dist: vulture==2.14; extra == "dev"
+Requires-Dist: yamlfix==1.19.1; extra == "dev"
+Requires-Dist: zizmor==1.22.0; extra == "dev"
+Provides-Extra: release
+Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
+Dynamic: license-file
+
+|Build Status| |PyPI|
+
+VWS-Web-Tools
+=============
+
+Tools for interacting with the VWS (Vuforia Web Services) website.
+
+Installation
+------------
+
+.. code-block:: shell
+
+   pip install vws-web-tools
+
+This is tested on Python |minimum-python-version|\+.
+
+Usage
+-----
+
+.. code-block:: console
+
+   $ export VWS_EMAIL_ADDRESS="[YOUR-EMAIL]"
+   $ export VWS_PASSWORD="[YOUR-PASSWORD]"
+   $ TIME="$(date +%s%N | cut -b1-13)"
+   $ vws-web-tools create-vws-license --license-name "my-licence-$TIME"
+   $ vws-web-tools create-vws-cloud-database --license-name "my-licence-$TIME" --database-name "my-database-$TIME"
+   $ vws-web-tools show-database-details --database-name "my-database-$TIME"
+
+Python API
+----------
+
+This project also exposes a Python API.
+See the `Python API reference <https://vws-python.github.io/vws-web-tools/python-api.html>`__.
+
+Full documentation
+------------------
+
+See the `full documentation <https://vws-python.github.io/vws-web-tools/>`__ for more information including how to contribute.
+
+.. |Build Status| image:: https://github.com/VWS-Python/vws-web-tools/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/VWS-Python/vws-web-tools/actions
+.. |PyPI| image:: https://badge.fury.io/py/VWS-Web-Tools.svg
+   :target: https://badge.fury.io/py/VWS-Web-Tools
+.. |minimum-python-version| replace:: 3.12

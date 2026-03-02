@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 @lru_cache
 def get_schema(schema_file: str) -> etree.XMLSchema:
     pkg_name = "signxml.xades.schemas" if schema_file.startswith("XAdES") else "signxml.schemas"
-    with importlib.resources.open_text(pkg_name, schema_file) as schema_fh:
+
+    pkg_resources = importlib.resources.files(pkg_name)
+    with pkg_resources.joinpath(schema_file).open("r") as schema_fh:
         return etree.XMLSchema(etree.parse(schema_fh))
 
 
@@ -46,6 +48,9 @@ class XMLProcessor:
 
     def _fromstring(self, xml_string, **kwargs):
         xml_node = etree.fromstring(xml_string, parser=self.parser, **kwargs)
+        docinfo = etree.ElementTree(xml_node).docinfo
+        if docinfo.internalDTD is not None or docinfo.externalDTD is not None:
+            raise InvalidInput("DTD declarations are not supported in XML input")
         for entity in xml_node.iter(etree.Entity):
             raise InvalidInput("Entities are not supported in XML input")
         return xml_node

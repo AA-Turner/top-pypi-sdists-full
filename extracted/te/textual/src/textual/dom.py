@@ -615,7 +615,8 @@ class DOMNode(MessagePump):
             if name not in self._component_styles:
                 raise KeyError(f"No {name!r} key in COMPONENT_CLASSES")
             component_styles = self._component_styles[name]
-            styles.node = component_styles.node
+            assert component_styles.node is not None
+            styles._update_node(component_styles.node)
             styles.base.merge(component_styles.base)
             styles.inline.merge(component_styles.inline)
             styles._updates += 1

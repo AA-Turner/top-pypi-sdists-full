@@ -1,0 +1,38 @@
+# Staging environment values
+# Copy to values-staging.yaml and fill in your values
+environment: staging
+domain: staging.mindroom.chat
+
+# Test Supabase instance
+supabase:
+  url: # Your staging Supabase URL
+  anonKey: # Your staging anon key
+  serviceKey: # Your staging service key
+
+# Stripe test keys
+stripe:
+  publishableKey: # pk_test_...
+  secretKey: # sk_test_...
+  webhookSecret: # whsec_...
+
+# Gitea registry
+gitea:
+  token: # Your Gitea token
+
+cleanupScheduler:
+  enabled: "true"
+
+monitoring:
+  enabled: true
+  releaseLabel: monitoring
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  alerts:
+    blockedIpThreshold: 0
+    blockedIpFor: 5m
+    adminUnauthorizedWindow: 5m
+    adminUnauthorizedThreshold: 5
+    adminUnauthorizedFor: 1m
+    blockedRequestWindow: 5m
+    blockedRequestThreshold: 10
+    blockedRequestFor: 2m

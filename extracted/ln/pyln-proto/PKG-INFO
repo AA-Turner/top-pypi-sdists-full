@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: pyln-proto
+Version: 25.12.1
+Summary: This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!).
+Author-email: Christian Decker <decker.christian@gmail.com>
+License: BSD-MIT
+Requires-Python: <4.0,>=3.9.2
+Requires-Dist: base58>=2.1.1
+Requires-Dist: bitstring>=4.3.0
+Requires-Dist: coincurve==20.0.0
+Requires-Dist: cryptography>=46
+Requires-Dist: pysocks>=1
+Description-Content-Type: text/markdown
+
+# pyln-proto: Lightning Network protocol implementation
+
+This package implements some of the Lightning Network protocol in pure
+python. It is intended for protocol testing and some minor tooling only. It is
+not deemed secure enough to handle any amount of real funds (you have been
+warned!).
+
+
+## Installation
+
+`pyln-proto` is available on `pip`:
+
+```
+pip install pyln-proto
+```
+
+Alternatively you can also install the development version to get access to
+currently unreleased features by checking out the Core Lightning source code and
+installing into your python3 environment:
+
+```bash
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning/contrib/pyln-proto
+uv sync
+```
+
+This will add links to the library into your environment so changing the
+checked out source code will also result in the environment picking up these
+changes. Notice however that unreleased versions may change API without
+warning, so test thoroughly with the released version.

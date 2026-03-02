@@ -1,0 +1,186 @@
+[build-system]
+requires = ["hatchling~=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dbt-sl-sdk"
+description = "A client for dbt's Semantic Layer"
+authors = [
+  {name = "dbt Labs"}
+]
+readme = "README.md"
+requires-python = ">=3.9,<3.14"
+dynamic = ["version"]
+
+dependencies = [
+  "mashumaro>=3.11,<4.0",
+  "typing-extensions>=4.4.0,<5.0.0; python_version<='3.11'",
+  "typing-extensions>=4.7.0,<5.0.0; python_version=='3.12'",
+  "typing-extensions>=4.12.0,<5.0.0; python_version>='3.13'",
+  "pyarrow>=12.0.0; python_version<='3.11'",
+  "pyarrow>=14.0.0; python_version=='3.12'",
+  "pyarrow>=18.0.0; python_version>='3.13'",
+  "adbc-driver-flightsql>=0.11.0",
+  "adbc-driver-manager>=0.11.0",
+]
+
+[project.optional-dependencies]
+async = ["gql[aiohttp]>=3.5.0,<4.0.0"]
+sync = ["gql[requests]>=3.5.0,<4.0.0"]
+dev = [
+  "pyarrow-stubs",
+  "ruff>=0.15",
+  "basedpyright",
+  "mypy",
+  "uv",
+]
+test = [
+  "pytest>=8.2.0,<9.0.0",
+  "pytest-asyncio>=0.23.7,<0.24.0",
+  "pytest-subtests>=0.12.1,<0.13.0",
+  "pytest-mock>=3.14.0,<4.0.0",
+]
+
+[tool.hatch.build]
+packages = ["dbtsl"]
+
+[tool.hatch.version]
+path = "dbtsl/__about__.py"
+
+[tool.hatch.envs.default]
+# We want to use the uv dependency resolver since that has resolution 
+# strategies which allow us to test different dependency versions
+installer = "uv"
+
+## Using old UV version can cause problems with dependency resolution
+[tool.hatch.envs.hatch-uv]
+dependencies = [
+  "uv>=0.2.34",
+]
+
+[tool.hatch.envs.default.scripts]
+"bump-version" = "bash scripts/bump-version.sh"
+
+[tool.hatch.envs.sync]
+features = ["sync"]
+
+[tool.hatch.envs.async]
+features = ["async"]
+
+[tool.hatch.envs.dev]
+features = [
+  "async",
+  "sync",
+  "dev",
+  "test",
+]
+[tool.hatch.envs.dev.scripts]
+fetch-schema = "python scripts/fetch_schema.py > tests/server_schema.gql"
+
+[tool.hatch.envs.test]
+features = [
+  "test",
+  "sync",
+  "async",
+]
+[tool.hatch.envs.test.scripts]
+all = "pytest --server-schema tests/server_schema.gql"
+unit = "pytest --ignore tests/integration/ --server-schema tests/server_schema.gql"
+integration = "pytest tests/integration/ --server-schema tests/server_schema.gql"
+
+# This section defines our test matrix. We're testing combinations of:
+# - Python version
+#   The SDK should work on all LTS Python versions
+# - Dependency resolution strategy (see UV_RESOLUTION in uv's manual)
+#   The SDK should work with a range of possible dependency versions
+[[tool.hatch.envs.test.matrix]]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+deps-resolution = ["lowest", "lowest-direct", "highest"]
+
+[tool.hatch.envs.test.overrides]
+matrix.python.env-vars = [
+  { key = "UV_CONSTRAINT", value = "constraints/py39.txt", if = ["3.9"] },
+  { key = "UV_CONSTRAINT", value = "constraints/py310.txt", if = ["3.10"] },
+  { key = "UV_CONSTRAINT", value = "constraints/py311.txt", if = ["3.11"] },
+  { key = "UV_CONSTRAINT", value = "constraints/py312.txt", if = ["3.12"] },
+  { key = "UV_CONSTRAINT", value = "constraints/py313.txt", if = ["3.13"] },
+
+]
+matrix.deps-resolution.env-vars = [
+  { key = "UV_RESOLUTION" },
+  # Unset the contraints when using "highest"
+  { key = "UV_CONSTRAINT", value = "", if = ["highest"] },
+]
+
+[tool.hatch.envs.pypi-test-sync]
+dependencies = [
+  "dbt-sl-sdk[sync]"
+]
+[tool.hatch.envs.pypi-test-sync.env-vars]
+PIP_INDEX_URL = "https://test.pypi.org/simple/"
+PIP_EXTRA_INDEX_URL = "https://pypi.org/simple/"
+
+[tool.hatch.envs.pypi-test-async]
+dependencies = [
+  "dbt-sl-sdk[async]"
+]
+[tool.hatch.envs.pypi-test-async.env-vars]
+PIP_INDEX_URL = "https://test.pypi.org/simple/"
+PIP_EXTRA_INDEX_URL = "https://pypi.org/simple/"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+executionEnvironments = [
+  { root = "tests", extraPaths = ["."], reportPrivateUsage = false, reportAssignmentType = false, reportAny = false, reportCallIssue = false, reportArgumentType = false, reportUnknownMemberType = false },
+  { root = "." }
+]
+
+[tool.mypy]
+strict = true
+
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+  "E",   # Pycodestyle
+  "F",   # Pyflakes
+  "W",   # Whitespace
+  "D",   # Pydocs
+  "T20", # Print statements
+  "I",   # isort
+]
+ignore = [
+  # Missing docstring in public module -- often docs handled within classes
+  "D100",
+  # Missing docstring in public package -- often docs handled within files not __init__.py
+  "D104",
+]
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = [
+    "A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM",
+    "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF",
+    "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"
+]
+unfixable = []
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["dbtsl"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore docs for test files
+"*_test.py" = ["D101", "D102", "D103"]
+"tests/**" = ["D101", "D102", "D103"]
+
+# Ignore prints in examples
+"examples/**" = ["T201", "D103"]

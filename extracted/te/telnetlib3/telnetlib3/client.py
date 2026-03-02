@@ -23,6 +23,8 @@ from telnetlib3.stream_writer import TelnetWriter, TelnetWriterUnicode
 __all__ = ("TelnetClient", "TelnetTerminalClient", "open_connection")
 
 #: Default GMCP modules requested via ``Core.Supports.Set``.
+#: Sub-modules are listed explicitly because not all servers treat
+#: top-level subscriptions as wildcards.
 _DEFAULT_GMCP_MODULES = [
     "Char 1",
     "Char.Vitals 1",
@@ -31,6 +33,7 @@ _DEFAULT_GMCP_MODULES = [
     "Room.Info 1",
     "Comm 1",
     "Comm.Channel 1",
+    "Group 1",
 ]
 
 
@@ -65,13 +68,14 @@ class TelnetClient(client_base.BaseClient):
         force_binary: bool = False,
         connect_minwait: float = 0,
         connect_maxwait: float = 4.0,
+        compression: Optional[bool] = None,
         limit: Optional[int] = None,
         waiter_closed: Optional[asyncio.Future[None]] = None,
         _waiter_connected: Optional[asyncio.Future[None]] = None,
         gmcp_modules: Optional[List[str]] = None,
-        gmcp_log: bool = False,
     ) -> None:
         """Initialize TelnetClient with terminal parameters."""
+        self._compression = compression
         super().__init__(
             shell=shell,
             encoding=encoding,
@@ -84,7 +88,6 @@ class TelnetClient(client_base.BaseClient):
             _waiter_connected=_waiter_connected,
         )
         self._gmcp_modules = gmcp_modules or list(_DEFAULT_GMCP_MODULES)
-        self._gmcp_log = gmcp_log
         self._gmcp_hello_sent = False
         self._send_environ = set(send_environ or self.DEFAULT_SEND_ENVIRON)
         self._extra.update(
@@ -118,6 +121,9 @@ class TelnetClient(client_base.BaseClient):
 
         super().connection_made(transport)
 
+        # Set compression policy on writer
+        self.writer.compression = self._compression
+
         # Wire extended rfc callbacks for requests of
         # terminal attributes, environment values, etc.
         for opt, func in (
@@ -129,6 +135,14 @@ class TelnetClient(client_base.BaseClient):
             (CHARSET, self.send_charset),
         ):
             self.writer.set_ext_send_callback(opt, func)
+
+        # Offer callbacks define what to include in outgoing requests
+        # (e.g. what charsets to offer in SB CHARSET REQUEST).
+        for opt, offer_func in (
+            (CHARSET, self.on_request_charset),
+            (NEW_ENVIRON, self.on_request_environ),
+        ):
+            self.writer.set_ext_offer_callback(opt, offer_func)
 
         # Override the default handle_will method to detect when both sides support CHARSET
         # Store the original only on first connection to prevent chain growth on reconnect.
@@ -161,7 +175,7 @@ class TelnetClient(client_base.BaseClient):
         """Wire GMCP callback and WILL-detection for Core.Hello handshake."""
         from telnetlib3.telopt import GMCP
 
-        self.writer.set_ext_callback(GMCP, self._on_gmcp)
+        self.writer.set_ext_callback(GMCP, self.on_gmcp)
 
         # Capture current handle_will (already includes CHARSET wrapper).
         # On reconnect, _original_handle_will was already restored in connection_made,
@@ -186,17 +200,14 @@ class TelnetClient(client_base.BaseClient):
         self.writer.send_gmcp("Core.Supports.Set", self._gmcp_modules)
         self.log.info("GMCP handshake: Core.Hello + Core.Supports.Set %s", self._gmcp_modules)
 
-    def _on_gmcp(self, package: str, data: Any) -> None:
+    def on_gmcp(self, package: str, data: Any) -> None:
         """Store incoming GMCP data on ``writer.ctx``, merging dict updates."""
         gmcp = self.writer.ctx.gmcp_data
         if isinstance(data, dict) and isinstance(gmcp.get(package), dict):
             gmcp[package].update(data)
         else:
             gmcp[package] = data
-        if self._gmcp_log:
-            self.log.info("GMCP: %s %r", package, data)
-        else:
-            self.log.debug("GMCP: %s %r", package, data)
+        self.log.debug("GMCP: %s %r", package, data)
 
     def send_ttype(self) -> str:
         """Callback for responding to TTYPE requests."""
@@ -369,6 +380,28 @@ class TelnetClient(client_base.BaseClient):
         self.log.warning("No suitable encoding offered by server: %s", offered)
         return ""
 
+    def on_request_charset(self) -> List[str]:
+        """
+        Offer callback for client-initiated CHARSET REQUEST, :rfc:`2066`.
+
+        Called by :meth:`~.TelnetWriter.request_charset` to determine which
+        character sets the client offers to the server.
+
+        :returns: List of charset name strings to offer.
+        """
+        return ["UTF-8", "LATIN1", "US-ASCII"]
+
+    def on_request_environ(self) -> List[str]:
+        """
+        Offer callback for client-initiated NEW_ENVIRON SEND, :rfc:`1572`.
+
+        Called by :meth:`~.TelnetWriter.request_environ` to determine which
+        environment variable names the client requests from the server.
+
+        :returns: List of environment variable names to request.
+        """
+        return []
+
     def send_naws(self) -> Tuple[int, int]:
         """
         Callback for responding to NAWS requests.
@@ -472,6 +505,7 @@ async def open_connection(
     connect_minwait: float = 0,
     connect_maxwait: float = 3.0,
     connect_timeout: Optional[float] = None,
+    compression: Optional[bool] = None,
     waiter_closed: Optional[asyncio.Future[None]] = None,
     _waiter_connected: Optional[asyncio.Future[None]] = None,
     limit: Optional[int] = None,
@@ -531,6 +565,9 @@ async def open_connection(
         connection attempt may block indefinitely.  When specified, a
         :exc:`ConnectionError` is raised if the connection is not established
         within the given time.
+    :param compression: MCCP compression policy.  ``None`` (default) passively
+        accepts compression when offered by the server.  ``True`` actively
+        requests MCCP2/MCCP3.  ``False`` rejects all compression offers.
 
     :param force_binary: When ``True``, the encoding is used regardless
         of BINARY mode negotiation.
@@ -565,6 +602,7 @@ async def open_connection(
             shell=shell,
             connect_minwait=connect_minwait,
             connect_maxwait=connect_maxwait,
+            compression=compression,
             waiter_closed=waiter_closed,
             _waiter_connected=_waiter_connected,
             limit=limit,
@@ -618,12 +656,10 @@ async def run_client() -> None:
     # flags before negotiation starts.
     encoding_explicit = args["encoding"] not in ("utf8", "utf-8", False)
     gmcp_modules: Optional[List[str]] = args.get("gmcp_modules")
-    gmcp_log: bool = args.get("gmcp_log", False)
 
     def _client_factory(**kwargs: Any) -> client_base.BaseClient:
         client: TelnetClient
         kwargs["gmcp_modules"] = gmcp_modules
-        kwargs["gmcp_log"] = gmcp_log
         if sys.platform != "win32" and sys.stdin.isatty():
             client = TelnetTerminalClient(**kwargs)
         else:
@@ -898,6 +934,13 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         "BBSes that expect ANSI cursor sequences.",
     )
     parser.add_argument(
+        "--compression",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="MCCP compression: --compression to request, --no-compression to reject, "
+        "omit to passively accept (default)",
+    )
+    parser.add_argument(
         "--ssl", action="store_true", default=False, help="connect using TLS (TELNETS)"
     )
     parser.add_argument(
@@ -922,12 +965,6 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         help="comma-separated GMCP module specs to request "
         '(e.g. "Char 1,Room 1,IRE.Rift 1"). '
         "When provided, replaces the built-in defaults.",
-    )
-    parser.add_argument(
-        "--gmcp-log",
-        action="store_true",
-        default=False,
-        help="log all incoming GMCP messages at INFO level " "(default: DEBUG only)",
     )
     parser.add_argument(
         "--typescript",
@@ -1029,7 +1066,7 @@ def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
             if args.gmcp_modules
             else None
         ),
-        "gmcp_log": args.gmcp_log,
+        "compression": args.compression,
         "typescript": args.typescript,
     }
 

@@ -1,5 +1,0 @@
-coverage:
-  status:
-    patch: off
-ignore:
-  - "docs/examples"
